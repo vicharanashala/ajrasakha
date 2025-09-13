@@ -1,0 +1,214 @@
+import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
+import {IQuestion} from '#root/shared/interfaces/models.js';
+import {GLOBAL_TYPES} from '#root/types.js';
+import {inject} from 'inversify';
+import {ClientSession, Collection, ObjectId} from 'mongodb';
+import {MongoDatabase} from '../MongoDatabase.js';
+import {isValidObjectId} from '#root/utils/isValidObjectId.js';
+import {BadRequestError, InternalServerError} from 'routing-controllers';
+import {instanceToPlain, plainToInstance} from 'class-transformer';
+import {Question} from '#root/modules/core/classes/transformers/Question.js';
+import {QuestionResponse} from '#root/modules/core/classes/validators/QuestionValidators.js';
+
+export class QuestionRepository implements IQuestionRepository {
+  private QuestionCollection: Collection<IQuestion>;
+
+  constructor(
+    @inject(GLOBAL_TYPES.Database)
+    private db: MongoDatabase,
+  ) {}
+
+  private async init() {
+    this.QuestionCollection = await this.db.getCollection<IQuestion>(
+      'questions',
+    );
+  }
+  async addQuestions(
+    userId: string,
+    contextId: string,
+    questions: string[],
+    session?: ClientSession,
+  ): Promise<{insertedCount: number}> {
+    try {
+      await this.init();
+
+      if (!userId || !isValidObjectId(userId)) {
+        throw new BadRequestError('Invalid or missing userId');
+      }
+      if (!contextId || !isValidObjectId(contextId)) {
+        throw new BadRequestError('Invalid or missing contextId');
+      }
+      if (!Array.isArray(questions) || questions.length === 0) {
+        throw new BadRequestError('Questions must be a non-empty array');
+      }
+
+      const uploadData: IQuestion[] = questions.map((question: string) => ({
+        question,
+        userId: new ObjectId(userId),
+        context: new ObjectId(contextId),
+        status: 'open',
+        totalAnwersCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
+
+      const result = await this.QuestionCollection.insertMany(uploadData, {
+        session,
+      });
+
+      return {insertedCount: result.insertedCount};
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while adding questions, More/ ${error}`,
+      );
+    }
+  }
+
+  async getByContextId(
+    contextId: string,
+    session?: ClientSession,
+  ): Promise<IQuestion[]> {
+    try {
+      await this.init();
+
+      if (!contextId || !isValidObjectId(contextId)) {
+        throw new BadRequestError('Invalid or missing contextId');
+      }
+
+      const questions = await this.QuestionCollection.find(
+        {
+          context: new ObjectId(contextId),
+        },
+        {session},
+      ).toArray();
+
+      const formattedQuestions: IQuestion[] = questions.map(q => ({
+        ...q,
+        _id: q._id?.toString(),
+        userId: q.userId?.toString(),
+        context: q.context?.toString(),
+      }));
+      return formattedQuestions;
+    } catch (error) {
+      throw new InternalServerError(`Failed to get Question:, More/ ${error}`);
+    }
+  }
+
+  async getById(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<IQuestion> {
+    try {
+      await this.init();
+
+      if (!questionId || !isValidObjectId(questionId)) {
+        throw new BadRequestError('Invalid or missing questionId');
+      }
+
+      const question = await this.QuestionCollection.findOne(
+        {
+          _id: new ObjectId(questionId),
+        },
+        {session},
+      );
+
+      const formattedQuestion: IQuestion = {
+        ...question,
+        _id: question._id?.toString(),
+        userId: question.userId?.toString(),
+        context: question.context?.toString(),
+      };
+
+      return formattedQuestion;
+    } catch (error) {
+      throw new InternalServerError(`Failed to get Question:, More/ ${error}`);
+    }
+  }
+
+  async getUnAnsweredQuestions(
+    page: number = 1,
+    limit: number = 10,
+    session?: ClientSession,
+  ): Promise<QuestionResponse[]> {
+    try {
+      await this.init();
+
+      if (page < 1 || limit < 1) {
+        throw new BadRequestError('Page and limit must be positive numbers');
+      }
+      const skip = (page - 1) * limit;
+
+      const questions = await this.QuestionCollection.find(
+        {
+          status: 'open',
+        },
+        {
+          session,
+        },
+      )
+        .skip(skip)
+        .limit(limit)
+        .toArray();
+      const formattedQuestions: QuestionResponse[] = questions.map(q => ({
+        id: q._id?.toString(),
+        text: q.question,
+      }));
+      return formattedQuestions;
+    } catch (error) {
+      throw new InternalServerError(`Failed to get Question:, More/ ${error}`);
+    }
+  }
+
+  async updateQuestion(
+    questionId: string,
+    updates: Partial<IQuestion>,
+    session?: ClientSession,
+  ): Promise<{modifiedCount: number}> {
+    try {
+      await this.init();
+
+      if (!questionId || !isValidObjectId(questionId)) {
+        throw new BadRequestError('Invalid or missing questionId');
+      }
+      if (!updates || Object.keys(updates).length === 0) {
+        throw new BadRequestError('Updates object cannot be empty');
+      }
+
+      const result = await this.QuestionCollection.updateOne(
+        {_id: new ObjectId(questionId)},
+        {$set: {...updates, updatedAt: new Date()}},
+        {session},
+      );
+
+      return {modifiedCount: result.modifiedCount};
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while updating Question:, More/ ${error}`,
+      );
+    }
+  }
+
+  async deleteQuestion(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<{deletedCount: number}> {
+    try {
+      await this.init();
+
+      if (!questionId || !isValidObjectId(questionId)) {
+        throw new BadRequestError('Invalid or missing questionId');
+      }
+
+      const result = await this.QuestionCollection.deleteOne(
+        {_id: new ObjectId(questionId)},
+        {session},
+      );
+
+      return {deletedCount: result.deletedCount};
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while deleting Question::, More/ ${error}`,
+      );
+    }
+  }
+}
