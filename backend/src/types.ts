@@ -16,11 +16,11 @@ const TYPES = {
   QuestionRepository: Symbol.for('QuestionRepository'),
   AnswerRepository: Symbol.for('AnswerRepository'),
   ContextRepository: Symbol.for('ContextRepository'),
-  userRepository: Symbol.for("userRepository"),
+  UserRepository: Symbol.for('userRepository'),
 
   // Constants
   uri: Symbol.for('dbURI'),
   dbName: Symbol.for('dbName'),
 };
 
-export { TYPES as GLOBAL_TYPES };
+export {TYPES as GLOBAL_TYPES};

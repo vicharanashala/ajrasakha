@@ -222,7 +222,7 @@ export default function QAInterface() {
                       placeholder="Enter your answer here..."
                       value={newAnswer}
                       onChange={(e) => setNewAnswer(e.target.value)}
-                      className="mt-1 min-h-[200px] resize-none border border-gray-200 dark:border-gray-600 rounded-md p-3 pb-0 bg-white dark:bg-gray-700"
+                      className="mt-1 max-h-[205px] min-h-[190px] resize-y border border-gray-200 dark:border-gray-600 rounded-md overflow-y-auto p-3 pb-0 bg-white dark:bg-gray-700"
                     />
                   </div>
                   <div className="flex items-center justify-between  p-4">

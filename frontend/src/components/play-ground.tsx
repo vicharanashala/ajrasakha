@@ -1,4 +1,4 @@
-import { RotateCcw } from "lucide-react";
+import { LogOut, RotateCcw } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import {
   Tabs,
@@ -19,7 +19,7 @@ import { CodeViewer } from "@/components/atoms/code-viewer";
 import { PresetSelector } from "@/components/atoms/preset-selector";
 import { PresetSave } from "@/components/atoms/preset-save";
 import { PresetShare } from "@/components/atoms/preset-share";
-import { PresetActions } from "@/components/atoms/preset-actions";
+import { UserProfileActions } from "@/components/atoms/preset-actions";
 import { ModelSelector } from "@/components/atoms/model-selector";
 import { TemperatureSelector } from "@/components/atoms/temperature-selector";
 import { MaxLengthSelector } from "@/components/atoms/maxlength-selector";
@@ -27,8 +27,11 @@ import { models, types } from "@/utils/model";
 import { presets } from "@/utils/presets";
 import QAInterface from "./QA-interface";
 import { ThemeToggleCompact } from "./atoms/ThemeToggle";
+import { LogoutButton } from "./atoms/logout-button";
+import { useAuthStore } from "@/stores/authStore";
 
 export const PlaygroundPage = () => {
+  const { logout } = useAuthStore();
   return (
     <>
       <div className="md:hidden">
@@ -49,22 +52,17 @@ export const PlaygroundPage = () => {
       </div>
       <div className="hidden h-full flex-col md:flex ">
         <div className="container flex flex-col items-start justify-between space-y-2 py-4 sm:flex-row sm:items-center sm:space-y-0 md:h-16">
-          {/* <h2 className="text-lg font-semibold">Dashboard</h2> */}
-          {/* Logo */}
-          <img
-            src="/annam-logo.png"
-            alt="Annam Logo"
-            className="h-16 w-auto" 
-          />
+          <img src="/annam-logo.png" alt="Annam Logo" className="h-18 w-auto" />
           <div className="ml-auto flex w-full space-x-2 sm:justify-end">
-            <PresetSelector presets={presets} />
+            {/* <PresetSelector presets={presets} />
             <PresetSave />
             <div className="hidden space-x-2 md:flex">
               <CodeViewer />
               <PresetShare />
-            </div>
-            <PresetActions />
+            </div> */}
+            {/* <LogoutButton onLogout={logout} /> */}
             <ThemeToggleCompact />
+            <UserProfileActions />
           </div>
         </div>
         <Separator />

@@ -8,13 +8,11 @@ import {
   IAuthService,
   AuthenticatedRequest,
 } from '#auth/interfaces/IAuthService.js';
-import { ChangePasswordError } from '#auth/services/FirebaseAuthService.js';
-import { AuthRateLimiter } from '#shared/middleware/rateLimiter.js';
-import { injectable, inject } from 'inversify';
+import {ChangePasswordError} from '#auth/services/FirebaseAuthService.js';
+import {injectable, inject} from 'inversify';
 import {
   JsonController,
   Post,
-  UseBefore,
   HttpCode,
   Body,
   Authorized,
@@ -23,9 +21,9 @@ import {
   HttpError,
   OnUndefined,
 } from 'routing-controllers';
-import { AUTH_TYPES } from '#auth/types.js';
-import { OpenAPI } from 'routing-controllers-openapi';
-import { appConfig } from '#root/config/app.js';
+import {AUTH_TYPES} from '#auth/types.js';
+import {OpenAPI} from 'routing-controllers-openapi';
+import {appConfig} from '#root/config/app.js';
 
 @OpenAPI({
   tags: ['Authentication'],
@@ -36,7 +34,7 @@ export class AuthController {
   constructor(
     @inject(AUTH_TYPES.AuthService)
     private readonly authService: IAuthService,
-  ) { }
+  ) {}
 
   @OpenAPI({
     summary: 'Register a new user account',
@@ -61,10 +59,11 @@ export class AuthController {
   @Post('/signup/google')
   @HttpCode(201)
   async googleSignup(@Body() body: GoogleSignUpBody, @Req() req: any) {
-    const acknowledgedInvites = await this.authService.googleSignup(body, req.headers.authorization?.split(' ')[1]);
-    if (acknowledgedInvites) {
-      return acknowledgedInvites;
-    }
+    await this.authService.googleSignup(
+      body,
+      req.headers.authorization?.split(' ')[1],
+    );
+    return {success: true, message: 'User registered successfully'};
   }
 
   @OpenAPI({
@@ -80,7 +79,7 @@ export class AuthController {
   ) {
     try {
       const result = await this.authService.changePassword(body, request.user);
-      return { success: true, message: result.message };
+      return {success: true, message: result.message};
     } catch (error) {
       if (error instanceof ChangePasswordError) {
         throw new HttpError(400, error.message);
@@ -94,16 +93,19 @@ export class AuthController {
 
   @Post('/login')
   async login(@Body() body: LoginBody) {
-    const { email, password } = body;
-    const data = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${appConfig.firebase.apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        password,
-        returnSecureToken: true
-      })
-    });
+    const {email, password} = body;
+    const data = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${appConfig.firebase.apiKey}`,
+      {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          email,
+          password,
+          returnSecureToken: true,
+        }),
+      },
+    );
 
     const result = await data.json();
 

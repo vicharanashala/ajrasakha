@@ -10,7 +10,8 @@ import {
 import {authContainerModule} from './container.js';
 import {AuthController} from './controllers/AuthController.js';
 import {FirebaseAuthService} from './services/FirebaseAuthService.js';
-import { AUTH_VALIDATORS, SignUpBody, SignUpResponse } from './classes/index.js';
+import { AUTH_VALIDATORS,  } from './classes/index.js';
+
 
 export const authContainerModules: ContainerModule[] = [
   authContainerModule,
@@ -38,7 +39,7 @@ export const authModuleOptions: RoutingControllersOptions = {
     }
 
     try {
-      // return await authService.verifyToken(token);
+      return await authService.verifyToken(token);
       // const user = await authService.getUserFromToken(token);
       // action.request.user = user;
 
@@ -59,7 +60,7 @@ export const authModuleOptions: RoutingControllersOptions = {
       return null;
     }
     try {
-      // return await authService.verifyToken(token);
+      return await authService.verifyToken(token);
     } catch (error) {
       return null;
     }
@@ -70,10 +71,3 @@ export const authModuleOptions: RoutingControllersOptions = {
 export const authModuleValidators: Function[] = [
 ...AUTH_VALIDATORS
 ];
-
-// export * from './classes/index.js';
-// export * from './controllers/index.js';
-// export * from './interfaces/index.js';
-// export * from './services/index.js';
-// export * from './container.js';
-// export * from './types.js';

@@ -10,8 +10,12 @@ export class AnswerService {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answer, questionId }),
       });
+      console.log("Response of login with google: ", res)
       if (!res.ok) {
-        throw new Error(`Failed to submit answer: ${res.statusText}`);
+        const errorText = await res.text();
+        throw new Error(
+          `Failed to submit answer: ${res.status} ${res.statusText} - ${errorText}`
+        );
       }
     } catch (error) {
       console.error(`Error in submitAnswer(${questionId}):`, error);

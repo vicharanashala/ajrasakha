@@ -36,7 +36,7 @@ export class ChangePasswordError extends Error {
 export class FirebaseAuthService extends BaseService implements IAuthService {
   private auth: any;
   constructor(
-    @inject(GLOBAL_TYPES.userRepository)
+    @inject(GLOBAL_TYPES.UserRepository)
     private userRepository: IUserRepository,
     @inject(GLOBAL_TYPES.Database)
     private database: MongoDatabase,
@@ -169,7 +169,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       email: body.email,
       firstName: body.firstName,
       lastName: body.lastName,
-      role: 'user',
+      role: 'expert',
     };
 
     let createdUserId: string;

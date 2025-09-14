@@ -5,19 +5,26 @@
 // import { devtools, persist, createJSONStorage } from 'zustand/middleware'
 
 // store.ts
-import { auth, googleProvider } from '@/config/firebase'
-import { getIdToken, onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth'
-import { create } from 'zustand'
-import { devtools, persist } from 'zustand/middleware'
+import { auth, googleProvider } from "@/config/firebase";
+import type { AuthUser, ExtendedUserCredential } from "@/types";
+import {
+  getIdToken,
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut,
+} from "firebase/auth";
+import { create } from "zustand";
+import { devtools, persist } from "zustand/middleware";
 
 interface AuthStore {
-  user: User | null
-  token: string | null
-  loading: boolean
-  error: string | null
-  loginWithGoogle: () => Promise<void>
-  logout: () => Promise<void>
-  initAuthListener: () => void
+  user: AuthUser | null;
+  token: string | null;
+  loading: boolean;
+  error: string | null;
+  loginWithGoogle: () => Promise<ExtendedUserCredential | null>;
+  logout: () => Promise<void>;
+  initAuthListener: () => void;
+  setUser: (user: AuthUser | null) => void;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -29,47 +36,69 @@ export const useAuthStore = create<AuthStore>()(
         loading: false,
         error: null,
 
-        loginWithGoogle: async () => {
-          set({ loading: true, error: null })
+        setUser: (user) => set({ user }, undefined, "setUser"),
+
+        loginWithGoogle: async (): Promise<ExtendedUserCredential | null> => {
+          set({ loading: true, error: null });
           try {
-            const result = await signInWithPopup(auth, googleProvider)
-            const token = await getIdToken(result.user)
-            set({ user: result.user, token, loading: false },undefined, 'loginWithGoogle')
+            const result = await signInWithPopup(auth, googleProvider);
+            const token = await getIdToken(result.user);
+            const authUser: AuthUser = {
+              uid: result.user.uid,
+              email: result.user.email || "",
+              name: result.user.displayName || "",
+              avatar: result.user.photoURL || "",
+            };
+            set(
+              { user: authUser, token, loading: false },
+              undefined,
+              "loginWithGoogle"
+            );
+            return result;
           } catch (err: any) {
-            console.error(err)
-            set({ error: err.message || 'Login failed', loading: false })
+            console.error(err);
+            set({ error: err.message || "Login failed", loading: false });
+            return null;
           }
         },
 
         logout: async () => {
-          set({ loading: true })
+          set({ loading: true });
           try {
-            await signOut(auth)
-            set({ user: null, token: null, loading: false }, undefined, 'logout')
+            await signOut(auth);
+            set(
+              { user: null, token: null, loading: false },
+              undefined,
+              "logout"
+            );
           } catch (err: any) {
-            console.error(err)
-            set({ error: err.message || 'Logout failed', loading: false })
+            console.error(err);
+            set({ error: err.message || "Logout failed", loading: false });
           }
         },
-        
+
         initAuthListener: () => {
-          set({ loading: true })
+          set({ loading: true });
           onAuthStateChanged(auth, async (user) => {
             if (user) {
-              const token = await getIdToken(user)
-              set({ user, token, loading: false })
+              const token = await getIdToken(user);
+              const authUser: AuthUser = {
+                uid: user.uid,
+                email: user.email || "",
+                name: user.displayName || "",
+                avatar: user.photoURL || "",
+              };
+              set({ user: authUser, token, loading: false });
             } else {
-              set({ user: null, token: null, loading: false })
+              set({ user: null, token: null, loading: false });
             }
-          })
+          });
         },
       }),
       {
-        name: 'auth-storage', // localStorage key
+        name: "auth-storage", // localStorage key
       }
     ),
-    { name: 'AuthStore', enabled: true } // DevTools store name
+    { name: "AuthStore", enabled: true } // DevTools store name
   )
-)
-
-
+);

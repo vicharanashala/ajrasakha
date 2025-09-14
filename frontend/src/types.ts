@@ -1,5 +1,22 @@
+import type { UserCredential } from "firebase/auth";
+
 export type UserRole = "admin" | "user" | "expert";
 export type QuestionStatus = "open" | "answered" | "closed";
+
+export interface ExtendedUserCredential extends UserCredential {
+  _tokenResponse?: {
+    idToken: string;
+    firstName?: string;
+    lastName?: string;
+    isNewUser?: boolean;
+  };
+}
+export interface AuthUser {
+  uid: string
+  email: string
+  name: string
+  avatar: string
+}
 
 export interface IUser {
   _id?: string;
