@@ -21,13 +21,14 @@ class ChatCompletionRequest(BaseModel):
 
 OLLAMA_API_URL = "http://100.100.108.13:11434/api/chat"
 
-async def forward_ollama_stream(messages: List[Message], model: str, max_tokens: int, temperature: float):
+async def forward_ollama_stream(messages: List[Message], model: str, max_tokens: int, temperature: float, title_prompt_present: bool):
     payload = {
         "model": model,
         "messages": [{"role": m.role, "content": m.content} for m in messages],
         "max_tokens": max_tokens,
         "temperature": temperature,
-        "stream": True
+        "stream": True,
+        "think": not title_prompt_present
     }
 
     async with httpx.AsyncClient(timeout=None) as client:
@@ -38,12 +39,19 @@ async def forward_ollama_stream(messages: List[Message], model: str, max_tokens:
                     
                     # Simple response tweak
                     data = json.loads(line)
-                    data['message']['content'] = data['message']['content'] + " TWEAK"
+                    data['message']['content'] = data['message']['content']
                     new_line = json.dumps(data)
                     yield f"{new_line}\n"
 
 @app.post("/api/chat/")
 async def chat_completions(request: ChatCompletionRequest):
+    title_prompt_present = False
+    
+    for message in request.messages:
+        if "Provide a concise, 5-word-or-less title for the conversation, using title case conventions. Only return the title itself." in message.content:
+            title_prompt_present = True
+            break
+    
     if not request.messages:
         return {"error": "No messages provided"}
 
@@ -53,7 +61,8 @@ async def chat_completions(request: ChatCompletionRequest):
                 messages=request.messages,
                 model="qwen3:1.7b",
                 max_tokens=request.max_tokens,
-                temperature=request.temperature
+                temperature=request.temperature,
+                title_prompt_present=title_prompt_present
             ),
             media_type="application/x-ndjson"
         )
