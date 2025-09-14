@@ -25,6 +25,19 @@ export interface IAnswerRepository {
   ): Promise<{insertedId: string}>;
 
   /**
+   * Adds a new answer for a specific question.
+   * @param authorId - The ID of the author creating the answer.
+   * @param questionId - The ID of the question to answer.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to answer or null.
+   */
+  getByAuthorId(
+    authorId: string,
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<IAnswer | null>;
+
+  /**
    * Retrieves all answers for a specific question.
    * @param questionId - The ID of the question.
    * @param session - Optional MongoDB client session for transactions.

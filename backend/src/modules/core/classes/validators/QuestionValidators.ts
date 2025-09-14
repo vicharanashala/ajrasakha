@@ -7,6 +7,7 @@ import {
   Min,
   IsMongoId,
   IsArray,
+  IsNumber,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 import {ObjectId} from 'mongodb';
@@ -84,9 +85,18 @@ class QuestionResponse {
   @IsString()
   text!: string;
 
+  @IsString()
+  createdAt!: string;
+
+  @IsString()
+  updatedAt!: string;
+
+  @IsNumber()
+  totalAnwersCount!: number;
+
   @IsArray()
   @IsString({each: true})
-  currentAnswers?: {answer: string; id: string, isFinalAnswer: boolean}[];
+  currentAnswers?: {answer: string; id: string; isFinalAnswer: boolean}[];
 }
 
 export const QUESTION_VALIDATORS = [

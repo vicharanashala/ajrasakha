@@ -9,12 +9,13 @@ import {
   Param,
   HttpCode,
   Params,
+  CurrentUser,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
-import {IAnswer} from '#root/shared/interfaces/models.js';
+import {IAnswer, IUser} from '#root/shared/interfaces/models.js';
 import {AnswerService} from '../services/AnswerService.js';
 import {
   AddAnswerBody,
@@ -23,7 +24,6 @@ import {
   DeleteAnswerParams,
   UpdateAnswerBody,
 } from '../classes/validators/AnswerValidators.js';
-
 
 @OpenAPI({
   tags: ['Answers'],
@@ -40,9 +40,9 @@ export class AnswerController {
   @Post('/')
   @HttpCode(201)
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async addAnswer(@Body() body: AddAnswerBody) {
+  async addAnswer(@Body() body: AddAnswerBody, @CurrentUser() user: IUser) {
     const {questionId, answer} = body;
-    const authorId = "68c408b7bcff5b1424966633"
+    const authorId = user._id.toString();
     return this.answerService.addAnswer(questionId, authorId, answer);
   }
 

@@ -41,10 +41,9 @@ export class ContextService extends BaseService {
           'What are the key features of TypeScript compared to JavaScript?',
           'How does garbage collection work in Node.js?',
         ];
-        const dummyUserId = new ObjectId().toString();
 
         await this.questionRepo.addQuestions(
-          dummyUserId,
+          userId,
           contextId,
           dummyQuestions,
           session,

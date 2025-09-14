@@ -11,7 +11,6 @@ import { useGetAllQuestions } from "@/hooks/api/question/useGetAllQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
 import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
 import toast from "react-hot-toast";
-import ErrorMessage from "./atoms/ErrorMessage";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +24,7 @@ import { AlertDialogHeader } from "./atoms/alert-dialog";
 export default function QAInterface() {
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
   const [newAnswer, setNewAnswer] = useState<string>("");
+  const [isFinalAnswer, setIsFinalAnswer] = useState<boolean>(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -70,16 +70,19 @@ export default function QAInterface() {
   const handleSubmit = async () => {
     if (!selectedQuestion) return;
     try {
-      await submitAnswer({
+      const result = await submitAnswer({
         questionId: selectedQuestion,
         answer: newAnswer,
       });
+      setIsFinalAnswer(result.isFinalAnswer);
       toast.success("Response submitted successfully!");
-
       setNewAnswer("");
     } catch (error) {
-      toast.error("Failed to submit response! Try again.");
       console.error("Error submitting answer:", error);
+    } finally {
+      setTimeout(() => {
+        setIsFinalAnswer(false);
+      }, 5000);
     }
   };
 
@@ -152,29 +155,109 @@ export default function QAInterface() {
               >
                 <RadioGroup
                   value={selectedQuestion}
-                  onValueChange={setSelectedQuestion}
-                  className="space-y-3"
+                  onValueChange={(value) => {
+                    setSelectedQuestion(value);
+                    setIsFinalAnswer(false);
+                  }}
+                  className="space-y-4"
                 >
                   {questions?.map((question) => (
                     <div
                       key={question.id}
-                      className="flex items-start space-x-3 p-3 rounded-lg 
-            border border-gray-200 dark:border-gray-700 
-            hover:bg-gray-100 dark:hover:bg-gray-600  
-            hover:border-gray-300 dark:hover:border-gray-500 
-            transition-colors dark:text-white"
+                      className={`relative group rounded-xl border transition-all duration-200 overflow-hidden ${
+                        selectedQuestion === question.id
+                          ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
+                          : "border-border bg-card hover:border-primary/40 hover:bg-accent/20 hover:shadow-sm"
+                      }`}
                     >
-                      <RadioGroupItem
-                        value={question.id}
-                        id={question.id}
-                        className="mt-1"
-                      />
-                      <Label
-                        htmlFor={question.id}
-                        className="text-sm leading-relaxed cursor-pointer flex-1"
-                      >
-                        {question.text}
-                      </Label>
+                      {/* Selection indicator */}
+                      {selectedQuestion === question.id && (
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+                      )}
+
+                      <div className="p-4">
+                        {/* Main content row */}
+                        <div className="flex items-start gap-3">
+                          <RadioGroupItem
+                            value={question.id}
+                            id={question.id}
+                            className="mt-1 flex-shrink-0"
+                          />
+
+                          <div className="flex-1 min-w-0">
+                            <Label
+                              htmlFor={question.id}
+                              className="text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
+                            >
+                              {question.text}
+                            </Label>
+                          </div>
+                        </div>
+
+                        {/* Metadata row */}
+                        <div className="mt-3 ml-7 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1.5">
+                            <svg
+                              className="w-3 h-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                            <span className="font-medium">Created:</span>
+                            <span>{question.createdAt}</span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <svg
+                              className="w-3 h-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              />
+                            </svg>
+                            <span className="font-medium">Updated:</span>
+                            <span>{question.updatedAt}</span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <svg
+                              className="w-3 h-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.965 8.965 0 01-4.126-.937l-3.157.937.937-3.157A8.965 8.965 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
+                              />
+                            </svg>
+                            <span className="font-medium">Answers:</span>
+                            <span className="px-1.5 py-0.5 bg-muted text-muted-foreground rounded text-xs font-medium">
+                              {question.totalAnwersCount}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Subtle gradient overlay for selected state */}
+                      {selectedQuestion === question.id && (
+                        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none"></div>
+                      )}
                     </div>
                   ))}
                 </RadioGroup>
@@ -222,8 +305,14 @@ export default function QAInterface() {
                       placeholder="Enter your answer here..."
                       value={newAnswer}
                       onChange={(e) => setNewAnswer(e.target.value)}
-                      className="mt-1 max-h-[205px] min-h-[190px] resize-y border border-gray-200 dark:border-gray-600 rounded-md overflow-y-auto p-3 pb-0 bg-white dark:bg-gray-700"
+                      className="mt-1 max-h-[190px] min-h-[150px] resize-y border border-gray-200 dark:border-gray-600 rounded-md overflow-y-auto p-3 pb-0 bg-white dark:bg-gray-700"
                     />
+                    {isFinalAnswer && (
+                      <p className="mt-2 text-green-600 dark:text-green-400 text-sm font-medium">
+                        🎉 Congratulations! Your response was selected as the
+                        final answer. Great job!
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center justify-between  p-4">
                     <div className="flex items-center space-x-3">
@@ -237,13 +326,6 @@ export default function QAInterface() {
                         <span className="sr-only">Reset answer</span>
                         <RotateCcw className="h-4 w-4" />
                       </Button>
-                      <ErrorMessage
-                        message={
-                          submitAnswerError
-                            ? "Failed to submit answer. Try again."
-                            : undefined
-                        }
-                      />
                     </div>
 
                     <Dialog>

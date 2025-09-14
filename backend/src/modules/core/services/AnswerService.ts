@@ -27,7 +27,7 @@ export class AnswerService extends BaseService {
     questionId: string,
     authorId: string,
     answer: string,
-  ): Promise<{insertedId: string}> {
+  ): Promise<{insertedId: string; isFinalAnswer: boolean}> {
     return this._withTransaction(async (session: ClientSession) => {
       const question = await this.questionRepo.getById(questionId, session);
 
@@ -41,10 +41,20 @@ export class AnswerService extends BaseService {
         throw new BadRequestError(`Question is already closed`);
       }
 
+      const isAlreadyResponded = await this.answerRepo.getByAuthorId(
+        authorId,
+        questionId,
+        session,
+      );
+
+      if (isAlreadyResponded) {
+        throw new BadRequestError('You’ve already submitted an answer!');
+      }
+
       const isFinalAnswer = true; // Need to calculate properly
       const updatedAnswerCount = question.totalAnwersCount + 1;
 
-      const result = await this.answerRepo.addAnswer(
+      const insertedId = await this.answerRepo.addAnswer(
         questionId,
         authorId,
         answer,
@@ -60,7 +70,7 @@ export class AnswerService extends BaseService {
         },
         session,
       );
-      return result;
+      return {...insertedId, isFinalAnswer};
     });
   }
 
@@ -89,15 +99,15 @@ export class AnswerService extends BaseService {
       //   session,
       // );
 
-        // const otherFinalAnswer = answers.find(
-        //   (answer: IAnswer) =>
-        //     answer.isFinalAnswer && answer._id?.toString() !== answerId,
-        // );
-        // if (otherFinalAnswer) {
-        //   throw new BadRequestError(
-        //     `Another final answer already exists for question ${questionId}`,
-        //   );
-        // }
+      // const otherFinalAnswer = answers.find(
+      //   (answer: IAnswer) =>
+      //     answer.isFinalAnswer && answer._id?.toString() !== answerId,
+      // );
+      // if (otherFinalAnswer) {
+      //   throw new BadRequestError(
+      //     `Another final answer already exists for question ${questionId}`,
+      //   );
+      // }
 
       return this.answerRepo.updateAnswer(answerId, updates, session);
     });

@@ -52,13 +52,14 @@ export class QuestionService extends BaseService {
   }
 
   async getUnAnsweredQuestions(
+    userId: string,
     page: number,
     limit: number,
   ): Promise<QuestionResponse[]> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        
         return this.questionRepo.getUnAnsweredQuestions(
+          userId,
           Number(page),
           Number(limit),
           session,
@@ -82,6 +83,9 @@ export class QuestionService extends BaseService {
         return {
           id: currentQuestion._id.toString(),
           text: currentQuestion.question,
+          createdAt: new Date(currentQuestion.createdAt).toLocaleString(),
+          updatedAt: new Date(currentQuestion.updatedAt).toLocaleString(),
+          totalAnwersCount: currentQuestion.totalAnwersCount,
           currentAnswers: currentAnswers.map(currentAnswer => ({
             id: currentAnswer._id.toString(),
             answer: currentAnswer.answer,

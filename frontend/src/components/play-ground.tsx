@@ -19,19 +19,15 @@ import { CodeViewer } from "@/components/atoms/code-viewer";
 import { PresetSelector } from "@/components/atoms/preset-selector";
 import { PresetSave } from "@/components/atoms/preset-save";
 import { PresetShare } from "@/components/atoms/preset-share";
-import { UserProfileActions } from "@/components/atoms/preset-actions";
+import { UserProfileActions } from "@/components/atoms/user-profile-actions";
 import { ModelSelector } from "@/components/atoms/model-selector";
 import { TemperatureSelector } from "@/components/atoms/temperature-selector";
 import { MaxLengthSelector } from "@/components/atoms/maxlength-selector";
 import { models, types } from "@/utils/model";
-import { presets } from "@/utils/presets";
 import QAInterface from "./QA-interface";
 import { ThemeToggleCompact } from "./atoms/ThemeToggle";
-import { LogoutButton } from "./atoms/logout-button";
-import { useAuthStore } from "@/stores/authStore";
 
 export const PlaygroundPage = () => {
-  const { logout } = useAuthStore();
   return (
     <>
       <div className="md:hidden">

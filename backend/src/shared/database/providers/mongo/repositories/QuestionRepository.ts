@@ -126,36 +126,70 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   async getUnAnsweredQuestions(
-    page: number = 1,
-    limit: number = 10,
+    userId: string,
+    page = 1,
+    limit = 10,
     session?: ClientSession,
   ): Promise<QuestionResponse[]> {
     try {
       await this.init();
 
-      if (page < 1 || limit < 1) {
-        throw new BadRequestError('Page and limit must be positive numbers');
-      }
       const skip = (page - 1) * limit;
 
-      const questions = await this.QuestionCollection.find(
+      const pipeline = [
         {
-          status: 'open',
+          $match: {status: 'open'},
         },
         {
-          session,
+          $lookup: {
+            from: 'answers',
+            let: {questionId: '$_id'},
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      {$eq: ['$questionId', '$$questionId']},
+                      {$eq: ['$authorId', new ObjectId(userId)]},
+                    ],
+                  },
+                },
+              },
+            ],
+            as: 'userAnswers',
+          },
         },
-      )
-        .skip(skip)
-        .limit(limit)
-        .toArray();
-      const formattedQuestions: QuestionResponse[] = questions.map(q => ({
-        id: q._id?.toString(),
-        text: q.question,
-      }));
-      return formattedQuestions;
+        {
+          $match: {userAnswers: {$size: 0}},
+        },
+        {$skip: skip},
+        {$limit: limit},
+        {
+          $project: {
+            id: {$toString: '$_id'},
+            text: '$question',
+            createdAt: {
+              $dateToString: {format: '%d-%m-%Y %H:%M:%S', date: '$createdAt'},
+            },
+            updatedAt: {
+              $dateToString: {format: '%d-%m-%Y %H:%M:%S', date: '$updatedAt'},
+            },
+            totalAnwersCount: 1,
+            _id: 0,
+          },
+        },
+      ];
+
+      const results = await this.QuestionCollection.aggregate<QuestionResponse>(
+        pipeline,
+        {session},
+      ).toArray();
+
+      return results;
     } catch (error) {
-      throw new InternalServerError(`Failed to get Question:, More/ ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch unanswered questions: ${error}`,
+      );
     }
   }
 

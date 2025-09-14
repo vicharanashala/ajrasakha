@@ -32,4 +32,38 @@ export class AuthService {
       throw error;
     }
   }
+  async signup({
+    email,
+    password,
+    firstName,
+    lastName,
+  }: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+  }) {
+    try {
+      const backendUrl = `${this._baseUrl}/signup`;
+      const res = await fetch(backendUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password, firstName, lastName }),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(
+          `Signup failed: ${res.status} ${res.statusText} - ${errorText}`
+        );
+      }
+
+      return res.json();
+    } catch (error) {
+      console.error("Signup failed!", error);
+      throw error;
+    }
+  }
 }

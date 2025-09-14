@@ -8,7 +8,7 @@ export const useGetAllQuestions = (limit: number) => {
     queryKey: ["questions"],
     queryFn: async ({ pageParam }) => {
       return await questionService.getAllQuestions(pageParam, limit);
-    },
+    }, 
     initialPageParam: 1,
     getNextPageParam: (lastPage, allPages) => {
       if (lastPage.length < 10) return undefined;

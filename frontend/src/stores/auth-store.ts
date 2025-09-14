@@ -1,10 +1,3 @@
-// // store.ts
-// import { create } from 'zustand'
-// import { createAuthSlice, type AuthSlice } from './slices/authSlice'
-// import { createCourseSlice, type CourseSlice } from './slices/courseSlice'
-// import { devtools, persist, createJSONStorage } from 'zustand/middleware'
-
-// store.ts
 import { auth, googleProvider } from "@/config/firebase";
 import type { AuthUser, ExtendedUserCredential } from "@/types";
 import {
@@ -25,6 +18,9 @@ interface AuthStore {
   logout: () => Promise<void>;
   initAuthListener: () => void;
   setUser: (user: AuthUser | null) => void;
+  isAuthenticated: boolean;
+  clearUser: () => void;
+  setToken: (token: string) => void;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -32,12 +28,24 @@ export const useAuthStore = create<AuthStore>()(
     persist(
       (set) => ({
         user: null,
-        token: null,
         loading: false,
         error: null,
+        isAuthenticated: false,
 
         setUser: (user) => set({ user }, undefined, "setUser"),
-
+        token: localStorage.getItem("firebase-auth-token"),
+        setToken: (token: string) => {
+          localStorage.setItem("firebase-auth-token", token);
+          set({ token, isAuthenticated: true });
+        },
+        clearUser: () => {
+          localStorage.removeItem("firebase-auth-token");
+          localStorage.removeItem("user-id");
+          localStorage.removeItem("user-email");
+          localStorage.removeItem("user-firstName");
+          localStorage.removeItem("user-lastName");
+          set({ user: null, token: null, isAuthenticated: false });
+        },
         loginWithGoogle: async (): Promise<ExtendedUserCredential | null> => {
           set({ loading: true, error: null });
           try {

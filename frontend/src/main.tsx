@@ -7,7 +7,7 @@ import "./styles.css";
 import reportWebVitals from "./reportWebVitals.ts";
 import { worker } from "./mocks/browser.js";
 import { client } from "./client/client.gen.ts";
-import { useAuthStore } from "./stores/authStore.ts";
+import { useAuthStore } from "./stores/auth-store.ts";
 
 if (import.meta.env.VITE_ENABLE_MOCKS === "true") {
   await worker.start();

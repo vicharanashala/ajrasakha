@@ -1,11 +1,18 @@
 import 'reflect-metadata';
-import {JsonController, Post, Body, HttpCode} from 'routing-controllers';
+import {
+  JsonController,
+  Post,
+  Body,
+  HttpCode,
+  CurrentUser,
+} from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {ContextService} from '../services/ContextService.js';
 import {ContextResponse} from '../classes/validators/ContextValidators.js';
+import {IUser} from '#root/shared/index.js';
 
 @OpenAPI({
   tags: ['contexts'],
@@ -26,9 +33,10 @@ export class ContextController {
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async addContext(
     @Body() body: {text: string},
+    @CurrentUser() user: IUser,
   ): Promise<{insertedId: string}> {
     const {text} = body;
-    const userId = '';
+    const userId = user._id.toString();
     return this.contextService.addContext(userId, text);
   }
 }

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import logo from '../logo.svg'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore } from '@/stores/auth-store'
 import { useEffect } from 'react'
 
 export const Route = createFileRoute('/')({

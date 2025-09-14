@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { ThemeToggleCompact } from "@/components/atoms/ThemeToggle";
 import { PlaygroundPage } from "@/components/play-ground";
-import { useAuthStore } from "@/stores/authStore";
+import { useAuthStore } from "@/stores/auth-store";
 import { useEffect } from "react";
 
 export const Route = createFileRoute("/home/")({

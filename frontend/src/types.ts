@@ -12,10 +12,10 @@ export interface ExtendedUserCredential extends UserCredential {
   };
 }
 export interface AuthUser {
-  uid: string
-  email: string
-  name: string
-  avatar: string
+  uid: string;
+  email: string;
+  name: string;
+  avatar: string;
 }
 
 export interface IUser {
@@ -32,6 +32,9 @@ export interface IUser {
 export interface IQuestion {
   id: string;
   text: string;
+  createdAt: string;
+  updatedAt: string;
+  totalAnwersCount: number;
   currentAnswers?: {
     answer: string;
     id: string;
@@ -40,15 +43,21 @@ export interface IQuestion {
   }[];
 }
 
-// export interface IQuestion {
-//   _id?: string;
-//   userId?: string;
-//   question: string;
-//   status: QuestionStatus;
-//   totalAnwersCount: number;
-//   createdAt?: Date;
-//   updatedAt?: Date;
-// }
+export type Role = "expert" | "user" | "admin" | null;
+
+export interface AuthContextType {
+  role: Role;
+  isAuthenticated: boolean;
+  login: (
+    selectedRole: Role,
+    uid: string,
+    email: string,
+    name?: string
+  ) => void;
+  loginWithGoogle: () => Promise<any>;
+  loginWithEmail: (email: string, password: string) => Promise<any>;
+  logout: () => void;
+}
 
 export interface IAnswer {
   _id?: string;
@@ -65,4 +74,9 @@ export interface IContext {
   _id?: string;
   text: string;
   createdAt?: Date;
+}
+
+export interface SubmitAnswerResponse {
+  insertedId: string;
+  isFinalAnswer: boolean;
 }

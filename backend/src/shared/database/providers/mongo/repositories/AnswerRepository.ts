@@ -110,6 +110,24 @@ export class AnswerRepository implements IAnswerRepository {
     }
   }
 
+  async getByAuthorId(
+    authorId: string,
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<IAnswer | null> {
+    try {
+      return await this.answersCollection.findOne(
+        {
+          authorId: new ObjectId(authorId),
+          questionId: new ObjectId(questionId),
+        },
+        {session},
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch answer, More/ ${error}`);
+    }
+  }
+
   async updateAnswer(
     answerId: string,
     updates: Partial<IAnswer>,

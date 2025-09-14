@@ -44,7 +44,7 @@ class SignUpBody {
     example: 'John',
     type: 'string',
   })
-  @Matches(/^[A-Za-z ]+$/)
+  // @Matches(/^[A-Za-z ]+$/)
   firstName: string;
 
   @JSONSchema({

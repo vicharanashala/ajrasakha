@@ -42,12 +42,14 @@ export interface IQuestionRepository {
 
   /**
    * Retrieves all questions that have not been answered yet.
+   * @param userId- Author id to check submissions
    * @param page - Current page count.
    * @param limit - Total limit count.
    * @param session - Optional MongoDB client session for transactions.
    * @returns A promise that resolves to an array of unanswered questions.
    */
   getUnAnsweredQuestions(
+    userId: string,
     page: number,
     limit: number,
     session?: ClientSession,

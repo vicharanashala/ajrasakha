@@ -8,11 +8,13 @@ import {
   HttpCode,
   Params,
   QueryParams,
+  Authorized,
+  CurrentUser,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
-import {IQuestion} from '#root/shared/interfaces/models.js';
+import {IQuestion, IUser} from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {QuestionService} from '../services/QuestionService.js';
 import {ContextIdParam} from '../classes/validators/ContextValidators.js';
@@ -20,6 +22,7 @@ import {
   QuestionIdParam,
   QuestionResponse,
 } from '../classes/validators/QuestionValidators.js';
+import {currentUserChecker} from '#root/shared/functions/currentUserChecker.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -45,13 +48,16 @@ export class QuestionController {
   @Get('/')
   @HttpCode(200)
   @ResponseSchema(QuestionResponse, {isArray: true})
-  @OpenAPI({summary: 'Get all unanswered questions'})
+  @Authorized()
+  @OpenAPI({summary: 'Get all open status questions'})
   async getUnAnsweredQuestions(
     @QueryParams() query: {page?: number; limit?: number},
+    @CurrentUser() user: IUser,
   ): Promise<QuestionResponse[]> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
-    return this.questionService.getUnAnsweredQuestions(page, limit);
+    const userId = user._id.toString();
+    return this.questionService.getUnAnsweredQuestions(userId, page, limit);
   }
 
   @Get('/:questionId')

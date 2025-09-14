@@ -1,11 +1,16 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AnswerService } from "../services/answerService";
+import toast from "react-hot-toast";
+import type { SubmitAnswerResponse } from "@/types";
 
 const questionService = new AnswerService();
 export const useSubmitAnswer = () => {
   const queryClient = useQueryClient();
-
-  return useMutation<void, Error, { questionId: string; answer: string }>({
+  return useMutation<
+    SubmitAnswerResponse,
+    Error,
+    { questionId: string; answer: string }
+  >({
     mutationFn: async ({ questionId, answer }) => {
       try {
         return await questionService.submitAnswer(questionId, answer);
@@ -15,9 +20,11 @@ export const useSubmitAnswer = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["question"] });
+      queryClient.invalidateQueries({ queryKey: ["questions"] });
     },
     onError: (error) => {
-      console.error("Failed to submit answer:", error.message);
+      toast.error(error.message || "Failed to submit response! Try again.");
+      console.error("Failed to submit response:", error.message);
     },
   });
 };

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 
-import { useAuthStore } from "@/stores/authStore";
+import { useAuthStore } from "@/stores/auth-store";
 import {
   Card,
   CardContent,
@@ -15,6 +15,9 @@ import { Input } from "./atoms/input";
 import toast from "react-hot-toast";
 import { useLoginWithGoogle } from "@/hooks/api/auth/useLoginWithGoogle";
 import { useNavigate } from "@tanstack/react-router";
+import { Check } from "lucide-react";
+import { loginWithEmail } from "@/lib/firebase";
+import { useSignup } from "@/hooks/api/auth/useSignup";
 
 interface AuthFormProps extends React.ComponentProps<"div"> {
   mode?: "login" | "signup";
@@ -45,7 +48,33 @@ export const AuthForm = ({
     isError: googleLoginError,
   } = useLoginWithGoogle();
 
+  const {
+    mutateAsync: signupMutation,
+    error: signupError,
+    isError: isSignUpError,
+  } = useSignup();
+
   const navigate = useNavigate();
+
+  const calculatePasswordStrength = (password: string) => {
+    if (!password) return { value: 0, label: "Weak", color: "bg-red-500" };
+
+    let strength = 0;
+    if (password.length >= 8) strength += 25;
+    if (/[A-Z]/.test(password)) strength += 25;
+    if (/\d/.test(password)) strength += 25;
+    if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength += 25;
+
+    if (strength <= 25)
+      return { value: strength, label: "Weak", color: "bg-red-500" };
+    if (strength <= 50)
+      return { value: strength, label: "Fair", color: "bg-yellow-500" };
+    if (strength <= 75)
+      return { value: strength, label: "Good", color: "bg-blue-500" };
+    return { value: strength, label: "Strong", color: "bg-green-500" };
+  };
+
+  const passwordStrength = calculatePasswordStrength(formData.password);
 
   const handleModeChange = (newMode: "login" | "signup") => {
     setMode(newMode);
@@ -145,6 +174,64 @@ export const AuthForm = ({
     }
   };
 
+  const handleEmailLogin = async () => {
+    try {
+      setIsLoading(true);
+
+      // This function now handles login only
+      const result = await loginWithEmail(formData.email, formData.password);
+
+      // Set user in store
+      setUser({
+        uid: result.user.uid,
+        email: result.user.email || "",
+        name: result.user.displayName || "",
+        avatar: result.user.photoURL || "",
+      });
+
+      navigate({ to: `/home` });
+    } catch (error) {
+      console.error("Email Login Failed", error);
+      toast.error("Login failed! try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEmailSignup = async () => {
+    try {
+      setIsLoading(true);
+
+      const nameParts = formData.email.trim().split("@");
+      const firstName = nameParts[0] || "";
+      const lastName = "";
+      const email = formData.email;
+      const password = formData.password;
+      const result = await loginWithEmail(email, password);
+      await signupMutation({
+        email,
+        password,
+        firstName: result.user.displayName || firstName,
+        lastName,
+      });
+
+      // Set user in store
+      setUser({
+        uid: result.user.uid,
+        email: result.user.email || "",
+        name: result.user.displayName || "",
+        avatar: result.user.photoURL || "",
+      });
+
+      navigate({ to: "/home" });
+    } catch (error: any) {
+      console.error("Email Signup Failed", error);
+      toast.error("Sign up failed! try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div
       className={cn(
@@ -153,8 +240,6 @@ export const AuthForm = ({
       )}
       {...props}
     >
-      {/* Logo */}
-
       <Card className="w-full max-w-md">
         <div className="flex items-center justify-center w-full space-x-3 pe-35">
           <img src="/logo.png" alt="Annam Logo" className="h-8 w-auto" />
@@ -259,8 +344,94 @@ export const AuthForm = ({
                     )}
                   </div>
                 )}
-
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                {formData.password && mode == "signup" && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        Password strength
+                      </span>
+                      <span
+                        className={cn(
+                          "text-xs font-medium",
+                          passwordStrength.value <= 25 && "text-red-500",
+                          passwordStrength.value > 25 &&
+                            passwordStrength.value <= 50 &&
+                            "text-yellow-500",
+                          passwordStrength.value > 50 &&
+                            passwordStrength.value <= 75 &&
+                            "text-blue-500",
+                          passwordStrength.value > 75 && "text-green-500"
+                        )}
+                      >
+                        {passwordStrength.label}
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-1.5">
+                      <div
+                        className={cn(
+                          "h-1.5 rounded-full transition-all duration-300",
+                          passwordStrength.color
+                        )}
+                        style={{ width: `${passwordStrength.value}%` }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Check
+                          className={cn(
+                            "h-3 w-3",
+                            formData.password.length >= 8
+                              ? "text-green-500"
+                              : "text-muted-foreground"
+                          )}
+                        />
+                        8+ characters
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Check
+                          className={cn(
+                            "h-3 w-3",
+                            /[A-Z]/.test(formData.password)
+                              ? "text-green-500"
+                              : "text-muted-foreground"
+                          )}
+                        />
+                        Uppercase
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Check
+                          className={cn(
+                            "h-3 w-3",
+                            /\d/.test(formData.password)
+                              ? "text-green-500"
+                              : "text-muted-foreground"
+                          )}
+                        />
+                        Numbers
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Check
+                          className={cn(
+                            "h-3 w-3",
+                            /[!@#$%^&*(),.?":{}|<>]/.test(formData.password)
+                              ? "text-green-500"
+                              : "text-muted-foreground"
+                          )}
+                        />
+                        Special chars
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isLoading}
+                  onClick={() => {
+                    if (mode == "signup") handleEmailSignup();
+                    else handleEmailLogin();
+                  }}
+                >
                   {isLoading
                     ? "Please wait..."
                     : mode === "login"
