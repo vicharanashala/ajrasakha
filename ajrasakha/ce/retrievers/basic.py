@@ -93,17 +93,22 @@ class BasicRetriever:
         reranked_nodes = await self.rerank._apostprocess_nodes(nodes=nodes, query_bundle=QueryBundle(query_str=query))
         return reranked_nodes
 
-    def build_context(self, nodes: List[NodeWithScore], max_chars: int = 8000) -> List[str]:
+    def build_context(self, nodes: List[NodeWithScore], max_chars: int = 8000) -> List[dict]:
         """Concatenate top nodes into a bounded context block (with lightweight citations)."""
         parts = []
         total = 0
         for i, n in enumerate(nodes, 1):
-            text = n.node.get_content().strip()
+            text = n.node.get_content().strip().replace("\n", " ").replace("  ", " ").replace("\t", " ")
             meta = n.node.metadata or {}
             tag = meta.get("page_label") or n.node.ref_doc_id or n.node.node_id or f"doc{i}"
-            chunk = f"[{i} | src={tag} | score={n.score:.3f}]\n{text}\n"
-            if total + len(chunk) > max_chars:
+            chunk_text = f"[{i} | src={tag} | score={n.score:.3f}]\n{text}\n"
+            chunk = {
+                "rank": i,
+                "score": n.score,
+                "source": tag,
+                "text": text
+            }
+            if total + len(chunk_text) > max_chars:
                 break
             parts.append(chunk)
-            total += len(chunk)
         return parts
