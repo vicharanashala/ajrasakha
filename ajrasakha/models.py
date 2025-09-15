@@ -20,16 +20,9 @@ class StreamingMessageChunk(BaseModel):
     created_at: datetime = datetime.now()
     
 class ThinkingResponseChunk:
-    def __init__(self, message: str, thinking_start: bool= False, thinking_end: bool=False, model: str ="ajrasakha"):
-        self.thinking_start = thinking_start
-        self.thinking_end = thinking_end
+    def __init__(self, message: str, model: str ="ajrasakha"):
         self.model = model
         self.message = message
-        
-        if self.thinking_start:
-            self.message = '<think> ' + self.message
-        if self.thinking_end:
-            self.message = self.message + ' </think>'
         
         self.chunk = StreamingMessageChunk(
             model=model, 
@@ -64,5 +57,3 @@ class ContentResponseChunk:
     
     def __str__(self):
         return self.chunk.model_dump_json(indent=0).replace('\n', ' ')+'\n'
-
-    

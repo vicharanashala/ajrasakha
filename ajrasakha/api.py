@@ -1,46 +1,25 @@
 import asyncio
+from collections.abc import AsyncGenerator
 import json
 import httpx
-from typing import Optional, List
+from typing import Optional, List, Union
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from models import ChatCompletionRequest, Message, StreamingMessageChunk, ThinkingResponseChunk, ContentResponseChunk
+from models import ChatCompletionRequest, Message, ThinkingResponseChunk, ContentResponseChunk
 
 app = FastAPI(title="OpenAI-compatible API")
 
 
 OLLAMA_API_URL = "http://100.100.108.13:11434/api/chat"
 
-async def forward_ollama_stream(messages: List[Message], model: str, title_prompt_present: bool):
-    payload = {
-        "model": model,
-        "messages": [{"role": m.role, "content": m.content} for m in messages],
-        "stream": True,
-        "think": not title_prompt_present
-    }
 
-    async with httpx.AsyncClient(timeout=None) as client:
+async def generate_response(request: ChatCompletionRequest):
+    yield ThinkingResponseChunk("Processing your request... \n")
+    for message in request.messages:
+        yield ThinkingResponseChunk(f"Received message from {message.role}: {message.content}\n")
+    yield ContentResponseChunk("Here is the response from the assistant.\n", final_chunk=True)
         
-        for i in range(5, 0, -1):
-            yield ThinkingResponseChunk(f"Counting down... {i}\n", thinking_start=(i == 5))
-            await asyncio.sleep(1)  # simulate delay
-        yield ThinkingResponseChunk("Done!", thinking_end=True)
-
-        yield ContentResponseChunk("Surprise!", final_chunk=True)
-
-
-
-        # async with client.stream("POST", OLLAMA_API_URL, json=payload) as resp:
-        #     async for line in resp.aiter_lines():
-        #         if line:
-        #             # Ollama might send JSON lines, forward them as NDJSON
-                    
-        #             # Simple response tweak
-        #             data = json.loads(line)
-        #             data['message']['content'] = data['message']['content']
-        #             new_line = json.dumps(data)
-        #             yield f"{new_line}\n"
 
 @app.post("/api/chat/")
 async def chat_completions(request: ChatCompletionRequest):
@@ -56,11 +35,7 @@ async def chat_completions(request: ChatCompletionRequest):
 
     if request.stream:
         return StreamingResponse(
-            forward_ollama_stream(
-                messages=request.messages,
-                model="qwen3:1.7b",
-                title_prompt_present=title_prompt_present
-            ),
+            generate_response(request),
             media_type="application/x-ndjson"
         )
     else:
