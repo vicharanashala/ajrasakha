@@ -1,14 +1,14 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { QuestionService } from "../services/questionService";
+import { AnswerService } from "../services/answerService";
 
-const questionService = new QuestionService();
+const answerService = new AnswerService();
 
-export const useGetAllQuestions = (limit: number) => {
+export const useGetSubmissions = (limit: number) => {
   return useInfiniteQuery({
-    queryKey: ["questions"],
+    queryKey: ["submissions"],
     queryFn: async ({ pageParam }) => {
-      return await questionService.getAllQuestions(pageParam, limit);
-    }, 
+      return await answerService.getSubmissions(pageParam, limit);
+    },
     initialPageParam: 1,
     getNextPageParam: (lastPage, allPages) => {
       if (lastPage && lastPage.length < limit) return undefined;

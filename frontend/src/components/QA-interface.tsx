@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle, Eye, MessageCircle, RotateCcw } from "lucide-react";
+import {
+  CheckCircle,
+  Eye,
+  MessageCircle,
+  RefreshCw,
+  RotateCcw,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { RadioGroup, RadioGroupItem } from "./atoms/radio-group";
 import { Label } from "./atoms/label";
@@ -18,13 +24,16 @@ import {
   DialogTrigger,
 } from "./atoms/dialog";
 import { AlertDialogHeader } from "./atoms/alert-dialog";
+import { getTimeDifference } from "@/utils/getTimeDifference";
 
 // const questions = await generateQuestionDataSet();
 
-export default function QAInterface() {
+export const QAInterface = () => {
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
   const [newAnswer, setNewAnswer] = useState<string>("");
   const [isFinalAnswer, setIsFinalAnswer] = useState<boolean>(false);
+  const [filter, setFilter] = useState("newest");
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -86,19 +95,115 @@ export default function QAInterface() {
     }
   };
 
+  const handleFilterChange = (value: string) => {
+    setFilter(value);
+  };
+
   const handleReset = () => {
     setNewAnswer("");
   };
 
   return (
-    <div className="container mx-auto p-6 bg-transparent">
+    <div className="container mx-auto px-6 bg-transparent">
       <div className="flex flex-col space-y-6">
         <div className="grid h-full grid-rows-2 gap-6 lg:grid-cols-2 lg:grid-rows-1">
           <Card className="h-[60vh] md:h-[70vh] lg:h-[75vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent">
-            <CardHeader className="border-b border-gray-200 dark:border-gray-700">
+            <CardHeader className="border-b flex flex-row items-center justify-between space-y-0 pb-4">
               <CardTitle className="text-lg font-semibold">
                 Incoming Questions
               </CardTitle>
+
+              {/* <div className="flex items-center gap-3">
+                <Select value={filter} onValueChange={handleFilterChange}>
+                  <SelectTrigger className="w-[180px] h-9">
+                    <SelectValue placeholder="Sort by..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">
+                      <div className="flex items-center gap-2">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        Newest First
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="oldest">
+                      <div className="flex items-center gap-2">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 16v-4l-3-3m6 3a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        Oldest First
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="leastResponses">
+                      <div className="flex items-center gap-2">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.965 8.965 0 01-4.126-.937l-3.157.937.937-3.157A8.965 8.965 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
+                          />
+                        </svg>
+                        Least Responses
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="mostResponses">
+                      <div className="flex items-center gap-2">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.965 8.965 0 01-4.126-.937l-3.157.937.937-3.157A8.965 8.965 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
+                          />
+                        </svg>
+                        Most Responses
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {}}
+                  className="h-9 px-3"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span className="sr-only">Refresh</span>
+                </Button>
+              </div> */}
             </CardHeader>
             {isQuestionsLoading ? (
               <div className="h-full flex flex-col items-center justify-center text-center space-y-4 px-6">
@@ -163,38 +268,35 @@ export default function QAInterface() {
                 >
                   {questions?.map((question) => (
                     <div
-                      key={question.id}
-                      className={`relative group rounded-xl border transition-all duration-200 overflow-hidden ${
-                        selectedQuestion === question.id
+                      key={question?.id}
+                      className={`relative group rounded-xl border transition-all duration-200 overflow-hidden bg-transparent ${
+                        selectedQuestion === question?.id
                           ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
                           : "border-border bg-card hover:border-primary/40 hover:bg-accent/20 hover:shadow-sm"
                       }`}
                     >
-                      {/* Selection indicator */}
-                      {selectedQuestion === question.id && (
+                      {selectedQuestion === question?.id && (
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
                       )}
 
                       <div className="p-4">
-                        {/* Main content row */}
                         <div className="flex items-start gap-3">
                           <RadioGroupItem
-                            value={question.id}
-                            id={question.id}
-                            className="mt-1 flex-shrink-0"
+                            value={question?.id || ""}
+                            id={question?.id}
+                            className="mt-1  w-5 h-5 rounded-full border-2 border-gray-400 dark:border-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 checked:bg-green-600 dark:checked:bg-green-400"
                           />
 
                           <div className="flex-1 min-w-0">
                             <Label
-                              htmlFor={question.id}
+                              htmlFor={question?.id}
                               className="text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
                             >
-                              {question.text}
+                              {question?.text}
                             </Label>
                           </div>
                         </div>
 
-                        {/* Metadata row */}
                         <div className="mt-3 ml-7 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                           <div className="flex items-center gap-1.5">
                             <svg
@@ -211,7 +313,7 @@ export default function QAInterface() {
                               />
                             </svg>
                             <span className="font-medium">Created:</span>
-                            <span>{question.createdAt}</span>
+                            <span>{question?.createdAt}</span>
                           </div>
 
                           <div className="flex items-center gap-1.5">
@@ -229,7 +331,7 @@ export default function QAInterface() {
                               />
                             </svg>
                             <span className="font-medium">Updated:</span>
-                            <span>{question.updatedAt}</span>
+                            <span>{question?.updatedAt}</span>
                           </div>
 
                           <div className="flex items-center gap-1.5">
@@ -248,14 +350,14 @@ export default function QAInterface() {
                             </svg>
                             <span className="font-medium">Answers:</span>
                             <span className="px-1.5 py-0.5 bg-muted text-muted-foreground rounded text-xs font-medium">
-                              {question.totalAnwersCount}
+                              {question?.totalAnwersCount}
                             </span>
                           </div>
                         </div>
                       </div>
 
                       {/* Subtle gradient overlay for selected state */}
-                      {selectedQuestion === question.id && (
+                      {selectedQuestion === question?.id && (
                         <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none"></div>
                       )}
                     </div>
@@ -305,7 +407,7 @@ export default function QAInterface() {
                       placeholder="Enter your answer here..."
                       value={newAnswer}
                       onChange={(e) => setNewAnswer(e.target.value)}
-                      className="mt-1 max-h-[190px] min-h-[150px] resize-y border border-gray-200 dark:border-gray-600 rounded-md overflow-y-auto p-3 pb-0 bg-white dark:bg-gray-700"
+                      className="mt-1 max-h-[190px] min-h-[150px] resize-y border border-gray-200 dark:border-gray-600 rounded-md overflow-y-auto p-3 pb-0 bg-transparent"
                     />
                     {isFinalAnswer && (
                       <p className="mt-2 text-green-600 dark:text-green-400 text-sm font-medium">
@@ -319,6 +421,7 @@ export default function QAInterface() {
                       <Button
                         onClick={handleSubmit}
                         disabled={!newAnswer.trim() || isSubmittingAnswer}
+                        className="bg-green-400 hover:bg-green-500 text-black dark:text-white"
                       >
                         {isSubmittingAnswer ? "Submitting..." : "Submit"}
                       </Button>
@@ -338,7 +441,7 @@ export default function QAInterface() {
                           View Other Responses
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-950 dark:via-emerald-950 dark:to-teal-950">
                         <AlertDialogHeader>
                           <DialogTitle>Other Responses</DialogTitle>
                         </AlertDialogHeader>
@@ -525,4 +628,4 @@ export default function QAInterface() {
       </div>
     </div>
   );
-}
+};

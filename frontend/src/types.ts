@@ -43,6 +43,20 @@ export interface IQuestion {
   }[];
 }
 
+export interface ISubmissions {
+  id: string;
+  text: string;
+  createdAt: string;
+  updatedAt: string;
+  totalAnwersCount: number;
+  reponse: {
+    answer: string;
+    id: string;
+    isFinalAnswer: boolean;
+    createdAt: string;
+  };
+}
+
 export type Role = "expert" | "user" | "admin" | null;
 
 export interface AuthContextType {

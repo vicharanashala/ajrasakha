@@ -53,7 +53,7 @@ class SignUpBody {
     example: 'Smith',
     type: 'string',
   })
-  @Matches(/^[A-Za-z ]+$/)
+  // @Matches(/^[A-Za-z ]+$/)
   @IsOptional()
   lastName?: string;
 }
@@ -75,7 +75,7 @@ class GoogleSignUpBody {
     example: 'John',
     type: 'string',
   })
-  @Matches(/^[A-Za-z ]+$/)
+  // @Matches(/^[A-Za-z ]+$/)
   firstName: string;
 
   @JSONSchema({
@@ -84,7 +84,7 @@ class GoogleSignUpBody {
     example: 'Smith',
     type: 'string',
   })
-  @Matches(/^[A-Za-z ]+$/)
+  // @Matches(/^[A-Za-z ]+$/)
   @IsOptional()
   lastName?: string;
 }

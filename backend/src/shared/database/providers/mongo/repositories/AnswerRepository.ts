@@ -6,6 +6,7 @@ import {MongoDatabase} from '../MongoDatabase.js';
 import {isValidObjectId} from '#root/utils/isValidObjectId.js';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
+import {SubmissionResponse} from '#root/modules/core/classes/validators/AnswerValidators.js';
 
 export class AnswerRepository implements IAnswerRepository {
   private answersCollection: Collection<IAnswer>;
@@ -125,6 +126,64 @@ export class AnswerRepository implements IAnswerRepository {
       );
     } catch (error) {
       throw new InternalServerError(`Failed to fetch answer, More/ ${error}`);
+    }
+  }
+
+  async getAllSubmissions(
+    userId: string,
+    page: number,
+    limit: number,
+    session?: ClientSession,
+  ): Promise<SubmissionResponse[]> {
+    try {
+      await this.init();
+      const skip = (page - 1) * limit;
+
+      const submissions = await this.answersCollection
+        .aggregate([
+          {$match: {authorId: new ObjectId(userId)}},
+          {
+            $lookup: {
+              from: 'questions',
+              localField: 'questionId',
+              foreignField: '_id',
+              as: 'question',
+            },
+          },
+          {$unwind: '$question'},
+          {
+            $group: {
+              _id: '$question._id',
+              text: {$first: '$question.question'},
+              createdAt: {$first: '$question.createdAt'},
+              updatedAt: {$first: '$question.updatedAt'},
+              totalAnswersCount: {$sum: 1},
+              responses: {
+                $push: {
+                  answer: '$answer',
+                  id: {$toString: '$_id'},
+                  isFinalAnswer: '$isFinalAnswer',
+                  createdAt: '$createdAt',
+                },
+              },
+            },
+          },
+          {$sort: {createdAt: -1}},
+          {$skip: skip},
+          {$limit: limit},
+        ])
+        .toArray();
+
+      return submissions.map(sub => ({
+        id: sub._id.toString(),
+        text: sub.text,
+        createdAt: sub.createdAt.toISOString(),
+        updatedAt: sub.updatedAt.toISOString(),
+        totalAnwersCount: sub.totalAnswersCount,
+        reponse: sub.responses[0],
+      }));
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch submissions: ${error}`);
     }
   }
 

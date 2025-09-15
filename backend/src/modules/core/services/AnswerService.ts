@@ -6,7 +6,10 @@ import {inject, injectable} from 'inversify';
 import {ClientSession} from 'mongodb';
 import {IAnswer} from '#root/shared/interfaces/models.js';
 import {BadRequestError} from 'routing-controllers';
-import {UpdateAnswerBody} from '../classes/validators/AnswerValidators.js';
+import {
+  SubmissionResponse,
+  UpdateAnswerBody,
+} from '../classes/validators/AnswerValidators.js';
 
 @injectable()
 export class AnswerService extends BaseService {
@@ -74,8 +77,16 @@ export class AnswerService extends BaseService {
     });
   }
 
+  async getSubmissions(
+    userId: string,
+    page: number,
+    limit: number,
+  ): Promise<SubmissionResponse[]> {
+    return await this.answerRepo.getAllSubmissions(userId, page, limit);
+  }
+
   async updateAnswer(
-    answerId: string,
+    answerId: string, 
     updates: UpdateAnswerBody,
   ): Promise<{modifiedCount: number}> {
     return this._withTransaction(async (session: ClientSession) => {

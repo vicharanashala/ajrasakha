@@ -8,14 +8,14 @@ export class QuestionService {
 
   async getAllQuestions(
     pageParam: number,
-    limit: number 
-  ): Promise<IQuestion[]> {
-    return apiFetch<IQuestion[]>(
+    limit: number
+  ): Promise<IQuestion[] | null> {
+    return apiFetch<IQuestion[] | null>(
       `${this._baseUrl}?page=${pageParam}&limit=${limit}`
     );
   }
 
-  async getQuestionById(id: string): Promise<IQuestion> {
-    return apiFetch<IQuestion>(`${this._baseUrl}/${id}`);
+  async getQuestionById(id: string): Promise<IQuestion | null> {
+    return apiFetch<IQuestion | null>(`${this._baseUrl}/${id}`);
   }
 }

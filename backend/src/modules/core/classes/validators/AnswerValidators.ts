@@ -1,4 +1,4 @@
-import {Expose} from 'class-transformer';
+import {Expose, Type} from 'class-transformer';
 import {
   IsNotEmpty,
   IsString,
@@ -6,6 +6,7 @@ import {
   IsInt,
   Min,
   IsMongoId,
+  ValidateNested,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 
@@ -65,6 +66,91 @@ class AnswerResponse {
   answer: string;
 }
 
+class ResponseDto {
+  @JSONSchema({
+    description: 'Unique answer identifier',
+    example: '64adf92e9e7c3babcdef1234',
+    type: 'string',
+  })
+  @IsString()
+  id: string;
+
+  @JSONSchema({
+    description: 'Answer text',
+    example: 'The capital of France is Paris.',
+    type: 'string',
+  })
+  @IsString()
+  answer: string;
+
+  @JSONSchema({
+    description: 'Whether this answer is marked as final',
+    example: true,
+    type: 'boolean',
+  })
+  @IsBoolean()
+  isFinalAnswer: boolean;
+
+  @JSONSchema({
+    description: 'Answer creation timestamp',
+    example: '2025-09-15T10:00:00Z',
+    type: 'string',
+  })
+  @IsString()
+  createdAt: string;
+}
+
+class SubmissionResponse {
+  @JSONSchema({
+    description: 'Unique question identifier',
+    example: 'q1',
+    type: 'string',
+  })
+  @IsString()
+  id: string;
+
+  @JSONSchema({
+    description: 'Question text',
+    example: 'What is the capital of France?',
+    type: 'string',
+  })
+  @IsString()
+  text: string;
+
+  @JSONSchema({
+    description: 'Question creation timestamp',
+    example: '2025-09-10T10:00:00Z',
+    type: 'string',
+  })
+  @IsString()
+  createdAt: string;
+
+  @JSONSchema({
+    description: 'Question last updated timestamp',
+    example: '2025-09-12T12:00:00Z',
+    type: 'string',
+  })
+  @IsString()
+  updatedAt: string;
+
+  @JSONSchema({
+    description: 'Total number of answers submitted for this question',
+    example: 3,
+    type: 'integer',
+  })
+  @IsInt()
+  @Min(0)
+  totalAnwersCount: number;
+
+  @JSONSchema({
+    description: 'The response for this question',
+    type: 'object',
+  })
+  @ValidateNested()
+  @Type(() => ResponseDto)
+  reponse: ResponseDto;
+}
+
 class AnswerIdParam {
   @JSONSchema({
     description: 'MongoDB ObjectId of the question',
@@ -98,6 +184,7 @@ export const ANSWER_VALIDATORS = [
   AnswerIdParam,
   DeleteAnswerParams,
   UpdateAnswerBody,
+  SubmissionResponse,
 ];
 
 export {
@@ -106,4 +193,5 @@ export {
   AnswerIdParam,
   DeleteAnswerParams,
   UpdateAnswerBody,
+  SubmissionResponse,
 };

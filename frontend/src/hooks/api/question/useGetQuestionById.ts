@@ -5,7 +5,7 @@ import type { IQuestion } from "@/types";
 const questionService = new QuestionService();
 
 export const useGetQuestionById = (questionId: string | null) => {
-  const { data, isLoading, error } = useQuery<IQuestion, Error>({
+  const { data, isLoading, error } = useQuery<IQuestion | null, Error>({
     queryKey: ["question", questionId],
     queryFn: async () => {
       if (!questionId) throw new Error("Question ID is required");
@@ -15,6 +15,5 @@ export const useGetQuestionById = (questionId: string | null) => {
     enabled: !!questionId,
   });
 
-  console.log("Selected Question data", data);
   return { data, isLoading, error };
 };

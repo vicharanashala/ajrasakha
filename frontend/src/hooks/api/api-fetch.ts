@@ -1,11 +1,28 @@
-import { useAuthStore } from "@/stores/auth-store";
+import { auth } from "@/config/firebase";
+import { getIdToken, type User } from "firebase/auth";
 
-export async function apiFetch<T>(
+const getCurrentUser = (): Promise<User | null> => {
+  return new Promise((resolve) => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      unsubscribe();
+      resolve(user);
+    });
+  });
+};
+export const apiFetch = async <T>(
   url: string,
   options: RequestInit = {}
-): Promise<T> {
-  const token = useAuthStore.getState().token;
+): Promise<T | null> => {
+  const firebaseUser = await getCurrentUser();
+  if (!firebaseUser) return null;
 
+  let token: string;
+  try {
+    token = await getIdToken(firebaseUser);
+  } catch (err) {
+    console.error("Failed to get token:", err);
+    return null;
+  }
   const headers = {
     ...(options.headers || {}),
     Authorization: token ? `Bearer ${token}` : "",
@@ -35,4 +52,4 @@ export async function apiFetch<T>(
   }
 
   return (await res.json()) as T;
-}
+};

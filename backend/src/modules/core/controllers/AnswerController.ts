@@ -10,6 +10,8 @@ import {
   HttpCode,
   Params,
   CurrentUser,
+  Authorized,
+  QueryParams,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject} from 'inversify';
@@ -22,6 +24,7 @@ import {
   AnswerIdParam,
   AnswerResponse,
   DeleteAnswerParams,
+  SubmissionResponse,
   UpdateAnswerBody,
 } from '../classes/validators/AnswerValidators.js';
 
@@ -44,6 +47,21 @@ export class AnswerController {
     const {questionId, answer} = body;
     const authorId = user._id.toString();
     return this.answerService.addAnswer(questionId, authorId, answer);
+  }
+
+  @Get('/submissions')
+  @HttpCode(200)
+  @Authorized()
+  @ResponseSchema(SubmissionResponse, {isArray: true})
+  @OpenAPI({summary: 'Get all submissions'})
+  async getUnAnsweredQuestions(
+    @QueryParams() query: {page?: number; limit?: number},
+    @CurrentUser() user: IUser,
+  ): Promise<SubmissionResponse[]> {
+    const page = Number(query.page) ?? 1;
+    const limit = Number(query.limit) ?? 10;
+    const userId = user._id.toString();
+    return this.answerService.getSubmissions(userId, page, limit);
   }
 
   @OpenAPI({summary: 'Update an existing answer'})

@@ -5,13 +5,14 @@ import {
   onAuthStateChanged,
   signInWithPopup,
   signOut,
+  type User,
 } from "firebase/auth";
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
 
 interface AuthStore {
   user: AuthUser | null;
-  token: string | null;
+  firebaseUser: User | null;
   loading: boolean;
   error: string | null;
   loginWithGoogle: () => Promise<ExtendedUserCredential | null>;
@@ -20,7 +21,7 @@ interface AuthStore {
   setUser: (user: AuthUser | null) => void;
   isAuthenticated: boolean;
   clearUser: () => void;
-  setToken: (token: string) => void;
+  setFirebaseUser: (user: User | null) => void;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -31,20 +32,23 @@ export const useAuthStore = create<AuthStore>()(
         loading: false,
         error: null,
         isAuthenticated: false,
+        firebaseUser: null,
+        setFirebaseUser: (firebaseUser) =>
+          set({ firebaseUser }, undefined, "setFirebaseUser"),
 
         setUser: (user) => set({ user }, undefined, "setUser"),
-        token: localStorage.getItem("firebase-auth-token"),
-        setToken: (token: string) => {
-          localStorage.setItem("firebase-auth-token", token);
-          set({ token, isAuthenticated: true });
-        },
+        // token: localStorage.getItem("firebase-auth-token"),
+        // setToken: (token: string) => {
+        //   localStorage.setItem("firebase-auth-token", token);
+        //   set({ isAuthenticated: true });
+        // },
         clearUser: () => {
           localStorage.removeItem("firebase-auth-token");
           localStorage.removeItem("user-id");
           localStorage.removeItem("user-email");
           localStorage.removeItem("user-firstName");
           localStorage.removeItem("user-lastName");
-          set({ user: null, token: null, isAuthenticated: false });
+          set({ user: null, isAuthenticated: false });
         },
         loginWithGoogle: async (): Promise<ExtendedUserCredential | null> => {
           set({ loading: true, error: null });
@@ -58,7 +62,7 @@ export const useAuthStore = create<AuthStore>()(
               avatar: result.user.photoURL || "",
             };
             set(
-              { user: authUser, token, loading: false },
+              { user: authUser, firebaseUser: result.user, loading: false },
               undefined,
               "loginWithGoogle"
             );
@@ -75,7 +79,7 @@ export const useAuthStore = create<AuthStore>()(
           try {
             await signOut(auth);
             set(
-              { user: null, token: null, loading: false },
+              { user: null, firebaseUser: null, loading: false },
               undefined,
               "logout"
             );
@@ -87,18 +91,23 @@ export const useAuthStore = create<AuthStore>()(
 
         initAuthListener: () => {
           set({ loading: true });
-          onAuthStateChanged(auth, async (user) => {
-            if (user) {
-              const token = await getIdToken(user);
+          onAuthStateChanged(auth, async (firebaseUser) => {
+            if (firebaseUser) {
               const authUser: AuthUser = {
-                uid: user.uid,
-                email: user.email || "",
-                name: user.displayName || "",
-                avatar: user.photoURL || "",
+                uid: firebaseUser.uid,
+                email: firebaseUser.email || "",
+                name: firebaseUser.displayName || "",
+                avatar: firebaseUser.photoURL || "",
               };
-              set({ user: authUser, token, loading: false });
+
+              set({
+                user: authUser,
+                firebaseUser,
+                loading: false,
+                isAuthenticated: true,
+              });
             } else {
-              set({ user: null, token: null, loading: false });
+              set({ user: null, firebaseUser: null, loading: false });
             }
           });
         },

@@ -1,14 +1,14 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import logo from '../logo.svg'
-import { useAuthStore } from '@/stores/auth-store'
-import { useEffect } from 'react'
+import { createFileRoute } from "@tanstack/react-router";
+import logo from "../logo.svg";
+import { useAuthStore } from "@/stores/auth-store";
+import { useEffect } from "react";
 
-export const Route = createFileRoute('/')({
+export const Route = createFileRoute("/")({
   component: App,
-})
+});
 
 function App() {
-    const {
+  const {
     user,
     token,
     loginWithGoogle,
@@ -16,21 +16,25 @@ function App() {
     loading,
     error,
     initAuthListener,
-  } = useAuthStore()
+  } = useAuthStore();
 
   useEffect(() => {
-    initAuthListener()
-  }, [initAuthListener])
+    initAuthListener();
+  }, [initAuthListener]);
 
   return (
-        <div>
+    <div>
       {loading && <p>Loading...</p>}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p style={{ color: "red" }}>{error}</p>}
       {user ? (
         <>
           <p>Welcome, {user.displayName}</p>
           <p>Email: {user.email}</p>
-          <img src={user.photoURL || logo} alt="User Avatar" style={{ width: 50, height: 50 }} />
+          <img
+            src={user.photoURL || logo}
+            alt="User Avatar"
+            style={{ width: 50, height: 50 }}
+          />
           <p>Token: {token}</p>
           <button onClick={logout}>Logout</button>
           <nav>
@@ -42,6 +46,5 @@ function App() {
         <button onClick={loginWithGoogle}>Login with Google</button>
       )}
     </div>
-  )
-
+  );
 }

@@ -26,8 +26,8 @@ export const UserProfileActions = () => {
 
   return (
     <>
-      <DropdownMenu>
-        {/* <DropdownMenuTrigger asChild>
+      {/* <DropdownMenu > */}
+      {/* <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="p-0">
             <Avatar className="w-9 h-9">
               <Avatar className="w-9 h-9">
@@ -47,8 +47,8 @@ export const UserProfileActions = () => {
             </Avatar>
           </Button>
         </DropdownMenuTrigger> */}
-        <UserDropdown user={user!} onLogout={handleLogout} />
-      </DropdownMenu>
+      <UserDropdown user={user} onLogout={handleLogout} />
+      {/* </DropdownMenu> */}
     </>
   );
 };
@@ -60,15 +60,17 @@ interface UserData {
 }
 
 interface UserDropdownProps {
-  user: UserData;
+  user: UserData | null;
   onLogout: () => void;
 }
 
 export function UserDropdown({ user, onLogout }: UserDropdownProps) {
+  const [imgError, setImgError] = React.useState(false);
+
   const handleLogout = () => {
     onLogout();
   };
-
+  if (!user) return;
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -93,9 +95,25 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-64" align="end" forceMount>
+      <DropdownMenuContent
+        className="w-64 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 
+        dark:from-green-950 dark:via-emerald-950 dark:to-teal-950 shadow-2xl border-2"
+        align="end"
+        forceMount
+      >
         <div className="flex items-center space-x-3 p-3">
-          <img src={user.avatar} alt={user.name} className="h-8 w-8 rounded" />
+          {user.avatar && !imgError ? (
+            <img
+              src={user.avatar}
+              alt={user.name || "User"}
+              className="h-8 w-8 rounded"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div className="h-8 w-8 flex items-center justify-center rounded bg-gray-300 text-xs font-semibold text-gray-700">
+              {getInitials(user.name)}
+            </div>
+          )}
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">{user.name}</p>
             <p className="text-xs leading-none text-muted-foreground">

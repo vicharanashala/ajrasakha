@@ -1,3 +1,4 @@
+import {SubmissionResponse} from '#root/modules/core/classes/validators/AnswerValidators.js';
 import {IAnswer} from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
 
@@ -23,6 +24,21 @@ export interface IAnswerRepository {
     answerIteration?: number,
     session?: ClientSession,
   ): Promise<{insertedId: string}>;
+
+  /**
+   * Retrieves all questions that have not been answered yet.
+   * @param userId- Author id to check submissions
+   * @param page - Current page count.
+   * @param limit - Total limit count.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to an array of submissions.
+   */
+  getAllSubmissions(
+    userId: string,
+    page: number,
+    limit: number,
+    session?: ClientSession,
+  ): Promise<SubmissionResponse[]>;
 
   /**
    * Adds a new answer for a specific question.
