@@ -129,6 +129,7 @@ export class QuestionRepository implements IQuestionRepository {
     userId: string,
     page = 1,
     limit = 10,
+    filter: 'newest' | 'oldest' | 'leastResponses' | 'mostResponses',
     session?: ClientSession,
   ): Promise<QuestionResponse[]> {
     try {
@@ -136,7 +137,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       const skip = (page - 1) * limit;
 
-      const pipeline = [
+      const pipeline: any = [
         {
           $match: {status: 'open'},
         },
@@ -179,7 +180,15 @@ export class QuestionRepository implements IQuestionRepository {
           },
         },
       ];
-
+      if (filter === 'newest') {
+        pipeline.push({$sort: {createdAt: -1}});
+      } else if (filter === 'oldest') {
+        pipeline.push({$sort: {createdAt: 1}});
+      } else if (filter === 'leastResponses') {
+        pipeline.push({$sort: {totalAnwersCount: 1}});
+      } else if (filter === 'mostResponses') {
+        pipeline.push({$sort: {totalAnwersCount: -1}});
+      }
       const results = await this.QuestionCollection.aggregate<QuestionResponse>(
         pipeline,
         {session},

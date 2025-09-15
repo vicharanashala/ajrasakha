@@ -45,6 +45,7 @@ export interface IQuestionRepository {
    * @param userId- Author id to check submissions
    * @param page - Current page count.
    * @param limit - Total limit count.
+   * @param filter - Filter options.
    * @param session - Optional MongoDB client session for transactions.
    * @returns A promise that resolves to an array of unanswered questions.
    */
@@ -52,6 +53,7 @@ export interface IQuestionRepository {
     userId: string,
     page: number,
     limit: number,
+    filter: 'newest' | 'oldest' | 'leastResponses' | 'mostResponses',
     session?: ClientSession,
   ): Promise<QuestionResponse[]>;
 

@@ -4,9 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle,
   Eye,
-  MessageCircle,
   RefreshCw,
   RotateCcw,
+  ArrowDownWideNarrow,
+  ArrowUpWideNarrow,
+  MessageCircle,
+  MessageSquarePlus,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { RadioGroup, RadioGroupItem } from "./atoms/radio-group";
@@ -24,40 +27,45 @@ import {
   DialogTrigger,
 } from "./atoms/dialog";
 import { AlertDialogHeader } from "./atoms/alert-dialog";
-import { getTimeDifference } from "@/utils/getTimeDifference";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./atoms/select";
 
 // const questions = await generateQuestionDataSet();
-
+export type QuestionFilter =
+  | "newest"
+  | "oldest"
+  | "leastResponses"
+  | "mostResponses";
 export const QAInterface = () => {
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
   const [newAnswer, setNewAnswer] = useState<string>("");
   const [isFinalAnswer, setIsFinalAnswer] = useState<boolean>(false);
-  const [filter, setFilter] = useState("newest");
+  const [filter, setFilter] = useState<QuestionFilter>("newest");
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const LIMIT = 10;
   const {
     data: questionPages,
     isLoading: isQuestionsLoading,
-    error: fetchAllQuestionError,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useGetAllQuestions(10);
+    refetch,
+  } = useGetAllQuestions(LIMIT, filter);
 
   const questions = questionPages?.pages.flat() || [];
 
-  const {
-    data: selectedQuestionData,
-    error: fetchSelectedQuestionError,
-    isLoading: isSelectedQuestionLoading,
-  } = useGetQuestionById(selectedQuestion);
+  const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
+    useGetQuestionById(selectedQuestion);
 
-  const {
-    mutateAsync: submitAnswer,
-    isPending: isSubmittingAnswer,
-    isError: submitAnswerError,
-  } = useSubmitAnswer();
+  const { mutateAsync: submitAnswer, isPending: isSubmittingAnswer } =
+    useSubmitAnswer();
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -95,7 +103,7 @@ export const QAInterface = () => {
     }
   };
 
-  const handleFilterChange = (value: string) => {
+  const handleFilterChange = (value: QuestionFilter) => {
     setFilter(value);
   };
 
@@ -110,84 +118,39 @@ export const QAInterface = () => {
           <Card className="h-[60vh] md:h-[70vh] lg:h-[75vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent">
             <CardHeader className="border-b flex flex-row items-center justify-between space-y-0 pb-4">
               <CardTitle className="text-lg font-semibold">
-                Incoming Questions
+                Question Queues
               </CardTitle>
 
-              {/* <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3">
                 <Select value={filter} onValueChange={handleFilterChange}>
                   <SelectTrigger className="w-[180px] h-9">
                     <SelectValue placeholder="Sort by..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="">
                     <SelectItem value="newest">
                       <div className="flex items-center gap-2">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
+                        <ArrowDownWideNarrow className="w-4 h-4" />
                         Newest First
                       </div>
                     </SelectItem>
+
                     <SelectItem value="oldest">
                       <div className="flex items-center gap-2">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 16v-4l-3-3m6 3a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
+                        <ArrowUpWideNarrow className="w-4 h-4" />
                         Oldest First
                       </div>
                     </SelectItem>
+
                     <SelectItem value="leastResponses">
                       <div className="flex items-center gap-2">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.965 8.965 0 01-4.126-.937l-3.157.937.937-3.157A8.965 8.965 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
-                          />
-                        </svg>
+                        <MessageCircle className="w-4 h-4" />
                         Least Responses
                       </div>
                     </SelectItem>
+
                     <SelectItem value="mostResponses">
                       <div className="flex items-center gap-2">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.965 8.965 0 01-4.126-.937l-3.157.937.937-3.157A8.965 8.965 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
-                          />
-                        </svg>
+                        <MessageSquarePlus className="w-4 h-4" />
                         Most Responses
                       </div>
                     </SelectItem>
@@ -197,17 +160,17 @@ export const QAInterface = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {}}
-                  className="h-9 px-3"
+                  onClick={() => refetch()}
+                  className="h-9 px-3 bg-transparent"
                 >
                   <RefreshCw className="w-4 h-4" />
                   <span className="sr-only">Refresh</span>
                 </Button>
-              </div> */}
+              </div>
             </CardHeader>
             {isQuestionsLoading ? (
               <div className="h-full flex flex-col items-center justify-center text-center space-y-4 px-6">
-                <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-2">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mb-2">
                   <svg
                     className="w-8 h-8 text-gray-400 dark:text-gray-500 animate-spin"
                     fill="none"
@@ -234,7 +197,7 @@ export const QAInterface = () => {
               </div>
             ) : !questions || questions.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center space-y-4 px-6">
-                <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-2">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mb-2">
                   <svg
                     className="w-8 h-8 text-gray-400 dark:text-gray-500"
                     fill="none"
@@ -421,7 +384,6 @@ export const QAInterface = () => {
                       <Button
                         onClick={handleSubmit}
                         disabled={!newAnswer.trim() || isSubmittingAnswer}
-                        className="bg-green-400 hover:bg-green-500 text-black dark:text-white"
                       >
                         {isSubmittingAnswer ? "Submitting..." : "Submit"}
                       </Button>
@@ -441,7 +403,7 @@ export const QAInterface = () => {
                           View Other Responses
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-950 dark:via-emerald-950 dark:to-teal-950">
+                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto ">
                         <AlertDialogHeader>
                           <DialogTitle>Other Responses</DialogTitle>
                         </AlertDialogHeader>
@@ -462,7 +424,7 @@ export const QAInterface = () => {
                                     className={`relative overflow-hidden rounded-xl border transition-all duration-300 hover:shadow-lg ${
                                       currentAnswer.isFinalAnswer
                                         ? "bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/20 border-green-200 dark:border-green-800 shadow-green-100/50 dark:shadow-green-900/20"
-                                        : "bg-gradient-to-br from-white to-gray-50/50 dark:from-gray-900/50 dark:to-gray-800/30 border-gray-200 dark:border-gray-700 shadow-sm"
+                                        : ""
                                     }`}
                                   >
                                     <div

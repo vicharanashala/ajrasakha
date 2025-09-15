@@ -55,6 +55,7 @@ export class QuestionService extends BaseService {
     userId: string,
     page: number,
     limit: number,
+    filter: 'newest' | 'oldest' | 'leastResponses' | 'mostResponses'
   ): Promise<QuestionResponse[]> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
@@ -62,6 +63,7 @@ export class QuestionService extends BaseService {
           userId,
           Number(page),
           Number(limit),
+          filter,
           session,
         );
       });

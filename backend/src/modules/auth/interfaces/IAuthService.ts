@@ -23,7 +23,11 @@ export interface IAuthService {
    * @returns A promise that resolves to the newly created user object
    * @throws Error - If user creation fails for any reason
    */
-  signup(body: SignUpBody): Promise<string | null>;
+  signup(
+    body: SignUpBody,
+  ): Promise<{
+    user: {uid: string; email: string; displayName: string; photoURL: string};
+  } | null>;
   googleSignup(body: GoogleSignUpBody, token: string): Promise<string | null>;
   getUserIdFromReq(req: any): Promise<string>;
   /**

@@ -19,13 +19,6 @@ export const provider = new GoogleAuthProvider();
 
 export const loginWithEmail = async (email: string, password: string) => {
   const result = await signInWithEmailAndPassword(auth, email, password);
-
-  // Get ID token for backend authentication
-  const idToken = await result.user.getIdToken();
-
-  // Store the token
-  useAuthStore.getState().setToken(idToken);
-
   return result;
 };
 

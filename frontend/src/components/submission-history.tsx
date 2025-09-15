@@ -9,7 +9,6 @@ export const FullSubmissionHistory = () => {
   const {
     data: submissionpages,
     isLoading,
-    isError,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -55,7 +54,7 @@ export const FullSubmissionHistory = () => {
       </CardHeader>
 
       {isLoading ? (
-        <div className="h-full flex flex-col items-center justify-center text-center space-y-4 px-6  backdrop-blur-sm bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-950 dark:via-emerald-950 dark:to-teal-950">
+        <div className="h-full flex flex-col items-center justify-center text-center space-y-4 px-6  backdrop-blur-sm ">
           <div className="w-16 h-16 rounded-full  flex items-center justify-center mb-2 shadow-lg bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-950 dark:via-emerald-950 dark:to-teal-950">
             <svg
               className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-spin"
@@ -82,10 +81,9 @@ export const FullSubmissionHistory = () => {
         </div>
       ) : !submissions || submissions.length === 0 ? (
         <div
-          className="h-full flex flex-col items-center justify-center text-center space-y-4 px-6 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 
-        dark:from-green-950 dark:via-emerald-950 dark:to-teal-950 backdrop-blur-sm"
+          className="h-full flex flex-col items-center justify-center text-center space-y-4 px-6 "
         >
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50  dark:from-green-950 dark:via-emerald-950 dark:to-teal-950 flex items-center justify-center mb-2 shadow-lg">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mb-2 shadow-lg">
             <svg
               className="w-8 h-8 text-gray-500 dark:text-gray-400"
               fill="none"
@@ -112,8 +110,7 @@ export const FullSubmissionHistory = () => {
         </div>
       ) : (
         <CardContent
-          className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 hover:scrollbar-thumb-gray-500 dark:scrollbar-thumb-gray-600 dark:hover:scrollbar-thumb-gray-500 scrollbar-track-transparent p-6 space-y-6 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 
-        dark:from-green-950 dark:via-emerald-950 dark:to-teal-950 backdrop-blur-sm"
+          className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 hover:scrollbar-thumb-gray-500 dark:scrollbar-thumb-gray-600 dark:hover:scrollbar-thumb-gray-500 scrollbar-track-transparent p-6 space-y-6  backdrop-blur-sm"
           ref={scrollRef}
         >
           {submissions.map((submission, index) => (
@@ -199,7 +196,7 @@ export const FullSubmissionHistory = () => {
 
               {/* Answer Section */}
               {submission?.reponse ? (
-                <div className="border border-gray-200/80 dark:border-gray-700/80 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm shadow-sm overflow-hidden">
+                <div className="border border-gray-200/80 dark:border-gray-700/80 rounded-lg  backdrop-blur-sm shadow-sm overflow-hidden">
                   <div className="flex justify-between items-center px-4 py-2 bg-gray-50/80 dark:bg-gray-700/50 border-b border-gray-200/60 dark:border-gray-600/60">
                     <div className="flex items-center gap-2">
                       <svg
@@ -268,7 +265,7 @@ export const FullSubmissionHistory = () => {
                   </div>
                 </div>
               ) : (
-                <div className="border border-dashed border-gray-300/80 dark:border-gray-600/80 rounded-lg p-4 bg-gray-50/40 dark:bg-gray-800/40 backdrop-blur-sm">
+                <div className="border border-dashed border-gray-300/80 dark:border-gray-600/80 rounded-lg p-4  backdrop-blur-sm">
                   <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                     <svg
                       className="w-4 h-4"
@@ -294,7 +291,7 @@ export const FullSubmissionHistory = () => {
 
           {isFetchingNextPage && (
             <div className="flex justify-center items-center py-6">
-              <div className="flex items-center gap-3 px-4 py-2 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200/60 dark:border-gray-700/60 rounded-full shadow-sm">
+              <div className="flex items-center gap-3 px-4 py-2  backdrop-blur-sm border border-gray-200/60 dark:border-gray-700/60 rounded-full shadow-sm">
                 <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                 <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
                   Loading more submissions...

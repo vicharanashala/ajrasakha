@@ -83,8 +83,8 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-          <Avatar className="h-10 w-10">
+        <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+          <Avatar className="h-9 w-9">
             <AvatarImage
               src={user.avatar || "/placeholder.svg"}
               alt={user.name}
@@ -96,8 +96,7 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        className="w-64 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 
-        dark:from-green-950 dark:via-emerald-950 dark:to-teal-950 shadow-2xl border-2"
+        className="w-64  shadow-2xl border-2"
         align="end"
         forceMount
       >

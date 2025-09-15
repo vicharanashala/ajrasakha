@@ -1,4 +1,4 @@
-import { LogOut, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import {
   Tabs,
@@ -7,7 +7,6 @@ import {
   TabsTrigger,
 } from "@/components/atoms/tabs";
 import { Textarea } from "@/components/atoms/textarea";
-import { Label } from "@/components/atoms/label";
 import { Separator } from "@/components/atoms/separator";
 import {
   HoverCard,
@@ -18,6 +17,7 @@ import { UserProfileActions } from "@/components/atoms/user-profile-actions";
 import { ThemeToggleCompact } from "./atoms/ThemeToggle";
 import { QAInterface } from "./QA-interface";
 import { FullSubmissionHistory } from "./submission-history";
+import VoiceRecorderCard from "./voice-recorder-card";
 
 export const PlaygroundPage = () => {
   return (
@@ -47,7 +47,7 @@ export const PlaygroundPage = () => {
           </div>
         </div>
         <Separator />
-        <Tabs defaultValue="submit" className="">
+        <Tabs defaultValue="upload" className="">
           <div className="container h-full py-6 ">
             <div className="grid gap-6 mb-5 ">
               <div className="flex">
@@ -75,13 +75,13 @@ export const PlaygroundPage = () => {
                   >
                     <HoverCard openDelay={150}>
                       <HoverCardTrigger asChild>
-                        <span>Responses</span>
+                        <span>Questions</span>
                       </HoverCardTrigger>
                       <HoverCardContent
                         className="w-[200px] text-sm"
                         side="bottom"
                       >
-                        Submit your responses for questions
+                        View questions and Submit your responses
                       </HoverCardContent>
                     </HoverCard>
                   </TabsTrigger>
@@ -109,17 +109,17 @@ export const PlaygroundPage = () => {
               <div className="hidden flex-col space-y-4 sm:flex md:order-2"></div>
               <div className="md:order-1 w-screen">
                 <TabsContent value="upload" className="mt-0 border-0 p-0">
-                  <div className="flex h-full flex-col space-y-4">
-                    <Textarea
-                      placeholder="Write a tagline for an ice cream shop"
-                      className="min-h-[400px] flex-1 p-4 md:min-h-[700px] lg:min-h-[700px]"
-                    />
-                    <div className="flex items-center space-x-2">
-                      <Button>Submit</Button>
-                      <Button variant="secondary">
-                        <span className="sr-only">Show history</span>
-                        <RotateCcw />
-                      </Button>
+                  <div className="min-h-[75%] bg-background p-4 ">
+                    <div className="container mx-auto py-8 pt-0">
+                      <div className="text-center mb-4">
+                        <h1 className="text-3xl font-bold mb-2">
+                          Voice Recorder & Transcriber
+                        </h1>
+                        <p className="text-muted-foreground">
+                          Record your voice and see it transcribed in real-time
+                        </p>
+                      </div>
+                      <VoiceRecorderCard />
                     </div>
                   </div>
                 </TabsContent>

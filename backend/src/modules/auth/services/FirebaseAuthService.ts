@@ -13,7 +13,9 @@ import {IUser} from '#root/shared/interfaces/models.js';
 import {BaseService} from '#root/shared/classes/BaseService.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {MongoDatabase} from '#root/shared/database/providers/mongo/MongoDatabase.js';
-import {appConfig} from '#root/config/app.js';
+import path from 'path';
+import {fileURLToPath} from 'url';
+import serviceAccount from '../../../../agriai-a2fba-firebase-adminsdk-fbsvc-452072d744.json' with {type: 'json'};
 
 /**
  * Custom error thrown during password change operations.
@@ -43,27 +45,11 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
   ) {
     super(database);
     if (!admin.apps.length) {
-      if (appConfig.isDevelopment) {
-        const privateKey = appConfig.firebase.privateKey
-          .replace(/\\n/g, '\n')
-          .trim();
-        admin.initializeApp({
-          credential: admin.credential.cert({
-            clientEmail: appConfig.firebase.clientEmail,
-            privateKey,
-            projectId: appConfig.firebase.projectId,
-          }),
-        });
-      } else {
-        const serviceAccount = {
-          projectId: appConfig.firebase.projectId,
-          clientEmail: appConfig.firebase.clientEmail,
-          privateKey: appConfig.firebase.privateKey.replace(/\\n/g, '\n'),
-        };
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-        });
-      }
+      admin.initializeApp({
+        credential: admin.credential.cert(
+          serviceAccount as admin.ServiceAccount,
+        ),
+      });
     }
     this.auth = admin.auth();
   }
@@ -130,7 +116,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     return true;
   }
 
-  async signup(body: SignUpBody): Promise<any> {
+  async signup(body: SignUpBody): Promise<{ user: { uid: string; email: string; displayName: string; photoURL: string }} | null>{
     let userRecord: any;
     try {
       // Create the user in Firebase Auth
@@ -165,8 +151,15 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
         throw new InternalServerError('Failed to create the user');
       }
     });
+     return {
+    user: {
+      uid: userRecord.uid,
+      email: userRecord.email,
+      displayName: userRecord.displayName || `${body.firstName} ${body.lastName || ''}`,
+      photoURL: userRecord.photoURL || '',
+    }
   }
-
+  }
   async googleSignup(body: GoogleSignUpBody, token: string): Promise<any> {
     await this.verifyToken(token);
     // Decode the token to get the Firebase UID

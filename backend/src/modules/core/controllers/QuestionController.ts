@@ -51,13 +51,23 @@ export class QuestionController {
   @Authorized()
   @OpenAPI({summary: 'Get all open status questions'})
   async getUnAnsweredQuestions(
-    @QueryParams() query: {page?: number; limit?: number},
+    @QueryParams()
+    query: {
+      page?: number;
+      limit?: number;
+      filter?: 'newest' | 'oldest' | 'leastResponses' | 'mostResponses';
+    },
     @CurrentUser() user: IUser,
   ): Promise<QuestionResponse[]> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const userId = user._id.toString();
-    return this.questionService.getUnAnsweredQuestions(userId, page, limit);
+    return this.questionService.getUnAnsweredQuestions(
+      userId,
+      page,
+      limit,
+      query.filter,
+    );
   }
 
   @Get('/:questionId')
