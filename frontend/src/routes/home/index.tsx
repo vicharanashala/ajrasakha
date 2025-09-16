@@ -16,7 +16,7 @@ function RouteComponent() {
   }, [user, navigate]);
 
   return (
-    <div className="min-h-screen w-full  p-4 relative flex flex-col ">
+    <div className="min-h-screen min-w-screen p-4 relative flex flex-col ">
       <PlaygroundPage />
     </div>
   );

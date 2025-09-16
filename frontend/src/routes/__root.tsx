@@ -8,7 +8,7 @@ export const queryClient = new QueryClient();
 export const Route = createRootRoute({
   component: () => (
     <>
-      <ThemeProvider>
+      <ThemeProvider >
         <QueryClientProvider client={queryClient}>
           <Toaster position="bottom-right" reverseOrder={false} />
           <Outlet />

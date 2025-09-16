@@ -33,9 +33,9 @@ export const FullSubmissionHistory = () => {
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   return (
-    <Card className="h-[60vh] md:h-[70vh] lg:h-[75vh] border border-gray-200 dark:border-gray-700 shadow-lg rounded-xl bg-transparent backdrop-blur-sm">
+    <Card className="h-[80vh] md:h-[70vh] lg:h-[75vh] border border-gray-200 dark:border-gray-700 shadow-lg rounded-xl bg-transparent backdrop-blur-sm mb-6 md:mb-0">
       <CardHeader className="border-b border-gray-200 dark:border-gray-700  backdrop-blur-sm rounded-t-xl">
-        <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 bg-transparent">
+        <CardTitle className="text-md md:text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 bg-transparent">
           <svg
             className="w-5 h-5 text-blue-600 dark:text-blue-400"
             fill="none"
@@ -119,7 +119,7 @@ export const FullSubmissionHistory = () => {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <div className="w-2 h-2 rounded-full bg-blue-500 dark:bg-blue-400 flex-shrink-0 mt-2"></div>
-                    <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100 leading-relaxed break-words">
+                    <h4 className="text-sm md:text-base font-semibold text-gray-900 dark:text-gray-100 leading-relaxed break-words">
                       {submission?.text}
                     </h4>
                   </div>
@@ -128,7 +128,7 @@ export const FullSubmissionHistory = () => {
                   </span>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-4 text-xs text-gray-600 dark:text-gray-400 pl-4">
+                <div className="hidden md:flex flex-wrap items-center gap-4 text-xs text-gray-600 dark:text-gray-400 pl-4">
                   <span className="flex items-center gap-1">
                     <svg
                       className="w-3 h-3"
@@ -146,7 +146,7 @@ export const FullSubmissionHistory = () => {
                     Created: {submission?.createdAt}
                   </span>
                   {submission?.createdAt !== submission?.updatedAt && (
-                    <span className="flex items-center gap-1">
+                    <span className=" items-center gap-1 hidden md:flex">
                       <svg
                         className="w-3 h-3"
                         fill="none"
@@ -168,7 +168,7 @@ export const FullSubmissionHistory = () => {
                       later
                     </span>
                   )}
-                  <span className="flex items-center gap-1">
+                  <span className="hidden md:flex items-center gap-1">
                     <svg
                       className="w-3 h-3"
                       fill="none"
@@ -239,9 +239,9 @@ export const FullSubmissionHistory = () => {
                     </div>
 
                     <div className="mt-3 pt-3 border-t border-gray-200/60 dark:border-gray-600/60 flex flex-wrap items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
-                      <span className="flex items-center gap-1">
+                      <span className=" items-center gap-1">
                         <svg
-                          className="w-3 h-3"
+                          className="w-3 h-3 inline md:me-1"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -253,9 +253,10 @@ export const FullSubmissionHistory = () => {
                             d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                           />
                         </svg>
-                        Answered: {submission?.reponse.createdAt}
+                        <span className="hidden md:inline">Answered:</span>{" "}
+                        {submission?.reponse.createdAt}
                       </span>
-                      <span className="text-gray-500 dark:text-gray-500">
+                      <span className="text-gray-500 dark:text-gray-500 hidden md:flex">
                         Answer ID: {submission?.reponse.id}
                       </span>
                     </div>

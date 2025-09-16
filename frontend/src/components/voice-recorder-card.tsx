@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle,
   Edit3,
+  Filter,
   Mic,
   MicOff,
   RotateCcw,
@@ -211,41 +212,47 @@ const VoiceRecorderCard = () => {
     transcript + (interimTranscript ? " " + interimTranscript : "");
 
   return (
-    <div className="min-h-screen bg-gradient-to-br  p-4">
+    <div className="min-h-screen bg-gradient-to-br md:p-4 ">
       <div className="max-w-8xl mx-auto">
-        <div className="grid lg:grid-cols-2 gap-6">
-          <Card className="mx-h-full">
+        {/* Use responsive grid: 1 column on mobile, 2 columns on lg */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+          {/* Voice Recorder Card */}
+          <Card className="w-full">
             <CardHeader className="text-center">
-              <div className="flex justify-between items-center">
-                <CardTitle className="flex items-center justify-center gap-2">
+              <div className="flex justify-between items-center w-full gap-2">
+                {/* Title always visible */}
+                <CardTitle className="flex items-center gap-2">
                   <Volume2 className="h-5 w-5" />
                   Voice Recorder
                 </CardTitle>
 
-                <div className="flex justify-end">
-                  <Select
-                    value={language}
-                    onValueChange={(value) =>
-                      setLanguage(value as SupportedLanguage)
-                    }
-                    disabled={isRecording || isListening}
-                  >
-                    <SelectTrigger className="w-[200px]">
+                {/* Single responsive Select */}
+                <Select
+                  value={language}
+                  onValueChange={(value) =>
+                    setLanguage(value as SupportedLanguage)
+                  }
+                  disabled={isRecording || isListening}
+                >
+                  <SelectTrigger className="flex items-center w-fit justify-center  md:w-[200px] p-2 ">
+                    <Filter className="w-5 h-5 md:hidden mx-auto" />
+                    <span className="hidden md:block">
                       <SelectValue placeholder="Select language" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {supportedLanguages.map((lang) => (
-                        <SelectItem value={lang.code}>{lang.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {supportedLanguages.map((lang) => (
+                      <SelectItem key={lang.code} value={lang.code}>
+                        {lang.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardHeader>
 
             <CardContent className="space-y-6">
-              {/* Language selector */}
-
+              {/* Recording Button */}
               <div className="flex justify-center">
                 <Button
                   onClick={handleRecordingToggle}
@@ -296,7 +303,8 @@ const VoiceRecorderCard = () => {
             </CardContent>
           </Card>
 
-          <Card className="mx-h-full">
+          {/* Transcription Card */}
+          <Card className="w-full">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2">
@@ -309,6 +317,7 @@ const VoiceRecorderCard = () => {
                 </div>
               </CardTitle>
             </CardHeader>
+
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">
@@ -319,13 +328,13 @@ const VoiceRecorderCard = () => {
                     value={editedTranscript}
                     onChange={(e) => setEditedTranscript(e.target.value)}
                     placeholder="Edit your transcript here..."
-                    className="min-h-40 max-h-40 resize-none overflow-y-auto"
+                    className="min-h-40 max-h-40 resize-none overflow-y-auto w-full"
                   />
                 ) : (
                   <Textarea
                     value={displayTranscript}
                     placeholder="Your speech will appear here..."
-                    className="min-h-40 max-h-40 resize-none overflow-y-auto"
+                    className="min-h-40 max-h-40 resize-none overflow-y-auto w-full"
                     disabled={isRecording || !isEditing}
                     readOnly={!isEditing}
                   />
@@ -333,7 +342,7 @@ const VoiceRecorderCard = () => {
               </div>
 
               <div className="flex flex-wrap gap-2 justify-between">
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Button
                     onClick={handleClear}
                     variant="outline"
@@ -357,7 +366,7 @@ const VoiceRecorderCard = () => {
                       Edit
                     </Button>
                   ) : (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <Button
                         onClick={handleSaveEdit}
                         variant="outline"
@@ -385,25 +394,25 @@ const VoiceRecorderCard = () => {
                   className="flex items-center gap-2"
                 >
                   <Send className="h-4 w-4" />
-                  {isPending ? "Submiting..." : "Submit"}
+                  {isPending ? "Submitting..." : "Submit"}
                 </Button>
               </div>
 
               <div className="text-center text-sm text-muted-foreground border-t pt-4">
                 {isRecording ? (
-                  <div className="flex items-center gap-2 text-red-600 font-medium">
+                  <div className="flex items-center gap-2 text-red-600 font-medium justify-center">
                     <Mic className="w-5 h-5 animate-pulse" />
                     <span>Recording in progress...</span>
                   </div>
                 ) : transcript ? (
-                  <div className="flex items-center gap-2 text-green-600 font-medium">
+                  <div className="flex items-center gap-2 text-green-600 font-medium justify-center">
                     <CheckCircle className="w-5 h-5" />
                     <span>
                       Transcription complete. You can review or edit below.
                     </span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 text-gray-500">
+                  <div className="flex items-center gap-2 text-gray-500 justify-center">
                     <span>Click start to begin recording</span>
                   </div>
                 )}

@@ -19,30 +19,20 @@ import VoiceRecorderCard from "./voice-recorder-card";
 export const PlaygroundPage = () => {
   return (
     <>
-      <div className="md:hidden">
-        <img
-          src="/examples/playground-light.png"
-          width={1280}
-          height={916}
-          alt="Playground"
-          className="block dark:hidden"
-        />
-        <img
-          src="/examples/playground-dark.png"
-          width={1280}
-          height={916}
-          alt="Playground"
-          className="hidden dark:block"
-        />
-      </div>
-      <div className="hidden h-full flex-col md:flex ">
-        <div className="container flex flex-col items-start justify-between space-y-2 py-4 sm:flex-row sm:items-center sm:space-y-0 md:h-16">
-          <img src="/annam-logo.png" alt="Annam Logo" className="h-18 w-auto" />
-          <div className="ml-auto flex w-full space-x-2 sm:justify-end">
+      <div className=" h-full flex-col md:flex w-full ">
+        <div className="container mx-auto flex items-center justify-between py-4 px-4">
+          <img
+            src="/annam-logo.png"
+            alt="Annam Logo"
+            className="h-12 md:h-16 w-auto"
+          />
+
+          <div className="flex items-center space-x-2">
             <ThemeToggleCompact />
             <UserProfileActions />
           </div>
         </div>
+
         <Separator />
         <Tabs defaultValue="upload" className="">
           <div className="container h-full py-6 ">
@@ -103,9 +93,11 @@ export const PlaygroundPage = () => {
               </div>
             </div>
             <div className="grid h-full items-stretch gap-6 md:grid-cols-[1fr_200px] ">
-              <div className="hidden flex-col space-y-4 sm:flex md:order-2"></div>
               <div className="md:order-1 w-screen">
-                <TabsContent value="upload" className="mt-0 border-0 p-0">
+                <TabsContent
+                  value="upload"
+                  className="mt-0 border-0 p-0 max-w-[95%]"
+                >
                   <div className="min-h-[75%] bg-background p-4 ">
                     <div className="container mx-auto py-8 pt-0">
                       <div className="text-center mb-4">
@@ -120,10 +112,16 @@ export const PlaygroundPage = () => {
                     </div>
                   </div>
                 </TabsContent>
-                <TabsContent value="submit" className="mt-0 border-0 p-0">
+                <TabsContent
+                  value="submit"
+                  className="mt-0 border-0 p-0 max-w-[95%]"
+                >
                   <QAInterface />
                 </TabsContent>
-                <TabsContent value="history" className="mt-0 border-0 p-0">
+                <TabsContent
+                  value="history"
+                  className="mt-0 border-0 p-0 max-w-[93%]"
+                >
                   <FullSubmissionHistory />
                 </TabsContent>
               </div>
