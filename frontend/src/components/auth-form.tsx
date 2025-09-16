@@ -10,7 +10,7 @@ import toast from "react-hot-toast";
 import { useLoginWithGoogle } from "@/hooks/api/auth/useLoginWithGoogle";
 import { useNavigate } from "@tanstack/react-router";
 import { Check, Eye, EyeOff } from "lucide-react";
-import { createUserWithEmail, loginWithEmail } from "@/lib/firebase";
+import { loginWithEmail } from "@/lib/firebase";
 import { useSignup } from "@/hooks/api/auth/useSignup";
 
 interface AuthFormProps extends React.ComponentProps<"div"> {

@@ -91,7 +91,7 @@ export const QAInterface = () => {
         questionId: selectedQuestion,
         answer: newAnswer,
       });
-      setIsFinalAnswer(result.isFinalAnswer);
+      if (result) setIsFinalAnswer(result.isFinalAnswer);
       toast.success("Response submitted successfully!");
       setNewAnswer("");
     } catch (error) {

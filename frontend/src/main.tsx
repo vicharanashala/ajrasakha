@@ -1,20 +1,19 @@
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
-// Import the generated route tree
 import { routeTree } from "./routeTree.gen";
 import "./styles.css";
 import reportWebVitals from "./reportWebVitals.ts";
 import { worker } from "./mocks/browser.js";
 import { client } from "./client/client.gen.ts";
-import { useAuthStore } from "./stores/auth-store.ts";
+// import { useAuthStore } from "./stores/auth-store.ts";
 
 if (import.meta.env.VITE_ENABLE_MOCKS === "true") {
   await worker.start();
 }
 client.setConfig({
   baseUrl: import.meta.env.VITE_API_BASE_URL || "http://localhost:4000",
-  auth: `${useAuthStore.getState().token}`,
+  // auth: `${useAuthStore.getState().token}`,
 });
 
 console.log(import.meta.env.VITE_API_BASE_URL, "API Base URL");

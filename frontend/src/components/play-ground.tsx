@@ -1,12 +1,9 @@
-import { RotateCcw } from "lucide-react";
-import { Button } from "@/components/atoms/button";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@/components/atoms/tabs";
-import { Textarea } from "@/components/atoms/textarea";
 import { Separator } from "@/components/atoms/separator";
 import {
   HoverCard,

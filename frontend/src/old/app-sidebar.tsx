@@ -15,7 +15,6 @@ import {
 import { NavMain } from "@/old/nav-main";
 import { NavProjects } from "@/old/nav-projects";
 import { NavSecondary } from "@/old/nav-secondary";
-import { NavUser } from "@/old/nav-user";
 import {
   Sidebar,
   SidebarContent,
@@ -25,7 +24,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/atoms/sidebar";
-import { WebCamView } from "./course-view/components/camera-view";
 
 const data = {
   user: {
@@ -178,7 +176,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
       <SidebarFooter>
         <div className="p-1">
-          <WebCamView />
+          {/* <WebCamView /> */}
         </div>
       </SidebarFooter>
     </Sidebar>

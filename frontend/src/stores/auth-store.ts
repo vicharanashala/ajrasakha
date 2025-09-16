@@ -1,7 +1,7 @@
 import { auth, googleProvider } from "@/config/firebase";
 import type { AuthUser, ExtendedUserCredential } from "@/types";
 import {
-  getIdToken,
+  // getIdToken,
   onAuthStateChanged,
   signInWithPopup,
   signOut,
@@ -54,7 +54,7 @@ export const useAuthStore = create<AuthStore>()(
           set({ loading: true, error: null });
           try {
             const result = await signInWithPopup(auth, googleProvider);
-            const token = await getIdToken(result.user);
+            // const token = await getIdToken(result.user);
             const authUser: AuthUser = {
               uid: result.user.uid,
               email: result.user.email || "",
