@@ -35,7 +35,7 @@ export class ContextService extends BaseService {
 
         const contextId = result.insertedId;
         const dummyQuestions: string[] = [
-          'What is the difference between supervised and unsupervised learning?',
+          '<< >> What is the difference between supervised and unsupervised learning?',
           'Explain closures in JavaScript with an example.',
           'How does indexing improve query performance in MongoDB?',
           'What are the key features of TypeScript compared to JavaScript?',

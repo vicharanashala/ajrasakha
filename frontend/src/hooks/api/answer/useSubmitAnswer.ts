@@ -7,7 +7,7 @@ const questionService = new AnswerService();
 export const useSubmitAnswer = () => {
   const queryClient = useQueryClient();
   return useMutation<
-    SubmitAnswerResponse,
+    SubmitAnswerResponse | null,
     Error,
     { questionId: string; answer: string }
   >({

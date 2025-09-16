@@ -42,6 +42,7 @@ export class AnswerController {
   @OpenAPI({summary: 'Add a new answer to a question'})
   @Post('/')
   @HttpCode(201)
+  @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async addAnswer(@Body() body: AddAnswerBody, @CurrentUser() user: IUser) {
     const {questionId, answer} = body;
@@ -67,6 +68,7 @@ export class AnswerController {
   @OpenAPI({summary: 'Update an existing answer'})
   @Patch('/:answerId')
   @HttpCode(200)
+  @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async updateAnswer(
     @Params() params: AnswerIdParam,
@@ -79,6 +81,7 @@ export class AnswerController {
   @OpenAPI({summary: 'Delete an answer and update the related question state'})
   @Delete('/:questionId/:answerId')
   @HttpCode(200)
+  @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async deleteAnswer(@Params() params: DeleteAnswerParams) {
     const {answerId, questionId} = params;

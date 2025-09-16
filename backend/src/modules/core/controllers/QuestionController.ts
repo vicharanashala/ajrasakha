@@ -38,6 +38,7 @@ export class QuestionController {
 
   @Get('/context/:contextId')
   @HttpCode(200)
+  @Authorized()
   @OpenAPI({summary: 'Get questions by context ID'})
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async getByContextId(@Params() params: ContextIdParam): Promise<IQuestion[]> {
@@ -72,6 +73,7 @@ export class QuestionController {
 
   @Get('/:questionId')
   @HttpCode(200)
+  @Authorized()
   @ResponseSchema(QuestionResponse)
   @OpenAPI({summary: 'Get selected question by ID'})
   async getQuestionById(
@@ -84,6 +86,7 @@ export class QuestionController {
 
   @Put('/:questionId')
   @HttpCode(200)
+  @Authorized()
   @ResponseSchema(QuestionResponse, {isArray: true})
   @OpenAPI({summary: 'Update a question by ID'})
   async updateQuestion(
@@ -96,6 +99,7 @@ export class QuestionController {
 
   @Delete('/:questionId')
   @HttpCode(200)
+  @Authorized()
   @OpenAPI({summary: 'Delete a question by ID'})
   async deleteQuestion(
     @Params() params: QuestionIdParam,

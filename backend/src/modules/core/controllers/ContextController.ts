@@ -5,6 +5,7 @@ import {
   Body,
   HttpCode,
   CurrentUser,
+  Authorized,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -20,7 +21,7 @@ import {IUser} from '#root/shared/index.js';
 })
 @injectable()
 @ResponseSchema(ContextResponse, {isArray: true, statusCode: 200})
-@JsonController('/contexts')
+@JsonController('/context')
 export class ContextController {
   constructor(
     @inject(GLOBAL_TYPES.ContextService)
@@ -30,13 +31,14 @@ export class ContextController {
   @Post('/')
   @HttpCode(201)
   @OpenAPI({summary: 'Add a new context'})
+  @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async addContext(
-    @Body() body: {text: string},
+    @Body() body: {transcript: string},
     @CurrentUser() user: IUser,
   ): Promise<{insertedId: string}> {
-    const {text} = body;
+    const {transcript} = body;
     const userId = user._id.toString();
-    return this.contextService.addContext(userId, text);
+    return this.contextService.addContext(userId, transcript);
   }
 }

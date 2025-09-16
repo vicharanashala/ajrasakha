@@ -163,23 +163,8 @@ export class QuestionRepository implements IQuestionRepository {
         {
           $match: {userAnswers: {$size: 0}},
         },
-        {$skip: skip},
-        {$limit: limit},
-        {
-          $project: {
-            id: {$toString: '$_id'},
-            text: '$question',
-            createdAt: {
-              $dateToString: {format: '%d-%m-%Y %H:%M:%S', date: '$createdAt'},
-            },
-            updatedAt: {
-              $dateToString: {format: '%d-%m-%Y %H:%M:%S', date: '$updatedAt'},
-            },
-            totalAnwersCount: 1,
-            _id: 0,
-          },
-        },
       ];
+
       if (filter === 'newest') {
         pipeline.push({$sort: {createdAt: -1}});
       } else if (filter === 'oldest') {
@@ -189,6 +174,26 @@ export class QuestionRepository implements IQuestionRepository {
       } else if (filter === 'mostResponses') {
         pipeline.push({$sort: {totalAnwersCount: -1}});
       }
+
+      // Pagination
+      pipeline.push({$skip: skip});
+      pipeline.push({$limit: limit});
+      // Projection.
+      pipeline.push({
+        $project: {
+          id: {$toString: '$_id'},
+          text: '$question',
+          createdAt: {
+            $dateToString: {format: '%d-%m-%Y %H:%M:%S', date: '$createdAt'},
+          },
+          updatedAt: {
+            $dateToString: {format: '%d-%m-%Y %H:%M:%S', date: '$updatedAt'},
+          },
+          totalAnwersCount: 1,
+          _id: 0,
+        },
+      });
+
       const results = await this.QuestionCollection.aggregate<QuestionResponse>(
         pipeline,
         {session},

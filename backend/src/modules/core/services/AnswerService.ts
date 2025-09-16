@@ -54,7 +54,7 @@ export class AnswerService extends BaseService {
         throw new BadRequestError('You’ve already submitted an answer!');
       }
 
-      const isFinalAnswer = true; // Need to calculate properly
+      const isFinalAnswer = false; // Need to calculate properly
       const updatedAnswerCount = question.totalAnwersCount + 1;
 
       const insertedId = await this.answerRepo.addAnswer(
@@ -86,7 +86,7 @@ export class AnswerService extends BaseService {
   }
 
   async updateAnswer(
-    answerId: string, 
+    answerId: string,
     updates: UpdateAnswerBody,
   ): Promise<{modifiedCount: number}> {
     return this._withTransaction(async (session: ClientSession) => {

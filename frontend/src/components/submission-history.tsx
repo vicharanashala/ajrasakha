@@ -80,9 +80,7 @@ export const FullSubmissionHistory = () => {
           </div>
         </div>
       ) : !submissions || submissions.length === 0 ? (
-        <div
-          className="h-full flex flex-col items-center justify-center text-center space-y-4 px-6 "
-        >
+        <div className="h-full flex flex-col items-center justify-center text-center space-y-4 px-6 ">
           <div className="w-16 h-16 rounded-full flex items-center justify-center mb-2 shadow-lg">
             <svg
               className="w-8 h-8 text-gray-500 dark:text-gray-400"
@@ -103,8 +101,7 @@ export const FullSubmissionHistory = () => {
               No Submissions Yet
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 max-w-sm">
-              Your submission history will appear here once you start asking
-              questions.
+              Your submission history will appear here .
             </p>
           </div>
         </div>

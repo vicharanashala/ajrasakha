@@ -94,3 +94,17 @@ export interface SubmitAnswerResponse {
   insertedId: string;
   isFinalAnswer: boolean;
 }
+
+export type SupportedLanguage =
+  | "en-IN"
+  | "en-US"
+  | "hi-IN"
+  | "bn-IN"
+  | "te-IN"
+  | "mr-IN"
+  | "ta-IN"
+  | "gu-IN"
+  | "kn-IN"
+  | "ml-IN"
+  | "pa-IN"
+  | "ur-IN";

@@ -64,7 +64,7 @@ export const PlaygroundPage = () => {
                         className="w-[200px] text-sm"
                         side="bottom"
                       >
-                        Upload a call recording or audio file
+                        Transcribe your live voice and upload
                       </HoverCardContent>
                     </HoverCard>
                   </TabsTrigger>
