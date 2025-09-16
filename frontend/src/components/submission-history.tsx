@@ -33,7 +33,7 @@ export const FullSubmissionHistory = () => {
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   return (
-    <Card className="h-[80vh] md:h-[70vh] lg:h-[75vh] border border-gray-200 dark:border-gray-700 shadow-lg rounded-xl bg-transparent backdrop-blur-sm mb-6 md:mb-0">
+    <Card className="h-[80vh] md:h-[60vh] lg:h-[70vh] border border-gray-200 dark:border-gray-700 shadow-lg rounded-xl bg-transparent backdrop-blur-sm mb-6 md:mb-0">
       <CardHeader className="border-b border-gray-200 dark:border-gray-700  backdrop-blur-sm rounded-t-xl">
         <CardTitle className="text-md md:text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 bg-transparent">
           <svg
@@ -191,7 +191,6 @@ export const FullSubmissionHistory = () => {
                 </div>
               </div>
 
-              {/* Answer Section */}
               {submission?.reponse ? (
                 <div className="border border-gray-200/80 dark:border-gray-700/80 rounded-lg  backdrop-blur-sm shadow-sm overflow-hidden">
                   <div className="flex justify-between items-center px-4 py-2 bg-gray-50/80 dark:bg-gray-700/50 border-b border-gray-200/60 dark:border-gray-600/60">

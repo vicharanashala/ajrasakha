@@ -214,19 +214,15 @@ const VoiceRecorderCard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br md:p-4 ">
       <div className="max-w-8xl mx-auto">
-        {/* Use responsive grid: 1 column on mobile, 2 columns on lg */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-          {/* Voice Recorder Card */}
           <Card className="w-full">
             <CardHeader className="text-center">
               <div className="flex justify-between items-center w-full gap-2">
-                {/* Title always visible */}
                 <CardTitle className="flex items-center gap-2">
                   <Volume2 className="h-5 w-5" />
                   Voice Recorder
                 </CardTitle>
 
-                {/* Single responsive Select */}
                 <Select
                   value={language}
                   onValueChange={(value) =>
@@ -252,7 +248,6 @@ const VoiceRecorderCard = () => {
             </CardHeader>
 
             <CardContent className="space-y-6">
-              {/* Recording Button */}
               <div className="flex justify-center">
                 <Button
                   onClick={handleRecordingToggle}
@@ -271,7 +266,6 @@ const VoiceRecorderCard = () => {
                 </Button>
               </div>
 
-              {/* Audio visualization */}
               <div className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-end justify-center gap-1 h-16 rounded-lg p-2">
@@ -295,7 +289,6 @@ const VoiceRecorderCard = () => {
                 </div>
               </div>
 
-              {/* Footer text */}
               <div className="text-center text-sm text-muted-foreground border-t pt-4">
                 <p className="mb-2">Click the microphone to start recording</p>
                 <p>Speak clearly for best transcription results</p>
@@ -303,7 +296,6 @@ const VoiceRecorderCard = () => {
             </CardContent>
           </Card>
 
-          {/* Transcription Card */}
           <Card className="w-full">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
