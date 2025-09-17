@@ -90,8 +90,8 @@ class BasicRetriever:
 
     async def retrieve(self, query: str):
         nodes:List[NodeWithScore] = await self.retriever.aretrieve(query)
-        reranked_nodes = await self.rerank._apostprocess_nodes(nodes=nodes, query_bundle=QueryBundle(query_str=query))
-        return reranked_nodes
+        # reranked_nodes = await self.rerank._apostprocess_nodes(nodes=nodes, query_bundle=QueryBundle(query_str=query))
+        return nodes
 
     def build_context(self, nodes: List[NodeWithScore], max_chars: int = 8000) -> List[dict]:
         """Concatenate top nodes into a bounded context block (with lightweight citations)."""
