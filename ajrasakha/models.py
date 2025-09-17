@@ -19,6 +19,29 @@ class StreamingMessageChunk(BaseModel):
     done: bool = False
     created_at: datetime = datetime.now()
     
+    
+class QuestionAnswerPairMetaData(BaseModel):
+    similarity_score: float | None
+    agri_specialist: str
+    sources: str
+    state: str
+    crop: str
+    
+class ContextQuestionAnswerPair(BaseModel):
+    question: str
+    answer: str
+    meta_data: QuestionAnswerPairMetaData
+
+class POPMetaData(BaseModel):
+    similarity_score: float | None
+    page_no: int
+    source: str
+    topics: List[str]
+    
+class ContextPOP(BaseModel):
+    text: str
+    meta_data: POPMetaData
+    
 class ThinkingResponseChunk:
     def __init__(self, message: str, model: str ="ajrasakha"):
         self.model = model
