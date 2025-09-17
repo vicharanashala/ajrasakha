@@ -1,19 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle,
-  Edit3,
   Filter,
+  HelpCircle,
+  Lightbulb,
+  Loader2,
   Mic,
   MicOff,
   RotateCcw,
   Send,
+  User,
   Volume2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
-import { Textarea } from "./atoms/textarea";
 import toast from "react-hot-toast";
 import {
   Select,
@@ -24,7 +26,22 @@ import {
 } from "./atoms/select";
 import type { SupportedLanguage } from "@/types";
 import { useSubmitTranscript } from "@/hooks/api/context/useSubmitTranscript";
+import { ScrollArea } from "./atoms/scroll-area";
+import { Label } from "./atoms/label";
+import { useGenerateQuestion } from "@/hooks/api/question/useGenerateQuestion";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "./atoms/accordion";
 
+export interface GeneratedQuestion {
+  id: string;
+  text: string;
+  agriExpert: string;
+  answer: string;
+}
 declare global {
   interface Window {
     webkitSpeechRecognition: any;
@@ -52,18 +69,20 @@ const VoiceRecorderCard = () => {
   const [interimTranscript, setInterimTranscript] = useState("");
   const [language, setLanguage] = useState<SupportedLanguage>("en-IN");
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedTranscript, setEditedTranscript] = useState("");
-
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number>(0);
   const [frequencyData, setFrequencyData] = useState<number[]>([]);
+  const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
 
   const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef("");
 
   const { mutateAsync: submitTranscript, isPending } = useSubmitTranscript();
+
+  const { mutateAsync: generateQuestions, isPending: isGeneratingQuestions } =
+    useGenerateQuestion();
 
   useEffect(() => {
     if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
@@ -89,7 +108,12 @@ const VoiceRecorderCard = () => {
         setInterimTranscript(interim);
       };
 
-      recognition.onend = () => setIsListening(false);
+      recognition.onend = () => {
+        // setIsListening(false);
+        // setIsRecording(false);
+        const IS_FROM_ONEND = true;
+        handleRecordingToggle(IS_FROM_ONEND);
+      };
       recognition.onerror = (event: any) => console.error(event.error);
 
       recognitionRef.current = recognition;
@@ -103,8 +127,32 @@ const VoiceRecorderCard = () => {
     };
   }, [language]);
 
-  const handleRecordingToggle = async () => {
-    if (isRecording) {
+  const displayTranscript =
+    transcript + (interimTranscript ? " " + interimTranscript : "");
+
+  useEffect(() => {
+    transcriptRef.current = displayTranscript;
+  }, [displayTranscript]);
+
+  useEffect(() => {
+    if (!isRecording || !isListening) return;
+
+    const interval = setInterval(async () => {
+      if (transcriptRef.current.length <= 10) return;
+
+      try {
+        const qstns = await generateQuestions(transcriptRef.current);
+        setQuestions((prev) => (qstns ? [...prev, ...qstns] : prev));
+      } catch (err) {
+        console.error("Error generating questions:", err);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [isRecording, generateQuestions]);
+
+  const handleRecordingToggle = async (isFromOnEnd?: boolean) => {
+    if (isRecording || isFromOnEnd) {
       setIsRecording(false);
       setIsListening(false);
 
@@ -170,37 +218,16 @@ const VoiceRecorderCard = () => {
     }
   };
 
-  const handleClear = () => {
-    setTranscript("");
-    setIsRecording(false);
-    setIsListening(false);
-  };
-
-  const handleEdit = () => {
-    setIsEditing(true);
-    setEditedTranscript(transcript);
-  };
-
-  const handleSaveEdit = () => {
-    setTranscript(editedTranscript);
-    setIsEditing(false);
-  };
-
-  const handleCancelEdit = () => {
-    setEditedTranscript("");
-    setIsEditing(false);
-  };
-
   const handleSubmit = async () => {
-    const finalText = isEditing ? editedTranscript : transcript;
-
-    if (!finalText.trim()) {
+    if (!transcript.trim()) {
       toast.error("Transcript is empty!");
       return;
     }
 
     try {
-      await submitTranscript(finalText);
+      await submitTranscript(transcript);
+      setTranscript("");
+      setInterimTranscript("");
       toast.success("Transcript submitted successfully!");
     } catch (error) {
       console.error(error);
@@ -208,21 +235,30 @@ const VoiceRecorderCard = () => {
     }
   };
 
-  const displayTranscript =
-    transcript + (interimTranscript ? " " + interimTranscript : "");
+  const handleClear = () => {
+    setTranscript("");
+    setIsRecording(false);
+    setIsListening(false);
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream
+        .getTracks()
+        .forEach((track) => track.stop());
+    }
+    setQuestions([]);
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br md:p-4 ">
-      <div className="max-w-8xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-          <Card className="w-full">
-            <CardHeader className="text-center">
-              <div className="flex justify-between items-center w-full gap-2">
-                <CardTitle className="flex items-center gap-2">
-                  <Volume2 className="h-5 w-5" />
+    <div className="min-h-[75%] bg-background p-4 ">
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className=" min-h-[80%] md:min-h-[75%]  md:h-[75%]">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Volume2 className="h-4 w-4" />
                   Voice Recorder
                 </CardTitle>
-
                 <Select
                   value={language}
                   onValueChange={(value) =>
@@ -230,10 +266,10 @@ const VoiceRecorderCard = () => {
                   }
                   disabled={isRecording || isListening}
                 >
-                  <SelectTrigger className="flex items-center w-fit justify-center  md:w-[200px] p-2 ">
-                    <Filter className="w-5 h-5 md:hidden mx-auto" />
-                    <span className="hidden md:block">
-                      <SelectValue placeholder="Select language" />
+                  <SelectTrigger className="w-[140px] h-8">
+                    <Filter className="w-4 h-4 md:hidden" />
+                    <span className="hidden md:block text-sm">
+                      <SelectValue placeholder="Language" />
                     </span>
                   </SelectTrigger>
                   <SelectContent>
@@ -247,168 +283,230 @@ const VoiceRecorderCard = () => {
               </div>
             </CardHeader>
 
-            <CardContent className="space-y-6">
-              <div className="flex justify-center">
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4 p-3 border rounded-lg bg-muted/30">
                 <Button
-                  onClick={handleRecordingToggle}
-                  size="lg"
+                  onClick={() => handleRecordingToggle()}
+                  size="sm"
                   variant={isRecording ? "destructive" : "default"}
                   className={cn(
-                    "h-24 w-24 rounded-full transition-all duration-300 shadow-lg",
-                    isRecording && "animate-pulse shadow-red-200"
+                    "h-12 w-12 rounded-full flex-shrink-0",
+                    isRecording && "animate-pulse"
                   )}
                 >
                   {isRecording ? (
-                    <MicOff className="h-10 w-10" />
+                    <MicOff className="h-5 w-5" />
                   ) : (
-                    <Mic className="h-10 w-10" />
+                    <Mic className="h-5 w-5" />
                   )}
                 </Button>
-              </div>
 
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-end justify-center gap-1 h-16 rounded-lg p-2">
-                    {isRecording && isListening ? (
-                      frequencyData.map((level, index) => (
-                        <div
-                          key={index}
-                          className="bg-gradient-to-t from-blue-500 to-purple-500 rounded-sm transition-all duration-75 min-w-[3px]"
-                          style={{
-                            height: `${Math.max(level * 100, 2)}%`,
-                            opacity: 0.7 + level * 0.3,
-                          }}
-                        />
-                      ))
-                    ) : (
-                      <div className="flex justify-center">
-                        <Badge variant="secondary">Ready</Badge>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-center text-sm text-muted-foreground border-t pt-4">
-                <p className="mb-2">Click the microphone to start recording</p>
-                <p>Speak clearly for best transcription results</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="w-full">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Edit3 className="h-5 w-5" />
-                  Transcription
-                </span>
-                <div className="text-xs text-muted-foreground">
-                  {displayTranscript.length > 0 &&
-                    `${displayTranscript.length} characters`}
-                </div>
-              </CardTitle>
-            </CardHeader>
-
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">
-                  {isEditing ? "Edit Transcript" : "Live Transcript"}
-                </label>
-                {isEditing ? (
-                  <Textarea
-                    value={editedTranscript}
-                    onChange={(e) => setEditedTranscript(e.target.value)}
-                    placeholder="Edit your transcript here..."
-                    className="min-h-40 max-h-40 resize-none overflow-y-auto w-full"
-                  />
-                ) : (
-                  <Textarea
-                    value={displayTranscript}
-                    placeholder="Your speech will appear here..."
-                    className="min-h-40 max-h-40 resize-none overflow-y-auto w-full"
-                    disabled={isRecording || !isEditing}
-                    readOnly={!isEditing}
-                  />
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-2 justify-between">
-                <div className="flex gap-2 flex-wrap">
-                  <Button
-                    onClick={handleClear}
-                    variant="outline"
-                    size="sm"
-                    disabled={!displayTranscript && !isRecording}
-                    className="flex items-center gap-2 bg-transparent"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                    Clear
-                  </Button>
-
-                  {!isEditing ? (
-                    <Button
-                      onClick={handleEdit}
-                      variant="outline"
-                      size="sm"
-                      disabled={!transcript}
-                      className="flex items-center gap-2 bg-transparent"
-                    >
-                      <Edit3 className="h-4 w-4" />
-                      Edit
-                    </Button>
+                <div className="flex-1 flex items-center gap-1 h-8">
+                  {isRecording && isListening ? (
+                    frequencyData.map((level, index) => (
+                      <div
+                        key={index}
+                        className="bg-gradient-to-t from-blue-500 to-purple-500 rounded-full w-1 transition-all duration-75"
+                        style={{
+                          height: `${Math.max(level * 100, 10)}%`,
+                          opacity: 0.6 + level * 0.4,
+                        }}
+                      />
+                    ))
                   ) : (
-                    <div className="flex gap-2 flex-wrap">
-                      <Button
-                        onClick={handleSaveEdit}
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center gap-2 bg-transparent"
-                      >
-                        Save
-                      </Button>
-                      <Button
-                        onClick={handleCancelEdit}
-                        variant="ghost"
-                        size="sm"
-                      >
-                        Cancel
-                      </Button>
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                      {isRecording ? (
+                        <>
+                          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                          Recording...
+                        </>
+                      ) : (
+                        "Click microphone to start"
+                      )}
                     </div>
                   )}
                 </div>
 
-                <Button
-                  onClick={handleSubmit}
-                  disabled={
-                    (!displayTranscript && !editedTranscript) || isPending
-                  }
-                  className="flex items-center gap-2"
-                >
-                  <Send className="h-4 w-4" />
-                  {isPending ? "Submitting..." : "Submit"}
-                </Button>
+                <div className="flex-shrink-0">
+                  {transcript && !isRecording && (
+                    <div className="flex items-center gap-1 text-green-600">
+                      <CheckCircle className="w-4 h-4" />
+                      <span className="text-xs font-medium">Done</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="text-center text-sm text-muted-foreground border-t pt-4">
-                {isRecording ? (
-                  <div className="flex items-center gap-2 text-red-600 font-medium justify-center">
-                    <Mic className="w-5 h-5 animate-pulse" />
-                    <span>Recording in progress...</span>
-                  </div>
-                ) : transcript ? (
-                  <div className="flex items-center gap-2 text-green-600 font-medium justify-center">
-                    <CheckCircle className="w-5 h-5" />
-                    <span>
-                      Transcription complete. You can review or edit below.
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Transcript</Label>
+                  {displayTranscript.length > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {displayTranscript.length} chars
                     </span>
+                  )}
+                </div>
+
+                <div className="h-40 relative">
+                  <div className="h-full w-full overflow-y-auto rounded-md border bg-background/50 p-3 text-sm whitespace-pre-wrap break-words">
+                    {displayTranscript || (
+                      <span className="text-muted-foreground">
+                        Your speech will appear here...
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex justify-end mt-2 gap-2">
+                  <Button
+                    onClick={handleClear}
+                    variant="outline"
+                    size="sm"
+                    disabled={!displayTranscript || isRecording}
+                    className="flex items-center gap-1"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    <span>Clear</span>
+                  </Button>
+
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={!displayTranscript || isPending || isRecording}
+                    size="sm"
+                    className="flex items-center gap-1 shadow-sm"
+                  >
+                    <Send className="h-3 w-3" />
+                    <span className="text-xs">
+                      {isPending ? "Sending..." : "Submit"}
+                    </span>
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="min-h-[80%] md:min-h-[75%]  md:h-[75%] ">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <HelpCircle className="h-5 w-5" />
+                  Questions
+                </span>
+                <Badge variant="outline">{questions?.length} questions</Badge>
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent className=" h-full overflow-hidden">
+              <ScrollArea className="h-[500px] w-full ">
+                {isGeneratingQuestions ? (
+                  <div className="flex flex-col items-center justify-center h-40 text-center text-muted-foreground">
+                    <Loader2 className="h-8 w-8 mb-3 animate-spin" />
+                    <p className="text-sm">Generating questions...</p>
+                  </div>
+                ) : !questions || questions?.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-40 text-center text-muted-foreground">
+                    <Lightbulb className="h-12 w-12 mb-4 opacity-50" />
+                    <p className="text-sm">
+                      Start speaking to related questions based on your
+                      transcript
+                    </p>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 text-gray-500 justify-center">
-                    <span>Click start to begin recording</span>
+                  <div className="space-y-4">
+                    {questions?.map((question, index) => (
+                      <div
+                        key={`${question}-${question.id}`}
+                        className="rounded-lg border bg-card hover:bg-accent/30 transition-colors overflow-hidden"
+                      >
+                        <div className="p-4">
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="text-blue-600 dark:text-blue-400 mt-1">
+                              <HelpCircle className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground leading-relaxed">
+                                {question.text}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 mb-3">
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <User className="w-3 h-3" />
+                                <span className="font-medium">Expert:</span>
+                                <span className="font-medium text-foreground">
+                                  {question.agriExpert}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <Accordion
+                            type="single"
+                            collapsible
+                            className="w-full"
+                          >
+                            <AccordionItem
+                              value="answer"
+                              className="border-none"
+                            >
+                              <AccordionTrigger className="py-2 px-3 bg-muted/50 rounded-md hover:bg-muted transition-colors text-sm font-medium hover:no-underline">
+                                <div className="flex items-center gap-2">
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                    />
+                                  </svg>
+                                  View Expert Answer
+                                </div>
+                              </AccordionTrigger>
+                              <AccordionContent className="pt-3 pb-1">
+                                <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <svg
+                                      className="w-4 h-4 text-green-600 dark:text-green-400"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                      />
+                                    </svg>
+                                    <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                                      Expert Answer
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-green-700 dark:text-green-300 leading-relaxed">
+                                    {question.answer}
+                                  </p>
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
-              </div>
+              </ScrollArea>
+
+              {(questions?.length || 0) > 0 && (
+                <div className="text-center text-sm text-muted-foreground border-t pt-4 mt-4">
+                  <p>Questions are generated live as you speak</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

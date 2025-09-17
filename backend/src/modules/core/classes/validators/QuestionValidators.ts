@@ -8,6 +8,7 @@ import {
   IsMongoId,
   IsArray,
   IsNumber,
+  MinLength,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 import {ObjectId} from 'mongodb';
@@ -99,10 +100,37 @@ class QuestionResponse {
   currentAnswers?: {answer: string; id: string; isFinalAnswer: boolean}[];
 }
 
+class GenerateQuestionsBody {
+  @IsString()
+  @MinLength(10)
+  transcript!: string;
+}
+
+class GeneratedQuestionResponse {
+  @IsString()
+  id!: string;
+
+  @IsString()
+  text!: string;
+
+  @IsString()
+  agriExpert!: string;
+
+  @IsString()
+  answer!: string;
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,
   QuestionIdParam,
+  GenerateQuestionsBody,
 ];
 
-export {QuestionResponse, AddQuestionBody, QuestionIdParam};
+export {
+  QuestionResponse,
+  AddQuestionBody,
+  QuestionIdParam,
+  GenerateQuestionsBody,
+  GeneratedQuestionResponse,
+};

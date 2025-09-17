@@ -5,7 +5,10 @@ import {inject, injectable} from 'inversify';
 import {ClientSession, ObjectId} from 'mongodb';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
-import {QuestionResponse} from '../classes/validators/QuestionValidators.js';
+import {
+  GeneratedQuestionResponse,
+  QuestionResponse,
+} from '../classes/validators/QuestionValidators.js';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
 
 @injectable()
@@ -55,7 +58,7 @@ export class QuestionService extends BaseService {
     userId: string,
     page: number,
     limit: number,
-    filter: 'newest' | 'oldest' | 'leastResponses' | 'mostResponses'
+    filter: 'newest' | 'oldest' | 'leastResponses' | 'mostResponses',
   ): Promise<QuestionResponse[]> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
@@ -72,6 +75,35 @@ export class QuestionService extends BaseService {
         `Failed to get unanswered questions: ${error}`,
       );
     }
+  }
+
+  async generateFromTranscript(
+    transcript: string,
+  ): Promise<GeneratedQuestionResponse[]> {
+    const sampleQuestions: GeneratedQuestionResponse[] = [
+      {
+        id: '1',
+        text: 'What is the main crop discussed in the transcript?',
+        agriExpert: 'Dr. Rajesh Kumar',
+        answer: 'The transcript mainly discusses wheat cultivation.',
+      },
+      {
+        id: '2',
+        text: 'List two key farming techniques mentioned.',
+        agriExpert: 'Dr. Priya Sharma',
+        answer: 'Crop rotation and drip irrigation were highlighted.',
+      },
+      {
+        id: '3',
+        text: 'How can the information be applied in real farms?',
+        agriExpert: 'Dr. Anil Mehta',
+        answer:
+          'Farmers can adopt crop rotation and proper irrigation scheduling.',
+      },
+    ];
+
+    const randomIndex = Math.floor(Math.random() * sampleQuestions.length);
+    return [sampleQuestions[randomIndex]];
   }
 
   async getQuestionById(questionId: string): Promise<QuestionResponse> {

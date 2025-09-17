@@ -10,6 +10,7 @@ import {
   QueryParams,
   Authorized,
   CurrentUser,
+  Post,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -19,6 +20,8 @@ import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {QuestionService} from '../services/QuestionService.js';
 import {ContextIdParam} from '../classes/validators/ContextValidators.js';
 import {
+  GeneratedQuestionResponse,
+  GenerateQuestionsBody,
   QuestionIdParam,
   QuestionResponse,
 } from '../classes/validators/QuestionValidators.js';
@@ -69,6 +72,17 @@ export class QuestionController {
       limit,
       query.filter,
     );
+  }
+
+  @Post('/generate')
+  @HttpCode(200)
+  @ResponseSchema(GeneratedQuestionResponse, {isArray: true})
+  @Authorized()
+  @OpenAPI({summary: 'Generate questions from transcript'})
+  async generateQuestions(
+    @Body() body: GenerateQuestionsBody,
+  ): Promise<GeneratedQuestionResponse[]> {
+    return this.questionService.generateFromTranscript(body.transcript);
   }
 
   @Get('/:questionId')

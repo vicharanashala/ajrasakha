@@ -1,6 +1,7 @@
 import type { IQuestion } from "@/types";
 import { apiFetch } from "../api-fetch";
 import type { QuestionFilter } from "@/components/QA-interface";
+import type { GeneratedQuestion } from "@/components/voice-recorder-card";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -20,4 +21,14 @@ export class QuestionService {
   async getQuestionById(id: string): Promise<IQuestion | null> {
     return apiFetch<IQuestion | null>(`${this._baseUrl}/${id}`);
   }
+
+  async generateQuestions(
+    transcript: string
+  ): Promise<GeneratedQuestion[] | null> {
+    return apiFetch<GeneratedQuestion[] | null>(`${this._baseUrl}/generate`, {
+      method: "POST",
+      body: JSON.stringify({ transcript }),
+    });
+  }
+  
 }

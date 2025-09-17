@@ -20,7 +20,7 @@ export const PlaygroundPage = () => {
   return (
     <>
       <div className=" h-full flex-col md:flex w-full ">
-        <div className="container mx-auto flex items-center justify-between py-4 px-4">
+        <div className="container mx-auto flex items-center justify-between py-4 md:py-0 px-4">
           <img
             src="/annam-logo.png"
             alt="Annam Logo"
@@ -100,14 +100,14 @@ export const PlaygroundPage = () => {
                 >
                   <div className="min-h-[75%] bg-background p-4 ">
                     <div className="container mx-auto py-8 pt-0">
-                      <div className="text-center mb-4">
+                      {/* <div className="text-center mb-4">
                         <h1 className="text-3xl font-bold mb-2">
                           Voice Recorder & Transcriber
                         </h1>
                         <p className="text-muted-foreground">
                           Record your voice and see it transcribed in real-time
                         </p>
-                      </div>
+                      </div> */}
                       <VoiceRecorderCard />
                     </div>
                   </div>
