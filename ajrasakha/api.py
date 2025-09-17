@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from pydantic.json_schema import JsonSchemaValue
-from helpers import ollama_generate
+from helpers import boolean_field_checker, ollama_generate, question_releavancy_verifier
 from models import ChatCompletionRequest, Message, ThinkingResponseChunk, ContentResponseChunk
 from ce.retrievers.basic import BasicRetriever, MongoDBVectorStoreManager, EmbeddingManager
 from llama_index.core.indices.property_graph import SchemaLLMPathExtractor
@@ -17,7 +17,9 @@ from llama_index.core.indices.property_graph import PropertyGraphIndex
 from ollama import AsyncClient
 import pymongo
 
-from constants import COLLECTION_POP, COLLECTION_QA
+from functions import process_nodes_qa, process_nodes_pop, render_pop_markdown, render_qa_markdown
+
+from constants import COLLECTION_POP, COLLECTION_QA, LLM_MODEL_MAIN, LLM_MODEL_FALL_BACK, SYSTEM_PROMPT_QUESTION_RELEVANCY, SYSTEM_PROMPT_RETRIEVE_ANALYSER, SYSTEM_PROMPT_POP_REFERENCE_ANALYSER
 from functions import get_retriever
 
 app = FastAPI(title="AjraSakha")
@@ -41,14 +43,87 @@ retriever_pop = get_retriever(client=client, collection_name=COLLECTION_POP, sim
 
 
 async def generate_response(request: ChatCompletionRequest):
+    """
+    Generate a response by checking if the user's question is relevant to Indian agriculture
+    and whether retrieval from the knowledge base is required.
+    """
 
+    messages = request.messages
+    question = messages[-1].content
 
+    # Build context from all messages except the system (0) and latest user question (-1)
+    context = [
+        {"role": msg.role, "content": msg.content}
+        for msg in messages[1:-1]
+    ]
+
+    # Case: only 2 messages → first relevant message always requires retrieval
+    should_retrieve: bool | None = True if len(messages) == 2 else None
+
+    yield ThinkingResponseChunk("Verifying prompt...")
+    # Step 1: Check relevancy
+    is_relevant = await boolean_field_checker(
+        prompt=question,
+        context=context,
+        system_prompt=SYSTEM_PROMPT_QUESTION_RELEVANCY,
+        llm_model=LLM_MODEL_MAIN,
+        field="relevant",
+    )
+
+    if not is_relevant:
+        # If irrelevant → no retrieval
+        should_retrieve = False
+        yield ThinkingResponseChunk("Invalid Prompt.\n")
+    else:
+        yield ThinkingResponseChunk("Valid Prompt.\n")
+        # Step 2: Check retrieval only if not first message
+        if should_retrieve is None:
+            yield ThinkingResponseChunk("Understanding any data to be retrieved...\n")
+            should_retrieve = await boolean_field_checker(
+                prompt=question,
+                context=context,
+                system_prompt=SYSTEM_PROMPT_RETRIEVE_ANALYSER,
+                llm_model=LLM_MODEL_MAIN,
+                field="retrieve",
+            )
     
-    total_content = ""
-    async for chunk in ollama_generate(prompt=request.messages[-1].content, context=total_content, model=OLLAMA_MODEL_1):
+    pop_reference_required = await boolean_field_checker(
+        prompt=question,
+        context=context,
+        system_prompt=SYSTEM_PROMPT_POP_REFERENCE_ANALYSER,
+        llm_model=LLM_MODEL_MAIN,
+        field="pop_reference"
+    )
+    
+    if(pop_reference_required):
+        yield ThinkingResponseChunk("Retrieving data from PoP Dataset...\n")
+        nodes_pop = await retriever_pop.aretrieve(question)
+        processed_nodes_pop = await process_nodes_pop(nodes_pop)
+        display_nodes_pop = await render_pop_markdown(processed_nodes_pop, truncate=True)
+        context_nodes_pop = await render_pop_markdown(processed_nodes_pop,truncate=False)
+        yield ThinkingResponseChunk(display_nodes_pop)
+        yield ThinkingResponseChunk("\nData retrieved.\n")
+        
+
+    if(is_relevant and should_retrieve):
+        yield ThinkingResponseChunk("Retrieving data from annam.ai GOLDEN Dataset...\n")
+        nodes_qa = await retriever_qa.aretrieve(question)
+        processed_nodes_qa = await process_nodes_qa(nodes_qa)
+        display_nodes_qa = await render_qa_markdown(processed_nodes_qa, truncate=True)
+        context_nodes_qa = await render_qa_markdown(processed_nodes_qa,truncate=False)
+        yield ThinkingResponseChunk(display_nodes_qa)
+        yield ThinkingResponseChunk("\nData retrieved.\n")
+        
+    elif(is_relevant and not should_retrieve):
+        yield ThinkingResponseChunk("Relevant data is already present.\n")
+        
+    
+    async for chunk in ollama_generate(context=context, prompt=question, model=LLM_MODEL_MAIN, retrieved_data=context_nodes_qa if (is_relevant and should_retrieve) else None):
         yield chunk
     
-    yield ContentResponseChunk("", final_chunk=True)
+    yield ContentResponseChunk("",final_chunk=True)
+
+
         
 
 @app.post("/api/chat/")

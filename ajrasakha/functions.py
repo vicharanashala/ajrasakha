@@ -72,6 +72,50 @@ async def process_nodes_pop(nodes: List[NodeWithScore]) -> List[ContextPOP]:
 
 
 
+def _truncate(text: str, max_len: int = 300) -> str:
+    """Helper to truncate long text safely."""
+    return text if len(text) <= max_len else text[:max_len].rstrip() + "..."
 
 
+async def render_qa_markdown(results: List[ContextQuestionAnswerPair], truncate:bool = True, max_len: int = 300) -> str:
+    """Render ContextQuestionAnswerPair objects into Markdown with truncation."""
+    md_output = []
+    for r in results:
+        question = _truncate(r.question, max_len) if truncate else r.question
+        answer = _truncate(r.answer if r.answer else "Answer not available", max_len) if truncate else r.answer
 
+        md_output.append(f"""### ❓Golden Dataset Question
+{question}
+
+### ✅ Answer
+{answer}
+
+**Metadata**
+- 👨‍🌾 Agri Specialist: {r.meta_data.agri_specialist}
+- 🌱 Crop: {r.meta_data.crop}
+- 📖 Source: {r.meta_data.sources}
+- 🏞 State: {r.meta_data.state}
+- 🔗 Similarity Score: {r.meta_data.similarity_score:.2f}
+---
+""")
+    return "\n".join(md_output)
+
+
+async def render_pop_markdown(results: List[ContextPOP], truncate: bool= True, max_len: int = 300) -> str:
+    """Render ContextPOP objects into Markdown with truncation."""
+    md_output = []
+    for r in results:
+        text = _truncate(r.text, max_len) if truncate else r.text
+
+        md_output.append(f"""### 📄 POP Reference
+**Text**  
+{text}
+
+**Metadata**
+- 📑 Page No: {r.meta_data.page_no}
+- 📖 Source: {r.meta_data.source}
+- 🏷 Topics: {r.meta_data.topics}
+- 🔗 Similarity Score: {r.meta_data.similarity_score:.2f}
+---
+""")
+    return "\n".join(md_output)
