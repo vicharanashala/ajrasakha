@@ -98,7 +98,7 @@ export const PlaygroundPage = () => {
                   value="upload"
                   className="mt-0 border-0 p-0 max-w-[95%]"
                 >
-                  <div className="min-h-[75%] bg-background p-4 ">
+                  <div className="min-h-[75%] bg-background p-4 ps-0">
                     <div className="container mx-auto py-8 pt-0">
                       {/* <div className="text-center mb-4">
                         <h1 className="text-3xl font-bold mb-2">

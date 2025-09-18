@@ -1,4 +1,3 @@
-
 export const CORE_TYPES = {
   // Controllers
   QuestionController: Symbol.for('QuestionController'),
@@ -9,6 +8,7 @@ export const CORE_TYPES = {
   QuestionService: Symbol.for('QuestionService'),
   AnswerService: Symbol.for('AnswerService'),
   ContextService: Symbol.for('ContextService'),
+  AIService: Symbol.for('AIService'),
 
   // Repositories
   QuestionRepository: Symbol.for('QuestionRepository'),

@@ -10,10 +10,15 @@ import {
   QuestionResponse,
 } from '../classes/validators/QuestionValidators.js';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
+import {CORE_TYPES} from '../types.js';
+import {AiService} from './AiService.js';
 
 @injectable()
 export class QuestionService extends BaseService {
   constructor(
+    @inject(CORE_TYPES.AIService)
+    private readonly aiService: AiService,
+
     @inject(GLOBAL_TYPES.QuestionRepository)
     private readonly questionRepo: IQuestionRepository,
     @inject(GLOBAL_TYPES.AnswerRepository)
@@ -77,33 +82,41 @@ export class QuestionService extends BaseService {
     }
   }
 
-  async generateFromTranscript(
-    transcript: string,
+  async getQuestionFromRawContext(
+    context: string,
   ): Promise<GeneratedQuestionResponse[]> {
-    const sampleQuestions: GeneratedQuestionResponse[] = [
-      {
-        id: '1',
-        text: 'What is the main crop discussed in the transcript?',
-        agriExpert: 'Dr. Rajesh Kumar',
-        answer: 'The transcript mainly discusses wheat cultivation.',
-      },
-      {
-        id: '2',
-        text: 'List two key farming techniques mentioned.',
-        agriExpert: 'Dr. Priya Sharma',
-        answer: 'Crop rotation and drip irrigation were highlighted.',
-      },
-      {
-        id: '3',
-        text: 'How can the information be applied in real farms?',
-        agriExpert: 'Dr. Anil Mehta',
-        answer:
-          'Farmers can adopt crop rotation and proper irrigation scheduling.',
-      },
-    ];
+    // const sampleQuestions: GeneratedQuestionResponse[] = [
+    //   {
+    //     id: '1',
+    //     text: 'What is the main crop discussed in the transcript?',
+    //     agriExpert: 'Dr. Rajesh Kumar',
+    //     answer: 'The transcript mainly discusses wheat cultivation.',
+    //   },
+    //   {
+    //     id: '2',
+    //     text: 'List two key farming techniques mentioned.',
+    //     agriExpert: 'Dr. Priya Sharma',
+    //     answer: 'Crop rotation and drip irrigation were highlighted.',
+    //   },
+    //   {
+    //     id: '3',
+    //     text: 'How can the information be applied in real farms?',
+    //     agriExpert: 'Dr. Anil Mehta',
+    //     answer:
+    //       'Farmers can adopt crop rotation and proper irrigation scheduling.',
+    //   },
+    // ];
+    // const randomIndex = Math.floor(Math.random() * sampleQuestions.length);
+    // return [sampleQuestions[randomIndex]];
 
-    const randomIndex = Math.floor(Math.random() * sampleQuestions.length);
-    return [sampleQuestions[randomIndex]];
+    const questions = await this.aiService.getQuestionByContext(context);
+    const uniqueQuestions = Array.from(
+      new Map(questions.map(q => [q.question, q])).values(),
+    ).map(q => ({
+      ...q,
+      id: new ObjectId().toString(),
+    }));
+    return uniqueQuestions;
   }
 
   async getQuestionById(questionId: string): Promise<QuestionResponse> {

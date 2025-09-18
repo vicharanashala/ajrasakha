@@ -4,7 +4,6 @@ import {
   Filter,
   HelpCircle,
   Lightbulb,
-  Loader2,
   Mic,
   MicOff,
   RotateCcw,
@@ -26,7 +25,7 @@ import {
 } from "./atoms/select";
 import type { SupportedLanguage } from "@/types";
 import { useSubmitTranscript } from "@/hooks/api/context/useSubmitTranscript";
-import { ScrollArea } from "./atoms/scroll-area";
+import { ScrollArea, ScrollBar } from "./atoms/scroll-area";
 import { Label } from "./atoms/label";
 import { useGenerateQuestion } from "@/hooks/api/question/useGenerateQuestion";
 import {
@@ -35,11 +34,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "./atoms/accordion";
+import { Skeleton } from "./atoms/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 
 export interface GeneratedQuestion {
   id: string;
-  text: string;
-  agriExpert: string;
+  question: string;
+  agri_specialist: string;
   answer: string;
 }
 declare global {
@@ -78,6 +79,9 @@ const VoiceRecorderCard = () => {
 
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef("");
+  const lastTranscriptRef = useRef<string>(""); // to hold the previous trnascript to avoid duplicate api calls
+
+  const frequencyRef = useRef<number[]>([]);
 
   const { mutateAsync: submitTranscript, isPending } = useSubmitTranscript();
 
@@ -132,17 +136,27 @@ const VoiceRecorderCard = () => {
 
   useEffect(() => {
     transcriptRef.current = displayTranscript;
-  }, [displayTranscript]);
+    frequencyRef.current = frequencyData;
+  }, [frequencyData]);
 
   useEffect(() => {
     if (!isRecording || !isListening) return;
 
     const interval = setInterval(async () => {
-      if (transcriptRef.current.length <= 10) return;
+      const currentTranscript = transcriptRef.current.trim();
+
+      const maxFrequency = Math.max(...frequencyRef.current);
+
+      if (transcriptRef.current.length <= 10 || maxFrequency < 0.05) return;
+      // if (currentTranscript.length <= 10) return;
+      if (currentTranscript === lastTranscriptRef.current) return;
+
+      lastTranscriptRef.current = currentTranscript;
 
       try {
         const qstns = await generateQuestions(transcriptRef.current);
-        setQuestions((prev) => (qstns ? [...prev, ...qstns] : prev));
+        // setQuestions((prev) => (qstns ? [...prev, ...qstns] : prev));
+        setQuestions(() => (qstns ? qstns : []));
       } catch (err) {
         console.error("Error generating questions:", err);
       }
@@ -252,13 +266,14 @@ const VoiceRecorderCard = () => {
     <div className="min-h-[75%] bg-background p-4 ">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className=" min-h-[80%] md:min-h-[75%]  md:h-[75%]">
+          <Card className="min-h-[80%] md:min-h-[75%] md:max-h-[75%]">
             <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Volume2 className="h-4 w-4" />
                   Voice Recorder
                 </CardTitle>
+
                 <Select
                   value={language}
                   onValueChange={(value) =>
@@ -266,7 +281,7 @@ const VoiceRecorderCard = () => {
                   }
                   disabled={isRecording || isListening}
                 >
-                  <SelectTrigger className="w-[140px] h-8">
+                  <SelectTrigger className="w-full md:w-[160px] h-9">
                     <Filter className="w-4 h-4 md:hidden" />
                     <span className="hidden md:block text-sm">
                       <SelectValue placeholder="Language" />
@@ -284,13 +299,13 @@ const VoiceRecorderCard = () => {
             </CardHeader>
 
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-4 p-3 border rounded-lg bg-muted/30">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-3 border rounded-lg bg-muted/30">
                 <Button
                   onClick={() => handleRecordingToggle()}
                   size="sm"
                   variant={isRecording ? "destructive" : "default"}
                   className={cn(
-                    "h-12 w-12 rounded-full flex-shrink-0",
+                    "h-12 w-12 rounded-full flex-shrink-0 self-center sm:self-auto",
                     isRecording && "animate-pulse"
                   )}
                 >
@@ -356,7 +371,9 @@ const VoiceRecorderCard = () => {
                     )}
                   </div>
                 </div>
-                <div className="flex justify-end mt-2 gap-2">
+
+                {/* Buttons */}
+                <div className="flex flex-wrap justify-end mt-2 gap-2">
                   <Button
                     onClick={handleClear}
                     variant="outline"
@@ -384,95 +401,73 @@ const VoiceRecorderCard = () => {
             </CardContent>
           </Card>
 
-          <Card className="min-h-[80%] md:min-h-[75%]  md:h-[75%] ">
+          <Card className="min-h-[80%]  md:min-h-[75%] md:max-h-[75%]">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <HelpCircle className="h-5 w-5" />
-                  Questions
-                </span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center gap-2">
+                      <HelpCircle className="h-5 w-5" />
+                      Questions
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    These are questions generated from your transcript
+                  </TooltipContent>
+                </Tooltip>
                 <Badge variant="outline">{questions?.length} questions</Badge>
               </CardTitle>
             </CardHeader>
 
             <CardContent className=" h-full overflow-hidden">
-              <ScrollArea className="h-[500px] w-full ">
-                {isGeneratingQuestions ? (
-                  <div className="flex flex-col items-center justify-center h-40 text-center text-muted-foreground">
-                    <Loader2 className="h-8 w-8 mb-3 animate-spin" />
-                    <p className="text-sm">Generating questions...</p>
-                  </div>
-                ) : !questions || questions?.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-40 text-center text-muted-foreground">
-                    <Lightbulb className="h-12 w-12 mb-4 opacity-50" />
-                    <p className="text-sm">
-                      Start speaking to related questions based on your
-                      transcript
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {questions?.map((question, index) => (
-                      <div
-                        key={`${question}-${question.id}`}
-                        className="rounded-lg border bg-card hover:bg-accent/30 transition-colors overflow-hidden"
-                      >
-                        <div className="p-4">
-                          <div className="flex items-start gap-3 mb-3">
-                            <div className="text-blue-600 dark:text-blue-400 mt-1">
-                              <HelpCircle className="h-4 w-4" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-foreground leading-relaxed">
-                                {question.text}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between gap-2 mb-3">
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                <User className="w-3 h-3" />
-                                <span className="font-medium">Expert:</span>
-                                <span className="font-medium text-foreground">
-                                  {question.agriExpert}
-                                </span>
+              {isGeneratingQuestions ? (
+                <div className="flex flex-col h-[500px] text-center text-muted-foreground space-y-4 p-4">
+                  <Skeleton className="h-25 w-full rounded-md" />
+                  <Skeleton className="h-25 w-full rounded-md" />
+                  <Skeleton className="h-25 w-full rounded-md" />
+                </div>
+              ) : (
+                <ScrollArea className="h-[500px] w-full ">
+                  {!questions || questions?.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-40 text-center text-muted-foreground">
+                      <Lightbulb className="h-12 w-12 mb-4 opacity-50" />
+                      <p className="text-sm">
+                        Start speaking to related questions based on your
+                        transcript
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 pb-28">
+                      {questions?.map((qn, index) => (
+                        <div
+                          key={`${qn.question}-${qn.id + index}`}
+                          className="rounded-lg border bg-card hover:bg-accent/30 transition-colors overflow-hidden"
+                        >
+                          <div className="p-4">
+                            <div className="flex items-start gap-3 mb-3">
+                              <div className="text-blue-600 dark:text-blue-400 mt-1">
+                                <HelpCircle className="h-4 w-4" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-foreground leading-relaxed">
+                                  {qn.question}
+                                </p>
                               </div>
                             </div>
-                          </div>
 
-                          <Accordion
-                            type="single"
-                            collapsible
-                            className="w-full"
-                          >
-                            <AccordionItem
-                              value="answer"
-                              className="border-none"
+                            <Accordion
+                              type="single"
+                              collapsible
+                              className="w-full"
                             >
-                              <AccordionTrigger className="py-2 px-3 bg-muted/50 rounded-md hover:bg-muted transition-colors text-sm font-medium hover:no-underline">
-                                <div className="flex items-center gap-2">
-                                  <svg
-                                    className="w-4 h-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                    />
-                                  </svg>
-                                  View Expert Answer
-                                </div>
-                              </AccordionTrigger>
-                              <AccordionContent className="pt-3 pb-1">
-                                <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
-                                  <div className="flex items-center gap-2 mb-2">
+                              <AccordionItem
+                                value="answer"
+                                className="border-none"
+                              >
+                                <AccordionTrigger className="py-2 px-3 bg-muted/50 rounded-md hover:bg-muted transition-colors text-sm font-medium hover:no-underline">
+                                  <div className="flex items-center gap-2">
                                     <svg
-                                      className="w-4 h-4 text-green-600 dark:text-green-400"
+                                      className="w-4 h-4"
                                       fill="none"
                                       stroke="currentColor"
                                       viewBox="0 0 24 24"
@@ -481,26 +476,61 @@ const VoiceRecorderCard = () => {
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
                                         strokeWidth={2}
-                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                        d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                                       />
                                     </svg>
-                                    <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                                      Expert Answer
-                                    </span>
+                                    View Expert Answer
                                   </div>
-                                  <p className="text-sm text-green-700 dark:text-green-300 leading-relaxed">
-                                    {question.answer}
-                                  </p>
-                                </div>
-                              </AccordionContent>
-                            </AccordionItem>
-                          </Accordion>
+                                </AccordionTrigger>
+
+                                <AccordionContent className="pt-3 pb-1">
+                                  <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3 space-y-2">
+                                    <div className="flex justify-between items-center w-full px-2">
+                                      <div className="flex items-center gap-2">
+                                        <svg
+                                          className="w-4 h-4 text-green-600 dark:text-green-400"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                          />
+                                        </svg>
+                                        <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                                          Specialist Answer
+                                        </span>
+                                      </div>
+
+                                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                        <User className="w-3 h-3" />
+                                        <span className="font-medium">
+                                          Specialist:
+                                        </span>
+                                        <span className="font-medium text-foreground">
+                                          {qn.agri_specialist}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <p className="text-sm text-green-700 dark:text-green-300 leading-relaxed px-2">
+                                      {qn.answer || "Nil"}
+                                    </p>
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            </Accordion>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
+                      ))}
+                    </div>
+                  )}
+                  <ScrollBar orientation="vertical" />
+                </ScrollArea>
+              )}
 
               {(questions?.length || 0) > 0 && (
                 <div className="text-center text-sm text-muted-foreground border-t pt-4 mt-4">

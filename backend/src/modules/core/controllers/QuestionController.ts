@@ -78,11 +78,11 @@ export class QuestionController {
   @HttpCode(200)
   @ResponseSchema(GeneratedQuestionResponse, {isArray: true})
   @Authorized()
-  @OpenAPI({summary: 'Generate questions from transcript'})
-  async generateQuestions(
+  @OpenAPI({summary: 'Generate questions from raw transcript'})
+  async getQuestionFromRawContext(
     @Body() body: GenerateQuestionsBody,
   ): Promise<GeneratedQuestionResponse[]> {
-    return this.questionService.generateFromTranscript(body.transcript);
+    return this.questionService.getQuestionFromRawContext(body.transcript);
   }
 
   @Get('/:questionId')

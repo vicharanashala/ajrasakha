@@ -9,6 +9,7 @@ import {ContextService} from './services/ContextService.js';
 import { QuestionRepository } from '#root/shared/database/providers/mongo/repositories/QuestionRepository.js';
 import { ContextRepository } from '#root/shared/database/providers/mongo/repositories/ContextRepository.js';
 import { AnswerRepository } from '#root/shared/database/providers/mongo/repositories/AnswerRepository.js';
+import { AiService } from './services/AiService.js';
 
 export const coreContainerModule = new ContainerModule(options => {
   // Controllers
@@ -23,6 +24,7 @@ export const coreContainerModule = new ContainerModule(options => {
     .inSingletonScope();
   options.bind(CORE_TYPES.AnswerService).to(AnswerService).inSingletonScope();
   options.bind(CORE_TYPES.ContextService).to(ContextService).inSingletonScope();
+  options.bind(CORE_TYPES.AIService).to(AiService).inSingletonScope();
 
   // Repositories
   options.bind(CORE_TYPES.QuestionRepository).to(QuestionRepository).inSingletonScope();

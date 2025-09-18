@@ -111,10 +111,10 @@ class GeneratedQuestionResponse {
   id!: string;
 
   @IsString()
-  text!: string;
+  question!: string;
 
   @IsString()
-  agriExpert!: string;
+  agri_specialist!: string;
 
   @IsString()
   answer!: string;
