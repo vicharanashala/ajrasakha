@@ -1194,6 +1194,22 @@ llama-index-core = ">=0.13.0,<0.15"
 openai = ">=1.1.0"
 
 [[package]]
+name = "llama-index-graph-stores-neo4j"
+version = "0.5.1"
+description = "llama-index graph stores neo4j integration"
+optional = false
+python-versions = "<4.0,>=3.9"
+groups = ["main"]
+files = [
+    {file = "llama_index_graph_stores_neo4j-0.5.1-py3-none-any.whl", hash = "sha256:d9a93c7974de648dd0850b8e405599fdc56195b24429dedcd5f971274536f322"},
+    {file = "llama_index_graph_stores_neo4j-0.5.1.tar.gz", hash = "sha256:3f713347aa620f8f5d150636e8bb95e3f819a4eb057b91dfa7cec1162c28d578"},
+]
+
+[package.dependencies]
+llama-index-core = ">=0.13.0,<0.15"
+neo4j = ">=5.16.0,<6"
+
+[[package]]
 name = "llama-index-indices-managed-llama-cloud"
 version = "0.9.4"
 description = "llama-index indices llama-cloud integration"
@@ -1591,6 +1607,26 @@ files = [
     {file = "mypy_extensions-1.1.0-py3-none-any.whl", hash = "sha256:1be4cccdb0f2482337c4743e60421de3a356cd97508abadd57d47403e94f5505"},
     {file = "mypy_extensions-1.1.0.tar.gz", hash = "sha256:52e68efc3284861e772bbcd66823fde5ae21fd2fdb51c62a211403730b916558"},
 ]
+
+[[package]]
+name = "neo4j"
+version = "5.28.2"
+description = "Neo4j Bolt driver for Python"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+files = [
+    {file = "neo4j-5.28.2-py3-none-any.whl", hash = "sha256:5c53b5c3eee6dee7e920c9724391aa38d7135a651e71b766da00533b92a91a94"},
+    {file = "neo4j-5.28.2.tar.gz", hash = "sha256:7d38e27e4f987a45cc9052500c6ee27325cb23dae6509037fe31dd7ddaed70c7"},
+]
+
+[package.dependencies]
+pytz = "*"
+
+[package.extras]
+numpy = ["numpy (>=1.7.0,<3.0.0)"]
+pandas = ["numpy (>=1.7.0,<3.0.0)", "pandas (>=1.1.0,<3.0.0)"]
+pyarrow = ["pyarrow (>=1.0.0)"]
 
 [[package]]
 name = "nest-asyncio"
@@ -4273,4 +4309,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "4b0ce9658ec54600664968a367b9a2c7c7ca305cfeed83fe55870520004043a6"
+content-hash = "83d780a4deb4ddcce337e0f0c772bffe1870bb8dca8884d4a426d48aab328219"

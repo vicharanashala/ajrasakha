@@ -26,7 +26,13 @@ class QuestionAnswerPairMetaData(BaseModel):
     sources: str
     state: str
     crop: str
-    
+
+class KnowledgeGraphNodes(BaseModel):
+    start_node: str
+    relation_node: str
+    end_node: str
+    score: float | None
+ 
 class ContextQuestionAnswerPair(BaseModel):
     question: str
     answer: str
@@ -74,7 +80,11 @@ class ContentResponseChunk:
             ),
             done=final_chunk
         )
-        
+    
+    @property
+    def text(self):
+        return self.chunk.message.content
+     
     def encode(self, encoding: str= "utf-8", errors: str = "strict"):
         return str(self).encode(encoding=encoding,errors=errors)
     
