@@ -33,21 +33,21 @@ export class ContextService extends BaseService {
       return this._withTransaction(async (session: ClientSession) => {
         const result = await this.contextRepo.addContext(text, session);
 
-        const contextId = result.insertedId;
-        const dummyQuestions: string[] = [
-          '<< >> What is the difference between supervised and unsupervised learning?',
-          'Explain closures in JavaScript with an example.',
-          'How does indexing improve query performance in MongoDB?',
-          'What are the key features of TypeScript compared to JavaScript?',
-          'How does garbage collection work in Node.js?',
-        ];
+        // const contextId = result.insertedId;
+        // const dummyQuestions: string[] = [
+        //   ' is the difference between supervised and unsupervised learning?',
+        //   'Explain closures in JavaScript with an example.',
+        //   'How does indexing improve query performance in MongoDB?',
+        //   'What are the key features of TypeScript compared to JavaScript?',
+        //   'How does garbage collection work in Node.js?',
+        // ];
 
-        await this.questionRepo.addQuestions(
-          userId,
-          contextId,
-          dummyQuestions,
-          session,
-        );
+        // await this.questionRepo.addQuestions(
+        //   userId,
+        //   contextId,
+        //   dummyQuestions,
+        //   session,
+        // );
 
         return result;
       });

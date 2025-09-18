@@ -10,10 +10,15 @@ import {
   SubmissionResponse,
   UpdateAnswerBody,
 } from '../classes/validators/AnswerValidators.js';
+import {CORE_TYPES} from '../types.js';
+import {AiService} from './AiService.js';
 
 @injectable()
 export class AnswerService extends BaseService {
   constructor(
+    @inject(CORE_TYPES.AIService)
+    private readonly aiService: AiService,
+
     @inject(GLOBAL_TYPES.AnswerRepository)
     private readonly answerRepo: IAnswerRepository,
 
@@ -54,13 +59,30 @@ export class AnswerService extends BaseService {
         throw new BadRequestError('You’ve already submitted an answer!');
       }
 
-      const isFinalAnswer = false; // Need to calculate properly
+      // lets consider it is not final answer
+      let isFinalAnswer = false;
+      let threshold = 0;
+      const answers = await this.answerRepo.getByQuestionId(questionId);
+
+      if (answers.length) {
+        const lastSubmittedAnswer = answers[0]; // first answer should be latest
+        const payload: {previousAnswer: string; currentAnswer: string} = {
+          previousAnswer: answer,
+          currentAnswer: lastSubmittedAnswer.answer,
+        };
+
+        threshold = await this.aiService.getFinalAnswerByThreshold(payload);
+
+        if (threshold >= 0.9) isFinalAnswer = true; // if it meets threshold then set as final
+      }
+
       const updatedAnswerCount = question.totalAnwersCount + 1;
 
       const insertedId = await this.answerRepo.addAnswer(
         questionId,
         authorId,
         answer,
+        threshold,
         isFinalAnswer,
         updatedAnswerCount,
         session,

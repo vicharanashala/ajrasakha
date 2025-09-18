@@ -80,7 +80,7 @@ const VoiceRecorderCard = () => {
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef("");
   const lastTranscriptRef = useRef<string>(""); // to hold the previous trnascript to avoid duplicate api calls
-
+  const detectedLangRef = useRef<string | null>(null);
   const frequencyRef = useRef<number[]>([]);
 
   const { mutateAsync: submitTranscript, isPending } = useSubmitTranscript();

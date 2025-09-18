@@ -32,6 +32,7 @@ export interface IAnswer {
   answerIteration: number;
   isFinalAnswer: boolean;
   answer: string;
+  threshold: number;
   createdAt?: Date;
   updatedAt?: Date;
 }

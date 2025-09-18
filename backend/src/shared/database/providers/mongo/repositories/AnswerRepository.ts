@@ -24,6 +24,7 @@ export class AnswerRepository implements IAnswerRepository {
     questionId: string,
     authorId: string,
     answer: string,
+    threshold: number,
     isFinalAnswer: boolean = false,
     answerIteration: number = 1,
     session?: ClientSession,
@@ -47,6 +48,7 @@ export class AnswerRepository implements IAnswerRepository {
         answer,
         isFinalAnswer,
         answerIteration,
+        threshold,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -74,6 +76,7 @@ export class AnswerRepository implements IAnswerRepository {
 
       const answers = await this.answersCollection
         .find({questionId: new ObjectId(questionId)}, {session})
+        .sort({createdAt: -1})
         .toArray();
 
       return answers.map(a => ({

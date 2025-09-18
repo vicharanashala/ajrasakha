@@ -17,8 +17,31 @@ export class AiService {
       body: JSON.stringify({context}),
     });
     if (!response.ok)
-      throw new InternalServerError('Failed to get data from ai server!');
+      throw new InternalServerError(
+        `Failed to get questions from ai server ${response.statusText}`,
+      );
     const data = (await response.json()) as GeneratedQuestionResponse[];
     return data;
+  }
+
+  async getFinalAnswerByThreshold(answers: {
+    previousAnswer: string;
+    currentAnswer: string;
+  }): Promise<number> {
+    const response = await fetch(`${this._aiServerUrl}/answers/threshold`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({answers}),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to get final answer from ai server: ${response.statusText}`,
+      );
+    }
+
+    return (await response.json()) as number;
   }
 }

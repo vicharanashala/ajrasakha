@@ -20,6 +20,7 @@ export interface IAnswerRepository {
     questionId: string,
     authorId: string,
     answer: string,
+    threshold: number,
     isFinalAnswer?: boolean,
     answerIteration?: number,
     session?: ClientSession,
