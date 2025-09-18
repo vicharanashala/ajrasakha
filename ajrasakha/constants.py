@@ -18,10 +18,32 @@ OLLAMA_API_URL = OLLAMA_HOST + "/api/chat"
 # MODELS
 LLM_MODEL_MAIN = "deepseek-r1:70b"
 LLM_MODEL_FALL_BACK = "qwen3:1.7b"
+LLM_STRUCTURED_MODEL = "Osmosis/Osmosis-Structure-0.6B:latest"
 EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
 
 
 # PROMPTS
+
+
+DB_SELECTOR_PROMPT = (
+    "Some possible data sources are listed below, numbered from 1 to {num_choices}.\n"
+    "---------------------\n"
+    "{context_list}"
+    "\n---------------------\n"
+    "You are a smart selector system. Based only on the user's question: '{query_str}', "
+    "determine which one of the following sources is most appropriate to answer the question.\n\n"
+    "**Rules for selection:**\n"
+    "1. **Q and A Database**: Use this as the default if the question is simple general or straightforward, and does not require special references.\n"
+    "2. **PoP Database**: Use only if the question explicitly requests that the answer should reference the 'Package of Practices (PoP)'.\n"
+    "3. **Graph Database**: Use this if the question explicitly mentions to reason or analyse.\n"
+    "4. **No Database**: Use this if the context provided is already sufficient to answer the question without any additional retrieval.\n\n"
+        "\n---------------------\n"
+    "Using only the choices above and not prior knowledge, generate "
+    "the selection object and reason that is most relevant to the "
+    "question: '{query_str}'\n"
+)
+
+
 
 # This prompt is for an AI that classifies whether a user's question is relevant to Indian agriculture.
 # It acts as a gatekeeper before the query reaches the main expert.
@@ -39,10 +61,14 @@ including whether it is a direct question or a follow-up question based on the g
    - Follow-ups that are unrelated to the provided context or agriculture.
 3. **Language:** Ignore grammar or spelling mistakes. Focus only on intent and topic.
 
+Additional Terminologies that are relevant: pop, POP, package of practices, kcc, golden dataset, annam,ai golden dataset, q and a golden dataset  
+
 **Output Format:**
 You must output ONLY a single JSON object. Nothing else.
 - If the question is relevant (direct or follow-up): `{"relevant": true}`
 - If the question is irrelevant: `{"relevant": false}`
+
+Do not include explanations or extra fields, also do not include back ticks like markdown, just plain json string.
 """
 
 
@@ -53,8 +79,13 @@ or if additional retrieval from the knowledge base is required.
 Rules:
 - If the provided context contains enough information to directly answer the question, set "retrieve" to false.
 - If the provided context is missing, incomplete, or insufficient to answer the question, set "retrieve" to true.
-- Output must be in strict JSON format only, with one field: { "retrieve": true/false }.
-- Do not include explanations or extra fields.
+- Output must be with one field of the following
+- If data is to be retrieved then say : `{"retrieve": true }`
+- If data is to be retrieved then say : `{"retrieve": false }`
+- Do not include explanations or extra fields, also do not include back ticks like markdown, just plain json string.
+
+
+
 """
 
 
@@ -101,6 +132,7 @@ If a user asks a question that is not about Indian agriculture, you must give on
 *   **Bad User Question:** "How is farming done in USA?"
 *   **Required AI Response:** "I am sorry, but I am only designed to help with agriculture and farming questions in India. This question is outside my expertise. Please ask me about farming."
 
+
 """
 
 SYSTEM_PROMPT_POP_REFERENCE_ANALYSER = """
@@ -110,17 +142,16 @@ if the user explicitly requests or implies that the answer should be based on th
 **Rules:**
 1. **True Cases ({"pop_reference": true}):**
    - If the user directly asks to use "Package of Practices" or "PoP" as reference.
-   - If the user requests recommendations, best practices, or standard practices specifically according to PoP.
-   - If the user implies the need for answers "as per PoP" or "from PoP".
 2. **False Cases ({"pop_reference": false}):**
    - If the user does not mention PoP at all.
    - If the question is general agriculture-related but does not request PoP as the reference.
    - If the user asks about other references (research papers, government schemes, market info, etc.).
 
 **Output Format:**
-You must output ONLY a single JSON object. Nothing else.
-- If PoP should be used as reference: `{"pop_reference": true}`
-- If PoP is not requested: `{"pop_reference": false}`
+- Output must be with one field of the following
+- If data is to be retrieved then say : `{"pop_reference": true }`
+- If data is to be retrieved then say : `{"pop_reference": false }`
+- Do not include explanations or extra fields, also do not include back ticks like markdown, just plain json string.
 """
 
 

@@ -6,11 +6,18 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core.schema import BaseNode, NodeWithScore
 from constants import DB_NAME, EMBEDDING_MODEL, INDEX_NAME
 from pymongo import MongoClient
+from llama_index.graph_stores.neo4j import Neo4jGraphStore, Neo4jPropertyGraphStore
+from llama_index.core import PropertyGraphIndex
+from llama_index.llms.ollama import Ollama
+from llama_index.core.indices.property_graph import LLMSynonymRetriever, VectorContextRetriever
+from llama_index.core.indices.property_graph import SimpleLLMPathExtractor
+from llama_index.core.indices.property_graph.retriever import PGRetriever
 
-from models import ContextPOP, ContextQuestionAnswerPair, POPMetaData, QuestionAnswerPairMetaData
+
+from models import ContextPOP, ContextQuestionAnswerPair, POPMetaData, QuestionAnswerPairMetaData, KnowledgeGraphNodes
 
 def get_retriever(client: MongoClient, collection_name: str, similarity_top_k: int = 3) -> BaseRetriever:
-    embed_model= HuggingFaceEmbedding(model_name=EMBEDDING_MODEL, cache_folder="./hf_cache", trust_remote_code=True)
+    
     vector_store = MongoDBAtlasVectorSearch(
         client,
         db_name=DB_NAME,
@@ -20,11 +27,65 @@ def get_retriever(client: MongoClient, collection_name: str, similarity_top_k: i
         text_key="text",
         metadata_key="metadata",
     )
-    index = VectorStoreIndex.from_vector_store(vector_store, embed_model=embed_model)
+    index = VectorStoreIndex.from_vector_store(vector_store)
     retriever = index.as_retriever(similarity_top_k=similarity_top_k)
     return retriever
 
 
+def get_graph_retriever():
+    embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-large-en-v1.5",
+                                        trust_remote_code=True,
+                                        cache_folder='./hf_cache')
+
+    llm = Ollama(model="qwen3:1.7b", base_url="http://100.100.108.13:11434", request_timeout=120)
+
+    graph_store = Neo4jPropertyGraphStore(
+        username="neo4j",
+        password="RoeDy6!EqHzh",
+        url="bolt://100.100.108.15:7687",
+    )
+
+    data_extractor = SimpleLLMPathExtractor(llm=llm)
+
+    index = PropertyGraphIndex.from_existing(
+                                            kg_extractors=[data_extractor],
+                                            property_graph_store=graph_store,
+                                            show_progress=True,
+                                            )
+
+    synonym_retriever = LLMSynonymRetriever(index.property_graph_store,
+                                    llm=llm,
+                                    include_text=False,
+                                    )
+
+    vector_retriever = VectorContextRetriever(index.property_graph_store,
+                                            include_text=False,
+                                            )
+
+    retriever: PGRetriever = index.as_retriever(sub_retrievers=[synonym_retriever,
+                                                vector_retriever],
+                                )
+    
+    return retriever
+
+async def process_nodes_graph(nodes: List[NodeWithScore]) -> List[KnowledgeGraphNodes]:
+    context: List[KnowledgeGraphNodes] = []
+    for triplet in nodes:
+        txt = triplet.text.strip()
+        # crude parse assuming format "X -> Y -> Z"
+        if "->" in txt:
+            parts = [p.strip() for p in txt.split("->")]
+            if len(parts) == 3:
+                start, relation, end = parts
+                context.append(KnowledgeGraphNodes(
+                    start_node=start,
+                    relation_node=relation,
+                    end_node=end,
+                    score=getattr(triplet, "score", None)
+                ))
+    return context
+    
+    
 
 async def process_nodes_qa(nodes: List[NodeWithScore]) -> List[ContextQuestionAnswerPair]:
     # Your stored format: "Question: ...\n\nAnswer: ..."
@@ -70,6 +131,17 @@ async def process_nodes_pop(nodes: List[NodeWithScore]) -> List[ContextPOP]:
         context.append(question_answer_pair)
     return context
 
+
+async def render_graph_markdown(nodes: list[KnowledgeGraphNodes]) -> str:
+    # Table header
+    md = "| Start Node | Relation | End Node | Score |\n"
+    md += "|------------|-----------|----------|-------|\n"
+    
+    # Rows
+    for node in nodes:
+        md += f"| {node.start_node} | {node.relation_node} | {node.end_node} | {node.score if node.score is not None else ''} |\n"
+    
+    return md
 
 
 def _truncate(text: str, max_len: int = 300) -> str:

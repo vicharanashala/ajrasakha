@@ -4,8 +4,10 @@ from typing import AsyncIterable, AsyncIterator, List, TypeVar
 import httpx
 from models import ContentResponseChunk, Message, ThinkingResponseChunk
 
-from constants import SYSTEM_PROMPT_AGRI_EXPERT, SYSTEM_PROMPT_QUESTION_RELEVANCY, SYSTEM_PROMPT_CONTEXT_VERIFIER, LLM_MODEL_MAIN, LLM_MODEL_FALL_BACK
+from constants import SYSTEM_PROMPT_AGRI_EXPERT, SYSTEM_PROMPT_QUESTION_RELEVANCY, SYSTEM_PROMPT_CONTEXT_VERIFIER, LLM_MODEL_MAIN, LLM_MODEL_FALL_BACK, LLM_STRUCTURED_MODEL
+import logging
 
+logger = logging.getLogger("myapp")  
 
 OLLAMA_API_URL = "http://100.100.108.13:11434/api/chat"
 
@@ -55,7 +57,7 @@ async def forward_ollama_stream(messages: List[Message], model: str, title_promp
                     yield f"{new_line}\n"
 
 
-async def boolean_field_checker(prompt: str, context: List[dict[str, str]], system_prompt: str, llm_model: str, field: str) -> bool:
+async def boolean_field_checker(prompt: str, context: List[dict[str, str]], system_prompt: str, llm_model: str, field: str):
     """
     Generic helper function to check a boolean field ('relevant' or 'retrieve')
     using an LLM with structured JSON output.
@@ -69,12 +71,27 @@ async def boolean_field_checker(prompt: str, context: List[dict[str, str]], syst
     Returns:
         bool: The value of the requested field, defaults to False if invalid.
     """
-    payload = {
+    
+    logger = logging.getLogger("myapp.boolean_field_checker")
+    unstructured_response = ""
+    payload_unstructured = {
         "model": llm_model,
         "messages": [
             {"role": "system", "content": system_prompt},
             *context,
             {"role": "user", "content": f"QUESTION: {prompt}"}
+        ],
+        "stream": True,
+        "think": True,
+    }
+
+    
+    payload_structured = {
+        "model": LLM_STRUCTURED_MODEL,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            *context,
+            {"role": "user", "content": f"QUESTION: {unstructured_response}"}
         ],
         "stream": False,
         "think": True,
@@ -86,55 +103,65 @@ async def boolean_field_checker(prompt: str, context: List[dict[str, str]], syst
             "required": [field]
         }
     }
+    
 
+    logger.info(f"Starting boolean_field_checker for field={field}")
+    
+
+    content_all=""
     async with httpx.AsyncClient(timeout=None) as client:
-        resp = await client.post(OLLAMA_API_URL, json=payload)
-        data = resp.json()
-        content_raw = data.get("message", {}).get("content", "{}")
+        async with client.stream("POST", OLLAMA_API_URL, json=payload_unstructured) as resp:
+            logger.info("Sent request to Ollama for unstructured response")
+            async for line in resp.aiter_lines():
+                if line:
+                    data = json.loads(line)
+                    msg = data.get('message')
+                    done = data.get('done')
+                    if isinstance(msg, dict):
+                        thinking = msg.get("thinking", None)
+                        content  = msg.get("content", "")
+                    else:
+                        thinking = None
+                    unstructured_response += thinking if thinking else content
+                
 
-        try:
-            content = json.loads(content_raw)
-        except json.JSONDecodeError:
-            return False
+                if thinking:
+                    yield ThinkingResponseChunk(thinking)   
+                else:
+                    content_all += content
+    
+    try:
+        parsed_content=json.loads(content_all)
+        value = parsed_content.get(field, False)
+        yield value
+    except json.JSONDecodeError:
+        # TODO: Ask another llm again
+        yield False
+        
+    logger.info(f"Response completed by LLM, this is the content{content_all}")
+    
+    # async with httpx.AsyncClient(timeout=None) as client:
+    #     resp = await client.post(OLLAMA_API_URL, json=payload_structured)
+    #     logger.info("Sent request to Ollama for structured response")
+    #     data = resp.json()
+    #     logger.info(str(data))
+    #     content_raw = data.get("message", {}).get("content", "{}")
 
-        value = content.get(field, False)
-        if not isinstance(value, bool):
-            return False
-        return value
-                    
+    #     try:
+    #         content = json.loads(content_raw)
+    #         logger.info(content)
+    #     except json.JSONDecodeError:
+    #         yield False
 
-async def question_releavancy_verifier(prompt: str, context: str):
-    payload = {
-        "model": LLM_MODEL_FALL_BACK,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT_QUESTION_RELEVANCY},
-            {"role": "user", "content": f"CONTEXT: {context}\n AND \n QUESTION: {prompt} \n\n Answer in JSON format only with field relevant as either true or false."}
-        ],
-        "stream": False,
-        "think": True,
-        "format": {
-            "type": "object",
-            "properties": {
-                "relevant" : {
-                    "type": "boolean",
-                }
-            },
-            "required": ["relevant"]
-        }
-    }
-    async with httpx.AsyncClient(timeout=None) as client:
-        resp = await client.post(OLLAMA_API_URL, json=payload)
-        data = resp.json()
-        content_raw = data.get('message', {}).get('content', '{}')
-        content = json.loads(content_raw)
-        relevant = content.get('relevant', False)
-        if not isinstance(relevant, bool):
-            return False
-        return relevant
-              
-              
+    #     value = content.get(field, False)
+    #     if not isinstance(value, bool):
+    #         yield False
+    #         print(field, False)
+    #     print(field, value)
+    #     yield value      
+    
 
-async def ollama_generate(prompt: str, context: List[dict[str, str]], model: str, retrieved_data: str | None ):
+async def ollama_generate(prompt: str, context: List[dict[str, str]], model: str, retrieved_data: str | None):
     payload = {
         "model": model,
         "messages": [
@@ -146,6 +173,7 @@ async def ollama_generate(prompt: str, context: List[dict[str, str]], model: str
         "think": True,
     }
 
+    logger.info(str(payload))
     async with httpx.AsyncClient(timeout=None) as client:
         async with client.stream("POST", OLLAMA_API_URL, json=payload) as resp:
             async for line in resp.aiter_lines():
@@ -161,7 +189,6 @@ async def ollama_generate(prompt: str, context: List[dict[str, str]], model: str
                         content  = msg.get("content", "")
                     else:
                         thinking = None
-                    
                     if thinking:
                         yield ThinkingResponseChunk(thinking)
                     if content:
