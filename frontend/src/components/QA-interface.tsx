@@ -6,10 +6,7 @@ import {
   Eye,
   RefreshCw,
   RotateCcw,
-  ArrowDownWideNarrow,
-  ArrowUpWideNarrow,
   MessageCircle,
-  MessageSquarePlus,
   Filter,
   Info,
 } from "lucide-react";
