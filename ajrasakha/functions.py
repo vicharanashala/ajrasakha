@@ -2,22 +2,35 @@ from typing import List
 from llama_index.core import VectorStoreIndex
 from llama_index.core.base.base_retriever import BaseRetriever
 from llama_index.vector_stores.mongodb import MongoDBAtlasVectorSearch
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.core.schema import BaseNode, NodeWithScore
-from constants import DB_NAME, EMBEDDING_MODEL, INDEX_NAME
+from llama_index.core.schema import NodeWithScore
+from constants import DB_NAME, INDEX_NAME
 from pymongo import MongoClient
-from llama_index.graph_stores.neo4j import Neo4jGraphStore, Neo4jPropertyGraphStore
+from llama_index.graph_stores.neo4j import Neo4jPropertyGraphStore
 from llama_index.core import PropertyGraphIndex
 from llama_index.llms.ollama import Ollama
-from llama_index.core.indices.property_graph import LLMSynonymRetriever, VectorContextRetriever
+from llama_index.core.indices.property_graph import (
+    LLMSynonymRetriever,
+    VectorContextRetriever,
+)
 from llama_index.core.indices.property_graph import SimpleLLMPathExtractor
 from llama_index.core.indices.property_graph.retriever import PGRetriever
+from models import (
+    ContextPOP,
+    ContextQuestionAnswerPair,
+    POPMetaData,
+    QuestionAnswerPairMetaData,
+    KnowledgeGraphNodes,
+)
+from helpers import truncate
 
 
-from models import ContextPOP, ContextQuestionAnswerPair, POPMetaData, QuestionAnswerPairMetaData, KnowledgeGraphNodes
+# Data Retrievers
 
-def get_retriever(client: MongoClient, collection_name: str, similarity_top_k: int = 3) -> BaseRetriever:
-    
+
+def get_retriever(
+    client: MongoClient, collection_name: str, similarity_top_k: int = 3
+) -> BaseRetriever:
+
     vector_store = MongoDBAtlasVectorSearch(
         client,
         db_name=DB_NAME,
@@ -33,11 +46,10 @@ def get_retriever(client: MongoClient, collection_name: str, similarity_top_k: i
 
 
 def get_graph_retriever():
-    embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-large-en-v1.5",
-                                        trust_remote_code=True,
-                                        cache_folder='./hf_cache')
 
-    llm = Ollama(model="qwen3:1.7b", base_url="http://100.100.108.13:11434", request_timeout=120)
+    llm = Ollama(
+        model="qwen3:1.7b", base_url="http://100.100.108.13:11434", request_timeout=120
+    )
 
     graph_store = Neo4jPropertyGraphStore(
         username="neo4j",
@@ -48,25 +60,31 @@ def get_graph_retriever():
     data_extractor = SimpleLLMPathExtractor(llm=llm)
 
     index = PropertyGraphIndex.from_existing(
-                                            kg_extractors=[data_extractor],
-                                            property_graph_store=graph_store,
-                                            show_progress=True,
-                                            )
+        kg_extractors=[data_extractor],
+        property_graph_store=graph_store,
+        show_progress=True,
+    )
 
-    synonym_retriever = LLMSynonymRetriever(index.property_graph_store,
-                                    llm=llm,
-                                    include_text=False,
-                                    )
+    synonym_retriever = LLMSynonymRetriever(
+        index.property_graph_store,
+        llm=llm,
+        include_text=False,
+    )
 
-    vector_retriever = VectorContextRetriever(index.property_graph_store,
-                                            include_text=False,
-                                            )
+    vector_retriever = VectorContextRetriever(
+        index.property_graph_store,
+        include_text=False,
+    )
 
-    retriever: PGRetriever = index.as_retriever(sub_retrievers=[synonym_retriever,
-                                                vector_retriever],
-                                )
-    
+    retriever: PGRetriever = index.as_retriever(
+        sub_retrievers=[synonym_retriever, vector_retriever],
+    )
+
     return retriever
+
+
+# Data Processors
+
 
 async def process_nodes_graph(nodes: List[NodeWithScore]) -> List[KnowledgeGraphNodes]:
     context: List[KnowledgeGraphNodes] = []
@@ -77,86 +95,96 @@ async def process_nodes_graph(nodes: List[NodeWithScore]) -> List[KnowledgeGraph
             parts = [p.strip() for p in txt.split("->")]
             if len(parts) == 3:
                 start, relation, end = parts
-                context.append(KnowledgeGraphNodes(
-                    start_node=start,
-                    relation_node=relation,
-                    end_node=end,
-                    score=getattr(triplet, "score", None)
-                ))
+                context.append(
+                    KnowledgeGraphNodes(
+                        start_node=start,
+                        relation_node=relation,
+                        end_node=end,
+                        score=getattr(triplet, "score", None),
+                    )
+                )
     return context
-    
-    
 
-async def process_nodes_qa(nodes: List[NodeWithScore]) -> List[ContextQuestionAnswerPair]:
+
+async def process_nodes_qa(
+    nodes: List[NodeWithScore],
+) -> List[ContextQuestionAnswerPair]:
     # Your stored format: "Question: ...\n\nAnswer: ..."
     context: List[ContextQuestionAnswerPair] = []
     for node in nodes:
-        text=node.text
+        text = node.text
         q, a = text, ""
         if "\n\nAnswer:" in text:
             parts = text.split("\n\nAnswer:", 1)
             q = parts[0].replace("Question:", "", 1).strip()
             a = parts[1].strip()
-        
-        question_answer_pair=ContextQuestionAnswerPair(
+
+        question_answer_pair = ContextQuestionAnswerPair(
             question=q,
             answer=a,
             meta_data=QuestionAnswerPairMetaData(
                 agri_specialist=node.metadata.get("Agri Specialist", "Not Available"),
                 crop=node.metadata.get("Crop", "Not Available"),
-                sources=node.metadata.get("Source [Name and Link]", "Source Not Available"),
+                sources=node.metadata.get(
+                    "Source [Name and Link]", "Source Not Available"
+                ),
                 state=node.metadata.get("State", "Not Available"),
-                similarity_score=node.score 
-            )
+                similarity_score=node.score,
+            ),
         )
         context.append(question_answer_pair)
     return context
-
-
 
 
 async def process_nodes_pop(nodes: List[NodeWithScore]) -> List[ContextPOP]:
     # Your stored format: "Question: ...\n\nAnswer: ..."
     context: List[ContextPOP] = []
     for node in nodes:
-        question_answer_pair=ContextPOP(
+        question_answer_pair = ContextPOP(
             text=node.text,
             meta_data=POPMetaData(
                 page_no=node.metadata.get("page_no", "Not Available"),
                 source=node.metadata.get("source", "https://linknotavailable.com"),
                 topics=node.metadata.get("headings", "No topics available"),
-                similarity_score=node.score
-            )
+                similarity_score=node.score,
+            ),
         )
         context.append(question_answer_pair)
     return context
 
 
-async def render_graph_markdown(nodes: list[KnowledgeGraphNodes], truncate=False) -> str:
+# Data Renderers
+
+
+async def render_graph_markdown(
+    nodes: list[KnowledgeGraphNodes], truncate=False
+) -> str:
     # Table header
     md = "| Start Node | Relation | End Node | Score |\n"
     md += "|------------|-----------|----------|-------|\n"
-    
+
     # Rows
     for node in nodes:
         md += f"| {node.start_node} | {node.relation_node} | {node.end_node} | {node.score if node.score is not None else ''} |\n"
-    
+
     return md
 
 
-def _truncate(text: str, max_len: int = 300) -> str:
-    """Helper to truncate long text safely."""
-    return text if len(text) <= max_len else text[:max_len].rstrip() + "..."
-
-
-async def render_qa_markdown(results: List[ContextQuestionAnswerPair], truncate:bool = True, max_len: int = 300) -> str:
+async def render_qa_markdown(
+    results: List[ContextQuestionAnswerPair], truncate: bool = True, max_len: int = 300
+) -> str:
     """Render ContextQuestionAnswerPair objects into Markdown with truncation."""
     md_output = []
     for r in results:
         question = _truncate(r.question, max_len) if truncate else r.question
-        answer = _truncate(r.answer if r.answer else "Answer not available", max_len) if truncate else r.answer
+        answer = (
+            _truncate(r.answer if r.answer else "Answer not available", max_len)
+            if truncate
+            else r.answer
+        )
 
-        md_output.append(f"""### ❓Golden Dataset Question
+        md_output.append(
+            f"""### ❓Golden Dataset Question
 {question}
 
 ### ✅ Answer
@@ -169,17 +197,21 @@ async def render_qa_markdown(results: List[ContextQuestionAnswerPair], truncate:
 - 🏞 State: {r.meta_data.state}
 - 🔗 Similarity Score: {r.meta_data.similarity_score:.2f}
 ---
-""")
+"""
+        )
     return "\n".join(md_output)
 
 
-async def render_pop_markdown(results: List[ContextPOP], truncate: bool= True, max_len: int = 300) -> str:
+async def render_pop_markdown(
+    results: List[ContextPOP], truncate: bool = True, max_len: int = 300
+) -> str:
     """Render ContextPOP objects into Markdown with truncation."""
     md_output = []
     for r in results:
         text = _truncate(r.text, max_len) if truncate else r.text
 
-        md_output.append(f"""### 📄 POP Reference
+        md_output.append(
+            f"""### 📄 POP Reference
 **Text**  
 {text}
 
@@ -189,5 +221,6 @@ async def render_pop_markdown(results: List[ContextPOP], truncate: bool= True, m
 - 🏷 Topics: {r.meta_data.topics}
 - 🔗 Similarity Score: {r.meta_data.similarity_score:.2f}
 ---
-""")
+"""
+        )
     return "\n".join(md_output)

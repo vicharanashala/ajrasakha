@@ -37,12 +37,11 @@ DB_SELECTOR_PROMPT = (
     "2. **PoP Database**: Use only if the question explicitly requests that the answer should reference the 'Package of Practices (PoP)'.\n"
     "3. **Graph Database**: Use this if the question explicitly mentions to reason or analyse.\n"
     "4. **No Database**: Use this if the context provided is already sufficient to answer the question without any additional retrieval.\n\n"
-        "\n---------------------\n"
+    "\n---------------------\n"
     "Using only the choices above and not prior knowledge, generate "
     "the selection object and reason that is most relevant to the "
     "question: '{query_str}'\n"
 )
-
 
 
 # This prompt is for an AI that classifies whether a user's question is relevant to Indian agriculture.
@@ -155,8 +154,6 @@ if the user explicitly requests or implies that the answer should be based on th
 """
 
 
-
 SYSTEM_PROMPT_CONTEXT_VERIFIER = """
 
 """
-
