@@ -132,7 +132,7 @@ async def process_nodes_pop(nodes: List[NodeWithScore]) -> List[ContextPOP]:
     return context
 
 
-async def render_graph_markdown(nodes: list[KnowledgeGraphNodes]) -> str:
+async def render_graph_markdown(nodes: list[KnowledgeGraphNodes], truncate=False) -> str:
     # Table header
     md = "| Start Node | Relation | End Node | Score |\n"
     md += "|------------|-----------|----------|-------|\n"

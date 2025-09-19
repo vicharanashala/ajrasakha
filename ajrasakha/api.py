@@ -19,16 +19,27 @@ from llama_index.core import Settings
 from constants import DB_SELECTOR_PROMPT
 from ollama import AsyncClient
 import pymongo
+from llama_index.core.retrievers import RouterRetriever
+from llama_index.core.selectors import PydanticMultiSelector, PydanticSingleSelector, LLMSingleSelector
+from llama_index.core.tools import RetrieverTool
 import logging
-logging.basicConfig(
-    level=logging.INFO,  # could be DEBUG, INFO, WARNING, ERROR
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 import pandas as pd
 import csv
 import time
 from pathlib import Path
+import csv
+import time
+from pathlib import Path
+from functions import process_nodes_qa, process_nodes_pop, render_pop_markdown, render_qa_markdown, process_nodes_graph, render_graph_markdown
+from constants import COLLECTION_POP, COLLECTION_QA, EMBEDDING_MODEL, LLM_MODEL_MAIN, LLM_MODEL_FALL_BACK, SYSTEM_PROMPT_QUESTION_RELEVANCY, SYSTEM_PROMPT_RETRIEVE_ANALYSER, SYSTEM_PROMPT_POP_REFERENCE_ANALYSER
+from functions import get_retriever, get_graph_retriever
+from llama_index.core.tools import ToolMetadata
+
+logging.basicConfig(
+    level=logging.INFO,  # could be DEBUG, INFO, WARNING, ERROR
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 LOG_FILE = Path("rag_eval_log.csv")
 
 # Create file with header if it doesn’t exist
@@ -36,17 +47,6 @@ if not LOG_FILE.exists():
     with open(LOG_FILE, mode="w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["question", "answer", "context", "retrieval_time_sec"])
-
-
-import csv
-import time
-from pathlib import Path
-
-from functions import process_nodes_qa, process_nodes_pop, render_pop_markdown, render_qa_markdown, process_nodes_graph, render_graph_markdown
-
-from constants import COLLECTION_POP, COLLECTION_QA, EMBEDDING_MODEL, LLM_MODEL_MAIN, LLM_MODEL_FALL_BACK, SYSTEM_PROMPT_QUESTION_RELEVANCY, SYSTEM_PROMPT_RETRIEVE_ANALYSER, SYSTEM_PROMPT_POP_REFERENCE_ANALYSER
-from functions import get_retriever, get_graph_retriever
-from llama_index.core.tools import ToolMetadata
 
 app = FastAPI(title="AjraSakha")
 
@@ -69,42 +69,18 @@ retriever_qa = get_retriever(client=client, collection_name=COLLECTION_QA, simil
 retriever_pop = get_retriever(client=client, collection_name=COLLECTION_POP, similarity_top_k=10)
 retriever_graph = get_graph_retriever()
 
-from llama_index.core.retrievers import RouterRetriever
-from llama_index.core.selectors import PydanticMultiSelector, PydanticSingleSelector, LLMSingleSelector
-from llama_index.core.tools import RetrieverTool
-
-
-# --- wrap retrievers as tools ---
-qa_tool = RetrieverTool.from_defaults(
-    retriever=retriever_qa,
-    description="Useful for Q&A over curated QA documents.",
-    name="qa_vectorstore",
-)
-
-pop_tool = RetrieverTool.from_defaults(
-    retriever=retriever_pop,
-    description="Useful for retrieving insights from the population dataset.",
-    name="pop_vectorstore",
-)
-
-graph_tool = RetrieverTool.from_defaults(
-    retriever=retriever_graph,
-    description="Useful for retrieving relationships and knowledge graph queries.",
-    name="neo4j_graph",
-)
-
 tools = [
     ToolMetadata(
         name="qa_tool",
         description="Answer direct Q&A over curated agricultural documents."
     ),
     ToolMetadata(
-        name="graph_tool",
-        description="Answer long complicated, analytical and causal/relationship queries."
+        name="pop_tool",
+        description="Answer questions based Package of Practices or pop"
     ),
     ToolMetadata(
         name="graph_tool",
-        description="Answer causal/relationship queries."
+        description="Answer long complicated, analytical and causal/relationship queries."
     ),
     ToolMetadata(
         name="irrelevant",
@@ -127,6 +103,7 @@ async def generate_response_graph(request: ChatCompletionRequest):
         for msg in messages[1:-1]
     ]
     
+    yield ThinkingResponseChunk("Verifying Question and Selecting Source....\n\n")
     selector_result = await selector.aselect(tools, query=question)
     selection = selector_result.selections[0]
     retriever = None
@@ -135,67 +112,38 @@ async def generate_response_graph(request: ChatCompletionRequest):
             retriever=retriever_qa
             node_processor=process_nodes_qa
             renderer=render_qa_markdown
+            yield ThinkingResponseChunk("Using Golden QA Vector Store for retrieval.\n")
         case 1:
             retriever=retriever_pop
             node_processor=process_nodes_pop
             renderer=render_pop_markdown
+            yield ThinkingResponseChunk("Using PoP Vector Store for retrieval.\n")
         case 2:
             retriever=retriever_graph
             node_processor=process_nodes_graph
             renderer=render_graph_markdown
+            yield ThinkingResponseChunk("Using Knowledge Graph for retrieval.\n")
         case 3:
             retriever=None
             node_processor=None
             renderer=None
     
-
-    # Case: only 2 messages → first relevant message always requires retrieval
-    should_retrieve: bool | None = True if len(messages) == 2 else None
-
-    is_relevant = False
-    async for chunk in boolean_field_checker(prompt=question, context=context, system_prompt=SYSTEM_PROMPT_QUESTION_RELEVANCY, llm_model=LLM_MODEL_MAIN, field="relevant"):
-
-        if isinstance(chunk, ThinkingResponseChunk):
-            yield chunk
-        elif isinstance(chunk, bool):
-            is_relevant = chunk
-
-    if not is_relevant:
-        # If irrelevant → no retrieval
-        should_retrieve = False
-        yield ThinkingResponseChunk("Invalid Prompt.\n")
+    
+    if(retriever):
+        nodes = await retriever.aretrieve(question)
+        processed_nodes = await node_processor(nodes)
+        display_nodes = await renderer(processed_nodes, truncate=True) 
+        context_nodes = await renderer(processed_nodes, truncate=False)
+        yield ThinkingResponseChunk(display_nodes)
+    
+    
+    if(retriever):
+        retrieved_context=context_nodes
     else:
-        yield ThinkingResponseChunk("Valid Prompt.\n")
-        # Step 2: Check retrieval only if not first message
-        if should_retrieve is None:
-            should_retrieve = False
-            yield ThinkingResponseChunk("Starting check for seeing if retrieval is required...")
-            async for chunk in boolean_field_checker(prompt=question, context=context, system_prompt=SYSTEM_PROMPT_RETRIEVE_ANALYSER, llm_model=LLM_MODEL_MAIN, field="retrieve"):
-                if isinstance(chunk, ThinkingResponseChunk):
-                    yield chunk
-                elif isinstance(chunk, bool):
-                    should_retrieve = chunk
+        retrieved_context = None
     
-        
-    if(is_relevant and should_retrieve):
-        start_time = time.time()
-        nodes_graph = await retriever_graph.aretrieve(question)
-        retrieval_time = time.time() - start_time
-        processed_nodes_graph = await process_nodes_graph(nodes_graph)
-        display_nodes_graph = await render_graph_markdown(processed_nodes_graph)
-        context_nodes_graph = display_nodes_graph
-        yield ThinkingResponseChunk(display_nodes_graph)
-        
-    elif(is_relevant and not should_retrieve):
-        yield ThinkingResponseChunk("Relevant data is already present.\n")
-        
-    
-    if((is_relevant and should_retrieve)):
-        retrieved_context = context_nodes_graph
-
     async for chunk in ollama_generate(context=context, prompt=question, model=LLM_MODEL_MAIN, retrieved_data=retrieved_context):
-        yield chunk
-
+        yield chunk        
     
     yield ContentResponseChunk("",final_chunk=True)
 
