@@ -11,6 +11,7 @@ import {
   MessageCircle,
   MessageSquarePlus,
   Filter,
+  Info,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { RadioGroup, RadioGroupItem } from "./atoms/radio-group";
@@ -35,6 +36,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./atoms/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./atoms/tooltip";
 
 // const questions = await generateQuestionDataSet();
 export type QuestionFilter =
@@ -118,9 +125,24 @@ export const QAInterface = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="w-full md:max-h-[70vh] max-h-[80vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent">
             <CardHeader className="border-b flex flex-row items-center justify-between pb-4">
-              <CardTitle className="text-md md:text-lg font-semibold">
-                Question Queues
-              </CardTitle>
+              <TooltipProvider>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-md md:text-lg font-semibold">
+                    Question Queues
+                  </CardTitle>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-sm">
+                      <p>
+                        This section displays the list of pending questions that
+                        require a response.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
 
               <div className="flex items-center gap-3 flex-wrap">
                 <Select value={filter} onValueChange={handleFilterChange}>

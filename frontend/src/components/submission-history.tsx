@@ -2,6 +2,8 @@ import { useGetSubmissions } from "@/hooks/api/answer/useGetSubmissions";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { useEffect, useRef } from "react";
 import { getTimeDifference } from "@/utils/getTimeDifference";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./atoms/tooltip";
+import { Info } from "lucide-react";
 
 export const FullSubmissionHistory = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -35,22 +37,38 @@ export const FullSubmissionHistory = () => {
   return (
     <Card className="h-[80vh] md:h-[60vh] lg:h-[70vh] border border-gray-200 dark:border-gray-700 shadow-lg rounded-xl bg-transparent backdrop-blur-sm mb-6 md:mb-0">
       <CardHeader className="border-b border-gray-200 dark:border-gray-700  backdrop-blur-sm rounded-t-xl">
-        <CardTitle className="text-md md:text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 bg-transparent">
-          <svg
-            className="w-5 h-5 text-blue-600 dark:text-blue-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
-          Submission History
-        </CardTitle>
+        <TooltipProvider>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-md md:text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 bg-transparent">
+              <svg
+                className="w-5 h-5 text-blue-600 dark:text-blue-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              Submission History
+            </CardTitle>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs text-sm">
+                <p>
+                  This section provides a record of all your previous
+                  submissions for reference.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
       </CardHeader>
 
       {isLoading ? (
