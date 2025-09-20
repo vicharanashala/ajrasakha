@@ -14,7 +14,7 @@ from models import (
 )
 from llama_index.llms.ollama import Ollama
 from llama_index.core import Settings
-from constants import DB_SELECTOR_PROMPT
+from constants import CITATION_QA_TEMPLATE, CITATION_REFINE_TEMPLATE, DB_SELECTOR_PROMPT
 from ollama import AsyncClient
 import pymongo
 from llama_index.core.selectors import LLMSingleSelector
@@ -25,8 +25,11 @@ from pathlib import Path
 import csv
 from pathlib import Path
 from functions import (
+    process_nodes_for_citations,
     process_nodes_qa,
     process_nodes_pop,
+    render_citations,
+    render_metadata_table,
     render_pop_markdown,
     render_qa_markdown,
     process_nodes_graph,
@@ -42,6 +45,16 @@ from constants import (
 )
 from functions import get_retriever, get_graph_retriever
 from llama_index.core.tools import ToolMetadata
+from llama_index.core.response_synthesizers import (
+    ResponseMode,
+    get_response_synthesizer,
+)
+from helpers import citations_refine
+from llama_index.core.query_engine import CitationQueryEngine, BaseQueryEngine
+from numpy import dot
+from numpy.linalg import norm
+
+
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -102,10 +115,14 @@ selector = LLMSingleSelector.from_defaults(
 async def generate_response(request: ChatCompletionRequest):
     messages = request.messages
     question = messages[-1].content
+    user_embedding = Settings.embed_model.get_text_embedding(question.lower())
+    best_match = None
+    best_answer = None
+    best_score = 0.95
 
     context = [{"role": msg.role, "content": msg.content} for msg in messages[1:-1]]
 
-    yield ThinkingResponseChunk("Verifying Question and Selecting Source....\n\n")
+    yield ThinkingResponseChunk("Verifying Question and Selecting Source....\n")
     selector_result = await selector.aselect(tools, query=question)
     selection = selector_result.selections[0]
     retriever = None
@@ -133,22 +150,47 @@ async def generate_response(request: ChatCompletionRequest):
     if retriever:
         nodes = await retriever.aretrieve(question)
         processed_nodes = await node_processor(nodes)
-        display_nodes = await renderer(processed_nodes, truncate=True)
-        context_nodes = await renderer(processed_nodes, truncate=False)
+        display_nodes = await renderer(processed_nodes, should_truncate=True)
+        context_nodes = await renderer(processed_nodes, should_truncate=False)
         yield ThinkingResponseChunk(display_nodes)
-
-    if retriever:
-        retrieved_context = context_nodes
+        new_nodes = await process_nodes_for_citations(nodes) 
+    
+    if(selection.index == 0):
+        for qa_pair in processed_nodes:
+            # Check similarity with given question using embedding.
+            ref_embedding = Settings.embed_model.get_text_embedding(qa_pair.question.lower())
+            score = dot(user_embedding, ref_embedding) / (norm(user_embedding) * norm(ref_embedding))
+            yield ThinkingResponseChunk("Score: " + str(score))
+            if score > best_score:
+                best_score = score
+                best_match = qa_pair.question
+                best_answer = qa_pair.answer
+    
+    if selection.index == 0 and best_match != None:
+        yield ContentResponseChunk(best_answer)
     else:
-        retrieved_context = None
+        async for chunk in citations_refine(new_nodes, question, LLM_MODEL_MAIN):
+            yield chunk
 
-    async for chunk in ollama_generate(
-        context=context,
-        prompt=question,
-        model=LLM_MODEL_MAIN,
-        retrieved_data=retrieved_context,
-    ):
-        yield chunk
+        yield ContentResponseChunk("\n #### References: \n")
+        yield ContentResponseChunk(await render_metadata_table(new_nodes))
+        yield ContentResponseChunk("\n")
+        yield ContentResponseChunk(await render_citations(new_nodes))
+    
+    # if retriever:
+    #     retrieved_context = context_nodes
+    # else:
+    #     retrieved_context = None
+
+
+    
+    # async for chunk in ollama_generate(
+    #     context=context,
+    #     prompt=question,
+    #     model=LLM_MODEL_MAIN,
+    #     retrieved_data=retrieved_context,
+    # ):
+    #     yield chunk
 
     yield ContentResponseChunk("", final_chunk=True)
 

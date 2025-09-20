@@ -3,8 +3,9 @@ from typing import AsyncIterable, AsyncIterator, List, TypeVar
 
 import httpx
 from models import ContentResponseChunk, ThinkingResponseChunk
+from llama_index.core.schema import NodeWithScore, MetadataMode, TextNode
 
-from constants import SYSTEM_PROMPT_AGRI_EXPERT
+from constants import SYSTEM_PROMPT_AGRI_EXPERT, CITATION_QA_TEMPLATE
 import logging
 
 logger = logging.getLogger("myapp")
@@ -80,15 +81,11 @@ async def ollama_generate(
         "stream": True,
         "think": True,
     }
-
-    logger.info(str(payload))
+    
     async with httpx.AsyncClient(timeout=None) as client:
         async with client.stream("POST", OLLAMA_API_URL, json=payload) as resp:
             async for line in resp.aiter_lines():
                 if line:
-                    # Ollama might send JSON lines, forward them as NDJSON
-
-                    # Simple response tweak
                     data = json.loads(line)
                     msg = data.get("message")
                     done = data.get("done")
@@ -103,3 +100,57 @@ async def ollama_generate(
                         if done:
                             yield ContentResponseChunk(content, final_chunk=True)
                         yield ContentResponseChunk(content)
+
+async def citations_refine(nodes: List[NodeWithScore], question: str, model: str):
+    logger.info("Entered citations")
+    
+    context_str = ""
+    for index in range(len(nodes)):
+        node = nodes[index]
+        source_str = f"Source {index+1}: \n{node.text}\n"
+        context_str+=source_str
+        
+
+    user_prompt = f'''Below are several numbered sources of information:
+        \n------\n
+        {context_str}
+        \n------\n
+        Query: {question}\n
+        Answer: 
+        '''
+
+    
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": CITATION_QA_TEMPLATE},
+            (
+                {
+                    "role": "user",
+                    "content": f"{user_prompt}",
+                }
+            ),
+        ],
+        "stream": True,
+        "think": True,
+    }
+    
+    async with httpx.AsyncClient(timeout=None) as client:
+        async with client.stream("POST", OLLAMA_API_URL, json=payload) as resp:
+            async for line in resp.aiter_lines():
+                if line:
+                    data = json.loads(line)
+                    msg = data.get("message")
+                    done = data.get("done")
+                    if isinstance(msg, dict):
+                        thinking = msg.get("thinking", None)
+                        content = msg.get("content", "")
+                    else:
+                        thinking = None
+                    if thinking:
+                        yield ThinkingResponseChunk(thinking)
+                    if content:
+                        if done:
+                            yield ContentResponseChunk(content)
+                        yield ContentResponseChunk(content)
+    

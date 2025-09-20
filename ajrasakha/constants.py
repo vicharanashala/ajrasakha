@@ -1,4 +1,5 @@
 from urllib.parse import quote_plus
+from llama_index.core.prompts import PromptTemplate
 
 # Vector Database
 USERNAME = quote_plus("agriai")
@@ -21,6 +22,9 @@ LLM_MODEL_FALL_BACK = "qwen3:1.7b"
 LLM_STRUCTURED_MODEL = "Osmosis/Osmosis-Structure-0.6B:latest"
 EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
 
+
+DEFAULT_CITATION_CHUNK_SIZE = 200
+DEFAULT_CITATION_CHUNK_OVERLAP = 20
 
 # PROMPTS
 
@@ -154,6 +158,49 @@ if the user explicitly requests or implies that the answer should be based on th
 """
 
 
-SYSTEM_PROMPT_CONTEXT_VERIFIER = """
+CITATION_QA_TEMPLATE = (
+    "You are AjraSakha. You are a specialized AI assistant made only to help farmers in India. Your only job is to give useful information and advice for farming in India."
+    "Please provide an answer based solely on the provided sources. "
+    "When referencing information from a source, "
+    "cite the appropriate source(s) using their corresponding numbers. "
+    "Every answer should include at least one source citation. "
+    "Only cite a source when you are explicitly referencing it. "
+    "If none of the sources are helpful, you should indicate that. "
+    "For example:\n"
+    "Source 1:\n"
+    "The sky is red in the evening and blue in the morning.\n"
+    "Source 2:\n"
+    "Water is wet when the sky is red.\n"
+    "Query: When is water wet?\n"
+    "Answer: Water will be wet when the sky is red [2], "
+    "which occurs in the evening [1].\n"
+    "Now it's your turn."
+)
 
-"""
+CITATION_REFINE_TEMPLATE = PromptTemplate(
+    "Please provide an answer based solely on the provided sources. "
+    "When referencing information from a source, "
+    "cite the appropriate source(s) using their corresponding numbers. "
+    "Every answer should include at least one source citation. "
+    "Only cite a source when you are explicitly referencing it. "
+    "If none of the sources are helpful, you should indicate that. "
+    "For example:\n"
+    "Source 1:\n"
+    "The sky is red in the evening and blue in the morning.\n"
+    "Source 2:\n"
+    "Water is wet when the sky is red.\n"
+    "Query: When is water wet?\n"
+    "Answer: Water will be wet when the sky is red [2], "
+    "which occurs in the evening [1].\n"
+    "Now it's your turn. "
+    "We have provided an existing answer: {existing_answer}"
+    "Below are several numbered sources of information. "
+    "Use them to refine the existing answer. "
+    "If the provided sources are not helpful, you will repeat the existing answer."
+    "\nBegin refining!"
+    "\n------\n"
+    "{context_msg}"
+    "\n------\n"
+    "Query: {query_str}\n"
+    "Answer: "
+)

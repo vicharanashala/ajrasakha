@@ -1,9 +1,10 @@
 from typing import List
+from llama_cloud import TextNode
 from llama_index.core import VectorStoreIndex
 from llama_index.core.base.base_retriever import BaseRetriever
 from llama_index.vector_stores.mongodb import MongoDBAtlasVectorSearch
 from llama_index.core.schema import NodeWithScore
-from constants import DB_NAME, INDEX_NAME
+from constants import DB_NAME, DEFAULT_CITATION_CHUNK_OVERLAP, DEFAULT_CITATION_CHUNK_SIZE, INDEX_NAME
 from pymongo import MongoClient
 from llama_index.graph_stores.neo4j import Neo4jPropertyGraphStore
 from llama_index.core import PropertyGraphIndex
@@ -21,7 +22,18 @@ from models import (
     QuestionAnswerPairMetaData,
     KnowledgeGraphNodes,
 )
+from llama_index.core.schema import ( 
+                                     MetadataMode, NodeWithScore, TextNode, )
+from llama_index.core.node_parser import SentenceSplitter
 from helpers import truncate
+from typing import List
+from itertools import groupby
+import re
+import spacy
+nlp = spacy.load("en_core_web_sm")
+import logging
+logger = logging.getLogger("myapp")
+
 
 
 # Data Retrievers
@@ -153,11 +165,38 @@ async def process_nodes_pop(nodes: List[NodeWithScore]) -> List[ContextPOP]:
     return context
 
 
+async def process_nodes_for_citations(nodes: List[NodeWithScore]) -> List[TextNode]:
+    
+    new_nodes: List[TextNode] = []
+    
+    # text_splitter = SentenceSplitter(
+    #         chunk_size=DEFAULT_CITATION_CHUNK_SIZE,
+    #         chunk_overlap=DEFAULT_CITATION_CHUNK_OVERLAP,
+    #     )
+
+    for node in nodes:
+        doc = nlp(node.node.get_content(metadata_mode=MetadataMode.NONE))
+        text_chunks = [sent.text.strip() for sent in doc.sents]
+        metadata = node.node.metadata.copy() if node.node.metadata else {}
+
+        logger.error(str(text_chunks))
+        
+        for text_chunk in text_chunks:
+            metadata_with_source = metadata.copy()
+            metadata_with_source["source_number"] = len(new_nodes) + 1
+            new_node = TextNode(text=text_chunk, metadata=metadata_with_source)
+            logger.warning(text_chunk)
+
+            new_nodes.append(new_node)
+            
+    return new_nodes
+
+
 # Data Renderers
 
 
 async def render_graph_markdown(
-    nodes: list[KnowledgeGraphNodes], truncate=False
+    nodes: list[KnowledgeGraphNodes], should_truncate=False
 ) -> str:
     # Table header
     md = "| Start Node | Relation | End Node | Score |\n"
@@ -171,15 +210,15 @@ async def render_graph_markdown(
 
 
 async def render_qa_markdown(
-    results: List[ContextQuestionAnswerPair], truncate: bool = True, max_len: int = 300
+    results: List[ContextQuestionAnswerPair], should_truncate: bool = True, max_len: int = 300
 ) -> str:
     """Render ContextQuestionAnswerPair objects into Markdown with truncation."""
     md_output = []
     for r in results:
-        question = _truncate(r.question, max_len) if truncate else r.question
+        question = truncate(r.question, max_len) if should_truncate else r.question
         answer = (
-            _truncate(r.answer if r.answer else "Answer not available", max_len)
-            if truncate
+            truncate(r.answer if r.answer else "Answer not available", max_len)
+            if should_truncate
             else r.answer
         )
 
@@ -203,12 +242,12 @@ async def render_qa_markdown(
 
 
 async def render_pop_markdown(
-    results: List[ContextPOP], truncate: bool = True, max_len: int = 300
+    results: List[ContextPOP], should_truncate: bool = True, max_len: int = 300
 ) -> str:
     """Render ContextPOP objects into Markdown with truncation."""
     md_output = []
     for r in results:
-        text = _truncate(r.text, max_len) if truncate else r.text
+        text = truncate(r.text, max_len) if should_truncate else r.text
 
         md_output.append(
             f"""### 📄 POP Reference
@@ -224,3 +263,69 @@ async def render_pop_markdown(
 """
         )
     return "\n".join(md_output)
+
+async def render_citations(nodes: List[TextNode]):
+    md = "\n| Ref. No | Text |\n"
+    md += "|------------|-----------|\n"
+
+    # Rows
+    for index in range(len(nodes)):
+        node = nodes[index]
+        md += f"| {index+1} |{truncate(node.get_content(metadata_mode=MetadataMode.NONE).replace('\n', ' '), 100)} |\n"
+
+    return md
+
+def extract_links(text: str):
+    """Extract http/https links and return as Markdown short links."""
+    urls = re.findall(r"https?://\S+", text)
+    if not urls:
+        return text  # keep raw if no links
+    return ", ".join(f"[Link{i+1}]({u})" for i, u in enumerate(urls))
+
+
+async def render_metadata_table(nodes: List[TextNode]) -> str:
+    """Render metadata for nodes as a markdown table with source ranges."""
+    
+    # Extract (source_number, metadata) pairs
+    items = []
+    for node in nodes:
+        meta = node.metadata
+        items.append((meta["source_number"], meta))
+    
+    # Sort by source_number
+    items.sort(key=lambda x: x[0])
+    
+    # Group consecutive source_numbers with identical metadata (ignoring source_number itself)
+    grouped = []
+    for _, group in groupby(items, key=lambda x: {
+        k: v for k, v in x[1].items() if k != "source_number"
+    }):
+        group_list = list(group)
+        start = group_list[0][0]
+        end = group_list[-1][0]
+        meta = group_list[0][1]
+        grouped.append(((start, end), meta))
+    
+    # Render Markdown table
+    table = "| References | Specialist | Sources | State | Crop |\n"
+    table += "|---------|------------|---------|-------|------|\n"
+    
+    previous=1 
+    for (start, end), meta in grouped:
+        if start == end:
+            source_range = str(previous)+"-"+str(start)
+        else:
+            source_range = f"{start}–{end}"
+        
+        sources = extract_links(meta.get("Source [Name and Link]", ""))
+        
+        table += (
+            f"| {source_range} "
+            f"| {meta.get('Agri Specialist', '')} "
+            f"| {sources}"
+            f"| {meta.get('State', '')} "
+            f"| {meta.get('Crop', '')} |\n"
+        )
+        previous = end + 1
+    
+    return table
