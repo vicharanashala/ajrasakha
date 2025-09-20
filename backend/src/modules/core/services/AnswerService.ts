@@ -66,15 +66,17 @@ export class AnswerService extends BaseService {
 
       if (answers.length) {
         const lastSubmittedAnswer = answers[0]; // first answer should be latest
-        const payload: {previousAnswer: string; currentAnswer: string} = {
-          previousAnswer: answer,
-          currentAnswer: lastSubmittedAnswer.answer,
+        const payload: {text1: string; text2: string} = {
+          text1: answer,
+          text2: lastSubmittedAnswer.answer,
         };
 
-        threshold = await this.aiService.getFinalAnswerByThreshold(payload);
+        const result = await this.aiService.getFinalAnswerByThreshold(payload);
+        threshold = result.similarity_score;
 
         if (threshold >= 0.9) isFinalAnswer = true; // if it meets threshold then set as final
       }
+
 
       const updatedAnswerCount = question.totalAnwersCount + 1;
 

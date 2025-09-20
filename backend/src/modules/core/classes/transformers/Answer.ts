@@ -2,24 +2,23 @@ import {
   ObjectIdToString,
   StringToObjectId,
 } from '#shared/constants/transformerConstants.js';
-import { IAnswer } from '#shared/interfaces/models.js';
-import { Expose, Transform } from 'class-transformer';
-import { ObjectId } from 'mongodb';
+import {IAnswer} from '#shared/interfaces/models.js';
+import {Expose, Transform} from 'class-transformer';
+import {ObjectId} from 'mongodb';
 
 class Answer implements IAnswer {
-  
-  @Transform(ObjectIdToString.transformer, { toPlainOnly: true })
-  @Transform(StringToObjectId.transformer, { toClassOnly: true })
+  @Transform(ObjectIdToString.transformer, {toPlainOnly: true})
+  @Transform(StringToObjectId.transformer, {toClassOnly: true})
   @Expose()
   _id?: string | ObjectId;
 
-  @Transform(ObjectIdToString.transformer, { toPlainOnly: true })
-  @Transform(StringToObjectId.transformer, { toClassOnly: true })
+  @Transform(ObjectIdToString.transformer, {toPlainOnly: true})
+  @Transform(StringToObjectId.transformer, {toClassOnly: true})
   @Expose()
   questionId: string | ObjectId;
 
-  @Transform(ObjectIdToString.transformer, { toPlainOnly: true })
-  @Transform(StringToObjectId.transformer, { toClassOnly: true })
+  @Transform(ObjectIdToString.transformer, {toPlainOnly: true})
+  @Transform(StringToObjectId.transformer, {toClassOnly: true})
   @Expose()
   authorId: string | ObjectId;
 
@@ -31,6 +30,9 @@ class Answer implements IAnswer {
 
   @Expose()
   answer: string;
+
+  @Expose()
+  threshold: number;
 
   @Expose()
   createdAt?: Date;
@@ -50,4 +52,4 @@ class Answer implements IAnswer {
   }
 }
 
-export { Answer };
+export {Answer};

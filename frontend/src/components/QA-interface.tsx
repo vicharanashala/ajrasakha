@@ -9,6 +9,8 @@ import {
   MessageCircle,
   Filter,
   Info,
+  Loader2,
+  Send,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { RadioGroup, RadioGroupItem } from "./atoms/radio-group";
@@ -378,19 +380,33 @@ export const QAInterface = () => {
                       className="mt-1 md:max-h-[190px] max-h-[170px] min-h-[150px] resize-y border border-gray-200 dark:border-gray-600 text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent"
                     />
                     {isFinalAnswer && (
-                      <p className="mt-2 text-green-600 dark:text-green-400 text-sm font-medium">
-                        🎉 Congratulations! Your response was selected as the
-                        final answer. Great job!
+                      <p className="mt-2 flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>
+                          Congratulations! Your response was selected as the
+                          final answer. Great job!
+                        </span>
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center justify-between  p-4">
+                  <div className="flex items-center justify-between  p-4 pt-0">
                     <div className="flex items-center space-x-3">
                       <Button
                         onClick={handleSubmit}
                         disabled={!newAnswer.trim() || isSubmittingAnswer}
+                        className="flex items-center gap-2"
                       >
-                        {isSubmittingAnswer ? "Submitting..." : "Submit"}
+                        {isSubmittingAnswer ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Submitting…</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4" />
+                            <span>Submit</span>
+                          </>
+                        )}
                       </Button>
                       <Button variant="secondary" onClick={handleReset}>
                         <span className="sr-only">Reset answer</span>

@@ -25,15 +25,15 @@ export class AiService {
   }
 
   async getFinalAnswerByThreshold(answers: {
-    previousAnswer: string;
-    currentAnswer: string;
-  }): Promise<number> {
-    const response = await fetch(`${this._aiServerUrl}/answers/threshold`, {
+    text1: string;
+    text2: string;
+  }): Promise<{similarity_score: number}> {
+    const response = await fetch(`${this._aiServerUrl}/score`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({answers}),
+      body: JSON.stringify(answers),
     });
 
     if (!response.ok) {
@@ -41,7 +41,7 @@ export class AiService {
         `Failed to get final answer from ai server: ${response.statusText}`,
       );
     }
-
-    return (await response.json()) as number;
+    const data = (await response.json()) as {similarity_score: number};
+    return data;
   }
 }
