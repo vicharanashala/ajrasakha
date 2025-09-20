@@ -2,7 +2,7 @@ import json
 from typing import AsyncIterable, AsyncIterator, List, TypeVar
 
 import httpx
-from models import ContentResponseChunk, ThinkingResponseChunk
+from models import ContentResponseChunk, ThinkingResponseChunk, KnowledgeGraphNodes, get_id
 from llama_index.core.schema import NodeWithScore, MetadataMode, TextNode
 
 from constants import SYSTEM_PROMPT_AGRI_EXPERT, CITATION_QA_TEMPLATE
@@ -153,4 +153,12 @@ async def citations_refine(nodes: List[TextNode], question: str, model: str):
                         if done:
                             yield ContentResponseChunk(content)
                         yield ContentResponseChunk(content)
-    
+
+
+def to_mermaid(nodes: List[KnowledgeGraphNodes]) -> str:
+    # Mermaid syntax starts with graph direction (TD = top-down)
+    lines = ["graph TD"]
+    for node in nodes:
+        # Each edge: start -->|relation| end
+        lines.append(f'    {get_id(node.start_node)}[\"{node.start_node}\"] -->|{node.relation_node}| {get_id(node.end_node)}[\"{node.end_node}\"]')
+    return "\n".join(lines)

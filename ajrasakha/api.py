@@ -8,7 +8,9 @@ from models import (
     ChatCompletionRequest,
     ContextQuestionAnswerPair,
     ContextRequest,
+    KnowledgeGraphNodes,
     QuestionAnswerResponse,
+    SimilarityScoreRequest,
     ThinkingResponseChunk,
     ContentResponseChunk,
 )
@@ -29,11 +31,13 @@ from functions import (
     process_nodes_qa,
     process_nodes_pop,
     render_citations,
+    render_graph_mermaid,
     render_metadata_table,
     render_pop_markdown,
     render_qa_markdown,
     process_nodes_graph,
     render_graph_markdown,
+    render_references_html,
 )
 from constants import (
     COLLECTION_POP,
@@ -112,6 +116,12 @@ selector = LLMSingleSelector.from_defaults(
 )
 
 
+nodes = [
+    KnowledgeGraphNodes(start_node="aphids", relation_node="likes", end_node="plants"),
+    KnowledgeGraphNodes(start_node="B", relation_node="knows", end_node="C"),
+    KnowledgeGraphNodes(start_node="C", relation_node="teaches", end_node="D"),
+]
+
 async def generate_response(request: ChatCompletionRequest):
     messages = request.messages
     question = messages[-1].content
@@ -175,7 +185,21 @@ async def generate_response(request: ChatCompletionRequest):
             yield ContentResponseChunk("\n #### References: \n")
             yield ContentResponseChunk(await render_metadata_table(new_nodes))
             yield ContentResponseChunk("\n")
-            yield ContentResponseChunk(await render_citations(new_nodes))
+            yield ContentResponseChunk(render_references_html(await render_citations(new_nodes)))
+    elif(selection.index == 2):
+        if retriever:
+            retrieved_context = context_nodes
+        else:
+            retrieved_context = None
+
+        async for chunk in ollama_generate(
+            context=context,
+            prompt=question,
+            model=LLM_MODEL_MAIN,
+            retrieved_data=retrieved_context,
+        ):
+            yield chunk
+        yield ContentResponseChunk("\n"+render_graph_mermaid(processed_nodes))
     else:
         if retriever:
             retrieved_context = context_nodes
@@ -213,6 +237,14 @@ async def get_questions(request: ContextRequest):
 
     return response
 
+
+@app.post("/score")
+def get_similarity_score(request: SimilarityScoreRequest):
+    vec1 = Settings.embed_model.get_text_embedding(request.text1)
+    vec2 = Settings.embed_model.get_text_embedding(request.text2)
+    score = dot(vec1, vec2) / (norm(vec1) * norm(vec2))
+    return {"similarity_score": score}
+    
 
 @app.post("/api/chat/")
 async def chat_completions(request: ChatCompletionRequest):

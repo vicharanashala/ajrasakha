@@ -1,11 +1,29 @@
+import re
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 
+
+def normalize_text(value: str) -> str:
+    if not isinstance(value, str):
+        return value
+    # 1. Strip leading/trailing whitespace
+    value = value.strip()
+    # 2. Remove unwanted characters at start/end (keep only word chars, spaces, and hyphens inside)
+    value = re.sub(r"^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$", "", value)
+    # 3. Normalize case (lowercase)
+    return value.lower()
+
+
+def get_id(value: str):
+    return re.sub(r"[^a-zA-Z0-9]", "_", value).lower() or "node"
 
 class ContextRequest(BaseModel):
     context: str
 
+class SimilarityScoreRequest(BaseModel):
+    text1: str
+    text2: str
 
 class QuestionAnswerResponse(BaseModel):
     question: str
@@ -44,7 +62,12 @@ class KnowledgeGraphNodes(BaseModel):
     start_node: str
     relation_node: str
     end_node: str
-    score: float | None
+    score: Optional[float] = None
+    
+    @field_validator("start_node", "relation_node", "end_node", mode="before")
+    def normalize_fields(cls, v):
+        return normalize_text(v)
+
 
 
 class ContextQuestionAnswerPair(BaseModel):

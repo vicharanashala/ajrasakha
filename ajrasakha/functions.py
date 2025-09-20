@@ -4,7 +4,12 @@ from llama_index.core import VectorStoreIndex
 from llama_index.core.base.base_retriever import BaseRetriever
 from llama_index.vector_stores.mongodb import MongoDBAtlasVectorSearch
 from llama_index.core.schema import NodeWithScore
-from constants import DB_NAME, DEFAULT_CITATION_CHUNK_OVERLAP, DEFAULT_CITATION_CHUNK_SIZE, INDEX_NAME
+from constants import (
+    DB_NAME,
+    DEFAULT_CITATION_CHUNK_OVERLAP,
+    DEFAULT_CITATION_CHUNK_SIZE,
+    INDEX_NAME,
+)
 from pymongo import MongoClient
 from llama_index.graph_stores.neo4j import Neo4jPropertyGraphStore
 from llama_index.core import PropertyGraphIndex
@@ -22,18 +27,24 @@ from models import (
     QuestionAnswerPairMetaData,
     KnowledgeGraphNodes,
 )
-from llama_index.core.schema import ( 
-                                     MetadataMode, NodeWithScore, TextNode, )
+from llama_index.core.schema import (
+    MetadataMode,
+    NodeWithScore,
+    TextNode,
+)
 from llama_index.core.node_parser import SentenceSplitter
-from helpers import truncate
+from helpers import to_mermaid, truncate
 from typing import List
 from itertools import groupby
 import re
 import spacy
+
 nlp = spacy.load("en_core_web_sm")
 import logging
-logger = logging.getLogger("myapp")
+import uuid
+import markdown
 
+logger = logging.getLogger("myapp")
 
 
 # Data Retrievers
@@ -166,9 +177,9 @@ async def process_nodes_pop(nodes: List[NodeWithScore]) -> List[ContextPOP]:
 
 
 async def process_nodes_for_citations(nodes: List[NodeWithScore]) -> List[TextNode]:
-    
+
     new_nodes: List[TextNode] = []
-    
+
     # text_splitter = SentenceSplitter(
     #         chunk_size=DEFAULT_CITATION_CHUNK_SIZE,
     #         chunk_overlap=DEFAULT_CITATION_CHUNK_OVERLAP,
@@ -180,7 +191,7 @@ async def process_nodes_for_citations(nodes: List[NodeWithScore]) -> List[TextNo
         metadata = node.node.metadata.copy() if node.node.metadata else {}
 
         logger.error(str(text_chunks))
-        
+
         for text_chunk in text_chunks:
             metadata_with_source = metadata.copy()
             metadata_with_source["source_number"] = len(new_nodes) + 1
@@ -188,7 +199,7 @@ async def process_nodes_for_citations(nodes: List[NodeWithScore]) -> List[TextNo
             logger.warning(text_chunk)
 
             new_nodes.append(new_node)
-            
+
     return new_nodes
 
 
@@ -206,11 +217,13 @@ async def render_graph_markdown(
     for node in nodes:
         md += f"| {node.start_node} | {node.relation_node} | {node.end_node} | {node.score if node.score is not None else ''} |\n"
 
-    return md+'\n'
+    return md + "\n"
 
 
 async def render_qa_markdown(
-    results: List[ContextQuestionAnswerPair], should_truncate: bool = True, max_len: int = 300
+    results: List[ContextQuestionAnswerPair],
+    should_truncate: bool = True,
+    max_len: int = 300,
 ) -> str:
     """Render ContextQuestionAnswerPair objects into Markdown with truncation."""
     md_output = []
@@ -264,6 +277,7 @@ async def render_pop_markdown(
         )
     return "\n".join(md_output)
 
+
 async def render_citations(nodes: List[TextNode]):
     md = "\n| Ref. No | Text |\n"
     md += "|------------|-----------|\n"
@@ -275,6 +289,7 @@ async def render_citations(nodes: List[TextNode]):
 
     return md
 
+
 def extract_links(text: str):
     """Extract http/https links and return as Markdown short links."""
     urls = re.findall(r"https?://\S+", text)
@@ -285,40 +300,40 @@ def extract_links(text: str):
 
 async def render_metadata_table(nodes: List[TextNode]) -> str:
     """Render metadata for nodes as a markdown table with source ranges."""
-    
+
     # Extract (source_number, metadata) pairs
     items = []
     for node in nodes:
         meta = node.metadata
         items.append((meta["source_number"], meta))
-    
+
     # Sort by source_number
     items.sort(key=lambda x: x[0])
-    
+
     # Group consecutive source_numbers with identical metadata (ignoring source_number itself)
     grouped = []
-    for _, group in groupby(items, key=lambda x: {
-        k: v for k, v in x[1].items() if k != "source_number"
-    }):
+    for _, group in groupby(
+        items, key=lambda x: {k: v for k, v in x[1].items() if k != "source_number"}
+    ):
         group_list = list(group)
         start = group_list[0][0]
         end = group_list[-1][0]
         meta = group_list[0][1]
         grouped.append(((start, end), meta))
-    
+
     # Render Markdown table
     table = "| References | Specialist | Sources | State | Crop |\n"
     table += "|---------|------------|---------|-------|------|\n"
-    
-    previous=1 
+
+    previous = 1
     for (start, end), meta in grouped:
         if start == end:
-            source_range = str(previous)+"-"+str(start)
+            source_range = str(previous) + "-" + str(start)
         else:
             source_range = f"{start}–{end}"
-        
+
         sources = extract_links(meta.get("Source [Name and Link]", ""))
-        
+
         table += (
             f"| {source_range} "
             f"| {meta.get('Agri Specialist', '')} "
@@ -327,5 +342,72 @@ async def render_metadata_table(nodes: List[TextNode]) -> str:
             f"| {meta.get('Crop', '')} |\n"
         )
         previous = end + 1
-    
+
     return table
+
+
+def render_graph_mermaid(
+    nodes: List[KnowledgeGraphNodes], name: str = "Visualize Knowledge Graph"
+) -> str:
+    mermaid_str = to_mermaid(nodes)
+    unique_id = uuid.uuid4().hex
+    template = f""":::artifact{{identifier="{unique_id}" type="application/vnd.mermaid" title="{name}"}}
+```mermaid
+{mermaid_str}
+```
+:::
+"""
+    return template
+
+
+def render_references_html(markdown_table: str, name: str = "See References"):
+    """Convert markdown table to HTML for references section."""
+    html = markdown.markdown(markdown_table, extensions=["tables"])
+    unique_id = uuid.uuid4().hex
+    template = f""":::artifact{{identifier="{unique_id}" type="text/html" title="{name}"}}
+```
+
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {{
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      margin: 20px;
+    }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }}
+    th, td {{
+      padding: 12px 16px;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+      vertical-align: top;
+    }}
+    th {{
+      background: #f3f4f6;
+      font-weight: bold;
+      color: #333;
+    }}
+    tr:hover {{
+      background-color: #f9fafb;
+    }}
+    caption {{
+      caption-side: top;
+      font-size: 1.2em;
+      font-weight: bold;
+      margin-bottom: 10px;
+      text-align: left;
+    }}
+  </style>
+</head>
+<body>
+{html}
+</body>
+```
+:::
+"""
+    return template
