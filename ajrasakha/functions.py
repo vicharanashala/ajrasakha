@@ -206,7 +206,7 @@ async def render_graph_markdown(
     for node in nodes:
         md += f"| {node.start_node} | {node.relation_node} | {node.end_node} | {node.score if node.score is not None else ''} |\n"
 
-    return md
+    return md+'\n'
 
 
 async def render_qa_markdown(
@@ -271,7 +271,7 @@ async def render_citations(nodes: List[TextNode]):
     # Rows
     for index in range(len(nodes)):
         node = nodes[index]
-        md += f"| {index+1} |{truncate(node.get_content(metadata_mode=MetadataMode.NONE).replace('\n', ' '), 100)} |\n"
+        md += f"| {index+1} |{node.get_content(metadata_mode=MetadataMode.NONE).replace('\n', ' ')} |\n"
 
     return md
 

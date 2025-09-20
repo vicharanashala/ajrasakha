@@ -101,7 +101,7 @@ async def ollama_generate(
                             yield ContentResponseChunk(content, final_chunk=True)
                         yield ContentResponseChunk(content)
 
-async def citations_refine(nodes: List[NodeWithScore], question: str, model: str):
+async def citations_refine(nodes: List[TextNode], question: str, model: str):
     logger.info("Entered citations")
     
     context_str = ""

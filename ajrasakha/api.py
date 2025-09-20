@@ -165,32 +165,30 @@ async def generate_response(request: ChatCompletionRequest):
                 best_score = score
                 best_match = qa_pair.question
                 best_answer = qa_pair.answer
-    
-    if selection.index == 0 and best_match != None:
-        yield ContentResponseChunk(best_answer)
+                
+        if selection.index == 0 and best_match != None:
+            yield ContentResponseChunk(best_answer)
+        else:
+            async for chunk in citations_refine(new_nodes, question, LLM_MODEL_MAIN):
+                yield chunk
+
+            yield ContentResponseChunk("\n #### References: \n")
+            yield ContentResponseChunk(await render_metadata_table(new_nodes))
+            yield ContentResponseChunk("\n")
+            yield ContentResponseChunk(await render_citations(new_nodes))
     else:
-        async for chunk in citations_refine(new_nodes, question, LLM_MODEL_MAIN):
+        if retriever:
+            retrieved_context = context_nodes
+        else:
+            retrieved_context = None
+
+        async for chunk in ollama_generate(
+            context=context,
+            prompt=question,
+            model=LLM_MODEL_MAIN,
+            retrieved_data=retrieved_context,
+        ):
             yield chunk
-
-        yield ContentResponseChunk("\n #### References: \n")
-        yield ContentResponseChunk(await render_metadata_table(new_nodes))
-        yield ContentResponseChunk("\n")
-        yield ContentResponseChunk(await render_citations(new_nodes))
-    
-    # if retriever:
-    #     retrieved_context = context_nodes
-    # else:
-    #     retrieved_context = None
-
-
-    
-    # async for chunk in ollama_generate(
-    #     context=context,
-    #     prompt=question,
-    #     model=LLM_MODEL_MAIN,
-    #     retrieved_data=retrieved_context,
-    # ):
-    #     yield chunk
 
     yield ContentResponseChunk("", final_chunk=True)
 
