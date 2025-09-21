@@ -129,7 +129,7 @@ async def generate_response(request: ChatCompletionRequest):
 
     if request.model == "ajrasakha":
         multi_language = False
-        LLM_MODEL_MAIN = LLM_MODEL_MAIN
+        LLM_MODEL_MAIN = "deepseek-r1:70b"
     else:
         multi_language = True
         translated_question = ""
@@ -228,7 +228,7 @@ async def generate_response(request: ChatCompletionRequest):
     # If PoP Source is Selected
     elif selection.index == 1:
         async for chunk in citations_refine(
-            question, context, new_nodes, LLM_MODEL_MAIN
+            question, context, nodes=new_nodes, model=LLM_MODEL_MAIN
         ):
             yield chunk
 

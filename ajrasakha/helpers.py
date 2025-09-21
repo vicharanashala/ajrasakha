@@ -121,6 +121,7 @@ async def citations_refine(
         node = nodes[index]
         source_str = f"Source {index+1}: \n{node.text}\n"
         context_str += source_str
+    
 
     if nodes:
         user_prompt = f"""Below are several numbered sources of information:
@@ -131,6 +132,7 @@ async def citations_refine(
             Answer: 
             """
     else:
+        logger.info("Did not select sources....")
         user_prompt = question
 
     payload = {
@@ -148,6 +150,8 @@ async def citations_refine(
         "stream": True,
         "think": True,
     }
+    
+    logger.info(str(payload))
 
     async with httpx.AsyncClient(timeout=None) as client:
         async with client.stream("POST", OLLAMA_API_URL, json=payload) as resp:

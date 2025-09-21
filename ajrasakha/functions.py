@@ -190,13 +190,11 @@ async def process_nodes_for_citations(nodes: List[NodeWithScore]) -> List[TextNo
         text_chunks = [sent.text.strip() for sent in doc.sents]
         metadata = node.node.metadata.copy() if node.node.metadata else {}
 
-        logger.error(str(text_chunks))
 
         for text_chunk in text_chunks:
             metadata_with_source = metadata.copy()
             metadata_with_source["source_number"] = len(new_nodes) + 1
             new_node = TextNode(text=text_chunk, metadata=metadata_with_source)
-            logger.warning(text_chunk)
 
             new_nodes.append(new_node)
 
