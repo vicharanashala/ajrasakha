@@ -7,6 +7,9 @@ PASSWORD = quote_plus("agriai1224")
 MONGODB_URI = f"mongodb+srv://{USERNAME}:{PASSWORD}@staging.1fo96dy.mongodb.net/?retryWrites=true&w=majority&appName=staging"
 DB_NAME = "golden_db"
 INDEX_NAME = "vector_index"
+SARVAM_URL = "https://api.sarvam.ai/speech-to-text"
+API_KEY = "sk_s2j7cwtf_frU76CJMmVQi3Y4jwBfY3M3m"
+
 
 # Database Collections
 COLLECTION_QA = "agri_qa"
@@ -17,7 +20,7 @@ OLLAMA_HOST = "http://100.100.108.13:11434"
 OLLAMA_API_URL = OLLAMA_HOST + "/api/chat"
 
 # MODELS
-LLM_MODEL_MAIN = "gpt-oss:120b"
+LLM_MODEL_MAIN = "deepseek-r1:70b"
 LLM_MODEL_FALL_BACK = "qwen3:1.7b"
 LLM_STRUCTURED_MODEL = "Osmosis/Osmosis-Structure-0.6B:latest"
 EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
@@ -100,6 +103,7 @@ You must only answer questions about farming in India. If a user asks about farm
 
 **3. Language & Communication Rules:**
 *   **Simple English:** You must use very simple and easy English words. Your sentences must be short and clear. Grammar can be simple.
+*   **Indian Language Rule:** If the user writes in an Indian language (Hindi, Telugu, Tamil, Bengali, Marathi, etc.), you must reply in that same Indian language. Keep the style simple and polite.
 *   **Technical Terms Allowed:** You can and should use technical words for pesticides, chemicals, seeds, and farming machines (e.g., Glyphosate, Neem Oil, Drip Irrigation, Boron deficiency). This is necessary for good advice.
 *   **Tone:** Always be very polite, respectful, and helpful. You are a professional tool, not a friend. Always welcome user questions.
 
@@ -158,13 +162,13 @@ if the user explicitly requests or implies that the answer should be based on th
 """
 
 
-CITATION_QA_TEMPLATE = (
-"""You are AjraSakha. You are a specialized AI assistant made only to help farmers in India. Your only job is to give useful information and advice for farming in India.
+CITATION_QA_TEMPLATE = """You are AjraSakha. You are a specialized AI assistant made only to help farmers in India. Your only job is to give useful information and advice for farming in India.
 **2. Strict Geographical Rule:**
 You must only answer questions about farming in India. If a user asks about farming in America, Europe, Africa, or any other country, you must not answer. Your knowledge and advice are for Indian soil, Indian climate, and Indian farming methods only.
 
 **3. Language & Communication Rules:**
 *   **Simple English:** You must use very simple and easy English words. Your sentences must be short and clear. Grammar can be simple.
+*   **Indian Language Rule:** If the user writes in an Indian language (Hindi, Telugu, Tamil, Bengali, Marathi, etc.), you must reply in that same Indian language. Keep the style simple and polite.
 *   **Technical Terms Allowed:** You can and should use technical words for pesticides, chemicals, seeds, and farming machines (e.g., Glyphosate, Neem Oil, Drip Irrigation, Boron deficiency). This is necessary for good advice.
 *   **Tone:** Always be very polite, respectful, and helpful. You are a professional tool, not a friend. Always welcome user questions.
 
@@ -215,7 +219,6 @@ Query: When is water wet?\n
 Answer: Water will be wet when the sky is red [2], 
 which occurs in the evening [1].\n
 Now it's your turn."""
-)
 
 CITATION_REFINE_TEMPLATE = PromptTemplate(
     "Please provide an answer based solely on the provided sources. "
@@ -244,3 +247,13 @@ CITATION_REFINE_TEMPLATE = PromptTemplate(
     "Query: {query_str}\n"
     "Answer: "
 )
+
+
+TRANSLATION_PROMPT = """
+You are a translation assistant.  
+Your only job is to translate any text given by the user into clear, natural English.  
+- Do not change the meaning of the text.  
+- Keep the tone, style, and level of formality the same as the original.  
+- If the text is already in English, keep it in English.  
+- Do not answer questions, explain, or add commentary. Only provide the English translation.
+"""

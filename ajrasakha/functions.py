@@ -298,7 +298,7 @@ def extract_links(text: str):
     return ", ".join(f"[Link{i+1}]({u})" for i, u in enumerate(urls))
 
 
-async def render_metadata_table(nodes: List[TextNode]) -> str:
+async def render_metadata_table(nodes: List[TextNode], table_type: str = "qa") -> str:
     """Render metadata for nodes as a markdown table with source ranges."""
 
     # Extract (source_number, metadata) pairs
@@ -321,29 +321,53 @@ async def render_metadata_table(nodes: List[TextNode]) -> str:
         meta = group_list[0][1]
         grouped.append(((start, end), meta))
 
-    # Render Markdown table
-    table = "| References | Specialist | Sources | State | Crop |\n"
-    table += "|---------|------------|---------|-------|------|\n"
+    if table_type == "pop":
+        # Render POP table
+        table = "| References | Page No | Source | Topics |\n"
+        table += "|---------|---------|--------|--------|\n"
 
-    previous = 1
-    for (start, end), meta in grouped:
-        if start == end:
-            source_range = str(previous) + "-" + str(start)
-        else:
-            source_range = f"{start}–{end}"
+        previous = 1
+        for (start, end), meta in grouped:
+            if start == end:
+                source_range = str(previous) + "-" + str(start)
+            else:
+                source_range = f"{start}–{end}"
 
-        sources = extract_links(meta.get("Source [Name and Link]", ""))
+            sources = extract_links(meta.get("source", ""))
 
-        table += (
-            f"| {source_range} "
-            f"| {meta.get('Agri Specialist', '')} "
-            f"| {sources}"
-            f"| {meta.get('State', '')} "
-            f"| {meta.get('Crop', '')} |\n"
-        )
-        previous = end + 1
+            table += (
+                f"| {source_range} "
+                f"| {meta.get('page_no', '')} "
+                f"| {sources} "
+                f"| {meta.get('headings', '')} |\n"
+            )
+            previous = end + 1
 
-    return table
+        return table
+    else:
+        # Render Markdown table
+        table = "| References | Specialist | Sources | State | Crop |\n"
+        table += "|---------|------------|---------|-------|------|\n"
+
+        previous = 1
+        for (start, end), meta in grouped:
+            if start == end:
+                source_range = str(previous) + "-" + str(start)
+            else:
+                source_range = f"{start}–{end}"
+
+            sources = extract_links(meta.get("Source [Name and Link]", ""))
+
+            table += (
+                f"| {source_range} "
+                f"| {meta.get('Agri Specialist', '')} "
+                f"| {sources}"
+                f"| {meta.get('State', '')} "
+                f"| {meta.get('Crop', '')} |\n"
+            )
+            previous = end + 1
+
+        return table
 
 
 def render_graph_mermaid(

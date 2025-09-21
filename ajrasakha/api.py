@@ -1,8 +1,8 @@
 from urllib.parse import quote_plus
 import httpx
 from typing import List
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, File, Form, UploadFile
+from fastapi.responses import JSONResponse, StreamingResponse
 from helpers import ollama_generate
 from models import (
     ChatCompletionRequest,
@@ -16,7 +16,14 @@ from models import (
 )
 from llama_index.llms.ollama import Ollama
 from llama_index.core import Settings
-from constants import CITATION_QA_TEMPLATE, CITATION_REFINE_TEMPLATE, DB_SELECTOR_PROMPT
+from constants import (
+    API_KEY,
+    CITATION_QA_TEMPLATE,
+    CITATION_REFINE_TEMPLATE,
+    DB_SELECTOR_PROMPT,
+    SARVAM_URL,
+    TRANSLATION_PROMPT,
+)
 from ollama import AsyncClient
 import pymongo
 from llama_index.core.selectors import LLMSingleSelector
@@ -57,8 +64,10 @@ from helpers import citations_refine
 from llama_index.core.query_engine import CitationQueryEngine, BaseQueryEngine
 from numpy import dot
 from numpy.linalg import norm
+import requests, tempfile
+from pydub import AudioSegment
 
-
+logger = logging.getLogger("myapp")
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -116,24 +125,45 @@ selector = LLMSingleSelector.from_defaults(
 )
 
 
-nodes = [
-    KnowledgeGraphNodes(start_node="aphids", relation_node="likes", end_node="plants"),
-    KnowledgeGraphNodes(start_node="B", relation_node="knows", end_node="C"),
-    KnowledgeGraphNodes(start_node="C", relation_node="teaches", end_node="D"),
-]
-
 async def generate_response(request: ChatCompletionRequest):
+
+    if request.model == "ajrasakha":
+        multi_language = False
+        LLM_MODEL_MAIN = LLM_MODEL_MAIN
+    else:
+        multi_language = True
+        translated_question = ""
+        LLM_MODEL_MAIN = "gpt-oss:120b"
+
     messages = request.messages
     question = messages[-1].content
-    user_embedding = Settings.embed_model.get_text_embedding(question.lower())
     best_match = None
     best_answer = None
     best_score = 0.95
 
     context = [{"role": msg.role, "content": msg.content} for msg in messages[1:-1]]
 
-    yield ThinkingResponseChunk("Verifying Question and Selecting Source....\n")
-    selector_result = await selector.aselect(tools, query=question)
+    if multi_language:
+
+        yield ThinkingResponseChunk("Translating to English....\n")
+        async for chunk in ollama_generate(
+            context=context,
+            prompt=question,
+            model=LLM_MODEL_MAIN,
+            retrieved_data=None,
+            SYSTEM_PROMPT=TRANSLATION_PROMPT,
+        ):
+            if isinstance(chunk, ContentResponseChunk):
+                translated_question += chunk.text
+            else:
+                yield chunk
+
+    question_to_process = translated_question if multi_language else question
+    user_embedding = Settings.embed_model.get_text_embedding(
+        question_to_process.lower()
+    )
+    yield ThinkingResponseChunk("\nVerifying Question and Selecting Source....\n")
+    selector_result = await selector.aselect(tools, query=question_to_process)
     selection = selector_result.selections[0]
     retriever = None
     match selection.index:
@@ -158,35 +188,61 @@ async def generate_response(request: ChatCompletionRequest):
             renderer = None
 
     if retriever:
-        nodes = await retriever.aretrieve(question)
+        nodes = await retriever.aretrieve(question_to_process)
         processed_nodes = await node_processor(nodes)
         display_nodes = await renderer(processed_nodes, should_truncate=True)
         context_nodes = await renderer(processed_nodes, should_truncate=False)
         yield ThinkingResponseChunk(display_nodes)
-        new_nodes = await process_nodes_for_citations(nodes) 
-    
-    if(selection.index == 0):
+        new_nodes = await process_nodes_for_citations(nodes)
+
+    # If QA Source is Selected
+    if selection.index == 0:
         for qa_pair in processed_nodes:
             # Check similarity with given question using embedding.
-            ref_embedding = Settings.embed_model.get_text_embedding(qa_pair.question.lower())
-            score = dot(user_embedding, ref_embedding) / (norm(user_embedding) * norm(ref_embedding))
-            yield ThinkingResponseChunk("Score: " + str(score))
+            ref_embedding = Settings.embed_model.get_text_embedding(
+                qa_pair.question.lower()
+            )
+            score = dot(user_embedding, ref_embedding) / (
+                norm(user_embedding) * norm(ref_embedding)
+            )
             if score > best_score:
                 best_score = score
                 best_match = qa_pair.question
                 best_answer = qa_pair.answer
-                
+
         if selection.index == 0 and best_match != None:
             yield ContentResponseChunk(best_answer)
         else:
-            async for chunk in citations_refine(new_nodes, question, LLM_MODEL_MAIN):
+            async for chunk in citations_refine(
+                question, context, new_nodes, LLM_MODEL_MAIN
+            ):
                 yield chunk
 
-            yield ContentResponseChunk("\n #### References: \n")
+            yield ContentResponseChunk("\n ### References: \n")
             yield ContentResponseChunk(await render_metadata_table(new_nodes))
             yield ContentResponseChunk("\n")
-            yield ContentResponseChunk(render_references_html(await render_citations(new_nodes)))
-    elif(selection.index == 2):
+            yield ContentResponseChunk(
+                render_references_html(await render_citations(new_nodes))
+            )
+
+    # If PoP Source is Selected
+    elif selection.index == 1:
+        async for chunk in citations_refine(
+            question, context, new_nodes, LLM_MODEL_MAIN
+        ):
+            yield chunk
+
+        yield ContentResponseChunk("\n ### References: \n")
+        yield ContentResponseChunk(
+            await render_metadata_table(new_nodes, table_type="pop")
+        )
+        yield ContentResponseChunk("\n")
+        yield ContentResponseChunk(
+            render_references_html(await render_citations(new_nodes))
+        )
+
+    # If Knowledge Graph Source is Selected
+    elif selection.index == 2:
         if retriever:
             retrieved_context = context_nodes
         else:
@@ -199,7 +255,9 @@ async def generate_response(request: ChatCompletionRequest):
             retrieved_data=retrieved_context,
         ):
             yield chunk
-        yield ContentResponseChunk("\n"+render_graph_mermaid(processed_nodes))
+        yield ContentResponseChunk("\n" + render_graph_mermaid(processed_nodes))
+
+    # No Source selected
     else:
         if retriever:
             retrieved_context = context_nodes
@@ -215,6 +273,11 @@ async def generate_response(request: ChatCompletionRequest):
             yield chunk
 
     yield ContentResponseChunk("", final_chunk=True)
+
+
+def get_audio_duration(path: str) -> float:
+    audio = AudioSegment.from_file(path)
+    return len(audio) / 1000.0  # duration in seconds
 
 
 @app.post("/questions/", response_model=List[QuestionAnswerResponse])
@@ -244,7 +307,7 @@ def get_similarity_score(request: SimilarityScoreRequest):
     vec2 = Settings.embed_model.get_text_embedding(request.text2)
     score = dot(vec1, vec2) / (norm(vec1) * norm(vec2))
     return {"similarity_score": score}
-    
+
 
 @app.post("/api/chat/")
 async def chat_completions(request: ChatCompletionRequest):
@@ -290,3 +353,36 @@ async def chat_completions(request: ChatCompletionRequest):
             }
             resp = await client.post(OLLAMA_API_URL, json=payload)
             return resp.json()
+
+
+@app.post("/v1/audio/transcriptions")
+async def transcribe_audio(
+    file: UploadFile = File(...),
+):
+
+    files = {"file": (file.filename, await file.read(), file.content_type)}
+
+    headers = {"api-subscription-key": API_KEY}
+
+    data = {
+        "model": "saarika:v2.5",  # fixed or mapped from input
+        "language_code": "unknown",
+    }
+    resp = requests.post(SARVAM_URL, headers=headers, data=data, files=files)
+    sarvam_resp = resp.json()
+
+    logger.info(resp.json())
+
+    # Convert Sarvam → OpenAI response format
+    return JSONResponse(
+        content={
+            "text": sarvam_resp.get("transcript", ""),
+            "usage": {
+                "type": "tokens",
+                "input_tokens": 0,
+                "input_token_details": {"text_tokens": 0, "audio_tokens": 0},
+                "output_tokens": 0,
+                "total_tokens": 0,
+            },
+        }
+    )

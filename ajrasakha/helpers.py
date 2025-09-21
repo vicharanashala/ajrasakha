@@ -2,7 +2,12 @@ import json
 from typing import AsyncIterable, AsyncIterator, List, TypeVar
 
 import httpx
-from models import ContentResponseChunk, ThinkingResponseChunk, KnowledgeGraphNodes, get_id
+from models import (
+    ContentResponseChunk,
+    ThinkingResponseChunk,
+    KnowledgeGraphNodes,
+    get_id,
+)
 from llama_index.core.schema import NodeWithScore, MetadataMode, TextNode
 
 from constants import SYSTEM_PROMPT_AGRI_EXPERT, CITATION_QA_TEMPLATE
@@ -62,12 +67,16 @@ async def achain(*gens: AsyncIterable[T]) -> AsyncIterator[T]:
 
 
 async def ollama_generate(
-    prompt: str, context: List[dict[str, str]], model: str, retrieved_data: str | None
+    prompt: str,
+    context: List[dict[str, str]],
+    model: str,
+    retrieved_data: str | None,
+    SYSTEM_PROMPT: str = SYSTEM_PROMPT_AGRI_EXPERT,
 ):
     payload = {
         "model": model,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT_AGRI_EXPERT},
+            {"role": "system", "content": SYSTEM_PROMPT},
             *context,
             (
                 {"role": "user", "content": f"{prompt}"}
@@ -81,7 +90,7 @@ async def ollama_generate(
         "stream": True,
         "think": True,
     }
-    
+
     async with httpx.AsyncClient(timeout=None) as client:
         async with client.stream("POST", OLLAMA_API_URL, json=payload) as resp:
             async for line in resp.aiter_lines():
@@ -101,29 +110,34 @@ async def ollama_generate(
                             yield ContentResponseChunk(content, final_chunk=True)
                         yield ContentResponseChunk(content)
 
-async def citations_refine(nodes: List[TextNode], question: str, model: str):
+
+async def citations_refine(
+    question: str, context: List[dict[str, str]], nodes: List[TextNode], model: str
+):
     logger.info("Entered citations")
-    
+
     context_str = ""
     for index in range(len(nodes)):
         node = nodes[index]
         source_str = f"Source {index+1}: \n{node.text}\n"
-        context_str+=source_str
-        
+        context_str += source_str
 
-    user_prompt = f'''Below are several numbered sources of information:
-        \n------\n
-        {context_str}
-        \n------\n
-        Query: {question}\n
-        Answer: 
-        '''
+    if nodes:
+        user_prompt = f"""Below are several numbered sources of information:
+            \n------\n
+            {context_str}
+            \n------\n
+            Query: {question}\n
+            Answer: 
+            """
+    else:
+        user_prompt = question
 
-    
     payload = {
         "model": model,
         "messages": [
             {"role": "system", "content": CITATION_QA_TEMPLATE},
+            *context,
             (
                 {
                     "role": "user",
@@ -134,7 +148,7 @@ async def citations_refine(nodes: List[TextNode], question: str, model: str):
         "stream": True,
         "think": True,
     }
-    
+
     async with httpx.AsyncClient(timeout=None) as client:
         async with client.stream("POST", OLLAMA_API_URL, json=payload) as resp:
             async for line in resp.aiter_lines():
@@ -160,5 +174,7 @@ def to_mermaid(nodes: List[KnowledgeGraphNodes]) -> str:
     lines = ["graph TD"]
     for node in nodes:
         # Each edge: start -->|relation| end
-        lines.append(f'    {get_id(node.start_node)}[\"{node.start_node}\"] -->|{node.relation_node}| {get_id(node.end_node)}[\"{node.end_node}\"]')
+        lines.append(
+            f'    {get_id(node.start_node)}["{node.start_node}"] -->|{node.relation_node}| {get_id(node.end_node)}["{node.end_node}"]'
+        )
     return "\n".join(lines)

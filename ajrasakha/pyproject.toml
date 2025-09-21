@@ -21,7 +21,9 @@ dependencies = [
     "llama-index-graph-stores-neo4j (>=0.5.1,<0.6.0)",
     "neo4j (>=5.28.2,<6.0.0)",
     "spacy (>=3.8.7,<4.0.0)",
-    "markdown (>=3.9,<4.0)"
+    "markdown (>=3.9,<4.0)",
+    "python-multipart (>=0.0.20,<0.0.21)",
+    "pydub (>=0.25.1,<0.26.0)"
 ]
 
 
