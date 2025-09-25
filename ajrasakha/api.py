@@ -37,12 +37,12 @@ from functions import (
     process_nodes_for_citations,
     process_nodes_qa,
     process_nodes_pop,
+    process_nodes_graph,
     render_citations,
     render_graph_mermaid,
     render_metadata_table,
     render_pop_markdown,
     render_qa_markdown,
-    process_nodes_graph,
     render_graph_markdown,
     render_references_html,
 )
