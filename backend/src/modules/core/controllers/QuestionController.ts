@@ -11,6 +11,8 @@ import {
   Authorized,
   CurrentUser,
   Post,
+  Param,
+  NotFoundError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -18,7 +20,10 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {IQuestion, IUser} from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {QuestionService} from '../services/QuestionService.js';
-import {ContextIdParam} from '../classes/validators/ContextValidators.js';
+import {
+  ContextIdParam,
+  GetDetailedQuestionsQuery,
+} from '../classes/validators/ContextValidators.js';
 import {
   GeneratedQuestionResponse,
   GenerateQuestionsBody,
@@ -74,6 +79,17 @@ export class QuestionController {
     );
   }
 
+  @Get('/detailed')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Get detailed questions with advanced filters'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async getDetailedQuestions(
+    @QueryParams() query: GetDetailedQuestionsQuery,
+  ): Promise<IQuestion[]> {
+    return this.questionService.getDetailedQuestions(query);
+  }
+
   @Post('/generate')
   @HttpCode(200)
   @ResponseSchema(GeneratedQuestionResponse, {isArray: true})
@@ -96,6 +112,29 @@ export class QuestionController {
   ): Promise<QuestionResponse> {
     const {questionId} = params;
     return this.questionService.getQuestionById(questionId);
+  }
+
+  @Get('/:questionId/full')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Get full details of selected question by ID'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async getQuestionFull(
+    @Params() params: QuestionIdParam,
+    @CurrentUser() user: IUser,
+  ) {
+    const {questionId} = params;
+    const userId = user._id.toString();
+    const question = await this.questionService.getQuestionFullData(
+      questionId,
+      userId,
+    );
+
+    if (!question) {
+      throw new NotFoundError(`Question with id ${questionId} not found`);
+    }
+
+    return {success: true, data: question};
   }
 
   @Put('/:questionId')

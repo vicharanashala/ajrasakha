@@ -1,7 +1,6 @@
 import type { UserCredential } from "firebase/auth";
 
 export type UserRole = "admin" | "user" | "expert";
-export type QuestionStatus = "open" | "answered" | "closed";
 
 export interface ExtendedUserCredential extends UserCredential {
   _tokenResponse?: {
@@ -34,7 +33,7 @@ export interface IQuestion {
   text: string;
   createdAt: string;
   updatedAt: string;
-  totalAnwersCount: number;
+  totalAnswersCount: number;
   currentAnswers?: {
     answer: string;
     id: string;
@@ -73,17 +72,6 @@ export interface AuthContextType {
   logout: () => void;
 }
 
-export interface IAnswer {
-  _id?: string;
-  questionId: string;
-  authorId: string;
-  answerIteration: number;
-  isFinalAnswer: boolean;
-  answer: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
-
 export interface IContext {
   _id?: string;
   text: string;
@@ -108,3 +96,62 @@ export type SupportedLanguage =
   | "ml-IN"
   | "pa-IN"
   | "ur-IN";
+
+export type QuestionStatus = "open" | "answered" | "closed";
+
+export interface IAnswer {
+  _id?: string;
+  questionId: string;
+  authorId: string;
+  answerIteration: number;
+  isFinalAnswer: boolean;
+  answer: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface ISubmission {
+  _id: string;
+  questionId: string;
+  lastRespondedBy: {
+    _id: string;
+    name: string;
+    email: string;
+  } | null;
+  history: {
+    updatedBy: {
+      _id: string;
+      name: string;
+      email: string;
+    } | null;
+    answer: IAnswer | null;
+    isFinalAnswer: boolean;
+    updatedAt: string;
+  }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IQuestionFullData {
+  _id: string;
+  question: string;
+  status: QuestionStatus;
+  details: {
+    state: string;
+    district: string;
+    crop: string;
+    season: string;
+    domain: string;
+  };
+  source: string;
+  totalAnswersCount: number;
+  createdAt: string;
+  updatedAt: string;
+  submissions: ISubmission;
+  isAlreadySubmitted: boolean;
+}
+
+export interface QuestionFullDataResponse {
+  success: true;
+  data: IQuestionFullData;
+}

@@ -14,6 +14,7 @@ const TYPES = {
 
   // Repositories
   QuestionRepository: Symbol.for('QuestionRepository'),
+  QuestionSubmissionRepository: Symbol.for('QuestionSubmissionRepository'),
   AnswerRepository: Symbol.for('AnswerRepository'),
   ContextRepository: Symbol.for('ContextRepository'),
   UserRepository: Symbol.for('userRepository'),

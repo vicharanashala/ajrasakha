@@ -3,8 +3,8 @@ import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRep
 import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject, injectable} from 'inversify';
-import {ClientSession} from 'mongodb';
-import {IAnswer} from '#root/shared/interfaces/models.js';
+import {ClientSession, ObjectId} from 'mongodb';
+import {IAnswer, ISubmissionHistroy} from '#root/shared/interfaces/models.js';
 import {BadRequestError} from 'routing-controllers';
 import {
   SubmissionResponse,
@@ -12,6 +12,7 @@ import {
 } from '../classes/validators/AnswerValidators.js';
 import {CORE_TYPES} from '../types.js';
 import {AiService} from './AiService.js';
+import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
 
 @injectable()
 export class AnswerService extends BaseService {
@@ -24,6 +25,9 @@ export class AnswerService extends BaseService {
 
     @inject(GLOBAL_TYPES.QuestionRepository)
     private readonly questionRepo: IQuestionRepository,
+
+    @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
+    private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -77,10 +81,9 @@ export class AnswerService extends BaseService {
         if (threshold >= 0.9) isFinalAnswer = true; // if it meets threshold then set as final
       }
 
+      const updatedAnswerCount = question.totalAnswersCount + 1;
 
-      const updatedAnswerCount = question.totalAnwersCount + 1;
-
-      const insertedId = await this.answerRepo.addAnswer(
+      const {insertedId} = await this.answerRepo.addAnswer(
         questionId,
         authorId,
         answer,
@@ -92,12 +95,23 @@ export class AnswerService extends BaseService {
       await this.questionRepo.updateQuestion(
         questionId,
         {
-          totalAnwersCount: updatedAnswerCount,
+          totalAnswersCount: updatedAnswerCount,
           status: isFinalAnswer ? 'closed' : 'open',
         },
         session,
       );
-      return {...insertedId, isFinalAnswer};
+      const userSubmissionData: ISubmissionHistroy = {
+        updatedBy: new ObjectId(authorId),
+        answer: new ObjectId(insertedId),
+        isFinalAnswer,
+        updatedAt: new Date(),
+      };
+      await this.questionSubmissionRepo.update(
+        questionId,
+        userSubmissionData,
+        session,
+      );
+      return {insertedId, isFinalAnswer};
     });
   }
 
@@ -162,14 +176,14 @@ export class AnswerService extends BaseService {
       if (!question) {
         throw new BadRequestError(`Question with ID ${questionId} not found`);
       }
-      const updatedAnswerCount = question.totalAnwersCount - 1;
+      const updatedAnswerCount = question.totalAnswersCount - 1;
 
       const isFinalAnswer = answer.isFinalAnswer;
 
       await this.questionRepo.updateQuestion(
         questionId,
         {
-          totalAnwersCount: updatedAnswerCount,
+          totalAnswersCount: updatedAnswerCount,
           status: isFinalAnswer ? 'open' : 'closed',
         },
         session,

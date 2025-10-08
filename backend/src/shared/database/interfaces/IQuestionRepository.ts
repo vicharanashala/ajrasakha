@@ -1,3 +1,4 @@
+import {GetDetailedQuestionsQuery} from '#root/modules/core/classes/validators/ContextValidators.js';
 import {QuestionResponse} from '#root/modules/core/classes/validators/QuestionValidators.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {ClientSession} from 'mongodb';
@@ -20,6 +21,20 @@ export interface IQuestionRepository {
     questions: string[],
     session?: ClientSession,
   ): Promise<{insertedCount: number}>;
+  /**
+   * Add question .
+   * @param userId - The ID of the user creating the questions.
+   * @param contextId - The ID of the context the questions belong to.
+   * @param questions - An array of question strings.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to an object containing the number of inserted question.
+   */
+  addQuestion(
+    userId: string,
+    contextId: string,
+    questions: string,
+    session?: ClientSession,
+  ): Promise<IQuestion>;
 
   /**
    * Retrieves all questions for a specific context.
@@ -41,6 +56,15 @@ export interface IQuestionRepository {
   getById(questionId: string, session?: ClientSession): Promise<IQuestion>;
 
   /**
+   * Retrieves all questions for a specific context.
+   * @param questionId - The ID of the question.
+   * @param userId - The ID of the user.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to an array of questions.
+   */
+  getQuestionWithFullData(questionId: string, userId: string): Promise<any>;
+
+  /**
    * Retrieves all questions that have not been answered yet.
    * @param userId- Author id to check submissions
    * @param page - Current page count.
@@ -56,6 +80,11 @@ export interface IQuestionRepository {
     filter: 'newest' | 'oldest' | 'leastResponses' | 'mostResponses',
     session?: ClientSession,
   ): Promise<QuestionResponse[]>;
+  /**
+   * @param query - Advance query filters.
+   * @returns A promise that resolves to an array of detailed questions.
+   */
+  findDetailedQuestions(query: GetDetailedQuestionsQuery): Promise<IQuestion[]>;
 
   /**
    * Updates a specific question.

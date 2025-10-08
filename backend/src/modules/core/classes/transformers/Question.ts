@@ -15,7 +15,7 @@ class Question implements IQuestion {
   @Transform(ObjectIdToString.transformer, {toPlainOnly: true})
   @Transform(StringToObjectId.transformer, {toClassOnly: true})
   @Expose()
-  userId?: string | ObjectId;
+  userId: string | ObjectId;
 
   @Expose()
   question: string;
@@ -29,7 +29,19 @@ class Question implements IQuestion {
   status: QuestionStatus;
 
   @Expose()
-  totalAnwersCount: number;
+  totalAnswersCount: number;
+
+  @Expose()
+  details: {
+    state: string;
+    district: string;
+    crop: string;
+    season: string;
+    domain: string;
+  };
+
+  @Expose()
+  source: 'AJRASAKHA' | 'AGRI_EXPERT';
 
   @Expose()
   createdAt?: Date;

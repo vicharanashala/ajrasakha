@@ -9,6 +9,11 @@ export interface IUser {
   email: string;
   firstName: string;
   lastName?: string;
+  preference?: {
+    state: string;
+    crop: string;
+    domain: string;
+  };
   role: UserRole;
   createdAt?: Date;
   updatedAt?: Date;
@@ -16,11 +21,19 @@ export interface IUser {
 
 export interface IQuestion {
   _id?: string | ObjectId;
-  userId?: ObjectId | string;
+  userId: ObjectId | string;
   question: string;
   context: ObjectId | string;
   status: QuestionStatus;
-  totalAnwersCount: number;
+  totalAnswersCount: number;
+  details: {
+    state: string;
+    district: string;
+    crop: string;
+    season: string;
+    domain: string;
+  };
+  source: 'AJRASAKHA' | 'AGRI_EXPERT';
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -38,8 +51,23 @@ export interface IAnswer {
 }
 
 // For transcripts
-export interface IContext { 
+export interface IContext {
   _id?: string | ObjectId;
   text: string;
   createdAt?: Date;
+}
+
+export interface ISubmissionHistroy {
+  updatedBy: string | ObjectId;
+  answer: string | ObjectId;
+  isFinalAnswer: boolean;
+  updatedAt: Date;
+}
+export interface IQuestionSubmission {
+  _id?: string | ObjectId;
+  questionId: string | ObjectId;
+  lastRespondedBy: string | ObjectId;
+  history: ISubmissionHistroy[];
+  createdAt?: Date;
+  updatedAt?: Date;
 }

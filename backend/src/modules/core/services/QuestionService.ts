@@ -3,7 +3,10 @@ import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject, injectable} from 'inversify';
 import {ClientSession, ObjectId} from 'mongodb';
-import {IQuestion} from '#root/shared/interfaces/models.js';
+import {
+  IQuestion,
+  IQuestionSubmission,
+} from '#root/shared/interfaces/models.js';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {
   GeneratedQuestionResponse,
@@ -12,6 +15,8 @@ import {
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
 import {CORE_TYPES} from '../types.js';
 import {AiService} from './AiService.js';
+import {GetDetailedQuestionsQuery} from '../classes/validators/ContextValidators.js';
+import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
 
 @injectable()
 export class QuestionService extends BaseService {
@@ -21,6 +26,10 @@ export class QuestionService extends BaseService {
 
     @inject(GLOBAL_TYPES.QuestionRepository)
     private readonly questionRepo: IQuestionRepository,
+
+    @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
+    private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
+
     @inject(GLOBAL_TYPES.AnswerRepository)
     private readonly answerRepo: IAnswerRepository,
 
@@ -34,16 +43,74 @@ export class QuestionService extends BaseService {
     userId: string,
     contextId: string,
     questions: string[],
-  ): Promise<{insertedCount: number}> {
+    session?: ClientSession,
+  ) {
     try {
-      return this._withTransaction(async (session: ClientSession) => {
-        return this.questionRepo.addQuestions(
-          userId,
-          contextId,
-          questions,
-          session,
-        );
-      });
+      if (!Array.isArray(questions) || questions.length === 0) {
+        throw new BadRequestError('Questions must be a non-empty array');
+      }
+
+      if (session) {
+        const insertedQuestions = [];
+
+        for (const questionText of questions) {
+          const question = await this.questionRepo.addQuestion(
+            userId,
+            contextId,
+            questionText,
+            session,
+          );
+
+          const submissionData: IQuestionSubmission = {
+            questionId: question._id,
+            lastRespondedBy: null,
+            history: [],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          await this.questionSubmissionRepo.addSubmission(
+            submissionData,
+            session,
+          );
+
+          insertedQuestions.push(question);
+        }
+
+        return insertedQuestions;
+      }
+
+      return this._withTransaction(
+        async (transactionSession: ClientSession) => {
+          const insertedQuestions = [];
+
+          for (const questionText of questions) {
+            const question = await this.questionRepo.addQuestion(
+              userId,
+              contextId,
+              questionText,
+              transactionSession,
+            );
+
+            const submissionData: IQuestionSubmission = {
+              questionId: question._id,
+              lastRespondedBy: null,
+              history: [],
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+
+            await this.questionSubmissionRepo.addSubmission(
+              submissionData,
+              transactionSession,
+            );
+
+            insertedQuestions.push(question);
+          }
+
+          return insertedQuestions;
+        },
+      );
     } catch (error) {
       throw new InternalServerError(`Failed to add questions: ${error}`);
     }
@@ -82,33 +149,16 @@ export class QuestionService extends BaseService {
     }
   }
 
+  async getDetailedQuestions(
+    query: GetDetailedQuestionsQuery,
+  ): Promise<IQuestion[]> {
+    return this.questionRepo.findDetailedQuestions(query);
+  }
+
   async getQuestionFromRawContext(
+    // While text to speech
     context: string,
   ): Promise<GeneratedQuestionResponse[]> {
-    // const sampleQuestions: GeneratedQuestionResponse[] = [
-    //   {
-    //     id: '1',
-    //     text: 'What is the main crop discussed in the transcript?',
-    //     agriExpert: 'Dr. Rajesh Kumar',
-    //     answer: 'The transcript mainly discusses wheat cultivation.',
-    //   },
-    //   {
-    //     id: '2',
-    //     text: 'List two key farming techniques mentioned.',
-    //     agriExpert: 'Dr. Priya Sharma',
-    //     answer: 'Crop rotation and drip irrigation were highlighted.',
-    //   },
-    //   {
-    //     id: '3',
-    //     text: 'How can the information be applied in real farms?',
-    //     agriExpert: 'Dr. Anil Mehta',
-    //     answer:
-    //       'Farmers can adopt crop rotation and proper irrigation scheduling.',
-    //   },
-    // ];
-    // const randomIndex = Math.floor(Math.random() * sampleQuestions.length);
-    // return [sampleQuestions[randomIndex]];
-
     const questions = await this.aiService.getQuestionByContext(context);
     const uniqueQuestions = Array.from(
       new Map(questions.map(q => [q.question, q])).values(),
@@ -132,7 +182,7 @@ export class QuestionService extends BaseService {
           text: currentQuestion.question,
           createdAt: new Date(currentQuestion.createdAt).toLocaleString(),
           updatedAt: new Date(currentQuestion.updatedAt).toLocaleString(),
-          totalAnwersCount: currentQuestion.totalAnwersCount,
+          totalAnwersCount: currentQuestion.totalAnswersCount,
           currentAnswers: currentAnswers.map(currentAnswer => ({
             id: currentAnswer._id.toString(),
             answer: currentAnswer.answer,
@@ -182,6 +232,18 @@ export class QuestionService extends BaseService {
       });
     } catch (error) {
       throw new InternalServerError(`Failed to delete question: ${error}`);
+    }
+  }
+
+  async getQuestionFullData(questionId: string, userId: string): Promise<IQuestion | null> {
+    try {
+      const question = await this.questionRepo.getQuestionWithFullData(questionId, userId);
+      if (!question) {
+        return null;
+      }
+      return question;
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch question data: ${error}`);
     }
   }
 }

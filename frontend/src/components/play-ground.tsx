@@ -15,6 +15,7 @@ import { ThemeToggleCompact } from "./atoms/ThemeToggle";
 import { QAInterface } from "./QA-interface";
 import { FullSubmissionHistory } from "./submission-history";
 import VoiceRecorderCard from "./voice-recorder-card";
+import { QuestionsPage } from "./questions-page";
 
 export const PlaygroundPage = () => {
   return (
@@ -38,7 +39,7 @@ export const PlaygroundPage = () => {
           <div className="container h-full py-6 ">
             <div className="grid gap-6 mb-5 ">
               <div className="flex">
-                <TabsList className="grid  grid-cols-3 gap-1  bg-transparent/60 ">
+                <TabsList className="grid  grid-cols-4 gap-1  bg-transparent/60 ">
                   <TabsTrigger
                     value="upload"
                     className="px-4 rounded-lg  transition-all duration-150 font-medium"
@@ -89,6 +90,22 @@ export const PlaygroundPage = () => {
                       </HoverCardContent>
                     </HoverCard>
                   </TabsTrigger>
+                  <TabsTrigger
+                    value="all_questions"
+                    className="px-4 py-2 rounded-lg transition-all duration-150 font-medium"
+                  >
+                    <HoverCard openDelay={150}>
+                      <HoverCardTrigger asChild>
+                        <span>All Questions</span>
+                      </HoverCardTrigger>
+                      <HoverCardContent
+                        className="w-[200px] text-sm"
+                        side="bottom"
+                      >
+                        View your all Questions
+                      </HoverCardContent>
+                    </HoverCard>
+                  </TabsTrigger>
                 </TabsList>
               </div>
             </div>
@@ -100,14 +117,6 @@ export const PlaygroundPage = () => {
                 >
                   <div className="min-h-[75%] bg-background p-4 ps-0">
                     <div className="container mx-auto py-8 pt-0">
-                      {/* <div className="text-center mb-4">
-                        <h1 className="text-3xl font-bold mb-2">
-                          Voice Recorder & Transcriber
-                        </h1>
-                        <p className="text-muted-foreground">
-                          Record your voice and see it transcribed in real-time
-                        </p>
-                      </div> */}
                       <VoiceRecorderCard />
                     </div>
                   </div>
@@ -123,6 +132,12 @@ export const PlaygroundPage = () => {
                   className="mt-0 border-0 p-0 max-w-[93%]"
                 >
                   <FullSubmissionHistory />
+                </TabsContent>
+                <TabsContent
+                  value="all_questions"
+                  className="mt-0 border-0 md:px-8 px-2-0 w-full"
+                >
+                  <QuestionsPage/>
                 </TabsContent>
               </div>
             </div>

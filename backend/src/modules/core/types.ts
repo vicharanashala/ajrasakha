@@ -11,6 +11,7 @@ export const CORE_TYPES = {
   AIService: Symbol.for('AIService'),
 
   // Repositories
+  QuestionSubmissionRepository: Symbol.for('QuestionSubmissionRepository'),
   QuestionRepository: Symbol.for('QuestionRepository'),
   AnswerRepository: Symbol.for('AnswerRepository'),
   ContextRepository: Symbol.for('ContextRepository'),

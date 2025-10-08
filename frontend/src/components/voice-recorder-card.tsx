@@ -48,6 +48,7 @@ declare global {
     webkitSpeechRecognition: any;
   }
 }
+
 const supportedLanguages: { code: SupportedLanguage; label: string }[] = [
   { code: "en-IN", label: "English (India)" },
   { code: "en-US", label: "English (US)" },
@@ -65,7 +66,7 @@ const supportedLanguages: { code: SupportedLanguage; label: string }[] = [
 
 const VoiceRecorderCard = () => {
   const [isRecording, setIsRecording] = useState(false);
-  const [transcript, setTranscript] = useState("");
+  const [transcript, setTranscript] = useState(``);
   const [isListening, setIsListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
   const [language, setLanguage] = useState<SupportedLanguage>("en-IN");

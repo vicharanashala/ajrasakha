@@ -6,14 +6,16 @@ import {ClientSession, ObjectId} from 'mongodb';
 import {IContext} from '#root/shared/interfaces/models.js';
 import {InternalServerError, BadRequestError} from 'routing-controllers';
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
+import {dummyQuestions} from '../utils/questionGen.js';
+import { QuestionService } from './QuestionService.js';
 
 @injectable()
 export class ContextService extends BaseService {
   constructor(
     @inject(GLOBAL_TYPES.ContextRepository)
     private readonly contextRepo: IContextRepository,
-    @inject(GLOBAL_TYPES.QuestionRepository)
-    private readonly questionRepo: IQuestionRepository,
+    @inject(GLOBAL_TYPES.QuestionService)
+    private readonly questionService: QuestionService,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -33,21 +35,14 @@ export class ContextService extends BaseService {
       return this._withTransaction(async (session: ClientSession) => {
         const result = await this.contextRepo.addContext(text, session);
 
-        // const contextId = result.insertedId;
-        // const dummyQuestions: string[] = [
-        //   ' is the difference between supervised and unsupervised learning?',
-        //   'Explain closures in JavaScript with an example.',
-        //   'How does indexing improve query performance in MongoDB?',
-        //   'What are the key features of TypeScript compared to JavaScript?',
-        //   'How does garbage collection work in Node.js?',
-        // ];
+        const contextId = result.insertedId;
 
-        // await this.questionRepo.addQuestions(
-        //   userId,
-        //   contextId,
-        //   dummyQuestions,
-        //   session,
-        // );
+        await this.questionService.addQuestions(
+          userId,
+          contextId,
+          dummyQuestions,
+          session,
+        );
 
         return result;
       });

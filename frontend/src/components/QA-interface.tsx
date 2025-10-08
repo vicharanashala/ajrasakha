@@ -321,7 +321,7 @@ export const QAInterface = () => {
                             </svg>
                             <span className="font-medium">Answers:</span>
                             <span className="px-1.5 py-0.5 bg-muted text-muted-foreground rounded text-xs font-medium">
-                              {question?.totalAnwersCount}
+                              {question?.totalAnswersCount}
                             </span>
                           </div>
                         </div>
