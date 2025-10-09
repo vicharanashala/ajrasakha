@@ -1,4 +1,4 @@
-import type { ISubmissions, SubmitAnswerResponse } from "@/types";
+import type { IComment, ISubmissions, SubmitAnswerResponse } from "@/types";
 import { apiFetch } from "../api-fetch";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -8,12 +8,13 @@ export class AnswerService {
 
   async submitAnswer(
     questionId: string,
-    answer: string
+    answer: string,
+    sources: string[]
   ): Promise<SubmitAnswerResponse | null> {
     try {
       return await apiFetch<SubmitAnswerResponse>(this._baseUrl, {
         method: "POST",
-        body: JSON.stringify({ answer, questionId }),
+        body: JSON.stringify({ answer, questionId, sources }),
       });
     } catch (error) {
       console.error(`Error in submitAnswer(${questionId}):`, error);

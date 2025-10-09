@@ -45,9 +45,9 @@ export class AnswerController {
   @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async addAnswer(@Body() body: AddAnswerBody, @CurrentUser() user: IUser) {
-    const {questionId, answer} = body;
+    const {questionId, answer, sources} = body;
     const authorId = user._id.toString();
-    return this.answerService.addAnswer(questionId, authorId, answer);
+    return this.answerService.addAnswer(questionId, authorId, answer, sources);
   }
 
   @Get('/submissions')

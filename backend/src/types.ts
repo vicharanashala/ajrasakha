@@ -11,6 +11,7 @@ const TYPES = {
   QuestionService: Symbol.for('QuestionService'),
   AnswerService: Symbol.for('AnswerService'),
   ContextService: Symbol.for('ContextService'),
+  CommentService: Symbol.for('CommentService'),
 
   // Repositories
   QuestionRepository: Symbol.for('QuestionRepository'),

@@ -1,5 +1,19 @@
-import type { IAnswer, IQuestionFullData, ISubmission } from "@/types";
-import { useMemo, useState } from "react";
+import type {
+  IAnswer,
+  IComment,
+  IQuestionFullData,
+  ISubmission,
+  ISubmissionHistory,
+  ISubmissions,
+} from "@/types";
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Badge } from "./atoms/badge";
 import { Card } from "./atoms/card";
 import { Separator } from "./atoms/separator";
@@ -16,10 +30,32 @@ import {
   DialogTrigger,
 } from "./atoms/dialog";
 import { ScrollArea } from "./atoms/scroll-area";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "./atoms/accordion";
+import {
+  ArrowUpRight,
+  Eye,
+  Loader2,
+  MessageSquare,
+  RefreshCw,
+  UserCheck,
+} from "lucide-react";
+import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
+import { useGetComments } from "@/hooks/api/comment/useGetComments";
+import { useAddComment } from "@/hooks/api/comment/useAddComment";
+import { SourceUrlManager } from "./source-url-manager";
+import { Timeline } from "primereact/timeline";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
   currentUserId: string;
+  goBack: () => void;
+  refetchAnswers: () => void;
+  isRefetching: boolean;
 }
 
 const flattenAnswers = (submission: ISubmission): IAnswer[] => {
@@ -47,266 +83,628 @@ const flattenAnswers = (submission: ISubmission): IAnswer[] => {
 export const QuestionDetails = ({
   question,
   currentUserId,
+  refetchAnswers,
+  isRefetching,
+  goBack,
 }: QuestionDetailProps) => {
   const answers = useMemo(
     () => flattenAnswers(question?.submissions),
     [question.submissions]
   );
+  const ANSWER_VISIBLE_COUNT = 5;
+  const [answerVisibleCount, setAnswerVisibleCount] =
+    useState(ANSWER_VISIBLE_COUNT);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const commentRef = useRef<any>(null);
 
   return (
-    <main className="mx-auto p-6 grid gap-6">
+    <main className="mx-auto p-6 pt-0 grid gap-6">
       <header className="grid gap-2">
-        <h1 className="text-2xl font-semibold text-pretty">
-          {question.question}
-        </h1>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary">{question.status}</Badge>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-pretty">
+            {question.question}
+          </h1>
+          <Button
+            size="sm"
+            variant="outline"
+            className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
+            onClick={() => goBack()}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+              className="w-4 h-4"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M17 8l4 4m0 0l-4 4m4-4H3"
+              />
+            </svg>
+            <span className="leading-none">Exit</span>
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge
+            className={
+              question.status === "answered"
+                ? "bg-green-500/10 text-green-600 border-green-500/30"
+                : question.status === "open"
+                ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                : question.status === "closed"
+                ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
+                : "bg-muted text-foreground"
+            }
+          >
+            {question.status.replace("_", " ")}
+          </Badge>
+
+          <Badge
+            className={
+              question.priority === "high"
+                ? "bg-red-500/10 text-red-600 border-red-500/30"
+                : question.priority === "medium"
+                ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+                : question.priority === "low"
+                ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                : "bg-muted text-foreground"
+            }
+          >
+            {question.priority ? question.priority.toUpperCase() : "NIL"}
+          </Badge>
+
           <span className="text-sm text-muted-foreground">
-            {"Total answers: "}
-            {question.totalAnswersCount}
+            Total answers: {question.totalAnswersCount}
           </span>
         </div>
+
         <div className="text-xs text-muted-foreground">
-          {"Created: "}
-          {new Date(question.createdAt).toLocaleString()}
-          {" • Updated: "}
+          Created: {new Date(question.createdAt).toLocaleString()} • Updated:{" "}
           {new Date(question.updatedAt).toLocaleString()}
         </div>
       </header>
 
-      <ScrollArea className="h-[55vh] rounded-md border">
-        <div className="px-4 py-2 grid gap-6">
-          <Card className="p-4 grid gap-2">
-            <p className="text-sm font-medium">Details</p>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <span className="text-muted-foreground">State:</span>{" "}
-                {question.details.state}
-              </div>
-              <div>
-                <span className="text-muted-foreground">District:</span>{" "}
-                {question.details.district}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Crop:</span>{" "}
-                {question.details.crop}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Season:</span>{" "}
-                {question.details.season}
-              </div>
-              <div className="col-span-2">
-                <span className="text-muted-foreground">Domain:</span>{" "}
-                {question.details.domain}
-              </div>
+      <div className="py-2 grid gap-6">
+        <Card className="p-4 grid gap-2">
+          <p className="text-sm font-medium">Details</p>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div>
+              <span className="text-muted-foreground">State:</span>{" "}
+              {question.details.state}
             </div>
-            <Separator />
-            <div className="text-sm">
-              <span className="text-muted-foreground">Source:</span>{" "}
-              {question.source}
+            <div>
+              <span className="text-muted-foreground">District:</span>{" "}
+              {question.details.district}
             </div>
-          </Card>
-
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Answers</h2>
-            <SubmitAnswerDialog
-              questionId={question._id}
-              isAlreadySubmitted={question.isAlreadySubmitted}
-              currentUserId={currentUserId}
-              onSubmitted={() => {
-                // Refetch logic can go here
-              }}
-            />
+            <div>
+              <span className="text-muted-foreground">Crop:</span>{" "}
+              {question.details.crop}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Season:</span>{" "}
+              {question.details.season}
+            </div>
+            <div className="col-span-2">
+              <span className="text-muted-foreground">Domain:</span>{" "}
+              {question.details.domain}
+            </div>
           </div>
+          <Separator />
+          <div className="text-sm">
+            <span className="text-muted-foreground">Source:</span>{" "}
+            {question.source}
+          </div>
+        </Card>
 
-          {answers.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No answers yet.</p>
-          ) : (
-            <div className="grid gap-4">
-              {answers.map((ans: any) => (
-                <AnswerItem
-                  key={`${ans._id}-${ans.answerIteration}`}
-                  answer={ans}
-                  currentUserId={currentUserId}
-                  questionId={question._id}
-                />
-              ))}
-            </div>
-          )}
-
-          <div className="pt-4">
-            <h3 className="text-lg font-semibold">Submission history</h3>
-            <div className="grid gap-3 mt-2">
-              <Card key={question.submissions._id} className="p-4 grid gap-2">
-                <div className="text-sm text-muted-foreground">
-                  {"Submission updated: "}
-                  {new Date(question.submissions.updatedAt).toLocaleString()}
-                </div>
-                <div className="grid gap-2">
-                  {question.submissions.history.map((h: any, idx: number) => (
-                    <div
-                      key={`${question.submissions._id}-${idx}`}
-                      className="rounded-md border p-2"
-                    >
-                      <div className="text-xs text-muted-foreground">
-                        {"Updated at "}
-                        {new Date(h.updatedAt).toLocaleString()}
-                        {h.isFinalAnswer ? " • Final" : ""}
-                        {h.updatedBy ? ` • By ${h.updatedBy.name}` : ""}
-                      </div>
-                      {h.answer && (
-                        <div className="mt-2 text-sm whitespace-pre-wrap leading-relaxed">
-                          {h.answer.answer}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            </div>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Answers</h2>
+          <div className="flex items-center gap-2">
+            {question.status !== "closed" && (
+              <SubmitAnswerDialog
+                questionId={question._id}
+                isAlreadySubmitted={question.isAlreadySubmitted}
+                currentUserId={currentUserId}
+                onSubmitted={() => {
+                  refetchAnswers();
+                }}
+              />
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setIsRefreshing(true);
+                setTimeout(() => {
+                  refetchAnswers();
+                  if (commentRef.current) {
+                    commentRef.current.refetchComments();
+                  }
+                  setIsRefreshing(false);
+                }, 2000);
+                setAnswerVisibleCount(ANSWER_VISIBLE_COUNT);
+              }}
+              disabled={isRefreshing || isRefetching}
+            >
+              {isRefreshing || isRefetching ? (
+                <Loader2 className="animate-spin w-4 h-4" />
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-1" />
+                  Refresh
+                </>
+              )}
+            </Button>
           </div>
         </div>
-      </ScrollArea>
+        {answers.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No answers yet.</p>
+        ) : (
+          <div className="grid gap-4">
+            {/* {answers.slice(0, answerVisibleCount).map((ans: IAnswer) => (
+              <AnswerItem
+                key={`${ans._id}-${ans.answerIteration}`}
+                answer={ans}
+                submissionData={question.submissions.history.find(
+                  (h) => h.answer?._id === ans._id
+                )}
+                currentUserId={currentUserId}
+                questionId={question._id}
+                ref={commentRef}
+              />
+            ))} */}
+            <AnswerTimeline
+              answerVisibleCount={answerVisibleCount}
+              answers={answers}
+              commentRef={commentRef}
+              currentUserId={currentUserId}
+              question={question}
+            />
+            {answerVisibleCount < answers.length && (
+              <div className="flex justify-center">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setIsLoadingMore(true);
+                    setTimeout(() => {
+                      setAnswerVisibleCount(
+                        (prev) => prev + ANSWER_VISIBLE_COUNT
+                      );
+                      setIsLoadingMore(false);
+                    }, 2000);
+                  }}
+                  disabled={isLoadingMore}
+                >
+                  {isLoadingMore ? (
+                    <Loader2 className="animate-spin w-4 h-4 mr-2" />
+                  ) : null}
+                  {isLoadingMore ? "Loading..." : "Load More"}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </main>
+  );
+};
+
+interface IAnswerTimelineProps {
+  answers: IAnswer[];
+  currentUserId: string;
+  question: IQuestionFullData;
+  answerVisibleCount: number;
+  commentRef: React.RefObject<HTMLDivElement>;
+}
+
+export const AnswerTimeline = ({
+  answers,
+  currentUserId,
+  question,
+  answerVisibleCount,
+  commentRef,
+}: IAnswerTimelineProps) => {
+  // map answers to timeline events
+  const events = answers.slice(0, answerVisibleCount).map((ans) => {
+    const submission = question.submissions.history.find(
+      (h) => h.answer?._id === ans._id
+    );
+
+    return {
+      answer: ans,
+      submission,
+      createdAt: new Date(ans.createdAt || "").toLocaleString(),
+    };
+  });
+
+  return (
+    <div className="w-full">
+      <Timeline
+        value={events}
+        align="left"
+        opposite={(item) => (
+          <div className="ml-5 flex flex-col gap-1 ">
+            {item.submission?.updatedBy && (
+              <div className="text-xs text-foreground px-2 py-1 rounded-md">
+                <span className="font-medium">By:</span>{" "}
+                {item.submission.updatedBy.name} (
+                {item.submission.updatedBy.email})
+              </div>
+            )}
+
+            {item.answer.threshold > 0 && (
+              <div className="flex justify-end w-full">
+                <Badge
+                  variant="outline"
+                  className="inline-flex text-[10px] text-foreground border border-muted-foreground items-center gap-1 px-1 py-0.5 w-fit"
+                >
+                  <span className="font-medium">Correctness:</span>
+                  <span>{Math.round(item.answer.threshold * 100)}%</span>
+                </Badge>
+              </div>
+            )}
+
+            <small className="text-xs text-muted-foreground mt-1">
+              {item.createdAt}
+            </small>
+          </div>
+        )}
+        content={(item) => (
+          <div className="flex-1 mb-5">
+            <AnswerItem
+              answer={item.answer}
+              submissionData={item.submission}
+              currentUserId={currentUserId}
+              questionId={question._id}
+              ref={commentRef}
+            />
+          </div>
+        )}
+      />
+    </div>
   );
 };
 
 interface AnswerItemProps {
   answer: IAnswer;
   currentUserId: string;
+  submissionData?: ISubmissionHistory;
   questionId: string;
 }
 
-export const AnswerItem = ({
-  answer,
-  currentUserId,
-  questionId,
-}: AnswerItemProps) => {
-  const isMine = answer.authorId === currentUserId;
+export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
+  const isMine = props.answer.authorId === props.currentUserId;
   const [comment, setComment] = useState("");
+  const observer = useRef<IntersectionObserver>(null);
 
-  type Comment = {
-    _id: string;
-    questionId: string;
-    answerId: string;
-    authorId: string;
-    text: string;
-    createdAt: string;
+  const LIMIT = 1;
+  const {
+    data: commentsData,
+    refetch: refetchComments,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: isLoadingComments,
+  } = useGetComments(LIMIT, props.questionId, props.answer._id);
+  const comments =
+    commentsData?.pages.flatMap((comment) => comment ?? []) ?? [];
+
+  const { mutateAsync, isPending: isAddingComment } = useAddComment();
+
+  useImperativeHandle(ref, () => {
+    refetchComments;
+  });
+
+  const submitComment = async () => {
+    if (!comment.trim()) return;
+
+    try {
+      await mutateAsync({
+        questionId: props.questionId,
+        answerId: props.answer._id!,
+        text: comment.trim(),
+      });
+      setComment("");
+      toast.success("Comment submitted! Thank you for your input.");
+    } catch (err) {
+      console.error("Failed to submit comment:", err);
+    }
   };
-  const comments: Comment[] = [
-    {
-      _id: "67050a1f9f1b6d0012a7c1a1",
-      questionId: "670509c29f1b6d0012a7c19b",
-      answerId: "67050a009f1b6d0012a7c1a0",
-      authorId: "670507f49f1b6d0012a7c190",
-      text: "I think you could also mention the role of soil microbes here.",
-      createdAt: "2025-10-08T12:45:21.000Z",
-    },
-    {
-      _id: "67050a2f9f1b6d0012a7c1a2",
-      questionId: "670509c29f1b6d0012a7c19b",
-      answerId: "67050a009f1b6d0012a7c1a0",
-      authorId: "670507f49f1b6d0012a7c191",
-      text: "Good point! Maybe include a reference to recent studies on regenerative practices.",
-      createdAt: "2025-10-08T12:47:10.000Z",
-    },
-    {
-      _id: "67050a3e9f1b6d0012a7c1a3",
-      questionId: "670509c29f1b6d0012a7c19b",
-      answerId: "67050a1c9f1b6d0012a7c1a1",
-      authorId: "670507f49f1b6d0012a7c192",
-      text: "Can you clarify what you mean by 'minimal tillage'?",
-      createdAt: "2025-10-08T12:49:05.000Z",
-    },
-    {
-      _id: "67050a4d9f1b6d0012a7c1a4",
-      questionId: "670509c29f1b6d0012a7c19c",
-      answerId: "67050a009f1b6d0012a7c1a0",
-      authorId: "670507f49f1b6d0012a7c193",
-      text: "I appreciate the explanation — it helped clarify the process.",
-      createdAt: "2025-10-08T12:50:30.000Z",
-    },
-    {
-      _id: "67050a5e9f1b6d0012a7c1a5",
-      questionId: "670509c29f1b6d0012a7c19d",
-      answerId: "67050a009f1b6d0012a7c1a0",
-      authorId: "670507f49f1b6d0012a7c194",
-      text: "This seems accurate. You could also add an example for better clarity.",
-      createdAt: "2025-10-08T12:52:15.000Z",
-    },
-  ];
 
-  async function submitComment() {}
+  const lastCommentRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (isFetchingNextPage) return;
+      if (observer.current) observer.current.disconnect();
+
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasNextPage) {
+          fetchNextPage();
+        }
+      });
+
+      if (node) observer.current.observe(node);
+    },
+    [isFetchingNextPage, fetchNextPage, hasNextPage]
+  );
 
   return (
-    <Card className="p-4 grid gap-2">
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          {"Iteration "}
-          {answer.answerIteration}
-          {answer.isFinalAnswer ? " • Final" : ""}
+    <Card className="p-6 grid gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-foreground">
+            Iteration {props.answer.answerIteration}
+          </span>
+          {props.answer.isFinalAnswer && (
+            <Badge
+              variant="outline"
+              className="text-green-600 border-green-600"
+            >
+              Final
+            </Badge>
+          )}
+          {isMine && <UserCheck className="w-4 h-4 text-blue-600 ml-1" />}
         </div>
-        <div className="text-xs text-muted-foreground">
-          {answer.updatedAt
-            ? new Date(answer.updatedAt).toLocaleString()
-            : answer.createdAt
-            ? new Date(answer.createdAt).toLocaleString()
-            : ""}
-        </div>
-      </div>
-      <div className={"rounded-md p-3 bg-secondary text-secondary-foreground"}>
-        <p className="whitespace-pre-wrap leading-relaxed">{answer.answer}</p>
-      </div>
-
-      {!isMine && (
-        <div className="mt-2 grid gap-2">
-          <p className="text-sm font-medium">Comments</p>
-
-          <div className="grid gap-2">
-            {false ? (
-              <p className="text-sm text-muted-foreground">
-                Loading comments...
-              </p>
-            ) : (comments.length ?? 0) === 0 ? (
-              <p className="text-sm text-muted-foreground">No comments yet</p>
-            ) : (
-              <ul className="grid gap-2">
-                {comments.map((c) => (
-                  <li key={c._id} className="rounded-md border p-2">
-                    <p className="text-sm">{c.text}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(c.createdAt).toLocaleString()}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="grid gap-2">
-            <Textarea
-              placeholder="Write a comment..."
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              rows={3}
-            />
-            <div className="flex justify-end">
-              <Button onClick={submitComment} disabled={!comment.trim()}>
-                Submit comment
+        <div className="flex items-center justify-center gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                <Eye className="w-4 h-4 mr-2" />
+                View More
               </Button>
-            </div>
-          </div>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl h-[85vh] flex flex-col ">
+              <DialogHeader className="pb-4 border-b">
+                <DialogTitle className="text-xl font-semibold">
+                  Answer Details
+                </DialogTitle>
+              </DialogHeader>
+
+              <ScrollArea className="flex-1 h-[85vh]">
+                <div className="space-y-6 p-4">
+                  <div className="grid gap-4 text-sm">
+                    <div className="flex flex-col sm:flex-row justify-between gap-3">
+                      <div className="flex items-center gap-4">
+                        <span className="font-medium">
+                          Iteration:{" "}
+                          <span className="text-foreground font-normal">
+                            {props.answer.answerIteration}
+                          </span>
+                        </span>
+
+                        <Badge
+                          variant={
+                            props.answer.isFinalAnswer ? "default" : "secondary"
+                          }
+                          className={
+                            props.answer.isFinalAnswer
+                              ? "bg-green-100 text-green-800 hover:bg-green-100"
+                              : ""
+                          }
+                        >
+                          {props.answer.isFinalAnswer
+                            ? "Final Answer"
+                            : "Draft"}
+                        </Badge>
+                      </div>
+
+                      <div className="flex flex-col text-muted-foreground text-xs">
+                        <span>
+                          Submitted At:{" "}
+                          {new Date(
+                            props.answer.createdAt || ""
+                          ).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* {props.submissionData?.updatedBy && (
+                      <div className="rounded-lg border bg-muted/50 p-4">
+                        <p className="text-sm font-medium text-foreground mb-1">
+                          Submitted By
+                        </p>
+                        
+                        <p className="text-sm text-muted-foreground">
+                          {props.submissionData.updatedBy.name} (
+                          {props.submissionData.updatedBy.email})
+                        </p>
+
+                         {props.answer.threshold > 0 && (
+                          <Badge
+                            variant="outline"
+                            className="text-foreground border border-muted-foreground"
+                          >
+                            Threshold: {props.answer.threshold}
+                          </Badge>
+                        )}
+                      </div>
+                    )} */}
+                    {props.submissionData?.updatedBy && (
+                      <div className="rounded-lg border bg-muted/50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-foreground">
+                            Submitted By:{" "}
+                            <span className="text-sm text-muted-foreground">
+                              {props.submissionData.updatedBy.name} (
+                              {props.submissionData.updatedBy.email})
+                            </span>
+                          </p>
+
+                          {props.answer.threshold > 0 && (
+                            <Badge
+                              variant="outline"
+                              className="text-foreground border border-muted-foreground w-fit flex items-center gap-1"
+                            >
+                              <span className="font-medium">Correctness:</span>
+                              <span>
+                                {Math.round(props.answer.threshold * 100)}%
+                              </span>
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-medium text-foreground mb-3">
+                      Answer Content
+                    </p>
+                    <div className="rounded-lg border bg-muted/30 h-[40vh]">
+                      <ScrollArea className="h-full">
+                        <div className="p-4">
+                          <p className="whitespace-pre-wrap leading-relaxed text-foreground">
+                            {props.answer.answer}
+                          </p>
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+
+                  {props.answer.sources?.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-foreground mb-3">
+                        Source URLs
+                      </p>
+                      <div className="space-y-2">
+                        {props.answer.sources.map((url, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between rounded-lg border bg-muted/30 p-2"
+                          >
+                            <span className="text-sm truncate text-foreground">
+                              {url}
+                            </span>
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1 rounded hover:bg-muted/20 dark:hover:bg-muted/50 transition-colors"
+                            >
+                              <ArrowUpRight className="w-4 h-4 text-foreground" />
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </DialogContent>
+          </Dialog>
         </div>
-      )}
+      </div>
+
+      <div className="rounded-lg border bg-card p-4">
+        <p className="whitespace-pre-wrap leading-relaxed line-clamp-4 text-card-foreground">
+          {props.answer.answer}
+        </p>
+      </div>
+
+      <div className="w-full sm:w-auto">
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="comments" className="border-none">
+            <AccordionTrigger className="flex items-center gap-2 text-sm font-medium p-3 hover:no-underline hover:bg-muted/50 rounded-lg w-full sm:w-auto justify-between shadow-md shadow-gray-400/30 dark:shadow-gray-900/50">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                <span>Comments</span>
+                {comments?.length > 0 && (
+                  <Badge
+                    variant="secondary"
+                    className="h-5 w-5 p-0 flex items-center justify-center text-xs"
+                  >
+                    {comments?.length}
+                  </Badge>
+                )}
+              </div>
+            </AccordionTrigger>
+
+            <AccordionContent className="p-4">
+              <div className="space-y-4">
+                {isLoadingComments ? (
+                  <div className="flex justify-center items-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : comments?.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    {isMine
+                      ? "You haven't received any comments on your answer yet."
+                      : "No comments yet. Be the first to add one!"}
+                  </p>
+                ) : (
+                  <ScrollArea className="h-[40vh]">
+                    <div className="space-y-3 p-2">
+                      {comments?.map((c, idx) => {
+                        const isLast = idx === comments.length - 1;
+                        return (
+                          <div
+                            key={c._id}
+                            ref={isLast ? lastCommentRef : null}
+                            className={`rounded-lg border bg-muted/30 p-3 ${
+                              idx % 2 === 0 ? "bg-secondary/80" : ""
+                            }`}
+                          >
+                            <p className="text-sm text-foreground">{c.text}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {new Date(c.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                        );
+                      })}
+                      {isFetchingNextPage && (
+                        <div className="text-center text-sm text-muted-foreground py-2">
+                          Loading more...
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                )}
+                {!isMine && (
+                  <div className="space-y-3 border-t-2 pt-3">
+                    <Textarea
+                      placeholder="Add your comment here..."
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      rows={3}
+                      className="resize-none h-[8vh] md:h-[20vh]"
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={submitComment}
+                        size="sm"
+                        className="md:p-2 flex items-center justify-center gap-1"
+                        disabled={!comment.trim() || isAddingComment}
+                      >
+                        {isAddingComment ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : (
+                          "Submit"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </div>
     </Card>
   );
-};
+});
 
 interface SubmitAnswerDialogProps {
   questionId: string;
   isAlreadySubmitted: boolean;
   currentUserId: string;
-  onSubmitted?: (answer: IAnswer) => void;
+  onSubmitted?: () => void;
 }
 
 export const SubmitAnswerDialog = ({
@@ -315,8 +713,10 @@ export const SubmitAnswerDialog = ({
   onSubmitted,
 }: SubmitAnswerDialogProps) => {
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [answer, setAnswer] = useState("");
+  const [sources, setSources] = useState<string[]>([]);
+  const { mutateAsync: submitAnswer, isPending: isSubmittingAnswer } =
+    useSubmitAnswer();
 
   const triggerLabel = isAlreadySubmitted
     ? "Already submitted"
@@ -327,17 +727,28 @@ export const SubmitAnswerDialog = ({
       toast.error("Please write your answer before submitting.");
       return;
     }
+    if (!sources.length) {
+      toast.error("Atleast one source is required!");
+      return;
+    }
     try {
-      setLoading(true);
-      //
-      toast.success("Answer submitted");
-      //   onSubmitted?.(data.data);
+      const result = await submitAnswer({
+        questionId: questionId,
+        answer,
+        sources,
+      });
+      if (result) {
+        toast.success(
+          result.isFinalAnswer
+            ? "Response submitted successfully! ✅ This is the final answer."
+            : "Response submitted successfully!"
+        );
+      }
+      onSubmitted?.();
       setOpen(false);
       setAnswer("");
     } catch (e: any) {
       toast.error("Failed to submit");
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -359,28 +770,45 @@ export const SubmitAnswerDialog = ({
               : "Provide your answer below to submit."}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-2">
-          <label className="text-sm text-muted-foreground" htmlFor="answer">
-            Your answer
-          </label>
-          <Textarea
-            id="answer"
-            placeholder="Write your answer..."
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-            rows={6}
-          />
+        <div className="space-y-4">
+          {/* Answer textarea */}
+          <div className="grid gap-2">
+            <label className="text-sm text-muted-foreground" htmlFor="answer">
+              Your answer
+            </label>
+            <Textarea
+              id="answer"
+              placeholder="Write your answer..."
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              className="w-full border rounded p-2 text-sm resize-none overflow-y-auto h-24 not-first:max-h-36"
+              rows={6}
+            />
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-6 shadow-sm mt-3 md:mt-6">
+            <SourceUrlManager sources={sources} onSourcesChange={setSources} />
+
+            {sources.length > 0 && (
+              <div className="mt-6 pt-6 border-t border-border">
+                <p className="text-sm text-muted-foreground">
+                  {sources.length} {sources.length === 1 ? "source" : "sources"}{" "}
+                  added
+                </p>
+              </div>
+            )}
+          </div>
         </div>
         <DialogFooter>
           <Button
             variant="secondary"
             onClick={() => setOpen(false)}
-            disabled={loading}
+            disabled={isSubmittingAnswer}
           >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={loading}>
-            {loading ? "Submitting..." : triggerLabel}
+          <Button onClick={handleSubmit} disabled={isSubmittingAnswer}>
+            {isSubmittingAnswer ? "Submitting..." : triggerLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,83 +1,25 @@
 import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetailedQuestions";
 import { QuestionsFilters, QuestionsTable } from "./questions-table";
-import { useCallback, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "./question-details";
+import type { QuestionPriority } from "@/types";
+import {
+  CROPS,
+  STATES,
+  type QuestionDateRangeFilter,
+  type QuestionFilterStatus,
+  type QuestionPriorityFilter,
+  type QuestionSourceFilter,
+} from "./advanced-question-filter";
 
-const STATES = [
-  "Andhra Pradesh",
-  "Arunachal Pradesh",
-  "Assam",
-  "Bihar",
-  "Chhattisgarh",
-  "Goa",
-  "Gujarat",
-  "Haryana",
-  "Himachal Pradesh",
-  "Jharkhand",
-  "Karnataka",
-  "Kerala",
-  "Madhya Pradesh",
-  "Maharashtra",
-  "Manipur",
-  "Meghalaya",
-  "Mizoram",
-  "Nagaland",
-  "Odisha",
-  "Punjab",
-  "Rajasthan",
-  "Sikkim",
-  "Tamil Nadu",
-  "Telangana",
-  "Tripura",
-  "Uttar Pradesh",
-  "Uttarakhand",
-  "West Bengal",
-];
 
-export type QuestionStatus = "open" | "answered" | "closed";
-
-export interface IDetailedQuestion {
-  _id?: string;
-  userId: string;
-  question: string;
-  context: string;
-  status: QuestionStatus;
-  totalAnswersCount: number;
-  details: {
-    state: string;
-    district: string;
-    crop: string;
-    season: string;
-    domain: string;
-  };
-  source: "AJRASAKHA" | "AGRI_EXPERT";
-  createdAt?: string;
-  updatedAt?: string;
-}
-export type QuestionFilterStatus = "all" | "open" | "answered" | "closed";
-export type QuestionDateRangeFilter =
-  | "all"
-  | "today"
-  | "week"
-  | "month"
-  | "quarter"
-  | "year";
-export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT";
-
-export type AdvanceFilterValues = {
-  status: QuestionFilterStatus;
-  source: QuestionSourceFilter;
-  state: string;
-  answersCount: [number, number];
-  dateRange: QuestionDateRangeFilter;
-  crop: string;
-};
 
 export const QuestionsPage = () => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
   const [source, setSource] = useState<QuestionSourceFilter>("all");
+  const [priority, setPriority] = useState<QuestionPriorityFilter>("all");
   const [state, setState] = useState("");
   const [crop, setCrop] = useState("");
   const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
@@ -85,57 +27,76 @@ export const QuestionsPage = () => {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedQuestionId, setSelectedQuestionId] = useState("");
-  const LIMIT = 7;
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-    refetch,
-  } = useGetAllDetailedQuestions(
-    LIMIT,
-    {
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const LIMIT = 12;
+  const filter = useMemo(
+    () => ({
       status,
       state,
       source,
       crop,
       answersCount,
       dateRange,
-    },
-    search
+      priority,
+    }),
+    [status, state, source, crop, answersCount, dateRange, priority]
   );
-  const { data: questionDetails } =
-    useGetQuestionFullDataById(selectedQuestionId);
-  const questions = data?.pages.flatMap((page) => page ?? []) ?? [];
+  // const {
+  //   data,
+  //   fetchNextPage,
+  //   hasNextPage,
+  //   isFetchingNextPage,
+  //   isLoading,
+  //   refetch,
+  // } = useGetAllDetailedQuestions(LIMIT, filter, search);
+  const {
+    data: questionData,
+    isLoading,
+    refetch,
+  } = useGetAllDetailedQuestions(currentPage, LIMIT, filter, search);
+  const {
+    data: questionDetails,
+    refetch: refechSelectedQuestion,
+    isLoading: isLoadingSelectedQuestion,
+  } = useGetQuestionFullDataById(selectedQuestionId);
+  // const questions = data?.pages.flatMap((page) => page ?? []) ?? [];
 
-  const lastElementRef = useCallback(
-    (node: HTMLElement | null) => {
-      if (isFetchingNextPage) return;
+  // const lastElementRef = useCallback(
+  //   (node: HTMLElement | null) => {
+  //     if (isFetchingNextPage) return;
 
-      if (observerRef.current) observerRef.current.disconnect();
+  //     if (observerRef.current) observerRef.current.disconnect();
 
-      observerRef.current = new IntersectionObserver(
-        (entries) => {
-          if (entries[0].isIntersecting && hasNextPage) {
-            fetchNextPage();
-          }
-        },
-        {
-          root: document.querySelector(".overflow-y-auto"),
-          rootMargin: "0px",
-          threshold: 1.0,
-        }
-      );
+  //     observerRef.current = new IntersectionObserver(
+  //       (entries) => {
+  //         if (entries[0].isIntersecting && hasNextPage) {
+  //           fetchNextPage();
+  //         }
+  //       },
+  //       {
+  //         root: document.querySelector(".overflow-y-auto"),
+  //         rootMargin: "0px",
+  //         threshold: 1.0,
+  //       }
+  //     );
 
-      if (node) observerRef.current.observe(node);
-    },
-    [isFetchingNextPage, hasNextPage, fetchNextPage]
-  );
+  //     if (node) observerRef.current.observe(node);
+  //   },
+  //   [isFetchingNextPage, hasNextPage, fetchNextPage]
+  // );
+
+  // useEffect(() => {
+  //   if (observerRef.current) {
+  //     observerRef.current.disconnect();
+  //   }
+  //   refetch();
+  // }, [filter, refetch]);
 
   const onChangeFilters = (next: {
     status?: QuestionFilterStatus;
     source?: QuestionSourceFilter;
+    priority?: QuestionPriorityFilter;
     state?: string;
     crop?: string;
     answersCount?: [number, number];
@@ -147,6 +108,7 @@ export const QuestionsPage = () => {
     if (next.crop !== undefined) setCrop(next.crop);
     if (next.answersCount !== undefined) setAnswersCount(next.answersCount);
     if (next.dateRange !== undefined) setDateRange(next.dateRange);
+    if (next.priority !== undefined) setPriority(next.priority);
   };
 
   const onReset = () => {
@@ -156,18 +118,26 @@ export const QuestionsPage = () => {
     setCrop("");
     setAnswersCount([0, 100]);
     setDateRange("all");
+    setPriority("all");
   };
 
   const handleViewMore = (questoinId: string) => {
     setSelectedQuestionId(questoinId);
   };
 
-  const crops = ["Rice", "Wheat", "Cotton", "Sugarcane", "Vegetables"];
 
   return (
     <main className="mx-auto w-full p-4 md:p-6 space-y-6 ">
       {selectedQuestionId && questionDetails ? (
-        <QuestionDetails question={questionDetails.data} currentUserId="" />
+        <>
+          <QuestionDetails
+            question={questionDetails.data}
+            currentUserId={questionDetails.currentUserId}
+            refetchAnswers={refechSelectedQuestion}
+            isRefetching={isLoadingSelectedQuestion}
+            goBack={() => setSelectedQuestionId("")}
+          />
+        </>
       ) : (
         <>
           <QuestionsFilters
@@ -176,7 +146,7 @@ export const QuestionsPage = () => {
             states={STATES}
             onChange={onChangeFilters}
             onReset={onReset}
-            crops={crops}
+            crops={CROPS}
             refetch={() => {
               refetch();
               setIsRefreshing(true);
@@ -187,11 +157,14 @@ export const QuestionsPage = () => {
           />
 
           <QuestionsTable
-            items={questions}
+            items={questionData?.questions}
             onViewMore={handleViewMore}
-            hasMore={hasNextPage}
-            isLoadingMore={isFetchingNextPage}
-            lastElementRef={lastElementRef}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            // hasMore={hasNextPage}
+            // isLoadingMore={isFetchingNextPage}
+            // lastElementRef={lastElementRef}
+            totalPages={questionData?.totalPages || 0}
             isLoading={isLoading || isRefreshing}
           />
         </>

@@ -1,5 +1,7 @@
 @import "tailwindcss";
-
+@import 'primereact/resources/themes/lara-light-indigo/theme.css'; 
+@import 'primereact/resources/primereact.min.css'; 
+@import 'primeicons/primeicons.css';
 @plugin "tailwindcss-animate";
 
 @custom-variant dark (&:is(.dark *));
@@ -11,8 +13,10 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* overflow: hidden; */
+  overflow-y: scroll;
 }
+
+
 
 :root {
   --background: oklch(0.9911 0 0);

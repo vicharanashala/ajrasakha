@@ -115,7 +115,7 @@ export const PlaygroundPage = () => {
                   value="upload"
                   className="mt-0 border-0 p-0 max-w-[95%]"
                 >
-                  <div className="min-h-[75%] bg-background p-4 ps-0">
+                  <div className="max-h-[70vh] overflow-hidden bg-background p-4 ps-0 ">
                     <div className="container mx-auto py-8 pt-0">
                       <VoiceRecorderCard />
                     </div>
@@ -137,7 +137,7 @@ export const PlaygroundPage = () => {
                   value="all_questions"
                   className="mt-0 border-0 md:px-8 px-2-0 w-full"
                 >
-                  <QuestionsPage/>
+                  <QuestionsPage />
                 </TabsContent>
               </div>
             </div>

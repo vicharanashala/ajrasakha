@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle,
   Eye,
@@ -41,6 +41,19 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./atoms/tooltip";
+import { Input } from "./atoms/input";
+import { SourceUrlManager } from "./source-url-manager";
+import {
+  AdvanceFilterDialog,
+  CROPS,
+  STATES,
+  type AdvanceFilterValues,
+  type QuestionDateRangeFilter,
+  type QuestionFilterStatus,
+  type QuestionPriorityFilter,
+  type QuestionSourceFilter,
+} from "./advanced-question-filter";
+import type {} from "./questions-page";
 
 // const questions = await generateQuestionDataSet();
 export type QuestionFilter =
@@ -53,8 +66,44 @@ export const QAInterface = () => {
   const [newAnswer, setNewAnswer] = useState<string>("");
   const [isFinalAnswer, setIsFinalAnswer] = useState<boolean>(false);
   const [filter, setFilter] = useState<QuestionFilter>("newest");
+  const [sources, setSources] = useState<string[]>([]);
 
+  //for preference
+  const [status, setStatus] = useState<QuestionFilterStatus>("all");
+  const [source, setSource] = useState<QuestionSourceFilter>("all");
+  const [priority, setPriority] = useState<QuestionPriorityFilter>("all");
+  const [state, setState] = useState("");
+  const [crop, setCrop] = useState("");
+  const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
+  const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
+
+  const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
+    {
+      status: "all",
+      source: "all",
+      state: "all",
+      answersCount: [0, 100],
+      dateRange: "all",
+      crop: "all",
+      priority: "all",
+    }
+  );
+  const handleDialogChange = (key: string, value: any) => {
+    setAdvanceFilterValues((prev) => ({ ...prev, [key]: value }));
+  };
   const scrollRef = useRef<HTMLDivElement>(null);
+  const preferences = useMemo(
+    () => ({
+      status,
+      state,
+      source,
+      crop,
+      answersCount,
+      dateRange,
+      priority,
+    }),
+    [status, state, source, crop, answersCount, dateRange, priority]
+  );
 
   const LIMIT = 10;
   const {
@@ -64,7 +113,7 @@ export const QAInterface = () => {
     hasNextPage,
     isFetchingNextPage,
     refetch,
-  } = useGetAllQuestions(LIMIT, filter);
+  } = useGetAllQuestions(LIMIT, filter, preferences);
 
   const questions = questionPages?.pages.flat() || [];
 
@@ -93,10 +142,15 @@ export const QAInterface = () => {
 
   const handleSubmit = async () => {
     if (!selectedQuestion) return;
+    if (!sources.length) {
+      toast.error("Atleast one source is required!");
+      return;
+    }
     try {
       const result = await submitAnswer({
         questionId: selectedQuestion,
         answer: newAnswer,
+        sources,
       });
       if (result) setIsFinalAnswer(result.isFinalAnswer);
       toast.success("Response submitted successfully!");
@@ -116,13 +170,57 @@ export const QAInterface = () => {
 
   const handleReset = () => {
     setNewAnswer("");
+    setSources([]);
+  };
+
+  const activeFiltersCount = Object.values(advanceFilter).filter(
+    (v) => v !== "all" && !(Array.isArray(v) && v[0] === 0 && v[1] === 100)
+  ).length;
+
+  const onReset = () => {
+    setStatus("all");
+    setSource("all");
+    setState("");
+    setCrop("");
+    setAnswersCount([0, 100]);
+    setDateRange("all");
+    setPriority("all");
+  };
+
+  const onChangeFilters = (next: {
+    status?: QuestionFilterStatus;
+    source?: QuestionSourceFilter;
+    priority?: QuestionPriorityFilter;
+    state?: string;
+    crop?: string;
+    answersCount?: [number, number];
+    dateRange?: QuestionDateRangeFilter;
+  }) => {
+    if (next.status !== undefined) setStatus(next.status);
+    if (next.source !== undefined) setSource(next.source);
+    if (next.state !== undefined) setState(next.state);
+    if (next.crop !== undefined) setCrop(next.crop);
+    if (next.answersCount !== undefined) setAnswersCount(next.answersCount);
+    if (next.dateRange !== undefined) setDateRange(next.dateRange);
+    if (next.priority !== undefined) setPriority(next.priority);
+  };
+  const handleApplyFilters = () => {
+    onChangeFilters({
+      status: advanceFilter.status,
+      source: advanceFilter.source,
+      state: advanceFilter.state,
+      crop: advanceFilter.crop,
+      answersCount: advanceFilter.answersCount,
+      dateRange: advanceFilter.dateRange,
+      priority: advanceFilter.priority,
+    });
   };
 
   return (
     <div className="container mx-auto px-4 md:px-6 bg-transparent py-4">
       <div className="flex flex-col space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="w-full md:max-h-[70vh] max-h-[80vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent">
+          <Card className="w-full md:max-h-[120vh] max-h-[80vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent">
             <CardHeader className="border-b flex flex-row items-center justify-between pb-4">
               <TooltipProvider>
                 <div className="flex items-center gap-2">
@@ -162,6 +260,17 @@ export const QAInterface = () => {
                     </SelectItem>
                   </SelectContent>
                 </Select>
+
+                <AdvanceFilterDialog
+                  advanceFilter={advanceFilter}
+                  setAdvanceFilterValues={setAdvanceFilterValues}
+                  handleDialogChange={handleDialogChange}
+                  handleApplyFilters={handleApplyFilters}
+                  normalizedStates={STATES}
+                  crops={CROPS}
+                  activeFiltersCount={activeFiltersCount}
+                  onReset={onReset}
+                />
 
                 <Button
                   variant="outline"
@@ -344,8 +453,8 @@ export const QAInterface = () => {
               </CardContent>
             )}
           </Card>
-
-          <Card className="w-full md:max-h-[70vh] max-h-[80vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
+          {/* md:max-h-[70vh] max-h-[80vh] */}
+          <Card className="w-full  border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
             <CardHeader className="border-b border-gray-200 dark:border-gray-700">
               <CardTitle className="text-lg font-semibold">Response</CardTitle>
             </CardHeader>
@@ -379,6 +488,22 @@ export const QAInterface = () => {
                       onChange={(e) => setNewAnswer(e.target.value)}
                       className="mt-1 md:max-h-[190px] max-h-[170px] min-h-[150px] resize-y border border-gray-200 dark:border-gray-600 text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent"
                     />
+
+                    <div className="bg-card border border-border rounded-xl p-6 shadow-sm mt-3 md:mt-6">
+                      <SourceUrlManager
+                        sources={sources}
+                        onSourcesChange={setSources}
+                      />
+
+                      {sources.length > 0 && (
+                        <div className="mt-6 pt-6 border-t border-border">
+                          <p className="text-sm text-muted-foreground">
+                            {sources.length}{" "}
+                            {sources.length === 1 ? "source" : "sources"} added
+                          </p>
+                        </div>
+                      )}
+                    </div>
                     {isFinalAnswer && (
                       <p className="mt-2 flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium">
                         <CheckCircle className="w-4 h-4" />

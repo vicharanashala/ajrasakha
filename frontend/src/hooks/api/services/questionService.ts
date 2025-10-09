@@ -1,11 +1,12 @@
-import type { IQuestion, QuestionFullDataResponse } from "@/types";
+import type {
+  IDetailedQuestionResponse,
+  IQuestion,
+  QuestionFullDataResponse,
+} from "@/types";
 import { apiFetch } from "../api-fetch";
 import type { QuestionFilter } from "@/components/QA-interface";
 import type { GeneratedQuestion } from "@/components/voice-recorder-card";
-import type {
-  AdvanceFilterValues,
-  IDetailedQuestion,
-} from "@/components/questions-page";
+import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -17,7 +18,7 @@ export class QuestionService {
     limit: number,
     filter: AdvanceFilterValues,
     search: string
-  ): Promise<IDetailedQuestion[] | null> {
+  ): Promise<IDetailedQuestionResponse | null> {
     const params = new URLSearchParams();
 
     if (search) params.append("search", search);
@@ -28,6 +29,7 @@ export class QuestionService {
     if (filter.source) params.append("source", filter.source);
     if (filter.state) params.append("state", filter.state);
     if (filter.crop) params.append("crop", filter.crop);
+    if (filter.priority) params.append("priority", filter.priority);
 
     if (filter.answersCount) {
       params.append("answersCountMin", filter.answersCount[0].toString());
@@ -37,7 +39,7 @@ export class QuestionService {
     if (filter.dateRange && filter.dateRange !== "all")
       params.append("dateRange", filter.dateRange);
 
-    return apiFetch<IDetailedQuestion[] | null>(
+    return apiFetch<IDetailedQuestionResponse | null>(
       `${this._baseUrl}/detailed?${params.toString()}`
     );
   }
@@ -45,10 +47,37 @@ export class QuestionService {
   async getAllQuestions(
     pageParam: number,
     limit: number,
-    filter: QuestionFilter
+    filter: QuestionFilter,
+    preferences: AdvanceFilterValues
   ): Promise<IQuestion[] | null> {
+    const params = new URLSearchParams({
+      page: pageParam.toString(),
+      limit: limit.toString(),
+      filter: filter.toString(),
+    });
+
+    if (preferences.status && preferences.status !== "all")
+      params.append("status", preferences.status);
+    if (preferences.source && preferences.source !== "all")
+      params.append("source", preferences.source);
+    if (preferences.state && preferences.state !== "all")
+      params.append("state", preferences.state);
+    if (preferences.crop && preferences.crop !== "all")
+      params.append("crop", preferences.crop);
+    if (preferences.priority && preferences.priority !== "all")
+      params.append("priority", preferences.priority);
+
+    if (preferences.answersCount) {
+      const [min, max] = preferences.answersCount;
+      params.append("answersCountMin", String(min));
+      params.append("answersCountMax", String(max));
+    }
+
+    if (preferences.dateRange && preferences.dateRange !== "all")
+      params.append("dateRange", preferences.dateRange);
+
     return apiFetch<IQuestion[] | null>(
-      `${this._baseUrl}?filter=${filter}&page=${pageParam}&limit=${limit}`
+      `${this._baseUrl}?${params.toString()}`
     );
   }
 

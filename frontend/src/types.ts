@@ -27,6 +27,7 @@ export interface IUser {
   createdAt?: Date;
   updatedAt?: Date;
 }
+export type QuestionPriority = "low" | "medium" | "high";
 
 export interface IQuestion {
   id: string;
@@ -34,6 +35,7 @@ export interface IQuestion {
   createdAt: string;
   updatedAt: string;
   totalAnswersCount: number;
+  prioriy: QuestionPriority;
   currentAnswers?: {
     answer: string;
     id: string;
@@ -105,9 +107,23 @@ export interface IAnswer {
   authorId: string;
   answerIteration: number;
   isFinalAnswer: boolean;
+  sources: string[];
   answer: string;
+  threshold: number;
   createdAt?: Date;
   updatedAt?: Date;
+}
+export interface IUserRef {
+  _id: string;
+  name: string;
+  email: string;
+}
+
+export interface ISubmissionHistory {
+  updatedBy: IUserRef | null;
+  answer: IAnswer | null;
+  isFinalAnswer: boolean;
+  updatedAt: string;
 }
 
 export interface ISubmission {
@@ -118,16 +134,7 @@ export interface ISubmission {
     name: string;
     email: string;
   } | null;
-  history: {
-    updatedBy: {
-      _id: string;
-      name: string;
-      email: string;
-    } | null;
-    answer: IAnswer | null;
-    isFinalAnswer: boolean;
-    updatedAt: string;
-  }[];
+  history: ISubmissionHistory[];
   createdAt: string;
   updatedAt: string;
 }
@@ -143,6 +150,7 @@ export interface IQuestionFullData {
     season: string;
     domain: string;
   };
+  priority: QuestionPriority;
   source: string;
   totalAnswersCount: number;
   createdAt: string;
@@ -154,4 +162,40 @@ export interface IQuestionFullData {
 export interface QuestionFullDataResponse {
   success: true;
   data: IQuestionFullData;
+  currentUserId: string;
+}
+
+export interface IComment {
+  _id: string;
+  questionId: string;
+  answerId: string;
+  userId: string;
+  text: string;
+  createdAt: string;
+}
+
+
+export interface IDetailedQuestion {
+  _id?: string;
+  userId: string;
+  question: string;
+  context: string;
+  status: QuestionStatus;
+  totalAnswersCount: number;
+  priority: QuestionPriority;
+  details: {
+    state: string;
+    district: string;
+    crop: string;
+    season: string;
+    domain: string;
+  };
+  source: "AJRASAKHA" | "AGRI_EXPERT";
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface IDetailedQuestionResponse {
+  totalPages: number;
+  questions: IDetailedQuestion[];
 }

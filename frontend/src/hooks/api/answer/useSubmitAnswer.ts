@@ -9,11 +9,11 @@ export const useSubmitAnswer = () => {
   return useMutation<
     SubmitAnswerResponse | null,
     Error,
-    { questionId: string; answer: string }
+    { questionId: string; answer: string, sources: string[] }
   >({
-    mutationFn: async ({ questionId, answer }) => {
+    mutationFn: async ({ questionId, answer, sources }) => {
       try {
-        return await questionService.submitAnswer(questionId, answer);
+        return await questionService.submitAnswer(questionId, answer, sources);
       } catch (error) {
         throw error instanceof Error ? error : new Error("Unknown error");
       }

@@ -1,11 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { QuestionService } from "../services/questionService";
-import type { IQuestion, QuestionFullDataResponse } from "@/types";
+import type { QuestionFullDataResponse } from "@/types";
 
 const questionService = new QuestionService();
 
 export const useGetQuestionFullDataById = (questionId: string | null) => {
-  const { data, isLoading, error } = useQuery<QuestionFullDataResponse | null, Error>({
+  const { data, isLoading, error, refetch } = useQuery<
+    QuestionFullDataResponse | null,
+    Error
+  >({
     queryKey: ["question_full_data", questionId],
     queryFn: async () => {
       if (!questionId) throw new Error("Question ID is required");
@@ -15,5 +18,5 @@ export const useGetQuestionFullDataById = (questionId: string | null) => {
     enabled: !!questionId,
   });
 
-  return { data, isLoading, error };
+  return { data, isLoading, error, refetch };
 };

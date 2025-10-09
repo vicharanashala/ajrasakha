@@ -11,10 +11,14 @@ import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
 import {isValidObjectId} from '#root/utils/isValidObjectId.js';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
-import {QuestionResponse} from '#root/modules/core/classes/validators/QuestionValidators.js';
+import {GetDetailedQuestionsQuery, QuestionResponse} from '#root/modules/core/classes/validators/QuestionValidators.js';
 
-import {GetDetailedQuestionsQuery} from '#root/modules/core/classes/validators/ContextValidators.js';
-import {detailsArray, sources} from '#root/modules/core/utils/questionGen.js';
+import {
+  detailsArray,
+  priorities,
+  questionStatus,
+  sources,
+} from '#root/modules/core/utils/questionGen.js';
 
 export class QuestionRepository implements IQuestionRepository {
   private QuestionCollection: Collection<IQuestion>;
@@ -60,6 +64,8 @@ export class QuestionRepository implements IQuestionRepository {
           detailsArray[Math.floor(Math.random() * detailsArray.length)];
         const randomSource =
           sources[Math.floor(Math.random() * sources.length)];
+        const randomPrioriy =
+          priorities[Math.floor(Math.random() * priorities.length)];
 
         return {
           question,
@@ -69,6 +75,7 @@ export class QuestionRepository implements IQuestionRepository {
           details: randomDetails,
           source: randomSource,
           totalAnswersCount: 0,
+          priority: randomPrioriy,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
@@ -107,15 +114,20 @@ export class QuestionRepository implements IQuestionRepository {
       const randomDetails =
         detailsArray[Math.floor(Math.random() * detailsArray.length)];
       const randomSource = sources[Math.floor(Math.random() * sources.length)];
+      const randomPrioriy =
+        priorities[Math.floor(Math.random() * priorities.length)];
+      const randomStatus =
+        questionStatus[Math.floor(Math.random() * questionStatus.length)];
 
       const newQuestion: IQuestion = {
         question,
         userId: new ObjectId(userId),
         context: new ObjectId(contextId),
-        status: 'open',
+        status: randomStatus,
         details: randomDetails,
         source: randomSource,
         totalAnswersCount: 0,
+        priority: randomPrioriy,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -193,7 +205,7 @@ export class QuestionRepository implements IQuestionRepository {
 
   async findDetailedQuestions(
     query: GetDetailedQuestionsQuery,
-  ): Promise<IQuestion[]> {
+  ): Promise<{questions: IQuestion[]; totalPages: number}> {
     try {
       await this.init();
 
@@ -203,6 +215,7 @@ export class QuestionRepository implements IQuestionRepository {
         source,
         state,
         crop,
+        priority,
         answersCountMin,
         answersCountMax,
         dateRange,
@@ -215,6 +228,7 @@ export class QuestionRepository implements IQuestionRepository {
       // --- Filters ---
       if (status && status !== 'all') filter.status = status;
       if (source && source !== 'all') filter.source = source;
+      if (priority && priority !== 'all') filter.priority = priority;
       if (state && state !== 'all') filter['details.state'] = state;
       if (crop && crop !== 'all') filter['details.crop'] = crop;
 
@@ -259,6 +273,10 @@ export class QuestionRepository implements IQuestionRepository {
         ];
       }
 
+      // --- Total count for pagination ---
+      const totalCount = await this.QuestionCollection.countDocuments(filter);
+      const totalPages = Math.ceil(totalCount / limit);
+
       // --- Paginated data ---
       const result = await this.QuestionCollection.find(filter)
         .sort({createdAt: -1})
@@ -274,7 +292,7 @@ export class QuestionRepository implements IQuestionRepository {
         details: {...q.details},
       }));
 
-      return formattedQuestions;
+      return {questions: formattedQuestions, totalPages};
     } catch (error) {
       throw new InternalServerError(`Failed to get Questions: ${error}`);
     }
@@ -442,6 +460,7 @@ export class QuestionRepository implements IQuestionRepository {
                   ?.isFinalAnswer,
                 answer: answersMap.get(h.answer?.toString())?.answer,
                 threshold: answersMap.get(h.answer?.toString())?.threshold,
+                sources: answersMap.get(h.answer?.toString())?.sources,
                 createdAt: answersMap.get(h.answer?.toString())?.createdAt,
                 updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
               }
@@ -452,7 +471,7 @@ export class QuestionRepository implements IQuestionRepository {
         createdAt: submission.createdAt,
         updatedAt: submission.updatedAt,
       };
-      
+
       // 8️⃣ Final assembled question
       const result = {
         ...question,

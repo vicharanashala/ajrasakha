@@ -1,5 +1,4 @@
-import {GetDetailedQuestionsQuery} from '#root/modules/core/classes/validators/ContextValidators.js';
-import {QuestionResponse} from '#root/modules/core/classes/validators/QuestionValidators.js';
+import {GetDetailedQuestionsQuery, QuestionResponse} from '#root/modules/core/classes/validators/QuestionValidators.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {ClientSession} from 'mongodb';
 
@@ -84,7 +83,7 @@ export interface IQuestionRepository {
    * @param query - Advance query filters.
    * @returns A promise that resolves to an array of detailed questions.
    */
-  findDetailedQuestions(query: GetDetailedQuestionsQuery): Promise<IQuestion[]>;
+  findDetailedQuestions(query: GetDetailedQuestionsQuery): Promise<{questions: IQuestion[], totalPages: number}>;
 
   /**
    * Updates a specific question.

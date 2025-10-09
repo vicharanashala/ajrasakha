@@ -10,12 +10,12 @@ import {
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {
   GeneratedQuestionResponse,
+  GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '../classes/validators/QuestionValidators.js';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
 import {CORE_TYPES} from '../types.js';
 import {AiService} from './AiService.js';
-import {GetDetailedQuestionsQuery} from '../classes/validators/ContextValidators.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
 
 @injectable()
@@ -151,7 +151,7 @@ export class QuestionService extends BaseService {
 
   async getDetailedQuestions(
     query: GetDetailedQuestionsQuery,
-  ): Promise<IQuestion[]> {
+  ): Promise<{questions: IQuestion[], totalPages: number}> {
     return this.questionRepo.findDetailedQuestions(query);
   }
 

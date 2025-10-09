@@ -1,14 +1,24 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { QuestionService } from "../services/questionService";
 import type { QuestionFilter } from "@/components/QA-interface";
+import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
 
 const questionService = new QuestionService();
 
-export const useGetAllQuestions = (limit: number, filter: QuestionFilter) => {
+export const useGetAllQuestions = (
+  limit: number,
+  filter: QuestionFilter,
+  preferences: AdvanceFilterValues
+) => {
   return useInfiniteQuery({
     queryKey: ["questions", limit, filter],
     queryFn: async ({ pageParam }) => {
-      return await questionService.getAllQuestions(pageParam, limit, filter);
+      return await questionService.getAllQuestions(
+        pageParam,
+        limit,
+        filter,
+        preferences
+      );
     },
     initialPageParam: 1,
     getNextPageParam: (lastPage, allPages) => {

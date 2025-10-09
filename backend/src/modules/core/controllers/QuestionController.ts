@@ -22,11 +22,11 @@ import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {QuestionService} from '../services/QuestionService.js';
 import {
   ContextIdParam,
-  GetDetailedQuestionsQuery,
 } from '../classes/validators/ContextValidators.js';
 import {
   GeneratedQuestionResponse,
   GenerateQuestionsBody,
+  GetDetailedQuestionsQuery,
   QuestionIdParam,
   QuestionResponse,
 } from '../classes/validators/QuestionValidators.js';
@@ -61,11 +61,7 @@ export class QuestionController {
   @OpenAPI({summary: 'Get all open status questions'})
   async getUnAnsweredQuestions(
     @QueryParams()
-    query: {
-      page?: number;
-      limit?: number;
-      filter?: 'newest' | 'oldest' | 'leastResponses' | 'mostResponses';
-    },
+    query: GetDetailedQuestionsQuery,
     @CurrentUser() user: IUser,
   ): Promise<QuestionResponse[]> {
     const page = query.page ?? 1;
@@ -86,7 +82,7 @@ export class QuestionController {
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async getDetailedQuestions(
     @QueryParams() query: GetDetailedQuestionsQuery,
-  ): Promise<IQuestion[]> {
+  ): Promise<{questions: IQuestion[], totalPages: number}> {
     return this.questionService.getDetailedQuestions(query);
   }
 
@@ -134,7 +130,7 @@ export class QuestionController {
       throw new NotFoundError(`Question with id ${questionId} not found`);
     }
 
-    return {success: true, data: question};
+    return {success: true, data: question, currentUserId: userId};
   }
 
   @Put('/:questionId')

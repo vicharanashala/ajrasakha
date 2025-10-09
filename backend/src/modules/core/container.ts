@@ -11,20 +11,25 @@ import {ContextRepository} from '#root/shared/database/providers/mongo/repositor
 import {AnswerRepository} from '#root/shared/database/providers/mongo/repositories/AnswerRepository.js';
 import {AiService} from './services/AiService.js';
 import {QuestionSubmissionRepository} from '#root/shared/database/providers/mongo/repositories/SubmissionRepository.js';
+import {CommentRepository} from '#root/shared/database/providers/mongo/repositories/CommentRespository.js';
+import {CommentController} from './controllers/CommentController.js';
+import {CommentService} from './services/CommentService.js';
 
 export const coreContainerModule = new ContainerModule(options => {
   // Controllers
   options.bind(QuestionController).toSelf().inSingletonScope();
   options.bind(AnswerController).toSelf().inSingletonScope();
   options.bind(ContextController).toSelf().inSingletonScope();
+  options.bind(CommentController).toSelf().inSingletonScope();
 
   // Services
   options
-    .bind(CORE_TYPES.QuestionService)
+    .bind(CORE_TYPES.QuestionService) 
     .to(QuestionService)
     .inSingletonScope();
   options.bind(CORE_TYPES.AnswerService).to(AnswerService).inSingletonScope();
   options.bind(CORE_TYPES.ContextService).to(ContextService).inSingletonScope();
+  options.bind(CORE_TYPES.CommentService).to(CommentService).inSingletonScope();
   options.bind(CORE_TYPES.AIService).to(AiService).inSingletonScope();
 
   // Repositories
@@ -43,5 +48,9 @@ export const coreContainerModule = new ContainerModule(options => {
   options
     .bind(CORE_TYPES.ContextRepository)
     .to(ContextRepository)
+    .inSingletonScope();
+  options
+    .bind(CORE_TYPES.CommentRepository)
+    .to(CommentRepository)
     .inSingletonScope();
 });

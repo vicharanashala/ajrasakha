@@ -25,6 +25,7 @@ export class AnswerRepository implements IAnswerRepository {
     authorId: string,
     answer: string,
     threshold: number,
+    sources: string[],
     isFinalAnswer: boolean = false,
     answerIteration: number = 1,
     session?: ClientSession,
@@ -49,6 +50,7 @@ export class AnswerRepository implements IAnswerRepository {
         isFinalAnswer,
         answerIteration,
         threshold,
+        sources,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -120,6 +122,8 @@ export class AnswerRepository implements IAnswerRepository {
     session?: ClientSession,
   ): Promise<IAnswer | null> {
     try {
+      await this.init();
+
       return await this.answersCollection.findOne(
         {
           authorId: new ObjectId(authorId),

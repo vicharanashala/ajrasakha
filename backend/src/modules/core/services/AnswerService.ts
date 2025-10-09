@@ -39,6 +39,7 @@ export class AnswerService extends BaseService {
     questionId: string,
     authorId: string,
     answer: string,
+    sources: string[],
   ): Promise<{insertedId: string; isFinalAnswer: boolean}> {
     return this._withTransaction(async (session: ClientSession) => {
       const question = await this.questionRepo.getById(questionId, session);
@@ -75,8 +76,9 @@ export class AnswerService extends BaseService {
           text2: lastSubmittedAnswer.answer,
         };
 
-        const result = await this.aiService.getFinalAnswerByThreshold(payload);
-        threshold = result.similarity_score;
+        // const result = await this.aiService.getFinalAnswerByThreshold(payload);
+        // threshold = result.similarity_score;
+        threshold = 2;
 
         if (threshold >= 0.9) isFinalAnswer = true; // if it meets threshold then set as final
       }
@@ -88,6 +90,7 @@ export class AnswerService extends BaseService {
         authorId,
         answer,
         threshold,
+        sources,
         isFinalAnswer,
         updatedAnswerCount,
         session,

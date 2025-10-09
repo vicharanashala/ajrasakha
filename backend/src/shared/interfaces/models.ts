@@ -19,6 +19,8 @@ export interface IUser {
   updatedAt?: Date;
 }
 
+export type IQuestionPriority = 'low' | 'medium' | 'high';
+
 export interface IQuestion {
   _id?: string | ObjectId;
   userId: ObjectId | string;
@@ -26,6 +28,7 @@ export interface IQuestion {
   context: ObjectId | string;
   status: QuestionStatus;
   totalAnswersCount: number;
+  priority: IQuestionPriority;
   details: {
     state: string;
     district: string;
@@ -45,6 +48,7 @@ export interface IAnswer {
   answerIteration: number;
   isFinalAnswer: boolean;
   answer: string;
+  sources: string[];
   threshold: number;
   createdAt?: Date;
   updatedAt?: Date;
@@ -70,4 +74,13 @@ export interface IQuestionSubmission {
   history: ISubmissionHistroy[];
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+export interface IComment {
+  _id?: string | ObjectId;
+  questionId: string | ObjectId;
+  answerId: string | ObjectId;
+  userId: string | ObjectId;
+  text: string;
+  createdAt: Date;
 }

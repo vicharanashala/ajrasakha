@@ -2,7 +2,7 @@ import {
   ObjectIdToString,
   StringToObjectId,
 } from '#shared/constants/transformerConstants.js';
-import {IQuestion, QuestionStatus} from '#shared/interfaces/models.js';
+import {IQuestion, IQuestionPriority, QuestionStatus} from '#shared/interfaces/models.js';
 import {Expose, Transform} from 'class-transformer';
 import {ObjectId} from 'mongodb';
 
@@ -30,6 +30,9 @@ class Question implements IQuestion {
 
   @Expose()
   totalAnswersCount: number;
+
+  @Expose()
+  priority: IQuestionPriority;
 
   @Expose()
   details: {

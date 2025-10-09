@@ -8,11 +8,11 @@ export const queryClient = new QueryClient();
 export const Route = createRootRoute({
   component: () => (
     <>
-      <ThemeProvider >
-        <QueryClientProvider client={queryClient}>
-          <Toaster position="bottom-right" reverseOrder={false} />
-          <Outlet />
-        </QueryClientProvider>
+      <ThemeProvider>
+          <QueryClientProvider client={queryClient}>
+            <Toaster position="bottom-right" reverseOrder={false} />
+            <Outlet />
+          </QueryClientProvider>
       </ThemeProvider>
     </>
   ),

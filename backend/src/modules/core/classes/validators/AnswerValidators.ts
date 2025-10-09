@@ -7,6 +7,9 @@ import {
   Min,
   IsMongoId,
   ValidateNested,
+  IsArray,
+  ArrayNotEmpty,
+  IsUrl,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 
@@ -29,6 +32,18 @@ class AddAnswerBody {
   @IsNotEmpty()
   @IsString()
   answer: string;
+
+  @JSONSchema({
+    description: 'Source URLs for the answer',
+    example: ['https://example.com', 'https://docs.example.com'],
+    type: 'array',
+    items: {type: 'string', format: 'uri'},
+  })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({each: true})
+  // @IsUrl({}, {each: true}) 
+  sources: string[];
 }
 
 class AnswerResponse {
