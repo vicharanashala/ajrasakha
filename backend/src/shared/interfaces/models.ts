@@ -84,3 +84,26 @@ export interface IComment {
   text: string;
   createdAt: Date;
 }
+
+export type RequestStatus = 'pending' | 'rejected' | 'approved' | 'in-review';
+
+export interface IModeratorResponse {
+  moderatorId: string | ObjectId;
+  status: RequestStatus;
+  response?: string;
+  reviewedAt?: Date;
+  moderatorName?: string; 
+}
+
+export type ModeratorRequestDetails =
+  | { requestType: 'question_flag'; details: IQuestion }
+  | { requestType: 'others'; details: Record<string, any> };
+
+export type IModeratorRequest = ModeratorRequestDetails & {
+  _id: string | ObjectId;
+  reason: string;
+  responses: IModeratorResponse[];
+  status: RequestStatus;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
