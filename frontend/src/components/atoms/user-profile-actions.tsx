@@ -11,7 +11,7 @@ import {
 import { Button } from "./button";
 import { Avatar, AvatarImage, AvatarFallback } from "./avatar";
 import { useAuthStore } from "@/stores/auth-store";
-import { LogOut } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
 export const UserProfileActions = () => {
@@ -66,7 +66,7 @@ interface UserDropdownProps {
 
 export function UserDropdown({ user, onLogout }: UserDropdownProps) {
   const [imgError, setImgError] = React.useState(false);
-
+  const navigate = useNavigate();
   const handleLogout = () => {
     onLogout();
   };
@@ -78,6 +78,10 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
       .join("")
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const handleViewProfile = () => {
+    navigate({ to: "/profile" });
   };
 
   return (
@@ -121,6 +125,13 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
           </div>
         </div>
         <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={handleViewProfile}
+          className="text-foreground focus:text-foreground cursor-pointer mb-2"
+        >
+          <User className="mr-2 h-4 w-4" />
+          Profile
+        </DropdownMenuItem>
 
         <DropdownMenuItem
           onClick={handleLogout}

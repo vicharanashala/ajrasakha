@@ -37,11 +37,7 @@ export const useAuthStore = create<AuthStore>()(
           set({ firebaseUser }, undefined, "setFirebaseUser"),
 
         setUser: (user) => set({ user }, undefined, "setUser"),
-        // token: localStorage.getItem("firebase-auth-token"),
-        // setToken: (token: string) => {
-        //   localStorage.setItem("firebase-auth-token", token);
-        //   set({ isAuthenticated: true });
-        // },
+      
         clearUser: () => {
           localStorage.removeItem("firebase-auth-token");
           localStorage.removeItem("user-id");

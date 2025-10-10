@@ -14,15 +14,22 @@ import {QuestionSubmissionRepository} from '#root/shared/database/providers/mong
 import {CommentRepository} from '#root/shared/database/providers/mongo/repositories/CommentRespository.js';
 import {CommentController} from './controllers/CommentController.js';
 import {CommentService} from './services/CommentService.js';
+import { UserController } from './controllers/UserController.js';
+import { UserService } from './services/UserService.js';
 
 export const coreContainerModule = new ContainerModule(options => {
   // Controllers
+  options.bind(UserController).toSelf().inSingletonScope();
   options.bind(QuestionController).toSelf().inSingletonScope();
   options.bind(AnswerController).toSelf().inSingletonScope();
   options.bind(ContextController).toSelf().inSingletonScope();
   options.bind(CommentController).toSelf().inSingletonScope();
 
   // Services
+  options
+    .bind(CORE_TYPES.UserService) 
+    .to(UserService)
+    .inSingletonScope();
   options
     .bind(CORE_TYPES.QuestionService) 
     .to(QuestionService)

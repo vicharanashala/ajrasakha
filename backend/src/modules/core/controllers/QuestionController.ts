@@ -20,10 +20,9 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {IQuestion, IUser} from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {QuestionService} from '../services/QuestionService.js';
+import {ContextIdParam} from '../classes/validators/ContextValidators.js';
 import {
-  ContextIdParam,
-} from '../classes/validators/ContextValidators.js';
-import {
+  AddQuestionBodyDto,
   GeneratedQuestionResponse,
   GenerateQuestionsBody,
   GetDetailedQuestionsQuery,
@@ -64,15 +63,8 @@ export class QuestionController {
     query: GetDetailedQuestionsQuery,
     @CurrentUser() user: IUser,
   ): Promise<QuestionResponse[]> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 10;
     const userId = user._id.toString();
-    return this.questionService.getUnAnsweredQuestions(
-      userId,
-      page,
-      limit,
-      query.filter,
-    );
+    return this.questionService.getUnAnsweredQuestions(userId, query);
   }
 
   @Get('/detailed')
@@ -82,7 +74,7 @@ export class QuestionController {
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async getDetailedQuestions(
     @QueryParams() query: GetDetailedQuestionsQuery,
-  ): Promise<{questions: IQuestion[], totalPages: number}> {
+  ): Promise<{questions: IQuestion[]; totalPages: number}> {
     return this.questionService.getDetailedQuestions(query);
   }
 
@@ -95,6 +87,18 @@ export class QuestionController {
     @Body() body: GenerateQuestionsBody,
   ): Promise<GeneratedQuestionResponse[]> {
     return this.questionService.getQuestionFromRawContext(body.transcript);
+  }
+
+  @Post('/')
+  @HttpCode(201)
+  // @Authorized()
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  @OpenAPI({summary: 'Add a new question'})
+  async addQuestion(
+    @Body()
+    body: AddQuestionBodyDto,
+  ): Promise<Partial<IQuestion>> {
+    return this.questionService.addQuestion(body);
   }
 
   @Get('/:questionId')

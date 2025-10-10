@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   CheckCircle,
   Eye,
@@ -11,6 +11,17 @@ import {
   Info,
   Loader2,
   Send,
+  BookOpen,
+  Flag,
+  FileText,
+  MessageSquare,
+  Calendar,
+  RefreshCcw,
+  MapPin,
+  Map,
+  Sprout,
+  Sun,
+  Layers,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { RadioGroup, RadioGroupItem } from "./atoms/radio-group";
@@ -24,6 +35,8 @@ import toast from "react-hot-toast";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "./atoms/dialog";
@@ -54,6 +67,8 @@ import {
   type QuestionSourceFilter,
 } from "./advanced-question-filter";
 import type {} from "./questions-page";
+import type { IMyPreference, IQuestion } from "@/types";
+import { ScrollArea } from "./atoms/scroll-area";
 
 // const questions = await generateQuestionDataSet();
 export type QuestionFilter =
@@ -74,6 +89,8 @@ export const QAInterface = () => {
   const [priority, setPriority] = useState<QuestionPriorityFilter>("all");
   const [state, setState] = useState("");
   const [crop, setCrop] = useState("");
+  const [domain, setDomain] = useState("all");
+  const [user, setUser] = useState("all");
   const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
 
@@ -86,6 +103,8 @@ export const QAInterface = () => {
       dateRange: "all",
       crop: "all",
       priority: "all",
+      domain: "all",
+      user: "all",
     }
   );
   const handleDialogChange = (key: string, value: any) => {
@@ -101,8 +120,20 @@ export const QAInterface = () => {
       answersCount,
       dateRange,
       priority,
+      domain,
+      user,
     }),
-    [status, state, source, crop, answersCount, dateRange, priority]
+    [
+      status,
+      state,
+      source,
+      crop,
+      answersCount,
+      dateRange,
+      priority,
+      domain,
+      user,
+    ]
   );
 
   const LIMIT = 10;
@@ -185,6 +216,8 @@ export const QAInterface = () => {
     setAnswersCount([0, 100]);
     setDateRange("all");
     setPriority("all");
+    setDomain("all");
+    setUser("all");
   };
 
   const onChangeFilters = (next: {
@@ -193,6 +226,8 @@ export const QAInterface = () => {
     priority?: QuestionPriorityFilter;
     state?: string;
     crop?: string;
+    domain?: string;
+    user?: string;
     answersCount?: [number, number];
     dateRange?: QuestionDateRangeFilter;
   }) => {
@@ -203,21 +238,28 @@ export const QAInterface = () => {
     if (next.answersCount !== undefined) setAnswersCount(next.answersCount);
     if (next.dateRange !== undefined) setDateRange(next.dateRange);
     if (next.priority !== undefined) setPriority(next.priority);
+    if (next.domain !== undefined) setDomain(next.domain);
+    if (next.user !== undefined) setUser(next.user);
   };
-  const handleApplyFilters = () => {
+
+  const handleApplyFilters = (myPreference?: IMyPreference) => {
     onChangeFilters({
       status: advanceFilter.status,
       source: advanceFilter.source,
-      state: advanceFilter.state,
-      crop: advanceFilter.crop,
+      state: myPreference?.state || advanceFilter.state,
+      crop: myPreference?.crop || advanceFilter.crop,
       answersCount: advanceFilter.answersCount,
       dateRange: advanceFilter.dateRange,
       priority: advanceFilter.priority,
+      domain: myPreference?.domain || advanceFilter.domain,
+      user: advanceFilter.user,
     });
+
+    refetch();
   };
 
   return (
-    <div className="container mx-auto px-4 md:px-6 bg-transparent py-4">
+    <div className="container mx-auto px-4 md:px-6 bg-transparent py-4 ">
       <div className="flex flex-col space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="w-full md:max-h-[120vh] max-h-[80vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent">
@@ -233,8 +275,9 @@ export const QAInterface = () => {
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-sm">
                       <p>
-                        This section displays the list of pending questions that
-                        require a response.
+                        This are the list of pending questions that require a
+                        response. These questions are personalized based on the
+                        preferences you set in your profile.
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -270,6 +313,7 @@ export const QAInterface = () => {
                   crops={CROPS}
                   activeFiltersCount={activeFiltersCount}
                   onReset={onReset}
+                  isStatusFilterNeeded={false}
                 />
 
                 <Button
@@ -328,7 +372,9 @@ export const QAInterface = () => {
                   </svg>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  No questions available. Please check back later.
+                  No questions available at the moment. The questions displayed
+                  here are personalized based on the preferences you set in your
+                  profile. Please check back later.
                 </p>
               </div>
             ) : (
@@ -374,9 +420,23 @@ export const QAInterface = () => {
                             </Label>
                           </div>
                         </div>
-
                         <div className="mt-3 ml-7 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-                          <div className=" items-center gap-1.5  flex">
+                          <div className="items-center gap-1.5 flex">
+                            {question?.priority && (
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                                  question.priority === "high"
+                                    ? "bg-red-500/10 text-red-600 border-red-500/30"
+                                    : question.priority === "medium"
+                                    ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+                                    : "bg-green-500/10 text-green-600 border-green-500/30"
+                                }`}
+                              >
+                                {question.priority.charAt(0).toUpperCase() +
+                                  question.priority.slice(1)}
+                              </span>
+                            )}
+
                             <svg
                               className="w-3 h-3"
                               fill="none"
@@ -468,11 +528,15 @@ export const QAInterface = () => {
                 </div>
               ) : selectedQuestionData ? (
                 <>
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">
-                      Current Query:
-                    </Label>
-                    <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600">
+                  <div className="flex flex-col w-full">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-sm font-medium text-muted-foreground">
+                        Current Query:
+                      </Label>
+                      <QuestionDetailsDialog question={selectedQuestionData} />
+                    </div>
+
+                    <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words">
                       {selectedQuestionData.text}
                     </p>
                   </div>
@@ -735,6 +799,180 @@ export const QAInterface = () => {
           </Card>
         </div>
       </div>
+    </div>
+  );
+};
+
+type QuestionDetailsDialogProps = {
+  question: IQuestion;
+  buttonLabel?: string;
+};
+
+export const QuestionDetailsDialog = ({
+  question,
+  buttonLabel = "View more details",
+}: QuestionDetailsDialogProps) => {
+  const {
+    text,
+    source,
+    priority,
+    totalAnswersCount,
+    createdAt,
+    updatedAt,
+    details,
+  } = question;
+
+  const created = createdAt ? new Date(createdAt).toLocaleString() : "-";
+  const updated = updatedAt ? new Date(updatedAt).toLocaleString() : "-";
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="shrink-0"
+          aria-label={buttonLabel}
+          title={buttonLabel}
+        >
+          <Eye className="h-5 w-5 " />
+          <span className="sr-only">{buttonLabel}</span>
+        </Button>
+      </DialogTrigger>
+
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-balance">Question Details</DialogTitle>
+        </DialogHeader>
+
+        <ScrollArea className="max-h-[70vh] pr-1 px-4">
+          <div className="space-y-6">
+            <section className="space-y-2">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Summary
+              </h3>
+              <div className="rounded-md border p-3">
+                <p className="text-sm">{text}</p>
+              </div>
+            </section>
+
+            <section className="space-y-2">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Metadata
+              </h3>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <Option
+                  label={
+                    <div className="flex items-center gap-1">
+                      <BookOpen className="w-3 h-3 text-primary" /> Source
+                    </div>
+                  }
+                  value={source}
+                />
+                <Option
+                  label={
+                    <div className="flex items-center gap-1">
+                      <Flag className="w-3 h-3 text-primary" /> Priority
+                    </div>
+                  }
+                  value={priority}
+                />
+                <Option
+                  label={
+                    <div className="flex items-center gap-1">
+                      <FileText className="w-3 h-3 text-primary" /> Status
+                    </div>
+                  }
+                  value="Open"
+                />
+                <Option
+                  label={
+                    <div className="flex items-center gap-1">
+                      <MessageSquare className="w-3 h-3 text-primary" /> Total
+                      Answers
+                    </div>
+                  }
+                  value={String(totalAnswersCount ?? 0)}
+                />
+                <Option
+                  label={
+                    <div className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3 text-primary" /> Created At
+                    </div>
+                  }
+                  value={created}
+                />
+                <Option
+                  label={
+                    <div className="flex items-center gap-1">
+                      <RefreshCcw className="w-3 h-3 text-primary" /> Updated At
+                    </div>
+                  }
+                  value={updated}
+                />
+              </div>
+            </section>
+
+            {/* Details */}
+            <section className="space-y-2">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Details
+              </h3>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <Option
+                  label={
+                    <div className="flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-primary" /> State
+                    </div>
+                  }
+                  value={details?.state}
+                />
+                <Option
+                  label={
+                    <div className="flex items-center gap-1">
+                      <Map className="w-3 h-3 text-primary" /> District
+                    </div>
+                  }
+                  value={details?.district}
+                />
+                <Option
+                  label={
+                    <div className="flex items-center gap-1">
+                      <Sprout className="w-3 h-3 text-primary" /> Crop
+                    </div>
+                  }
+                  value={details?.crop}
+                />
+                <Option
+                  label={
+                    <div className="flex items-center gap-1">
+                      <Sun className="w-3 h-3 text-primary" /> Season
+                    </div>
+                  }
+                  value={details?.season}
+                />
+                <Option
+                  label={
+                    <div className="flex items-center gap-1">
+                      <Layers className="w-3 h-3 text-primary" /> Domain
+                    </div>
+                  }
+                  value={details?.domain}
+                />
+              </div>
+            </section>
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const Option = ({ label, value }: { label: ReactNode; value?: string }) => {
+  return (
+    <div className="rounded-md border p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 text-sm">{value ?? "-"}</div>
     </div>
   );
 };

@@ -18,7 +18,7 @@ import {
   AdvanceFilterDialog,
   type AdvanceFilterValues,
 } from "./advanced-question-filter";
-import type { IDetailedQuestion } from "@/types";
+import type { IDetailedQuestion, IMyPreference } from "@/types";
 
 export type QuestionStatus = "open" | "answered" | "closed";
 
@@ -83,6 +83,7 @@ export const QuestionsTable = ({
         <Table className="min-w-[800px]">
           <TableHeader className="bg-card sticky top-0 z-10">
             <TableRow>
+              <TableHead className="text-center">Sl.No</TableHead>
               <TableHead className="w-[35%] text-center">Question</TableHead>
               <TableHead className="text-center">Priority</TableHead>
               <TableHead className="text-center">State</TableHead>
@@ -105,7 +106,8 @@ export const QuestionsTable = ({
             ) : items?.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={10}
+                  rowSpan={10}
                   className="text-center py-10 text-muted-foreground"
                 >
                   No questions found
@@ -121,7 +123,13 @@ export const QuestionsTable = ({
                     // ref={isSecondLastItem ? lastElementRef : null}
                   >
                     <TableCell
-                      className="align-middle w-[35%]"
+                      className="align-middle text-center"
+                      title={idx.toString()}
+                    >
+                      {(currentPage - 1) * totalPages + idx + 1}
+                    </TableCell>
+                    <TableCell
+                      className=" text-start ps-3 w-[35%]"
                       title={q.question}
                     >
                       {truncate(q.question, 90)}
@@ -233,6 +241,7 @@ type QuestionsFiltersProps = {
   onReset: () => void;
   setSearch: (val: string) => void;
   refetch: () => void;
+  totalQuestions: number;
 };
 
 export const QuestionsFilters = ({
@@ -243,8 +252,8 @@ export const QuestionsFilters = ({
   onChange,
   onReset,
   refetch,
+  totalQuestions,
 }: QuestionsFiltersProps) => {
-
   const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
     {
       status: "all",
@@ -254,6 +263,8 @@ export const QuestionsFilters = ({
       dateRange: "all",
       crop: "all",
       priority: "all",
+      domain: "all",
+      user: "all",
     }
   );
 
@@ -261,15 +272,17 @@ export const QuestionsFilters = ({
     setAdvanceFilterValues((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleApplyFilters = () => {
+  const handleApplyFilters = (myPreference?: IMyPreference) => {
     onChange({
       status: advanceFilter.status,
       source: advanceFilter.source,
-      state: advanceFilter.state,
-      crop: advanceFilter.crop,
+      state: myPreference?.state || advanceFilter.state,
+      crop: myPreference?.crop || advanceFilter.crop,
       answersCount: advanceFilter.answersCount,
       dateRange: advanceFilter.dateRange,
-      priority: advanceFilter.priority,
+      priority:  advanceFilter.priority, 
+      domain: myPreference?.domain || advanceFilter.domain,
+      user: advanceFilter.user,
     });
   };
 
@@ -277,11 +290,8 @@ export const QuestionsFilters = ({
     (v) => v !== "all" && !(Array.isArray(v) && v[0] === 0 && v[1] === 100)
   ).length;
 
-  
-
   return (
     <div className="flex flex-wrap items-center justify-between w-full p-4 gap-3 border-b bg-card rounded">
-      {/* Search Input */}
       <div className="flex-1 min-w-[200px] max-w-[400px]">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -294,9 +304,7 @@ export const QuestionsFilters = ({
         </div>
       </div>
 
-      {/* Action Buttons */}
       <div className="flex flex-wrap gap-2 items-center justify-end w-full sm:w-auto">
-        {/* Filters Dialog */}
         <AdvanceFilterDialog
           advanceFilter={advanceFilter}
           setAdvanceFilterValues={setAdvanceFilterValues}
@@ -306,6 +314,7 @@ export const QuestionsFilters = ({
           crops={crops}
           activeFiltersCount={activeFiltersCount}
           onReset={onReset}
+          isStatusFilterNeeded={true}
         />
         <Button
           variant="outline"
@@ -315,6 +324,10 @@ export const QuestionsFilters = ({
         >
           <RefreshCcw className="h-4 w-4" />
         </Button>
+
+        <span className="ml-4 text-sm text-muted-foreground">
+          Total Questions: {totalQuestions}
+        </span>
       </div>
     </div>
   );

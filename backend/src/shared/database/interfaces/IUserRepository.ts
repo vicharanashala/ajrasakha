@@ -1,4 +1,4 @@
-import {IUser } from '#shared/interfaces/models.js';
+import {IUser} from '#shared/interfaces/models.js';
 import {MongoClient, ClientSession, ObjectId} from 'mongodb';
 
 /**
@@ -56,7 +56,10 @@ export interface IUserRepository {
    * @param session - The session for transaction.
    * @returns A promise that resolves to the user if found, or null if not found.
    */
-  findById(id: string | ObjectId, session?: ClientSession): Promise<IUser | null>;
+  findById(
+    id: string | ObjectId,
+    session?: ClientSession,
+  ): Promise<IUser | null>;
 
   /**
    * Creates a User Anomaly Document to the database.
@@ -71,7 +74,7 @@ export interface IUserRepository {
     userId: string,
     userData: Partial<IUser>,
     session?: ClientSession,
-  ): Promise<void>;
+  ): Promise<IUser>;
 
   /**
    * Finds multiple users by their IDs.
@@ -79,4 +82,9 @@ export interface IUserRepository {
    * @returns A promise that resolves to an array of users.
    */
   getUsersByIds(ids: string[]): Promise<IUser[]>;
+  /**
+   * Finds all users.
+   * @returns A promise that resolves to an array of users.
+   */
+  findAll(session?: ClientSession): Promise<IUser[]>;
 }

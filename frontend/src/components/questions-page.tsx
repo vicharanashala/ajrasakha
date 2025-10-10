@@ -13,8 +13,6 @@ import {
   type QuestionSourceFilter,
 } from "./advanced-question-filter";
 
-
-
 export const QuestionsPage = () => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
@@ -28,7 +26,8 @@ export const QuestionsPage = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedQuestionId, setSelectedQuestionId] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-
+  const [domain, setDomain] = useState("all");
+  const [user, setUser] = useState("all");
   const LIMIT = 12;
   const filter = useMemo(
     () => ({
@@ -39,8 +38,20 @@ export const QuestionsPage = () => {
       answersCount,
       dateRange,
       priority,
+      domain,
+      user,
     }),
-    [status, state, source, crop, answersCount, dateRange, priority]
+    [
+      status,
+      state,
+      source,
+      crop,
+      answersCount,
+      dateRange,
+      priority,
+      domain,
+      user,
+    ]
   );
   // const {
   //   data,
@@ -99,6 +110,8 @@ export const QuestionsPage = () => {
     priority?: QuestionPriorityFilter;
     state?: string;
     crop?: string;
+    domain?: string;
+    user?: string;
     answersCount?: [number, number];
     dateRange?: QuestionDateRangeFilter;
   }) => {
@@ -109,6 +122,8 @@ export const QuestionsPage = () => {
     if (next.answersCount !== undefined) setAnswersCount(next.answersCount);
     if (next.dateRange !== undefined) setDateRange(next.dateRange);
     if (next.priority !== undefined) setPriority(next.priority);
+    if (next.domain !== undefined) setDomain(next.domain);
+    if (next.user !== undefined) setUser(next.user);
   };
 
   const onReset = () => {
@@ -119,12 +134,13 @@ export const QuestionsPage = () => {
     setAnswersCount([0, 100]);
     setDateRange("all");
     setPriority("all");
+    setDomain("all");
+    setUser("all");
   };
 
   const handleViewMore = (questoinId: string) => {
     setSelectedQuestionId(questoinId);
   };
-
 
   return (
     <main className="mx-auto w-full p-4 md:p-6 space-y-6 ">
@@ -154,6 +170,7 @@ export const QuestionsPage = () => {
                 setIsRefreshing(false);
               }, 2000);
             }}
+            totalQuestions={questionData?.totalCount || 0}
           />
 
           <QuestionsTable

@@ -37,7 +37,7 @@ export class ContextService extends BaseService {
 
         const contextId = result.insertedId;
 
-        // await this.questionService.addQuestions(
+        // await this.questionService.addDummyQuestions(
         //   userId,
         //   contextId,
         //   dummyQuestions,

@@ -5,6 +5,7 @@ export const CORE_TYPES = {
   ContextController: Symbol.for('ContextController'),
 
   // Services
+  UserService: Symbol.for('UserService'),
   QuestionService: Symbol.for('QuestionService'),
   AnswerService: Symbol.for('AnswerService'),
   ContextService: Symbol.for('ContextService'),
@@ -12,6 +13,7 @@ export const CORE_TYPES = {
   AIService: Symbol.for('AIService'),
 
   // Repositories
+  UserRepository: Symbol.for('UserRepository'),
   CommentRepository: Symbol.for('CommentRepository'),
   QuestionSubmissionRepository: Symbol.for('QuestionSubmissionRepository'),
   QuestionRepository: Symbol.for('QuestionRepository'),

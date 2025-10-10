@@ -2,18 +2,18 @@ import {ObjectId} from 'mongodb';
 
 export type UserRole = 'admin' | 'user' | 'expert';
 export type QuestionStatus = 'open' | 'answered' | 'closed';
-
+export interface IPreference {
+  state: string;
+  crop: string;
+  domain: string;
+}
 export interface IUser {
   _id?: string | ObjectId;
   firebaseUID: string;
   email: string;
   firstName: string;
   lastName?: string;
-  preference?: {
-    state: string;
-    crop: string;
-    domain: string;
-  };
+  preference?: IPreference | null;
   role: UserRole;
   createdAt?: Date;
   updatedAt?: Date;
@@ -23,9 +23,9 @@ export type IQuestionPriority = 'low' | 'medium' | 'high';
 
 export interface IQuestion {
   _id?: string | ObjectId;
-  userId: ObjectId | string;
+  userId?: ObjectId | string;
   question: string;
-  context: ObjectId | string;
+  context?: ObjectId | string;
   status: QuestionStatus;
   totalAnswersCount: number;
   priority: IQuestionPriority;

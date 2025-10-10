@@ -11,7 +11,7 @@ export const useGetAllQuestions = (
   preferences: AdvanceFilterValues
 ) => {
   return useInfiniteQuery({
-    queryKey: ["questions", limit, filter],
+    queryKey: ["questions", limit, filter, preferences],
     queryFn: async ({ pageParam }) => {
       return await questionService.getAllQuestions(
         pageParam,

@@ -16,13 +16,19 @@ export interface AuthUser {
   name: string;
   avatar: string;
 }
-
+export interface IMyPreference {
+  state: string;
+  crop: string;
+  domain: string;
+}
 export interface IUser {
   _id?: string;
-  firebaseUID: string;
+  firebaseUID?: string;
   email: string;
   firstName: string;
   lastName?: string;
+  password?: string;
+  preference?: IMyPreference;
   role: UserRole;
   createdAt?: Date;
   updatedAt?: Date;
@@ -35,7 +41,16 @@ export interface IQuestion {
   createdAt: string;
   updatedAt: string;
   totalAnswersCount: number;
-  prioriy: QuestionPriority;
+  priority: QuestionPriority;
+  status: QuestionStatus;
+  source: "AJRASAKHA" | "AGRI_EXPERT";
+  details: {
+    state: string;
+    district: string;
+    crop: string;
+    season: string;
+    domain: string;
+  };
   currentAnswers?: {
     answer: string;
     id: string;
@@ -174,7 +189,6 @@ export interface IComment {
   createdAt: string;
 }
 
-
 export interface IDetailedQuestion {
   _id?: string;
   userId: string;
@@ -197,5 +211,6 @@ export interface IDetailedQuestion {
 
 export interface IDetailedQuestionResponse {
   totalPages: number;
+  totalCount: number;
   questions: IDetailedQuestion[];
 }

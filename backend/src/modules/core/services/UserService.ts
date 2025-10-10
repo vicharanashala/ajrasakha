@@ -1,0 +1,86 @@
+import {inject, injectable} from 'inversify';
+import {GLOBAL_TYPES} from '#root/types.js';
+import {IUser} from '#root/shared/interfaces/models.js';
+import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
+import {InternalServerError, NotFoundError} from 'routing-controllers';
+import {BaseService, MongoDatabase} from '#root/shared/index.js';
+import {ClientSession} from 'mongodb';
+import {
+  PreferenceDto,
+  UsersNameResponseDto,
+} from '../classes/validators/UserValidators.js';
+
+@injectable()
+export class UserService extends BaseService {
+  constructor(
+    @inject(GLOBAL_TYPES.UserRepository)
+    private readonly userRepo: IUserRepository,
+
+    @inject(GLOBAL_TYPES.Database)
+    private readonly mongoDatabase: MongoDatabase,
+  ) {
+    super(mongoDatabase);
+  }
+
+  async getUserById(userId: string): Promise<IUser> {
+    try {
+      if (!userId) throw new NotFoundError('User ID is required');
+
+      return this._withTransaction(async (session: ClientSession) => {
+        const user = await this.userRepo.findById(userId, session);
+        if (!user) throw new NotFoundError(`User with ID ${userId} not found`);
+        return user;
+      });
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch user with ID ${userId}: ${error}`,
+      );
+    }
+  }
+
+  async updateUser(userId: string, data: Partial<IUser>): Promise<IUser> {
+    try {
+      if (!userId) throw new NotFoundError('User ID is required');
+
+      return this._withTransaction(async (session: ClientSession) => {
+        const updatedUser = await this.userRepo.edit(userId, data, session);
+        if (!updatedUser)
+          throw new NotFoundError(`User with ID ${userId} not found`);
+        return updatedUser;
+      });
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to update user with ID ${userId}: ${error}`,
+      );
+    }
+  }
+
+  async getAllUserNames(userId: string): Promise<UsersNameResponseDto> {
+    try {
+      return await this._withTransaction(async session => {
+        const me = await this.userRepo.findById(userId, session);
+        const users = await this.userRepo.findAll(session);
+
+        const usersExceptMe = users.filter(
+          user => user._id.toString() !== userId,
+        );
+
+        const myPreference: PreferenceDto = {
+          state: me?.preference?.state ?? null,
+          crop: me?.preference?.crop ?? null,
+          domain: me?.preference?.domain ?? null,
+        };
+
+        return {
+          myPreference,
+          users: usersExceptMe.map(u => ({
+            _id: u._id.toString(),
+            userName: `${u.firstName} ${u.lastName}`.trim(),
+          })),
+        };
+      });
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch users: ${error}`);
+    }
+  }
+}

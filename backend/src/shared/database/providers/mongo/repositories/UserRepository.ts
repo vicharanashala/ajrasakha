@@ -76,10 +76,20 @@ export class UserRepository implements IUserRepository {
     session?: ClientSession,
   ): Promise<IUser | null> {
     await this.init();
+
     const user = await this.usersCollection.findOne(
       {_id: new ObjectId(id)},
-      {session},
+      {
+        projection: {
+          _id: 0, 
+          firebaseUID: 0, 
+        },
+        session,
+      },
     );
+
+    if (!user) return null;
+
     return instanceToPlain(new User(user)) as IUser;
   }
 
@@ -127,13 +137,22 @@ export class UserRepository implements IUserRepository {
     userId: string,
     userData: Partial<IUser>,
     session?: ClientSession,
-  ): Promise<void> {
+  ): Promise<IUser> {
     await this.init();
-    await this.usersCollection.updateOne(
+    const { _id, ...sanitizedData } = userData;
+    const result = await this.usersCollection.updateOne(
       {_id: new ObjectId(userId)},
-      {$set: userData},
+      {$set: sanitizedData},
       {session},
     );
+    if (result.matchedCount === 0) return null;
+
+    const updatedUser = await this.usersCollection.findOne(
+      {_id: new ObjectId(userId)},
+      {session},
+    );
+
+    return updatedUser as IUser;
   }
 
   async getUsersByIds(ids: string[]): Promise<IUser[]> {
@@ -146,5 +165,10 @@ export class UserRepository implements IUserRepository {
       ...user,
       _id: user._id.toString(),
     }));
+  }
+
+  async findAll(session?: ClientSession): Promise<IUser[]> {
+    await this.init();
+    return this.usersCollection.find({}, {session}).toArray();
   }
 }

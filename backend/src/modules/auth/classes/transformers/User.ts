@@ -2,13 +2,13 @@ import {
   ObjectIdToString,
   StringToObjectId,
 } from '#shared/constants/transformerConstants.js';
-import {IUser} from '#shared/interfaces/models.js';
+import {IPreference, IUser} from '#shared/interfaces/models.js';
 import {Expose, Transform} from 'class-transformer';
 import {ObjectId} from 'mongodb';
 
 class User implements IUser {
-  @Transform(ObjectIdToString.transformer, {toPlainOnly: true}) 
-  @Transform(StringToObjectId.transformer, {toClassOnly: true}) 
+  @Transform(ObjectIdToString.transformer, {toPlainOnly: true})
+  @Transform(StringToObjectId.transformer, {toClassOnly: true})
   @Expose()
   _id: string | ObjectId | null;
 
@@ -20,6 +20,9 @@ class User implements IUser {
 
   @Expose()
   firstName: string;
+
+  @Expose()
+  preference?: IPreference;
 
   @Expose()
   lastName: string;
@@ -34,6 +37,7 @@ class User implements IUser {
     this.firstName = data?.firstName;
     this.lastName = data?.lastName;
     this.role = data?.role || 'user';
+    this.preference = data?.preference;
   }
 }
 

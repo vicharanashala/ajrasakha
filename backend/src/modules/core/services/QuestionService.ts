@@ -9,6 +9,7 @@ import {
 } from '#root/shared/interfaces/models.js';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {
+  AddQuestionBodyDto,
   GeneratedQuestionResponse,
   GetDetailedQuestionsQuery,
   QuestionResponse,
@@ -17,6 +18,7 @@ import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerReposit
 import {CORE_TYPES} from '../types.js';
 import {AiService} from './AiService.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
+import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 
 @injectable()
 export class QuestionService extends BaseService {
@@ -26,6 +28,9 @@ export class QuestionService extends BaseService {
 
     @inject(GLOBAL_TYPES.QuestionRepository)
     private readonly questionRepo: IQuestionRepository,
+
+    @inject(GLOBAL_TYPES.UserRepository)
+    private readonly userRepo: IUserRepository,
 
     @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
     private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
@@ -39,7 +44,7 @@ export class QuestionService extends BaseService {
     super(mongoDatabase);
   }
 
-  async addQuestions(
+  async addDummyQuestions(
     userId: string,
     contextId: string,
     questions: string[],
@@ -54,7 +59,7 @@ export class QuestionService extends BaseService {
         const insertedQuestions = [];
 
         for (const questionText of questions) {
-          const question = await this.questionRepo.addQuestion(
+          const question = await this.questionRepo.addDummyQuestion(
             userId,
             contextId,
             questionText,
@@ -85,7 +90,7 @@ export class QuestionService extends BaseService {
           const insertedQuestions = [];
 
           for (const questionText of questions) {
-            const question = await this.questionRepo.addQuestion(
+            const question = await this.questionRepo.addDummyQuestion(
               userId,
               contextId,
               questionText,
@@ -128,17 +133,18 @@ export class QuestionService extends BaseService {
 
   async getUnAnsweredQuestions(
     userId: string,
-    page: number,
-    limit: number,
-    filter: 'newest' | 'oldest' | 'leastResponses' | 'mostResponses',
+    query: GetDetailedQuestionsQuery,
   ): Promise<QuestionResponse[]> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
+        // const user = await this.userRepo.findById(userId, session);
+        // const userPreference = user.preference || null;
+        // state: 'Chhattisgarh', crop: 'Cotton', domain: 'Agriculture'
+
         return this.questionRepo.getUnAnsweredQuestions(
           userId,
-          Number(page),
-          Number(limit),
-          filter,
+          query,
+          // userPreference,
           session,
         );
       });
@@ -151,7 +157,7 @@ export class QuestionService extends BaseService {
 
   async getDetailedQuestions(
     query: GetDetailedQuestionsQuery,
-  ): Promise<{questions: IQuestion[], totalPages: number}> {
+  ): Promise<{questions: IQuestion[]; totalPages: number}> {
     return this.questionRepo.findDetailedQuestions(query);
   }
 
@@ -169,6 +175,28 @@ export class QuestionService extends BaseService {
     return uniqueQuestions;
   }
 
+  async addQuestion(body: AddQuestionBodyDto): Promise<Partial<IQuestion>> {
+    try {
+      const {question, priority, source, details} = body;
+      const newQuestion: IQuestion = {
+        question,
+        priority,
+        source,
+        status: 'open',
+        totalAnswersCount: 0,
+        details,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await this.questionRepo.addQuestion(newQuestion);
+
+      return newQuestion;
+    } catch (error) {
+      throw new InternalServerError(`Failed to add question: ${error}`);
+    }
+  }
+
   async getQuestionById(questionId: string): Promise<QuestionResponse> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
@@ -180,9 +208,12 @@ export class QuestionService extends BaseService {
         return {
           id: currentQuestion._id.toString(),
           text: currentQuestion.question,
+          source: currentQuestion.source,
+          details: currentQuestion.details,
+          priority: currentQuestion.priority,
           createdAt: new Date(currentQuestion.createdAt).toLocaleString(),
           updatedAt: new Date(currentQuestion.updatedAt).toLocaleString(),
-          totalAnwersCount: currentQuestion.totalAnswersCount,
+          totalAnswersCount: currentQuestion.totalAnswersCount,
           currentAnswers: currentAnswers.map(currentAnswer => ({
             id: currentAnswer._id.toString(),
             answer: currentAnswer.answer,
@@ -235,9 +266,15 @@ export class QuestionService extends BaseService {
     }
   }
 
-  async getQuestionFullData(questionId: string, userId: string): Promise<IQuestion | null> {
+  async getQuestionFullData(
+    questionId: string,
+    userId: string,
+  ): Promise<IQuestion | null> {
     try {
-      const question = await this.questionRepo.getQuestionWithFullData(questionId, userId);
+      const question = await this.questionRepo.getQuestionWithFullData(
+        questionId,
+        userId,
+      );
       if (!question) {
         return null;
       }

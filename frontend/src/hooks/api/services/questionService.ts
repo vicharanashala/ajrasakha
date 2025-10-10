@@ -30,6 +30,8 @@ export class QuestionService {
     if (filter.state) params.append("state", filter.state);
     if (filter.crop) params.append("crop", filter.crop);
     if (filter.priority) params.append("priority", filter.priority);
+    if (filter.domain) params.append("domain", filter.domain);
+    if (filter.user) params.append("user", filter.user);
 
     if (filter.answersCount) {
       params.append("answersCountMin", filter.answersCount[0].toString());
@@ -66,6 +68,8 @@ export class QuestionService {
       params.append("crop", preferences.crop);
     if (preferences.priority && preferences.priority !== "all")
       params.append("priority", preferences.priority);
+    if (preferences.domain) params.append("domain", preferences.domain);
+    if (preferences.user) params.append("user", preferences.user);
 
     if (preferences.answersCount) {
       const [min, max] = preferences.answersCount;

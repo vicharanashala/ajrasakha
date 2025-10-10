@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   Dialog,
   DialogTrigger,
@@ -29,7 +29,16 @@ import {
   Calendar,
   Flag,
   RefreshCcw,
+  Sprout,
+  XCircle,
+  UserIcon,
+  Globe,
+  Loader2,
+  Info,
 } from "lucide-react";
+import { useGetAllUserNames } from "@/hooks/api/user/useGetAllUserNames";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
+import type { IMyPreference } from "@/types";
 
 export type QuestionFilterStatus = "all" | "open" | "answered" | "closed";
 export type QuestionDateRangeFilter =
@@ -70,7 +79,14 @@ export const STATES = [
   "West Bengal",
 ].sort();
 export const CROPS = ["Rice", "Wheat", "Cotton", "Sugarcane", "Vegetables"];
-
+export const DOMAINS = [
+  "Agriculture",
+  "Horticulture",
+  "Livestock",
+  "Fisheries",
+  "Agri-Tech",
+  "Soil Science",
+];
 export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT";
 export type QuestionPriorityFilter = "all" | "high" | "low" | "medium";
 export type AdvanceFilterValues = {
@@ -79,6 +95,8 @@ export type AdvanceFilterValues = {
   state: string;
   answersCount: [number, number];
   dateRange: QuestionDateRangeFilter;
+  user: string;
+  domain: string;
   crop: string;
   priority: QuestionPriorityFilter;
 };
@@ -87,11 +105,12 @@ interface AdvanceFilterDialogProps {
   advanceFilter: AdvanceFilterValues;
   setAdvanceFilterValues: (values: any) => void;
   handleDialogChange: (key: string, value: any) => void;
-  handleApplyFilters: () => void;
+  handleApplyFilters: (myPreference?: IMyPreference) => void;
   normalizedStates: string[];
   crops: string[];
   activeFiltersCount: number;
   onReset: () => void;
+  isStatusFilterNeeded: boolean;
 }
 
 export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
@@ -103,7 +122,31 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   crops,
   activeFiltersCount,
   onReset,
+  isStatusFilterNeeded,
 }) => {
+  const { data: userNameReponse, isLoading } = useGetAllUserNames();
+
+  const users = (userNameReponse?.users || []).sort((a, b) =>
+    a.userName.localeCompare(b.userName)
+  );
+
+useEffect(() => {
+  if (userNameReponse?.myPreference) {
+    setAdvanceFilterValues((prev: AdvanceFilterValues) => {
+      const updatedFilters = {
+        ...prev,
+        state: userNameReponse.myPreference?.state || prev.state,
+        crop: userNameReponse.myPreference?.crop || prev.crop,
+        domain: userNameReponse.myPreference?.domain || prev.domain,
+      };
+
+      handleApplyFilters(updatedFilters);
+
+      return updatedFilters;
+    });
+  }
+}, [userNameReponse, setAdvanceFilterValues]);
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -111,7 +154,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
           variant="outline"
           className="flex-1 min-w-[150px] flex items-center justify-center gap-2"
         >
-          <Filter className="h-4 w-4" />
+          <Filter className="h-5 w-5 text-primary" />
           Preferences
           {activeFiltersCount > 0 && (
             <Badge
@@ -128,7 +171,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
-              <Filter className="h-5 w-5" />
+              <Filter className="h-5 w-5 text-primary" />
               Advanced Filters
             </DialogTitle>
             <p className="text-sm text-muted-foreground">
@@ -139,30 +182,32 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
           <div className="space-y-6 py-4">
             {/* Question Status & Source */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <FileText className="h-4 w-4" />
-                  Question Status
-                </Label>
-                <Select
-                  value={advanceFilter.status}
-                  onValueChange={(v) => handleDialogChange("status", v)}
-                >
-                  <SelectTrigger className="bg-background">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="open">🟢 Open</SelectItem>
-                    <SelectItem value="answered">🔵 Answered</SelectItem>
-                    <SelectItem value="closed">🔴 Closed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {isStatusFilterNeeded && (
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-sm font-semibold">
+                    <FileText className="h-4 w-4 text-primary" />
+                    Question Status
+                  </Label>
+                  <Select
+                    value={advanceFilter.status}
+                    onValueChange={(v) => handleDialogChange("status", v)}
+                  >
+                    <SelectTrigger className="bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="open">🟢 Open</SelectItem>
+                      <SelectItem value="answered">🔵 Answered</SelectItem>
+                      <SelectItem value="closed">🔴 Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <MessageSquare className="h-4 w-4" />
+                  <MessageSquare className="h-4 w-4 text-primary" />
                   Source
                 </Label>
                 <Select
@@ -180,14 +225,13 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 </Select>
               </div>
             </div>
-
             <Separator />
 
             {/* Location & Crop */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <MapPin className="h-4 w-4" />
+                  <MapPin className="h-4 w-4 text-primary" />
                   State/Region
                 </Label>
                 <Select
@@ -210,6 +254,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <Sprout className="h-4 w-4 text-primary" />
                   Crop Type
                 </Label>
                 <Select
@@ -230,14 +275,92 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 </Select>
               </div>
             </div>
-
             <Separator />
+            {/* Domain & Users */}
 
-            {/* Date Range & Priority */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Calendar className="h-4 w-4" />
+                  <Globe className="h-4 w-4 text-primary" />
+                  Domain
+                </Label>
+                <Select
+                  value={advanceFilter.domain}
+                  onValueChange={(v) => handleDialogChange("domain", v)}
+                >
+                  <SelectTrigger className="bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Domains</SelectItem>
+                    {DOMAINS.map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <UserIcon className="h-4 w-4 text-primary" />
+                  User
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-sm">
+                      <p>
+                        This option allows filtering questions that have been
+                        submitted at least once by the selected user.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </Label>
+
+                <Select
+                  value={advanceFilter.user}
+                  onValueChange={(v) => handleDialogChange("user", v)}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    {isLoading ? (
+                      <div className="flex items-center justify-center p-3">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        <span className="ml-2 text-sm text-muted-foreground">
+                          Loading users...
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        <SelectItem value="all">All Users</SelectItem>
+                        {users?.map((u) => (
+                          <SelectItem key={u._id} value={u._id}>
+                            {u.userName}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Separator />
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <Calendar className="h-4 w-4 text-primary" />
                   Date Range
                 </Label>
                 <Select
@@ -260,7 +383,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Flag className="h-4 w-4" />
+                  <Flag className="h-4 w-4 text-primary" />
                   Priority
                 </Label>
                 <Select
@@ -286,7 +409,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <MessageSquare className="h-4 w-4" />
+                  <MessageSquare className="h-4 w-4 text-primary" />
                   Number of Answers
                 </Label>
                 <Badge variant="secondary" className="text-xs">
@@ -344,7 +467,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                           {Array.isArray(value)
                             ? `${value[0]}-${value[1]}`
                             : value}
-                          <RefreshCcw
+                          <XCircle
                             className="h-3 w-3 ml-1 cursor-pointer"
                             onClick={() =>
                               handleDialogChange(
@@ -386,7 +509,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 <Button variant="secondary">Cancel</Button>
               </DialogClose>
               <DialogClose asChild>
-                <Button onClick={handleApplyFilters}>Apply Preferences</Button>
+                <Button onClick={() => handleApplyFilters()}>Apply Preferences</Button>
               </DialogClose>
             </div>
           </DialogFooter>

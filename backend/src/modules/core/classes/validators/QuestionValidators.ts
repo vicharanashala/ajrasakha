@@ -10,10 +10,12 @@ import {
   IsNumber,
   MinLength,
   Max,
+  ValidateNested,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 import {ObjectId} from 'mongodb';
-import {QuestionStatus} from '#shared/interfaces/models.js';
+import {IQuestionPriority, QuestionStatus} from '#shared/interfaces/models.js';
+import {Type} from 'class-transformer';
 
 class AddQuestionBody {
   @JSONSchema({
@@ -79,13 +81,56 @@ class QuestionIdParam {
   @IsMongoId()
   questionId: string;
 }
+class QuestionDetailsDto {
+  @IsString()
+  state!: string;
 
+  @IsString()
+  district!: string;
+
+  @IsString()
+  crop!: string;
+
+  @IsString()
+  season!: string;
+
+  @IsString()
+  domain!: string;
+}
+
+// class QuestionResponse {
+//   @IsString()
+//   id!: string;
+
+//   @IsString()
+//   text!: string;
+
+//   @IsString()
+//   priority?: string;
+
+//   @IsString()
+//   createdAt!: string;
+
+//   @IsString()
+//   updatedAt!: string;
+
+//   @IsNumber()
+//   totalAnwersCount!: number;
+
+//   @IsArray()
+//   @IsString({each: true})
+//   currentAnswers?: {answer: string; id: string; isFinalAnswer: boolean}[];
+// }
 class QuestionResponse {
   @IsString()
   id!: string;
 
   @IsString()
   text!: string;
+
+  @IsOptional()
+  @IsEnum(['low', 'medium', 'high'])
+  priority?: IQuestionPriority;
 
   @IsString()
   createdAt!: string;
@@ -94,11 +139,47 @@ class QuestionResponse {
   updatedAt!: string;
 
   @IsNumber()
-  totalAnwersCount!: number;
+  totalAnswersCount!: number; 
 
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => QuestionDetailsDto)
+  details?: QuestionDetailsDto;
+
+  @IsString()
+  userId?: string;
+
+  @IsEnum(['open', 'answered', 'closed'])
+  status?: QuestionStatus;
+
+  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT'])
+  source!: 'AJRASAKHA' | 'AGRI_EXPERT';
+
+
+  @IsOptional()
   @IsArray()
-  @IsString({each: true})
+  @ValidateNested({each: true})
+  @Type(() => Object)
   currentAnswers?: {answer: string; id: string; isFinalAnswer: boolean}[];
+}
+export class AddQuestionBodyDto {
+  @IsString()
+  question!: string;
+
+  @IsEnum(['low', 'medium', 'high'])
+  priority!:  'low' | 'medium' | 'high';
+
+  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT'])
+  source!: 'AJRASAKHA' | 'AGRI_EXPERT';
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => QuestionDetailsDto)
+  details?: QuestionDetailsDto;
+
+  @IsString()
+  @IsOptional()
+  contextId?: string;
 }
 
 class GenerateQuestionsBody {
@@ -167,6 +248,16 @@ class GetDetailedQuestionsQuery {
   @IsString()
   crop?: string;
 
+  @JSONSchema({description: 'Domain filter', example: 'Agriculture', type: 'string'})
+  @IsOptional()
+  @IsString()
+  domain?: string;
+
+  @JSONSchema({description: 'Filter based on userId', example: '1234567890', type: 'string'})
+  @IsOptional()
+  @IsString()
+  user?: string;
+
   @JSONSchema({
     description: 'Minimum number of answers',
     example: 0,
@@ -189,7 +280,7 @@ class GetDetailedQuestionsQuery {
 
   @JSONSchema({
     description: 'Basic filter options',
-    example: "newest",
+    example: 'newest',
     type: 'string',
   })
   @IsOptional()

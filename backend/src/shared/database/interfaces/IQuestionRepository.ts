@@ -1,5 +1,8 @@
-import {GetDetailedQuestionsQuery, QuestionResponse} from '#root/modules/core/classes/validators/QuestionValidators.js';
-import {IQuestion} from '#root/shared/interfaces/models.js';
+import {
+  GetDetailedQuestionsQuery,
+  QuestionResponse,
+} from '#root/modules/core/classes/validators/QuestionValidators.js';
+import {IQuestion, IUser} from '#root/shared/interfaces/models.js';
 import {ClientSession} from 'mongodb';
 
 /**
@@ -21,7 +24,21 @@ export interface IQuestionRepository {
     session?: ClientSession,
   ): Promise<{insertedCount: number}>;
   /**
-   * Add question .
+   * Add dummy question .
+   * @param userId - The ID of the user creating the questions.
+   * @param contextId - The ID of the context the questions belong to.
+   * @param questions - An array of question strings.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to an object containing the number of inserted question.
+   */
+  addDummyQuestion(
+    userId: string,
+    contextId: string,
+    questions: string,
+    session?: ClientSession,
+  ): Promise<IQuestion>;
+  /**
+   * Add  question .
    * @param userId - The ID of the user creating the questions.
    * @param contextId - The ID of the context the questions belong to.
    * @param questions - An array of question strings.
@@ -29,9 +46,9 @@ export interface IQuestionRepository {
    * @returns A promise that resolves to an object containing the number of inserted question.
    */
   addQuestion(
-    userId: string,
-    contextId: string,
-    questions: string,
+    questions: IQuestion,
+    userId?: string,
+    contextId?: string,
     session?: ClientSession,
   ): Promise<IQuestion>;
 
@@ -69,21 +86,23 @@ export interface IQuestionRepository {
    * @param page - Current page count.
    * @param limit - Total limit count.
    * @param filter - Filter options.
+   * @param userPreference - preference options.
    * @param session - Optional MongoDB client session for transactions.
    * @returns A promise that resolves to an array of unanswered questions.
    */
   getUnAnsweredQuestions(
     userId: string,
-    page: number,
-    limit: number,
-    filter: 'newest' | 'oldest' | 'leastResponses' | 'mostResponses',
+    query: GetDetailedQuestionsQuery,
+    // userPreference: IUser['preference'] | null,
     session?: ClientSession,
   ): Promise<QuestionResponse[]>;
   /**
    * @param query - Advance query filters.
    * @returns A promise that resolves to an array of detailed questions.
    */
-  findDetailedQuestions(query: GetDetailedQuestionsQuery): Promise<{questions: IQuestion[], totalPages: number}>;
+  findDetailedQuestions(
+    query: GetDetailedQuestionsQuery,
+  ): Promise<{questions: IQuestion[]; totalPages: number; totalCount: number}>;
 
   /**
    * Updates a specific question.
