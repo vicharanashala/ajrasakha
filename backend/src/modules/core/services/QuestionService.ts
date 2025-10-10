@@ -193,6 +193,7 @@ export class QuestionService extends BaseService {
 
       return newQuestion;
     } catch (error) {
+      console.log(error)
       throw new InternalServerError(`Failed to add question: ${error}`);
     }
   }

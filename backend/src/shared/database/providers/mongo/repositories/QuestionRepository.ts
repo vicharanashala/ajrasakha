@@ -152,14 +152,15 @@ export class QuestionRepository implements IQuestionRepository {
     session?: ClientSession,
   ): Promise<IQuestion> {
     try {
+      await this.init()
       if (!question._id) question._id = new ObjectId();
-
+      const rowId = question._id.toString()
       await this.QuestionCollection.insertOne(
         {...question, context: contextId, userId},
         {session},
       );
 
-      return question;
+      return {...question, _id: rowId};
     } catch (error) {
       throw new InternalServerError(`Failed to add question ${error}`);
     }

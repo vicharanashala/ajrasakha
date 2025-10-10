@@ -101,7 +101,7 @@ export class QuestionController {
     return this.questionService.addQuestion(body);
   }
 
-  @Get('/:questionId')
+  @Get('/:questionId') 
   @HttpCode(200)
   @Authorized()
   @ResponseSchema(QuestionResponse)
