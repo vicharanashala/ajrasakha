@@ -44,7 +44,7 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-background ">
-      <div className="mx-auto  px-6 py-8">
+      <div className="mx-auto  px-6 py-8 max-w-[60%]">
         {/* Header with Back Button */}
         <div className="mb-8 flex items-center gap-4">
           <Button

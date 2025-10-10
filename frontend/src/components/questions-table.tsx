@@ -11,7 +11,16 @@ import {
 } from "./atoms/table";
 import { Input } from "./atoms/input";
 
-import { Eye, Loader2, RefreshCcw, Search } from "lucide-react";
+import {
+  Edit,
+  Eye,
+  Loader2,
+  MoreHorizontal,
+  MoreVertical,
+  RefreshCcw,
+  Search,
+  Trash,
+} from "lucide-react";
 
 import { Pagination } from "./pagination";
 import {
@@ -19,6 +28,12 @@ import {
   type AdvanceFilterValues,
 } from "./advanced-question-filter";
 import type { IDetailedQuestion, IMyPreference } from "@/types";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./atoms/dropdown-menu";
 
 export type QuestionStatus = "open" | "answered" | "closed";
 
@@ -129,10 +144,15 @@ export const QuestionsTable = ({
                       {(currentPage - 1) * totalPages + idx + 1}
                     </TableCell>
                     <TableCell
-                      className=" text-start ps-3 w-[35%]"
+                      className="text-start ps-3 w-[35%]"
                       title={q.question}
                     >
-                      {truncate(q.question, 90)}
+                      <span
+                        className="cursor-pointer hover:underline"
+                        onClick={() => onViewMore(q._id?.toString() || "")}
+                      >
+                        {truncate(q.question, 90)}
+                      </span>
                     </TableCell>
                     <TableCell className="align-middle text-center">
                       {q.priority ? (
@@ -204,7 +224,7 @@ export const QuestionsTable = ({
                     <TableCell className="align-middle">
                       {formatDate(q.createdAt)}
                     </TableCell>
-                    <TableCell className="align-middle">
+                    {/* <TableCell className="align-middle">
                       <div className="flex justify-center">
                         <Button
                           size="sm"
@@ -215,6 +235,38 @@ export const QuestionsTable = ({
                           <Eye className="w-4 h-4" />
                           View
                         </Button>
+                      </div>
+                    </TableCell> */}
+                    <TableCell className="align-middle">
+                      <div className="flex justify-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="sm" variant="outline" className="p-1">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() =>
+                                onViewMore(q._id?.toString() || "")
+                              }
+                            >
+                              <Eye className="w-4 h-4 mr-2" /> View
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                            // onClick={() => onEdit(q._id?.toString() || "")}
+                            >
+                              <Edit className="w-4 h-4 mr-2 text-blue-500" />{" "}
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                            // onClick={() => onDelete(q._id?.toString() || "")}
+                            >
+                              <Trash className="w-4 h-4 mr-2 text-red-500" />{" "}
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -280,7 +332,7 @@ export const QuestionsFilters = ({
       crop: myPreference?.crop || advanceFilter.crop,
       answersCount: advanceFilter.answersCount,
       dateRange: advanceFilter.dateRange,
-      priority:  advanceFilter.priority, 
+      priority: advanceFilter.priority,
       domain: myPreference?.domain || advanceFilter.domain,
       user: advanceFilter.user,
     });
