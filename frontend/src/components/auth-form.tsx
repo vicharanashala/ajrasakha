@@ -217,8 +217,14 @@ export const AuthForm = ({
       </div>
 
       <Card className="w-full max-w-md relative z-10 shadow-2xl border-0  backdrop-blur-sm animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
-        <CardHeader className="p-0 text-center">
-          <CardTitle className="text-2xl inline-block w-full font-bold bg-gradient-to-r from-green-300 to-emerald-400 bg-clip-text text-transparent whitespace-nowrap">
+        <CardHeader className="p-0 text-center flex flex-col items-center justify-center gap-2">
+          <img
+            src="/logo.png"
+            alt="Annam Logo"
+            className="w-12 h-12 object-contain mx-auto"
+          />
+
+          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-green-300 to-emerald-400 bg-clip-text text-transparent whitespace-nowrap">
             {mode === "login" ? "Welcome Back" : "Join Annam"}
           </CardTitle>
         </CardHeader>
