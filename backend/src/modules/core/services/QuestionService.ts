@@ -7,7 +7,11 @@ import {
   IQuestion,
   IQuestionSubmission,
 } from '#root/shared/interfaces/models.js';
-import {BadRequestError, InternalServerError} from 'routing-controllers';
+import {
+  BadRequestError,
+  InternalServerError,
+  UnauthorizedError,
+} from 'routing-controllers';
 import {
   AddQuestionBodyDto,
   GeneratedQuestionResponse,
@@ -179,23 +183,35 @@ export class QuestionService extends BaseService {
     return uniqueQuestions;
   }
 
-  async addQuestion(body: AddQuestionBodyDto): Promise<Partial<IQuestion>> {
+  async addQuestion(
+    userId: string,
+    body: AddQuestionBodyDto,
+  ): Promise<Partial<IQuestion>> {
     try {
-      const {question, priority, source, details} = body;
-      const newQuestion: IQuestion = {
-        question,
-        priority,
-        source,
-        status: 'open',
-        totalAnswersCount: 0,
-        details,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      return this._withTransaction(async (session: ClientSession) => {
+        const {question, priority, source, details} = body;
+        const user = await this.userRepo.findById(userId, session);
+        if (!user || user.role == 'expert') {
+          throw new UnauthorizedError(
+            `You don't have permission to add question`,
+          );
+        }
+        const newQuestion: IQuestion = {
+          userId: new ObjectId(userId),
+          question,
+          priority,
+          source,
+          status: 'open',
+          totalAnswersCount: 0,
+          details,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
 
-      await this.questionRepo.addQuestion(newQuestion);
+        await this.questionRepo.addQuestion(newQuestion);
 
-      return newQuestion;
+        return newQuestion;
+      });
     } catch (error) {
       console.log(error);
       throw new InternalServerError(`Failed to add question: ${error}`);

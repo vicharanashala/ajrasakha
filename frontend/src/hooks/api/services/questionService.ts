@@ -107,6 +107,15 @@ export class QuestionService {
     });
   }
 
+  async addQuestion(
+    newQuestionData: Partial<IDetailedQuestion>
+  ): Promise<void | null> {
+    return apiFetch<void>(`${this._baseUrl}`, {
+      method: "POST",
+      body: JSON.stringify(newQuestionData),
+    });
+  }
+
   async updateQuestion(
     questionId: string,
     updatedData: Partial<IDetailedQuestion>

@@ -91,17 +91,19 @@ export class QuestionController {
 
   @Post('/')
   @HttpCode(201)
-  // @Authorized()
+  @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   @OpenAPI({summary: 'Add a new question'})
   async addQuestion(
     @Body()
     body: AddQuestionBodyDto,
+    @CurrentUser() user: IUser,
   ): Promise<Partial<IQuestion>> {
-    return this.questionService.addQuestion(body);
+    const userId = user._id.toString();
+    return this.questionService.addQuestion(userId, body);
   }
 
-  @Get('/:questionId') 
+  @Get('/:questionId')
   @HttpCode(200)
   @Authorized()
   @ResponseSchema(QuestionResponse)

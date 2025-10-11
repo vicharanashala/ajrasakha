@@ -147,18 +147,13 @@ export class QuestionRepository implements IQuestionRepository {
 
   async addQuestion(
     question: IQuestion,
-    userId?: string,
-    contextId?: string,
     session?: ClientSession,
   ): Promise<IQuestion> {
     try {
       await this.init();
       if (!question._id) question._id = new ObjectId();
       const rowId = question._id.toString();
-      await this.QuestionCollection.insertOne(
-        {...question, context: contextId, userId},
-        {session},
-      );
+      await this.QuestionCollection.insertOne(question, {session});
 
       return {...question, _id: rowId};
     } catch (error) {

@@ -39,16 +39,14 @@ export interface IQuestionRepository {
   ): Promise<IQuestion>;
   /**
    * Add  question .
-   * @param userId - The ID of the user creating the questions.
-   * @param contextId - The ID of the context the questions belong to.
-   * @param questions - An array of question strings.
+
+   * @param question - new question payload.
    * @param session - Optional MongoDB client session for transactions.
    * @returns A promise that resolves to an object containing the number of inserted question.
    */
   addQuestion(
     questions: IQuestion,
-    userId?: string,
-    contextId?: string,
+
     session?: ClientSession,
   ): Promise<IQuestion>;
 

@@ -139,7 +139,7 @@ class QuestionResponse {
   updatedAt!: string;
 
   @IsNumber()
-  totalAnswersCount!: number; 
+  totalAnswersCount!: number;
 
   @IsOptional()
   @ValidateNested()
@@ -155,19 +155,18 @@ class QuestionResponse {
   @IsEnum(['AJRASAKHA', 'AGRI_EXPERT'])
   source!: 'AJRASAKHA' | 'AGRI_EXPERT';
 
-
   @IsOptional()
   @IsArray()
   @ValidateNested({each: true})
   @Type(() => Object)
   currentAnswers?: {answer: string; id: string; isFinalAnswer: boolean}[];
 }
-export class AddQuestionBodyDto {
+class AddQuestionBodyDto {
   @IsString()
   question!: string;
 
   @IsEnum(['low', 'medium', 'high'])
-  priority!:  'low' | 'medium' | 'high';
+  priority!: 'low' | 'medium' | 'high';
 
   @IsEnum(['AJRASAKHA', 'AGRI_EXPERT'])
   source!: 'AJRASAKHA' | 'AGRI_EXPERT';
@@ -248,12 +247,20 @@ class GetDetailedQuestionsQuery {
   @IsString()
   crop?: string;
 
-  @JSONSchema({description: 'Domain filter', example: 'Agriculture', type: 'string'})
+  @JSONSchema({
+    description: 'Domain filter',
+    example: 'Agriculture',
+    type: 'string',
+  })
   @IsOptional()
   @IsString()
   domain?: string;
 
-  @JSONSchema({description: 'Filter based on userId', example: '1234567890', type: 'string'})
+  @JSONSchema({
+    description: 'Filter based on userId',
+    example: '1234567890',
+    type: 'string',
+  })
   @IsOptional()
   @IsString()
   user?: string;
@@ -318,6 +325,7 @@ export const QUESTION_VALIDATORS = [
   QuestionIdParam,
   GenerateQuestionsBody,
   GetDetailedQuestionsQuery,
+  AddQuestionBodyDto,
 ];
 
 export {
@@ -327,4 +335,5 @@ export {
   GenerateQuestionsBody,
   GeneratedQuestionResponse,
   GetDetailedQuestionsQuery,
+  AddQuestionBodyDto,
 };
