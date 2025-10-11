@@ -55,7 +55,11 @@ export class RequestController {
   async getAll(
     @CurrentUser() user: IUser,
     @QueryParams() query: GetAllRequestsQueryDto,
-  ): Promise<{data: IRequest[]; totalPages: number; totalCount: number}> {
+  ): Promise<{
+    requests: (IRequest & {userName: string})[];
+    totalPages: number;
+    totalCount: number;
+  }> {
     const userId = user._id.toString();
     return this.requestService.getAllRequests(userId, query);
   }

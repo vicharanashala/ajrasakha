@@ -21,16 +21,14 @@ export interface IRequestRepository {
 
   /**
    * Retrieves all requests for a user.
-   * @param userId - ID of the user whose requests are fetched.
    * @param query - fiter options.
    * @param session - Optional mongoose session for transactions.
    * @returns A promise resolving to an array of requests.
    */
   getAllRequests(
-    userId: string,
     query: GetAllRequestsQueryDto,
     session?: ClientSession,
-  ): Promise<{data: IRequest[]; totalPages: number; totalCount: number}>;
+  ): Promise<{requests: IRequest[]; totalPages: number; totalCount: number}>;
 
   /**
    * Updates the status of a request.

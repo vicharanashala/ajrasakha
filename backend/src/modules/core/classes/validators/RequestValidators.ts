@@ -104,6 +104,10 @@ class GetAllRequestsQueryDto {
   @IsOptional()
   @IsIn(['all', 'question_flag', 'others'])
   requestType?: 'all' | 'question_flag' | 'others';
+
+  @IsOptional()
+  @IsIn(['newest', 'oldest'])
+  sortOrder?: 'newest' | 'oldest';
 }
 
 export {

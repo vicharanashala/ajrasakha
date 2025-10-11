@@ -11,13 +11,17 @@ import {
   GetAllRequestsQueryDto,
 } from '../classes/validators/RequestValidators.js';
 import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
-import { InternalServerError } from 'routing-controllers';
+import {InternalServerError, UnauthorizedError} from 'routing-controllers';
+import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 
 @injectable()
 export class RequestService extends BaseService {
   constructor(
     @inject(GLOBAL_TYPES.RequestRepository)
     private readonly requestRepository: IRequestRepository,
+
+    @inject(GLOBAL_TYPES.UserRepository)
+    private readonly userRepo: IUserRepository,
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
   ) {
@@ -40,10 +44,33 @@ export class RequestService extends BaseService {
   async getAllRequests(
     userId: string,
     query: GetAllRequestsQueryDto,
-  ): Promise<{data: IRequest[]; totalPages: number; totalCount: number}> {
+  ): Promise<{
+    requests: (IRequest & {userName: string})[];
+    totalPages: number;
+    totalCount: number;
+  }> {
     try {
       return await this._withTransaction(async session => {
-        return this.requestRepository.getAllRequests(userId, query, session);
+        const user = await this.userRepo.findById(userId, session);
+        if (!user || user.role == 'expert') {
+          throw new UnauthorizedError(
+            `You don't have permission to add question`,
+          );
+        }
+        const {requests, totalPages, totalCount} =
+          await this.requestRepository.getAllRequests(query);
+
+        const sanitizedRequests: (IRequest & {userName: string})[] =
+          requests.map(req => ({
+            ...req,
+            userName: `${user.firstName} ${user.lastName}`,
+          }));
+
+        return {
+          requests: sanitizedRequests,
+          totalPages,
+          totalCount,
+        };
       });
     } catch (error) {
       throw error;

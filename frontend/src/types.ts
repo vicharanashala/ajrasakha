@@ -234,6 +234,8 @@ export type RequestDetails =
 export type IRequest = RequestDetails & {
   _id: string ;
   reason: string;
+  userId: string;
+  userName?: string;
   entityId: string;
   responses: IRequestResponse[];
   status: RequestStatus;

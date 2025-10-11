@@ -1,4 +1,4 @@
-import type { IDetailedQuestion, IQuestion, IRequest } from "@/types";
+import type { IDetailedQuestion, IRequest } from "@/types";
 import { apiFetch } from "../api-fetch";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -32,6 +32,7 @@ export class RequestService {
     page: number;
     status: "all" | "pending" | "rejected" | "approved" | "in-review";
     requestType: "all" | "question_flag" | "others";
+    sortOrder: "newest" | "oldest";
   }): Promise<{
     requests: IRequest[];
     totalPages: number;
@@ -42,6 +43,7 @@ export class RequestService {
       page: params.page.toString(),
       status: params.status,
       requestType: params.requestType,
+      sortOrder: params.sortOrder,
     });
 
     return apiFetch<{
