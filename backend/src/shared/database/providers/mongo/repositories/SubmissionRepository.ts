@@ -80,4 +80,18 @@ export class QuestionSubmissionRepository
       throw new InternalServerError(`Failed to update submission: ${error}`);
     }
   }
+  async deleteByQuestionId(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    try {
+      await this.init()
+      await this.QuestionSubmissionCollection.findOneAndDelete(
+        {questionId: new ObjectId(questionId)},
+        {session},
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to update submission: ${error}`);
+    }
+  }
 }

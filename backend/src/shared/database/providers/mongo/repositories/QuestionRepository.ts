@@ -26,8 +26,8 @@ import {
 export class QuestionRepository implements IQuestionRepository {
   private QuestionCollection: Collection<IQuestion>;
   private QuestionSubmissionCollection: Collection<IQuestionSubmission>;
-  private UsersCollection!: Collection<IUser>;
   private AnswersCollection: Collection<IAnswer>;
+  private UsersCollection!: Collection<IUser>;
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
@@ -152,9 +152,9 @@ export class QuestionRepository implements IQuestionRepository {
     session?: ClientSession,
   ): Promise<IQuestion> {
     try {
-      await this.init()
+      await this.init();
       if (!question._id) question._id = new ObjectId();
-      const rowId = question._id.toString()
+      const rowId = question._id.toString();
       await this.QuestionCollection.insertOne(
         {...question, context: contextId, userId},
         {session},
@@ -644,16 +644,21 @@ export class QuestionRepository implements IQuestionRepository {
         throw new BadRequestError('Updates object cannot be empty');
       }
 
+      const forbiddenFields = ['_id', 'id', 'createdAt', 'updatedAt', 'text'];
+      forbiddenFields.forEach(field => {
+        delete (updates as any)[field];
+      });
+
       const result = await this.QuestionCollection.updateOne(
         {_id: new ObjectId(questionId)},
-        {$set: {...updates, updatedAt: new Date()}},
+        {$set: {...updates, updatedAt: new Date()}}, // only allowed fields
         {session},
       );
 
       return {modifiedCount: result.modifiedCount};
     } catch (error) {
       throw new InternalServerError(
-        `Error while updating Question:, More/ ${error}`,
+        `Error while updating Question: More info: ${error}`,
       );
     }
   }

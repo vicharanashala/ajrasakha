@@ -1,6 +1,6 @@
 import {ObjectId} from 'mongodb';
 
-export type UserRole = 'admin' | 'user' | 'expert';
+export type UserRole = 'admin' | 'moderator' | 'expert';
 export type QuestionStatus = 'open' | 'answered' | 'closed';
 export interface IPreference {
   state: string;
@@ -87,23 +87,26 @@ export interface IComment {
 
 export type RequestStatus = 'pending' | 'rejected' | 'approved' | 'in-review';
 
-export interface IModeratorResponse {
-  moderatorId: string | ObjectId;
+export interface IRequestResponse {
+  reviewedBy: string | ObjectId;
+  role: 'admin' | 'moderator'
   status: RequestStatus;
   response?: string;
   reviewedAt?: Date;
   moderatorName?: string; 
 }
 
-export type ModeratorRequestDetails =
-  | { requestType: 'question_flag'; details: IQuestion }
-  | { requestType: 'others'; details: Record<string, any> };
+export type RequestDetails =
+  | { requestType: 'question_flag'; details: IQuestion | null }
+  | { requestType: 'others'; details: Record<string, any> | null };
 
-export type IModeratorRequest = ModeratorRequestDetails & {
-  _id: string | ObjectId;
+export type IRequest = RequestDetails & {
+  _id?: string | ObjectId;
   reason: string;
-  responses: IModeratorResponse[];
+  requestedBy: string | ObjectId,
+  entityId: string | ObjectId,
+  responses: IRequestResponse[];
   status: RequestStatus;
-  createdAt: string | Date;
-  updatedAt: string | Date;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 }

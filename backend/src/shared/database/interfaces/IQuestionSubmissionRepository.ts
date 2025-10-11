@@ -25,4 +25,14 @@ export interface IQuestionSubmissionRepository {
     userSubmissionData: ISubmissionHistroy,
     session?: ClientSession,
   ): Promise<void>;
+  /**
+
+   * @param questionId
+   * @param session Optional MongoDB session for transaction
+   */
+
+  deleteByQuestionId(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<void>;
 }

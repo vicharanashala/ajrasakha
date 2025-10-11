@@ -19,6 +19,7 @@ import {CORE_TYPES} from '../types.js';
 import {AiService} from './AiService.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
+import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
 
 @injectable()
 export class QuestionService extends BaseService {
@@ -34,6 +35,9 @@ export class QuestionService extends BaseService {
 
     @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
     private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
+
+    @inject(GLOBAL_TYPES.RequestRepository)
+    private readonly requestRepository: IRequestRepository,
 
     @inject(GLOBAL_TYPES.AnswerRepository)
     private readonly answerRepo: IAnswerRepository,
@@ -193,7 +197,7 @@ export class QuestionService extends BaseService {
 
       return newQuestion;
     } catch (error) {
-      console.log(error)
+      console.log(error);
       throw new InternalServerError(`Failed to add question: ${error}`);
     }
   }
@@ -259,7 +263,12 @@ export class QuestionService extends BaseService {
         if (!question) {
           throw new BadRequestError(`Question with ID ${questionId} not found`);
         }
-
+        await this.answerRepo.deleteByQuestionId(questionId, session);
+        await this.questionSubmissionRepo.deleteByQuestionId(
+          questionId,
+          session,
+        );
+        await this.requestRepository.deleteByEntityId(questionId, session);
         return this.questionRepo.deleteQuestion(questionId, session);
       });
     } catch (error) {

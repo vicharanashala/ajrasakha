@@ -1,4 +1,5 @@
 import type {
+  IDetailedQuestion,
   IDetailedQuestionResponse,
   IQuestion,
   QuestionFullDataResponse,
@@ -103,6 +104,22 @@ export class QuestionService {
     return apiFetch<GeneratedQuestion[] | null>(`${this._baseUrl}/generate`, {
       method: "POST",
       body: JSON.stringify({ transcript }),
+    });
+  }
+
+  async updateQuestion(
+    questionId: string,
+    updatedData: Partial<IDetailedQuestion>
+  ): Promise<IDetailedQuestion | null> {
+    return apiFetch<IDetailedQuestion>(`${this._baseUrl}/${questionId}`, {
+      method: "PUT",
+      body: JSON.stringify(updatedData),
+    });
+  }
+
+  async deleteQuestion(questionId: string): Promise<void | null> {
+    return apiFetch<void>(`${this._baseUrl}/${questionId}`, {
+      method: "DELETE",
     });
   }
 }

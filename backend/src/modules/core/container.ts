@@ -16,6 +16,9 @@ import {CommentController} from './controllers/CommentController.js';
 import {CommentService} from './services/CommentService.js';
 import { UserController } from './controllers/UserController.js';
 import { UserService } from './services/UserService.js';
+import { RequestController } from './controllers/RequestController.js';
+import { RequestService } from './services/RequestService.js';
+import { RequestRepository } from '#root/shared/database/providers/mongo/repositories/RequestRepository.js';
 
 export const coreContainerModule = new ContainerModule(options => {
   // Controllers
@@ -24,6 +27,7 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(AnswerController).toSelf().inSingletonScope();
   options.bind(ContextController).toSelf().inSingletonScope();
   options.bind(CommentController).toSelf().inSingletonScope();
+  options.bind(RequestController).toSelf().inSingletonScope();
 
   // Services
   options
@@ -37,6 +41,7 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CORE_TYPES.AnswerService).to(AnswerService).inSingletonScope();
   options.bind(CORE_TYPES.ContextService).to(ContextService).inSingletonScope();
   options.bind(CORE_TYPES.CommentService).to(CommentService).inSingletonScope();
+  options.bind(CORE_TYPES.RequestService).to(RequestService).inSingletonScope();
   options.bind(CORE_TYPES.AIService).to(AiService).inSingletonScope();
 
   // Repositories
@@ -59,5 +64,9 @@ export const coreContainerModule = new ContainerModule(options => {
   options
     .bind(CORE_TYPES.CommentRepository)
     .to(CommentRepository)
+    .inSingletonScope();
+  options
+    .bind(CORE_TYPES.RequestRepository)
+    .to(RequestRepository)
     .inSingletonScope();
 });

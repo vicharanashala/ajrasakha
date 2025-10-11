@@ -6,6 +6,7 @@ const TYPES = {
   QuestionController: Symbol.for('QuestionController'),
   AnswerController: Symbol.for('AnswerController'),
   ContextController: Symbol.for('ContextController'),
+  RequestController: Symbol.for('RequestController'),
 
   // Services
   UserService: Symbol.for('UserService'),
@@ -13,8 +14,10 @@ const TYPES = {
   AnswerService: Symbol.for('AnswerService'),
   ContextService: Symbol.for('ContextService'),
   CommentService: Symbol.for('CommentService'),
+  RequestService: Symbol.for('RequestService'),
 
   // Repositories
+  RequestRepository: Symbol.for('RequestRepository'),
   QuestionRepository: Symbol.for('QuestionRepository'),
   QuestionSubmissionRepository: Symbol.for('QuestionSubmissionRepository'),
   AnswerRepository: Symbol.for('AnswerRepository'),

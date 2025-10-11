@@ -10,9 +10,11 @@ import {QUESTION_VALIDATORS} from './classes/validators/QuestionValidators.js';
 import {ANSWER_VALIDATORS} from './classes/validators/AnswerValidators.js';
 import {CONTEXT_VALIDATORS} from './classes/validators/ContextValidators.js';
 import {COMMENT_VALIDATORS} from './classes/validators/CommentValidators.js';
-import { CommentController } from './controllers/CommentController.js';
-import { UserController } from './controllers/UserController.js';
-import { USER_VALIDATORS } from './classes/validators/UserValidators.js';
+import {CommentController} from './controllers/CommentController.js';
+import {UserController} from './controllers/UserController.js';
+import {USER_VALIDATORS} from './classes/validators/UserValidators.js';
+import {RequestController} from './controllers/RequestController.js';
+import { REQUEST_VALIDATORS } from './classes/validators/RequestValidators.js';
 
 // Export names that loadAppModules expects
 export const coreModuleControllers: Function[] = [
@@ -20,7 +22,8 @@ export const coreModuleControllers: Function[] = [
   ContextController,
   AnswerController,
   CommentController,
-  UserController
+  RequestController,
+  UserController,
 ];
 
 // Export container modules for loadAppModules
@@ -42,7 +45,8 @@ export const coreModuleValidators: Function[] = [
   ...ANSWER_VALIDATORS,
   ...CONTEXT_VALIDATORS,
   ...COMMENT_VALIDATORS,
-  ...USER_VALIDATORS
+  ...USER_VALIDATORS,
+  ...REQUEST_VALIDATORS,
 ];
 
 // Export all the main components for external use

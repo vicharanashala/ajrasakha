@@ -97,4 +97,15 @@ export interface IAnswerRepository {
     answerId: string,
     session?: ClientSession,
   ): Promise<{deletedCount: number}>;
+
+  /**
+  
+     * @param questionId
+     * @param session Optional MongoDB session for transaction
+     */
+
+  deleteByQuestionId(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<void>;
 }

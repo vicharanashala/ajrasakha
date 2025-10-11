@@ -3,7 +3,7 @@ import { QuestionsFilters, QuestionsTable } from "./questions-table";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "./question-details";
-import type { QuestionPriority } from "@/types";
+import type { QuestionPriority, UserRole } from "@/types";
 import {
   CROPS,
   STATES,
@@ -13,7 +13,7 @@ import {
   type QuestionSourceFilter,
 } from "./advanced-question-filter";
 
-export const QuestionsPage = () => {
+export const QuestionsPage = ({userRole}:{userRole?: UserRole}) => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
   const [source, setSource] = useState<QuestionSourceFilter>("all");
@@ -171,6 +171,7 @@ export const QuestionsPage = () => {
               }, 2000);
             }}
             totalQuestions={questionData?.totalCount || 0}
+            userRole={userRole!}
           />
 
           <QuestionsTable
@@ -178,6 +179,7 @@ export const QuestionsPage = () => {
             onViewMore={handleViewMore}
             currentPage={currentPage}
             setCurrentPage={setCurrentPage}
+            userRole={userRole}
             // hasMore={hasNextPage}
             // isLoadingMore={isFetchingNextPage}
             // lastElementRef={lastElementRef}

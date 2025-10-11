@@ -1,6 +1,6 @@
 import type { UserCredential } from "firebase/auth";
 
-export type UserRole = "admin" | "user" | "expert";
+export type UserRole = "admin" | "moderator" | "expert";
 
 export interface ExtendedUserCredential extends UserCredential {
   _tokenResponse?: {
@@ -34,7 +34,7 @@ export interface IUser {
   updatedAt?: Date;
 }
 export type QuestionPriority = "low" | "medium" | "high";
-
+export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT"
 export interface IQuestion {
   id: string;
   text: string;
@@ -43,7 +43,7 @@ export interface IQuestion {
   totalAnswersCount: number;
   priority: QuestionPriority;
   status: QuestionStatus;
-  source: "AJRASAKHA" | "AGRI_EXPERT";
+  source: QuestionSource;
   details: {
     state: string;
     district: string;
@@ -213,4 +213,30 @@ export interface IDetailedQuestionResponse {
   totalPages: number;
   totalCount: number;
   questions: IDetailedQuestion[];
+}
+
+
+export type RequestStatus = 'pending' | 'rejected' | 'approved' | 'in-review';
+
+export interface IRequestResponse {
+  reviewedBy: string;
+  role: 'admin' | 'moderator'
+  status: RequestStatus;
+  response?: string;
+  reviewedAt?: Date | string;
+  moderatorName?: string; 
+}
+
+export type RequestDetails =
+  | { requestType: 'question_flag'; details: IQuestion }
+  | { requestType: 'others'; details: Record<string, any> };
+
+export type IRequest = RequestDetails & {
+  _id: string ;
+  reason: string;
+  entityId: string;
+  responses: IRequestResponse[];
+  status: RequestStatus;
+  createdAt: string | Date;
+  updatedAt: string | Date;
 }

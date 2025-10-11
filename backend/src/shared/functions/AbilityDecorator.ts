@@ -4,7 +4,7 @@ import {MongoAbility} from '@casl/ability';
 
 export interface AuthenticatedUser {
   userId: string;
-  globalRole: 'admin' | 'user';
+  globalRole: 'admin' | 'expert' | 'moderator';
 }
 
 /**

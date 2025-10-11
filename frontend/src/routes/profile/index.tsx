@@ -17,9 +17,20 @@ import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useAuthStore } from "@/stores/auth-store";
 import type { IUser } from "@/types";
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowLeft, Edit2 } from "lucide-react";
 import { useCallback, useState } from "react";
 import toast from "react-hot-toast";
+import {
+  Edit2,
+  ArrowLeft,
+  User,
+  Briefcase,
+  MapPin,
+  Leaf,
+  Network,
+  Save,
+  XCircle,
+  ShieldCheck,
+} from "lucide-react";
 
 export const Route = createFileRoute("/profile/")({
   component: ProfilePage,
@@ -134,6 +145,26 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
     setIsEditMode(false);
   };
 
+  const avatarColors = [
+    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+    "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+    "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+    "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
+    "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300",
+    "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300",
+  ];
+
+  const getColorForUser = (name: string) => {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return avatarColors[Math.abs(hash) % avatarColors.length];
+  };
+
+  const fullName = `${formData.firstName} ${formData.lastName}`;
+  const avatarBg = getColorForUser(fullName);
+
   const getInitials = () => {
     return `${formData.firstName?.[0] ?? ""}${
       formData.lastName?.[0] ?? ""
@@ -142,21 +173,45 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
 
   return (
     <div className="space-y-8">
+      {/* Profile Header */}
       <div className="flex flex-col md:flex-row items-center md:items-start justify-between rounded-lg border bg-card p-6 gap-4 md:gap-6">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 w-full md:w-auto">
-          <Avatar className="h-24 w-24 flex-shrink-0">
-            <AvatarImage
-              src={userFromStore?.avatar || ""}
-              alt={`${formData.firstName} ${formData.lastName}`}
-            />
-            <AvatarFallback className="text-2xl">
+          <Avatar className={`h-24 w-24 flex-shrink-0 ${avatarBg}`}>
+            <AvatarImage src={userFromStore?.avatar || ""} alt={fullName} />
+            <AvatarFallback className="text-2xl font-semibold">
               {getInitials()}
             </AvatarFallback>
           </Avatar>
 
           <div className="space-y-1 text-center sm:text-left">
-            <h2 className="text-xl font-semibold">{`${formData.firstName} ${formData.lastName}`}</h2>
-            <p className="text-sm text-muted-foreground">{formData.email}</p>
+            <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                {`${formData.firstName} ${formData.lastName}`}
+              </h2>
+              {user?.role && (
+                <span
+                  className={`
+                    px-2.5 py-0.5 rounded-full text-xs font-medium capitalize flex items-center gap-1
+                    ${
+                      user.role === "expert"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                        : user.role === "moderator"
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                        : user.role === "admin"
+                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                        : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                    }
+                  `}
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  {user.role}
+                </span>
+              )}
+            </div>
+
+            <p className="text-sm text-muted-foreground flex items-center justify-center sm:justify-start gap-2">
+              {formData.email}
+            </p>
             <p className="text-xs text-muted-foreground">
               Profile image is managed by your account provider
             </p>
@@ -176,9 +231,13 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
         </div>
       </div>
 
+      {/* Personal Info */}
       <div className="space-y-6 rounded-lg border bg-card p-6">
         <div>
-          <h3 className="text-base font-semibold">Personal Information</h3>
+          <h3 className="text-base font-semibold flex items-center gap-2">
+            <User className="h-4 w-4 text-muted-foreground" /> Personal
+            Information
+          </h3>
           <p className="text-sm text-muted-foreground">
             Update your personal details
           </p>
@@ -220,51 +279,15 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
               placeholder="Enter email"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="role">Role</Label>
-            <Select
-              disabled
-              value={formData.role}
-              onValueChange={(val) => handleChange("role", val)}
-            >
-              <SelectTrigger id="role">
-                <SelectValue placeholder="Select role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="user">USER</SelectItem>
-                <SelectItem value="expert">Expert</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </div>
       </div>
 
-      {/* <div className="space-y-6 rounded-lg border bg-card p-6">
-        <div>
-          <h3 className="text-base font-semibold">Security</h3>
-          <p className="text-sm text-muted-foreground">Manage your password</p>
-        </div>
-        <Separator />
-
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            value={formData.password ?? ""}
-            onChange={(e) => handleChange("password", e.target.value)}
-            placeholder="Enter new password"
-          />
-          <p className="text-xs text-muted-foreground">
-            Leave blank to keep current password
-          </p>
-        </div>
-      </div> */}
-
+      {/* Preferences */}
       <div className="space-y-6 rounded-lg border bg-card p-6">
         <div>
-          <h3 className="text-base font-semibold">Preferences</h3>
+          <h3 className="text-base font-semibold flex items-center gap-2">
+            <Briefcase className="h-4 w-4 text-muted-foreground" /> Preferences
+          </h3>
           <p className="text-sm text-muted-foreground">
             Configure your preferences to receive personalized questions for
             better responses.
@@ -288,12 +311,13 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                 <SelectItem value="all">All States</SelectItem>
                 {STATES.map((state) => (
                   <SelectItem key={state} value={state}>
-                    {state}
+                    <MapPin className="h-4 w-4 mr-2 inline" /> {state}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="crop">Crop Type</Label>
             <Select
@@ -308,7 +332,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                 <SelectItem value="all">All Crops</SelectItem>
                 {CROPS.map((crop) => (
                   <SelectItem key={crop} value={crop}>
-                    {crop}
+                    <Leaf className="h-4 w-4 mr-2 inline" /> {crop}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -318,16 +342,22 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
 
         <div className="space-y-2">
           <Label htmlFor="domain">Domain</Label>
-          <Input
-            id="domain"
-            disabled={!isEditMode}
-            value={formData.preference?.domain ?? ""}
-            onChange={(e) => handleChange("preference.domain", e.target.value)}
-            placeholder="Enter domain (e.g., Nutrient Management)"
-          />
+          <div className="flex items-center gap-2">
+            <Network className="h-4 w-4 text-muted-foreground" />
+            <Input
+              id="domain"
+              disabled={!isEditMode}
+              value={formData.preference?.domain ?? ""}
+              onChange={(e) =>
+                handleChange("preference.domain", e.target.value)
+              }
+              placeholder="Enter domain (e.g., Nutrient Management)"
+            />
+          </div>
         </div>
       </div>
 
+      {/* Save/Cancel Section */}
       {isEditMode && (
         <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-4">
           <span className="text-sm text-muted-foreground">
@@ -340,9 +370,12 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
               variant="outline"
               disabled={isUpdating}
               onClick={() => setIsEditMode(false)}
+              className="flex items-center gap-2"
             >
+              <XCircle className="h-4 w-4" />
               Cancel
             </Button>
+
             <ConfirmationModal
               title="Save Profile Changes?"
               description="Are you sure you want to save the changes to your profile? Your updates will be applied immediately."
@@ -352,7 +385,12 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                 await handleSave();
               }}
               trigger={
-                <Button type="button" disabled={isUpdating}>
+                <Button
+                  type="button"
+                  disabled={isUpdating}
+                  className="flex items-center gap-2"
+                >
+                  <Save className="h-4 w-4" />
                   {isUpdating ? "Saving..." : "Save Changes"}
                 </Button>
               }
@@ -362,4 +400,4 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
       )}
     </div>
   );
-}
+};

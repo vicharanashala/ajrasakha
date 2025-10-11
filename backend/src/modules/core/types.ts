@@ -3,10 +3,12 @@ export const CORE_TYPES = {
   QuestionController: Symbol.for('QuestionController'),
   AnswerController: Symbol.for('AnswerController'),
   ContextController: Symbol.for('ContextController'),
+  RequestController: Symbol.for('RequestController'),
 
   // Services
   UserService: Symbol.for('UserService'),
   QuestionService: Symbol.for('QuestionService'),
+  RequestService: Symbol.for('RequestService'),
   AnswerService: Symbol.for('AnswerService'),
   ContextService: Symbol.for('ContextService'),
   CommentService: Symbol.for('CommentService'),
@@ -19,4 +21,5 @@ export const CORE_TYPES = {
   QuestionRepository: Symbol.for('QuestionRepository'),
   AnswerRepository: Symbol.for('AnswerRepository'),
   ContextRepository: Symbol.for('ContextRepository'),
+  RequestRepository: Symbol.for('RequestRepository'),
 };

@@ -9,7 +9,7 @@ import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerReposit
 import {SubmissionResponse} from '#root/modules/core/classes/validators/AnswerValidators.js';
 
 export class AnswerRepository implements IAnswerRepository {
-  private answersCollection: Collection<IAnswer>;
+  private AnswerCollection: Collection<IAnswer>;
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
@@ -17,7 +17,7 @@ export class AnswerRepository implements IAnswerRepository {
   ) {}
 
   private async init() {
-    this.answersCollection = await this.db.getCollection<IAnswer>('answers');
+    this.AnswerCollection = await this.db.getCollection<IAnswer>('answers');
   }
 
   async addAnswer(
@@ -55,7 +55,7 @@ export class AnswerRepository implements IAnswerRepository {
         updatedAt: new Date(),
       };
 
-      const result = await this.answersCollection.insertOne(doc, {session});
+      const result = await this.AnswerCollection.insertOne(doc, {session});
 
       return {insertedId: result.insertedId.toString()};
     } catch (error) {
@@ -76,8 +76,10 @@ export class AnswerRepository implements IAnswerRepository {
         throw new BadRequestError('Invalid or missing questionId');
       }
 
-      const answers = await this.answersCollection
-        .find({questionId: new ObjectId(questionId)}, {session})
+      const answers = await this.AnswerCollection.find(
+        {questionId: new ObjectId(questionId)},
+        {session},
+      )
         .sort({createdAt: -1})
         .toArray();
 
@@ -99,7 +101,7 @@ export class AnswerRepository implements IAnswerRepository {
         throw new BadRequestError('Invalid or missing answerId');
       }
 
-      const answer = await this.answersCollection.findOne(
+      const answer = await this.AnswerCollection.findOne(
         {
           _id: new ObjectId(answerId),
         },
@@ -124,7 +126,7 @@ export class AnswerRepository implements IAnswerRepository {
     try {
       await this.init();
 
-      return await this.answersCollection.findOne(
+      return await this.AnswerCollection.findOne(
         {
           authorId: new ObjectId(authorId),
           questionId: new ObjectId(questionId),
@@ -146,40 +148,38 @@ export class AnswerRepository implements IAnswerRepository {
       await this.init();
       const skip = (page - 1) * limit;
 
-      const submissions = await this.answersCollection
-        .aggregate([
-          {$match: {authorId: new ObjectId(userId)}},
-          {
-            $lookup: {
-              from: 'questions',
-              localField: 'questionId',
-              foreignField: '_id',
-              as: 'question',
-            },
+      const submissions = await this.AnswerCollection.aggregate([
+        {$match: {authorId: new ObjectId(userId)}},
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
           },
-          {$unwind: '$question'},
-          {
-            $group: {
-              _id: '$question._id',
-              text: {$first: '$question.question'},
-              createdAt: {$first: '$question.createdAt'},
-              updatedAt: {$first: '$question.updatedAt'},
-              totalAnswersCount: {$sum: 1},
-              responses: {
-                $push: {
-                  answer: '$answer',
-                  id: {$toString: '$_id'},
-                  isFinalAnswer: '$isFinalAnswer',
-                  createdAt: '$createdAt',
-                },
+        },
+        {$unwind: '$question'},
+        {
+          $group: {
+            _id: '$question._id',
+            text: {$first: '$question.question'},
+            createdAt: {$first: '$question.createdAt'},
+            updatedAt: {$first: '$question.updatedAt'},
+            totalAnswersCount: {$sum: 1},
+            responses: {
+              $push: {
+                answer: '$answer',
+                id: {$toString: '$_id'},
+                isFinalAnswer: '$isFinalAnswer',
+                createdAt: '$createdAt',
               },
             },
           },
-          {$sort: {createdAt: -1}},
-          {$skip: skip},
-          {$limit: limit},
-        ])
-        .toArray();
+        },
+        {$sort: {createdAt: -1}},
+        {$skip: skip},
+        {$limit: limit},
+      ]).toArray();
 
       return submissions.map(sub => ({
         id: sub._id.toString(),
@@ -209,7 +209,7 @@ export class AnswerRepository implements IAnswerRepository {
         throw new BadRequestError('Updates object cannot be empty');
       }
 
-      const result = await this.answersCollection.updateOne(
+      const result = await this.AnswerCollection.updateOne(
         {_id: new ObjectId(answerId)},
         {$set: {...updates, updatedAt: new Date()}},
         {session},
@@ -234,12 +234,29 @@ export class AnswerRepository implements IAnswerRepository {
         throw new BadRequestError('Invalid or missing answerId');
       }
 
-      const result = await this.answersCollection.deleteOne(
+      const result = await this.AnswerCollection.deleteOne(
         {_id: new ObjectId(answerId)},
         {session},
       );
 
       return {deletedCount: result.deletedCount};
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while deleting answer, More/ ${error}`,
+      );
+    }
+  }
+
+  async deleteByQuestionId(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    try {
+      await this.init()
+      await this.AnswerCollection.deleteMany(
+        {questionId: new ObjectId(questionId)},
+        {session},
+      );
     } catch (error) {
       throw new InternalServerError(
         `Error while deleting answer, More/ ${error}`,
