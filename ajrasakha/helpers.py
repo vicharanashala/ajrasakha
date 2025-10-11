@@ -3,6 +3,7 @@ from typing import AsyncIterable, AsyncIterator, List, TypeVar
 
 import httpx
 from models import (
+    ChatCompletionRequest,
     ContentResponseChunk,
     ThinkingResponseChunk,
     KnowledgeGraphNodes,
@@ -10,7 +11,7 @@ from models import (
 )
 from llama_index.core.schema import NodeWithScore, MetadataMode, TextNode
 
-from constants import SYSTEM_PROMPT_AGRI_EXPERT, CITATION_QA_TEMPLATE
+from constants import LLM_MODEL_FALL_BACK, SYSTEM_PROMPT_AGRI_EXPERT, CITATION_QA_TEMPLATE
 import logging
 
 logger = logging.getLogger("myapp")
@@ -66,11 +67,39 @@ async def achain(*gens: AsyncIterable[T]) -> AsyncIterator[T]:
                     yield f"{new_line}\n"
 
 
+async def tool_calling_forward(
+    request: ChatCompletionRequest,
+):
+    payload = {
+        "model": 'qwq:32b',
+        "messages": [{"role": m.role, "content": m.content} for m in request.messages],
+        "stream": request.stream,
+        "think": False,
+        "tools": request.tools,
+    }
+
+    async with httpx.AsyncClient(timeout=None) as client:
+        async with client.stream("POST", OLLAMA_API_URL, json=payload) as resp:
+            if resp.status_code >= 400:
+                error_text = await resp.aread()
+                raise RuntimeError(f"Ollama returned {resp.status_code}: {error_text.decode(errors='ignore')}")
+            else:
+                if request.stream:
+                    async for line in resp.aiter_lines():
+                        if line:
+                            # Ollama might send JSON lines, forward them as NDJSON
+                            yield f"{line}\n"
+                else:
+                    text = await resp.aread()
+                    yield text
+
 async def ollama_generate(
     prompt: str,
     context: List[dict[str, str]],
     model: str,
+    tools: List,
     retrieved_data: str | None,
+    stream: bool = True,
     SYSTEM_PROMPT: str = SYSTEM_PROMPT_AGRI_EXPERT,
 ):
     payload = {
@@ -87,28 +116,37 @@ async def ollama_generate(
                 }
             ),
         ],
-        "stream": True,
+        "stream": stream,
         "think": True,
+        "tools": tools,
     }
+
+    #convert dictionary as json and print
+    print(json.dumps(payload, indent=2))
 
     async with httpx.AsyncClient(timeout=None) as client:
         async with client.stream("POST", OLLAMA_API_URL, json=payload) as resp:
-            async for line in resp.aiter_lines():
-                if line:
-                    data = json.loads(line)
-                    msg = data.get("message")
-                    done = data.get("done")
-                    if isinstance(msg, dict):
-                        thinking = msg.get("thinking", None)
-                        content = msg.get("content", "")
-                    else:
-                        thinking = None
-                    if thinking:
-                        yield ThinkingResponseChunk(thinking)
-                    if content:
-                        if done:
-                            yield ContentResponseChunk(content, final_chunk=True)
-                        yield ContentResponseChunk(content)
+            if resp.status_code >= 400:
+                error_text = await resp.aread()
+                raise RuntimeError(f"Ollama returned {resp.status_code}: {error_text.decode(errors='ignore')}")
+            else:
+                async for line in resp.aiter_lines():
+                    if line:
+                        data = json.loads(line)
+                        msg = data.get("message")
+                        done = data.get("done")
+                        if isinstance(msg, dict):
+                            thinking = msg.get("thinking", None)
+                            content = msg.get("content", "")
+                            tool_calls = msg.get("tool_calls", None)
+                        else:
+                            thinking = None
+                        if thinking:
+                            yield ThinkingResponseChunk(thinking, tools_calls=tool_calls)
+                        if content:
+                            if done:
+                                yield ContentResponseChunk(content, final_chunk=True, tool_calls=tool_calls)
+                            yield ContentResponseChunk(content, tool_calls=tool_calls)
 
 
 async def citations_refine(

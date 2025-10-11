@@ -21,7 +21,7 @@ OLLAMA_API_URL = OLLAMA_HOST + "/api/chat"
 
 # MODELS
 LLM_MODEL_MAIN = "deepseek-r1:70b"
-LLM_MODEL_FALL_BACK = "qwen3:1.7b"
+LLM_MODEL_FALL_BACK = "gpt-oss:20b"
 LLM_STRUCTURED_MODEL = "Osmosis/Osmosis-Structure-0.6B:latest"
 EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
 
