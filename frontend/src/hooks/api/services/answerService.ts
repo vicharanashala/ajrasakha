@@ -21,6 +21,20 @@ export class AnswerService {
       throw error;
     }
   }
+  async updateAnswer(answerId: string, updatedAnswer: string) {
+    try {
+      return await apiFetch<SubmitAnswerResponse>(
+        `${this._baseUrl}/${answerId}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ answer: updatedAnswer }),
+        }
+      );
+    } catch (error) {
+      console.error(`Error in updating(${answerId}):`, error);
+      throw error;
+    }
+  }
 
   async getSubmissions(
     pageParam: number,

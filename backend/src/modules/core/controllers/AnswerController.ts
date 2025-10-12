@@ -12,6 +12,7 @@ import {
   CurrentUser,
   Authorized,
   QueryParams,
+  Put,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject} from 'inversify';
@@ -66,7 +67,7 @@ export class AnswerController {
   }
 
   @OpenAPI({summary: 'Update an existing answer'})
-  @Patch('/:answerId')
+  @Put('/:answerId')
   @HttpCode(200)
   @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})

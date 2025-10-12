@@ -13,7 +13,7 @@ import {
   type QuestionSourceFilter,
 } from "./advanced-question-filter";
 
-export const QuestionsPage = ({userRole}:{userRole?: UserRole}) => {
+export const QuestionsPage = ({ userRole }: { userRole?: UserRole }) => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
   const [source, setSource] = useState<QuestionSourceFilter>("all");
@@ -152,6 +152,7 @@ export const QuestionsPage = ({userRole}:{userRole?: UserRole}) => {
             refetchAnswers={refechSelectedQuestion}
             isRefetching={isLoadingSelectedQuestion}
             goBack={() => setSelectedQuestionId("")}
+            userRole={userRole!}
           />
         </>
       ) : (

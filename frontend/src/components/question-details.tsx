@@ -5,6 +5,7 @@ import type {
   ISubmission,
   ISubmissionHistory,
   ISubmissions,
+  UserRole,
 } from "@/types";
 import {
   forwardRef,
@@ -38,6 +39,7 @@ import {
 } from "./atoms/accordion";
 import {
   ArrowUpRight,
+  Edit,
   Eye,
   Loader2,
   MessageSquare,
@@ -49,6 +51,7 @@ import { useGetComments } from "@/hooks/api/comment/useGetComments";
 import { useAddComment } from "@/hooks/api/comment/useAddComment";
 import { SourceUrlManager } from "./source-url-manager";
 import { Timeline } from "primereact/timeline";
+import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -56,6 +59,7 @@ interface QuestionDetailProps {
   goBack: () => void;
   refetchAnswers: () => void;
   isRefetching: boolean;
+  userRole: UserRole;
 }
 
 const flattenAnswers = (submission: ISubmission): IAnswer[] => {
@@ -85,6 +89,7 @@ export const QuestionDetails = ({
   currentUserId,
   refetchAnswers,
   isRefetching,
+  userRole,
   goBack,
 }: QuestionDetailProps) => {
   const answers = useMemo(
@@ -245,24 +250,13 @@ export const QuestionDetails = ({
           <p className="text-sm text-muted-foreground">No answers yet.</p>
         ) : (
           <div className="grid gap-4">
-            {/* {answers.slice(0, answerVisibleCount).map((ans: IAnswer) => (
-              <AnswerItem
-                key={`${ans._id}-${ans.answerIteration}`}
-                answer={ans}
-                submissionData={question.submissions.history.find(
-                  (h) => h.answer?._id === ans._id
-                )}
-                currentUserId={currentUserId}
-                questionId={question._id}
-                ref={commentRef}
-              />
-            ))} */}
             <AnswerTimeline
               answerVisibleCount={answerVisibleCount}
               answers={answers}
               commentRef={commentRef}
               currentUserId={currentUserId}
               question={question}
+              userRole={userRole}
             />
             {answerVisibleCount < answers.length && (
               <div className="flex justify-center">
@@ -300,6 +294,7 @@ interface IAnswerTimelineProps {
   question: IQuestionFullData;
   answerVisibleCount: number;
   commentRef: React.RefObject<HTMLDivElement>;
+  userRole: UserRole;
 }
 
 export const AnswerTimeline = ({
@@ -308,6 +303,7 @@ export const AnswerTimeline = ({
   question,
   answerVisibleCount,
   commentRef,
+  userRole,
 }: IAnswerTimelineProps) => {
   // map answers to timeline events
   const events = answers.slice(0, answerVisibleCount).map((ans) => {
@@ -362,6 +358,7 @@ export const AnswerTimeline = ({
               currentUserId={currentUserId}
               questionId={question._id}
               ref={commentRef}
+              userRole={userRole}
             />
           </div>
         )}
@@ -375,6 +372,7 @@ interface AnswerItemProps {
   currentUserId: string;
   submissionData?: ISubmissionHistory;
   questionId: string;
+  userRole: UserRole;
 }
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
@@ -393,8 +391,12 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   } = useGetComments(LIMIT, props.questionId, props.answer._id);
   const comments =
     commentsData?.pages.flatMap((comment) => comment ?? []) ?? [];
-
-  const { mutateAsync, isPending: isAddingComment } = useAddComment();
+  const [editableAnswer, setEditableAnswer] = useState(props.answer.answer);
+  const [editOpen, setEditOpen] = useState(false);
+  const { mutateAsync: addComment, isPending: isAddingComment } =
+    useAddComment();
+  const { mutateAsync: updateAnswer, isPending: isUpdatingComment } =
+    useUpdateAnswer();
 
   useImperativeHandle(ref, () => {
     refetchComments;
@@ -404,7 +406,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     if (!comment.trim()) return;
 
     try {
-      await mutateAsync({
+      await addComment({
         questionId: props.questionId,
         answerId: props.answer._id!,
         text: comment.trim(),
@@ -413,6 +415,34 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
       toast.success("Comment submitted! Thank you for your input.");
     } catch (err) {
       console.error("Failed to submit comment:", err);
+    }
+  };
+
+  const handleUpdateAnswer = async () => {
+    try {
+      if (!editableAnswer || editableAnswer.trim().length <= 3) {
+        toast.error("Updated answer should be at least more than 3 characters");
+        return;
+      }
+
+      const answerId = props.answer._id;
+
+      if (!answerId) {
+        toast.error("Answer ID not found. Cannot update.");
+        return;
+      }
+
+      await updateAnswer({
+        updatedAnswer: editableAnswer,
+        answerId,
+      });
+
+      toast.success("Answer updated successfully!");
+      setEditOpen(false);
+    } catch (error) {
+      console.error("Failed to edit answer:", error);
+      toast.error("Failed to update answer. Please try again.");
+      setEditOpen(false);
     }
   };
 
@@ -450,9 +480,56 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
           {isMine && <UserCheck className="w-4 h-4 text-blue-600 ml-1" />}
         </div>
         <div className="flex items-center justify-center gap-2">
+          {props.userRole !== "expert" && props.answer.isFinalAnswer && (
+            <Dialog open={editOpen} onOpenChange={setEditOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2">
+                  <Edit className="w-4 h-4" />
+                  Edit Answer
+                </Button>
+              </DialogTrigger>
+
+              <DialogContent className="max-w-3xl w-[600px] flex flex-col p-6">
+                <DialogHeader>
+                  <DialogTitle className="text-lg font-semibold">
+                    Edit Answer
+                  </DialogTitle>
+                </DialogHeader>
+
+                <div className="mt-4">
+                  <Textarea
+                    value={editableAnswer}
+                    placeholder="Update answer here..."
+                    onChange={(e) => setEditableAnswer(e.target.value)}
+                    className="min-h-[150px] resize-none border border-border bg-background"
+                  />
+                </div>
+                <div
+                  className="mt-4 p-4 rounded-md border bg-yellow-50 border-yellow-300 text-yellow-900 text-sm
+                dark:bg-yellow-900/20 dark:border-yellow-700/60 dark:text-yellow-200"
+                >
+                  ⚠️ You are about to update a <strong>finalized answer</strong>
+                  . Please review your changes carefully before saving to avoid
+                  mistakes.
+                </div>
+
+                <div className="mt-6 flex justify-end gap-3">
+                  <Button variant="outline" onClick={() => setEditOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleUpdateAnswer}
+                    className="bg-primary text-primary-foreground"
+                  >
+                    Save
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="w-full sm:w-auto">
+              <Button variant="outline" size="sm" className="w-full sm:w-auto ">
                 <Eye className="w-4 h-4 mr-2" />
                 View More
               </Button>

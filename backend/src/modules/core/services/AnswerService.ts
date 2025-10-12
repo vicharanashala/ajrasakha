@@ -134,9 +134,13 @@ export class AnswerService extends BaseService {
       if (!answerId) throw new BadRequestError('AnswerId not found');
       const answer = await this.answerRepo.getById(answerId, session);
 
-      console.log('Answer: ', answer);
       if (!answer) {
         throw new BadRequestError(`Answer with ID ${answerId} not found`);
+      }
+      if (!answer.isFinalAnswer) {
+        throw new BadRequestError(
+          `Cant't edit this answer:${answerId}, it is not finalized yet!`,
+        );
       }
       const questionId = answer.questionId.toString();
 
