@@ -10,7 +10,7 @@ from functions import process_nodes_pop, process_nodes_qa
 from models import ContextPOP, ContextQuestionAnswerPair
 from llama_index.core.settings import Settings
 
-mcp = FastMCP("Test")
+mcp = FastMCP("POP")
 
 Settings.embed_model = HuggingFaceEmbedding(
     model_name=EMBEDDING_MODEL, cache_folder="./hf_cache", trust_remote_code=True
@@ -26,24 +26,6 @@ retriever_pop = get_retriever(
 )
 
 
-@mcp.tool()
-async def get_context_from_golden_dataset(query: str) -> List[ContextQuestionAnswerPair]:
-    """
-    Retrieve domain-specific context from the golden dataset.
-
-    The query should:
-    - Be concise and directly related to agriculture, climate, or closely associated domains.
-    - Exclude any meta-instructions (e.g., "use mcp tools", "use golden dataset").
-    - Avoid unnecessary details or formatting outside the main concern.
-
-    Args:
-        query (str): A plain-text query strictly describing the agricultural, climate, 
-                     or related issue of concern.
-
-    """
-    nodes = await retriever_qa.aretrieve(query)
-    processed_nodes = await process_nodes_qa(nodes)
-    return processed_nodes
 
 @mcp.tool()
 async def get_context_from_package_of_practices(query: str)-> List[ContextPOP]:
@@ -67,4 +49,4 @@ async def get_context_from_package_of_practices(query: str)-> List[ContextPOP]:
 
 
 if __name__ == "__main__":
-    mcp.run(transport='streamable-http', host='localhost', port=9000)
+    mcp.run(transport='streamable-http', host='0.0.0.0', port=9002)
