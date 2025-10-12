@@ -53,13 +53,24 @@ export class RequestService {
     }>(`${this._baseUrl}?${query.toString()}`);
   }
 
+  async getRequestDiff(reqId: string): Promise<{
+    currentDoc: any;
+    existingDoc: any;
+  } | null> {
+    return apiFetch<{
+      currentDoc: any;
+      existingDoc: any;
+    }>(`${this._baseUrl}/${reqId}`);
+  }
+
   async updateStatus(
     requestId: string,
-    status: IRequest["status"]
+    status: IRequest["status"],
+    response: string
   ): Promise<IRequest | null> {
     return apiFetch<IRequest>(`${this._baseUrl}/${requestId}/status`, {
       method: "PUT",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, response }),
     });
   }
 }

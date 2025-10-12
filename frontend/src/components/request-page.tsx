@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import {
   Card,
   CardContent,
+  CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
@@ -15,22 +17,28 @@ import {
   SelectValue,
 } from "@/components/atoms/select";
 import { Textarea } from "@/components/atoms/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/atoms/dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/atoms/avatar";
+
+import { Avatar, AvatarFallback } from "@/components/atoms/avatar";
 import { cn } from "@/lib/utils";
-import type { IRequest, RequestStatus } from "@/types";
+import type { IDetailedQuestion, IRequest, RequestStatus } from "@/types";
 import { useGetAllRequests } from "@/hooks/api/request/useGetAllRequest";
 import { Pagination } from "./pagination";
-import { Sliders, Circle, Layers, Calendar, Search } from "lucide-react";
-import { QuestionDetailsDialog } from "./QA-interface";
-import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
+import {
+  Sliders,
+  Circle,
+  Layers,
+  Calendar,
+  Search,
+  MessageSquare,
+  Edit2,
+  CheckCircle,
+  FileText,
+} from "lucide-react";
+import { useGetRequestDiff } from "@/hooks/api/request/useGetRequestDiff";
+import { Skeleton } from "./atoms/skeleton";
+import { ScrollArea } from "./atoms/scroll-area";
+import { useUpdateRequestStatus } from "@/hooks/api/request/useUpdateRequestStatus";
+import toast from "react-hot-toast";
 
 type SortOrder = "newest" | "oldest";
 
@@ -48,50 +56,56 @@ const typeOptions = [
   { label: "Others", value: "others" },
 ] as const;
 
-function initials(name: string) {
+const initials = (name: string) => {
   return name
     .split(" ")
     .map((n) => n[0])
     .join("")
     .slice(0, 2)
     .toUpperCase();
-}
+};
 
-function StatusBadge({ status }: { status: RequestStatus }) {
-  return (
-    <Badge className="bg-secondary text-secondary-foreground border border-border">
-      {status === "in-review"
-        ? "In Review"
-        : status.charAt(0).toUpperCase() + status.slice(1)}
-    </Badge>
-  );
-}
-
-const RequestCard = ({
-  req,
-  onUpdate,
-}: {
-  req: IRequest;
-  onUpdate: (
-    id: string,
-    newStatus: RequestStatus,
-    response?: string
-  ) => Promise<void>;
-}) => {
+const RequestCard = ({ req }: { req: IRequest }) => {
   const [open, setOpen] = useState(false);
-  const [newStatus, setNewStatus] = useState<RequestStatus>(req.status);
+  const [newStatus, setNewStatus] = useState<RequestStatus>("pending");
   const [response, setResponse] = useState<string>("");
-  const [selectedQuestionId, setSelectedQuestionId] = useState("");
 
-  const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
-    useGetQuestionById(selectedQuestionId);
+  const { data: requestDiff, isLoading: reqDiffLoading } = useGetRequestDiff(
+    req._id
+  );
+
+  const { mutateAsync: updateStatus, isPending: updatingStatus } =
+    useUpdateRequestStatus();
+
+  const request = {
+    requestType: req.requestType,
+    diff: requestDiff!,
+  };
+
+  const handleSubmit = async () => {
+    try {
+      if (!newStatus || newStatus === req.status) {
+        toast.error(
+          "Please select a new status different from the current one."
+        );
+        return;
+      }
+
+      if (!response || response.trim().length < 8) {
+        toast.error("Response must be at least 8 characters long.");
+        return;
+      }
+
+      await updateStatus({ status: newStatus, requestId: req._id, response });
+      toast.success("Request updated successfully.");
+    } catch (error) {
+      console.error("Error updating request:", error);
+      toast.error("Failed to update the request. Please try again.");
+    }
+  };
 
   return (
     <Card className="bg-card">
-      {selectedQuestionId && (
-        <QuestionDetailsDialog question={selectedQuestionData!} />
-      )}
-
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <Avatar className="size-10">
@@ -106,7 +120,21 @@ const RequestCard = ({
             </div>
           </div>
         </div>
-        <StatusBadge status={req.status} />
+        <span
+          className={`px-3 py-1 rounded-full text-xs font-medium border ${
+            req?.status === "approved"
+              ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
+              : req?.status === "rejected"
+              ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
+              : req?.status === "in-review"
+              ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
+              : req?.status === "pending"
+              ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
+              : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
+          }`}
+        >
+          {req?.status?.toUpperCase() || "N/A"}
+        </span>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="text-sm">
@@ -117,67 +145,125 @@ const RequestCard = ({
           Created: {new Date(req.createdAt).toLocaleString()}
         </div>
         <div className="flex gap-2 justify-end">
-          {/* <Button
-            variant="secondary"
-            className="bg-secondary text-secondary-foreground"
-          >
-            View more
-          </Button> */}
+          <div className="fixed inset-0 flex items-start justify-center z-50 p-6 pointer-events-none">
+            {open && (
+              <Card className="bg-card w-[90vw] max-w-[95vw] h-[90vh] flex flex-col shadow-xl border border-border pointer-events-auto overflow-hidden">
+                <CardHeader className="p-6 border-b border-border flex flex-col gap-2">
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-4">
+                      <FileText className="w-5 h-5 text-primary" />
+                      <div className="flex flex-col">
+                        <CardTitle className="text-base font-semibold">
+                          Request Diff & Review
+                        </CardTitle>
+                        <div className="text-sm text-muted-foreground flex gap-2">
+                          <span>EntityId: {req?.entityId}</span>
+                          <span>RequestId: {req?._id}</span>
+                        </div>
+                      </div>
+                    </div>
 
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center justify-center gap-2">
-                <Search className="w-4 h-4" aria-hidden="true" />
-                <span>View Diff</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-card">
-              <DialogHeader>
-                <DialogTitle>Update Request</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-2">
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium">New Status</label>
-                  <Select
-                    value={newStatus}
-                    onValueChange={(v) => setNewStatus(v as RequestStatus)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="in-review">In Review</SelectItem>
-                      <SelectItem value="approved">Approved</SelectItem>
-                      <SelectItem value="rejected">Rejected</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium">Response</label>
-                  <Textarea
-                    placeholder="Add a moderator response"
-                    value={response}
-                    onChange={(e) => setResponse(e.target.value)}
+                    <div>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                          req?.status === "approved"
+                            ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
+                            : req?.status === "rejected"
+                            ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
+                            : req?.status === "in-review"
+                            ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
+                            : req?.status === "pending"
+                            ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
+                            : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
+                        }`}
+                      >
+                        {req?.status?.toUpperCase() || "N/A"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <CardDescription className="text-sm text-muted-foreground">
+                    Review the differences and take necessary action on this
+                    request.
+                  </CardDescription>
+                </CardHeader>
+
+                <ScrollArea className="flex-1 p-4 px-8 bg-muted/30 overflow-y-auto">
+                  <ReqDetailsDiff
+                    request={request}
+                    requestDiffLoading={reqDiffLoading}
                   />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  onClick={async () => {
-                    await onUpdate(
-                      String(req._id),
-                      newStatus,
-                      response.trim() || undefined
-                    );
-                    setOpen(false);
-                  }}
-                >
-                  Save
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+
+                  <div className="mt-6 px-2">
+                    <label className="text-sm font-medium mb-2 flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                      Query
+                    </label>
+                    <div className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground break-words">
+                      {req.reason || "-"}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 px-2">
+                    <label className="text-sm font-medium mb-2 flex items-center gap-2">
+                      <Edit2 className="w-4 h-4 text-muted-foreground" />
+                      Response
+                    </label>
+                    <Textarea
+                      value={response}
+                      onChange={(e) => setResponse(e.target.value)}
+                      placeholder="Enter your response here..."
+                      className="min-h-[120px] resize-none border border-border bg-background"
+                    />
+                  </div>
+
+                  <div className="mt-4 px-2">
+                    <label className="text-sm font-medium mb-2 flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-muted-foreground" />
+                      Change Status
+                    </label>
+                    <Select
+                      onValueChange={(value: RequestStatus) =>
+                        setNewStatus(value)
+                      }
+                    >
+                      <SelectTrigger className="w-[220px]">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="in-review">In Review</SelectItem>
+                        <SelectItem value="approved">Approved</SelectItem>
+                        <SelectItem value="rejected">Rejected</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </ScrollArea>
+
+                <CardFooter className="flex justify-end gap-3 border-t border-border p-6">
+                  <Button variant="outline" onClick={() => setOpen(false)}>
+                    Cancel
+                  </Button>
+                  {(req.status == "pending" || req.status == "in-review") && (
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={reqDiffLoading || updatingStatus}
+                      className="bg-primary text-primary-foreground"
+                    >
+                      {updatingStatus ? "Submitting..." : "Submit Response"}
+                    </Button>
+                  )}
+                </CardFooter>
+              </Card>
+            )}
+          </div>
+          <Button
+            className="flex items-center justify-center gap-2"
+            onClick={() => setOpen(true)}
+          >
+            {" "}
+            <Search className="w-4 h-4" aria-hidden="true" />{" "}
+            <span>View Diff</span>{" "}
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -185,245 +271,6 @@ const RequestCard = ({
 };
 
 export const RequestsPage = () => {
-  // const requests: IRequest[] = [
-  //   {
-  //     _id: "1",
-  //     requestType: "question_flag",
-  //     details: {
-  //       id: "q1",
-  //       text: "What is crop rotation?",
-  //       createdAt: new Date().toISOString(),
-  //       updatedAt: new Date().toISOString(),
-  //       totalAnswersCount: 5,
-  //       priority: "medium",
-  //       status: "open",
-  //       source: "AJRASAKHA",
-  //       details: {
-  //         state: "Karnataka",
-  //         district: "Bangalore",
-  //         crop: "Wheat",
-  //         season: "Rabi",
-  //         domain: "Soil Management",
-  //       },
-  //     },
-  //     entityId: "e1",
-  //     reason: "Inappropriate content",
-  //     responses: [
-  //       { reviewedBy: "mod_01", role: "moderator", status: "pending" },
-  //     ],
-  //     status: "pending",
-  //     createdAt: new Date().toISOString(),
-  //     updatedAt: new Date().toISOString(),
-  //   },
-  //   {
-  //     _id: "2",
-  //     requestType: "others",
-  //     details: { description: "Request for additional data" },
-  //     reason: "Need more context",
-  //     responses: [
-  //       {
-  //         reviewedBy: "admin_01",
-  //         role: "admin",
-  //         status: "approved",
-  //         response: "Added additional context",
-  //         reviewedAt: new Date().toISOString(),
-  //       },
-  //     ],
-  //     status: "approved",
-  //     entityId: "e1",
-
-  //     createdAt: new Date().toISOString(),
-  //     updatedAt: new Date().toISOString(),
-  //   },
-  //   {
-  //     _id: "3",
-  //     requestType: "question_flag",
-  //     entityId: "e1",
-
-  //     details: {
-  //       id: "q2",
-  //       text: "Explain soil erosion",
-  //       createdAt: new Date().toISOString(),
-  //       updatedAt: new Date().toISOString(),
-  //       totalAnswersCount: 2,
-  //       priority: "high",
-  //       status: "open",
-  //       source: "AGRI_EXPERT",
-  //       details: {
-  //         state: "Maharashtra",
-  //         district: "Pune",
-  //         crop: "Sugarcane",
-  //         season: "Kharif",
-  //         domain: "Soil Management",
-  //       },
-  //     },
-  //     reason: "Duplicate question",
-  //     responses: [],
-  //     status: "rejected",
-  //     createdAt: new Date().toISOString(),
-  //     updatedAt: new Date().toISOString(),
-  //   },
-  //   {
-  //     _id: "4",
-  //     requestType: "others",
-  //     entityId: "e1",
-
-  //     details: { description: "Update cropping season info" },
-  //     reason: "Incorrect season",
-  //     responses: [
-  //       { reviewedBy: "mod_02", role: "moderator", status: "in-review" },
-  //     ],
-  //     status: "in-review",
-  //     createdAt: new Date().toISOString(),
-  //     updatedAt: new Date().toISOString(),
-  //   },
-  //   {
-  //     _id: "5",
-  //     requestType: "question_flag",
-  //     entityId: "e1",
-
-  //     details: {
-  //       id: "q3",
-  //       text: "What are fertilizers?",
-  //       createdAt: new Date().toISOString(),
-  //       updatedAt: new Date().toISOString(),
-  //       totalAnswersCount: 3,
-  //       priority: "low",
-  //       status: "open",
-  //       source: "AJRASAKHA",
-  //       details: {
-  //         state: "Punjab",
-  //         district: "Ludhiana",
-  //         crop: "Rice",
-  //         season: "Rabi",
-  //         domain: "Crop Nutrition",
-  //       },
-  //     },
-  //     reason: "Spam",
-  //     responses: [],
-  //     status: "pending",
-  //     createdAt: new Date().toISOString(),
-  //     updatedAt: new Date().toISOString(),
-  //   },
-  //   {
-  //     _id: "6",
-  //     requestType: "others",
-  //     entityId: "e1",
-
-  //     details: { description: "Request for expert review" },
-  //     reason: "Expert verification required",
-  //     responses: [
-  //       {
-  //         reviewedBy: "admin_02",
-  //         role: "admin",
-  //         status: "approved",
-  //         response: "Verified successfully",
-  //         reviewedAt: new Date().toISOString(),
-  //       },
-  //     ],
-  //     status: "approved",
-  //     createdAt: new Date().toISOString(),
-  //     updatedAt: new Date().toISOString(),
-  //   },
-  //   {
-  //     _id: "7",
-  //     requestType: "question_flag",
-  //     entityId: "e1",
-
-  //     details: {
-  //       id: "q4",
-  //       text: "Define irrigation",
-  //       createdAt: new Date().toISOString(),
-  //       updatedAt: new Date().toISOString(),
-  //       totalAnswersCount: 1,
-  //       priority: "medium",
-  //       status: "open",
-  //       source: "AGRI_EXPERT",
-  //       details: {
-  //         state: "Rajasthan",
-  //         district: "Jaipur",
-  //         crop: "Millet",
-  //         season: "Kharif",
-  //         domain: "Water Management",
-  //       },
-  //     },
-  //     reason: "Duplicate",
-  //     responses: [
-  //       {
-  //         reviewedBy: "mod_03",
-  //         role: "moderator",
-  //         status: "rejected",
-  //         response: "Already exists",
-  //         reviewedAt: new Date().toISOString(),
-  //       },
-  //     ],
-  //     status: "rejected",
-  //     createdAt: new Date().toISOString(),
-  //     updatedAt: new Date().toISOString(),
-  //   },
-  //   {
-  //     _id: "8",
-  //     requestType: "others",
-  //     entityId: "e1",
-
-  //     details: { description: "Add new crop type" },
-  //     reason: "Missing crop",
-  //     responses: [],
-  //     status: "pending",
-  //     createdAt: new Date().toISOString(),
-  //     updatedAt: new Date().toISOString(),
-  //   },
-  //   {
-  //     _id: "9",
-  //     requestType: "question_flag",
-  //     entityId: "e1",
-
-  //     details: {
-  //       id: "q5",
-  //       text: "Explain pest control",
-  //       createdAt: new Date().toISOString(),
-  //       updatedAt: new Date().toISOString(),
-  //       totalAnswersCount: 4,
-  //       priority: "high",
-  //       status: "open",
-  //       source: "AJRASAKHA",
-  //       details: {
-  //         state: "Tamil Nadu",
-  //         district: "Coimbatore",
-  //         crop: "Cotton",
-  //         season: "Rabi",
-  //         domain: "Plant Protection",
-  //       },
-  //     },
-  //     reason: "Off-topic",
-  //     responses: [
-  //       { reviewedBy: "mod_04", role: "moderator", status: "in-review" },
-  //     ],
-  //     status: "in-review",
-  //     createdAt: new Date().toISOString(),
-  //     updatedAt: new Date().toISOString(),
-  //   },
-  //   {
-  //     _id: "10",
-  //     requestType: "others",
-  //     entityId: "e1",
-  //     details: { description: "Correct domain info" },
-  //     reason: "Incorrect domain assigned",
-  //     responses: [
-  //       {
-  //         reviewedBy: "admin_03",
-  //         role: "admin",
-  //         status: "approved",
-  //         response: "Domain updated",
-  //         reviewedAt: new Date().toISOString(),
-  //       },
-  //     ],
-  //     status: "approved",
-  //     createdAt: new Date().toISOString(),
-  //     updatedAt: new Date().toISOString(),
-  //   },
-  // ];
-
   const [status, setStatus] = useState<"all" | RequestStatus>("all");
   const [reqType, setReqType] = useState<"all" | "question_flag" | "others">(
     "all"
@@ -439,21 +286,6 @@ export const RequestsPage = () => {
     reqType,
     sortOrder
   );
-
-  // const filteredSorted = useMemo(() => {
-  //   const list = (requests ?? []).filter((r) => {
-  //     const byStatus = status === "all" ? true : r.status === status;
-  //     const byType = reqType === "all" ? true : r.requestType === reqType;
-  //     return byStatus && byType;
-  //   });
-  //   list.sort((a, b) => {
-  //     const aTime = new Date(a.createdAt).getTime();
-  //     const bTime = new Date(b.createdAt).getTime();
-  //     return sortOrder === "newest" ? bTime - aTime : aTime - bTime;
-  //   });
-  //   return list;
-  // }, [requests, status, reqType, sortOrder]);
-
   return (
     <main className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
       <section className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
@@ -463,70 +295,67 @@ export const RequestsPage = () => {
             <h1 className="text-xl font-semibold text-pretty">Request Queue</h1>
           </div>
 
-            <div className="flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto">
-              <div className="flex-1 min-w-[180px]">
-                <label className="text-sm font-medium mb-1 flex items-center gap-1">
-                  <Circle className="w-4 h-4 text-primary" />
-                  <span className="">Status</span>
-                </label>
-                <Select
-                  value={status}
-                  onValueChange={(v) => setStatus(v as any)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map((s) => (
-                      <SelectItem key={s.value} value={s.value}>
-                        {s.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex-1 min-w-[180px]">
-                <label className="text-sm font-medium mb-1 flex items-center gap-1">
-                  <Layers className="w-4 h-4 text-primary" />
-                  <span className="">Request Type</span>
-                </label>
-                <Select
-                  value={reqType}
-                  onValueChange={(v) => setReqType(v as any)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {typeOptions.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex-1 min-w-[180px]">
-                <label className="text-sm font-medium mb-1 flex items-center gap-1">
-                  <Calendar className="w-4 h-4 text-primary" />
-                  <span className="">Sort By</span>
-                </label>
-                <Select
-                  value={sortOrder}
-                  onValueChange={(v) => setSortOrder(v as SortOrder)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Newest" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">Created (Newest)</SelectItem>
-                    <SelectItem value="oldest">Created (Oldest)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          <div className="flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto">
+            <div className="flex-1 min-w-[180px]">
+              <label className="text-sm font-medium mb-1 flex items-center gap-1">
+                <Circle className="w-4 h-4 text-primary" />
+                <span className="">Status</span>
+              </label>
+              <Select value={status} onValueChange={(v) => setStatus(v as any)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+
+            <div className="flex-1 min-w-[180px]">
+              <label className="text-sm font-medium mb-1 flex items-center gap-1">
+                <Layers className="w-4 h-4 text-primary" />
+                <span className="">Request Type</span>
+              </label>
+              <Select
+                value={reqType}
+                onValueChange={(v) => setReqType(v as any)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  {typeOptions.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex-1 min-w-[180px]">
+              <label className="text-sm font-medium mb-1 flex items-center gap-1">
+                <Calendar className="w-4 h-4 text-primary" />
+                <span className="">Sort By</span>
+              </label>
+              <Select
+                value={sortOrder}
+                onValueChange={(v) => setSortOrder(v as SortOrder)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Newest" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Created (Newest)</SelectItem>
+                  <SelectItem value="oldest">Created (Oldest)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </section>
       </section>
 
@@ -541,21 +370,7 @@ export const RequestsPage = () => {
           </div>
         ) : (
           requestData.requests.map((req) => (
-            <RequestCard
-              key={String(req._id)}
-              req={req}
-              onUpdate={async (
-                id: string,
-                newStatus: RequestStatus,
-                response?: string
-              ) => {
-                console.log(
-                  `Request ${id} would be updated to ${newStatus}`,
-                  response
-                );
-                return Promise.resolve();
-              }}
-            />
+            <RequestCard key={String(req._id)} req={req} />
           ))
         )}
       </section>
@@ -568,5 +383,298 @@ export const RequestsPage = () => {
         />
       )}
     </main>
+  );
+};
+
+type QuestionFlagDiff = {
+  currentDoc: IDetailedQuestion | null;
+  existingDoc: IDetailedQuestion | null;
+};
+
+type RequestLike = {
+  requestType: string;
+  diff?: QuestionFlagDiff;
+};
+
+export const ReqDetailsDiff = ({
+  request,
+  requestDiffLoading,
+  className,
+  title = "Request Diff",
+}: {
+  request: RequestLike;
+  requestDiffLoading: boolean;
+  className?: string;
+  title?: string;
+}) => {
+  if (requestDiffLoading) {
+    return (
+      <section
+        aria-busy="true"
+        aria-live="polite"
+        className={["w-full rounded border bg-card p-4", className]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        <header className="mb-3">
+          <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
+        </header>
+        <div className="flex flex-col gap-2">
+          <Skeleton />
+          <Skeleton />
+          <Skeleton />
+          <Skeleton className="w-2/3" />
+        </div>
+      </section>
+    );
+  }
+
+  if (request?.requestType !== "question_flag" || !request?.diff) {
+    return null;
+  }
+  const { existingDoc, currentDoc } = request.diff;
+  if (!existingDoc || !currentDoc) return null;
+  const changes = diffQuestion(existingDoc, currentDoc);
+  const allFields = changes.sort((a, b) => {
+    if (a.path === "question") return -1;
+    if (b.path === "question") return 1;
+
+    const aIsDetails = a.path.startsWith("details");
+    const bIsDetails = b.path.startsWith("details");
+    if (aIsDetails && !bIsDetails) return 1;
+    if (!aIsDetails && bIsDetails) return -1;
+
+    return a.path.localeCompare(b.path);
+  });
+  return (
+    <section
+      className={`w-full rounded border bg-card p-4`}
+      role="region"
+      aria-label="Request Diff Viewer"
+    >
+      <header className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
+        <Legend />
+      </header>
+
+      <ScrollArea className="h-[400px] w-full rounded-md ">
+        {allFields.length === 0 ? (
+          <div
+            className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground"
+            role="status"
+            aria-live="polite"
+          >
+            No changes detected.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 min-w-[700px]">
+            <div className="border-r border-border pr-4">
+              <h3 className="text-xs font-semibold text-muted-foreground mb-2">
+                Existing
+              </h3>
+              <ol
+                className="space-y-3"
+                role="list"
+                aria-label="Existing document"
+              >
+                {allFields.map((f) => (
+                  <li
+                    key={f.path + "-old"}
+                    className={cn(
+                      "rounded-md border border-border p-3",
+                      f.changed ? "bg-destructive/10" : "bg-muted/20"
+                    )}
+                  >
+                    <div className="text-xs text-muted-foreground mb-1 font-mono">
+                      {f.path}
+                    </div>
+                    <ValueView value={f.oldValue} />
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            <div className="pl-4">
+              <h3 className="text-xs font-semibold text-muted-foreground mb-2">
+                Current
+              </h3>
+              <ol
+                className="space-y-3"
+                role="list"
+                aria-label="Current document"
+              >
+                {allFields.map((f) => (
+                  <li
+                    key={f.path + "-new"}
+                    className={cn(
+                      "rounded-md border border-border p-3",
+                      f.changed ? "bg-primary/10" : "bg-muted/20"
+                    )}
+                  >
+                    <div className="text-xs text-muted-foreground mb-1 font-mono">
+                      {f.path}
+                    </div>
+                    <ValueView value={f.newValue} />
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        )}
+      </ScrollArea>
+    </section>
+  );
+};
+
+const Legend = () => {
+  return (
+    <div
+      className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex"
+      aria-hidden="true"
+    >
+      <span className="inline-flex items-center gap-1">
+        <span className="inline-block h-3 w-3 rounded bg-destructive/30" />
+        removed
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span className="inline-block h-3 w-3 rounded bg-primary/30" />
+        added
+      </span>
+    </div>
+  );
+};
+
+export const diffQuestion = (
+  oldDoc: Record<string, any>,
+  newDoc: Record<string, any>
+): Array<{
+  path: string;
+  oldValue: unknown;
+  newValue: unknown;
+  changed: boolean;
+}> => {
+  const results: Array<{
+    path: string;
+    oldValue: unknown;
+    newValue: unknown;
+    changed: boolean;
+  }> = [];
+
+  const visit = (prefix: string, a: any, b: any) => {
+    // Handle primitive values
+    if (isPrimitive(a) && isPrimitive(b)) {
+      results.push({
+        path: prefix,
+        oldValue: a,
+        newValue: b,
+        changed: a !== b,
+      });
+      return;
+    }
+
+    // Handle null/undefined mismatch
+    if ((a == null) !== (b == null)) {
+      results.push({
+        path: prefix,
+        oldValue: a,
+        newValue: b,
+        changed: true,
+      });
+      return;
+    }
+
+    // Handle nested objects
+    if (a && b && typeof a === "object" && typeof b === "object") {
+      const keys = Array.from(
+        new Set([...Object.keys(a), ...Object.keys(b)])
+      ).sort();
+      for (const key of keys) {
+        const path = prefix ? `${prefix}.${key}` : key;
+        visit(path, a?.[key], b?.[key]);
+      }
+      return;
+    }
+
+    // Fallback for mismatched types
+    results.push({
+      path: prefix,
+      oldValue: a,
+      newValue: b,
+      changed: a !== b,
+    });
+  };
+
+  visit("", oldDoc, newDoc);
+
+  return results.map((r) => ({
+    ...r,
+    path: r.path.startsWith(".") ? r.path.slice(1) : r.path,
+  }));
+};
+
+// const diffQuestion = (
+//   oldDoc: IDetailedQuestion,
+//   newDoc: IDetailedQuestion
+// ): Array<{ path: string; oldValue: unknown; newValue: unknown }> => {
+//   const changes: Array<{ path: string; oldValue: unknown; newValue: unknown }> =
+//     [];
+//   const visit = (prefix: string, a: any, b: any) => {
+//     // If primitives differ, record change
+//     if (isPrimitive(a) && isPrimitive(b)) {
+//       if (a !== b) {
+//         changes.push({ path: prefix, oldValue: a, newValue: b });
+//       }
+//       return;
+//     }
+
+//     // If either is null/undefined and not equal, record
+//     if ((a == null) !== (b == null)) {
+//       changes.push({ path: prefix, oldValue: a, newValue: b });
+//       return;
+//     }
+
+//     // For objects, traverse keys
+//     if (a && b && typeof a === "object" && typeof b === "object") {
+//       const keys = Array.from(
+//         new Set([...Object.keys(a), ...Object.keys(b)])
+//       ).sort();
+//       for (const k of keys) {
+//         const p = prefix ? `${prefix}.${k}` : k;
+//         visit(p, a?.[k], b?.[k]);
+//       }
+//       return;
+//     }
+
+//     // Fallback inequality
+//     if (a !== b) {
+//       changes.push({ path: prefix, oldValue: a, newValue: b });
+//     }
+//   };
+
+//   visit("", oldDoc, newDoc);
+//   // Only keep first-level path without leading dot
+//   return changes.map((c) => ({
+//     ...c,
+//     path: c.path.startsWith(".") ? c.path.slice(1) : c.path,
+//   }));
+// };
+
+const isPrimitive = (v: unknown) => {
+  return v == null || ["string", "number", "boolean"].includes(typeof v);
+};
+
+const ValueView = ({ value }: { value: unknown }) => {
+  if (value == null) return <span className="text-muted-foreground">null</span>;
+  if (typeof value === "object") {
+    return (
+      <pre className="overflow-x-auto rounded bg-muted p-2 text-xs leading-relaxed">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    );
+  }
+  return (
+    <code className="rounded bg-muted px-1 py-0.5 text-[13px]">
+      {String(value)}
+    </code>
   );
 };

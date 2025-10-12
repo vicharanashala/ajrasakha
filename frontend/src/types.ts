@@ -224,7 +224,7 @@ export interface IRequestResponse {
   status: RequestStatus;
   response?: string;
   reviewedAt?: Date | string;
-  moderatorName?: string; 
+  reviewerName?: string; 
 }
 
 export type RequestDetails =

@@ -89,11 +89,11 @@ export type RequestStatus = 'pending' | 'rejected' | 'approved' | 'in-review';
 
 export interface IRequestResponse {
   reviewedBy: string | ObjectId;
-  role: 'admin' | 'moderator'
+  role: UserRole,
   status: RequestStatus;
   response?: string;
   reviewedAt?: Date;
-  moderatorName?: string; 
+  reviewerName?: string; 
 }
 
 export type RequestDetails =

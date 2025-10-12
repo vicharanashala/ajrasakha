@@ -3,6 +3,7 @@ import {
   IQuestion,
   IRequest,
   IRequestResponse,
+  IUser,
   MongoDatabase,
   RequestStatus,
 } from '#root/shared/index.js';
@@ -12,12 +13,13 @@ import {
   GetAllRequestsQueryDto,
 } from '#root/modules/core/classes/validators/RequestValidators.js';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
-import {InternalServerError} from 'routing-controllers';
+import {InternalServerError, NotFoundError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
 
 @injectable()
 export class RequestRepository implements IRequestRepository {
   private RequestCollection: Collection<IRequest>;
+  private usersCollection!: Collection<IUser>;
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
@@ -26,6 +28,7 @@ export class RequestRepository implements IRequestRepository {
 
   private async init() {
     this.RequestCollection = await this.db.getCollection<IRequest>('requests');
+    this.usersCollection = await this.db.getCollection<IUser>('users');
   }
 
   async createRequest(
@@ -153,11 +156,40 @@ export class RequestRepository implements IRequestRepository {
   async updateStatus(
     requestId: string,
     status: RequestStatus,
+    response: string,
     userId: string,
     session?: ClientSession,
-  ): Promise<IRequest> {
-    // Implementation here
-    throw new Error('Method not implemented.');
+  ): Promise<IRequestResponse> {
+    try {
+      
+      const user = await this.usersCollection.findOne({
+        _id: new ObjectId(userId),
+      });
+      if (!user) throw new NotFoundError('Failed to get user');
+
+      const responsePayload: IRequestResponse = {
+        reviewedBy: new ObjectId(userId),
+        reviewerName: `${user.firstName} ${user.lastName}`, 
+        role: user.role,
+        status,
+        response,
+        reviewedAt: new Date(),
+      };
+
+      const updatedRequest = await this.RequestCollection.findOneAndUpdate(
+        {_id: new ObjectId(requestId)},
+        {
+          $set: {status},
+          $push: {responses: responsePayload},
+        },
+        {returnDocument: 'after', session},
+      );
+
+    
+      return responsePayload;
+    } catch (error) {
+      throw new InternalServerError(`Failed to update request: ${error}`);
+    }
   }
 
   async deleteByEntityId(
@@ -176,6 +208,21 @@ export class RequestRepository implements IRequestRepository {
       throw new InternalServerError(
         `Error while removing related entities, More/ ${error}`,
       );
+    }
+  }
+
+  async getRequestById(
+    requestId: string,
+    session?: ClientSession,
+  ): Promise<IRequest | null> {
+    try {
+      await this.init();
+      return await this.RequestCollection.findOne(
+        {_id: new ObjectId(requestId)},
+        {session},
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to get request, More/ ${error}`);
     }
   }
 }

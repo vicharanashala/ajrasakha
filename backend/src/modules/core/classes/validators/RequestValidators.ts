@@ -21,6 +21,9 @@ class RequestParamsDto {
 class RequestStatusBody {
   @IsEnum(['pending', 'rejected', 'approved', 'in-review'])
   status!: RequestStatus;
+
+  @IsString()
+  response: string;
 }
 
 class ModeratorResponseDto {

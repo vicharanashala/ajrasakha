@@ -6,6 +6,7 @@ const requestService = new RequestService();
 
 interface UpdateStatusPayload {
   requestId: string;
+  response: string;
   status: RequestStatus;
 }
 
@@ -13,8 +14,8 @@ export const useUpdateRequestStatus = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ requestId, status }: UpdateStatusPayload): Promise<IRequest | null> => {
-      return await requestService.updateStatus(requestId, status);
+    mutationFn: async ({ requestId, status, response }: UpdateStatusPayload): Promise<IRequest | null> => {
+      return await requestService.updateStatus(requestId, status, response);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({queryKey: ["requests"]});

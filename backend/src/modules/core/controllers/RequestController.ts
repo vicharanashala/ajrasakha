@@ -1,4 +1,4 @@
-import {BadRequestErrorResponse, IRequest, IUser} from '#root/shared/index.js';
+import {BadRequestErrorResponse, IRequest, IRequestResponse, IUser} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject, injectable} from 'inversify';
 import {
@@ -63,6 +63,22 @@ export class RequestController {
     const userId = user._id.toString();
     return this.requestService.getAllRequests(userId, query);
   }
+  @Get('/:requestId')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Get request difference by ID'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async getRequestDiff(
+    @Params() params: RequestParamsDto,
+    @CurrentUser() user: IUser,
+  ): Promise<{
+    currentDoc: any;
+    existingDoc: any;
+  }> {
+    const {requestId} = params;
+    const userId = user._id.toString();
+    return this.requestService.getRequestDiff(userId, requestId);
+  }
 
   @Put('/:requestId/status')
   @HttpCode(200)
@@ -73,11 +89,11 @@ export class RequestController {
     @Params() params: RequestParamsDto,
     @Body() body: RequestStatusBody,
     @CurrentUser() user: IUser,
-  ): Promise<IRequest> {
+  ): Promise<IRequestResponse> {
     const {requestId} = params;
-    const {status} = body;
+    const {status, response} = body;
     const userId = user._id.toString();
 
-    return this.requestService.updateStatus(requestId, status, userId);
+    return this.requestService.updateStatus(requestId, status, response, userId);
   }
 }

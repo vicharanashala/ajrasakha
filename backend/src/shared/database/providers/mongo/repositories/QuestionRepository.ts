@@ -292,6 +292,15 @@ export class QuestionRepository implements IQuestionRepository {
           {question: {$regex: search, $options: 'i'}},
           {'details.crop': {$regex: search, $options: 'i'}},
           {'details.state': {$regex: search, $options: 'i'}},
+          {
+            $expr: {
+              $regexMatch: {
+                input: {$toString: '$_id'},
+                regex: search,
+                options: 'i',
+              },
+            },
+          },
         ];
       }
 
