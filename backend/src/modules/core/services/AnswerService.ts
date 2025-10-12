@@ -4,7 +4,11 @@ import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject, injectable} from 'inversify';
 import {ClientSession, ObjectId} from 'mongodb';
-import {IAnswer, ISubmissionHistroy} from '#root/shared/interfaces/models.js';
+import {
+  IAnswer,
+  IQuestionMetrics,
+  ISubmissionHistroy,
+} from '#root/shared/interfaces/models.js';
 import {BadRequestError} from 'routing-controllers';
 import {
   SubmissionResponse,
@@ -13,7 +17,11 @@ import {
 import {CORE_TYPES} from '../types.js';
 import {AiService} from './AiService.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
-import { dummyEmbeddings } from '../utils/questionGen.js';
+import {dummyEmbeddings} from '../utils/questionGen.js';
+import {
+  IQuestionAnalysis,
+  IQuestionWithAnswerTexts,
+} from '../classes/validators/QuestionValidators.js';
 
 @injectable()
 export class AnswerService extends BaseService {
@@ -67,29 +75,50 @@ export class AnswerService extends BaseService {
 
       // lets consider it is not final answer
       let isFinalAnswer = false;
-      let threshold = 0;
-      const answers = await this.answerRepo.getByQuestionId(questionId);
+      let metrics: IQuestionMetrics | null = null;
+      let analysisStatus: 'CONTINUE' | 'FLAGGED_FOR_REVIEW' | 'CONVERGED' =
+        'CONVERGED';
+      const answers = await this.answerRepo.getByQuestionId(questionId) || [];
 
-      if (answers.length) {
-        const lastSubmittedAnswer = answers[0]; // first answer should be latest
-        const payload: {text1: string; text2: string} = {
-          text1: answer,
-          text2: lastSubmittedAnswer.answer,
+      // if (answers.length) {
+        const answerTexts = answers.map(ans => ans.answer);
+
+        const payload: IQuestionWithAnswerTexts = {
+          question_id: questionId,
+          question_text: question.question,
+          answers: [...answerTexts, answer],
         };
 
+        const analysis: IQuestionAnalysis = {
+          question_id: 'Q101',
+          num_answers: 3,
+          mean_similarity: 0.84,
+          std_similarity: 0.06,
+          recent_similarity: 0.82,
+          collusion_score: 0.92,
+          status: 'CONTINUE',
+          message: 'More responses required to reach convergence.',
+        };
+
+        metrics = {
+          mean_similarity: analysis.mean_similarity,
+          std_similarity: analysis.std_similarity,
+          recent_similarity: analysis.recent_similarity,
+          collusion_score: analysis.collusion_score,
+        };
+        analysisStatus = analysis.status;
         // const result = await this.aiService.getFinalAnswerByThreshold(payload);
         // threshold = result.similarity_score;
-        threshold = 2;
 
-        if (threshold >= 0.9) isFinalAnswer = true; // if it meets threshold then set as final
-      }
+        if (analysis.status == 'CONVERGED') isFinalAnswer = true;
+      // }
 
       if (isFinalAnswer) {
         const text = `Question: ${question.question}
-        answer: ${answer}`;
+        Answer: ${answer}`;
         await this.questionRepo.updateQuestion(
           questionId,
-          {text},
+          {text, embedding: dummyEmbeddings},
           session,
           true,
         );
@@ -101,7 +130,6 @@ export class AnswerService extends BaseService {
         questionId,
         authorId,
         answer,
-        threshold,
         sources,
         dummyEmbeddings,
         isFinalAnswer,
@@ -112,7 +140,13 @@ export class AnswerService extends BaseService {
         questionId,
         {
           totalAnswersCount: updatedAnswerCount,
-          status: isFinalAnswer ? 'closed' : 'open',
+          metrics,
+          status:
+            analysisStatus == 'CONVERGED'
+              ? 'closed'
+              : analysisStatus == 'CONTINUE'
+              ? 'open'
+              : 'closed',
         },
         session,
       );

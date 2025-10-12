@@ -319,6 +319,24 @@ class GetDetailedQuestionsQuery {
   @Min(1)
   limit?: number;
 }
+
+export interface IQuestionWithAnswerTexts {
+  question_id: string;
+  question_text: string;
+  answers: string[];
+}
+
+export interface IQuestionAnalysis {
+  question_id: string;
+  num_answers: number;
+  mean_similarity: number;
+  std_similarity: number;
+  recent_similarity: number;
+  collusion_score: number;
+  status: 'CONTINUE' | 'FLAGGED_FOR_REVIEW' | 'CONVERGED';
+  message: string;
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,

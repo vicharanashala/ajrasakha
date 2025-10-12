@@ -206,6 +206,8 @@ export class QuestionService extends BaseService {
           totalAnswersCount: 0,
           details,
           embedding: dummyEmbeddings,
+          metrics: null,
+          text: `Question: ${question}`,
           createdAt: new Date(),
           updatedAt: new Date(),
         };

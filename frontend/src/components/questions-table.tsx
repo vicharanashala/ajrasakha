@@ -311,7 +311,7 @@ export const QuestionsTable = ({
                     <TableCell className="align-middle">
                       <Badge
                         variant={
-                          q.status === "answered"
+                          q.status === "in-review"
                             ? "secondary"
                             : q.status === "open"
                             ? "outline"
@@ -320,7 +320,7 @@ export const QuestionsTable = ({
                             : "outline"
                         }
                         className={
-                          q.status === "answered"
+                          q.status === "in-review"
                             ? "bg-green-500/10 text-green-600 border-green-500/30"
                             : q.status === "open"
                             ? "bg-amber-500/10 text-amber-600 border-amber-500/30"

@@ -1,7 +1,7 @@
 import {ObjectId} from 'mongodb';
 
 export type UserRole = 'admin' | 'moderator' | 'expert';
-export type QuestionStatus = 'open' | 'answered' | 'closed';
+export type QuestionStatus = 'open' | 'in-review' | 'closed';
 export interface IPreference {
   state: string;
   crop: string;
@@ -21,6 +21,12 @@ export interface IUser {
 
 export type IQuestionPriority = 'low' | 'medium' | 'high';
 
+export interface IQuestionMetrics {
+  mean_similarity: number;
+  std_similarity: number;
+  recent_similarity: number;
+  collusion_score: number;
+}
 export interface IQuestion {
   _id?: string | ObjectId;
   userId?: ObjectId | string;
@@ -38,6 +44,7 @@ export interface IQuestion {
   };
   source: 'AJRASAKHA' | 'AGRI_EXPERT';
   embedding: number[];
+  metrics: IQuestionMetrics | null;
   text?: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -51,9 +58,7 @@ export interface IAnswer {
   isFinalAnswer: boolean;
   answer: string;
   sources: string[];
-  threshold: number;
   embedding: number[];
-
   createdAt?: Date;
   updatedAt?: Date;
 }

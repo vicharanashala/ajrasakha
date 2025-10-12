@@ -24,7 +24,6 @@ export class AnswerRepository implements IAnswerRepository {
     questionId: string,
     authorId: string,
     answer: string,
-    threshold: number,
     sources: string[],
     embedding: number[],
     isFinalAnswer: boolean = false,
@@ -50,7 +49,6 @@ export class AnswerRepository implements IAnswerRepository {
         answer,
         isFinalAnswer,
         answerIteration,
-        threshold,
         embedding,
         sources,
         createdAt: new Date(),
@@ -82,7 +80,7 @@ export class AnswerRepository implements IAnswerRepository {
         {questionId: new ObjectId(questionId)},
         {session},
       )
-        .sort({createdAt: -1})
+        .sort({createdAt: 1})
         .toArray();
 
       return answers.map(a => ({

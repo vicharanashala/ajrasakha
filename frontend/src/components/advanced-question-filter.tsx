@@ -40,7 +40,7 @@ import { useGetAllUserNames } from "@/hooks/api/user/useGetAllUserNames";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 import type { IMyPreference } from "@/types";
 
-export type QuestionFilterStatus = "all" | "open" | "answered" | "closed";
+export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed";
 export type QuestionDateRangeFilter =
   | "all"
   | "today"
@@ -198,7 +198,7 @@ useEffect(() => {
                     <SelectContent>
                       <SelectItem value="all">All Statuses</SelectItem>
                       <SelectItem value="open">🟢 Open</SelectItem>
-                      <SelectItem value="answered">🔵 Answered</SelectItem>
+                      <SelectItem value="in-review">🔵 In Review</SelectItem>
                       <SelectItem value="closed">🔴 Closed</SelectItem>
                     </SelectContent>
                   </Select>

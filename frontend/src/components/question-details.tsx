@@ -143,7 +143,7 @@ export const QuestionDetails = ({
         <div className="flex items-center gap-2 flex-wrap">
           <Badge
             className={
-              question.status === "answered"
+              question.status === "in-review"
                 ? "bg-green-500/10 text-green-600 border-green-500/30"
                 : question.status === "open"
                 ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
@@ -228,7 +228,8 @@ export const QuestionDetails = ({
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Answers</h2>
           <div className="flex items-center gap-2">
-            {question.status !== "closed" && (
+            {(question.status == "open" ||
+              (userRole != "expert" && question.status == "in-review")) && (
               <SubmitAnswerDialog
                 questionId={question._id}
                 isAlreadySubmitted={question.isAlreadySubmitted}
@@ -352,7 +353,7 @@ export const AnswerTimeline = ({
               </div>
             )}
 
-            {item.answer.threshold > 0 && (
+            {/* {item.answer.threshold > 0 && (
               <div className="flex justify-end w-full">
                 <Badge
                   variant="outline"
@@ -362,7 +363,7 @@ export const AnswerTimeline = ({
                   <span>{Math.round(item.answer.threshold * 100)}%</span>
                 </Badge>
               </div>
-            )}
+            )} */}
 
             <small className="text-xs text-muted-foreground mt-1">
               {item.createdAt}

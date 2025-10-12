@@ -4,6 +4,7 @@ import {
 } from '#shared/constants/transformerConstants.js';
 import {
   IQuestion,
+  IQuestionMetrics,
   IQuestionPriority,
   QuestionStatus,
 } from '#shared/interfaces/models.js';
@@ -40,6 +41,12 @@ class Question implements IQuestion {
 
   @Expose()
   priority: IQuestionPriority;
+
+  @Expose()
+  metrics: IQuestionMetrics | null;
+  
+  @Expose()
+  text: string;
 
   @Expose()
   details: {

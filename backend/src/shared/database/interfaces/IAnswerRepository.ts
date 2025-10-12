@@ -20,7 +20,6 @@ export interface IAnswerRepository {
     questionId: string,
     authorId: string,
     answer: string,
-    threshold: number,
     source: string[],
     embedding: number[],
     isFinalAnswer?: boolean,

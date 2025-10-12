@@ -114,7 +114,7 @@ export type SupportedLanguage =
   | "pa-IN"
   | "ur-IN";
 
-export type QuestionStatus = "open" | "answered" | "closed";
+export type QuestionStatus = "open" | "in-review" | "closed";
 
 export interface IAnswer {
   _id?: string;

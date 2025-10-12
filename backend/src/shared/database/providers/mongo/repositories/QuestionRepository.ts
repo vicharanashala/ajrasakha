@@ -79,7 +79,8 @@ export class QuestionRepository implements IQuestionRepository {
           details: randomDetails,
           source: randomSource,
           embedding: dummyEmbeddings,
-
+          metrics: null,
+          text: `Question: ${question}`,
           totalAnswersCount: 0,
           priority: randomPrioriy,
           createdAt: new Date(),
@@ -133,6 +134,8 @@ export class QuestionRepository implements IQuestionRepository {
         details: randomDetails,
         source: randomSource,
         embedding: dummyEmbeddings,
+        metrics: null,
+        text: `Question: ${question}`,
         totalAnswersCount: 0,
         priority: randomPrioriy,
         createdAt: new Date(),
@@ -607,7 +610,6 @@ export class QuestionRepository implements IQuestionRepository {
                 isFinalAnswer: answersMap.get(h.answer?.toString())
                   ?.isFinalAnswer,
                 answer: answersMap.get(h.answer?.toString())?.answer,
-                threshold: answersMap.get(h.answer?.toString())?.threshold,
                 sources: answersMap.get(h.answer?.toString())?.sources,
                 createdAt: answersMap.get(h.answer?.toString())?.createdAt,
                 updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,

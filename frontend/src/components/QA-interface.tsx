@@ -186,6 +186,7 @@ export const QAInterface = () => {
       if (result) setIsFinalAnswer(result.isFinalAnswer);
       toast.success("Response submitted successfully!");
       setNewAnswer("");
+      setSources([]);
     } catch (error) {
       console.error("Error submitting answer:", error);
     } finally {
