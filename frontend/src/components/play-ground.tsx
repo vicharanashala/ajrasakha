@@ -289,9 +289,9 @@ export const PlaygroundPage = () => {
 
               <TabsContent
                 value="history"
-                className="mt-0 border-0 p-0 max-w-[93%]"
+                className="mt-0 border-0 p-0 max-w-[98%]"
               >
-                <FullSubmissionHistory />
+                <FullSubmissionHistory userRole={user?.role!} />
               </TabsContent>
             </div>
           </div>
