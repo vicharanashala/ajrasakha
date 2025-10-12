@@ -81,6 +81,7 @@ export interface IComment {
   questionId: string | ObjectId;
   answerId: string | ObjectId;
   userId: string | ObjectId;
+  userName?: string;
   text: string;
   createdAt: Date;
 }
@@ -89,24 +90,24 @@ export type RequestStatus = 'pending' | 'rejected' | 'approved' | 'in-review';
 
 export interface IRequestResponse {
   reviewedBy: string | ObjectId;
-  role: UserRole,
+  role: UserRole;
   status: RequestStatus;
   response?: string;
   reviewedAt?: Date;
-  reviewerName?: string; 
+  reviewerName?: string;
 }
 
 export type RequestDetails =
-  | { requestType: 'question_flag'; details: IQuestion | null }
-  | { requestType: 'others'; details: Record<string, any> | null };
+  | {requestType: 'question_flag'; details: IQuestion | null}
+  | {requestType: 'others'; details: Record<string, any> | null};
 
 export type IRequest = RequestDetails & {
   _id?: string | ObjectId;
   reason: string;
-  requestedBy: string | ObjectId,
-  entityId: string | ObjectId,
+  requestedBy: string | ObjectId;
+  entityId: string | ObjectId;
   responses: IRequestResponse[];
   status: RequestStatus;
   createdAt?: string | Date;
   updatedAt?: string | Date;
-}
+};

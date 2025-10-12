@@ -725,9 +725,16 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                               idx % 2 === 0 ? "bg-secondary/80" : ""
                             }`}
                           >
-                            <p className="text-sm text-foreground">{c.text}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {new Date(c.createdAt).toLocaleString()}
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm  text-muted-foreground">
+                                {c.userName || "Unknown User"}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(c.createdAt).toLocaleString()}
+                              </span>
+                            </div>
+                            <p className="text-sm ms-2 text-foreground leading-relaxed">
+                              {c.text}
                             </p>
                           </div>
                         );

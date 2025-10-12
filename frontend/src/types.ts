@@ -185,6 +185,7 @@ export interface IComment {
   questionId: string;
   answerId: string;
   userId: string;
+  userName?: string;
   text: string;
   createdAt: string;
 }

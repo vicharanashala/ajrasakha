@@ -28,25 +28,63 @@ export class CommentRepository implements ICommentRepository {
     const skip = (page - 1) * limit;
 
     try {
-      const comments = await this.CommentsCollection.find(
-        {
-          questionId: new ObjectId(questionId),
-          answerId: new ObjectId(answerId),
-        },
+      const comments = await this.CommentsCollection.aggregate(
+        [
+          {
+            $match: {
+              questionId: new ObjectId(questionId),
+              answerId: new ObjectId(answerId),
+            },
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'userId',
+              foreignField: '_id',
+              as: 'userInfo',
+            },
+          },
+          {
+            $unwind: {
+              path: '$userInfo',
+              preserveNullAndEmptyArrays: true, // keeps comments even if user missing
+            },
+          },
+          {
+            $project: {
+              _id: {$toString: '$_id'},
+              questionId: {$toString: '$questionId'},
+              answerId: {$toString: '$answerId'},
+              userId: {$toString: '$userId'},
+              text: 1,
+              createdAt: 1,
+              updatedAt: 1,
+              userName: {
+                $trim: {
+                  input: {
+                    $ifNull: [
+                      {
+                        $concat: [
+                          {$ifNull: ['$userInfo.firstName', '']},
+                          ' ',
+                          {$ifNull: ['$userInfo.lastName', '']},
+                        ],
+                      },
+                      'Unknown User',
+                    ],
+                  },
+                },
+              },
+            },
+          },
+          {$sort: {createdAt: -1}},
+          {$skip: skip},
+          {$limit: limit},
+        ],
         {session},
-      )
-        .sort({createdAt: -1})
-        .skip(skip)
-        .limit(limit)
-        .toArray();
+      ).toArray();
 
-      return comments.map(c => ({
-        ...c,
-        _id: c._id.toString(),
-        questionId: c.questionId.toString(),
-        answerId: c.answerId.toString(),
-        userId: c.userId.toString(),
-      }));
+      return comments as IComment[];
     } catch (err: any) {
       console.error(
         `Error fetching comments for question ${questionId} and answer ${answerId}:`,
