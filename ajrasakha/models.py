@@ -42,7 +42,8 @@ class ChatCompletionRequest(BaseModel):
     model: Optional[str] = "mock-gpt-model"
     messages: List[Message]
     stream: Optional[bool] = False
-    tools: List
+    think: Optional[bool] = False
+    tools: Optional[List] = None
 
 
 class StreamingMessageChunk(BaseModel):

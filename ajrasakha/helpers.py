@@ -10,6 +10,7 @@ from models import (
     get_id,
 )
 from llama_index.core.schema import NodeWithScore, MetadataMode, TextNode
+from constants import SYSTEM_PROMPT_AGRI_EXPERT
 
 from constants import LLM_MODEL_FALL_BACK, SYSTEM_PROMPT_AGRI_EXPERT, CITATION_QA_TEMPLATE
 import logging
@@ -71,10 +72,16 @@ async def tool_calling_forward(
     request: ChatCompletionRequest,
 ):
     payload = {
-        "model": 'qwq:32b',
-        "messages": [{"role": m.role, "content": m.content} for m in request.messages],
-        "stream": request.stream,
-        "think": False,
+        "model": 'gpt-oss:120b',
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT_AGRI_EXPERT},
+            *[
+                {"role": m.role, "content": m.content, "thinking": m.thinking, "tool_calls": m.tool_calls}
+                for m in request.messages
+            ]
+        ],
+        "stream": True,
+        "think": True,
         "tools": request.tools,
     }
 
