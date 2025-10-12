@@ -39,11 +39,17 @@ import {
 } from "./atoms/accordion";
 import {
   ArrowUpRight,
+  Calendar,
   Edit,
   Eye,
+  Landmark,
+  Layers,
+  Link2,
   Loader2,
+  MapPin,
   MessageSquare,
   RefreshCw,
+  Sprout,
   UserCheck,
 } from "lucide-react";
 import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
@@ -175,34 +181,47 @@ export const QuestionDetails = ({
       </header>
 
       <div className="py-2 grid gap-6">
-        <Card className="p-4 grid gap-2">
+        <Card className="p-4 grid gap-3">
           <p className="text-sm font-medium">Details</p>
+
           <div className="grid grid-cols-2 gap-2 text-sm">
-            <div>
-              <span className="text-muted-foreground">State:</span>{" "}
-              {question.details.state}
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-primary" />
+              <span className="text-muted-foreground">State:</span>
+              <span className="truncate">{question.details.state}</span>
             </div>
-            <div>
-              <span className="text-muted-foreground">District:</span>{" "}
-              {question.details.district}
+
+            <div className="flex items-center gap-2">
+              <Landmark className="w-4 h-4 text-primary" />
+              <span className="text-muted-foreground">District:</span>
+              <span className="truncate">{question.details.district}</span>
             </div>
-            <div>
-              <span className="text-muted-foreground">Crop:</span>{" "}
-              {question.details.crop}
+
+            <div className="flex items-center gap-2">
+              <Sprout className="w-4 h-4 text-primary" />
+              <span className="text-muted-foreground">Crop:</span>
+              <span className="truncate">{question.details.crop}</span>
             </div>
-            <div>
-              <span className="text-muted-foreground">Season:</span>{" "}
-              {question.details.season}
+
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-primary" />
+              <span className="text-muted-foreground">Season:</span>
+              <span className="truncate">{question.details.season}</span>
             </div>
-            <div className="col-span-2">
-              <span className="text-muted-foreground">Domain:</span>{" "}
-              {question.details.domain}
+
+            <div className="flex items-center gap-2 col-span-2">
+              <Layers className="w-4 h-4 text-primary" />
+              <span className="text-muted-foreground">Domain:</span>
+              <span className="truncate">{question.details.domain}</span>
             </div>
           </div>
+
           <Separator />
-          <div className="text-sm">
-            <span className="text-muted-foreground">Source:</span>{" "}
-            {question.source}
+
+          <div className="flex items-center gap-2 text-sm">
+            <Link2 className="w-4 h-4 text-primary" />
+            <span className="text-muted-foreground">Source:</span>
+            <span className="truncate">{question.source}</span>
           </div>
         </Card>
 
