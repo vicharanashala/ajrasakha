@@ -13,6 +13,7 @@ import {
 import {CORE_TYPES} from '../types.js';
 import {AiService} from './AiService.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
+import { dummyEmbeddings } from '../utils/questionGen.js';
 
 @injectable()
 export class AnswerService extends BaseService {
@@ -83,6 +84,17 @@ export class AnswerService extends BaseService {
         if (threshold >= 0.9) isFinalAnswer = true; // if it meets threshold then set as final
       }
 
+      if (isFinalAnswer) {
+        const text = `Question: ${question.question}
+        answer: ${answer}`;
+        await this.questionRepo.updateQuestion(
+          questionId,
+          {text},
+          session,
+          true,
+        );
+      }
+
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
       const {insertedId} = await this.answerRepo.addAnswer(
@@ -91,6 +103,7 @@ export class AnswerService extends BaseService {
         answer,
         threshold,
         sources,
+        dummyEmbeddings,
         isFinalAnswer,
         updatedAnswerCount,
         session,
@@ -164,7 +177,9 @@ export class AnswerService extends BaseService {
       //     `Another final answer already exists for question ${questionId}`,
       //   );
       // }
-
+      const text = `Question: ${question.question}
+        answer: ${answer}`;
+      await this.questionRepo.updateQuestion(questionId, {text}, session, true);
       return this.answerRepo.updateAnswer(answerId, updates, session);
     });
   }

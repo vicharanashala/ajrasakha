@@ -22,6 +22,7 @@ export interface IAnswerRepository {
     answer: string,
     threshold: number,
     source: string[],
+    embedding: number[],
     isFinalAnswer?: boolean,
     answerIteration?: number,
     session?: ClientSession,

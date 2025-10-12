@@ -35,6 +35,9 @@ class Answer implements IAnswer {
   sources: string[];
 
   @Expose()
+  embedding: number[];
+
+  @Expose()
   threshold: number;
 
   @Expose()

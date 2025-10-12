@@ -18,6 +18,7 @@ import {
 
 import {
   detailsArray,
+  dummyEmbeddings,
   priorities,
   questionStatus,
   sources,
@@ -77,6 +78,8 @@ export class QuestionRepository implements IQuestionRepository {
           status: 'open',
           details: randomDetails,
           source: randomSource,
+          embedding: dummyEmbeddings,
+
           totalAnswersCount: 0,
           priority: randomPrioriy,
           createdAt: new Date(),
@@ -129,6 +132,7 @@ export class QuestionRepository implements IQuestionRepository {
         status: randomStatus,
         details: randomDetails,
         source: randomSource,
+        embedding: dummyEmbeddings,
         totalAnswersCount: 0,
         priority: randomPrioriy,
         createdAt: new Date(),
@@ -637,6 +641,7 @@ export class QuestionRepository implements IQuestionRepository {
     questionId: string,
     updates: Partial<IQuestion>,
     session?: ClientSession,
+    addText?: boolean,
   ): Promise<{modifiedCount: number}> {
     try {
       await this.init();
@@ -648,14 +653,19 @@ export class QuestionRepository implements IQuestionRepository {
         throw new BadRequestError('Updates object cannot be empty');
       }
 
-      const forbiddenFields = ['_id', 'id', 'createdAt', 'updatedAt', 'text'];
-      forbiddenFields.forEach(field => {
+      const forbiddenFields = ['_id', 'id', 'createdAt', 'updatedAt'];
+
+      if (!addText) {
+        forbiddenFields.push('text');
+      }
+
+      for (const field of forbiddenFields) {
         delete (updates as any)[field];
-      });
+      }
 
       const result = await this.QuestionCollection.updateOne(
         {_id: new ObjectId(questionId)},
-        {$set: {...updates, updatedAt: new Date()}}, // only allowed fields
+        {$set: {...updates, updatedAt: new Date()}},
         {session},
       );
 

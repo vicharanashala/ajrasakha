@@ -74,7 +74,7 @@ const detailsArray = [
 ];
 
 const priorities: IQuestionPriority[] = ['high', 'low', 'medium'];
-const questionStatus: QuestionStatus[] = ['answered', 'closed', 'open']
+const questionStatus: QuestionStatus[] = ['answered', 'closed', 'open'];
 
 const sources: ('AJRASAKHA' | 'AGRI_EXPERT')[] = ['AJRASAKHA', 'AGRI_EXPERT'];
 
@@ -181,4 +181,20 @@ const dummyQuestions: string[] = [
   'What are the principles of regenerative agriculture?',
 ];
 
-export {detailsArray, sources, priorities,questionStatus, dummyQuestions};
+const dummyEmbeddings = [
+  0.0123, -0.0045, 0.0871, 0.0562, -0.0423, 0.0148, 0.0239, -0.0352, 0.0914,
+  -0.0207, 0.0076, 0.0032, 0.0567, -0.0238, 0.0099, -0.0041, 0.0283, 0.0137,
+  -0.0176, 0.0111, 0.0445, -0.0563, 0.0349, -0.0087, 0.0271, 0.0065, -0.0182,
+  0.0547, 0.0321, -0.0403, 0.0156, 0.0079, 0.0125, 0.0289, -0.0024, 0.0037,
+  -0.0193, 0.0501, -0.0068, 0.0214, 0.0098, -0.0054, 0.0437, 0.0206, -0.0258,
+  0.0189, 0.0304, -0.0092, 0.0123, 0.0021,
+];
+
+export {
+  detailsArray,
+  sources,
+  priorities,
+  questionStatus,
+  dummyQuestions,
+  dummyEmbeddings,
+};

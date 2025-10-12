@@ -24,6 +24,7 @@ import {AiService} from './AiService.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
+import { dummyEmbeddings } from '../utils/questionGen.js';
 
 @injectable()
 export class QuestionService extends BaseService {
@@ -204,6 +205,7 @@ export class QuestionService extends BaseService {
           status: 'open',
           totalAnswersCount: 0,
           details,
+          embedding: dummyEmbeddings,
           createdAt: new Date(),
           updatedAt: new Date(),
         };

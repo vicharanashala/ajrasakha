@@ -107,12 +107,14 @@ export interface IQuestionRepository {
    * @param questionId - The ID of the question to update.
    * @param updates - Partial object containing the fields to update.
    * @param session - Optional MongoDB client session for transactions.
+   * @param addText - To add text field without filtering it.
    * @returns A promise that resolves to an object containing the number of modified documents.
    */
   updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
     session?: ClientSession,
+    addText?:boolean,
   ): Promise<{modifiedCount: number}>;
 
   /**

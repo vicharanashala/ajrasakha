@@ -26,6 +26,7 @@ export class AnswerRepository implements IAnswerRepository {
     answer: string,
     threshold: number,
     sources: string[],
+    embedding: number[],
     isFinalAnswer: boolean = false,
     answerIteration: number = 1,
     session?: ClientSession,
@@ -50,6 +51,7 @@ export class AnswerRepository implements IAnswerRepository {
         isFinalAnswer,
         answerIteration,
         threshold,
+        embedding,
         sources,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -252,7 +254,7 @@ export class AnswerRepository implements IAnswerRepository {
     session?: ClientSession,
   ): Promise<void> {
     try {
-      await this.init()
+      await this.init();
       await this.AnswerCollection.deleteMany(
         {questionId: new ObjectId(questionId)},
         {session},

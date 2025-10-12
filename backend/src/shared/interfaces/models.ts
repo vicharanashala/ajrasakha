@@ -37,6 +37,8 @@ export interface IQuestion {
     domain: string;
   };
   source: 'AJRASAKHA' | 'AGRI_EXPERT';
+  embedding: number[];
+  text?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -50,6 +52,8 @@ export interface IAnswer {
   answer: string;
   sources: string[];
   threshold: number;
+  embedding: number[];
+
   createdAt?: Date;
   updatedAt?: Date;
 }
