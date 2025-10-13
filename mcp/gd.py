@@ -26,8 +26,21 @@ retriever_pop = get_retriever(
 )
 
 
+state_codes = {
+    "ARUNACHAL PRADESH": "AR",
+    "Haryana": "HR",
+    "MADHYA PRADESH": "MP",
+    "MAHARASHTRA": "MH",
+    "PUNJAB": "PB",
+    "Rajasthan": "RJ",
+    "TAMILNADU": "TN",
+    "Uttar Pradesh": "UP",
+    "": "--"
+}
+
+
 @mcp.tool()
-async def get_context_from_golden_dataset(query: str) -> List[ContextQuestionAnswerPair]:
+async def get_context_from_golden_dataset(query: str, state: str) -> List[ContextQuestionAnswerPair]:
     """
     Retrieve domain-specific context from the golden dataset.
 
@@ -39,6 +52,7 @@ async def get_context_from_golden_dataset(query: str) -> List[ContextQuestionAns
     Args:
         query (str): A plain-text query strictly describing the agricultural, climate, 
                      or related issue of concern.
+        state (str): The current state or context of the conversation.
 
     """
     nodes = await retriever_qa.aretrieve(query)
