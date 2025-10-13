@@ -74,6 +74,7 @@ export class RequestController {
   ): Promise<{
     currentDoc: any;
     existingDoc: any;
+    responses: IRequestResponse[]
   }> {
     const {requestId} = params;
     const userId = user._id.toString();

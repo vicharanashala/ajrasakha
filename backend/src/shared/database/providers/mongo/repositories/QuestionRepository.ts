@@ -1,6 +1,7 @@
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
 import {
   IAnswer,
+  IContext,
   IQuestion,
   IQuestionSubmission,
   IUser,
@@ -29,6 +30,7 @@ export class QuestionRepository implements IQuestionRepository {
   private QuestionSubmissionCollection: Collection<IQuestionSubmission>;
   private AnswersCollection: Collection<IAnswer>;
   private UsersCollection!: Collection<IUser>;
+  private ContextCollection: Collection<IContext>;
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
@@ -36,6 +38,8 @@ export class QuestionRepository implements IQuestionRepository {
   ) {}
 
   private async init() {
+    this.ContextCollection = await this.db.getCollection<IContext>('contexts');
+
     this.QuestionCollection = await this.db.getCollection<IQuestion>(
       'questions',
     );
@@ -129,7 +133,7 @@ export class QuestionRepository implements IQuestionRepository {
       const newQuestion: IQuestion = {
         question,
         userId: new ObjectId(userId),
-        context: new ObjectId(contextId),
+        contextId: new ObjectId(contextId),
         status: randomStatus,
         details: randomDetails,
         source: randomSource,
@@ -162,6 +166,18 @@ export class QuestionRepository implements IQuestionRepository {
       const rowId = question._id.toString();
       await this.QuestionCollection.insertOne(question, {session});
 
+      const submissionData: IQuestionSubmission = {
+        questionId: question._id,
+        lastRespondedBy: null,
+        history: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await this.QuestionSubmissionCollection.insertOne(submissionData, {
+        session,
+      });
+
       return {...question, _id: rowId};
     } catch (error) {
       throw new InternalServerError(`Failed to add question ${error}`);
@@ -190,7 +206,7 @@ export class QuestionRepository implements IQuestionRepository {
         ...q,
         _id: q._id?.toString(),
         userId: q.userId?.toString(),
-        context: q.context?.toString(),
+        contextId: q.contextId?.toString(),
       }));
       return formattedQuestions;
     } catch (error) {
@@ -220,7 +236,7 @@ export class QuestionRepository implements IQuestionRepository {
         ...question,
         _id: question._id?.toString(),
         userId: question.userId?.toString(),
-        context: question.context?.toString(),
+        contextId: question.contextId?.toString(),
       };
 
       return formattedQuestion;
@@ -337,7 +353,13 @@ export class QuestionRepository implements IQuestionRepository {
         .sort({createdAt: -1})
         .skip((page - 1) * limit)
         .limit(limit)
-        .project({userId: 0, updatedAt: 0, context: 0})
+        .project({
+          userId: 0,
+          updatedAt: 0,
+          contextId: 0,
+          metrics: 0,
+          embedding: 0,
+        })
         .toArray();
 
       // --- Convert ObjectIds to string ---
@@ -535,16 +557,16 @@ export class QuestionRepository implements IQuestionRepository {
     await this.init();
 
     const questionObjectId = new ObjectId(questionId);
+  
     try {
       // 1 Fetch the question
       const question = await this.QuestionCollection.findOne(
         {
           _id: questionObjectId,
         },
-        {projection: {context: 0, userId: 0}},
+        {projection: {userId: 0, embedding: 0}},
       );
       if (!question) return null;
-
       // 2 Fetch submissions for this question
       const submission = await this.QuestionSubmissionCollection.findOne({
         questionId: questionObjectId,
@@ -557,7 +579,7 @@ export class QuestionRepository implements IQuestionRepository {
       const allUpdatedByIds: ObjectId[] = [];
       const allAnswerIds: ObjectId[] = [];
 
-      submission.history.forEach(h => {
+      submission?.history?.forEach(h => {
         if (h.updatedBy) allUpdatedByIds.push(h.updatedBy as ObjectId);
         if (h.answer) allAnswerIds.push(h.answer as ObjectId);
       });
@@ -581,24 +603,24 @@ export class QuestionRepository implements IQuestionRepository {
 
       // 7 Populate submissions manually
       const populatedSubmissions = {
-        _id: submission._id?.toString(),
-        questionId: submission.questionId?.toString(),
+        _id: submission?._id?.toString(),
+        questionId: submission?.questionId?.toString(),
         lastRespondedBy: lastRespondedId
           ? {
-              _id: submission.lastRespondedBy?.toString(),
+              _id: submission?.lastRespondedBy?.toString(),
               name: usersMap.get(lastRespondedId)?.firstName,
-              email: usersMap.get(submission.lastRespondedBy?.toString())
+              email: usersMap.get(submission?.lastRespondedBy?.toString())
                 ?.email,
             }
           : null,
-        history: submission.history.map(h => ({
+        history: submission?.history.map(h => ({
           updatedBy: h.updatedBy
             ? {
                 _id: h.updatedBy?.toString(),
                 name: usersMap.get(h.updatedBy?.toString())?.firstName,
                 email: usersMap.get(h.updatedBy?.toString())?.email,
               }
-            : null,
+            : [],
           answer: h.answer
             ? {
                 _id: h.answer?.toString(),
@@ -618,16 +640,27 @@ export class QuestionRepository implements IQuestionRepository {
           isFinalAnswer: h.isFinalAnswer,
           updatedAt: h.updatedAt,
         })),
-        createdAt: submission.createdAt,
-        updatedAt: submission.updatedAt,
+        createdAt: submission?.createdAt,
+        updatedAt: submission?.updatedAt,
       };
 
-      // 8 Final assembled question
+      // 8 Attach context
+      const contextId = question.contextId || '';
+      let context = '';
+      if (isValidObjectId(contextId.toString())) {
+        const contextData = await this.ContextCollection.findOne({
+          _id: contextId,
+        });
+        context = contextData.text || '';
+      }
+
+      // 9 Final assembled question
       const result = {
         ...question,
         _id: question._id?.toString(),
         userId: question.userId?.toString(),
         isAlreadySubmitted,
+        context,
         submissions: populatedSubmissions,
       };
 

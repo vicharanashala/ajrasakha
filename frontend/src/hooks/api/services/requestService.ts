@@ -1,4 +1,4 @@
-import type { IDetailedQuestion, IRequest } from "@/types";
+import type { IDetailedQuestion, IRequest, IRequestResponse } from "@/types";
 import { apiFetch } from "../api-fetch";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -56,10 +56,12 @@ export class RequestService {
   async getRequestDiff(reqId: string): Promise<{
     currentDoc: any;
     existingDoc: any;
+    responses: IRequestResponse[];
   } | null> {
     return apiFetch<{
       currentDoc: any;
       existingDoc: any;
+      responses: IRequestResponse[];
     }>(`${this._baseUrl}/${reqId}`);
   }
 

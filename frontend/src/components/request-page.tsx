@@ -33,12 +33,26 @@ import {
   Edit2,
   CheckCircle,
   FileText,
+  User,
+  Shield,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  History,
+  GitCompare,
 } from "lucide-react";
 import { useGetRequestDiff } from "@/hooks/api/request/useGetRequestDiff";
 import { Skeleton } from "./atoms/skeleton";
 import { ScrollArea } from "./atoms/scroll-area";
 import { useUpdateRequestStatus } from "@/hooks/api/request/useUpdateRequestStatus";
 import toast from "react-hot-toast";
+import { Separator } from "./atoms/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "./atoms/dialog";
 
 type SortOrder = "newest" | "oldest";
 
@@ -66,9 +80,10 @@ const initials = (name: string) => {
 };
 
 const RequestCard = ({ req }: { req: IRequest }) => {
-  const [open, setOpen] = useState(false);
+  const [diffOpen, setDiffOpen] = useState(false);
   const [newStatus, setNewStatus] = useState<RequestStatus>("pending");
   const [response, setResponse] = useState<string>("");
+  const [responseOpen, setResponseOpen] = useState(false);
 
   const { data: requestDiff, isLoading: reqDiffLoading } = useGetRequestDiff(
     req._id
@@ -98,10 +113,53 @@ const RequestCard = ({ req }: { req: IRequest }) => {
 
       await updateStatus({ status: newStatus, requestId: req._id, response });
       toast.success("Request updated successfully.");
+      setDiffOpen(false);
     } catch (error) {
       console.error("Error updating request:", error);
       toast.error("Failed to update the request. Please try again.");
     }
+  };
+  const getRoleIcon = (role: "admin" | "moderator") => {
+    return role === "admin" ? (
+      <Shield className="h-4 w-4" />
+    ) : (
+      <User className="h-4 w-4" />
+    );
+  };
+
+  const getStatusIcon = (status: RequestStatus) => {
+    switch (status) {
+      case "approved":
+        return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+      case "rejected":
+        return <XCircle className="h-5 w-5 text-red-600" />;
+      case "in-review":
+        return <Clock className="h-5 w-5 text-blue-600" />;
+      default:
+        return <Clock className="h-5 w-5 text-gray-600" />;
+    }
+  };
+
+  const getStatusBadge = (status: RequestStatus) => {
+    const variants: Record<RequestStatus, string> = {
+      approved:
+        "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50",
+      rejected:
+        "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50",
+      "in-review":
+        "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50",
+      pending:
+        "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50",
+    };
+
+    const defaultVariant =
+      "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50";
+
+    return (
+      <Badge variant="outline" className={variants[status] || defaultVariant}>
+        {status.replace("_", " ")}
+      </Badge>
+    );
   };
 
   return (
@@ -146,7 +204,7 @@ const RequestCard = ({ req }: { req: IRequest }) => {
         </div>
         <div className="flex gap-2 justify-end">
           <div className="fixed inset-0 flex items-start justify-center z-50 p-6 pointer-events-none">
-            {open && (
+            {diffOpen && (
               <Card className="bg-card w-[90vw] max-w-[95vw] h-[90vh] flex flex-col shadow-xl border border-border pointer-events-auto overflow-hidden">
                 <CardHeader className="p-6 border-b border-border flex flex-col gap-2">
                   <div className="flex items-center justify-between w-full">
@@ -240,7 +298,7 @@ const RequestCard = ({ req }: { req: IRequest }) => {
                 </ScrollArea>
 
                 <CardFooter className="flex justify-end gap-3 border-t border-border p-6">
-                  <Button variant="outline" onClick={() => setOpen(false)}>
+                  <Button variant="outline" onClick={() => setDiffOpen(false)}>
                     Cancel
                   </Button>
                   {(req.status == "pending" || req.status == "in-review") && (
@@ -255,15 +313,122 @@ const RequestCard = ({ req }: { req: IRequest }) => {
                 </CardFooter>
               </Card>
             )}
+            <Dialog
+              open={responseOpen}
+              onOpenChange={() => setResponseOpen(false)}
+            >
+              <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    Review Timeline
+                  </DialogTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Track all review activities and responses for this request
+                  </p>
+                </DialogHeader>
+
+                <ScrollArea className="h-[500px] pr-4">
+                  {requestDiff?.responses.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-[400px] text-center">
+                      <MessageSquare className="h-12 w-12 text-muted-foreground opacity-50 mb-3" />
+                      <p className="text-sm font-medium text-foreground">
+                        No responses yet
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Reviews and responses will appear here
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {requestDiff?.responses.map((response, index) => (
+                        <div key={index} className="relative">
+                          {/* Timeline connector */}
+                          {index !== requestDiff?.responses.length - 1 && (
+                            <div className="absolute left-[18px] top-[40px] bottom-[-24px] w-[2px] border-l-2 border-dashed border-border" />
+                          )}
+
+                          <div className="flex gap-4">
+                            <div className="flex-shrink-0 w-10 h-10 rounded-full border-2 border-border flex items-center justify-center">
+                              {getStatusIcon(response.status)}
+                            </div>
+
+                            <div className="flex-1 pb-6">
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-foreground">
+                                      {response.reviewerName ||
+                                        "Unknown Reviewer"}
+                                    </span>
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs capitalize"
+                                    >
+                                      {getRoleIcon(response.role)}
+                                      <span className="ml-1">
+                                        {response.role}
+                                      </span>
+                                    </Badge>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Calendar className="h-3 w-3" />
+                                    {new Date(
+                                      response.reviewedAt || ""
+                                    ).toLocaleString()}
+                                  </div>
+                                </div>
+                                {getStatusBadge(response.status)}
+                              </div>
+
+                              {response.response && (
+                                <>
+                                  <Separator className="my-3" />
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                                      <MessageSquare className="h-3 w-3" />
+                                      Response
+                                    </div>
+                                    <p className="text-sm text-foreground leading-relaxed pl-5 border-l-2 border-primary/20 py-1">
+                                      {response.response}
+                                    </p>
+                                  </div>
+                                </>
+                              )}
+
+                              <div className="mt-3 text-xs text-muted-foreground flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                <span>Reviewer ID: {response.reviewedBy}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </DialogContent>
+            </Dialog>
           </div>
-          <Button
-            className="flex items-center justify-center gap-2"
-            onClick={() => setOpen(true)}
-          >
-            {" "}
-            <Search className="w-4 h-4" aria-hidden="true" />{" "}
-            <span>View Diff</span>{" "}
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              className="flex items-center justify-center gap-2"
+              onClick={() => setResponseOpen(true)}
+            >
+              <History className="w-4 h-4" aria-hidden="true" />
+              <span>View History</span>
+            </Button>
+
+            <Button
+              variant="default"
+              className="flex items-center justify-center gap-2"
+              onClick={() => setDiffOpen(true)}
+            >
+              <GitCompare className="w-4 h-4" aria-hidden="true" />
+              <span>View Diff</span>
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

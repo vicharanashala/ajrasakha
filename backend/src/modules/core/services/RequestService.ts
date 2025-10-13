@@ -128,6 +128,7 @@ export class RequestService extends BaseService {
   ): Promise<{
     currentDoc: any;
     existingDoc: any;
+    responses: IRequestResponse[];
   }> {
     try {
       return await this._withTransaction(async session => {
@@ -138,6 +139,12 @@ export class RequestService extends BaseService {
         if (request.status == 'approved' || request.status == 'rejected') {
           throw new BadRequestError('Request already closed!');
         }
+        const responses = request.responses.map(res => {
+          return {
+            ...res,
+            reviewedBy: res.reviewedBy.toString(),
+          };
+        });
         const entityId = request.entityId.toString();
         if (request.requestType == 'question_flag') {
           const question = await this.questionRepo.getById(entityId, session);
@@ -150,7 +157,9 @@ export class RequestService extends BaseService {
             createdAt,
             updatedAt,
             userId,
-            context,
+            contextId,
+            metrics,
+            embedding,
             ...questionWithoutMeta
           } = question;
           const {
@@ -158,7 +167,9 @@ export class RequestService extends BaseService {
             createdAt: rCreated,
             updatedAt: rUpdated,
             userId: rUserId,
-            context: rContext,
+            contextId: rContext,
+            metrics: rMetrics,
+            embedding: rembedding,
             ...requestedWithoutMeta
           } = requestedDetails || {};
 
@@ -168,9 +179,9 @@ export class RequestService extends BaseService {
             delete currentDoc.text;
           }
 
-          return {currentDoc, existingDoc};
+          return {currentDoc, existingDoc, responses};
         }
-        return {currentDoc: null, existingDoc: null};
+        return {currentDoc: null, existingDoc: null, responses: []};
       });
     } catch (error) {
       throw error;

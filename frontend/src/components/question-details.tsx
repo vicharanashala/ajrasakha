@@ -40,8 +40,12 @@ import {
 import {
   ArrowUpRight,
   Calendar,
+  ChevronDown,
+  ChevronUp,
   Edit,
   Eye,
+  FileText,
+  Gauge,
   Landmark,
   Layers,
   Link2,
@@ -107,6 +111,12 @@ export const QuestionDetails = ({
     useState(ANSWER_VISIBLE_COUNT);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showMoreDetails, setShowMoreDetails] = useState(false);
+  const [showFullContext, setShowFullContext] = useState(false);
+
+  const metrics = question.metrics;
+  const context = question.context;
+
   const commentRef = useRef<any>(null);
 
   return (
@@ -180,7 +190,7 @@ export const QuestionDetails = ({
         </div>
       </header>
 
-      <div className="py-2 grid gap-6">
+      {/* <div className="py-2 grid gap-6">
         <Card className="p-4 grid gap-3">
           <p className="text-sm font-medium">Details</p>
 
@@ -303,7 +313,199 @@ export const QuestionDetails = ({
             )}
           </div>
         )}
+      </div> */}
+      <Card className="p-4 grid gap-3">
+        <p className="text-sm font-medium">Details</p>
+
+        {/* Basic Info */}
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-primary" />
+            <span className="text-muted-foreground">State:</span>
+            <span className="truncate">{question.details?.state || "-"}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Landmark className="w-4 h-4 text-primary" />
+            <span className="text-muted-foreground">District:</span>
+            <span className="truncate">
+              {question.details?.district || "-"}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Sprout className="w-4 h-4 text-primary" />
+            <span className="text-muted-foreground">Crop:</span>
+            <span className="truncate">{question.details?.crop || "-"}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-primary" />
+            <span className="text-muted-foreground">Season:</span>
+            <span className="truncate">{question.details?.season || "-"}</span>
+          </div>
+
+          <div className="flex items-center gap-2 col-span-2">
+            <Layers className="w-4 h-4 text-primary" />
+            <span className="text-muted-foreground">Domain:</span>
+            <span className="truncate">{question.details?.domain || "-"}</span>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="flex items-center gap-2 text-sm">
+          <Link2 className="w-4 h-4 text-primary" />
+          <span className="text-muted-foreground">Source:</span>
+          <span className="truncate">{question.source || "-"}</span>
+        </div>
+
+        {showMoreDetails && (
+          <>
+            <Separator className="my-2" />
+
+            {context && (
+              <div className="grid gap-1 text-sm">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary" />
+                  <span className="text-muted-foreground">Context:</span>
+                </div>
+                <p className="text-muted-foreground ml-6">
+                  {showFullContext || context.length <= 180
+                    ? context
+                    : `${context.slice(0, 180)}... `}
+                  {context.length > 180 && (
+                    <button
+                      onClick={() => setShowFullContext((prev) => !prev)}
+                      className="text-primary text-xs font-medium"
+                    >
+                      {showFullContext ? "Show less" : "Read more"}
+                    </button>
+                  )}
+                </p>
+              </div>
+            )}
+
+            {/* Metrics */}
+            {metrics && (
+              <div className="grid gap-1 text-sm">
+                <div className="flex items-center gap-2 mt-2">
+                  <Gauge className="w-4 h-4 text-primary" />
+                  <span className="text-muted-foreground font-medium">
+                    Metrics
+                  </span>
+                </div>
+                <div className="ml-6 grid grid-cols-2 gap-1 text-muted-foreground">
+                  <span>Mean Similarity:</span>
+                  <span>{metrics.mean_similarity.toFixed(2)}</span>
+                  <span>Std Deviation:</span>
+                  <span>{metrics.std_similarity.toFixed(2)}</span>
+                  <span>Recent Similarity:</span>
+                  <span>{metrics.recent_similarity.toFixed(2)}</span>
+                  <span>Collusion Score:</span>
+                  <span>{metrics.collusion_score.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Toggle Button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-2 flex items-center gap-1 justify-start text-primary"
+          onClick={() => setShowMoreDetails((prev) => !prev)}
+        >
+          {showMoreDetails ? (
+            <>
+              <ChevronUp className="w-4 h-4" /> View Less
+            </>
+          ) : (
+            <>
+              <ChevronDown className="w-4 h-4" /> View More
+            </>
+          )}
+        </Button>
+      </Card>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Answers</h2>
+        <div className="flex items-center gap-2">
+          {(question.status == "open" ||
+            (userRole != "expert" && question.status == "in-review")) && (
+            <SubmitAnswerDialog
+              questionId={question._id}
+              isAlreadySubmitted={question.isAlreadySubmitted}
+              currentUserId={currentUserId}
+              onSubmitted={() => {
+                refetchAnswers();
+              }}
+            />
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setIsRefreshing(true);
+              setTimeout(() => {
+                refetchAnswers();
+                if (commentRef.current) {
+                  commentRef.current.refetchComments();
+                }
+                setIsRefreshing(false);
+              }, 2000);
+              setAnswerVisibleCount(ANSWER_VISIBLE_COUNT);
+            }}
+            disabled={isRefreshing || isRefetching}
+          >
+            {isRefreshing || isRefetching ? (
+              <Loader2 className="animate-spin w-4 h-4" />
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4 mr-1" />
+                Refresh
+              </>
+            )}
+          </Button>
+        </div>
       </div>
+      {answers.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No answers yet.</p>
+      ) : (
+        <div className="grid gap-4">
+          <AnswerTimeline
+            answerVisibleCount={answerVisibleCount}
+            answers={answers}
+            commentRef={commentRef}
+            currentUserId={currentUserId}
+            question={question}
+            userRole={userRole}
+          />
+          {answerVisibleCount < answers.length && (
+            <div className="flex justify-center">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setIsLoadingMore(true);
+                  setTimeout(() => {
+                    setAnswerVisibleCount(
+                      (prev) => prev + ANSWER_VISIBLE_COUNT
+                    );
+                    setIsLoadingMore(false);
+                  }, 2000);
+                }}
+                disabled={isLoadingMore}
+              >
+                {isLoadingMore ? (
+                  <Loader2 className="animate-spin w-4 h-4 mr-2" />
+                ) : null}
+                {isLoadingMore ? "Loading..." : "Load More"}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </main>
   );
 };

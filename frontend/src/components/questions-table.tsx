@@ -21,6 +21,7 @@ import {
   FlagTriangleRight,
   Globe,
   Hash,
+  Info,
   Loader2,
   Map,
   MapPin,
@@ -82,6 +83,7 @@ import { useDeleteQuestion } from "@/hooks/api/question/useDeleteQuestion";
 import { ConfirmationModal } from "./confirmation-modal";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
+import { Content } from "@radix-ui/react-dialog";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -538,7 +540,25 @@ export const AddOrEditQuestionDialog = ({
                   }
                   rows={3}
                 />
+                {mode === "add" && (
+                  <>
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <Info className="h-4 w-4" aria-hidden="true" />
+                      <label>Context</label>
+                    </div>
 
+                    <Textarea
+                      placeholder="Mention the context for this question...."
+                      value={updatedData?.context || ""}
+                      onChange={(e) =>
+                        setUpdatedData((prev) =>
+                          prev ? { ...prev, context: e.target.value } : prev
+                        )
+                      }
+                      className="h-32 resize-none overflow-y-auto"
+                    />
+                  </>
+                )}
                 <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                   <FlagTriangleRight className="h-4 w-4" aria-hidden="true" />
                   <label>Priority</label>
@@ -748,9 +768,9 @@ export const QuestionsFilters = ({
         priority: updatedData.priority ?? "medium",
         source: updatedData.source ?? "AJRASAKHA",
         details: updatedData.details,
+        context: updatedData.context || "",
       };
 
-      // 1️⃣ Question
       if (!payload.question) {
         toast.error("Please enter a question before submitting.");
         return;
@@ -811,6 +831,10 @@ export const QuestionsFilters = ({
 
       if (!domain?.trim()) {
         toast.error("Please enter the Domain field.");
+        return;
+      }
+      if (!payload.context?.trim()) {
+        toast.error("Please enter the Context field.");
         return;
       }
 

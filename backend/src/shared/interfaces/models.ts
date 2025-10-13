@@ -31,7 +31,7 @@ export interface IQuestion {
   _id?: string | ObjectId;
   userId?: ObjectId | string;
   question: string;
-  context?: ObjectId | string;
+  contextId?: ObjectId | string | null;
   status: QuestionStatus;
   totalAnswersCount: number;
   priority: IQuestionPriority;

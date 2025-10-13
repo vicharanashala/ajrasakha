@@ -34,7 +34,7 @@ export interface IUser {
   updatedAt?: Date;
 }
 export type QuestionPriority = "low" | "medium" | "high";
-export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT"
+export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT";
 export interface IQuestion {
   id: string;
   text: string;
@@ -166,6 +166,8 @@ export interface IQuestionFullData {
     domain: string;
   };
   priority: QuestionPriority;
+  context: string;
+  metrics: IQuestionMetrics,
   source: string;
   totalAnswersCount: number;
   createdAt: string;
@@ -189,7 +191,12 @@ export interface IComment {
   text: string;
   createdAt: string;
 }
-
+export interface IQuestionMetrics {
+  mean_similarity: number;
+  std_similarity: number;
+  recent_similarity: number;
+  collusion_score: number;
+}
 export interface IDetailedQuestion {
   _id?: string;
   userId: string;
@@ -198,6 +205,7 @@ export interface IDetailedQuestion {
   status: QuestionStatus;
   totalAnswersCount: number;
   priority: QuestionPriority;
+  metrics: IQuestionMetrics;
   details: {
     state: string;
     district: string;
@@ -216,24 +224,23 @@ export interface IDetailedQuestionResponse {
   questions: IDetailedQuestion[];
 }
 
-
-export type RequestStatus = 'pending' | 'rejected' | 'approved' | 'in-review';
+export type RequestStatus = "pending" | "rejected" | "approved" | "in-review";
 
 export interface IRequestResponse {
   reviewedBy: string;
-  role: 'admin' | 'moderator'
+  role: "admin" | "moderator";
   status: RequestStatus;
   response?: string;
   reviewedAt?: Date | string;
-  reviewerName?: string; 
+  reviewerName?: string;
 }
 
 export type RequestDetails =
-  | { requestType: 'question_flag'; details: IQuestion }
-  | { requestType: 'others'; details: Record<string, any> };
+  | { requestType: "question_flag"; details: IQuestion }
+  | { requestType: "others"; details: Record<string, any> };
 
 export type IRequest = RequestDetails & {
-  _id: string ;
+  _id: string;
   reason: string;
   userId: string;
   userName?: string;
@@ -242,4 +249,4 @@ export type IRequest = RequestDetails & {
   status: RequestStatus;
   createdAt: string | Date;
   updatedAt: string | Date;
-}
+};

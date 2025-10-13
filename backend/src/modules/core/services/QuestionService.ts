@@ -24,13 +24,17 @@ import {AiService} from './AiService.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
-import { dummyEmbeddings } from '../utils/questionGen.js';
+import {dummyEmbeddings} from '../utils/questionGen.js';
+import {IContextRepository} from '#root/shared/database/interfaces/IContextRepository.js';
 
 @injectable()
 export class QuestionService extends BaseService {
   constructor(
     @inject(CORE_TYPES.AIService)
     private readonly aiService: AiService,
+
+    @inject(GLOBAL_TYPES.ContextRepository)
+    private readonly contextRepo: IContextRepository,
 
     @inject(GLOBAL_TYPES.QuestionRepository)
     private readonly questionRepo: IQuestionRepository,
@@ -190,13 +194,23 @@ export class QuestionService extends BaseService {
   ): Promise<Partial<IQuestion>> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        const {question, priority, source, details} = body;
+        const {question, priority, source, details, context} = body;
         const user = await this.userRepo.findById(userId, session);
         if (!user || user.role == 'expert') {
           throw new UnauthorizedError(
             `You don't have permission to add question`,
           );
         }
+        let contextId: ObjectId | null = null;
+
+        if (context) {
+          const {insertedId} = await this.contextRepo.addContext(
+            context,
+            session,
+          );
+          contextId = new ObjectId(insertedId);
+        }
+
         const newQuestion: IQuestion = {
           userId: new ObjectId(userId),
           question,
@@ -204,6 +218,7 @@ export class QuestionService extends BaseService {
           source,
           status: 'open',
           totalAnswersCount: 0,
+          contextId,
           details,
           embedding: dummyEmbeddings,
           metrics: null,

@@ -38,8 +38,8 @@ class AddQuestionBody {
   question: string;
 
   @JSONSchema({
-    description: 'Context (transcript) reference ID',
-    example: '64adf92e9e7c3b0987654321',
+    description: 'Context (transcript)/ reference ',
+    example: 'example text',
     type: 'string',
   })
   @IsNotEmpty()
@@ -178,7 +178,7 @@ class AddQuestionBodyDto {
 
   @IsString()
   @IsOptional()
-  contextId?: string;
+  context?: string;
 }
 
 class GenerateQuestionsBody {
