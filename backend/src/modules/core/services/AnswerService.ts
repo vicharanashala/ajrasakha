@@ -78,47 +78,50 @@ export class AnswerService extends BaseService {
       let metrics: IQuestionMetrics | null = null;
       let analysisStatus: 'CONTINUE' | 'FLAGGED_FOR_REVIEW' | 'CONVERGED' =
         'CONVERGED';
-      const answers = await this.answerRepo.getByQuestionId(questionId) || [];
+      const answers = (await this.answerRepo.getByQuestionId(questionId)) || [];
 
       // if (answers.length) {
-        const answerTexts = answers.map(ans => ans.answer);
+      const answerTexts = answers.map(ans => ans.answer);
 
-        const payload: IQuestionWithAnswerTexts = {
-          question_id: questionId,
-          question_text: question.question,
-          answers: [...answerTexts, answer],
-        };
+      const payload: IQuestionWithAnswerTexts = {
+        question_id: questionId,
+        question_text: question.question,
+        answers: [...answerTexts, answer],
+      };
 
-        const analysis: IQuestionAnalysis = {
-          question_id: 'Q101',
-          num_answers: 3,
-          mean_similarity: 0.84,
-          std_similarity: 0.06,
-          recent_similarity: 0.82,
-          collusion_score: 0.92,
-          status: 'CONTINUE',
-          message: 'More responses required to reach convergence.',
-        };
+      const analysis = await this.aiService.evaluateAnswers(payload);
 
-        metrics = {
-          mean_similarity: analysis.mean_similarity,
-          std_similarity: analysis.std_similarity,
-          recent_similarity: analysis.recent_similarity,
-          collusion_score: analysis.collusion_score,
-        };
-        analysisStatus = analysis.status;
-        // const result = await this.aiService.getFinalAnswerByThreshold(payload);
-        // threshold = result.similarity_score;
+      // const analysis: IQuestionAnalysis = {
+      //   question_id: 'Q101',
+      //   num_answers: 3,
+      //   mean_similarity: 0.84,
+      //   std_similarity: 0.06,
+      //   recent_similarity: 0.82,
+      //   collusion_score: 0.92,
+      //   status: 'CONTINUE',
+      //   message: 'More responses required to reach convergence.',
+      // };
 
-        if (analysis.status == 'CONVERGED') isFinalAnswer = true;
+      metrics = {
+        mean_similarity: analysis.mean_similarity,
+        std_similarity: analysis.std_similarity,
+        recent_similarity: analysis.recent_similarity,
+        collusion_score: analysis.collusion_score,
+      };
+      analysisStatus = analysis.status;
+      // const result = await this.aiService.getFinalAnswerByThreshold(payload);
+      // threshold = result.similarity_score;
+
+      if (analysis.status == 'CONVERGED') isFinalAnswer = true;
       // }
 
       if (isFinalAnswer) {
         const text = `Question: ${question.question}
         Answer: ${answer}`;
+        const {embedding} = await this.aiService.getEmbedding(text);
         await this.questionRepo.updateQuestion(
           questionId,
-          {text, embedding: dummyEmbeddings},
+          {text, embedding},
           session,
           true,
         );
@@ -126,12 +129,13 @@ export class AnswerService extends BaseService {
 
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
+      const {embedding} = await this.aiService.getEmbedding(answer);
       const {insertedId} = await this.answerRepo.addAnswer(
         questionId,
         authorId,
         answer,
         sources,
-        dummyEmbeddings,
+        embedding,
         isFinalAnswer,
         updatedAnswerCount,
         session,
@@ -213,8 +217,20 @@ export class AnswerService extends BaseService {
       // }
       const text = `Question: ${question.question}
         answer: ${answer}`;
-      await this.questionRepo.updateQuestion(questionId, {text}, session, true);
-      return this.answerRepo.updateAnswer(answerId, updates, session);
+      const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
+        text,
+      );
+
+      await this.questionRepo.updateQuestion(
+        questionId,
+        {text, embedding: questionEmbedding},
+        session,
+        true,
+      );
+
+      const {embedding} = await this.aiService.getEmbedding(text);
+      const payload = {...updates, embedding};
+      return this.answerRepo.updateAnswer(answerId, payload, session);
     });
   }
 

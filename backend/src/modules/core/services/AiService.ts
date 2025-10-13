@@ -1,7 +1,11 @@
 import {aiConfig} from '#root/config/ai.js';
 import {injectable} from 'inversify';
 import {InternalServerError} from 'routing-controllers';
-import {GeneratedQuestionResponse} from '../classes/validators/QuestionValidators.js';
+import {
+  GeneratedQuestionResponse,
+  IQuestionAnalysis,
+  IQuestionWithAnswerTexts,
+} from '../classes/validators/QuestionValidators.js';
 
 @injectable()
 export class AiService {
@@ -42,6 +46,46 @@ export class AiService {
       );
     }
     const data = (await response.json()) as {similarity_score: number};
+    return data;
+  }
+
+  async evaluateAnswers(
+    payload: IQuestionWithAnswerTexts,
+  ): Promise<IQuestionAnalysis> {
+    const response = await fetch(`${this._aiServerUrl}/evaluate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to evaluate answers from AI server: ${response.statusText}`,
+      );
+    }
+
+    const data = (await response.json()) as IQuestionAnalysis;
+    return data;
+  }
+
+  async getEmbedding(text: string): Promise<{embedding: number[]}> {
+    const response = await fetch(`${this._aiServerUrl}/embed`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({text}),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to get embedding from AI server: ${response.statusText}`,
+      );
+    }
+
+    const data = (await response.json()) as {embedding: number[]};
     return data;
   }
 }

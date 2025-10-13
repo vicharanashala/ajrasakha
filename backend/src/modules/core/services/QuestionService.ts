@@ -211,6 +211,9 @@ export class QuestionService extends BaseService {
           contextId = new ObjectId(insertedId);
         }
 
+        const text = `Question: ${question}`;
+        const {embedding} = await this.aiService.getEmbedding(text);
+
         const newQuestion: IQuestion = {
           userId: new ObjectId(userId),
           question,
@@ -220,9 +223,9 @@ export class QuestionService extends BaseService {
           totalAnswersCount: 0,
           contextId,
           details,
-          embedding: dummyEmbeddings,
+          embedding,
           metrics: null,
-          text: `Question: ${question}`,
+          text,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
