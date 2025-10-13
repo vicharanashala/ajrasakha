@@ -528,7 +528,7 @@ export const AddOrEditQuestionDialog = ({
               <div className="flex flex-col gap-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                   <MessageSquareText className="h-4 w-4" aria-hidden="true" />
-                  <label>Question Text</label>
+                  <label>Question Text*</label>
                 </div>
                 <Textarea
                   placeholder="Enter question text"
@@ -561,7 +561,7 @@ export const AddOrEditQuestionDialog = ({
                 )}
                 <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                   <FlagTriangleRight className="h-4 w-4" aria-hidden="true" />
-                  <label>Priority</label>
+                  <label>Priority*</label>
                 </div>
                 <Select
                   value={updatedData?.priority || "medium"}
@@ -583,7 +583,7 @@ export const AddOrEditQuestionDialog = ({
 
                 <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                   <Globe className="h-4 w-4" aria-hidden="true" />
-                  <label>Source</label>
+                  <label>Source*</label>
                 </div>
                 <Select
                   value={updatedData?.source || "AJRASAKHA"}
@@ -614,7 +614,7 @@ export const AddOrEditQuestionDialog = ({
                   <div key={field} className="flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                       <label>
-                        {field.charAt(0).toUpperCase() + field.slice(1)}
+                        {field.charAt(0).toUpperCase() + field.slice(1)}*
                       </label>
                     </div>
                     <Input
@@ -646,7 +646,7 @@ export const AddOrEditQuestionDialog = ({
                       className="h-4 w-4 text-destructive"
                       aria-hidden="true"
                     />
-                    <label>Reason for Flagging</label>
+                    <label>Reason for Flagging*</label>
                   </div>
                   <div className="border rounded-md overflow-hidden">
                     <Textarea
@@ -831,10 +831,6 @@ export const QuestionsFilters = ({
 
       if (!domain?.trim()) {
         toast.error("Please enter the Domain field.");
-        return;
-      }
-      if (!payload.context?.trim()) {
-        toast.error("Please enter the Context field.");
         return;
       }
 
