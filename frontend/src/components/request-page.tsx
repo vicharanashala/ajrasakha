@@ -197,7 +197,7 @@ const RequestCard = ({ req }: { req: IRequest }) => {
       <CardContent className="space-y-3">
         <div className="text-sm">
           <div className="font-medium">Reason</div>
-          <p className="text-muted-foreground">{req.reason}</p>
+          <p className="text-muted-foreground line-clamp-2">{req.reason}</p>
         </div>
         <div className="text-xs text-muted-foreground">
           Created: {new Date(req.createdAt).toLocaleString()}
@@ -524,7 +524,7 @@ export const RequestsPage = () => {
         </section>
       </section>
 
-      <section className={cn("grid gap-4", "md:grid-cols-2")}>
+      <section className="grid gap-4 lg:grid-cols-4 md:grid-cols-3">
         {isLoading ? (
           <div className="col-span-full flex justify-center py-10">
             <span className="text-muted-foreground">Loading requests...</span>

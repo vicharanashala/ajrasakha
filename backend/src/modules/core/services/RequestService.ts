@@ -99,6 +99,10 @@ export class RequestService extends BaseService {
         const request = await this.requestRepository.getRequestById(requestId);
         if (!request) throw new NotFoundError(`Failed to get request`);
 
+        if (request.status == 'approved' || request.status == 'rejected') {
+          throw new BadRequestError('Request already closed!');
+        }
+
         if (status == 'approved') {
           const entityId = request.entityId.toString();
           if (request.requestType == 'question_flag') {
@@ -136,9 +140,7 @@ export class RequestService extends BaseService {
         if (!request) {
           throw new NotFoundError('Request not found');
         }
-        if (request.status == 'approved' || request.status == 'rejected') {
-          throw new BadRequestError('Request already closed!');
-        }
+
         const responses = request.responses.map(res => {
           return {
             ...res,
@@ -158,6 +160,7 @@ export class RequestService extends BaseService {
             updatedAt,
             userId,
             contextId,
+            text,
             metrics,
             embedding,
             ...questionWithoutMeta
@@ -168,6 +171,7 @@ export class RequestService extends BaseService {
             updatedAt: rUpdated,
             userId: rUserId,
             contextId: rContext,
+            text: rtext,
             metrics: rMetrics,
             embedding: rembedding,
             ...requestedWithoutMeta
