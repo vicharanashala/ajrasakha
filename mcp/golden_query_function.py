@@ -1,34 +1,20 @@
-# from pymongo import MongoClient
-# from constants import MONGODB_URI  # Make sure this contains your Mongo URI
-
-# # Connect to MongoDB
-# client = MongoClient(MONGODB_URI)
-
-# # Select the database and collection
-# db = client["golden_db"]
-# collection = db["agri_qa"]
-
-# # Fetch distinct states from metadata.State
-# unique_states = collection.distinct("metadata.State")
-
-# # Print results
-# print(f"Total unique states: {len(unique_states)}")
-# print("List of states:")
-# for state in sorted(unique_states):
-#     print("-", state)
 
 
 from typing import List
 from pymongo import MongoClient
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from models import ContextQuestionAnswerPair, QuestionAnswerPairMetaData
-
 from constants import (
     DB_NAME,
     COLLECTION_QA,
     MONGODB_URI,
     EMBEDDING_MODEL,
 )
+
+client = MongoClient(MONGODB_URI)
+# Select the database and collection
+db = client[DB_NAME]
+collection = db[COLLECTION_QA]
 
 # --- CONFIGURATION ---
 
@@ -91,7 +77,7 @@ def parse_mongo_docs_to_context_pairs(results: List[dict]) -> List[ContextQuesti
 
 # --- MAIN FUNCTION ---
 
-def search(query: str, state_code: str, threshold: float = 0.7, limit: int = 5) -> List[ContextQuestionAnswerPair]:
+def search(query: str, state_code: str, crop: str, threshold: float = 0.7, limit: int = 5) -> List[ContextQuestionAnswerPair]:
     """Perform a vector search and return structured QA pairs."""
     state_full = STATE_CODES.get(state_code.upper())
     if not state_full:
@@ -107,7 +93,7 @@ def search(query: str, state_code: str, threshold: float = 0.7, limit: int = 5) 
                 "queryVector": query_vector,
                 "numCandidates": 100,
                 "limit": limit,
-                "filter": {"metadata.State": state_full}
+                "filter": {"metadata.State": state_full, "metadata.Crop": crop}
             }
         },
         {
@@ -125,43 +111,4 @@ def search(query: str, state_code: str, threshold: float = 0.7, limit: int = 5) 
     context_pairs = parse_mongo_docs_to_context_pairs(filtered)
     return context_pairs
 
-def get_crops_by_state(state_code: str) -> List[str]:
-    """
-    Fetch the list of available crops for a given state code.
 
-    Args:
-        state_code (str): The two-letter state code (e.g., "TN", "MH", "PB")
-
-    Returns:
-        List[str]: A sorted list of unique crop names available for that state.
-    """
-    # Convert state code to full name
-    state_full = STATE_CODES.get(state_code.upper())
-    if not state_full:
-        raise ValueError(f"❌ Invalid or unsupported state code: {state_code}")
-
-    # Fetch distinct crop names
-    crops = collection.distinct("metadata.Crop", {"metadata.State": state_full})
-
-    return sorted(crop for crop in crops if crop and crop.strip())
-
-# --- RUN EXAMPLE QUERY ---
-
-if __name__ == "__main__":
-    query = "how to improve soil fertility in paddy fields"
-    state_code = "TN"  # Tamil Nadu
-
-    pairs = search(query, state_code, threshold=0.8, limit=5)
-
-    for i, p in enumerate(pairs, start=1):
-        print(f"🔹 Result {i}")
-        print(f"Question: {p.question}")
-        print(f"Answer: {p.answer}")
-        print(f"State: {p.meta_data.state}")
-        print(f"Crop: {p.meta_data.crop}")
-        print(f"Agri Specialist: {p.meta_data.agri_specialist}")
-        print(f"Similarity: {p.meta_data.similarity_score:.4f}")
-        print("-" * 80)
-
-    crops = get_crops_by_state("TN")
-    print(f"Available crops in TN: {crops}")
