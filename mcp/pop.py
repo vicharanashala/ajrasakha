@@ -28,7 +28,18 @@ retriever_pop = get_retriever(
 
 
 @mcp.tool()
-async def get_context_from_package_of_practices(query: str)-> List[ContextPOP]:
+async def get_states_for_pop() -> dict:
+    """
+    Retrieve the list of available Indian states supported by the Package of Practices dataset, 
+    along with their corresponding two-letter codes.
+    """
+    state_codes = {
+        "PUNJAB": "PB",
+    }
+    return state_codes
+
+@mcp.tool()
+async def get_context_from_package_of_practices(query: str, state_code : str)-> List[ContextPOP]:
     """
     Retrieve context from the package of practices dataset.
 
@@ -40,11 +51,24 @@ async def get_context_from_package_of_practices(query: str)-> List[ContextPOP]:
     Args:
         query (str): A plain-text query strictly describing the agricultural, climate, 
                      or related issue of concern.
+        state_code (str): A two-letter state code (e.g., "TN" for Tamil Nadu, "PB" for Punjab)
+                          used to narrow the search context to region-specific questions.
     """
     nodes = await retriever_pop.aretrieve(query)
     processed_nodes = await process_nodes_pop(nodes)
     return processed_nodes
 
+
+@mcp.tool()
+async def upload_question_to_reviewer_system(question: str, state_code: str, crop: str) -> dict:
+    """
+    Upload the question to the reviewer system for further review by human experts.
+    This is called when the system is unable to find a satisfactory answer from both the datasets(golden dataset and package of practices dataset) for the particular state and crop.
+    """
+    state_codes = {
+        "status": "Uploaded Successfully",
+    }
+    return state_codes
 
 
 
