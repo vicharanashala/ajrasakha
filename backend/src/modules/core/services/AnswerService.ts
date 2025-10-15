@@ -77,7 +77,7 @@ export class AnswerService extends BaseService {
       let isFinalAnswer = false;
       let metrics: IQuestionMetrics | null = null;
       let analysisStatus: 'CONTINUE' | 'FLAGGED_FOR_REVIEW' | 'CONVERGED' =
-        'CONVERGED';
+        'CONTINUE';
       const answers = (await this.answerRepo.getByQuestionId(questionId)) || [];
 
       // if (answers.length) {

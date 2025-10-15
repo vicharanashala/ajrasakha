@@ -188,6 +188,58 @@ export class QuestionService extends BaseService {
     return uniqueQuestions;
   }
 
+  // async addQuestion(
+  //   userId: string,
+  //   body: AddQuestionBodyDto,
+  // ): Promise<Partial<IQuestion>> {
+  //   try {
+  //     return this._withTransaction(async (session: ClientSession) => {
+  //       const {question, priority, source, details, context} = body;
+  //       const user = await this.userRepo.findById(userId, session);
+  //       if (!user || user.role == 'expert') {
+  //         throw new UnauthorizedError(
+  //           `You don't have permission to add question`,
+  //         );
+  //       }
+  //       let contextId: ObjectId | null = null;
+
+  //       if (context) {
+  //         const {insertedId} = await this.contextRepo.addContext(
+  //           context,
+  //           session,
+  //         );
+  //         contextId = new ObjectId(insertedId);
+  //       }
+
+  //       const text = `Question: ${question}`;
+  //       const {embedding} = await this.aiService.getEmbedding(text);
+
+  //       const newQuestion: IQuestion = {
+  //         userId: new ObjectId(userId),
+  //         question,
+  //         priority,
+  //         source,
+  //         status: 'open',
+  //         totalAnswersCount: 0,
+  //         contextId,
+  //         details,
+  //         embedding,
+  //         metrics: null,
+  //         text,
+  //         createdAt: new Date(),
+  //         updatedAt: new Date(),
+  //       };
+
+  //       await this.questionRepo.addQuestion(newQuestion);
+
+  //       return newQuestion;
+  //     });
+  //   } catch (error) {
+  //     console.log(error);
+  //     throw new InternalServerError(`Failed to add question: ${error}`);
+  //   }
+  // }
+
   async addQuestion(
     userId: string,
     body: AddQuestionBodyDto,
@@ -195,12 +247,7 @@ export class QuestionService extends BaseService {
     try {
       return this._withTransaction(async (session: ClientSession) => {
         const {question, priority, source, details, context} = body;
-        const user = await this.userRepo.findById(userId, session);
-        if (!user || user.role == 'expert') {
-          throw new UnauthorizedError(
-            `You don't have permission to add question`,
-          );
-        }
+
         let contextId: ObjectId | null = null;
 
         if (context) {
@@ -215,7 +262,7 @@ export class QuestionService extends BaseService {
         const {embedding} = await this.aiService.getEmbedding(text);
 
         const newQuestion: IQuestion = {
-          userId: new ObjectId(userId),
+          userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
           question,
           priority,
           source,
@@ -231,11 +278,10 @@ export class QuestionService extends BaseService {
         };
 
         await this.questionRepo.addQuestion(newQuestion);
-
         return newQuestion;
       });
     } catch (error) {
-      console.log(error);
+      console.error(error);
       throw new InternalServerError(`Failed to add question: ${error}`);
     }
   }
