@@ -410,23 +410,24 @@ export const QuestionDetails = ({
           </>
         )}
 
-        {/* Toggle Button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mt-2 flex items-center gap-1 justify-start text-primary"
-          onClick={() => setShowMoreDetails((prev) => !prev)}
-        >
-          {showMoreDetails ? (
-            <>
-              <ChevronUp className="w-4 h-4" /> View Less
-            </>
-          ) : (
-            <>
-              <ChevronDown className="w-4 h-4" /> View More
-            </>
-          )}
-        </Button>
+        {userRole !== "expert" && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-2 flex items-center gap-1 justify-start text-primary"
+            onClick={() => setShowMoreDetails((prev) => !prev)}
+          >
+            {showMoreDetails ? (
+              <>
+                <ChevronUp className="w-4 h-4" /> View Less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-4 h-4" /> View More
+              </>
+            )}
+          </Button>
+        )}
       </Card>
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Answers</h2>
