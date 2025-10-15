@@ -58,6 +58,189 @@ def get_audio_duration(path: str) -> float:
     audio = AudioSegment.from_file(path)
     return len(audio) / 1000.0  # duration in seconds
 
+from markdownify import markdownify as md
+
+def html_to_markdown(html_string: str) -> str:
+    """
+    Converts an HTML string to Markdown format.
+
+    Args:
+        html_string (str): Input HTML content.
+
+    Returns:
+        str: Converted Markdown text.
+    """
+    if not html_string or not isinstance(html_string, str):
+        return ""
+
+    # Convert using markdownify
+    markdown_text = md(html_string, heading_style="ATX")
+    return markdown_text.strip()
+
+
+
+def extract_database_config(data: dict) -> dict:
+    """
+    Extracts which datasets ('golden', 'pop', 'llm') are enabled 
+    based on the function names inside the 'tools' list of the given JSON.
+
+    Args:
+        data (dict): The input JSON parsed as a Python dictionary.
+
+    Returns:
+        dict: A dictionary in the format:
+              {
+                  "database_config": {
+                      "golden_enabled": bool,
+                      "pops_enabled": bool,
+                      "llm_enabled": bool
+                  }
+              }
+    """
+    # Initialize all as False
+    config = {
+        "golden_enabled": False,
+        "pops_enabled": False,
+        "llm_enabled": True
+    }
+
+    # Safely get the list of tools
+    tools = data.get("tools", [])
+
+    # Check each function name for keywords
+    for tool in tools:
+        func = tool.get("function", {})
+        name = func.get("name", "").lower()
+
+        if "golden" in name:
+            config["golden_enabled"] = True
+        if "pop" in name:
+            config["pops_enabled"] = True
+        if "llm" in name:
+            config["llm_enabled"] = True
+
+    return config
+
+def query_agrichat(question: str, device_id: str = "abcd", database_config: dict = None) -> dict:
+
+    url = "https://agrichat.serveo.net/api/query"
+
+    payload = {
+        "question": question,
+        "device_id": device_id
+    }
+
+    # Only include database_config if it’s explicitly provided
+    if database_config:
+        payload["database_config"] = database_config
+
+    try:
+        response = requests.post(url, json=payload, timeout=20)
+        response.raise_for_status()  # Raise HTTPError for bad responses (4xx, 5xx)
+        return response.json()       # Return parsed JSON response
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error contacting AgriChat API: {e}")
+        return {"error": str(e)}
+
+    except ValueError:
+        print("Error: Response is not valid JSON.")
+        return {"error": "Invalid JSON response"}
+
+def extract_response_details(response: dict) -> dict:
+    # Safely navigate to messages
+    messages = (
+        response.get("session", {})
+        .get("messages", [])
+    )
+
+    if not messages:
+        return {
+            "thinking": None,
+            "answer": None,
+            "sources": []
+        }
+
+    # Take the first (or most recent) message
+    message = messages[0]
+
+    thinking = message.get("thinking")
+    answer = message.get("final_answer") or message.get("answer")
+
+    # Extract simplified sources
+    sources = []
+    for item in message.get("research_data", []):
+        sources.append({
+            "source": item.get("source"),
+            "content_preview": item.get("content_preview"),
+            "metadata": item.get("metadata", {})
+        })
+
+    return {
+        "thinking": thinking,
+        "answer": answer,
+        "sources": sources
+    }
+
+def sources_to_markdown_table(sources: list) -> str:
+    if not sources:
+        return "_No sources available._"
+
+    # Define table headers
+    headers = ["Source", "Content Preview", "Metadata"]
+    md_table = f"| {' | '.join(headers)} |\n"
+    md_table += f"| {' | '.join(['---'] * len(headers))} |\n"
+
+    # Add rows
+    for s in sources:
+        source = s.get("source", "N/A")
+        content = s.get("content_preview", "").replace("\n", " ").strip()
+        metadata = s.get("metadata", {})
+
+        # Convert metadata dict to key=value pairs
+        meta_str = ", ".join(f"**{k}**: {v}" for k, v in metadata.items()) or "—"
+
+        # Escape pipe characters to not break the table
+        source = source.replace("|", "\\|")
+        content = content.replace("|", "\\|")
+        meta_str = meta_str.replace("|", "\\|")
+
+        md_table += f"| {source} | {content} | {meta_str} |\n"
+
+    return md_table.strip()
+
+
+async def agrichat_resp(request: Request):
+    raw_body = await request.body()
+    # Decode to string for readability
+    raw_text = raw_body.decode("utf-8")
+    # print("Raw input text:", raw_text)
+
+    # If you still want to validate it using Pydantic later:
+    data = await request.json()
+    question = data.get("messages", [{}])[-1].get("content", "")
+    device_id = data.get("device_id", "abcd")
+
+    # Extract database config
+    db_config = extract_database_config(data)
+    print("Extracted database config:", db_config)
+
+    agrichat_response = query_agrichat(
+        question=question,
+        device_id=device_id,
+        database_config=db_config.get("database_config", None)
+    )
+
+    details = extract_response_details(agrichat_response)
+
+    yield ThinkingResponseChunk(details.get("thinking") or "thinking...")
+    if details.get("answer"):
+        yield ContentResponseChunk(html_to_markdown(details.get("answer")))
+        yield ContentResponseChunk("\n"+ sources_to_markdown_table(details.get("sources")), final_chunk=True)
+    else:
+        yield ContentResponseChunk("Sorry, I couldn't retrieve an answer.", final_chunk=True)
+
+
 
 @app.post("/score")
 def get_similarity_score(request: SimilarityScoreRequest):
@@ -72,16 +255,29 @@ async def chat_completions(request: Request):
     raw_body = await request.body()
     # Decode to string for readability
     raw_text = raw_body.decode("utf-8")
-    print("Raw input text:", raw_text)
+    # print("Raw input text:", raw_text)
 
     # If you still want to validate it using Pydantic later:
     data = await request.json()
-    chat_request = ChatCompletionRequest(**data)
-    print("Parsed messages:", chat_request.messages)
+
+
+    # Extract database config
+    db_config = extract_database_config(data)
+    print("Extracted database config:", db_config)
+
+    agrichat_response = query_agrichat(
+        question=data.get("messages", [{}])[-1].get("content", ""),
+        database_config=db_config.get("database_config", None)
+    )
+
+
+
+    # chat_request = ChatCompletionRequest(**data)
+    # # print("Parsed messages:", chat_request.messages)
 
 
     return StreamingResponse(
-        tool_calling_forward(chat_request),
+        agrichat_resp(request=request),
         media_type="application/x-ndjson",
     )
 
