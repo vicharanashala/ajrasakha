@@ -21,6 +21,7 @@ export const appConfig = {
   routePrefix: env('APP_ROUTE_PREFIX') || '/api',
   frontendUrl: env('FRONTEND_URL') || 'http://localhost:5173',
   adminPassword: env('ADMIN_PASSWORD') || 'admin123',
+  sarvamAPI: env('SARVAM_API_KEY'),
   // Only for development
   firebase: {
     clientEmail: env('FIREBASE_CLIENT_EMAIL') || undefined,

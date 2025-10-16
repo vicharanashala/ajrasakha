@@ -6,6 +6,9 @@ import {
   HttpCode,
   CurrentUser,
   Authorized,
+  Req,
+  UploadedFile,
+  UseBefore,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -14,6 +17,14 @@ import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {ContextService} from '../services/ContextService.js';
 import {ContextResponse} from '../classes/validators/ContextValidators.js';
 import {IUser} from '#root/shared/index.js';
+import multer from 'multer';
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 20 * 1024 * 1024,
+  },
+});
 
 @OpenAPI({
   tags: ['contexts'],

@@ -1,6 +1,6 @@
 import type { IUser } from "@/types";
-import { apiFetch } from "../api-fetch";
-import type { IUsersNameResponse } from "../user/useGetAllUserNames";
+import { apiFetch } from "../api/api-fetch";
+import type { IUsersNameResponse } from "../api/user/useGetAllUserNames";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 

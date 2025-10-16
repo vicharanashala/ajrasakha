@@ -13,7 +13,7 @@ import { UserProfileActions } from "@/components/atoms/user-profile-actions";
 import { ThemeToggleCompact } from "./atoms/ThemeToggle";
 import { QAInterface } from "./QA-interface";
 import { FullSubmissionHistory } from "./submission-history";
-import VoiceRecorderCard from "./voice-recorder-card";
+import { VoiceRecorderCard } from "./voice-recorder-card";
 import { QuestionsPage } from "./questions-page";
 import { BellIcon } from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
@@ -266,7 +266,7 @@ export const PlaygroundPage = () => {
                 value="all_questions"
                 className="mt-0 border-0 md:px-8 px-2 w-full"
               >
-                <QuestionsPage userRole={user?.role}/>
+                <QuestionsPage userRole={user?.role} />
               </TabsContent>
               {user && user.role == "moderator" && (
                 <TabsContent

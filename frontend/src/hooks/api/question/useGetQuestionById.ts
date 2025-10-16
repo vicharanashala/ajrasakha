@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { QuestionService } from "../services/questionService";
+import { QuestionService } from "../../services/questionService";
 import type { IQuestion } from "@/types";
 
 const questionService = new QuestionService();

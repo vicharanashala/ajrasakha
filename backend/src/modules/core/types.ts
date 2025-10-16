@@ -13,6 +13,7 @@ export const CORE_TYPES = {
   ContextService: Symbol.for('ContextService'),
   CommentService: Symbol.for('CommentService'),
   AIService: Symbol.for('AIService'),
+  SarvamService: Symbol.for('SarvamService'),
 
   // Repositories
   UserRepository: Symbol.for('UserRepository'),

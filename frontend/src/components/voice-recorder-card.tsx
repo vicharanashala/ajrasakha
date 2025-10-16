@@ -36,6 +36,7 @@ import {
 } from "./atoms/accordion";
 import { Skeleton } from "./atoms/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
+import { useSendAudioChunk } from "@/hooks/api/context/useSendAudioChunk";
 
 export interface GeneratedQuestion {
   id: string;
@@ -48,10 +49,12 @@ declare global {
     webkitSpeechRecognition: any;
   }
 }
-
-const supportedLanguages: { code: SupportedLanguage; label: string }[] = [
+const supportedLanguages: {
+  code: SupportedLanguage | "auto";
+  label: string;
+}[] = [
+  { code: "auto", label: "Auto Detection" },
   { code: "en-IN", label: "English (India)" },
-  { code: "en-US", label: "English (US)" },
   { code: "hi-IN", label: "Hindi" },
   { code: "bn-IN", label: "Bengali" },
   { code: "te-IN", label: "Telugu" },
@@ -62,173 +65,194 @@ const supportedLanguages: { code: SupportedLanguage; label: string }[] = [
   { code: "ml-IN", label: "Malayalam" },
   { code: "pa-IN", label: "Punjabi" },
   { code: "ur-IN", label: "Urdu" },
+  { code: "as-IN", label: "Assamese" },
+  { code: "brx-IN", label: "Bodo" },
+  { code: "doi-IN", label: "Dogri" },
+  { code: "kok-IN", label: "Konkani" },
+  { code: "ks-IN", label: "Kashmiri" },
+  { code: "mai-IN", label: "Maithili" },
+  { code: "mni-IN", label: "Manipuri" },
+  { code: "ne-IN", label: "Nepali" },
+  { code: "sa-IN", label: "Sanskrit" },
+  { code: "sat-IN", label: "Santali" },
+  { code: "sd-IN", label: "Sindhi" },
 ];
 
-const VoiceRecorderCard = () => {
+export const VoiceRecorderCard = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState(``);
   const [isListening, setIsListening] = useState(false);
-  const [interimTranscript, setInterimTranscript] = useState("");
-  const [language, setLanguage] = useState<SupportedLanguage>("en-IN");
+  const [language, setLanguage] = useState<SupportedLanguage>("auto");
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number>(0);
   const [frequencyData, setFrequencyData] = useState<number[]>([]);
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
 
-  const recognitionRef = useRef<any>(null);
-  const transcriptRef = useRef("");
-  const lastTranscriptRef = useRef<string>(""); // to hold the previous trnascript to avoid duplicate api calls
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  // const transcriptRef = useRef("");
+  const lastTranscriptRef = useRef("");
   const frequencyRef = useRef<number[]>([]);
+  const chunkBlobRef = useRef<Blob | null>(null);
+  const isRecordingRef = useRef(false);
+  const tempChunksRef = useRef<Blob[]>([]); // store chunks for current recording
 
   const { mutateAsync: submitTranscript, isPending } = useSubmitTranscript();
 
   const { mutateAsync: generateQuestions, isPending: isGeneratingQuestions } =
     useGenerateQuestion();
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
-      const recognition = new window.webkitSpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = language;
+  const { mutateAsync: sendAudioChunk } = useSendAudioChunk();
 
-      recognition.onstart = () => {
-        setIsListening(true);
-      };
-
-      recognition.onresult = (event: any) => {
-        let interim = "";
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-          if (result.isFinal) {
-            setTranscript((prev) => prev + " " + result[0].transcript);
-          } else {
-            interim += result[0].transcript;
-          }
-        }
-        setInterimTranscript(interim);
-      };
-
-      recognition.onend = () => {
-        // setIsListening(false);
-        // setIsRecording(false);
-        const IS_FROM_ONEND = true;
-        handleRecordingToggle(IS_FROM_ONEND);
-      };
-      recognition.onerror = (event: any) => console.error(event.error);
-
-      recognitionRef.current = recognition;
-    } else {
-      toast.error("Web Speech API is not supported in this browser.");
-    }
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [language]);
-
-  const displayTranscript =
-    transcript + (interimTranscript ? " " + interimTranscript : "");
-
-  useEffect(() => {
-    transcriptRef.current = displayTranscript;
-    frequencyRef.current = frequencyData;
-  }, [frequencyData]);
-
-  useEffect(() => {
-    if (!isRecording || !isListening) return;
-
-    const interval = setInterval(async () => {
-      const currentTranscript = transcriptRef.current.trim();
-
-      const maxFrequency = Math.max(...frequencyRef.current);
-
-      if (transcriptRef.current.length <= 10 || maxFrequency < 0.05) return;
-      // if (currentTranscript.length <= 10) return;
-      if (currentTranscript === lastTranscriptRef.current) return;
-
-      lastTranscriptRef.current = currentTranscript;
-
-      try {
-        const qstns = await generateQuestions(transcriptRef.current);
-        // setQuestions((prev) => (qstns ? [...prev, ...qstns] : prev));
-        setQuestions(() => (qstns ? qstns : []));
-      } catch (err) {
-        console.error("Error generating questions:", err);
-      }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [isRecording, generateQuestions]);
-
-  const handleRecordingToggle = async (isFromOnEnd?: boolean) => {
-    if (isRecording || isFromOnEnd) {
-      setIsRecording(false);
-      setIsListening(false);
-
-      if (mediaRecorderRef.current) {
-        mediaRecorderRef.current.stop();
-        mediaRecorderRef.current.stream
-          .getTracks()
-          .forEach((track) => track.stop());
-      }
-
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    } else {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
-
-        audioContextRef.current = new AudioContext();
-        const source = audioContextRef.current.createMediaStreamSource(stream);
-        analyserRef.current = audioContextRef.current.createAnalyser();
-        analyserRef.current.fftSize = 256;
-        source.connect(analyserRef.current);
-
-        updateAudioLevel();
-
-        mediaRecorderRef.current = new MediaRecorder(stream);
-        mediaRecorderRef.current.start();
-
-        if (recognitionRef.current) {
-          recognitionRef.current.start();
-        }
-
-        setIsRecording(true);
-        setIsListening(true);
-        setInterimTranscript("");
-      } catch (error) {
-        console.error("Error accessing microphone:", error);
-      }
+  const sendChunkToBackend = async (
+    chunk: Blob,
+    lang: SupportedLanguage
+  ): Promise<string> => {
+    try {
+      const file = new File([chunk], `audio-${Date.now()}.webm`, {
+        type: chunk.type,
+      });
+      const result = await sendAudioChunk({ file, lang });
+      return result?.transcript || "";
+    } catch (err) {
+      console.error("Failed to send audio:", err);
+      return "";
     }
   };
 
-  const updateAudioLevel = () => {
-    if (analyserRef.current) {
-      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-      analyserRef.current.getByteFrequencyData(dataArray);
+  useEffect(() => {
+    if (!isRecording) return;
+    if (!transcript || transcript.trim().length <= 10) return;
 
-      animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
+    // Avoid generating questions if transcript hasn’t changed
+    if (transcript === lastTranscriptRef.current) return;
+    lastTranscriptRef.current = transcript;
 
-      const frequencyBars = Array.from(dataArray.slice(0, 16)).map(
-        (value) => value / 255
-      );
-      setFrequencyData(frequencyBars);
+    const generate = async () => {
+      try {
+        const qstns = await generateQuestions(transcript);
+        setQuestions(qstns || []);
+      } catch (err) {
+        console.error("Error generating questions:", err);
+      }
+    };
+
+    generate();
+  }, [transcript, isRecording, isListening, generateQuestions]);
+
+  const updateFrequency = () => {
+    if (!analyserRef.current) return;
+    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+    analyserRef.current.getByteFrequencyData(dataArray);
+    const bars = Array.from(dataArray).map((v) => v / 255);
+    setFrequencyData(bars);
+    animationFrameRef.current = requestAnimationFrame(updateFrequency);
+  };
+
+  const handleRecording = async (action: "start" | "stop") => {
+    if (action === "start") {
+      try {
+        chunkBlobRef.current = null;
+        tempChunksRef.current = [];
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+        mediaStreamRef.current = stream;
+
+        // --- Audio Visualization Setup ---
+        const audioCtx = new AudioContext();
+        audioContextRef.current = audioCtx;
+        const source = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256; // number of frequency bins
+        source.connect(analyser);
+        analyserRef.current = analyser;
+
+        // start updating frequency data
+        updateFrequency();
+
+        const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+        mediaRecorderRef.current = recorder;
+
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) tempChunksRef.current.push(event.data);
+        };
+
+        recorder.start();
+        console.log("🎙️ Recording started");
+      } catch (err) {
+        console.error("Error starting recording:", err);
+      }
+    } else if (action === "stop") {
+      if (
+        !mediaRecorderRef.current ||
+        mediaRecorderRef.current.state === "inactive"
+      ) {
+        console.warn("No active recording to stop");
+        return;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      // Stop the recorder and wait for onstop
+      const blob = await new Promise<Blob | null>((resolve) => {
+        const recorder = mediaRecorderRef.current!;
+        recorder.onstop = () => {
+          const combinedBlob = new Blob(tempChunksRef.current, {
+            type: "audio/webm",
+          });
+          resolve(combinedBlob);
+
+          // Cleanup
+          if (mediaStreamRef.current) {
+            mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+            mediaStreamRef.current = null;
+          }
+          mediaRecorderRef.current = null;
+          tempChunksRef.current = [];
+        };
+
+        recorder.stop();
+        console.log("🛑 Recording stopped");
+      });
+
+      if (!blob) {
+        console.warn("No blob recorded");
+        return;
+      }
+
+      const result = await sendChunkToBackend(blob, language);
+      setTranscript((prev) => prev + " " + result);
+    }
+  };
+
+  const handleRecordingToggle = async () => {
+    if (!isRecordingRef.current) {
+      setIsRecording(true);
+      isRecordingRef.current = true;
+
+      const recordLoop = async () => {
+        while (isRecordingRef.current) {
+          await handleRecording("start");
+          await new Promise((res) => setTimeout(res, 20000));
+          await handleRecording("stop");
+        }
+      };
+
+      recordLoop();
+    } else {
+      setIsRecording(false);
+      isRecordingRef.current = false;
+      handleRecording("stop");
     }
   };
 
@@ -241,7 +265,6 @@ const VoiceRecorderCard = () => {
     try {
       await submitTranscript(transcript);
       setTranscript("");
-      setInterimTranscript("");
       toast.success("Transcript submitted successfully!");
     } catch (error) {
       console.error(error);
@@ -273,7 +296,6 @@ const VoiceRecorderCard = () => {
                   <Volume2 className="h-4 w-4" />
                   Voice Recorder
                 </CardTitle>
-
                 <Select
                   value={language}
                   onValueChange={(value) =>
@@ -317,17 +339,22 @@ const VoiceRecorderCard = () => {
                 </Button>
 
                 <div className="flex-1 flex items-center gap-1 h-8">
-                  {isRecording && isListening ? (
-                    frequencyData.map((level, index) => (
-                      <div
-                        key={index}
-                        className="bg-gradient-to-t from-blue-500 to-purple-500 rounded-full w-1 transition-all duration-75"
-                        style={{
-                          height: `${Math.max(level * 100, 10)}%`,
-                          opacity: 0.6 + level * 0.4,
-                        }}
-                      />
-                    ))
+                  {isRecording ? (
+                    <div className="w-[70%] h-full flex items-end overflow-hidden">
+                      {frequencyData
+                        .filter((_, index) => index % 4 === 0)
+                        .map((level, index) => (
+                          <div
+                            key={index}
+                            className="bg-gradient-to-t from-blue-500 to-purple-500 rounded-full w-1 transition-all duration-75"
+                            style={{
+                              height: `${Math.max(level * 100, 10)}%`,
+                              opacity: 0.6 + level * 0.4,
+                              marginRight: "4px",
+                            }}
+                          />
+                        ))}
+                    </div>
                   ) : (
                     <div className="flex items-center gap-2 text-muted-foreground text-sm">
                       {isRecording ? (
@@ -355,18 +382,22 @@ const VoiceRecorderCard = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Transcript</Label>
-                  {displayTranscript.length > 0 && (
+                  {transcript.length > 0 && (
                     <span className="text-xs text-muted-foreground">
-                      {displayTranscript.length} chars
+                      {transcript.length} chars
                     </span>
                   )}
                 </div>
 
                 <div className="h-40 relative">
                   <div className="h-full w-full overflow-y-auto rounded-md border bg-background/50 p-3 text-sm whitespace-pre-wrap break-words">
-                    {displayTranscript || (
+                    {!transcript ? (
                       <span className="text-muted-foreground">
                         Your speech will appear here...
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {transcript || ""}
                       </span>
                     )}
                   </div>
@@ -378,7 +409,7 @@ const VoiceRecorderCard = () => {
                     onClick={handleClear}
                     variant="outline"
                     size="sm"
-                    disabled={!displayTranscript || isRecording}
+                    disabled={!transcript || isRecording}
                     className="flex items-center gap-1"
                   >
                     <RotateCcw className="h-4 w-4" />
@@ -387,7 +418,7 @@ const VoiceRecorderCard = () => {
 
                   <Button
                     onClick={handleSubmit}
-                    disabled={!displayTranscript || isPending || isRecording}
+                    disabled={!transcript || isPending || isRecording}
                     size="sm"
                     className="flex items-center gap-1 shadow-sm"
                   >

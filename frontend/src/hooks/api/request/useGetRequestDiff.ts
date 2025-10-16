@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { RequestService } from "../services/requestService";
+import { RequestService } from "../../services/requestService";
 
 const requestService = new RequestService();
 

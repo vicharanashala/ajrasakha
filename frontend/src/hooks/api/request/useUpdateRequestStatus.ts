@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { RequestService } from "../services/requestService";
+import { RequestService } from "../../services/requestService";
 import type { IRequest, RequestStatus } from "@/types";
 
 const requestService = new RequestService();

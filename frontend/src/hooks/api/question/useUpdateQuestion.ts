@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { QuestionService } from "../services/questionService";
+import { QuestionService } from "../../services/questionService";
 import type { IDetailedQuestion } from "@/types";
 
 const questionService = new QuestionService();

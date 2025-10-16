@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import { ContextService } from "../services/contextService";
+import { ContextService } from "../../services/contextService";
 
 const contextService = new ContextService();
 

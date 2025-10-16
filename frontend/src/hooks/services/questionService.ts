@@ -4,7 +4,7 @@ import type {
   IQuestion,
   QuestionFullDataResponse,
 } from "@/types";
-import { apiFetch } from "../api-fetch";
+import { apiFetch } from "../api/api-fetch";
 import type { QuestionFilter } from "@/components/QA-interface";
 import type { GeneratedQuestion } from "@/components/voice-recorder-card";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";

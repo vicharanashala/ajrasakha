@@ -1,7 +1,7 @@
 import { auth } from "@/config/firebase";
 import { getIdToken, type User } from "firebase/auth";
 
-const getCurrentUser = (): Promise<User | null> => {
+export const getCurrentUser = (): Promise<User | null> => {
   return new Promise((resolve) => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       unsubscribe();
@@ -23,11 +23,19 @@ export const apiFetch = async <T>(
     console.error("Failed to get token:", err);
     return null;
   }
-  const headers = {
-    ...(options.headers || {}),
+
+  const isFormData = options.body instanceof FormData;
+
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string>),
     Authorization: token ? `Bearer ${token}` : "",
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
   };
+  // const headers = {
+  //   ...(options.headers || {}),
+  //   Authorization: token ? `Bearer ${token}` : "",
+  //   "Content-Type": "application/json",
+  // };
 
   const res = await fetch(url, { ...options, headers });
 

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { UserService } from "../services/userService";
+import { UserService } from "../../services/userService";
 import type { IUser } from "@/types";
 
 const userService = new UserService();

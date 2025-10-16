@@ -101,8 +101,8 @@ export interface SubmitAnswerResponse {
 }
 
 export type SupportedLanguage =
+  | "auto"
   | "en-IN"
-  | "en-US"
   | "hi-IN"
   | "bn-IN"
   | "te-IN"
@@ -112,7 +112,18 @@ export type SupportedLanguage =
   | "kn-IN"
   | "ml-IN"
   | "pa-IN"
-  | "ur-IN";
+  | "ur-IN"
+  | "as-IN"
+  | "brx-IN"
+  | "doi-IN"
+  | "ks-IN"
+  | "kok-IN"
+  | "mai-IN"
+  | "mni-IN"
+  | "ne-IN"
+  | "sa-IN"
+  | "sat-IN"
+  | "sd-IN";
 
 export type QuestionStatus = "open" | "in-review" | "closed";
 
@@ -167,7 +178,7 @@ export interface IQuestionFullData {
   };
   priority: QuestionPriority;
   context: string;
-  metrics: IQuestionMetrics,
+  metrics: IQuestionMetrics;
   source: string;
   totalAnswersCount: number;
   createdAt: string;

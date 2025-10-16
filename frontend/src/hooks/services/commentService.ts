@@ -1,5 +1,5 @@
 import type { IComment } from "@/types";
-import { apiFetch } from "../api-fetch";
+import { apiFetch } from "../api/api-fetch";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 

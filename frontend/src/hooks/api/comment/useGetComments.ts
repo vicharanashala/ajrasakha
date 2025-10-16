@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { CommentService } from "../services/commentService";
+import { CommentService } from "../../services/commentService";
 
 const commentService = new CommentService();
 

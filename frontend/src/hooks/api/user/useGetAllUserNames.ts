@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { UserService } from "../services/userService";
+import { UserService } from "../../services/userService";
 import type { IPreference } from "@/types";
 
 const userService = new UserService();

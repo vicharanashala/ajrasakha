@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { QuestionService } from "../services/questionService";
+import { QuestionService } from "../../services/questionService";
 import type { QuestionFilter } from "@/components/QA-interface";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
 

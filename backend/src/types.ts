@@ -15,6 +15,7 @@ const TYPES = {
   ContextService: Symbol.for('ContextService'),
   CommentService: Symbol.for('CommentService'),
   RequestService: Symbol.for('RequestService'),
+  SarvamService: Symbol.for('SarvamService'),
 
   // Repositories
   RequestRepository: Symbol.for('RequestRepository'),

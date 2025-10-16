@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { QuestionService } from "../services/questionService";
+import { QuestionService } from "../../services/questionService";
 import type { GeneratedQuestion } from "@/components/voice-recorder-card";
 
 const questionService = new QuestionService();

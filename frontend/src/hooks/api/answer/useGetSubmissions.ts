@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { AnswerService } from "../services/answerService";
+import { AnswerService } from "../../services/answerService";
 
 const answerService = new AnswerService();
 
