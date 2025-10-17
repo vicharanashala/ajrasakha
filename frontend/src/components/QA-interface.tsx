@@ -314,7 +314,7 @@ export const QAInterface = () => {
                   crops={CROPS}
                   activeFiltersCount={activeFiltersCount}
                   onReset={onReset}
-                  isStatusFilterNeeded={false}
+                  isForQA={true}
                 />
 
                 <Button

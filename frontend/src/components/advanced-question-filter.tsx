@@ -35,6 +35,7 @@ import {
   Globe,
   Loader2,
   Info,
+  AlertTriangle,
 } from "lucide-react";
 import { useGetAllUserNames } from "@/hooks/api/user/useGetAllUserNames";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
@@ -110,7 +111,7 @@ interface AdvanceFilterDialogProps {
   crops: string[];
   activeFiltersCount: number;
   onReset: () => void;
-  isStatusFilterNeeded: boolean;
+  isForQA: boolean;
 }
 
 export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
@@ -122,7 +123,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   crops,
   activeFiltersCount,
   onReset,
-  isStatusFilterNeeded,
+  isForQA,
 }) => {
   const { data: userNameReponse, isLoading } = useGetAllUserNames();
 
@@ -130,22 +131,22 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
     a.userName.localeCompare(b.userName)
   );
 
-useEffect(() => {
-  if (userNameReponse?.myPreference) {
-    setAdvanceFilterValues((prev: AdvanceFilterValues) => {
-      const updatedFilters = {
-        ...prev,
-        state: userNameReponse.myPreference?.state || prev.state,
-        crop: userNameReponse.myPreference?.crop || prev.crop,
-        domain: userNameReponse.myPreference?.domain || prev.domain,
-      };
+  useEffect(() => {
+    if (userNameReponse?.myPreference) {
+      setAdvanceFilterValues((prev: AdvanceFilterValues) => {
+        const updatedFilters = {
+          ...prev,
+          state: userNameReponse.myPreference?.state || prev.state,
+          crop: userNameReponse.myPreference?.crop || prev.crop,
+          domain: userNameReponse.myPreference?.domain || prev.domain,
+        };
 
-      handleApplyFilters(updatedFilters);
+        handleApplyFilters(updatedFilters);
 
-      return updatedFilters;
-    });
-  }
-}, [userNameReponse, setAdvanceFilterValues]);
+        return updatedFilters;
+      });
+    }
+  }, [userNameReponse, setAdvanceFilterValues]);
 
   return (
     <Dialog>
@@ -177,12 +178,22 @@ useEffect(() => {
             <p className="text-sm text-muted-foreground">
               Refine your search with multiple filter options
             </p>
+            {isForQA && (
+              <div className="flex items-start gap-2 mt-1 text-sm text-muted-foreground">
+                <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5" />
+                <span>
+                  Filters will not apply if you have unanswered questions in
+                  your preferences. Complete those questions before applying
+                  filters.
+                </span>
+              </div>
+            )}
           </DialogHeader>
 
           <div className="space-y-6 py-4">
             {/* Question Status & Source */}
             <div className="grid grid-cols-2 gap-4">
-              {isStatusFilterNeeded && (
+              {!isForQA && (
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2 text-sm font-semibold">
                     <FileText className="h-4 w-4 text-primary" />
@@ -509,7 +520,9 @@ useEffect(() => {
                 <Button variant="secondary">Cancel</Button>
               </DialogClose>
               <DialogClose asChild>
-                <Button onClick={() => handleApplyFilters()}>Apply Preferences</Button>
+                <Button onClick={() => handleApplyFilters()}>
+                  Apply Preferences
+                </Button>
               </DialogClose>
             </div>
           </DialogFooter>

@@ -926,7 +926,7 @@ export const QuestionsFilters = ({
           crops={crops}
           activeFiltersCount={activeFiltersCount}
           onReset={onReset}
-          isStatusFilterNeeded={true}
+          isForQA={false}
         />
 
         <Button
