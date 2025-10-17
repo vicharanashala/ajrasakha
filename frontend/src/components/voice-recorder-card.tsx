@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle,
-  Filter,
   HelpCircle,
   Lightbulb,
   Mic,
   MicOff,
   RotateCcw,
   Send,
+  Speech,
   User,
   Volume2,
 } from "lucide-react";
@@ -298,13 +298,14 @@ export const VoiceRecorderCard = () => {
                 </CardTitle>
                 <Select
                   value={language}
+                  disabled
                   onValueChange={(value) =>
                     setLanguage(value as SupportedLanguage)
                   }
-                  disabled={isRecording || isListening}
+                  // disabled={isRecording || isListening}
                 >
                   <SelectTrigger className="w-full md:w-[160px] h-9">
-                    <Filter className="w-4 h-4 md:hidden" />
+                    <Speech className="w-4 h-4" />
                     <span className="hidden md:block text-sm">
                       <SelectValue placeholder="Language" />
                     </span>
