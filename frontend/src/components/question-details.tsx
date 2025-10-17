@@ -709,7 +709,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                 </Button>
               </DialogTrigger>
 
-              <DialogContent className="max-w-3xl w-[600px] flex flex-col p-6">
+              <DialogContent
+                className="w-[90vw] max-w-6xl max-h-[85vh] flex flex-col"
+                style={{ maxWidth: "70vw" }}
+              >
                 <DialogHeader>
                   <DialogTitle className="text-lg font-semibold">
                     Edit Answer
