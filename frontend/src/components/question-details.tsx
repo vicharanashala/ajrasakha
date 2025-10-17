@@ -1,10 +1,8 @@
 import type {
   IAnswer,
-  IComment,
   IQuestionFullData,
   ISubmission,
   ISubmissionHistory,
-  ISubmissions,
   UserRole,
 } from "@/types";
 import {
@@ -618,8 +616,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const [editOpen, setEditOpen] = useState(false);
   const { mutateAsync: addComment, isPending: isAddingComment } =
     useAddComment();
-  const { mutateAsync: updateAnswer, isPending: isUpdatingComment } =
-    useUpdateAnswer();
+  const { mutateAsync: updateAnswer } = useUpdateAnswer();
 
   useImperativeHandle(ref, () => {
     refetchComments;

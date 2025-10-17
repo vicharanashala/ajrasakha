@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -28,7 +28,6 @@ import {
   Circle,
   Layers,
   Calendar,
-  Search,
   MessageSquare,
   Edit2,
   CheckCircle,

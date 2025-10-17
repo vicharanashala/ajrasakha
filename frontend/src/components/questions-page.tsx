@@ -1,9 +1,9 @@
 import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetailedQuestions";
 import { QuestionsFilters, QuestionsTable } from "./questions-table";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {  useMemo, useState } from "react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "./question-details";
-import type { QuestionPriority, UserRole } from "@/types";
+import type {  UserRole } from "@/types";
 import {
   CROPS,
   STATES,
@@ -22,7 +22,7 @@ export const QuestionsPage = ({ userRole }: { userRole?: UserRole }) => {
   const [crop, setCrop] = useState("");
   const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
-  const observerRef = useRef<IntersectionObserver | null>(null);
+  // const observerRef = useRef<IntersectionObserver | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedQuestionId, setSelectedQuestionId] = useState("");
   const [currentPage, setCurrentPage] = useState(1);

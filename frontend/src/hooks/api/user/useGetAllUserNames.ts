@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { UserService } from "../../services/userService";
-import type { IPreference } from "@/types";
+import type { IMyPreference } from "@/types";
 
 const userService = new UserService();
 
@@ -10,7 +10,7 @@ export interface IUsers {
   userName: string;
 }
 export interface IUsersNameResponse {
-  myPreference: IPreference;
+  myPreference: IMyPreference;
   users: IUsers[];
 }
 

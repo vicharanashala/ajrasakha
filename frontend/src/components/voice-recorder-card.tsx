@@ -95,7 +95,7 @@ export const VoiceRecorderCard = () => {
 
   // const transcriptRef = useRef("");
   const lastTranscriptRef = useRef("");
-  const frequencyRef = useRef<number[]>([]);
+  // const frequencyRef = useRef<number[]>([]);
   const chunkBlobRef = useRef<Blob | null>(null);
   const isRecordingRef = useRef(false);
   const tempChunksRef = useRef<Blob[]>([]); // store chunks for current recording

@@ -35,7 +35,6 @@ import toast from "react-hot-toast";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -54,7 +53,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./atoms/tooltip";
-import { Input } from "./atoms/input";
 import { SourceUrlManager } from "./source-url-manager";
 import {
   AdvanceFilterDialog,
@@ -823,8 +821,8 @@ export const QuestionDetailsDialog = ({
     details,
   } = question;
 
-  const created = createdAt ? new Date(createdAt).toLocaleString() : "-";
-  const updated = updatedAt ? new Date(updatedAt).toLocaleString() : "-";
+  // const created = createdAt ? new Date(createdAt).toLocaleString() : "-";
+  // const updated = updatedAt ? new Date(updatedAt).toLocaleString() : "-";
 
   return (
     <Dialog>

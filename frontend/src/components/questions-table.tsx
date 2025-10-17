@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
 import {
@@ -12,22 +12,16 @@ import {
 import { Input } from "./atoms/input";
 
 import {
-  Activity,
   AlertCircle,
-  CalendarClock,
   CheckCircle,
   Edit,
   Eye,
   Flag,
   FlagTriangleRight,
   Globe,
-  Hash,
   Info,
   Loader2,
-  Map,
-  MapPin,
   MessageSquareText,
-  MoreHorizontal,
   MoreVertical,
   PencilLine,
   Plus,
@@ -35,7 +29,6 @@ import {
   RefreshCcw,
   Save,
   Search,
-  Sprout,
   Trash,
   X,
 } from "lucide-react";
@@ -48,7 +41,6 @@ import {
 import type {
   IDetailedQuestion,
   IMyPreference,
-  IQuestion,
   QuestionPriority,
   QuestionSource,
   QuestionStatus,
@@ -84,7 +76,6 @@ import { useDeleteQuestion } from "@/hooks/api/question/useDeleteQuestion";
 import { ConfirmationModal } from "./confirmation-modal";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
-import { Content } from "@radix-ui/react-dialog";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -150,7 +141,7 @@ export const QuestionsTable = ({
   ) => {
     try {
       if (!entityId) {
-        toast.error("Failed to identify the selected question.");
+        toast.error(`Failed to identify and ${mode} the selected question.`);
         return;
       }
 
