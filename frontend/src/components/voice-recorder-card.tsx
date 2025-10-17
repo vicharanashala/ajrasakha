@@ -3,6 +3,7 @@ import {
   CheckCircle,
   HelpCircle,
   Lightbulb,
+  Loader2,
   Mic,
   MicOff,
   RotateCcw,
@@ -83,7 +84,8 @@ export const VoiceRecorderCard = () => {
   const [transcript, setTranscript] = useState(``);
   const [isListening, setIsListening] = useState(false);
   const [language, setLanguage] = useState<SupportedLanguage>("auto");
-
+  const [isLoadingRemainingTranscript, setIsLoadingRemainingTranscript] =
+    useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number>(0);
@@ -229,8 +231,9 @@ export const VoiceRecorderCard = () => {
         console.warn("No blob recorded");
         return;
       }
-
+      setIsLoadingRemainingTranscript(true);
       const result = await sendChunkToBackend(blob, language);
+      setIsLoadingRemainingTranscript(false);
       setTranscript((prev) => prev + " " + result);
     }
   };
@@ -399,6 +402,12 @@ export const VoiceRecorderCard = () => {
                     ) : (
                       <span className="text-muted-foreground">
                         {transcript || ""}
+                        {isLoadingRemainingTranscript && (
+                          <span className="flex items-center gap-1">
+                            <Loader2 className="w-4 h-4 animate-spin" />{" "}
+                            Loading...
+                          </span>
+                        )}
                       </span>
                     )}
                   </div>
