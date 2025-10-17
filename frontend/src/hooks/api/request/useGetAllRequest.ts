@@ -11,7 +11,7 @@ export const useGetAllRequests = (
   sortOrder: "newest" | "oldest"
 ) => {
   return useQuery({
-    queryKey: ["requests", page, limit, status, requestType],
+    queryKey: ["requests", page, limit, status, requestType, sortOrder],
     queryFn: async () => {
       return await requestService.getAllRequests({
         page,
