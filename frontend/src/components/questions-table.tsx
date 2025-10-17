@@ -896,14 +896,26 @@ export const QuestionsFilters = ({
       />
 
       <div className="flex-1 min-w-[200px] max-w-[400px]">
-        <div className="relative">
+        <div className="relative w-full">
+          {/* Search Icon */}
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+
+          {/* Input Field */}
           <Input
             placeholder="Search questions by id, state, crops..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 bg-background"
+            className="pl-9 pr-9 bg-background"
           />
+
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
