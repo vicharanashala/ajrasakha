@@ -51,6 +51,7 @@ import {
   MapPin,
   MessageSquare,
   RefreshCw,
+  Send,
   Sprout,
   UserCheck,
 } from "lucide-react";
@@ -124,28 +125,41 @@ export const QuestionDetails = ({
           <h1 className="text-2xl font-semibold text-pretty">
             {question.question}
           </h1>
-          <Button
-            size="sm"
-            variant="outline"
-            className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
-            onClick={() => goBack()}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-              className="w-4 h-4"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M17 8l4 4m0 0l-4 4m4-4H3"
+          <div className="flex justify-center gap-2 items-center">
+            {(question.status == "open" ||
+              (userRole != "expert" && question.status == "in-review")) && (
+              <SubmitAnswerDialog
+                questionId={question._id}
+                isAlreadySubmitted={question.isAlreadySubmitted}
+                currentUserId={currentUserId}
+                onSubmitted={() => {
+                  refetchAnswers();
+                }}
               />
-            </svg>
-            <span className="leading-none">Exit</span>
-          </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
+              onClick={() => goBack()}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-4 h-4"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M17 8l4 4m0 0l-4 4m4-4H3"
+                />
+              </svg>
+              <span className="leading-none">Exit</span>
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -428,9 +442,12 @@ export const QuestionDetails = ({
         )}
       </Card>
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Answers</h2>
+        <h2 className="text-lg font-semibold flex justify-center gap-2 items-center">
+          <FileText className="w-5 h-5 text-muted-foreground" />
+          Answers
+        </h2>
         <div className="flex items-center gap-2">
-          {(question.status == "open" ||
+          {/* {(question.status == "open" ||
             (userRole != "expert" && question.status == "in-review")) && (
             <SubmitAnswerDialog
               questionId={question._id}
@@ -440,7 +457,7 @@ export const QuestionDetails = ({
                 refetchAnswers();
               }}
             />
-          )}
+          )} */}
           <Button
             size="sm"
             variant="outline"
@@ -1066,6 +1083,7 @@ export const SubmitAnswerDialog = ({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="default" disabled={isAlreadySubmitted}>
+          <Send className="w-3 h-3" />
           {triggerLabel}
         </Button>
       </DialogTrigger>
