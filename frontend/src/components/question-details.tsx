@@ -757,16 +757,19 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                 View More
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl h-[85vh] flex flex-col ">
+            <DialogContent
+              className="w-[90vw] max-w-6xl h-[85vh] flex flex-col"
+              style={{ maxWidth: "70vw" }}
+            >
               <DialogHeader className="pb-4 border-b">
                 <DialogTitle className="text-xl font-semibold">
                   Answer Details
                 </DialogTitle>
               </DialogHeader>
 
-              <ScrollArea className="flex-1 h-[85vh]">
+              <ScrollArea className="flex-1 h-[85vh] ">
                 <div className="space-y-6 p-4">
-                  <div className="grid gap-4 text-sm">
+                  <div className="grid gap-4 text-sm ">
                     <div className="flex flex-col sm:flex-row justify-between gap-3">
                       <div className="flex items-center gap-4">
                         <span className="font-medium">
@@ -854,7 +857,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                     <p className="text-sm font-medium text-foreground mb-3">
                       Answer Content
                     </p>
-                    <div className="rounded-lg border bg-muted/30 h-[40vh]">
+                    <div className="rounded-lg border bg-muted/30 h-[40vh]  ">
                       <ScrollArea className="h-full">
                         <div className="p-4">
                           <p className="whitespace-pre-wrap leading-relaxed text-foreground">
