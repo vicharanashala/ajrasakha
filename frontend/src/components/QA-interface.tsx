@@ -901,7 +901,7 @@ export const QuestionDetailsDialog = ({
                       <Calendar className="w-3 h-3 text-primary" /> Created At
                     </div>
                   }
-                  value={created}
+                  value={createdAt}
                 />
                 <Option
                   label={
@@ -909,7 +909,7 @@ export const QuestionDetailsDialog = ({
                       <RefreshCcw className="w-3 h-3 text-primary" /> Updated At
                     </div>
                   }
-                  value={updated}
+                  value={updatedAt}
                 />
               </div>
             </section>

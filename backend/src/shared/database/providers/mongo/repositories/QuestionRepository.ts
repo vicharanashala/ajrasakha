@@ -403,16 +403,6 @@ export class QuestionRepository implements IQuestionRepository {
       const skip = (page - 1) * limit;
 
       const filter: any = {status: 'open'};
-      // console.log("User preference: ", userPreference)
-
-      // if (userPreference) {
-      //   if (userPreference.state && userPreference.state !== 'all')
-      //     filter.state = userPreference.state;
-      //   if (userPreference.crop && userPreference.crop !== 'all')
-      //     filter.crop = userPreference.crop;
-      //   if (userPreference.domain && userPreference.domain !== 'all')
-      //     filter.domain = userPreference.domain;
-      // }
 
       if (source && source !== 'all') filter.source = source;
       if (priority && priority !== 'all') filter.priority = priority;

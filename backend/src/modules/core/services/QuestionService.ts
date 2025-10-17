@@ -150,16 +150,50 @@ export class QuestionService extends BaseService {
   ): Promise<QuestionResponse[]> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        // const user = await this.userRepo.findById(userId, session);
-        // const userPreference = user.preference || null;
-        // state: 'Chhattisgarh', crop: 'Cotton', domain: 'Agriculture'
+        const user = await this.userRepo.findById(userId, session);
+        const userPreference = user.preference || null;
 
-        return this.questionRepo.getUnAnsweredQuestions(
-          userId,
-          query,
-          // userPreference,
-          session,
-        );
+        const userQuery: Record<string, any> = {};
+
+        if (userPreference.state && userPreference.state !== 'all') {
+          userQuery.state = userPreference.state;
+        }
+        if (userPreference.crop && userPreference.crop !== 'all') {
+          userQuery.crop = userPreference.crop;
+        }
+        if (userPreference.domain && userPreference.domain !== 'all') {
+          userQuery.domain = userPreference.domain;
+        }
+
+        const userPreferenceQuestions =
+          await this.questionRepo.getUnAnsweredQuestions(
+            userId,
+            userQuery,
+            session,
+          );
+
+        console.log('User query: ', userQuery);
+        console.log('Query: ', query);
+
+        const isQueryEmptyOrSame = ['state', 'crop', 'domain'].every(key => {
+          const prefValue = userQuery[key];
+          const queryValue = query[key];
+
+          if (!prefValue) return true; // no preference
+
+          if (!queryValue || queryValue === 'all') return true; // no filters
+
+          return prefValue.toLowerCase() === String(queryValue).toLowerCase(); // is both same
+        });
+
+        if (userPreferenceQuestions.length > 0 && isQueryEmptyOrSame) {
+          // throw new BadRequestError(
+          //   `Please complete your pending preference-based questions before applying new filters.`,
+          // );
+          return userPreferenceQuestions;
+        }
+
+        return this.questionRepo.getUnAnsweredQuestions(userId, query, session);
       });
     } catch (error) {
       throw new InternalServerError(
