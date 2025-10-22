@@ -135,7 +135,10 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
       const prefKey = key.split(".")[1];
       setFormData((prev: any) => ({
         ...prev,
-        preference: { ...prev.preference, [prefKey]: value },
+        preference: {
+          ...prev.preference,
+          [prefKey]: value,
+        },
       }));
     } else {
       setFormData((prev) => ({ ...prev, [key]: value }));
@@ -143,8 +146,18 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   }, []);
 
   const handleSave = async () => {
-    await onSubmit?.(formData);
-    setIsEditMode(false);
+    try {
+      if (
+        formData.preference?.domain === "" ||
+        formData.preference?.domain === "All"
+      ) {
+        formData.preference.domain = "all";
+      }
+      await onSubmit?.(formData);
+      setIsEditMode(false);
+    } catch (error) {
+      console.error("Error while saving form data:", error);
+    }
   };
 
   const avatarColors = [
@@ -350,7 +363,11 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
             <Input
               id="domain"
               disabled={!isEditMode}
-              value={formData.preference?.domain ?? ""}
+              value={
+                formData.preference?.domain == "all"
+                  ? "All"
+                  : formData.preference?.domain
+              }
               onChange={(e) =>
                 handleChange("preference.domain", e.target.value)
               }
