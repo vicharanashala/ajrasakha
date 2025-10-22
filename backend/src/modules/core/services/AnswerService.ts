@@ -146,11 +146,11 @@ export class AnswerService extends BaseService {
           totalAnswersCount: updatedAnswerCount,
           metrics,
           status:
-            analysisStatus == 'CONVERGED'
-              ? 'closed'
+            analysisStatus == 'FLAGGED_FOR_REVIEW'
+              ? 'in-review'
               : analysisStatus == 'CONTINUE'
-              ? 'open'
-              : 'closed',
+                ? 'open'
+                : 'closed',
         },
         session,
       );
@@ -217,9 +217,8 @@ export class AnswerService extends BaseService {
       // }
       const text = `Question: ${question.question}
         answer: ${answer}`;
-      const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
-        text,
-      );
+      const {embedding: questionEmbedding} =
+        await this.aiService.getEmbedding(text);
 
       await this.questionRepo.updateQuestion(
         questionId,

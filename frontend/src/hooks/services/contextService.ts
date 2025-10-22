@@ -1,6 +1,4 @@
-import { getIdToken } from "firebase/auth";
-import { apiFetch, getCurrentUser } from "../api/api-fetch";
-import { useGetCurrentUser } from "../api/user/useGetCurrentUser";
+import { apiFetch } from "../api/api-fetch";
 import type { SupportedLanguage } from "@/types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;

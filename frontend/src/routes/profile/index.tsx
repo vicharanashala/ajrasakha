@@ -30,6 +30,7 @@ import {
   Save,
   XCircle,
   ShieldCheck,
+  Settings,
 } from "lucide-react";
 
 export const Route = createFileRoute("/profile/")({
@@ -67,8 +68,9 @@ export default function ProfilePage() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Profile Settings
+            <h1 className="flex items-center text-2xl font-semibold tracking-tight gap-2">
+              <Settings className="w-5 h-5 text-muted-foreground shrink-0" />
+              <span>Profile Settings</span>
             </h1>
             <p className="text-sm text-muted-foreground">
               Manage your account information and preferences

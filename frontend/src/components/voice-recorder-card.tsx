@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle,
-  Filter,
   HelpCircle,
   Lightbulb,
+  Loader2,
   Mic,
   MicOff,
   RotateCcw,
   Send,
+  Speech,
   User,
   Volume2,
 } from "lucide-react";
@@ -83,7 +84,8 @@ export const VoiceRecorderCard = () => {
   const [transcript, setTranscript] = useState(``);
   const [isListening, setIsListening] = useState(false);
   const [language, setLanguage] = useState<SupportedLanguage>("auto");
-
+  const [isLoadingRemainingTranscript, setIsLoadingRemainingTranscript] =
+    useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number>(0);
@@ -95,7 +97,7 @@ export const VoiceRecorderCard = () => {
 
   // const transcriptRef = useRef("");
   const lastTranscriptRef = useRef("");
-  const frequencyRef = useRef<number[]>([]);
+  // const frequencyRef = useRef<number[]>([]);
   const chunkBlobRef = useRef<Blob | null>(null);
   const isRecordingRef = useRef(false);
   const tempChunksRef = useRef<Blob[]>([]); // store chunks for current recording
@@ -229,8 +231,9 @@ export const VoiceRecorderCard = () => {
         console.warn("No blob recorded");
         return;
       }
-
+      setIsLoadingRemainingTranscript(true);
       const result = await sendChunkToBackend(blob, language);
+      setIsLoadingRemainingTranscript(false);
       setTranscript((prev) => prev + " " + result);
     }
   };
@@ -298,13 +301,14 @@ export const VoiceRecorderCard = () => {
                 </CardTitle>
                 <Select
                   value={language}
+                  disabled
                   onValueChange={(value) =>
                     setLanguage(value as SupportedLanguage)
                   }
-                  disabled={isRecording || isListening}
+                  // disabled={isRecording || isListening}
                 >
                   <SelectTrigger className="w-full md:w-[160px] h-9">
-                    <Filter className="w-4 h-4 md:hidden" />
+                    <Speech className="w-4 h-4" />
                     <span className="hidden md:block text-sm">
                       <SelectValue placeholder="Language" />
                     </span>
@@ -398,6 +402,12 @@ export const VoiceRecorderCard = () => {
                     ) : (
                       <span className="text-muted-foreground">
                         {transcript || ""}
+                        {isLoadingRemainingTranscript && (
+                          <span className="flex items-center gap-1">
+                            <Loader2 className="w-4 h-4 animate-spin" />{" "}
+                            Loading...
+                          </span>
+                        )}
                       </span>
                     )}
                   </div>

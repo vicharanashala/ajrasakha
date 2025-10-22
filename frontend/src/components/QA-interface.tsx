@@ -22,6 +22,8 @@ import {
   Sprout,
   Sun,
   Layers,
+  Inbox,
+  Activity,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { RadioGroup, RadioGroupItem } from "./atoms/radio-group";
@@ -35,7 +37,6 @@ import toast from "react-hot-toast";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -54,7 +55,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./atoms/tooltip";
-import { Input } from "./atoms/input";
 import { SourceUrlManager } from "./source-url-manager";
 import {
   AdvanceFilterDialog,
@@ -516,7 +516,8 @@ export const QAInterface = () => {
           </Card>
           {/* md:max-h-[70vh] max-h-[80vh] */}
           <Card className="w-full  border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
-            <CardHeader className="border-b border-gray-200 dark:border-gray-700">
+            <CardHeader className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700">
+              <FileText className="w-5 h-5 text-muted-foreground" />
               <CardTitle className="text-lg font-semibold">Response</CardTitle>
             </CardHeader>
             <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-hidden scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-200 dark:scrollbar-track-gray-800">
@@ -618,7 +619,10 @@ export const QAInterface = () => {
                       </DialogTrigger>
                       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto ">
                         <AlertDialogHeader>
-                          <DialogTitle>Other Responses</DialogTitle>
+                          <DialogTitle className="flex  gap-2 items-center ">
+                            <FileText className="w-5 h-5 text-muted-foreground" />
+                            Other Responses
+                          </DialogTitle>
                         </AlertDialogHeader>
                         <div className="mt-4">
                           {selectedQuestionData.currentAnswers &&
@@ -823,8 +827,8 @@ export const QuestionDetailsDialog = ({
     details,
   } = question;
 
-  const created = createdAt ? new Date(createdAt).toLocaleString() : "-";
-  const updated = updatedAt ? new Date(updatedAt).toLocaleString() : "-";
+  // const created = createdAt ? new Date(createdAt).toLocaleString() : "-";
+  // const updated = updatedAt ? new Date(updatedAt).toLocaleString() : "-";
 
   return (
     <Dialog>

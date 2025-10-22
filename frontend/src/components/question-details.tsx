@@ -1,10 +1,8 @@
 import type {
   IAnswer,
-  IComment,
   IQuestionFullData,
   ISubmission,
   ISubmissionHistory,
-  ISubmissions,
   UserRole,
 } from "@/types";
 import {
@@ -53,6 +51,7 @@ import {
   MapPin,
   MessageSquare,
   RefreshCw,
+  Send,
   Sprout,
   UserCheck,
 } from "lucide-react";
@@ -126,28 +125,41 @@ export const QuestionDetails = ({
           <h1 className="text-2xl font-semibold text-pretty">
             {question.question}
           </h1>
-          <Button
-            size="sm"
-            variant="outline"
-            className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
-            onClick={() => goBack()}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-              className="w-4 h-4"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M17 8l4 4m0 0l-4 4m4-4H3"
+          <div className="flex justify-center gap-2 items-center">
+            {(question.status == "open" ||
+              (userRole != "expert" && question.status == "in-review")) && (
+              <SubmitAnswerDialog
+                questionId={question._id}
+                isAlreadySubmitted={question.isAlreadySubmitted}
+                currentUserId={currentUserId}
+                onSubmitted={() => {
+                  refetchAnswers();
+                }}
               />
-            </svg>
-            <span className="leading-none">Exit</span>
-          </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
+              onClick={() => goBack()}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-4 h-4"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M17 8l4 4m0 0l-4 4m4-4H3"
+                />
+              </svg>
+              <span className="leading-none">Exit</span>
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -430,9 +442,12 @@ export const QuestionDetails = ({
         )}
       </Card>
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Answers</h2>
+        <h2 className="text-lg font-semibold flex justify-center gap-2 items-center">
+          <FileText className="w-5 h-5 text-muted-foreground" />
+          Answers
+        </h2>
         <div className="flex items-center gap-2">
-          {(question.status == "open" ||
+          {/* {(question.status == "open" ||
             (userRole != "expert" && question.status == "in-review")) && (
             <SubmitAnswerDialog
               questionId={question._id}
@@ -442,7 +457,7 @@ export const QuestionDetails = ({
                 refetchAnswers();
               }}
             />
-          )}
+          )} */}
           <Button
             size="sm"
             variant="outline"
@@ -618,8 +633,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const [editOpen, setEditOpen] = useState(false);
   const { mutateAsync: addComment, isPending: isAddingComment } =
     useAddComment();
-  const { mutateAsync: updateAnswer, isPending: isUpdatingComment } =
-    useUpdateAnswer();
+  const { mutateAsync: updateAnswer } = useUpdateAnswer();
 
   useImperativeHandle(ref, () => {
     refetchComments;
@@ -712,7 +726,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                 </Button>
               </DialogTrigger>
 
-              <DialogContent className="max-w-3xl w-[600px] flex flex-col p-6">
+              <DialogContent
+                className="w-[90vw] max-w-6xl max-h-[85vh] flex flex-col"
+                style={{ maxWidth: "70vw" }}
+              >
                 <DialogHeader>
                   <DialogTitle className="text-lg font-semibold">
                     Edit Answer
@@ -757,16 +774,19 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                 View More
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl h-[85vh] flex flex-col ">
+            <DialogContent
+              className="w-[90vw] max-w-6xl h-[85vh] flex flex-col"
+              style={{ maxWidth: "70vw" }}
+            >
               <DialogHeader className="pb-4 border-b">
                 <DialogTitle className="text-xl font-semibold">
                   Answer Details
                 </DialogTitle>
               </DialogHeader>
 
-              <ScrollArea className="flex-1 h-[85vh]">
+              <ScrollArea className="flex-1 h-[85vh] ">
                 <div className="space-y-6 p-4">
-                  <div className="grid gap-4 text-sm">
+                  <div className="grid gap-4 text-sm ">
                     <div className="flex flex-col sm:flex-row justify-between gap-3">
                       <div className="flex items-center gap-4">
                         <span className="font-medium">
@@ -854,7 +874,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                     <p className="text-sm font-medium text-foreground mb-3">
                       Answer Content
                     </p>
-                    <div className="rounded-lg border bg-muted/30 h-[40vh]">
+                    <div className="rounded-lg border bg-muted/30 h-[40vh]  ">
                       <ScrollArea className="h-full">
                         <div className="p-4">
                           <p className="whitespace-pre-wrap leading-relaxed text-foreground">
@@ -1063,6 +1083,7 @@ export const SubmitAnswerDialog = ({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="default" disabled={isAlreadySubmitted}>
+          <Send className="w-3 h-3" />
           {triggerLabel}
         </Button>
       </DialogTrigger>

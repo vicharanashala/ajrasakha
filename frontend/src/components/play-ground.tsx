@@ -4,11 +4,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/atoms/tabs";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/atoms/hover-card";
+import { HoverCard } from "@/components/atoms/hover-card";
 import { UserProfileActions } from "@/components/atoms/user-profile-actions";
 import { ThemeToggleCompact } from "./atoms/ThemeToggle";
 import { QAInterface } from "./QA-interface";
