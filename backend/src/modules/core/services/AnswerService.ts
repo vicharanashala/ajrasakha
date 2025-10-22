@@ -89,18 +89,8 @@ export class AnswerService extends BaseService {
         answers: [...answerTexts, answer],
       };
 
+      // Wait for AI analysis
       const analysis = await this.aiService.evaluateAnswers(payload);
-
-      // const analysis: IQuestionAnalysis = {
-      //   question_id: 'Q101',
-      //   num_answers: 3,
-      //   mean_similarity: 0.84,
-      //   std_similarity: 0.06,
-      //   recent_similarity: 0.82,
-      //   collusion_score: 0.92,
-      //   status: 'CONTINUE',
-      //   message: 'More responses required to reach convergence.',
-      // };
 
       metrics = {
         mean_similarity: analysis.mean_similarity,
@@ -108,16 +98,14 @@ export class AnswerService extends BaseService {
         recent_similarity: analysis.recent_similarity,
         collusion_score: analysis.collusion_score,
       };
-      analysisStatus = analysis.status;
-      // const result = await this.aiService.getFinalAnswerByThreshold(payload);
-      // threshold = result.similarity_score;
 
-      if (analysis.status == 'CONVERGED') isFinalAnswer = true;
-      // }
+      analysisStatus = analysis.status;
+
+      if (analysisStatus == 'CONVERGED') isFinalAnswer = true;
 
       if (isFinalAnswer) {
         const text = `Question: ${question.question}
-        Answer: ${answer}`;
+Answer: ${answer}`;
         const {embedding} = await this.aiService.getEmbedding(text);
         await this.questionRepo.updateQuestion(
           questionId,
@@ -201,20 +189,11 @@ export class AnswerService extends BaseService {
         throw new BadRequestError(`Question with ID ${questionId} not found`);
       }
 
-      // const answers = await this.answerRepo.getByQuestionId(
-      //   questionId,
-      //   session,
-      // );
+      const answers = await this.answerRepo.getByQuestionId(
+        questionId,
+        session,
+      );
 
-      // const otherFinalAnswer = answers.find(
-      //   (answer: IAnswer) =>
-      //     answer.isFinalAnswer && answer._id?.toString() !== answerId,
-      // );
-      // if (otherFinalAnswer) {
-      //   throw new BadRequestError(
-      //     `Another final answer already exists for question ${questionId}`,
-      //   );
-      // }
       const text = `Question: ${question.question}
         answer: ${answer}`;
       const {embedding: questionEmbedding} =

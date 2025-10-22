@@ -561,7 +561,7 @@ export const AnswerTimeline = ({
     <div className="w-full">
       <Timeline
         value={events}
-        align="left"
+        align="alternate"
         opposite={(item) => (
           <div className="ml-5 flex flex-col gap-1 ">
             {item.submission?.updatedBy && (
@@ -921,7 +921,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
       </div>
 
       <div className="rounded-lg border bg-card p-4">
-        <p className="whitespace-pre-wrap leading-relaxed line-clamp-4 text-card-foreground">
+        <p className="whitespace-pre-wrap leading-relaxed line-clamp-4 text-card-foreground px-5">
           {props.answer.answer}
         </p>
       </div>

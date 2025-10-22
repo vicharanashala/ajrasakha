@@ -172,9 +172,6 @@ export class QuestionService extends BaseService {
             session,
           );
 
-        console.log('User query: ', userQuery);
-        console.log('Query: ', query);
-
         const isQueryEmptyOrSame = ['state', 'crop', 'domain'].every(key => {
           const prefValue = userQuery[key];
           const queryValue = query[key];
@@ -365,6 +362,19 @@ export class QuestionService extends BaseService {
 
         if (!existingQuestion) {
           throw new BadRequestError(`Question with ID ${questionId} not found`);
+        }
+
+        const answers = await this.answerRepo.getByQuestionId(
+          questionId,
+          session,
+        );
+        if (
+          updates.status === 'closed' &&
+          answers.every(answer => answer.isFinalAnswer === false)
+        ) {
+          throw new BadRequestError(
+            `Cannot close this question as it has non-final answers`,
+          );
         }
 
         return this.questionRepo.updateQuestion(questionId, updates, session);

@@ -1,9 +1,9 @@
 import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetailedQuestions";
 import { QuestionsFilters, QuestionsTable } from "./questions-table";
-import {  useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "./question-details";
-import type {  UserRole } from "@/types";
+import type { UserRole } from "@/types";
 import {
   CROPS,
   STATES,
@@ -103,6 +103,11 @@ export const QuestionsPage = ({ userRole }: { userRole?: UserRole }) => {
   //   }
   //   refetch();
   // }, [filter, refetch]);
+
+  useEffect(() => {
+    if (search === "") return;
+    if (userRole !== "expert") onReset(); // Reset filters on search change for non-experts
+  }, [search]);
 
   const onChangeFilters = (next: {
     status?: QuestionFilterStatus;

@@ -175,12 +175,16 @@ export const QuestionsTable = ({
       await updateQuestion(updatedData);
       toast.success("Question updated successfully.");
       setEditOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error in handleUpdateQuestion:", error);
-      toast.error("An error occurred while saving. Please try again.");
+      toast.error(
+        error?.message || "An error occurred while saving. Please try again."
+      );
       setEditOpen(false);
     }
   };
+
+
 
   const handleDelete = async () => {
     try {
@@ -904,7 +908,10 @@ export const QuestionsFilters = ({
           <Input
             placeholder="Search questions by id, state, crops..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              if (userRole !== "expert") onReset(); // Reset filters on search change for non-experts
+              setSearch(e.target.value);
+            }}
             className="pl-9 pr-9 bg-background"
           />
 
