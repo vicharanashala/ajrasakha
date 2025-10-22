@@ -260,7 +260,7 @@ export const QuestionsTable = ({
                         className="cursor-pointer hover:underline"
                         onClick={() => onViewMore(q._id?.toString() || "")}
                       >
-                        {truncate(q.question, 90)}
+                        {truncate(q.question, 60)}
                       </span>
                     </TableCell>
                     <TableCell className="align-middle text-center">
