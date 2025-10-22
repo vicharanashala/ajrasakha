@@ -332,7 +332,8 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                 <SelectItem value="all">All Crops</SelectItem>
                 {CROPS.map((crop) => (
                   <SelectItem key={crop} value={crop}>
-                    <Leaf className="h-4 w-4 mr-2 inline" /> {crop}
+                    {/* <Leaf className="h-4 w-4 mr-2 inline" />  */}
+                    {crop}
                   </SelectItem>
                 ))}
               </SelectContent>
