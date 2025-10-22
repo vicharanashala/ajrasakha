@@ -46,7 +46,6 @@ export interface IQuestionRepository {
    */
   addQuestion(
     questions: IQuestion,
-
     session?: ClientSession,
   ): Promise<IQuestion>;
 

@@ -1,3 +1,4 @@
+import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
 import {IUser} from '#shared/interfaces/models.js';
 import {MongoClient, ClientSession, ObjectId} from 'mongodb';
 
@@ -60,6 +61,17 @@ export interface IUserRepository {
     id: string | ObjectId,
     session?: ClientSession,
   ): Promise<IUser | null>;
+
+  /**
+   * Finds a user by their ID.
+   * @param details - preference details.
+   * @param session - The session for transaction.
+   * @returns A promise that resolves to the users.
+   */
+  findUsersByPreference(
+    details: PreferenceDto,
+    session?: ClientSession,
+  ): Promise<IUser[]>;
 
   /**
    * Creates a User Anomaly Document to the database.

@@ -296,7 +296,9 @@ export const VoiceRecorderCard = () => {
             <CardHeader className="pb-4">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Volume2 className="h-4 w-4" />
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Volume2 className="h-4 w-4 text-primary" />
+                  </div>
                   Voice Recorder
                 </CardTitle>
                 <Select
@@ -448,7 +450,9 @@ export const VoiceRecorderCard = () => {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="flex items-center gap-2">
-                      <HelpCircle className="h-5 w-5" />
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <HelpCircle className="h-5 w-5 text-primary" />
+                      </div>
                       Questions
                     </span>
                   </TooltipTrigger>

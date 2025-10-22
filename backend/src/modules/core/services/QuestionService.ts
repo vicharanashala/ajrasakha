@@ -26,6 +26,7 @@ import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.
 import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
 import {dummyEmbeddings} from '../utils/questionGen.js';
 import {IContextRepository} from '#root/shared/database/interfaces/IContextRepository.js';
+import {PreferenceDto} from '../classes/validators/UserValidators.js';
 
 @injectable()
 export class QuestionService extends BaseService {
@@ -83,6 +84,7 @@ export class QuestionService extends BaseService {
             questionId: question._id,
             lastRespondedBy: null,
             history: [],
+            queue: [],
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -114,6 +116,7 @@ export class QuestionService extends BaseService {
               questionId: question._id,
               lastRespondedBy: null,
               history: [],
+              queue: [],
               createdAt: new Date(),
               updatedAt: new Date(),
             };
@@ -279,19 +282,24 @@ export class QuestionService extends BaseService {
       return this._withTransaction(async (session: ClientSession) => {
         const {question, priority, source, details, context} = body;
 
+        // 1. If context is provided, create context first and get contextId
         let contextId: ObjectId | null = null;
 
         if (context) {
+          //i) Create Context entry
           const {insertedId} = await this.contextRepo.addContext(
             context,
             session,
           );
+          //ii) convert insertedId to ObjectId
           contextId = new ObjectId(insertedId);
         }
 
+        // 2. Create Embedding for the question based on text
         const text = `Question: ${question}`;
         const {embedding} = await this.aiService.getEmbedding(text);
-
+        // const embedding = [];
+        // 3. Create Question entry
         const newQuestion: IQuestion = {
           userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
           question,
@@ -308,7 +316,34 @@ export class QuestionService extends BaseService {
           updatedAt: new Date(),
         };
 
-        await this.questionRepo.addQuestion(newQuestion);
+        // 4. Save Question to DB
+        const savedQuestion = await this.questionRepo.addQuestion(newQuestion);
+
+        // 5. Fetch userId based on provided preference and create queue
+        // i) Find users matching the preference
+        const users = await this.userRepo.findUsersByPreference(
+          details as PreferenceDto,
+          session,
+        );
+        // ii) Create queue from the users found
+        const queue = users.map(user => new ObjectId(user._id.toString()));
+
+        // 6. Create an empty QuestionSubmission entry for the newly created question
+        const submissionData: IQuestionSubmission = {
+          questionId: new ObjectId(savedQuestion._id.toString()),
+          lastRespondedBy: null,
+          history: [],
+          queue,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        // 6. Save QuestionSubmission to DB
+        await this.questionSubmissionRepo.addSubmission(
+          submissionData,
+          session,
+        );
+
+        // 7. Return the saved question
         return newQuestion;
       });
     } catch (error) {

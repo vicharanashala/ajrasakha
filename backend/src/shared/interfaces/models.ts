@@ -81,6 +81,7 @@ export interface IQuestionSubmission {
   questionId: string | ObjectId;
   lastRespondedBy: string | ObjectId;
   history: ISubmissionHistroy[];
+  queue: (string | ObjectId)[];
   createdAt?: Date;
   updatedAt?: Date;
 }

@@ -6,14 +6,15 @@ import {IUser} from '../interfaces/models.js';
 
 export const currentUserChecker: CurrentUserChecker = async (
   action,
-): Promise<IUser> => {
+): Promise<IUser | null> => {
   const request = action.request as Request;
 
   const authService = getFromContainer(FirebaseAuthService);
 
   const token = request.headers.authorization?.split(' ')[1];
   if (!token) {
-    throw new UnauthorizedError('No token provided');
+    // throw new UnauthorizedError('No token provided');
+    return null;
   }
 
   try {

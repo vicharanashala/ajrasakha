@@ -160,6 +160,12 @@ export interface ISubmission {
     name: string;
     email: string;
   } | null;
+  // queue: (string | ObjectId)[];
+  queue: {
+    _id: string;
+    name: string;
+    email: string;
+  }[];
   history: ISubmissionHistory[];
   createdAt: string;
   updatedAt: string;
@@ -183,7 +189,7 @@ export interface IQuestionFullData {
   totalAnswersCount: number;
   createdAt: string;
   updatedAt: string;
-  submissions: ISubmission;
+  submission: ISubmission;
   isAlreadySubmitted: boolean;
 }
 

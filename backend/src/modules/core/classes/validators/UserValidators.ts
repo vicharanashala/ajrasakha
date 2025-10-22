@@ -19,10 +19,6 @@ class PreferenceDto {
   @IsOptional()
   @IsString()
   domain?: string;
-
-  // @IsOptional()
-  // @IsString()
-  // source?: string;
 }
 
 // User DTO
@@ -47,10 +43,6 @@ class UsersNameResponseDto {
   users: UserDto[];
 }
 
-export const USER_VALIDATORS = [
-  PreferenceDto,
-  UsersNameResponseDto,
-  UserDto,
-];
+export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto];
 
 export {PreferenceDto, UsersNameResponseDto, UserDto};

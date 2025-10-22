@@ -97,10 +97,10 @@ export class QuestionController {
   async addQuestion(
     @Body()
     body: AddQuestionBodyDto,
-    // @CurrentUser() user: IUser,
+    @CurrentUser() user: IUser,
   ): Promise<Partial<IQuestion>> {
-    // const userId = user._id.toString();
-    const userId = '';
+    const userId = user._id.toString();
+    // const userId = '';
     return this.questionService.addQuestion(userId, body);
   }
 

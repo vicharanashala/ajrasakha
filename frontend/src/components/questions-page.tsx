@@ -3,7 +3,7 @@ import { QuestionsFilters, QuestionsTable } from "./questions-table";
 import { useEffect, useMemo, useState } from "react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "./question-details";
-import type { UserRole } from "@/types";
+import type { IUser, UserRole } from "@/types";
 import {
   CROPS,
   STATES,
@@ -13,7 +13,7 @@ import {
   type QuestionSourceFilter,
 } from "./advanced-question-filter";
 
-export const QuestionsPage = ({ userRole }: { userRole?: UserRole }) => {
+export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
   const [source, setSource] = useState<QuestionSourceFilter>("all");
@@ -106,7 +106,7 @@ export const QuestionsPage = ({ userRole }: { userRole?: UserRole }) => {
 
   useEffect(() => {
     if (search === "") return;
-    if (userRole !== "expert") onReset(); // Reset filters on search change for non-experts
+    if (currentUser?.role !== "expert") onReset(); // Reset filters on search change for non-experts
   }, [search]);
 
   const onChangeFilters = (next: {
@@ -157,7 +157,7 @@ export const QuestionsPage = ({ userRole }: { userRole?: UserRole }) => {
             refetchAnswers={refechSelectedQuestion}
             isRefetching={isLoadingSelectedQuestion}
             goBack={() => setSelectedQuestionId("")}
-            userRole={userRole!}
+            currentUser={currentUser!}
           />
         </>
       ) : (
@@ -177,7 +177,7 @@ export const QuestionsPage = ({ userRole }: { userRole?: UserRole }) => {
               }, 2000);
             }}
             totalQuestions={questionData?.totalCount || 0}
-            userRole={userRole!}
+            userRole={currentUser?.role!}
           />
 
           <QuestionsTable
@@ -185,7 +185,7 @@ export const QuestionsPage = ({ userRole }: { userRole?: UserRole }) => {
             onViewMore={handleViewMore}
             currentPage={currentPage}
             setCurrentPage={setCurrentPage}
-            userRole={userRole}
+            userRole={currentUser?.role!}
             // hasMore={hasNextPage}
             // isLoadingMore={isFetchingNextPage}
             // lastElementRef={lastElementRef}

@@ -517,7 +517,9 @@ export const QAInterface = () => {
           {/* md:max-h-[70vh] max-h-[80vh] */}
           <Card className="w-full  border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
             <CardHeader className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700">
-              <FileText className="w-5 h-5 text-muted-foreground" />
+              <div className="p-2 rounded-lg bg-primary/10">
+                <FileText className="w-5 h-5 text-primary" />
+              </div>
               <CardTitle className="text-lg font-semibold">Response</CardTitle>
             </CardHeader>
             <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-hidden scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-200 dark:scrollbar-track-gray-800">

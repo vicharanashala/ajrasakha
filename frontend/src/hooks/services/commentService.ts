@@ -12,6 +12,7 @@ export class CommentService {
     questionId?: string,
     answerId?: string
   ): Promise<IComment[] | null> {
+    // alert(`${this._baseUrl}/question/${questionId}/answer/${answerId}?page=${pageParam}&limit=${limit}`)
     return apiFetch<IComment[] | null>(
       `${this._baseUrl}/question/${questionId}/answer/${answerId}?page=${pageParam}&limit=${limit}`
     );

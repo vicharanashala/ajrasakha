@@ -7,6 +7,7 @@ import {MongoDatabase} from '../MongoDatabase.js';
 import {InternalServerError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {User} from '#auth/classes/transformers/User.js';
+import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
 
 @injectable()
 export class UserRepository implements IUserRepository {
@@ -41,7 +42,7 @@ export class UserRepository implements IUserRepository {
   async create(user: IUser, session?: ClientSession): Promise<string> {
     await this.init();
     const existingUser = await this.usersCollection.findOne(
-      {email: user.email},
+      {firebaseUID: user.firebaseUID},
       {session},
     );
 
@@ -81,8 +82,8 @@ export class UserRepository implements IUserRepository {
       {_id: new ObjectId(id)},
       {
         projection: {
-          _id: 0, 
-          firebaseUID: 0, 
+          _id: 0,
+          firebaseUID: 0,
         },
         session,
       },
@@ -139,7 +140,7 @@ export class UserRepository implements IUserRepository {
     session?: ClientSession,
   ): Promise<IUser> {
     await this.init();
-    const { _id, ...sanitizedData } = userData;
+    const {_id, ...sanitizedData} = userData;
     const result = await this.usersCollection.updateOne(
       {_id: new ObjectId(userId)},
       {$set: sanitizedData},
@@ -170,5 +171,55 @@ export class UserRepository implements IUserRepository {
   async findAll(session?: ClientSession): Promise<IUser[]> {
     await this.init();
     return this.usersCollection.find({}, {session}).toArray();
+  }
+
+  async findUsersByPreference(
+    details: PreferenceDto,
+    session?: ClientSession,
+  ): Promise<IUser[]> {
+    await this.init();
+
+    //1. Find all expert users who are relevant (at least one preference matches or is "all")
+    const baseQuery: any = {
+      role: 'expert',
+      $or: [
+        {'preference.crop': {$in: [details.crop, 'all']}},
+        {'preference.state': {$in: [details.state, 'all']}},
+        {'preference.domain': {$in: [details.domain, 'all']}},
+      ],
+    };
+
+    const allUsers = await this.usersCollection
+      .find(baseQuery, {session})
+      .toArray();
+
+    //2. Score users based on number of matching preferences
+    const scoredUsers = allUsers.map(user => {
+      let score = 0;
+
+      if (user.preference?.crop === details.crop) score++;
+      if (user.preference?.state === details.state) score++;
+      if (user.preference?.domain === details.domain) score++;
+
+      //  if all are 'all', push to the very end
+      const isAllSelected =
+        user.preference?.crop === 'all' &&
+        user.preference?.state === 'all' &&
+        user.preference?.domain === 'all';
+
+      return {user, score, isAllSelected};
+    });
+
+    //3. Sort users by:
+    // - Highest score first (3 → 2 → 1)
+    // - Then those who selected "all" for everything go last
+    scoredUsers.sort((a, b) => {
+      if (a.isAllSelected && !b.isAllSelected) return 1;
+      if (!a.isAllSelected && b.isAllSelected) return -1;
+      return b.score - a.score;
+    });
+
+    //4. Return priority queue of users
+    return scoredUsers.map(s => s.user);
   }
 }

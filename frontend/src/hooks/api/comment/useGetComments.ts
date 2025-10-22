@@ -9,7 +9,7 @@ export const useGetComments = (
   answerId?: string
 ) => {
   return useInfiniteQuery({
-    queryKey: ["comments"],
+    queryKey: ["comments", questionId, answerId],
     queryFn: async ({ pageParam }) => {
       return await commentService.getComments(
         pageParam,
@@ -23,6 +23,6 @@ export const useGetComments = (
       if (lastPage && lastPage.length < limit) return undefined;
       return allPages.length + 1;
     },
-    enabled: Boolean(questionId && answerId),
+    // enabled: Boolean(questionId && answerId),
   });
 };

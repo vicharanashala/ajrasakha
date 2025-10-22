@@ -37,7 +37,11 @@ class User implements IUser {
     this.firstName = data?.firstName;
     this.lastName = data?.lastName;
     this.role = data?.role || 'expert';
-    this.preference = data?.preference;
+    this.preference = {
+      crop: data?.preference?.crop || 'all',
+      state: data?.preference?.state || 'all',
+      domain: data?.preference?.domain || 'all',
+    };
   }
 }
 

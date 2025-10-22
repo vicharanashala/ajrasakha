@@ -11,9 +11,13 @@ import {
 import { Info } from "lucide-react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "./question-details";
-import type { UserRole } from "@/types";
+import type { IUser } from "@/types";
 
-export const FullSubmissionHistory = ({ userRole }: { userRole: UserRole }) => {
+export const FullSubmissionHistory = ({
+  currentUser,
+}: {
+  currentUser: IUser;
+}) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [selectedQuestionId, setSelectedQuestionId] = useState("");
   const {
@@ -58,7 +62,7 @@ export const FullSubmissionHistory = ({ userRole }: { userRole: UserRole }) => {
             refetchAnswers={refechSelectedQuestion}
             isRefetching={isLoadingSelectedQuestion}
             goBack={() => setSelectedQuestionId("")}
-            userRole={userRole!}
+            currentUser={currentUser!}
           />
         </>
       ) : (
@@ -67,19 +71,21 @@ export const FullSubmissionHistory = ({ userRole }: { userRole: UserRole }) => {
             <TooltipProvider>
               <div className="flex items-center gap-2">
                 <CardTitle className="text-md md:text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 bg-transparent">
-                  <svg
-                    className="w-5 h-5 text-blue-600 dark:text-blue-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <svg
+                      className="w-5 h-5 ttext-primary"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                  </div>
                   Submission History
                 </CardTitle>
 
@@ -163,12 +169,14 @@ export const FullSubmissionHistory = ({ userRole }: { userRole: UserRole }) => {
                   <div className="space-y-2">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <div className="w-2 h-2 rounded-full bg-blue-500 dark:bg-blue-400 flex-shrink-0 mt-2"></div>
+                        <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-2"></div>
                         <h4
                           className="text-sm md:text-base font-semibold text-gray-900 dark:text-gray-100 leading-relaxed break-words border-b-1 border-transparent 
                       hover:border-current transition-colors duration-200 hover:cursor-pointer
                     "
-                          onClick={() => setSelectedQuestionId(submission?.id || "")}
+                          onClick={() =>
+                            setSelectedQuestionId(submission?.id || "")
+                          }
                         >
                           {submission?.text}
                         </h4>

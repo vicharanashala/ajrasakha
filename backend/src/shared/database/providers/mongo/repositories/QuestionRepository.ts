@@ -40,9 +40,8 @@ export class QuestionRepository implements IQuestionRepository {
   private async init() {
     this.ContextCollection = await this.db.getCollection<IContext>('contexts');
 
-    this.QuestionCollection = await this.db.getCollection<IQuestion>(
-      'questions',
-    );
+    this.QuestionCollection =
+      await this.db.getCollection<IQuestion>('questions');
     this.QuestionSubmissionCollection =
       await this.db.getCollection<IQuestionSubmission>('question_submissions');
     this.UsersCollection = await this.db.getCollection<IUser>('users');
@@ -163,22 +162,10 @@ export class QuestionRepository implements IQuestionRepository {
     try {
       await this.init();
       if (!question._id) question._id = new ObjectId();
-      const rowId = question._id.toString();
+
       await this.QuestionCollection.insertOne(question, {session});
 
-      const submissionData: IQuestionSubmission = {
-        questionId: question._id,
-        lastRespondedBy: null,
-        history: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      await this.QuestionSubmissionCollection.insertOne(submissionData, {
-        session,
-      });
-
-      return {...question, _id: rowId};
+      return {...question, _id: question._id.toString()};
     } catch (error) {
       throw new InternalServerError(`Failed to add question ${error}`);
     }
@@ -547,7 +534,7 @@ export class QuestionRepository implements IQuestionRepository {
     await this.init();
 
     const questionObjectId = new ObjectId(questionId);
-  
+
     try {
       // 1 Fetch the question
       const question = await this.QuestionCollection.findOne(
@@ -576,7 +563,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       // 5 Fetch all related users
       const users = await this.UsersCollection.find({
-        _id: {$in: [lastRespondedId, ...allUpdatedByIds]},
+        // _id: {$in: [lastRespondedId, ...allUpdatedByIds]},
       }).toArray();
 
       const usersMap = new Map(users.map(u => [u._id?.toString(), u]));
@@ -592,7 +579,7 @@ export class QuestionRepository implements IQuestionRepository {
         .includes(userId);
 
       // 7 Populate submissions manually
-      const populatedSubmissions = {
+      const populatedSubmission = {
         _id: submission?._id?.toString(),
         questionId: submission?.questionId?.toString(),
         lastRespondedBy: lastRespondedId
@@ -603,6 +590,11 @@ export class QuestionRepository implements IQuestionRepository {
                 ?.email,
             }
           : null,
+        queue: submission?.queue?.map(q => ({
+          _id: q.toString(),
+          name: usersMap.get(q.toString())?.firstName,
+          email: usersMap.get(q.toString())?.email,
+        })),
         history: submission?.history.map(h => ({
           updatedBy: h.updatedBy
             ? {
@@ -646,12 +638,12 @@ export class QuestionRepository implements IQuestionRepository {
 
       // 9 Final assembled question
       const result = {
-        ...question,
+        ...{...question, contextId: question.contextId?.toString()},
         _id: question._id?.toString(),
         userId: question.userId?.toString(),
         isAlreadySubmitted,
         context,
-        submissions: populatedSubmissions,
+        submission: populatedSubmission,
       };
 
       return result;

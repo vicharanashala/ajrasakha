@@ -31,6 +31,7 @@ import {
   XCircle,
   ShieldCheck,
   Settings,
+  AlertTriangle,
 } from "lucide-react";
 
 export const Route = createFileRoute("/profile/")({
@@ -307,8 +308,13 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
             Configure your preferences to receive personalized questions for
             better responses.
           </p>
+          {user.role === "admin" && (
+            <p className="text-sm text-yellow-600 mt-2 flex items-center gap-1">
+              <AlertTriangle className="w-4 h-4" />
+              Admin cannot set preferences at this moment.
+            </p>
+          )}
         </div>
-
         <Separator />
 
         <div className="grid gap-6 md:grid-cols-2">
@@ -316,7 +322,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
             <Label htmlFor="state">State</Label>
             <Select
               value={formData.preference?.state}
-              disabled={!isEditMode}
+              disabled={!isEditMode || user.role == "admin"}
               onValueChange={(val) => handleChange("preference.state", val)}
             >
               <SelectTrigger id="state">
@@ -337,7 +343,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
             <Label htmlFor="crop">Crop Type</Label>
             <Select
               value={formData.preference?.crop}
-              disabled={!isEditMode}
+              disabled={!isEditMode || user.role == "admin"}
               onValueChange={(val) => handleChange("preference.crop", val)}
             >
               <SelectTrigger id="crop">
@@ -362,7 +368,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
             <Network className="h-4 w-4 text-muted-foreground" />
             <Input
               id="domain"
-              disabled={!isEditMode}
+              disabled={!isEditMode || user.role == "admin"}
               value={
                 formData.preference?.domain == "all"
                   ? "All"

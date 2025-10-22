@@ -3,11 +3,13 @@ import type {
   IQuestionFullData,
   ISubmission,
   ISubmissionHistory,
+  IUser,
   UserRole,
 } from "@/types";
 import {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -36,10 +38,13 @@ import {
   AccordionTrigger,
 } from "./atoms/accordion";
 import {
+  AlertCircle,
   ArrowUpRight,
   Calendar,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Clock,
   Edit,
   Eye,
   FileText,
@@ -54,6 +59,7 @@ import {
   Send,
   Sprout,
   UserCheck,
+  Users,
 } from "lucide-react";
 import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
 import { useGetComments } from "@/hooks/api/comment/useGetComments";
@@ -68,27 +74,21 @@ interface QuestionDetailProps {
   goBack: () => void;
   refetchAnswers: () => void;
   isRefetching: boolean;
-  userRole: UserRole;
+  currentUser: IUser;
 }
 
 const flattenAnswers = (submission: ISubmission): IAnswer[] => {
   const answers: IAnswer[] = [];
+
   for (const h of submission.history) {
     if (h.answer) {
       answers.push(h.answer);
     }
   }
+
   return answers.sort((a, b) => {
-    const aT = a.updatedAt
-      ? +new Date(a.updatedAt)
-      : a.createdAt
-      ? +new Date(a.createdAt)
-      : 0;
-    const bT = b.updatedAt
-      ? +new Date(b.updatedAt)
-      : b.createdAt
-      ? +new Date(b.createdAt)
-      : 0;
+    const aT = a.createdAt ? +new Date(a.createdAt) : 0;
+    const bT = b.createdAt ? +new Date(b.createdAt) : 0;
     return bT - aT;
   });
 };
@@ -98,12 +98,12 @@ export const QuestionDetails = ({
   currentUserId,
   refetchAnswers,
   isRefetching,
-  userRole,
+  currentUser,
   goBack,
 }: QuestionDetailProps) => {
   const answers = useMemo(
-    () => flattenAnswers(question?.submissions),
-    [question.submissions]
+    () => flattenAnswers(question?.submission),
+    [question.submission]
   );
   const ANSWER_VISIBLE_COUNT = 5;
   const [answerVisibleCount, setAnswerVisibleCount] =
@@ -126,18 +126,16 @@ export const QuestionDetails = ({
             {question.question}
           </h1>
           <div className="flex justify-center gap-2 items-center">
-            {question.status != "closed" && userRole != "expert" && (
-              // {(question.status != "open" ||
-              //   (userRole != "expert" && question.status == "in-review")) && (
-              <SubmitAnswerDialog
-                questionId={question._id}
-                isAlreadySubmitted={question.isAlreadySubmitted}
-                currentUserId={currentUserId}
-                onSubmitted={() => {
-                  refetchAnswers();
-                }}
-              />
-            )}
+            {/* {question.status != "closed" && currentUser.role != "expert" && ( */}
+            <SubmitAnswerDialog
+              questionId={question._id}
+              isAlreadySubmitted={question.isAlreadySubmitted}
+              currentUserId={currentUserId}
+              onSubmitted={() => {
+                refetchAnswers();
+              }}
+            />
+            {/* // )} */}
             <Button
               size="sm"
               variant="outline"
@@ -379,7 +377,7 @@ export const QuestionDetails = ({
 
             {context && (
               <div className="grid gap-1 text-sm">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 ">
                   <FileText className="w-4 h-4 text-primary" />
                   <span className="text-muted-foreground">Context:</span>
                 </div>
@@ -423,7 +421,7 @@ export const QuestionDetails = ({
           </>
         )}
 
-        {userRole !== "expert" && (
+        {currentUser.role !== "expert" && (
           <Button
             variant="ghost"
             size="sm"
@@ -442,23 +440,20 @@ export const QuestionDetails = ({
           </Button>
         )}
       </Card>
+
+      <SubmissionTimeline
+        history={question.submission.history}
+        queue={question.submission.queue}
+        currentUser={currentUser}
+      />
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold flex justify-center gap-2 items-center">
-          <FileText className="w-5 h-5 text-muted-foreground" />
-          Answers
+        <h2 className="text-lg font-semibold flex justify-center gap-2 items-center ">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <FileText className="w-5 h-5 text-primary" />
+          </div>
+          Submission History
         </h2>
         <div className="flex items-center gap-2">
-          {/* {(question.status == "open" ||
-            (userRole != "expert" && question.status == "in-review")) && (
-            <SubmitAnswerDialog
-              questionId={question._id}
-              isAlreadySubmitted={question.isAlreadySubmitted}
-              currentUserId={currentUserId}
-              onSubmitted={() => {
-                refetchAnswers();
-              }}
-            />
-          )} */}
           <Button
             size="sm"
             variant="outline"
@@ -486,17 +481,19 @@ export const QuestionDetails = ({
           </Button>
         </div>
       </div>
+
       {answers.length === 0 ? (
         <p className="text-sm text-muted-foreground">No answers yet.</p>
       ) : (
-        <div className="grid gap-4">
+        <div>
+          {/* <SubmissionTimeline /> */}
           <AnswerTimeline
             answerVisibleCount={answerVisibleCount}
             answers={answers}
             commentRef={commentRef}
             currentUserId={currentUserId}
             question={question}
-            userRole={userRole}
+            userRole={currentUser.role}
           />
           {answerVisibleCount < answers.length && (
             <div className="flex justify-center">
@@ -526,6 +523,231 @@ export const QuestionDetails = ({
     </main>
   );
 };
+interface SubmissionTimelineProps {
+  queue: ISubmission["queue"];
+  history: ISubmission["history"];
+  currentUser: IUser;
+}
+
+const SubmissionTimeline = ({
+  currentUser,
+  queue,
+  history,
+}: SubmissionTimelineProps) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const INITIAL_DISPLAY_COUNT = 12;
+
+  const submittedUserIds = new Set(
+    history.map((entry) => entry.updatedBy?._id)
+  );
+  const submittedUserEmails = new Set(
+    history.map((entry) => entry.updatedBy?.email)
+  );
+
+  const nextWaitingIndex = queue.findIndex(
+    (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email)
+  );
+
+  const getStatus = (index: number) => {
+    const user = queue[index];
+    const hasSubmitted =
+      submittedUserIds.has(user._id) || submittedUserEmails.has(user.email);
+
+    if (hasSubmitted) return "submitted";
+    if (index === nextWaitingIndex) return "waiting";
+    return "pending";
+  };
+
+  const displayedQueue = isExpanded
+    ? queue
+    : queue.slice(0, INITIAL_DISPLAY_COUNT);
+  const hasMore = queue.length > INITIAL_DISPLAY_COUNT;
+
+  const getStatusStyles = (status: string) => {
+    switch (status) {
+      case "submitted":
+        return {
+          container:
+            "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 shadow-green-100/50",
+          icon: "text-green-700 dark:text-green-400",
+          badge:
+            "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700",
+          iconBg: "bg-green-200 dark:bg-green-800/40",
+          legendDot: "bg-green-500",
+        };
+      case "waiting":
+        return {
+          container:
+            "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 shadow-blue-100/50",
+          icon: "text-blue-700 dark:text-blue-400",
+          badge:
+            "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-700",
+          iconBg: "bg-blue-200 dark:bg-blue-800/40",
+          legendDot: "bg-blue-500",
+        };
+      default:
+        return {
+          container: "bg-muted/50 border-muted shadow-muted/5",
+          icon: "text-muted-foreground",
+          badge: "bg-muted/50 text-muted-foreground border border-muted",
+          iconBg: "bg-muted",
+          legendDot: "bg-muted-foreground/40",
+        };
+    }
+  };
+
+  // for (let i = 0; i < 20; i++) {
+  //   queue.push(queue[i % queue.length]);
+  // }
+
+  return (
+    <div className="w-full space-y-6 my-6">
+      <div className="flex items-center justify-between pb-4 border-b border-border">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Users className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-foreground">
+              Allocation Queue
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {queue.length}{" "}
+              {queue.length === 1 ? "participant" : "participants"} in queue
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+            <span className="text-muted-foreground font-medium">Submitted</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+            <span className="text-muted-foreground font-medium">Waiting</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40" />
+            <span className="text-muted-foreground font-medium">Pending</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 transition-all duration-500 ease-in-out relative">
+        {displayedQueue.map((user, index) => {
+          const status = getStatus(index);
+          const styles = getStatusStyles(status);
+          const isLast = index === displayedQueue.length - 1;
+          const isCurrentUserWaiting =
+            status === "waiting" && currentUser.email === user.email;
+
+          return (
+            <div
+              key={`${user._id}-${index}`}
+              className="relative flex flex-col items-center justify-center"
+            >
+              {!isLast && (
+                <div className="absolute top-1/2 right-0 flex items-center transform translate-x-full -translate-y-1/2">
+                  <svg
+                    className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 ${
+                      isCurrentUserWaiting ? "animate-bounce" : ""
+                    }`}
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 12h14m0 0l-4-4m4 4l-4 4"
+                    />
+                  </svg>
+                </div>
+              )}
+
+              <div
+                className={`flex flex-col items-center justify-center gap-2 p-4 rounded-full aspect-square border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 ${
+                  styles.container
+                } ${
+                  isExpanded && index >= INITIAL_DISPLAY_COUNT
+                    ? "animate-fade-in"
+                    : ""
+                }${
+                  isCurrentUserWaiting
+                    ? " ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105"
+                    : ""
+                }
+                  `}
+              >
+                <div
+                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${styles.iconBg}`}
+                >
+                  {status === "submitted" ? (
+                    <CheckCircle2 className={`w-6 h-6 ${styles.icon}`} />
+                  ) : status === "waiting" ? (
+                    <Clock
+                      className={`w-6 h-6 ${styles.icon} ${
+                        isCurrentUserWaiting ? "animate-bounce-subtle" : ""
+                      }`}
+                    />
+                  ) : (
+                    <AlertCircle className={`w-6 h-6 ${styles.icon}`} />
+                  )}
+                </div>
+
+                <div className="text-center w-full px-2">
+                  <p className="text-xs font-semibold text-foreground truncate">
+                    {user.name}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+                    {user.email}
+                  </p>
+                </div>
+
+                <span
+                  className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${styles.badge}`}
+                >
+                  {status === "submitted"
+                    ? "Submitted"
+                    : status === "waiting"
+                    ? isCurrentUserWaiting
+                      ? "Your Turn"
+                      : "Waiting"
+                    : "Pending"}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {hasMore && (
+        <div className="flex justify-center pt-4">
+          <Button
+            variant="outline"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="gap-2 min-w-[160px] transition-all duration-300"
+          >
+            {isExpanded ? (
+              <>
+                <ChevronUp className="w-4 h-4" />
+                View Less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-4 h-4" />
+                View More ({queue.length - INITIAL_DISPLAY_COUNT})
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface IAnswerTimelineProps {
   answers: IAnswer[];
@@ -546,7 +768,7 @@ export const AnswerTimeline = ({
 }: IAnswerTimelineProps) => {
   // map answers to timeline events
   const events = answers.slice(0, answerVisibleCount).map((ans) => {
-    const submission = question.submissions.history.find(
+    const submission = question.submission.history.find(
       (h) => h.answer?._id === ans._id
     );
 
@@ -618,7 +840,6 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const isMine = props.answer.authorId === props.currentUserId;
   const [comment, setComment] = useState("");
   const observer = useRef<IntersectionObserver>(null);
-
   const LIMIT = 1;
   const {
     data: commentsData,
@@ -628,6 +849,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     isFetchingNextPage,
     isLoading: isLoadingComments,
   } = useGetComments(LIMIT, props.questionId, props.answer._id);
+
   const comments =
     commentsData?.pages.flatMap((comment) => comment ?? []) ?? [];
   const [editableAnswer, setEditableAnswer] = useState(props.answer.answer);

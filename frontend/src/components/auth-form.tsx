@@ -97,6 +97,8 @@ export const AuthForm = ({
     if (mode === "signup") {
       if (!formData.name) {
         newErrors.name = "Name is required";
+      } else if (!/^[a-zA-Z\s]+$/.test(formData.name)) {
+        newErrors.name = "Name cannot contain special characters or numbers";
       }
       if (!formData.confirmPassword && formData.password) {
         newErrors.confirmPassword = "Please confirm your password";
