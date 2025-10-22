@@ -126,8 +126,9 @@ export const QuestionDetails = ({
             {question.question}
           </h1>
           <div className="flex justify-center gap-2 items-center">
-            {(question.status == "open" ||
-              (userRole != "expert" && question.status == "in-review")) && (
+            {question.status != "closed" && userRole != "expert" && (
+              // {(question.status != "open" ||
+              //   (userRole != "expert" && question.status == "in-review")) && (
               <SubmitAnswerDialog
                 questionId={question._id}
                 isAlreadySubmitted={question.isAlreadySubmitted}
