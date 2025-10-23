@@ -127,16 +127,16 @@ export const QuestionDetails = ({
             {question.question}
           </h1>
           <div className="flex justify-center gap-2 items-center">
-            {/* {question.status != "closed" && currentUser.role != "expert" && ( */}
-            <SubmitAnswerDialog
-              questionId={question._id}
-              isAlreadySubmitted={question.isAlreadySubmitted}
-              currentUserId={currentUserId}
-              onSubmitted={() => {
-                refetchAnswers();
-              }}
-            />
-            {/* // )} */}
+            {question.status != "closed" && currentUser.role != "expert" && (
+              <SubmitAnswerDialog
+                questionId={question._id}
+                isAlreadySubmitted={question.isAlreadySubmitted}
+                currentUserId={currentUserId}
+                onSubmitted={() => {
+                  refetchAnswers();
+                }}
+              />
+            )}
             <Button
               size="sm"
               variant="outline"
@@ -489,8 +489,8 @@ const SubmissionTimeline = ({
               Allocation Queue
             </h2>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {queue?.length}{" "}
-              {queue?.length === 1 ? "expert" : "experts"} in queue
+              {queue?.length} {queue?.length === 1 ? "expert" : "experts"} in
+              queue
             </p>
           </div>
         </div>
