@@ -8,9 +8,7 @@ import type {
 } from "@/types";
 import {
   forwardRef,
-  use,
   useCallback,
-  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -50,6 +48,7 @@ import {
   Eye,
   FileText,
   Gauge,
+  Info,
   Landmark,
   Layers,
   Link2,
@@ -60,6 +59,7 @@ import {
   Send,
   Sprout,
   UserCheck,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
@@ -68,6 +68,15 @@ import { useAddComment } from "@/hooks/api/comment/useAddComment";
 import { SourceUrlManager } from "./source-url-manager";
 import { Timeline } from "primereact/timeline";
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./atoms/tooltip";
+import { Checkbox } from "./atoms/checkbox";
+import { Label } from "./atoms/label";
+import { Switch } from "./atoms/switch";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -323,7 +332,7 @@ export const QuestionDetails = ({
         queue={question.submission.queue}
         currentUser={currentUser}
       />
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between md:mt-12">
         <h2 className="text-lg font-semibold flex justify-center gap-2 items-center ">
           <div className="p-2 rounded-lg bg-primary/10">
             <FileText className="w-5 h-5 text-primary" />
@@ -400,6 +409,164 @@ export const QuestionDetails = ({
     </main>
   );
 };
+
+interface AllocationQueueHeaderProps {
+  queue?: ISubmission["queue"];
+}
+
+const DUMMY_EXPERTS = [
+  { id: 1, name: "Dr. Sarah Johnson", specialty: "Agriculture" },
+  { id: 2, name: "Dr. Michael Chen", specialty: "Agriculture" },
+  { id: 3, name: "Dr. Emily Rodriguez", specialty: "Agriculture" },
+  { id: 4, name: "Dr. James Wilson", specialty: "Agriculture" },
+  { id: 5, name: "Dr. Amanda Lee", specialty: "Agriculture" },
+  { id: 6, name: "Dr. Robert Taylor", specialty: "Agriculture" },
+];
+
+const AllocationQueueHeader = ({ queue = [] }: AllocationQueueHeaderProps) => {
+  const [autoAllocate, setAutoAllocate] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedExperts, setSelectedExperts] = useState<number[]>([]);
+
+  const handleToggle = (checked: boolean) => {
+    setAutoAllocate(checked);
+  };
+
+  const handleSelectExpert = (expertId: number) => {
+    setSelectedExperts((prev) =>
+      prev.includes(expertId)
+        ? prev.filter((id) => id !== expertId)
+        : [...prev, expertId]
+    );
+  };
+
+  const handleSubmit = () => {
+    console.log("Selected experts:", selectedExperts);
+    setIsModalOpen(false);
+  };
+
+  const handleCancel = () => {
+    setSelectedExperts([]);
+    setIsModalOpen(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-4 pb-6 border-b border-border">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-primary/10">
+            <Users className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold text-foreground">
+              Allocation Queue
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {queue?.length} {queue?.length === 1 ? "expert" : "experts"} in
+              queue
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm">
+            <Switch
+              id="auto-allocate"
+              checked={autoAllocate}
+              onCheckedChange={handleToggle}
+            />
+            <Label
+              htmlFor="auto-allocate"
+              className="cursor-pointer font-medium text-sm"
+            >
+              Auto-allocate Experts
+            </Label>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <div className="space-y-1.5 text-sm">
+                    <p>
+                      <strong>ON:</strong> Questions are automatically assigned
+                      to available experts. If there are not enough experts
+                      currently allocated, the system will auto-allocate more.
+                    </p>
+                    <p>
+                      <strong>OFF:</strong> You need to manually add experts
+                      using the option on the right side. After assigning, make
+                      sure to submit to confirm the allocation.
+                    </p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+
+          {!autoAllocate && (
+            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+              <DialogTrigger asChild>
+                <Button variant="default" className="gap-2">
+                  <UserPlus className="w-4 h-4" />
+                  Select Experts
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-6xl max-h-[80vh]">
+                <DialogHeader>
+                  <DialogTitle>Select Experts Manually</DialogTitle>
+                </DialogHeader>
+
+                <ScrollArea className="max-h-96 pr-2">
+                  <div className="space-y-3">
+                    {DUMMY_EXPERTS.map((expert) => (
+                      <div
+                        key={expert.id}
+                        className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <UserPlus className="w-5 h-5 text-primary" />
+                        </div>
+
+                        <Checkbox
+                          id={`expert-${expert.id}`}
+                          checked={selectedExperts.includes(expert.id)}
+                          onCheckedChange={() => handleSelectExpert(expert.id)}
+                          className="mt-1"
+                        />
+
+                        <Label
+                          htmlFor={`expert-${expert.id}`}
+                          className="font-normal cursor-pointer flex-1"
+                        >
+                          <div className="font-medium">{expert.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {expert.specialty}
+                          </div>
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+
+                <DialogFooter className="flex gap-2 justify-end">
+                  <Button variant="outline" onClick={handleCancel}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSubmit}>
+                    Submit ({selectedExperts.length} selected)
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface SubmissionTimelineProps {
   queue: ISubmission["queue"];
   history: ISubmission["history"];
@@ -479,39 +646,8 @@ const SubmissionTimeline = ({
 
   return (
     <div className="w-full space-y-6 my-6">
-      <div className="flex items-center justify-between pb-4 border-b border-border">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Users className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold text-foreground">
-              Allocation Queue
-            </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {queue?.length} {queue?.length === 1 ? "expert" : "experts"} in
-              queue
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-            <span className="text-muted-foreground font-medium">Submitted</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-            <span className="text-muted-foreground font-medium">Waiting</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40" />
-            <span className="text-muted-foreground font-medium">Pending</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 transition-all duration-500 ease-in-out relative">
+      <AllocationQueueHeader queue={queue} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 transition-all duration-500 ease-in-out">
         {displayedQueue?.map((user, index) => {
           const status = getStatus(index);
           const styles = getStatusStyles(status);
@@ -522,7 +658,7 @@ const SubmissionTimeline = ({
           return (
             <div
               key={`${user._id}-${index}`}
-              className="relative flex flex-col items-center justify-center"
+              className="relative flex flex-col items-center justify-center my-4"
             >
               {!isLast && (
                 <div className="absolute top-1/2 right-0 flex items-center transform translate-x-full -translate-y-1/2">
@@ -556,8 +692,7 @@ const SubmissionTimeline = ({
                   isCurrentUserWaiting
                     ? " ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105"
                     : ""
-                }
-                  `}
+                }`}
               >
                 <div
                   className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${styles.iconBg}`}
@@ -599,6 +734,27 @@ const SubmissionTimeline = ({
             </div>
           );
         })}
+
+        {/* Legend moved below the grid */}
+      </div>
+
+      <div className="flex flex-wrap justify-end gap-4 mt-4 text-sm">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
+          <div className="w-2 h-2 rounded-full bg-green-500" />
+          <span className="text-green-700 dark:text-green-400 font-medium">
+            Submitted
+          </span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20">
+          <div className="w-2 h-2 rounded-full bg-blue-500" />
+          <span className="text-blue-700 dark:text-blue-400 font-medium">
+            Waiting
+          </span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted border border-border">
+          <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />
+          <span className="text-muted-foreground font-medium">Pending</span>
+        </div>
       </div>
 
       {hasMore && (
