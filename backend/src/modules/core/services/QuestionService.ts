@@ -153,11 +153,12 @@ export class QuestionService extends BaseService {
   ): Promise<QuestionResponse[]> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
+        // 1. Fetch the user and extract their preference details
         const user = await this.userRepo.findById(userId, session);
         const userPreference = user.preference || null;
 
+        // 2. Build a query object (userQuery) based on the user's preferences (state, crop, domain)
         const userQuery: Record<string, any> = {};
-
         if (userPreference.state && userPreference.state !== 'all') {
           userQuery.state = userPreference.state;
         }
@@ -168,6 +169,7 @@ export class QuestionService extends BaseService {
           userQuery.domain = userPreference.domain;
         }
 
+        // 3. Get unanswered questions based purely on user preference
         const userPreferenceQuestions =
           await this.questionRepo.getUnAnsweredQuestions(
             userId,
@@ -175,24 +177,47 @@ export class QuestionService extends BaseService {
             session,
           );
 
-        const isQueryEmptyOrSame = ['state', 'crop', 'domain'].every(key => {
+        // 4. Define preference keys to be checked (state, crop, domain)
+        const keys = ['state', 'crop', 'domain'] as const;
+
+        // 5. Check if the given query matches the user's preference-based query
+        const isQueryMatchingPreference = keys.every(key => {
           const prefValue = userQuery[key];
           const queryValue = query[key];
 
-          if (!prefValue) return true; // no preference
-
-          if (!queryValue || queryValue === 'all') return true; // no filters
-
-          return prefValue.toLowerCase() === String(queryValue).toLowerCase(); // is both same
+          if (prefValue && queryValue) return prefValue === queryValue;
+          if (!prefValue) return true;
+          return false;
         });
 
-        if (userPreferenceQuestions.length > 0 && isQueryEmptyOrSame) {
-          // throw new BadRequestError(
-          //   `Please complete your pending preference-based questions before applying new filters.`,
-          // );
+        // 6. If query matches preference and no questions exist for that preference,
+        //    delete matching keys from query to widen the filter
+        if (isQueryMatchingPreference && userPreferenceQuestions.length === 0) {
+          keys.forEach(key => {
+            const prefValue = userQuery[key];
+            const queryValue = query[key];
+
+            if (prefValue && queryValue && prefValue === queryValue) {
+              delete query[key];
+            }
+          });
+        }
+
+        // 7. If user still has unanswered preference-based questions,
+        //    return those first before applying broader filters
+        if (
+          !isQueryMatchingPreference &&
+          userPreferenceQuestions.length > 0 &&
+          Object.keys(userQuery).length > 0
+        ) {
+          console.log(
+            'Returning user preference questions as they are pending',
+          );
           return userPreferenceQuestions;
         }
 
+        // 8. If no preference-based questions or filters remain,
+        //    return general unanswered questions using the updated query
         return this.questionRepo.getUnAnsweredQuestions(userId, query, session);
       });
     } catch (error) {

@@ -8,6 +8,7 @@ import type {
 } from "@/types";
 import {
   forwardRef,
+  use,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -489,7 +490,7 @@ const SubmissionTimeline = ({
             </h2>
             <p className="text-sm text-muted-foreground mt-0.5">
               {queue?.length}{" "}
-              {queue?.length === 1 ? "participant" : "participants"} in queue
+              {queue?.length === 1 ? "expert" : "experts"} in queue
             </p>
           </div>
         </div>

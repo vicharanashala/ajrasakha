@@ -614,15 +614,21 @@ export const QAInterface = () => {
                           className="bg-transparent flex items-center"
                         >
                           <Eye className="w-4 h-4 md:mr-2" />
+
                           <span className="hidden md:inline">
                             View Other Responses
                           </span>
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto ">
+                      <DialogContent
+                        className="max-w-6xl max-h-[80vh] overflow-y-auto "
+                        style={{ maxWidth: "70vw" }}
+                      >
                         <AlertDialogHeader>
                           <DialogTitle className="flex  gap-2 items-center ">
-                            <FileText className="w-5 h-5 text-muted-foreground" />
+                            <div className="p-2 rounded-lg bg-primary/10">
+                              <FileText className="w-5 h-5 text-primary" />
+                            </div>
                             Other Responses
                           </DialogTitle>
                         </AlertDialogHeader>
@@ -674,7 +680,9 @@ export const QAInterface = () => {
                                             {currentAnswer.isFinalAnswer ? (
                                               <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                                             ) : (
-                                              <MessageCircle className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                              <div className="p-2 rounded-lg bg-primary/10">
+                                                <MessageCircle className="w-4 h-4 text-primary" />
+                                              </div>
                                             )}
                                           </div>
 
@@ -842,7 +850,9 @@ export const QuestionDetailsDialog = ({
           aria-label={buttonLabel}
           title={buttonLabel}
         >
-          <Eye className="h-5 w-5 " />
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Eye className="h-5 w-5 text-primary" />
+          </div>
           <span className="sr-only">{buttonLabel}</span>
         </Button>
       </DialogTrigger>

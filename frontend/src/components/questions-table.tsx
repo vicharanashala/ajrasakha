@@ -184,8 +184,6 @@ export const QuestionsTable = ({
     }
   };
 
-
-
   const handleDelete = async () => {
     try {
       await deleteQuestion(questionIdToDelete);
@@ -193,6 +191,7 @@ export const QuestionsTable = ({
       console.log("Error: ", error);
     }
   };
+
   return (
     <div>
       <AddOrEditQuestionDialog

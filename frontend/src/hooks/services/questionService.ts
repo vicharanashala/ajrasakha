@@ -69,8 +69,10 @@ export class QuestionService {
       params.append("crop", preferences.crop);
     if (preferences.priority && preferences.priority !== "all")
       params.append("priority", preferences.priority);
-    if (preferences.domain) params.append("domain", preferences.domain);
-    if (preferences.user) params.append("user", preferences.user);
+    if (preferences.domain && preferences.domain !== "all")
+      params.append("domain", preferences.domain);
+    if (preferences.user && preferences.user !== "all")
+      params.append("user", preferences.user);
 
     if (preferences.answersCount) {
       const [min, max] = preferences.answersCount;
