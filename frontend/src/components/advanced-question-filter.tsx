@@ -508,6 +508,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   dateRange: "all",
                   crop: "all",
                   priority: "all",
+                  user: "all",
+                  domain: "all",
                 });
                 onReset();
               }}

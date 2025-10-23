@@ -201,130 +201,6 @@ export const QuestionDetails = ({
         </div>
       </header>
 
-      {/* <div className="py-2 grid gap-6">
-        <Card className="p-4 grid gap-3">
-          <p className="text-sm font-medium">Details</p>
-
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-primary" />
-              <span className="text-muted-foreground">State:</span>
-              <span className="truncate">{question.details.state}</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Landmark className="w-4 h-4 text-primary" />
-              <span className="text-muted-foreground">District:</span>
-              <span className="truncate">{question.details.district}</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Sprout className="w-4 h-4 text-primary" />
-              <span className="text-muted-foreground">Crop:</span>
-              <span className="truncate">{question.details.crop}</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-primary" />
-              <span className="text-muted-foreground">Season:</span>
-              <span className="truncate">{question.details.season}</span>
-            </div>
-
-            <div className="flex items-center gap-2 col-span-2">
-              <Layers className="w-4 h-4 text-primary" />
-              <span className="text-muted-foreground">Domain:</span>
-              <span className="truncate">{question.details.domain}</span>
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="flex items-center gap-2 text-sm">
-            <Link2 className="w-4 h-4 text-primary" />
-            <span className="text-muted-foreground">Source:</span>
-            <span className="truncate">{question.source}</span>
-          </div>
-        </Card>
-
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Answers</h2>
-          <div className="flex items-center gap-2">
-            {(question.status == "open" ||
-              (userRole != "expert" && question.status == "in-review")) && (
-              <SubmitAnswerDialog
-                questionId={question._id}
-                isAlreadySubmitted={question.isAlreadySubmitted}
-                currentUserId={currentUserId}
-                onSubmitted={() => {
-                  refetchAnswers();
-                }}
-              />
-            )}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setIsRefreshing(true);
-                setTimeout(() => {
-                  refetchAnswers();
-                  if (commentRef.current) {
-                    commentRef.current.refetchComments();
-                  }
-                  setIsRefreshing(false);
-                }, 2000);
-                setAnswerVisibleCount(ANSWER_VISIBLE_COUNT);
-              }}
-              disabled={isRefreshing || isRefetching}
-            >
-              {isRefreshing || isRefetching ? (
-                <Loader2 className="animate-spin w-4 h-4" />
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-1" />
-                  Refresh
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-        {answers.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No answers yet.</p>
-        ) : (
-          <div className="grid gap-4">
-            <AnswerTimeline
-              answerVisibleCount={answerVisibleCount}
-              answers={answers}
-              commentRef={commentRef}
-              currentUserId={currentUserId}
-              question={question}
-              userRole={userRole}
-            />
-            {answerVisibleCount < answers.length && (
-              <div className="flex justify-center">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setIsLoadingMore(true);
-                    setTimeout(() => {
-                      setAnswerVisibleCount(
-                        (prev) => prev + ANSWER_VISIBLE_COUNT
-                      );
-                      setIsLoadingMore(false);
-                    }, 2000);
-                  }}
-                  disabled={isLoadingMore}
-                >
-                  {isLoadingMore ? (
-                    <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                  ) : null}
-                  {isLoadingMore ? "Loading..." : "Load More"}
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-      </div> */}
       <Card className="p-4 grid gap-3">
         <p className="text-sm font-medium">Details</p>
 
@@ -544,7 +420,7 @@ const SubmissionTimeline = ({
     history.map((entry) => entry.updatedBy?.email)
   );
 
-  const nextWaitingIndex = queue.findIndex(
+  const nextWaitingIndex = queue?.findIndex(
     (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email)
   );
 
@@ -560,8 +436,8 @@ const SubmissionTimeline = ({
 
   const displayedQueue = isExpanded
     ? queue
-    : queue.slice(0, INITIAL_DISPLAY_COUNT);
-  const hasMore = queue.length > INITIAL_DISPLAY_COUNT;
+    : queue?.slice(0, INITIAL_DISPLAY_COUNT);
+  const hasMore = queue?.length > INITIAL_DISPLAY_COUNT;
 
   const getStatusStyles = (status: string) => {
     switch (status) {
@@ -597,7 +473,7 @@ const SubmissionTimeline = ({
   };
 
   // for (let i = 0; i < 20; i++) {
-  //   queue.push(queue[i % queue.length]);
+  //   queue?.push(queue[i % queue?.length]);
   // }
 
   return (
@@ -612,8 +488,8 @@ const SubmissionTimeline = ({
               Allocation Queue
             </h2>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {queue.length}{" "}
-              {queue.length === 1 ? "participant" : "participants"} in queue
+              {queue?.length}{" "}
+              {queue?.length === 1 ? "participant" : "participants"} in queue
             </p>
           </div>
         </div>
@@ -635,10 +511,10 @@ const SubmissionTimeline = ({
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 transition-all duration-500 ease-in-out relative">
-        {displayedQueue.map((user, index) => {
+        {displayedQueue?.map((user, index) => {
           const status = getStatus(index);
           const styles = getStatusStyles(status);
-          const isLast = index === displayedQueue.length - 1;
+          const isLast = index === displayedQueue?.length - 1;
           const isCurrentUserWaiting =
             status === "waiting" && currentUser.email === user.email;
 
@@ -739,7 +615,7 @@ const SubmissionTimeline = ({
             ) : (
               <>
                 <ChevronDown className="w-4 h-4" />
-                View More ({queue.length - INITIAL_DISPLAY_COUNT})
+                View More ({queue?.length - INITIAL_DISPLAY_COUNT})
               </>
             )}
           </Button>
