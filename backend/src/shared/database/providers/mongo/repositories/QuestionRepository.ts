@@ -85,6 +85,7 @@ export class QuestionRepository implements IQuestionRepository {
           metrics: null,
           text: `Question: ${question}`,
           totalAnswersCount: 0,
+          isAutoAllocate: true,
           priority: randomPrioriy,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -140,6 +141,7 @@ export class QuestionRepository implements IQuestionRepository {
         metrics: null,
         text: `Question: ${question}`,
         totalAnswersCount: 0,
+        isAutoAllocate: true,
         priority: randomPrioriy,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -638,7 +640,11 @@ export class QuestionRepository implements IQuestionRepository {
 
       // 9 Final assembled question
       const result = {
-        ...{...question, contextId: question.contextId?.toString()},
+        ...{
+          ...question,
+          contextId: question.contextId?.toString(),
+          isAutoAllocate: question.isAutoAllocate ?? true,
+        },
         _id: question._id?.toString(),
         userId: question.userId?.toString(),
         isAlreadySubmitted,
@@ -650,6 +656,27 @@ export class QuestionRepository implements IQuestionRepository {
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch full question data: ${error}`,
+      );
+    }
+  }
+
+  async updateAutoAllocate(
+    questionId: string,
+    isAutoAllocate: boolean,
+    session?: ClientSession,
+  ): Promise<IQuestion | null> {
+    try {
+      await this.init();
+      const autoAllocateValue =
+        typeof isAutoAllocate === 'boolean' ? !isAutoAllocate : false;
+      return await this.QuestionCollection.findOneAndUpdate(
+        {_id: new ObjectId(questionId)},
+        {$set: {isAutoAllocate: autoAllocateValue}},
+        {session, returnDocument: 'after'},
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while updating auto allocate field: ${error}`,
       );
     }
   }

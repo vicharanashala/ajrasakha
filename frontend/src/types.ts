@@ -51,6 +51,7 @@ export interface IQuestion {
     season: string;
     domain: string;
   };
+  isAutoAllocate: boolean;
   currentAnswers?: {
     answer: string;
     id: string;
@@ -160,7 +161,6 @@ export interface ISubmission {
     name: string;
     email: string;
   } | null;
-  // queue: (string | ObjectId)[];
   queue: {
     _id: string;
     name: string;
@@ -182,6 +182,7 @@ export interface IQuestionFullData {
     season: string;
     domain: string;
   };
+  isAutoAllocate: boolean;
   priority: QuestionPriority;
   context: string;
   metrics: IQuestionMetrics;

@@ -10,6 +10,7 @@ import {
 import {
   BadRequestError,
   InternalServerError,
+  NotFoundError,
   UnauthorizedError,
 } from 'routing-controllers';
 import {
@@ -247,58 +248,6 @@ export class QuestionService extends BaseService {
     return uniqueQuestions;
   }
 
-  // async addQuestion(
-  //   userId: string,
-  //   body: AddQuestionBodyDto,
-  // ): Promise<Partial<IQuestion>> {
-  //   try {
-  //     return this._withTransaction(async (session: ClientSession) => {
-  //       const {question, priority, source, details, context} = body;
-  //       const user = await this.userRepo.findById(userId, session);
-  //       if (!user || user.role == 'expert') {
-  //         throw new UnauthorizedError(
-  //           `You don't have permission to add question`,
-  //         );
-  //       }
-  //       let contextId: ObjectId | null = null;
-
-  //       if (context) {
-  //         const {insertedId} = await this.contextRepo.addContext(
-  //           context,
-  //           session,
-  //         );
-  //         contextId = new ObjectId(insertedId);
-  //       }
-
-  //       const text = `Question: ${question}`;
-  //       const {embedding} = await this.aiService.getEmbedding(text);
-
-  //       const newQuestion: IQuestion = {
-  //         userId: new ObjectId(userId),
-  //         question,
-  //         priority,
-  //         source,
-  //         status: 'open',
-  //         totalAnswersCount: 0,
-  //         contextId,
-  //         details,
-  //         embedding,
-  //         metrics: null,
-  //         text,
-  //         createdAt: new Date(),
-  //         updatedAt: new Date(),
-  //       };
-
-  //       await this.questionRepo.addQuestion(newQuestion);
-
-  //       return newQuestion;
-  //     });
-  //   } catch (error) {
-  //     console.log(error);
-  //     throw new InternalServerError(`Failed to add question: ${error}`);
-  //   }
-  // }
-
   async addQuestion(
     userId: string,
     body: AddQuestionBodyDto,
@@ -334,6 +283,7 @@ export class QuestionService extends BaseService {
           totalAnswersCount: 0,
           contextId,
           details,
+          isAutoAllocate: true,
           embedding,
           metrics: null,
           text,
@@ -346,12 +296,14 @@ export class QuestionService extends BaseService {
 
         // 5. Fetch userId based on provided preference and create queue
         // i) Find users matching the preference
-        const users = await this.userRepo.findUsersByPreference(
+        const users = await this.userRepo.findExpertsByPreference(
           details as PreferenceDto,
           session,
         );
         // ii) Create queue from the users found
-        const queue = users.map(user => new ObjectId(user._id.toString()));
+        const queue = users
+          .slice(0, 3) // Limit to first 3 experts
+          .map(user => new ObjectId(user._id.toString()));
 
         // 6. Create an empty QuestionSubmission entry for the newly created question
         const submissionData: IQuestionSubmission = {
@@ -444,6 +396,183 @@ export class QuestionService extends BaseService {
     }
   }
 
+  async toggleAutoAllocate(questionId: string): Promise<IQuestion> {
+    try {
+      return this._withTransaction(async (session: ClientSession) => {
+        //1. Validate question existence
+        const question = await this.questionRepo.getById(questionId, session);
+        if (!question) throw new NotFoundError('Question not found');
+
+        const currentStatus = question.isAutoAllocate;
+
+        // If currentStatus is false, then we need to set it to true and vice versa
+        if (!currentStatus) {
+          const questionSubmission =
+            await this.questionSubmissionRepo.getByQuestionId(
+              questionId,
+              session,
+            );
+
+          if (!questionSubmission)
+            throw new NotFoundError('Question submission not found');
+
+          // Queue limit check
+          if (questionSubmission.queue.length >= 10) {
+            console.log('Cannot auto allocate as queue is full');
+            return;
+          }
+
+          // Fetch all users and preferred experts
+          const [users, preferredExperts] = await Promise.all([
+            this.userRepo.findAll(),
+            this.userRepo.findExpertsByPreference(
+              question.details as PreferenceDto,
+              session,
+            ),
+          ]);
+
+          // Filter experts only and merge preferred first, then others (no duplicates)
+          const expertIdsSet = new Set<string>();
+
+          preferredExperts
+            .forEach(user => expertIdsSet.add(user._id.toString()));
+
+          users
+            .filter(user => user.role === 'expert')
+            .forEach(user => expertIdsSet.add(user._id.toString()));
+
+          const allExpertIds = Array.from(expertIdsSet);
+
+          const queueLength = questionSubmission.queue?.length || 0;
+          const historyLength = questionSubmission.history?.length || 0;
+
+          console.log(`Auto-allocating experts. Queue length: ${queueLength}, History length: ${historyLength}, Total experts available: ${allExpertIds.length}`);
+          // Proceed only if all experts in queue have submitted and more experts are available
+          if (
+            queueLength === historyLength &&
+            queueLength < allExpertIds.length
+          ) {
+            const answeredExperts = new Set(
+              questionSubmission.history.map(h => h.updatedBy.toString()),
+            );
+
+            // Filter experts who haven't answered yet
+            const unAnsweredExpertIds = allExpertIds.filter(
+              expertId => !answeredExperts.has(expertId),
+            );
+
+            // Merge queue with new un-answered experts (up to 10)
+            const updatedQueue = [
+              ...questionSubmission.queue,
+              ...unAnsweredExpertIds,
+            ]
+              .slice(0, 10)
+              .map(id => new ObjectId(id));
+
+            await this.questionSubmissionRepo.updateQueue(
+              questionId,
+              updatedQueue,
+              session,
+            );
+          }
+        }
+
+        //2. Toggle isAutoAllocate status
+        const updated = await this.questionRepo.updateAutoAllocate(
+          questionId,
+          question?.isAutoAllocate,
+          session,
+        );
+        //3. Return updated question
+        return updated;
+      });
+    } catch (error) {
+      throw new InternalServerError(`Failed to toggle auto allocate: ${error}`);
+    }
+  }
+
+  async allocateExperts(
+    questionId: string,
+    experts: string[],
+  ): Promise<IQuestionSubmission> {
+    try {
+      return this._withTransaction(async (session: ClientSession) => {
+        //1. Validate question existence
+        const question = await this.questionRepo.getById(questionId, session);
+        if (!question) throw new NotFoundError('Question not found');
+
+        //2. Validate question submission existence
+        const questionSubmission =
+          await this.questionSubmissionRepo.getByQuestionId(
+            questionId,
+            session,
+          );
+        if (!questionSubmission)
+          throw new NotFoundError('Question submission not found');
+
+        //3. Validate experts array
+        if (!experts || experts.length === 0)
+          throw new BadRequestError('Experts list cannot be empty');
+
+        // Check if adding these experts exceeds the limit of 10
+        const totalAllocatedExperts = questionSubmission.queue.length;
+        if (totalAllocatedExperts + experts.length > 10)
+          throw new BadRequestError(
+            `Cannot allocate more than 10 experts. Currently allocated: ${totalAllocatedExperts}`,
+          );
+
+        //4. Allocate experts
+        const expertIds = experts.map(e => new ObjectId(e));
+
+        //5. Update question submission with new experts
+        const updated = await this.questionSubmissionRepo.allocateExperts(
+          questionId,
+          expertIds,
+          session,
+        );
+
+        //6. Return updated question submission
+        return updated;
+      });
+    } catch (error) {
+      throw new InternalServerError(`Failed to allocate experts: ${error}`);
+    }
+  }
+
+  async removeExpertFromQueue(
+    questionId: string,
+    index: number,
+  ): Promise<IQuestionSubmission> {
+    try {
+      return this._withTransaction(async (session: ClientSession) => {
+        //1. Validate question existence
+        const question = await this.questionRepo.getById(questionId, session);
+        if (!question) throw new NotFoundError('Question not found');
+        //2. Validate question submission existence
+        const questionSubmission =
+          await this.questionSubmissionRepo.getByQuestionId(
+            questionId,
+            session,
+          );
+        if (!questionSubmission)
+          throw new NotFoundError('Question submission not found');
+
+        //3. Remove expert from queue
+        const updated =
+          await this.questionSubmissionRepo.removeExpertFromQueuebyIndex(
+            questionId,
+            Number(index),
+            session,
+          );
+        //4. Return updated question submission
+        return updated;
+      });
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to remove expert from queue: ${error}`,
+      );
+    }
+  }
   async deleteQuestion(questionId: string): Promise<{deletedCount: number}> {
     try {
       return this._withTransaction(async (session: ClientSession) => {

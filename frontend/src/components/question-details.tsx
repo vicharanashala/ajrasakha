@@ -58,9 +58,12 @@ import {
   RefreshCw,
   Send,
   Sprout,
+  Trash2,
+  User,
   UserCheck,
   UserPlus,
   Users,
+  X,
 } from "lucide-react";
 import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
 import { useGetComments } from "@/hooks/api/comment/useGetComments";
@@ -77,6 +80,12 @@ import {
 import { Checkbox } from "./atoms/checkbox";
 import { Label } from "./atoms/label";
 import { Switch } from "./atoms/switch";
+import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
+import { useAllocateExpert } from "@/hooks/api/question/useAllocateExperts";
+import { useToggleAutoAllocateQuestion } from "@/hooks/api/question/useToggleAutoAllocateQuestion";
+import { useRemoveAllocation } from "@/hooks/api/question/useRemoveAllocation";
+import { ConfirmationModal } from "./confirmation-modal";
+import { Input } from "./atoms/input";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -331,6 +340,7 @@ export const QuestionDetails = ({
         history={question.submission.history}
         queue={question.submission.queue}
         currentUser={currentUser}
+        question={question}
       />
       <div className="flex items-center justify-between md:mt-12">
         <h2 className="text-lg font-semibold flex justify-center gap-2 items-center ">
@@ -411,28 +421,49 @@ export const QuestionDetails = ({
 };
 
 interface AllocationQueueHeaderProps {
+  question: IQuestionFullData;
   queue?: ISubmission["queue"];
 }
 
-const DUMMY_EXPERTS = [
-  { id: 1, name: "Dr. Sarah Johnson", specialty: "Agriculture" },
-  { id: 2, name: "Dr. Michael Chen", specialty: "Agriculture" },
-  { id: 3, name: "Dr. Emily Rodriguez", specialty: "Agriculture" },
-  { id: 4, name: "Dr. James Wilson", specialty: "Agriculture" },
-  { id: 5, name: "Dr. Amanda Lee", specialty: "Agriculture" },
-  { id: 6, name: "Dr. Robert Taylor", specialty: "Agriculture" },
-];
-
-const AllocationQueueHeader = ({ queue = [] }: AllocationQueueHeaderProps) => {
-  const [autoAllocate, setAutoAllocate] = useState(true);
+const AllocationQueueHeader = ({
+  question,
+  queue = [],
+}: AllocationQueueHeaderProps) => {
+  const [autoAllocate, setAutoAllocate] = useState(question.isAutoAllocate);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedExperts, setSelectedExperts] = useState<number[]>([]);
+  const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const handleToggle = (checked: boolean) => {
-    setAutoAllocate(checked);
+  const { data: usersData, isLoading: isUsersLoading } = useGetAllUsers();
+  const { mutateAsync: allocateExpert, isPending: allocatingExperts } =
+    useAllocateExpert();
+  const { mutateAsync: toggleAutoAllocateStatus, isPending: changingStatus } =
+    useToggleAutoAllocateQuestion();
+
+  const expertsIdsInQueue = new Set(queue.map((expert) => expert._id));
+
+  const experts =
+    usersData?.users.filter(
+      (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id)
+    ) || [];
+
+  const filteredExperts = experts.filter(
+    (expert) =>
+      expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      expert.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleToggle = async (checked: boolean) => {
+    try {
+      await toggleAutoAllocateStatus(question._id);
+      setAutoAllocate(checked);
+    } catch (error) {
+      console.error("Error toggling auto-allocate:", error);
+      toast.error("Error toggling auto-allocate. Please try again.");
+    }
   };
 
-  const handleSelectExpert = (expertId: number) => {
+  const handleSelectExpert = (expertId: string) => {
     setSelectedExperts((prev) =>
       prev.includes(expertId)
         ? prev.filter((id) => id !== expertId)
@@ -440,9 +471,20 @@ const AllocationQueueHeader = ({ queue = [] }: AllocationQueueHeaderProps) => {
     );
   };
 
-  const handleSubmit = () => {
-    console.log("Selected experts:", selectedExperts);
-    setIsModalOpen(false);
+  const handleSubmit = async () => {
+    try {
+      await allocateExpert({
+        questionId: question._id,
+        experts: selectedExperts,
+      });
+      setSelectedExperts([]);
+      setIsModalOpen(false);
+    } catch (error: any) {
+      console.error("Error allocating experts:", error);
+      toast.error(
+        error?.message || "Failed to allocate experts. Please try again."
+      );
+    }
   };
 
   const handleCancel = () => {
@@ -477,8 +519,11 @@ const AllocationQueueHeader = ({ queue = [] }: AllocationQueueHeaderProps) => {
             />
             <Label
               htmlFor="auto-allocate"
-              className="cursor-pointer font-medium text-sm"
+              className="cursor-pointer font-medium text-sm flex items-center gap-2"
             >
+              {changingStatus && (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              )}
               Auto-allocate Experts
             </Label>
 
@@ -513,40 +558,112 @@ const AllocationQueueHeader = ({ queue = [] }: AllocationQueueHeaderProps) => {
                   Select Experts
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-6xl max-h-[80vh]">
+              <DialogContent
+                className="max-w-6xl max-h-[80vh] min-h-[60vh]"
+                style={{ maxWidth: "70vw" }}
+              >
                 <DialogHeader>
-                  <DialogTitle>Select Experts Manually</DialogTitle>
+                  <DialogTitle className="flex items-center gap-3 text-lg font-semibold">
+                    <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <UserPlus className="w-5 h-5 text-primary" />
+                    </div>
+                    Select Experts Manually
+                  </DialogTitle>
+
+                  <div className="mt-3 relative">
+                    <Input
+                      type="text"
+                      placeholder="Search experts by name, email..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary border"
+                    />
+                    {searchTerm && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchTerm("")}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </DialogHeader>
 
                 <ScrollArea className="max-h-96 pr-2">
                   <div className="space-y-3">
-                    {DUMMY_EXPERTS.map((expert) => (
-                      <div
-                        key={expert.id}
-                        className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <UserPlus className="w-5 h-5 text-primary" />
+                    {isUsersLoading && (
+                      <div className="flex justify-center items-center py-10 text-muted-foreground">
+                        <div className="flex flex-col items-center space-y-2">
+                          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                          <span className="text-sm">Loading experts...</span>
                         </div>
-
-                        <Checkbox
-                          id={`expert-${expert.id}`}
-                          checked={selectedExperts.includes(expert.id)}
-                          onCheckedChange={() => handleSelectExpert(expert.id)}
-                          className="mt-1"
-                        />
-
-                        <Label
-                          htmlFor={`expert-${expert.id}`}
-                          className="font-normal cursor-pointer flex-1"
-                        >
-                          <div className="font-medium">{expert.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {expert.specialty}
-                          </div>
-                        </Label>
                       </div>
-                    ))}
+                    )}
+
+                    {!isUsersLoading && filteredExperts.length === 0 && (
+                      <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                        <UserPlus className="w-8 h-8 mb-2 text-muted-foreground/80" />
+                        <p className="text-sm font-medium">
+                          No experts available
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Try refreshing or check back later.
+                        </p>
+                      </div>
+                    )}
+
+                    {!isUsersLoading &&
+                      filteredExperts.map((expert) => (
+                        <div
+                          key={expert._id}
+                          className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <User className="w-5 h-5 text-primary" />
+                          </div>
+
+                          <Checkbox
+                            id={`expert-${expert._id}`}
+                            checked={selectedExperts.includes(expert._id)}
+                            onCheckedChange={() =>
+                              handleSelectExpert(expert._id)
+                            }
+                            className="mt-1"
+                          />
+
+                          <Label
+                            htmlFor={`expert-${expert._id}`}
+                            className="font-normal cursor-pointer flex-1 w-full"
+                          >
+                            <div className="flex justify-between items-center w-full">
+                              <div className="flex flex-col">
+                                <div
+                                  className="font-medium truncate"
+                                  title={expert.userName}
+                                >
+                                  {expert?.userName?.slice(0, 48)}
+                                  {expert?.userName?.length > 48 ? "..." : ""}
+                                </div>
+                                <div
+                                  className="text-xs text-muted-foreground truncate"
+                                  title={expert.email}
+                                >
+                                  {expert?.email?.slice(0, 48)}
+                                  {expert?.email?.length > 48 ? "..." : ""}
+                                </div>
+                              </div>
+
+                              <div className="text-sm text-muted-foreground flex-shrink-0 ml-2">
+                                {expert.preference?.domain &&
+                                expert.preference.domain !== "all"
+                                  ? expert.preference.domain
+                                  : "Agriculture Expert"}
+                              </div>
+                            </div>
+                          </Label>
+                        </div>
+                      ))}
                   </div>
                 </ScrollArea>
 
@@ -554,8 +671,13 @@ const AllocationQueueHeader = ({ queue = [] }: AllocationQueueHeaderProps) => {
                   <Button variant="outline" onClick={handleCancel}>
                     Cancel
                   </Button>
-                  <Button onClick={handleSubmit}>
-                    Submit ({selectedExperts.length} selected)
+                  <Button onClick={handleSubmit} disabled={allocatingExperts}>
+                    {allocatingExperts && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    {allocatingExperts
+                      ? "Allocating..."
+                      : `Submit (${selectedExperts.length} selected)`}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -571,15 +693,40 @@ interface SubmissionTimelineProps {
   queue: ISubmission["queue"];
   history: ISubmission["history"];
   currentUser: IUser;
+  question: IQuestionFullData;
 }
 
 const SubmissionTimeline = ({
   currentUser,
   queue,
   history,
+  question,
 }: SubmissionTimelineProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const INITIAL_DISPLAY_COUNT = 12;
+
+  const [selectedAllocationIndex, setSelectedAllocationIndex] = useState<
+    number | null
+  >(null);
+  // Remove Allocation Hook
+  const { mutateAsync: removeAllocation, isPending: removingAllocation } =
+    useRemoveAllocation();
+
+  const handleRemoveAllocation = useCallback(
+    async (index: number) => {
+      try {
+        setSelectedAllocationIndex(index);
+        await removeAllocation({ questionId: question._id, index });
+        toast.success("Allocation removed successfully.");
+      } catch (error) {
+        console.error("Error removing allocation:", error);
+        toast.error("Error removing allocation. Please try again.");
+      } finally {
+        setSelectedAllocationIndex(null);
+      }
+    },
+    [question._id, removeAllocation]
+  );
 
   const submittedUserIds = new Set(
     history.map((entry) => entry.updatedBy?._id)
@@ -646,8 +793,8 @@ const SubmissionTimeline = ({
 
   return (
     <div className="w-full space-y-6 my-6">
-      <AllocationQueueHeader queue={queue} />
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 transition-all duration-500 ease-in-out">
+      <AllocationQueueHeader queue={queue} question={question} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 transition-all duration-500 ease-in-out">
         {displayedQueue?.map((user, index) => {
           const status = getStatus(index);
           const styles = getStatusStyles(status);
@@ -658,7 +805,7 @@ const SubmissionTimeline = ({
           return (
             <div
               key={`${user._id}-${index}`}
-              className="relative flex flex-col items-center justify-center my-4"
+              className="relative flex flex-col items-center justify-center my-4 group"
             >
               {!isLast && (
                 <div className="absolute top-1/2 right-0 flex items-center transform translate-x-full -translate-y-1/2">
@@ -681,19 +828,62 @@ const SubmissionTimeline = ({
                 </div>
               )}
 
+              {/* Overlay for delete */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="absolute w-58 h-48 rounded-md bg-card/80 border opacity-0 group-hover:opacity-30 transition-opacity duration-300"></div>
+
+                {!(
+                  submittedUserIds.has(user._id) ||
+                  submittedUserEmails.has(user.email)
+                ) && (
+                  <div className="absolute -top-1 right-3 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                    <ConfirmationModal
+                      title="Remove Expert Allocation?"
+                      description={`${
+                        submittedUserIds.has(user._id)
+                          ? "The selected expert has already submitted an answer. "
+                          : ""
+                      }Are you sure you want to remove ${
+                        user?.name
+                      }'s allocation? This action cannot be undone once removed, the expert will no longer be able to respond to this question.`}
+                      confirmText="Remove"
+                      cancelText="Cancel"
+                      type="delete"
+                      isLoading={removingAllocation}
+                      onConfirm={() => handleRemoveAllocation(index)}
+                      trigger={
+                        <div className="w-6 h-6 bg-black/10 dark:bg-white/10 backdrop-blur-sm rounded-md flex items-center justify-center cursor-pointer hover:text-red-500">
+                          <Trash2 className="w-4 h-4 transition-colors duration-300" />
+                        </div>
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+
               <div
-                className={`flex flex-col items-center justify-center gap-2 p-4 rounded-full aspect-square border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 ${
-                  styles.container
-                } ${
-                  isExpanded && index >= INITIAL_DISPLAY_COUNT
-                    ? "animate-fade-in"
-                    : ""
-                }${
-                  isCurrentUserWaiting
-                    ? " ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105"
-                    : ""
-                }`}
+                className={`relative flex flex-col items-center justify-center gap-2 p-4 
+                  rounded-full border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 
+                  ${styles.container} 
+                  ${
+                    isExpanded && index >= INITIAL_DISPLAY_COUNT
+                      ? "animate-fade-in"
+                      : ""
+                  } 
+                  ${
+                    isCurrentUserWaiting
+                      ? "ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105"
+                      : ""
+                  }
+                  w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44
+                `}
               >
+                {removingAllocation && selectedAllocationIndex === index && (
+                  <div className="absolute inset-0 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-white/80" />
+                  </div>
+                )}
+
                 <div
                   className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${styles.iconBg}`}
                 >
@@ -711,14 +901,23 @@ const SubmissionTimeline = ({
                 </div>
 
                 <div className="text-center w-full px-2">
-                  <p className="text-xs font-semibold text-foreground truncate">
-                    {user.name}
+                  <p
+                    className="text-xs font-semibold text-foreground truncate"
+                    title={user.name}
+                  >
+                    {user.name?.slice(0, 15)}
+                    {user.name?.length > 15 ? "..." : ""}
                   </p>
-                  <p className="text-[10px] text-muted-foreground truncate mt-0.5">
-                    {user.email}
+                  <p
+                    className="text-[10px] text-muted-foreground truncate mt-0.5"
+                    title={user.email}
+                  >
+                    {user.email?.slice(0, 23)}
+                    {user.email?.length > 23 ? "..." : ""}
                   </p>
                 </div>
 
+                {/* Status Badge */}
                 <span
                   className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${styles.badge}`}
                 >
@@ -734,8 +933,6 @@ const SubmissionTimeline = ({
             </div>
           );
         })}
-
-        {/* Legend moved below the grid */}
       </div>
 
       <div className="flex flex-wrap justify-end gap-4 mt-4 text-sm">

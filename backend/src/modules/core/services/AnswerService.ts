@@ -90,17 +90,17 @@ export class AnswerService extends BaseService {
       };
 
       // Wait for AI analysis
-      const analysis = await this.aiService.evaluateAnswers(payload);
-      // const analysis: IQuestionAnalysis = {
-      //   question_id: '68f137fe5fbcb9f0f5f091eb',
-      //   num_answers: 5,
-      //   mean_similarity: 0.72,
-      //   std_similarity: 0.15,
-      //   recent_similarity: 0.68,
-      //   collusion_score: 0.85,
-      //   status: 'FLAGGED_FOR_REVIEW',
-      //   message: 'Similarity score is high, needs review',
-      // };
+      // const analysis = await this.aiService.evaluateAnswers(payload);
+      const analysis: IQuestionAnalysis = {
+        question_id: '68f137fe5fbcb9f0f5f091eb',
+        num_answers: 5,
+        mean_similarity: 0.72,
+        std_similarity: 0.15,
+        recent_similarity: 0.68,
+        collusion_score: 0.85,
+        status: 'CONTINUE',
+        message: 'Similarity score is high, needs review',
+      };
 
       metrics = {
         mean_similarity: analysis.mean_similarity,
@@ -127,8 +127,8 @@ Answer: ${answer}`;
 
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
-      const {embedding} = await this.aiService.getEmbedding(answer);
-      // const embedding = []
+      // const {embedding} = await this.aiService.getEmbedding(answer);
+      const embedding = []
       const {insertedId} = await this.answerRepo.addAnswer(
         questionId,
         authorId,

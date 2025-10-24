@@ -55,7 +55,7 @@ export class UserService extends BaseService {
     }
   }
 
-  async getAllUserNames(userId: string): Promise<UsersNameResponseDto> {
+  async getAllUsers(userId: string): Promise<UsersNameResponseDto> {
     try {
       return await this._withTransaction(async session => {
         const me = await this.userRepo.findById(userId, session);
@@ -75,7 +75,10 @@ export class UserService extends BaseService {
           myPreference,
           users: usersExceptMe.map(u => ({
             _id: u._id.toString(),
-            userName: `${u.firstName} ${u.lastName}`.trim(),
+            role: u.role,
+            email: u.email,
+            preference: u.preference,
+            userName: `${u.firstName} ${u.lastName ? u.lastName : ''}`.trim(),
           })),
         };
       });

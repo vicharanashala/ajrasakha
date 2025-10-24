@@ -186,7 +186,21 @@ class GenerateQuestionsBody {
   @MinLength(10)
   transcript!: string;
 }
+class ExpertInput {
+  @IsString()
+  _id!: string;
 
+  @IsString()
+  userName!: string;
+}
+
+class AllocateExpertsRequest {
+ experts!: string[];
+}
+class RemoveAllocateBody {
+  @IsNumber()
+  index!: number
+}
 class GeneratedQuestionResponse {
   @IsString()
   id!: string;
@@ -344,6 +358,9 @@ export const QUESTION_VALIDATORS = [
   GenerateQuestionsBody,
   GetDetailedQuestionsQuery,
   AddQuestionBodyDto,
+  AllocateExpertsRequest,
+  ExpertInput,
+  RemoveAllocateBody
 ];
 
 export {
@@ -354,4 +371,7 @@ export {
   GeneratedQuestionResponse,
   GetDetailedQuestionsQuery,
   AddQuestionBodyDto,
+  AllocateExpertsRequest,
+  ExpertInput,
+  RemoveAllocateBody
 };

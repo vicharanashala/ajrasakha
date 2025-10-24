@@ -173,7 +173,7 @@ export class UserRepository implements IUserRepository {
     return this.usersCollection.find({}, {session}).toArray();
   }
 
-  async findUsersByPreference(
+  async findExpertsByPreference(
     details: PreferenceDto,
     session?: ClientSession,
   ): Promise<IUser[]> {

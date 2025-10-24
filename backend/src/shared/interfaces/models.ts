@@ -42,6 +42,7 @@ export interface IQuestion {
     season: string;
     domain: string;
   };
+  isAutoAllocate: boolean;
   source: 'AJRASAKHA' | 'AGRI_EXPERT';
   embedding: number[];
   metrics: IQuestionMetrics | null;

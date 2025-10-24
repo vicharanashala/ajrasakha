@@ -61,6 +61,9 @@ class Question implements IQuestion {
   source: 'AJRASAKHA' | 'AGRI_EXPERT';
 
   @Expose()
+  isAutoAllocate: boolean;
+
+  @Expose()
   createdAt?: Date;
 
   @Expose()

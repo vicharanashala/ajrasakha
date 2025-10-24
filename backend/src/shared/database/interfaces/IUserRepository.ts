@@ -68,7 +68,7 @@ export interface IUserRepository {
    * @param session - The session for transaction.
    * @returns A promise that resolves to the users.
    */
-  findUsersByPreference(
+  findExpertsByPreference(
     details: PreferenceDto,
     session?: ClientSession,
   ): Promise<IUser[]>;

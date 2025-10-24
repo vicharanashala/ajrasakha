@@ -113,8 +113,21 @@ export interface IQuestionRepository {
     questionId: string,
     updates: Partial<IQuestion>,
     session?: ClientSession,
-    addText?:boolean,
+    addText?: boolean,
   ): Promise<{modifiedCount: number}>;
+
+  /**
+   * Updates a specific question.
+   * @param questionId - The ID of the question to update.
+   * @param isAutoAllocate - Boolean to set auto allocate or not.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to an object containing IQuestion.
+   */
+  updateAutoAllocate(
+    questionId: string,
+    isAutoAllocate: boolean,
+    session?: ClientSession,
+  ): Promise<IQuestion | null>;
 
   /**
    * Updates a specific question.
