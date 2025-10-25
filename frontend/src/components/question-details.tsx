@@ -735,6 +735,10 @@ const SubmissionTimeline = ({
     history.map((entry) => entry.updatedBy?.email)
   );
 
+  const unSubmittedExpertsCount = queue?.filter(
+    (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email)
+  ).length;
+
   const nextWaitingIndex = queue?.findIndex(
     (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email)
   );
@@ -840,12 +844,17 @@ const SubmissionTimeline = ({
                     <ConfirmationModal
                       title="Remove Expert Allocation?"
                       description={`${
+                        nextWaitingIndex === index &&
+                        unSubmittedExpertsCount <= 1
+                          ? " Since auto-allocation is enabled and this expert is in the waiting state, the system will automatically allocate the next available expert immediately after removal. "
+                          : ""
+                      }${
                         submittedUserIds.has(user._id)
                           ? "The selected expert has already submitted an answer. "
                           : ""
                       }Are you sure you want to remove ${
                         user?.name
-                      }'s allocation? This action cannot be undone once removed, the expert will no longer be able to respond to this question.`}
+                      }'s allocation? This action cannot be undone. `}
                       confirmText="Remove"
                       cancelText="Cancel"
                       type="delete"

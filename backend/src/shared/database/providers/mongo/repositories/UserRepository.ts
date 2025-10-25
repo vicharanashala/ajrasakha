@@ -170,7 +170,19 @@ export class UserRepository implements IUserRepository {
 
   async findAll(session?: ClientSession): Promise<IUser[]> {
     await this.init();
-    return this.usersCollection.find({}, {session}).toArray();
+    const allUsers = await this.usersCollection.find({}, {session}).toArray();
+
+    // Remove duplicate users (in case multiple  emails point to same user)
+    const uniqueUsersMap = new Map<string, IUser>();
+    for (const user of allUsers) {
+      const uniqueKey = user.email || user._id.toString();
+      if (!uniqueUsersMap.has(uniqueKey)) {
+        uniqueUsersMap.set(uniqueKey, user);
+      }
+    }
+    const uniqueUsers = Array.from(uniqueUsersMap.values());
+
+    return uniqueUsers;
   }
 
   async findExpertsByPreference(

@@ -22,6 +22,7 @@ import {
   IQuestionAnalysis,
   IQuestionWithAnswerTexts,
 } from '../classes/validators/QuestionValidators.js';
+import {QuestionService} from './QuestionService.js';
 
 @injectable()
 export class AnswerService extends BaseService {
@@ -37,6 +38,9 @@ export class AnswerService extends BaseService {
 
     @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
     private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
+
+    @inject(GLOBAL_TYPES.QuestionService)
+    private readonly questionService: QuestionService,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -75,9 +79,12 @@ export class AnswerService extends BaseService {
 
       // lets consider it is not final answer
       let isFinalAnswer = false;
+
       let metrics: IQuestionMetrics | null = null;
+
       let analysisStatus: 'CONTINUE' | 'FLAGGED_FOR_REVIEW' | 'CONVERGED' =
         'CONTINUE';
+
       const answers = (await this.answerRepo.getByQuestionId(questionId)) || [];
 
       // if (answers.length) {
@@ -91,6 +98,7 @@ export class AnswerService extends BaseService {
 
       // Wait for AI analysis
       // const analysis = await this.aiService.evaluateAnswers(payload);
+
       const analysis: IQuestionAnalysis = {
         question_id: '68f137fe5fbcb9f0f5f091eb',
         num_answers: 5,
@@ -128,7 +136,9 @@ Answer: ${answer}`;
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
       // const {embedding} = await this.aiService.getEmbedding(answer);
-      const embedding = []
+
+      const embedding = [];
+
       const {insertedId} = await this.answerRepo.addAnswer(
         questionId,
         authorId,
@@ -139,6 +149,7 @@ Answer: ${answer}`;
         updatedAnswerCount,
         session,
       );
+
       await this.questionRepo.updateQuestion(
         questionId,
         {
@@ -153,17 +164,38 @@ Answer: ${answer}`;
         },
         session,
       );
+
+      const submission = await this.questionSubmissionRepo.getByQuestionId(
+        questionId,
+        session,
+      );
+      if (!submission) {
+        throw new BadRequestError('Question submission not found');
+      }
+
+      // const isCurrentExpertLastInQueue =
       const userSubmissionData: ISubmissionHistroy = {
         updatedBy: new ObjectId(authorId),
         answer: new ObjectId(insertedId),
         isFinalAnswer,
         updatedAt: new Date(),
       };
+
       await this.questionSubmissionRepo.update(
         questionId,
         userSubmissionData,
         session,
       );
+
+      const currentSubmissionQueue = submission.queue || [];
+      if (
+        currentSubmissionQueue.length < 10 &&
+        question.isAutoAllocate &&
+        currentSubmissionQueue.length == submission.history.length + 1
+      ) {
+        await this.questionService.autoAllocateExperts(questionId, session);
+      }
+
       return {insertedId, isFinalAnswer};
     });
   }

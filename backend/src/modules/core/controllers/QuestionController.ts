@@ -36,7 +36,6 @@ import {
   QuestionResponse,
   RemoveAllocateBody,
 } from '../classes/validators/QuestionValidators.js';
-import {currentUserChecker} from '#root/shared/functions/currentUserChecker.js';
 
 @OpenAPI({
   tags: ['questions'],

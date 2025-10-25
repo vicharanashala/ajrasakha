@@ -16,8 +16,10 @@ export const useRemoveAllocation = () => {
     }): Promise<void | null> => {
       return await questionService.removeAllocation(questionId, index);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["question_full_data"] });
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["question_full_data", variables.questionId],
+      });
     },
   });
 };
