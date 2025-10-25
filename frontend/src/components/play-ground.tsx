@@ -14,10 +14,11 @@ import { QuestionsPage } from "./questions-page";
 import { BellIcon } from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { RequestsPage } from "./request-page";
+import { useNavigate } from "@tanstack/react-router";
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser();
-
+  const navigate = useNavigate()
   return (
     <>
       {isLoading && (
@@ -114,7 +115,7 @@ export const PlaygroundPage = () => {
             </div>
 
             <div className="flex items-center gap-3 shrink-0">
-              <BellIcon className="w-5 h-5" />
+              <BellIcon className="w-5 h-5" onClick={() => navigate({ to: "/notifications" })} />
               <ThemeToggleCompact />
               <UserProfileActions />
             </div>

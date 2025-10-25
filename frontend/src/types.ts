@@ -267,3 +267,15 @@ export type IRequest = RequestDetails & {
   createdAt: string | Date;
   updatedAt: string | Date;
 };
+
+export type INotificationType = "flag" | "answer_creation" | "peer_review"
+export interface INotification{
+   _id?: string 
+  userId:string
+  enitity_id:string 
+  type:INotificationType;
+  message:string;
+  is_read:boolean;
+  createdAt?: string 
+  updatedAt?: string 
+}

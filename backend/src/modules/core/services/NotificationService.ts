@@ -26,9 +26,9 @@ export class NotificationService extends BaseService {
     })
   }
 
-  async getNotifications(userId:string):Promise<NotificationResponse | null>{
+  async getNotifications(userId:string,page:number,limit:number):Promise<{notifications:NotificationResponse[]; page:number; totalCount:number; totalPages:number}>{
     return this._withTransaction(async (session:ClientSession) => {
-      return await this.notificationRepository.getNotifications(userId,session)
+      return await this.notificationRepository.getNotifications(userId,page,limit,session)
     })
   }
 }

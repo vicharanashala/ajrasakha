@@ -54,27 +54,43 @@ export class NotificationRepository implements INotificationRepository {
     }
   }
 
-  async getNotifications(userId: string, session?: ClientSession): Promise<NotificationResponse | null> {
+  async getNotifications(userId: string,page:number,limit:number,session?: ClientSession): Promise<{notifications:NotificationResponse[]; page:number; totalCount:number; totalPages:number}> {
     try {
       await this.init()
       if (!userId || !isValidObjectId(userId)) {
         throw new BadRequestError('Invalid or missing userId');
       }
-      const notification = await this.notificationCollection.findOne({userId: new ObjectId(userId)},{session})
+      const skip = (page - 1) * limit
+      // const notification = await this.notificationCollection.findOne({userId: new ObjectId(userId)},{session})
+      const [notification,totalCount] = await Promise.all([
+        this.notificationCollection.find({userId: new ObjectId(userId)},{session}).sort({createdAt:-1}).skip(skip).limit(limit).toArray(),
+        this.notificationCollection.countDocuments({userId: new ObjectId(userId)})
+      ])
       if (!notification) return null;
 
     // Convert ObjectId → string
-    const response: NotificationResponse= {
-      _id: notification._id?.toString() ?? "",
-      userId: notification.userId?.toString() ?? "",
-      enitity_id: notification.enitity_id?.toString() ?? "",
-      message: notification.message,
-      is_read: notification.is_read,
-      createdAt: notification.createdAt.toString(),
-      updatedAt: notification.updatedAt.toString()
-    };
 
-    return response;
+    const response = notification.map((n) => ({
+      ...n,
+      _id:n._id.toString(),
+      userId:n.userId.toString(),
+      enitity_id:n.enitity_id.toString(),
+      message:n.message,
+      is_read:n.is_read,
+      createdAt:n.createdAt.toString(),
+      updatedAt:n.updatedAt.toString()
+    }))
+    // const response: NotificationResponse= {
+    //   _id: notification._id?.toString() ?? "",
+    //   userId: notification.userId?.toString() ?? "",
+    //   enitity_id: notification.enitity_id?.toString() ?? "",
+    //   message: notification.message,
+    //   is_read: notification.is_read,
+    //   createdAt: notification.createdAt.toString(),
+    //   updatedAt: notification.updatedAt.toString()
+    // };
+
+    return {notifications:response,page,totalCount,totalPages:Math.ceil(totalCount/limit)}
   }
   catch(error){
     throw new InternalServerError(

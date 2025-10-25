@@ -24,5 +24,5 @@ export interface INotificationRepository {
    * @param userId - The ID of the person notification is asigned.
    * @returns A promise that resolves to an object containing the inserted answer ID.
    */
-  getNotifications(userId:string,session?:ClientSession):Promise<NotificationResponse | null>
+  getNotifications(userId:string,page:number,limit:number,session?:ClientSession):Promise<{notifications:NotificationResponse[]; page:number; totalCount:number; totalPages:number}>
 }

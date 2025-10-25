@@ -7,6 +7,7 @@ import {
   CurrentUser,
   Authorized,
   Get,
+  QueryParams,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject} from 'inversify';
@@ -43,8 +44,10 @@ export class NotificationController {
   @HttpCode(201)
   @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async getNotifications( @CurrentUser() user: IUser):Promise<NotificationResponse> {
+  async getNotifications(@QueryParams() query: {page?: number; limit?: number}, @CurrentUser() user: IUser) {
+    const page = Number(query.page) ?? 1;
+    const limit = Number(query.limit) ?? 10;
     const userId = user._id.toString();
-    return this.notificationService.getNotifications(userId)
+    return this.notificationService.getNotifications(userId,page,limit)
   }
 }
