@@ -99,4 +99,16 @@ export interface IUserRepository {
    * @returns A promise that resolves to an array of users.
    */
   findAll(session?: ClientSession): Promise<IUser[]>;
+
+  /**
+   * Finds all users.
+   * @param userId -  user IDs to find.
+   * @param newScore -  New score.
+   * @returns A promise that resolves to an array of users.
+   */
+  updateReputationScore(
+    userId: string,
+    isIncrement: boolean,
+    session?: ClientSession,
+  ): Promise<void>;
 }

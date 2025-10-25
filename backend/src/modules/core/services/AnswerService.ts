@@ -23,6 +23,7 @@ import {
   IQuestionWithAnswerTexts,
 } from '../classes/validators/QuestionValidators.js';
 import {QuestionService} from './QuestionService.js';
+import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
 
 @injectable()
 export class AnswerService extends BaseService {
@@ -38,6 +39,9 @@ export class AnswerService extends BaseService {
 
     @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
     private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
+
+    @inject(GLOBAL_TYPES.UserRepository)
+    private readonly userRepo: IUserRepository,
 
     @inject(GLOBAL_TYPES.QuestionService)
     private readonly questionService: QuestionService,
@@ -196,6 +200,12 @@ Answer: ${answer}`;
         await this.questionService.autoAllocateExperts(questionId, session);
       }
 
+      const IS_INCREMENT = false;
+      await this.userRepo.updateReputationScore(
+        authorId,
+        IS_INCREMENT,
+        session,
+      );
       return {insertedId, isFinalAnswer};
     });
   }

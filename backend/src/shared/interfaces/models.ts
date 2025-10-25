@@ -14,6 +14,7 @@ export interface IUser {
   firstName: string;
   lastName?: string;
   preference?: IPreference | null;
+  reputation_score: number;
   role: UserRole;
   createdAt?: Date;
   updatedAt?: Date;

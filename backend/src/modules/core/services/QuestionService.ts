@@ -300,11 +300,22 @@ export class QuestionService extends BaseService {
           details as PreferenceDto,
           session,
         );
+     
         // ii) Create queue from the users found
-        const queue = users
-          .slice(0, 3) // Limit to first 3 experts
+        const intialUsersToAllocate = users.slice(0, 3);
+
+        const queue = intialUsersToAllocate // Limit to first 3 experts
           .map(user => new ObjectId(user._id.toString()));
 
+        for (const user of intialUsersToAllocate) {
+          const IS_INCREMENT = true;
+          const userId = user._id.toString();
+          await this.userRepo.updateReputationScore(
+            userId,
+            IS_INCREMENT,
+            session,
+          );
+        }
         // 6. Create an empty QuestionSubmission entry for the newly created question
         const submissionData: IQuestionSubmission = {
           questionId: new ObjectId(savedQuestion._id.toString()),
@@ -455,10 +466,17 @@ export class QuestionService extends BaseService {
         CURRENT_BATCH_SIZE,
       );
 
-      const updatedQueue = [
-        ...questionSubmission.queue,
-        ...unAnsweredExpertIds.slice(0, FINAL_BATCH_SIZE),
-      ]
+      const expertToAdd = unAnsweredExpertIds.slice(0, FINAL_BATCH_SIZE);
+
+      for (const expertId of expertToAdd) {
+        const IS_INCREMENT = true;
+        await this.userRepo.updateReputationScore(
+          expertId,
+          IS_INCREMENT,
+          session,
+        );
+      }
+      const updatedQueue = [...questionSubmission.queue, ...expertToAdd]
         .slice(0, TOTAL_EXPERTS_LIMIT)
         .map(id => new ObjectId(id));
 
