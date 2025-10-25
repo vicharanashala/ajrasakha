@@ -396,7 +396,7 @@ export class QuestionService extends BaseService {
     }
   }
 
-  async toggleAutoAllocate(questionId: string): Promise<IQuestion> {
+  async toggleAutoAllocate(questionId: string): Promise<{message: string}> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
         //1. Validate question existence
@@ -417,9 +417,15 @@ export class QuestionService extends BaseService {
             throw new NotFoundError('Question submission not found');
 
           // Queue limit check
-          if (questionSubmission.queue.length >= 10) {
+          const TOTAL_EXPERTS_LIMIT = 10;
+          const EXISTING_QUEUE_COUNT = questionSubmission.queue.length || 0;
+          const EXISTING_HISTORY_COUNT = questionSubmission.history.length || 0;
+
+          if (EXISTING_QUEUE_COUNT >= TOTAL_EXPERTS_LIMIT) {
             console.log('Cannot auto allocate as queue is full');
-            return;
+            return {
+              message: 'Auto allocate toggled, but queue is already full',
+            };
           }
 
           // Fetch all users and preferred experts
@@ -434,8 +440,9 @@ export class QuestionService extends BaseService {
           // Filter experts only and merge preferred first, then others (no duplicates)
           const expertIdsSet = new Set<string>();
 
-          preferredExperts
-            .forEach(user => expertIdsSet.add(user._id.toString()));
+          preferredExperts.forEach(user =>
+            expertIdsSet.add(user._id.toString()),
+          );
 
           users
             .filter(user => user.role === 'expert')
@@ -443,14 +450,16 @@ export class QuestionService extends BaseService {
 
           const allExpertIds = Array.from(expertIdsSet);
 
-          const queueLength = questionSubmission.queue?.length || 0;
-          const historyLength = questionSubmission.history?.length || 0;
+          // const queueLength = questionSubmission.queue?.length || 0;
+          // const historyLength = questionSubmission.history?.length || 0;
 
-          console.log(`Auto-allocating experts. Queue length: ${queueLength}, History length: ${historyLength}, Total experts available: ${allExpertIds.length}`);
+          // console.log(
+          //   `Auto-allocating experts. Queue length: ${EXISTING_QUEUE_COUNT}, History length: ${EXISTING_HISTORY_COUNT}, Total experts available: ${allExpertIds.length}`,
+          // );
           // Proceed only if all experts in queue have submitted and more experts are available
           if (
-            queueLength === historyLength &&
-            queueLength < allExpertIds.length
+            EXISTING_QUEUE_COUNT === EXISTING_HISTORY_COUNT &&
+            EXISTING_QUEUE_COUNT < allExpertIds.length
           ) {
             const answeredExperts = new Set(
               questionSubmission.history.map(h => h.updatedBy.toString()),
@@ -462,11 +471,20 @@ export class QuestionService extends BaseService {
             );
 
             // Merge queue with new un-answered experts (up to 10)
+            const BATCH_EXPECTED_TO_ADD = 6;
+            const CURRENT_BATCH_SIZE =
+              TOTAL_EXPERTS_LIMIT - EXISTING_QUEUE_COUNT;
+
+            const FINAL_BATCH_SIZE = Math.min(
+              BATCH_EXPECTED_TO_ADD,
+              CURRENT_BATCH_SIZE,
+            );
+
             const updatedQueue = [
               ...questionSubmission.queue,
-              ...unAnsweredExpertIds,
+              ...unAnsweredExpertIds.slice(0, FINAL_BATCH_SIZE), // Add only up to FINAL_BATCH_SIZE, if 6 available then 6 will be added Otherwise less up to limit of TOTAL_EXPERTS_LIMIT
             ]
-              .slice(0, 10)
+              .slice(0, TOTAL_EXPERTS_LIMIT)
               .map(id => new ObjectId(id));
 
             await this.questionSubmissionRepo.updateQueue(
@@ -483,8 +501,9 @@ export class QuestionService extends BaseService {
           question?.isAutoAllocate,
           session,
         );
-        //3. Return updated question
-        return updated;
+        return {
+          message: `Auto allocate is now set to ${updated.isAutoAllocate}`,
+        };
       });
     } catch (error) {
       throw new InternalServerError(`Failed to toggle auto allocate: ${error}`);

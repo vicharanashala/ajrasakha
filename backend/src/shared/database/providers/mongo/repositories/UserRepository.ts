@@ -193,8 +193,18 @@ export class UserRepository implements IUserRepository {
       .find(baseQuery, {session})
       .toArray();
 
+    // Remove duplicate users (in case multiple  emails point to same user)
+    const uniqueUsersMap = new Map<string, IUser>();
+    for (const user of allUsers) {
+      const uniqueKey = user.email || user._id.toString();
+      if (!uniqueUsersMap.has(uniqueKey)) {
+        uniqueUsersMap.set(uniqueKey, user);
+      }
+    }
+    const uniqueUsers = Array.from(uniqueUsersMap.values());
+
     //2. Score users based on number of matching preferences
-    const scoredUsers = allUsers.map(user => {
+    const scoredUsers = uniqueUsers.map(user => {
       let score = 0;
 
       if (user.preference?.crop === details.crop) score++;
