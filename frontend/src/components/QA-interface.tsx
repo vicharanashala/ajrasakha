@@ -374,8 +374,8 @@ export const QAInterface = () => {
                 </div>
                 <p className="text-sm text-muted-foreground">
                   No questions available at the moment. The questions displayed
-                  here are personalized based on the preferences you set in your
-                  profile. Please check back later.
+                  here are personalized based on the preferences and reputation
+                  score. Please check back later.
                 </p>
               </div>
             ) : (
@@ -392,115 +392,379 @@ export const QAInterface = () => {
                   className="space-y-4"
                 >
                   {questions?.map((question) => (
-                    <div
-                      key={question?.id}
-                      className={`relative group rounded-xl border transition-all duration-200 overflow-hidden bg-transparent ${
-                        selectedQuestion === question?.id
-                          ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
-                          : "border-border bg-card hover:border-primary/40 hover:bg-accent/20 hover:shadow-sm"
-                      }`}
-                    >
-                      {selectedQuestion === question?.id && (
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
-                      )}
+                    <>
+                      <div
+                        key={question?.id}
+                        className={`relative group rounded-xl border transition-all duration-300 overflow-hidden ${
+                          selectedQuestion === question?.id
+                            ? "border-primary bg-card shadow-lg ring-2 ring-primary/20"
+                            : "border-border bg-card hover:border-primary/40 hover:shadow-sm"
+                        }`}
+                      >
+                        {selectedQuestion === question?.id && (
+                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+                        )}
 
-                      <div className="p-4">
-                        <div className="flex items-start gap-3">
-                          <RadioGroupItem
-                            value={question?.id || ""}
-                            id={question?.id}
-                            className="mt-1  w-5 h-5 rounded-full border-2 border-gray-400 dark:border-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 checked:bg-green-600 dark:checked:bg-green-400"
-                          />
+                        <div className="p-4">
+                          <div className="flex items-start gap-3">
+                            <RadioGroupItem
+                              value={question?.id || ""}
+                              id={question?.id}
+                              className="mt-1 w-5 h-5 rounded-full border-2 border-gray-400 dark:border-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 checked:bg-green-600 dark:checked:bg-green-400"
+                              onClick={(e) => {
+                                if (selectedQuestion === question?.id) {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setSelectedQuestion("");
+                                  setIsFinalAnswer(false);
+                                }
+                              }}
+                            />
 
-                          <div className="flex-1 min-w-0">
-                            <Label
-                              htmlFor={question?.id}
-                              className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
-                            >
-                              {question?.text}
-                            </Label>
-                          </div>
-                        </div>
-                        <div className="mt-3 ml-7 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-                          <div className="items-center gap-1.5 flex">
-                            {question?.priority && (
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                  question.priority === "high"
-                                    ? "bg-red-500/10 text-red-600 border-red-500/30"
-                                    : question.priority === "medium"
-                                    ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-                                    : "bg-green-500/10 text-green-600 border-green-500/30"
-                                }`}
+                            <div className="flex-1 min-w-0">
+                              <Label
+                                htmlFor={question?.id}
+                                className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
                               >
-                                {question.priority.charAt(0).toUpperCase() +
-                                  question.priority.slice(1)}
+                                {question?.text}
+                              </Label>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 ml-7 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                            <div className="items-center gap-1.5 flex">
+                              {question?.priority && (
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                                    question.priority === "high"
+                                      ? "bg-red-500/10 text-red-600 border-red-500/30"
+                                      : question.priority === "medium"
+                                      ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+                                      : "bg-green-500/10 text-green-600 border-green-500/30"
+                                  }`}
+                                >
+                                  {question.priority.charAt(0).toUpperCase() +
+                                    question.priority.slice(1)}
+                                </span>
+                              )}
+
+                              <svg
+                                className="w-3 h-3"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                              </svg>
+                              <span className="font-medium text-xs">
+                                Created:
                               </span>
-                            )}
+                              <span>{question?.createdAt}</span>
+                            </div>
 
-                            <svg
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                            <span className="font-medium text-xs">
-                              Created:
-                            </span>
-                            <span>{question?.createdAt}</span>
-                          </div>
+                            <div className="hidden md:flex items-center gap-1.5">
+                              <svg
+                                className="w-3 h-3"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                />
+                              </svg>
+                              <span className="font-medium">Updated:</span>
+                              <span>{question?.updatedAt}</span>
+                            </div>
 
-                          <div className="hidden md:flex items-center gap-1.5">
-                            <svg
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                              />
-                            </svg>
-                            <span className="font-medium">Updated:</span>
-                            <span>{question?.updatedAt}</span>
-                          </div>
-
-                          <div className="hidden md:flex items-center gap-1.5">
-                            <svg
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.965 8.965 0 01-4.126-.937l-3.157.937.937-3.157A8.965 8.965 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
-                              />
-                            </svg>
-                            <span className="font-medium">Answers:</span>
-                            <span className="px-1.5 py-0.5 bg-muted text-muted-foreground rounded text-xs font-medium">
-                              {question?.totalAnswersCount}
-                            </span>
+                            <div className="hidden md:flex items-center gap-1.5">
+                              <svg
+                                className="w-3 h-3"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.965 8.965 0 01-4.126-.937l-3.157.937.937-3.157A8.965 8.965 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
+                                />
+                              </svg>
+                              <span className="font-medium">Answers:</span>
+                              <span className="px-1.5 py-0.5 bg-muted text-muted-foreground rounded text-xs font-medium">
+                                {question?.totalAnswersCount}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {selectedQuestion === question?.id && (
-                        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none"></div>
-                      )}
-                    </div>
+                        {selectedQuestion === question?.id && (
+                          <div className="border-t border-border expand-down overflow-hidden">
+                            <div className="p-6 space-y-6">
+                              {isSelectedQuestionLoading ? (
+                                <div className="flex flex-col items-center justify-center py-12">
+                                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                  <p className="mt-2 text-sm text-muted-foreground">
+                                    Loading responses...
+                                  </p>
+                                </div>
+                              ) : selectedQuestionData ? (
+                                <>
+                                  <div>
+                                    <Label
+                                      htmlFor="new-answer"
+                                      className="text-sm font-medium"
+                                    >
+                                      Draft Response:
+                                    </Label>
+                                    <Textarea
+                                      id="new-answer"
+                                      placeholder="Enter your answer here..."
+                                      value={newAnswer}
+                                      onChange={(e) =>
+                                        setNewAnswer(e.target.value)
+                                      }
+                                      className="mt-1 md:max-h-[190px] max-h-[170px] min-h-[150px] resize-y border-border text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0"
+                                    />
+
+                                    <div className="border border-border rounded-xl p-6 mt-3 md:mt-6">
+                                      <SourceUrlManager
+                                        sources={sources}
+                                        onSourcesChange={setSources}
+                                      />
+
+                                      {sources.length > 0 && (
+                                        <div className="mt-6 pt-6 border-t border-border">
+                                          <p className="text-sm text-muted-foreground">
+                                            {sources.length}{" "}
+                                            {sources.length === 1
+                                              ? "source"
+                                              : "sources"}{" "}
+                                            added
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {isFinalAnswer && (
+                                      <p className="mt-2 flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium">
+                                        <CheckCircle className="w-4 h-4" />
+                                        <span>
+                                          Congratulations! Your response was
+                                          selected as the final answer. Great
+                                          job!
+                                        </span>
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center justify-between pt-4 border-t border-border">
+                                    <div className="flex items-center space-x-3">
+                                      <Button
+                                        onClick={handleSubmit}
+                                        disabled={
+                                          !newAnswer.trim() ||
+                                          isSubmittingAnswer
+                                        }
+                                        className="flex items-center gap-2"
+                                      >
+                                        {isSubmittingAnswer ? (
+                                          <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            <span>Submitting…</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Send className="w-4 h-4" />
+                                            <span>Submit</span>
+                                          </>
+                                        )}
+                                      </Button>
+                                      <Button
+                                        variant="secondary"
+                                        onClick={handleReset}
+                                      >
+                                        <span className="sr-only">
+                                          Reset answer
+                                        </span>
+                                        <RotateCcw className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          className="flex items-center"
+                                        >
+                                          <Eye className="w-4 h-4 md:mr-2" />
+                                          <span className="hidden md:inline">
+                                            View Other Responses
+                                          </span>
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent
+                                        className="max-w-6xl max-h-[80vh] overflow-y-auto"
+                                        style={{ maxWidth: "70vw" }}
+                                      >
+                                        <AlertDialogHeader>
+                                          <DialogTitle className="flex gap-2 items-center">
+                                            <div className="p-2 rounded-lg bg-primary/10">
+                                              <FileText className="w-5 h-5 text-primary" />
+                                            </div>
+                                            Other Responses
+                                          </DialogTitle>
+                                        </AlertDialogHeader>
+                                        <div className="mt-4">
+                                          {selectedQuestionData.currentAnswers &&
+                                          selectedQuestionData.currentAnswers
+                                            .length > 0 ? (
+                                            <div className="space-y-6">
+                                              {selectedQuestionData.currentAnswers
+                                                ?.slice()
+                                                .sort(
+                                                  (a, b) =>
+                                                    (b.isFinalAnswer ? 1 : 0) -
+                                                    (a.isFinalAnswer ? 1 : 0)
+                                                )
+                                                .map((currentAnswer, index) => (
+                                                  <div
+                                                    key={currentAnswer.id}
+                                                    className={`relative overflow-hidden rounded-xl border transition-all duration-300 hover:shadow-lg ${
+                                                      currentAnswer.isFinalAnswer
+                                                        ? "bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/20 border-green-200 dark:border-green-800 shadow-green-100/50 dark:shadow-green-900/20"
+                                                        : ""
+                                                    }`}
+                                                  >
+                                                    <div
+                                                      className={`absolute left-0 top-0 h-full w-1 ${
+                                                        currentAnswer.isFinalAnswer
+                                                          ? "bg-gradient-to-b from-green-500 to-emerald-600"
+                                                          : "bg-gradient-to-b from-primary to-primary/60"
+                                                      }`}
+                                                    />
+
+                                                    {currentAnswer.isFinalAnswer && (
+                                                      <div className="absolute top-0 right-0 w-20 h-20 overflow-hidden">
+                                                        <div className="absolute top-0 right-0 w-8 h-8 bg-green-200/30 dark:bg-green-700/20 rounded-bl-full" />
+                                                        <div className="absolute top-2 right-2 w-4 h-4 bg-green-300/40 dark:bg-green-600/30 rounded-full" />
+                                                      </div>
+                                                    )}
+
+                                                    <div className="relative p-6">
+                                                      <div className="flex items-center justify-between mb-4">
+                                                        <div className="flex items-center gap-3">
+                                                          <div
+                                                            className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                                              currentAnswer.isFinalAnswer
+                                                                ? "bg-green-100 dark:bg-green-900/50"
+                                                                : "bg-gray-100 dark:bg-gray-800"
+                                                            }`}
+                                                          >
+                                                            {currentAnswer.isFinalAnswer ? (
+                                                              <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                                            ) : (
+                                                              <div className="p-2 rounded-lg bg-primary/10">
+                                                                <MessageCircle className="w-4 h-4 text-primary" />
+                                                              </div>
+                                                            )}
+                                                          </div>
+
+                                                          <div className="flex flex-col">
+                                                            <span className="text-sm font-semibold text-foreground">
+                                                              Response{" "}
+                                                              {index + 1}
+                                                            </span>
+                                                            <span className="text-xs text-muted-foreground">
+                                                              {new Date(
+                                                                currentAnswer.createdAt
+                                                              ).toLocaleString(
+                                                                "en-US",
+                                                                {
+                                                                  month:
+                                                                    "short",
+                                                                  day: "numeric",
+                                                                  hour: "2-digit",
+                                                                  minute:
+                                                                    "2-digit",
+                                                                }
+                                                              )}
+                                                            </span>
+                                                          </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                          {currentAnswer.isFinalAnswer && (
+                                                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 rounded-full border border-green-200 dark:border-green-800">
+                                                              <svg
+                                                                className="w-3 h-3"
+                                                                fill="currentColor"
+                                                                viewBox="0 0 20 20"
+                                                              >
+                                                                <path
+                                                                  fillRule="evenodd"
+                                                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                                  clipRule="evenodd"
+                                                                />
+                                                              </svg>
+                                                              <span className="text-xs font-semibold">
+                                                                Final Answer
+                                                              </span>
+                                                            </div>
+                                                          )}
+                                                        </div>
+                                                      </div>
+
+                                                      <div className="space-y-4">
+                                                        <div
+                                                          className={`prose prose-sm max-w-none ${
+                                                            currentAnswer.isFinalAnswer
+                                                              ? "prose-green dark:prose-invert"
+                                                              : "dark:prose-invert"
+                                                          }`}
+                                                        >
+                                                          <p className="text-base leading-relaxed text-foreground/90 mb-0">
+                                                            {
+                                                              currentAnswer.answer
+                                                            }
+                                                          </p>
+                                                        </div>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                            </div>
+                                          ) : (
+                                            <div className="text-center py-12">
+                                              <p className="text-muted-foreground italic">
+                                                No responses provided yet, Draft
+                                                your first Response!
+                                              </p>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </DialogContent>
+                                    </Dialog>
+                                  </div>
+                                </>
+                              ) : null}
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedQuestion === question?.id && (
+                          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none"></div>
+                        )}
+                      </div>
+                    </>
                   ))}
                 </RadioGroup>
                 {isFetchingNextPage && (
