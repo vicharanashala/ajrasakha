@@ -89,7 +89,16 @@ export class UserRepository implements IUserRepository {
       },
     );
 
-    // await this.usersCollection.updateMany({}, {$set: {reputation_score: 0, updatedAt: new Date()}})
+    // await this.usersCollection.updateMany(
+    //   {},
+    //   {
+    //     $set: {
+    //       reputation_score: 0,
+    //       // preference: {crop: 'all', domain: 'all', state: 'all'},
+    //       updatedAt: new Date(),
+    //     },
+    //   },
+    // );
     if (!user) return null;
 
     return instanceToPlain(new User(user)) as IUser;
@@ -210,76 +219,6 @@ export class UserRepository implements IUserRepository {
     );
   }
 
-  // async findExpertsByPreference(
-  //   details: PreferenceDto,
-  //   session?: ClientSession,
-  // ): Promise<IUser[]> {
-  //   await this.init();
-
-  //   //1. Find all expert users who are relevant (at least one preference matches or is "all")
-  //   const baseQuery: any = {
-  //     role: 'expert',
-  //     $or: [
-  //       {'preference.crop': {$in: [details.crop, 'all']}},
-  //       {'preference.state': {$in: [details.state, 'all']}},
-  //       {'preference.domain': {$in: [details.domain, 'all']}},
-  //     ],
-  //   };
-
-  //   const allUsers = await this.usersCollection
-  //     .find(baseQuery, {session})
-  //     .toArray();
-
-  //   // Remove duplicate users (in case multiple  emails point to same user)
-  //   const uniqueUsersMap = new Map<string, IUser>();
-  //   for (const user of allUsers) {
-  //     const uniqueKey = user.email || user._id.toString();
-  //     if (!uniqueUsersMap.has(uniqueKey)) {
-  //       uniqueUsersMap.set(uniqueKey, user);
-  //     }
-  //   }
-  //   const uniqueUsers = Array.from(uniqueUsersMap.values());
-
-  //   //2. Score users based on number of matching preferences
-  //   const scoredUsers = uniqueUsers.map(user => {
-  //     let score = 0;
-
-  //     if (user.preference?.crop === details.crop) score++;
-  //     if (user.preference?.state === details.state) score++;
-  //     if (user.preference?.domain === details.domain) score++;
-
-  //     //  if all are 'all', push to the very end
-  //     const isAllSelected =
-  //       user.preference?.crop === 'all' &&
-  //       user.preference?.state === 'all' &&
-  //       user.preference?.domain === 'all';
-
-  //     const workloadScore =
-  //       typeof user.reputation_score === 'number'
-  //         ? user.reputation_score // negative because lower workload should rank higher
-  //         : 0;
-
-  //         console.log("Details: ", details);
-  //         console.log("User preference: ", user.preference)
-  //         console.log("UserName: ", user.firstName, "user email: ", user.email, "score: ", score, "workloadScore: ", workloadScore, "isAllSelected: ", isAllSelected)
-
-  //     return {user, score, workloadScore, isAllSelected};
-  //   });
-
-  //   //3. Sort users by:
-  //   // - Highest score first (3 → 2 → 1)
-  //   // - Then those who selected "all" for everything go last
-  //   scoredUsers.sort((a, b) => {
-  //     if (a.isAllSelected && !b.isAllSelected) return 1;
-  //     if (!a.isAllSelected && b.isAllSelected) return -1;
-  //     if (b.score !== a.score) return b.score - a.score;
-
-  //     return a.workloadScore - b.workloadScore;
-  //   });
-
-  //   //4. Return priority queue of users
-  //   return scoredUsers.map(s => s.user);
-  // }
   async findExpertsByPreference(
     details: PreferenceDto,
     session?: ClientSession,
@@ -299,7 +238,13 @@ export class UserRepository implements IUserRepository {
     }
     let allUsers = Array.from(uniqueUsersMap.values());
 
-    console.log("All users: ", allUsers);
+    // Shuffle on random basis
+    for (let i = allUsers.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allUsers[i], allUsers[j]] = [allUsers[j], allUsers[i]];
+    }
+
+    console.log('All users: ', allUsers);
     // 3. Score users
     const scoredUsers = allUsers
       .map(user => {
@@ -322,22 +267,20 @@ export class UserRepository implements IUserRepository {
 
         // Include only if score > 0 or allSelected
         // if (score > 0 || isAllSelected) {
-          const workloadScore =
-            typeof user.reputation_score === 'number'
-              ? user.reputation_score
-              : 0;
+        const workloadScore =
+          typeof user.reputation_score === 'number' ? user.reputation_score : 0;
 
-          console.log(
-            'email: ',
-            user.email,
-            'score; ',
-            score,
-            'isAllSelected: ',
-            isAllSelected,
-            'Workload score: ',
-            workloadScore,
-          );
-          return {user, score, isAllSelected, workloadScore};
+        console.log(
+          'email: ',
+          user.email,
+          'score; ',
+          score,
+          'isAllSelected: ',
+          isAllSelected,
+          'Workload score: ',
+          workloadScore,
+        );
+        return {user, score, isAllSelected, workloadScore};
         // }
         // return null;
       })
@@ -358,9 +301,10 @@ export class UserRepository implements IUserRepository {
       if (b.score !== a.score) return b.score - a.score;
 
       // Lower workload first
-      // return a.workloadScore - b.workloadScore;
+      return a.workloadScore - b.workloadScore;
     });
 
     return scoredUsers.map(s => s.user);
   }
+  
 }

@@ -300,7 +300,7 @@ export class QuestionService extends BaseService {
           details as PreferenceDto,
           session,
         );
-     
+
         // ii) Create queue from the users found
         const intialUsersToAllocate = users.slice(0, 3);
 
@@ -410,9 +410,10 @@ export class QuestionService extends BaseService {
   async autoAllocateExperts(
     questionId: string,
     session?: ClientSession,
+    BATCH_EXPECTED_TO_ADD: number = 6,
   ): Promise<boolean> {
     const TOTAL_EXPERTS_LIMIT = 10;
-    const BATCH_EXPECTED_TO_ADD = 6;
+    // const BATCH_EXPECTED_TO_ADD = 6;
 
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
@@ -496,105 +497,32 @@ export class QuestionService extends BaseService {
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
 
-        const currentStatus = question.isAutoAllocate;
-
-        // If currentStatus is false, then we need to set it to true and vice versa
-        // if (!currentStatus) {
-        //   const questionSubmission =
-        //     await this.questionSubmissionRepo.getByQuestionId(
-        //       questionId,
-        //       session,
-        //     );
-
-        //   if (!questionSubmission)
-        //     throw new NotFoundError('Question submission not found');
-
-        //   // Queue limit check
-        //   const TOTAL_EXPERTS_LIMIT = 10;
-        //   const EXISTING_QUEUE_COUNT = questionSubmission.queue.length || 0;
-        //   const EXISTING_HISTORY_COUNT = questionSubmission.history.length || 0;
-
-        //   if (EXISTING_QUEUE_COUNT >= TOTAL_EXPERTS_LIMIT) {
-        //     console.log('Cannot auto allocate as queue is full');
-        //     return {
-        //       message: 'Auto allocate toggled, but queue is already full',
-        //     };
-        //   }
-
-        //   // Fetch all users and preferred experts
-        //   const [users, preferredExperts] = await Promise.all([
-        //     this.userRepo.findAll(),
-        //     this.userRepo.findExpertsByPreference(
-        //       question.details as PreferenceDto,
-        //       session,
-        //     ),
-        //   ]);
-
-        //   // Filter experts only and merge preferred first, then others (no duplicates)
-        //   const expertIdsSet = new Set<string>();
-
-        //   preferredExperts.forEach(user =>
-        //     expertIdsSet.add(user._id.toString()),
-        //   );
-
-        //   users
-        //     .filter(user => user.role === 'expert')
-        //     .forEach(user => expertIdsSet.add(user._id.toString()));
-
-        //   const allExpertIds = Array.from(expertIdsSet);
-
-        //   // const queueLength = questionSubmission.queue?.length || 0;
-        //   // const historyLength = questionSubmission.history?.length || 0;
-
-        //   // console.log(
-        //   //   `Auto-allocating experts. Queue length: ${EXISTING_QUEUE_COUNT}, History length: ${EXISTING_HISTORY_COUNT}, Total experts available: ${allExpertIds.length}`,
-        //   // );
-        //   // Proceed only if all experts in queue have submitted and more experts are available
-        //   if (
-        //     EXISTING_QUEUE_COUNT === EXISTING_HISTORY_COUNT &&
-        //     EXISTING_QUEUE_COUNT < allExpertIds.length
-        //   ) {
-        //     const answeredExperts = new Set(
-        //       questionSubmission.history.map(h => h.updatedBy.toString()),
-        //     );
-
-        //     // Filter experts who haven't answered yet
-        //     const unAnsweredExpertIds = allExpertIds.filter(
-        //       expertId => !answeredExperts.has(expertId),
-        //     );
-
-        //     // Merge queue with new un-answered experts (up to 10)
-        //     const BATCH_EXPECTED_TO_ADD = 6;
-        //     const CURRENT_BATCH_SIZE =
-        //       TOTAL_EXPERTS_LIMIT - EXISTING_QUEUE_COUNT;
-
-        //     const FINAL_BATCH_SIZE = Math.min(
-        //       BATCH_EXPECTED_TO_ADD,
-        //       CURRENT_BATCH_SIZE,
-        //     );
-
-        //     const updatedQueue = [
-        //       ...questionSubmission.queue,
-        //       ...unAnsweredExpertIds.slice(0, FINAL_BATCH_SIZE), // Add only up to FINAL_BATCH_SIZE, if 6 available then 6 will be added Otherwise less up to limit of TOTAL_EXPERTS_LIMIT
-        //     ]
-        //       .slice(0, TOTAL_EXPERTS_LIMIT)
-        //       .map(id => new ObjectId(id));
-
-        //     await this.questionSubmissionRepo.updateQueue(
-        //       questionId,
-        //       updatedQueue,
-        //       session,
-        //     );
-        //   }
-        // }
         const updated = await this.questionRepo.updateAutoAllocate(
           questionId,
           question?.isAutoAllocate,
           session,
         );
+        const currentStatus = question.isAutoAllocate;
+        // If currentStatus is false, then we need to set it to true and vice versa
 
         if (!currentStatus) {
-          const out = await this.autoAllocateExperts(questionId, session);
+          const submission = await this.questionSubmissionRepo.getByQuestionId(
+            questionId,
+            session,
+          );
+
+          const CURRENT_QUEUE_LENGTH = submission.queue.length || 0;
+          let BATCH_EXPECTED_TO_ADD = 6;
+
+          // If removing first 3 intial allocation, so allocate only 3 intially
+          if (CURRENT_QUEUE_LENGTH < 3)
+            BATCH_EXPECTED_TO_ADD = 3 - CURRENT_QUEUE_LENGTH;
+
+          const out = await this.autoAllocateExperts(
+            questionId,
+            session,
+            BATCH_EXPECTED_TO_ADD,
+          );
           if (!out) {
             return {
               message: 'Auto allocate toggled, but queue is already full',
@@ -665,10 +593,11 @@ export class QuestionService extends BaseService {
   ): Promise<IQuestionSubmission> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        //1. Validate question existence
+        //1. Validate that the question exists
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
-        //2. Validate question submission existence
+
+        //2. Validate that the corresponding question submission exists
         const questionSubmission =
           await this.questionSubmissionRepo.getByQuestionId(
             questionId,
@@ -677,11 +606,21 @@ export class QuestionService extends BaseService {
         if (!questionSubmission)
           throw new NotFoundError('Question submission not found');
 
-        //1. If iam deleting expert just after the last submitted expert
-        //2. If there are no other pending expoerts in the queue
-        //3. If the autoAllocate is true
+        //3. Get the current expert queue from the question submission
+        const submissionQueue = questionSubmission.queue || [];
 
-        //3. Remove expert from queue
+        //4. Extract the expert ID based on the provided index
+        const expertId = submissionQueue[index]?.toString();
+
+        //5. Decrease the expert's reputation score (since being removed)
+        const IS_INCREMENT = false;
+        await this.userRepo.updateReputationScore(
+          expertId,
+          IS_INCREMENT,
+          session,
+        );
+
+        //6. Remove the expert from the queue by index
         const updated =
           await this.questionSubmissionRepo.removeExpertFromQueuebyIndex(
             questionId,
@@ -689,20 +628,31 @@ export class QuestionService extends BaseService {
             session,
           );
 
-        if (index > 0 && question.isAutoAllocate) {
-          // Not for first expertF
+        //7. Handle auto reallocation logic if autoAllocate is enabled
+        if (index >= 0 && question.isAutoAllocate) {
+          // Get updated queue and history lengths
           const UPDATED_QUEUE_LENGTH = updated?.queue.length || 0;
           const UPDATED_HISTORY_LENGTH = updated?.history.length || 0;
+          let BATCH_EXPECTED_TO_ADD = 6;
 
+          // Adjust batch size if initial allocation (<3) experts are being removed
+          if (UPDATED_QUEUE_LENGTH < 3)
+            BATCH_EXPECTED_TO_ADD = 3 - UPDATED_QUEUE_LENGTH;
+
+          // If all previous experts have responded and queue is not full, trigger auto allocation
           if (
             UPDATED_HISTORY_LENGTH == UPDATED_QUEUE_LENGTH &&
             UPDATED_QUEUE_LENGTH < 10
           ) {
-            await this.autoAllocateExperts(questionId, session);
+            await this.autoAllocateExperts(
+              questionId,
+              session,
+              BATCH_EXPECTED_TO_ADD,
+            );
           }
         }
 
-        //4. Return updated question submission
+        //8. Return the updated question submission
         return updated;
       });
     } catch (error) {
@@ -711,6 +661,7 @@ export class QuestionService extends BaseService {
       );
     }
   }
+
   async deleteQuestion(questionId: string): Promise<{deletedCount: number}> {
     try {
       return this._withTransaction(async (session: ClientSession) => {

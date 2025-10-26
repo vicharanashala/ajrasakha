@@ -846,7 +846,7 @@ const SubmissionTimeline = ({
                       description={`${
                         nextWaitingIndex === index &&
                         unSubmittedExpertsCount <= 1
-                          ? " Since auto-allocation is enabled and this expert is in the waiting state, the system will automatically allocate the next available expert immediately after removal. "
+                          ? " Since auto-allocation is enabled and this expert is only in the waiting state, the system will automatically allocate the next available expert immediately after removal. "
                           : ""
                       }${
                         submittedUserIds.has(user._id)

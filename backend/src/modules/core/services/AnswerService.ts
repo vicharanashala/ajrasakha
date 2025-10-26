@@ -23,7 +23,7 @@ import {
   IQuestionWithAnswerTexts,
 } from '../classes/validators/QuestionValidators.js';
 import {QuestionService} from './QuestionService.js';
-import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
+import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 
 @injectable()
 export class AnswerService extends BaseService {
@@ -195,7 +195,7 @@ Answer: ${answer}`;
       if (
         currentSubmissionQueue.length < 10 &&
         question.isAutoAllocate &&
-        currentSubmissionQueue.length == submission.history.length + 1
+        currentSubmissionQueue.length == submission.history.length + 1 // +1 becuase this history not include current submission
       ) {
         await this.questionService.autoAllocateExperts(questionId, session);
       }
