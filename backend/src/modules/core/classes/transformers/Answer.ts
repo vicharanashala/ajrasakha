@@ -41,6 +41,9 @@ class Answer implements IAnswer {
   threshold: number;
 
   @Expose()
+  approvalCount: number;;
+  
+  @Expose()
   createdAt?: Date;
 
   @Expose()

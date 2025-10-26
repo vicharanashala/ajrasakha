@@ -621,8 +621,6 @@ export class QuestionRepository implements IQuestionRepository {
                 updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
               }
             : null,
-          isFinalAnswer: h.isFinalAnswer,
-          updatedAt: h.updatedAt,
         })),
         createdAt: submission?.createdAt,
         updatedAt: submission?.updatedAt,

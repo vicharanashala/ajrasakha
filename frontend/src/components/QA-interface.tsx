@@ -24,6 +24,12 @@ import {
   Layers,
   Inbox,
   Activity,
+  Clock,
+  XCircle,
+  User,
+  ChevronUp,
+  ChevronDown,
+  Pencil,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { RadioGroup, RadioGroupItem } from "./atoms/radio-group";
@@ -153,6 +159,13 @@ export const QAInterface = () => {
 
   const { mutateAsync: submitAnswer, isPending: isSubmittingAnswer } =
     useSubmitAnswer();
+
+  useEffect(() => {
+    if (questions.length > 0 && !selectedQuestion) {
+      const firstQuestionId = questions[0]?.id ? questions[0]?.id : null;
+      setSelectedQuestion(firstQuestionId);
+    }
+  }, [questions, selectedQuestion]);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -374,8 +387,8 @@ export const QAInterface = () => {
                 </div>
                 <p className="text-sm text-muted-foreground">
                   No questions available at the moment. The questions displayed
-                  here are personalized based on the preferences and reputation
-                  score. Please check back later.
+                  here are personalized based on the preferences you set in your
+                  profile. Please check back later.
                 </p>
               </div>
             ) : (
@@ -392,379 +405,115 @@ export const QAInterface = () => {
                   className="space-y-4"
                 >
                   {questions?.map((question) => (
-                    <>
-                      <div
-                        key={question?.id}
-                        className={`relative group rounded-xl border transition-all duration-300 overflow-hidden ${
-                          selectedQuestion === question?.id
-                            ? "border-primary bg-card shadow-lg ring-2 ring-primary/20"
-                            : "border-border bg-card hover:border-primary/40 hover:shadow-sm"
-                        }`}
-                      >
-                        {selectedQuestion === question?.id && (
-                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
-                        )}
+                    <div
+                      key={question?.id}
+                      className={`relative group rounded-xl border transition-all duration-200 overflow-hidden bg-transparent ${
+                        selectedQuestion === question?.id
+                          ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
+                          : "border-border bg-card hover:border-primary/40 hover:bg-accent/20 hover:shadow-sm"
+                      }`}
+                    >
+                      {selectedQuestion === question?.id && (
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+                      )}
 
-                        <div className="p-4">
-                          <div className="flex items-start gap-3">
-                            <RadioGroupItem
-                              value={question?.id || ""}
-                              id={question?.id}
-                              className="mt-1 w-5 h-5 rounded-full border-2 border-gray-400 dark:border-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 checked:bg-green-600 dark:checked:bg-green-400"
-                              onClick={(e) => {
-                                if (selectedQuestion === question?.id) {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setSelectedQuestion("");
-                                  setIsFinalAnswer(false);
-                                }
-                              }}
-                            />
+                      <div className="p-4">
+                        <div className="flex items-start gap-3">
+                          <RadioGroupItem
+                            value={question?.id || ""}
+                            id={question?.id}
+                            className="mt-1  w-5 h-5 rounded-full border-2 border-gray-400 dark:border-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 checked:bg-green-600 dark:checked:bg-green-400"
+                          />
 
-                            <div className="flex-1 min-w-0">
-                              <Label
-                                htmlFor={question?.id}
-                                className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
-                              >
-                                {question?.text}
-                              </Label>
-                            </div>
-                          </div>
-
-                          <div className="mt-3 ml-7 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-                            <div className="items-center gap-1.5 flex">
-                              {question?.priority && (
-                                <span
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                    question.priority === "high"
-                                      ? "bg-red-500/10 text-red-600 border-red-500/30"
-                                      : question.priority === "medium"
-                                      ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-                                      : "bg-green-500/10 text-green-600 border-green-500/30"
-                                  }`}
-                                >
-                                  {question.priority.charAt(0).toUpperCase() +
-                                    question.priority.slice(1)}
-                                </span>
-                              )}
-
-                              <svg
-                                className="w-3 h-3"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
-                              </svg>
-                              <span className="font-medium text-xs">
-                                Created:
-                              </span>
-                              <span>{question?.createdAt}</span>
-                            </div>
-
-                            <div className="hidden md:flex items-center gap-1.5">
-                              <svg
-                                className="w-3 h-3"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                />
-                              </svg>
-                              <span className="font-medium">Updated:</span>
-                              <span>{question?.updatedAt}</span>
-                            </div>
-
-                            <div className="hidden md:flex items-center gap-1.5">
-                              <svg
-                                className="w-3 h-3"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.965 8.965 0 01-4.126-.937l-3.157.937.937-3.157A8.965 8.965 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
-                                />
-                              </svg>
-                              <span className="font-medium">Answers:</span>
-                              <span className="px-1.5 py-0.5 bg-muted text-muted-foreground rounded text-xs font-medium">
-                                {question?.totalAnswersCount}
-                              </span>
-                            </div>
+                          <div className="flex-1 min-w-0">
+                            <Label
+                              htmlFor={question?.id}
+                              className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
+                            >
+                              {question?.text}
+                            </Label>
                           </div>
                         </div>
+                        <div className="mt-3 ml-7 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                          <div className="items-center gap-1.5 flex">
+                            {question?.priority && (
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                                  question.priority === "high"
+                                    ? "bg-red-500/10 text-red-600 border-red-500/30"
+                                    : question.priority === "medium"
+                                    ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+                                    : "bg-green-500/10 text-green-600 border-green-500/30"
+                                }`}
+                              >
+                                {question.priority.charAt(0).toUpperCase() +
+                                  question.priority.slice(1)}
+                              </span>
+                            )}
 
-                        {selectedQuestion === question?.id && (
-                          <div className="border-t border-border expand-down overflow-hidden">
-                            <div className="p-6 space-y-6">
-                              {isSelectedQuestionLoading ? (
-                                <div className="flex flex-col items-center justify-center py-12">
-                                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                                  <p className="mt-2 text-sm text-muted-foreground">
-                                    Loading responses...
-                                  </p>
-                                </div>
-                              ) : selectedQuestionData ? (
-                                <>
-                                  <div>
-                                    <Label
-                                      htmlFor="new-answer"
-                                      className="text-sm font-medium"
-                                    >
-                                      Draft Response:
-                                    </Label>
-                                    <Textarea
-                                      id="new-answer"
-                                      placeholder="Enter your answer here..."
-                                      value={newAnswer}
-                                      onChange={(e) =>
-                                        setNewAnswer(e.target.value)
-                                      }
-                                      className="mt-1 md:max-h-[190px] max-h-[170px] min-h-[150px] resize-y border-border text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0"
-                                    />
-
-                                    <div className="border border-border rounded-xl p-6 mt-3 md:mt-6">
-                                      <SourceUrlManager
-                                        sources={sources}
-                                        onSourcesChange={setSources}
-                                      />
-
-                                      {sources.length > 0 && (
-                                        <div className="mt-6 pt-6 border-t border-border">
-                                          <p className="text-sm text-muted-foreground">
-                                            {sources.length}{" "}
-                                            {sources.length === 1
-                                              ? "source"
-                                              : "sources"}{" "}
-                                            added
-                                          </p>
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    {isFinalAnswer && (
-                                      <p className="mt-2 flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium">
-                                        <CheckCircle className="w-4 h-4" />
-                                        <span>
-                                          Congratulations! Your response was
-                                          selected as the final answer. Great
-                                          job!
-                                        </span>
-                                      </p>
-                                    )}
-                                  </div>
-
-                                  <div className="flex items-center justify-between pt-4 border-t border-border">
-                                    <div className="flex items-center space-x-3">
-                                      <Button
-                                        onClick={handleSubmit}
-                                        disabled={
-                                          !newAnswer.trim() ||
-                                          isSubmittingAnswer
-                                        }
-                                        className="flex items-center gap-2"
-                                      >
-                                        {isSubmittingAnswer ? (
-                                          <>
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                            <span>Submitting…</span>
-                                          </>
-                                        ) : (
-                                          <>
-                                            <Send className="w-4 h-4" />
-                                            <span>Submit</span>
-                                          </>
-                                        )}
-                                      </Button>
-                                      <Button
-                                        variant="secondary"
-                                        onClick={handleReset}
-                                      >
-                                        <span className="sr-only">
-                                          Reset answer
-                                        </span>
-                                        <RotateCcw className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-
-                                    <Dialog>
-                                      <DialogTrigger asChild>
-                                        <Button
-                                          variant="outline"
-                                          className="flex items-center"
-                                        >
-                                          <Eye className="w-4 h-4 md:mr-2" />
-                                          <span className="hidden md:inline">
-                                            View Other Responses
-                                          </span>
-                                        </Button>
-                                      </DialogTrigger>
-                                      <DialogContent
-                                        className="max-w-6xl max-h-[80vh] overflow-y-auto"
-                                        style={{ maxWidth: "70vw" }}
-                                      >
-                                        <AlertDialogHeader>
-                                          <DialogTitle className="flex gap-2 items-center">
-                                            <div className="p-2 rounded-lg bg-primary/10">
-                                              <FileText className="w-5 h-5 text-primary" />
-                                            </div>
-                                            Other Responses
-                                          </DialogTitle>
-                                        </AlertDialogHeader>
-                                        <div className="mt-4">
-                                          {selectedQuestionData.currentAnswers &&
-                                          selectedQuestionData.currentAnswers
-                                            .length > 0 ? (
-                                            <div className="space-y-6">
-                                              {selectedQuestionData.currentAnswers
-                                                ?.slice()
-                                                .sort(
-                                                  (a, b) =>
-                                                    (b.isFinalAnswer ? 1 : 0) -
-                                                    (a.isFinalAnswer ? 1 : 0)
-                                                )
-                                                .map((currentAnswer, index) => (
-                                                  <div
-                                                    key={currentAnswer.id}
-                                                    className={`relative overflow-hidden rounded-xl border transition-all duration-300 hover:shadow-lg ${
-                                                      currentAnswer.isFinalAnswer
-                                                        ? "bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/20 border-green-200 dark:border-green-800 shadow-green-100/50 dark:shadow-green-900/20"
-                                                        : ""
-                                                    }`}
-                                                  >
-                                                    <div
-                                                      className={`absolute left-0 top-0 h-full w-1 ${
-                                                        currentAnswer.isFinalAnswer
-                                                          ? "bg-gradient-to-b from-green-500 to-emerald-600"
-                                                          : "bg-gradient-to-b from-primary to-primary/60"
-                                                      }`}
-                                                    />
-
-                                                    {currentAnswer.isFinalAnswer && (
-                                                      <div className="absolute top-0 right-0 w-20 h-20 overflow-hidden">
-                                                        <div className="absolute top-0 right-0 w-8 h-8 bg-green-200/30 dark:bg-green-700/20 rounded-bl-full" />
-                                                        <div className="absolute top-2 right-2 w-4 h-4 bg-green-300/40 dark:bg-green-600/30 rounded-full" />
-                                                      </div>
-                                                    )}
-
-                                                    <div className="relative p-6">
-                                                      <div className="flex items-center justify-between mb-4">
-                                                        <div className="flex items-center gap-3">
-                                                          <div
-                                                            className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                                              currentAnswer.isFinalAnswer
-                                                                ? "bg-green-100 dark:bg-green-900/50"
-                                                                : "bg-gray-100 dark:bg-gray-800"
-                                                            }`}
-                                                          >
-                                                            {currentAnswer.isFinalAnswer ? (
-                                                              <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                                                            ) : (
-                                                              <div className="p-2 rounded-lg bg-primary/10">
-                                                                <MessageCircle className="w-4 h-4 text-primary" />
-                                                              </div>
-                                                            )}
-                                                          </div>
-
-                                                          <div className="flex flex-col">
-                                                            <span className="text-sm font-semibold text-foreground">
-                                                              Response{" "}
-                                                              {index + 1}
-                                                            </span>
-                                                            <span className="text-xs text-muted-foreground">
-                                                              {new Date(
-                                                                currentAnswer.createdAt
-                                                              ).toLocaleString(
-                                                                "en-US",
-                                                                {
-                                                                  month:
-                                                                    "short",
-                                                                  day: "numeric",
-                                                                  hour: "2-digit",
-                                                                  minute:
-                                                                    "2-digit",
-                                                                }
-                                                              )}
-                                                            </span>
-                                                          </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                          {currentAnswer.isFinalAnswer && (
-                                                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 rounded-full border border-green-200 dark:border-green-800">
-                                                              <svg
-                                                                className="w-3 h-3"
-                                                                fill="currentColor"
-                                                                viewBox="0 0 20 20"
-                                                              >
-                                                                <path
-                                                                  fillRule="evenodd"
-                                                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                                                  clipRule="evenodd"
-                                                                />
-                                                              </svg>
-                                                              <span className="text-xs font-semibold">
-                                                                Final Answer
-                                                              </span>
-                                                            </div>
-                                                          )}
-                                                        </div>
-                                                      </div>
-
-                                                      <div className="space-y-4">
-                                                        <div
-                                                          className={`prose prose-sm max-w-none ${
-                                                            currentAnswer.isFinalAnswer
-                                                              ? "prose-green dark:prose-invert"
-                                                              : "dark:prose-invert"
-                                                          }`}
-                                                        >
-                                                          <p className="text-base leading-relaxed text-foreground/90 mb-0">
-                                                            {
-                                                              currentAnswer.answer
-                                                            }
-                                                          </p>
-                                                        </div>
-                                                      </div>
-                                                    </div>
-                                                  </div>
-                                                ))}
-                                            </div>
-                                          ) : (
-                                            <div className="text-center py-12">
-                                              <p className="text-muted-foreground italic">
-                                                No responses provided yet, Draft
-                                                your first Response!
-                                              </p>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </DialogContent>
-                                    </Dialog>
-                                  </div>
-                                </>
-                              ) : null}
-                            </div>
+                            <svg
+                              className="w-3 h-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                            <span className="font-medium text-xs">
+                              Created:
+                            </span>
+                            <span>{question?.createdAt}</span>
                           </div>
-                        )}
 
-                        {selectedQuestion === question?.id && (
-                          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none"></div>
-                        )}
+                          <div className="hidden md:flex items-center gap-1.5">
+                            <svg
+                              className="w-3 h-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              />
+                            </svg>
+                            <span className="font-medium">Updated:</span>
+                            <span>{question?.updatedAt}</span>
+                          </div>
+
+                          <div className="hidden md:flex items-center gap-1.5">
+                            <svg
+                              className="w-3 h-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.965 8.965 0 01-4.126-.937l-3.157.937.937-3.157A8.965 8.965 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
+                              />
+                            </svg>
+                            <span className="font-medium">Answers:</span>
+                            <span className="px-1.5 py-0.5 bg-muted text-muted-foreground rounded text-xs font-medium">
+                              {question?.totalAnswersCount}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    </>
+
+                      {selectedQuestion === question?.id && (
+                        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none"></div>
+                      )}
+                    </div>
                   ))}
                 </RadioGroup>
                 {isFetchingNextPage && (
@@ -779,7 +528,7 @@ export const QAInterface = () => {
             )}
           </Card>
           {/* md:max-h-[70vh] max-h-[80vh] */}
-          <Card className="w-full  border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
+          {/* <Card className="w-full  border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
             <CardHeader className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700">
               <div className="p-2 rounded-lg bg-primary/10">
                 <FileText className="w-5 h-5 text-primary" />
@@ -1075,7 +824,23 @@ export const QAInterface = () => {
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card> */}
+          <ResponseTimeline
+            SourceUrlManager={SourceUrlManager}
+            handleReset={handleReset}
+            handleSubmit={handleSubmit}
+            isFinalAnswer={isFinalAnswer}
+            isSelectedQuestionLoading={isSelectedQuestionLoading}
+            isSubmittingAnswer={isSubmittingAnswer}
+            newAnswer={newAnswer}
+            selectedQuestionData={selectedQuestionData}
+            setNewAnswer={setNewAnswer}
+            setSources={setSources}
+            sources={sources}
+            // history={history}
+            onAccept={() => {}}
+            onReject={() => {}}
+          />
         </div>
       </div>
     </div>
@@ -1254,6 +1019,663 @@ const Option = ({ label, value }: { label: ReactNode; value?: string }) => {
     <div className="rounded-md border p-3">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-1 text-sm">{value ?? "-"}</div>
+    </div>
+  );
+};
+
+interface HistoryItem {
+  updatedBy: {
+    _id: string;
+    userName: string;
+    email: string;
+  };
+  answer: {
+    _id: string;
+    answer: string;
+    approvalCount: string;
+  };
+  status: "pending" | "approved" | "rejected";
+  reasonForRejection?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface ResponseTimelineProps {
+  isSelectedQuestionLoading: boolean;
+  selectedQuestionData: any;
+  newAnswer: string;
+  setNewAnswer: (value: string) => void;
+  sources: any[];
+  setSources: (sources: any[]) => void;
+  isFinalAnswer: boolean;
+  isSubmittingAnswer: boolean;
+  handleSubmit: () => void;
+  handleReset: () => void;
+  SourceUrlManager: React.ComponentType<any>;
+  history?: HistoryItem[];
+  onAccept?: (answerId: string) => void;
+  onReject?: (answerId: string, reason: string) => void;
+}
+const dummyHistory: HistoryItem[] = [
+  {
+    updatedBy: {
+      _id: "user10",
+      userName: "Jack Harris",
+      email: "jack@example.com",
+    },
+    answer: {
+      _id: "ans10",
+      answer:
+        "Final revision including comprehensive coverage of the topic, multiple viewpoints, and detailed explanations. Incorporates references and suggested further reading. Despite improvements, clarity and conciseness are still lacking in some sections.",
+      approvalCount: "0",
+    },
+    status: "pending",
+    createdAt: new Date("2024-01-10T12:30:00"),
+    updatedAt: new Date("2024-01-10T12:30:00"),
+  },
+  {
+    updatedBy: {
+      _id: "user1",
+      userName: "Alice Johnson",
+      email: "alice@example.com",
+    },
+    answer: {
+      _id: "ans1",
+      answer:
+        "This answer provides a comprehensive explanation covering multiple facets of the topic. It goes into details about the historical context, modern applications, and potential challenges, offering examples and references where appropriate. The explanation ensures clarity for readers of all levels and includes cross-references to related topics.",
+      approvalCount: "0",
+    },
+    status: "rejected",
+    reasonForRejection:
+      "The answer, while detailed, contains several inaccuracies and does not align with the latest research. It also misses critical examples that are necessary for a complete understanding.",
+    createdAt: new Date("2024-01-01T09:00:00"),
+    updatedAt: new Date("2024-01-01T09:00:00"),
+  },
+  {
+    updatedBy: {
+      _id: "user2",
+      userName: "Bob Smith",
+      email: "bob@example.com",
+    },
+    answer: {
+      _id: "ans2",
+      answer:
+        "An in-depth analysis was provided focusing on the technical implementation and practical challenges. The explanation included step-by-step examples and common pitfalls, but the structure made it difficult to follow, and some key points were missing. References to additional resources were insufficient.",
+      approvalCount: "0",
+    },
+    status: "rejected",
+    reasonForRejection:
+      "The submission does not fully address the question and contains partially misleading statements. Critical technical steps are missing, which could confuse readers or lead to improper implementation.",
+    createdAt: new Date("2024-01-02T10:30:00"),
+    updatedAt: new Date("2024-01-02T10:30:00"),
+  },
+  {
+    updatedBy: {
+      _id: "user3",
+      userName: "Carol White",
+      email: "carol@example.com",
+    },
+    answer: {
+      _id: "ans3",
+      answer:
+        "This revision attempts to provide a complete picture of the topic, including both theory and practical examples. It elaborates on each step and provides contextual information for better understanding. However, some of the explanations are repetitive and could be condensed for clarity.",
+      approvalCount: "0",
+    },
+    status: "rejected",
+    reasonForRejection:
+      "The content is overly verbose and repetitive. Certain key points are incorrectly interpreted, and there are inconsistencies in examples provided throughout the explanation.",
+    createdAt: new Date("2024-01-03T11:45:00"),
+    updatedAt: new Date("2024-01-03T11:45:00"),
+  },
+  {
+    updatedBy: {
+      _id: "user4",
+      userName: "David Lee",
+      email: "david@example.com",
+    },
+    answer: {
+      _id: "ans4",
+      answer:
+        "An explanation covering advanced concepts with real-world examples, emphasizing practical use cases and theoretical understanding. While rich in information, the logical flow is inconsistent, making it challenging for a reader to follow and extract actionable insights.",
+      approvalCount: "0",
+    },
+    status: "rejected",
+    reasonForRejection:
+      "The answer contains factual inaccuracies and the reasoning behind some examples is unclear. The submission does not sufficiently clarify advanced concepts for novice users.",
+    createdAt: new Date("2024-01-04T12:20:00"),
+    updatedAt: new Date("2024-01-04T12:20:00"),
+  },
+  {
+    updatedBy: {
+      _id: "user5",
+      userName: "Emma Brown",
+      email: "emma@example.com",
+    },
+    answer: {
+      _id: "ans5",
+      answer:
+        "This detailed response aims to address the question from multiple angles, incorporating case studies, historical context, and analytical reasoning. Despite the thoroughness, some sections are poorly structured, making comprehension difficult without prior knowledge.",
+      approvalCount: "0",
+    },
+    status: "rejected",
+    reasonForRejection:
+      "Although thorough, the answer is not well-organized and contains some speculative claims that are not backed by evidence. Critical references are missing for validation.",
+    createdAt: new Date("2024-01-05T13:10:00"),
+    updatedAt: new Date("2024-01-05T13:10:00"),
+  },
+  {
+    updatedBy: {
+      _id: "user6",
+      userName: "Frank Green",
+      email: "frank@example.com",
+    },
+    answer: {
+      _id: "ans6",
+      answer:
+        "A revision that attempts to integrate feedback from previous submissions. The explanation now includes additional examples and clarifications, yet some of the technical details remain incomplete or slightly inaccurate, affecting the overall correctness.",
+      approvalCount: "0",
+    },
+    status: "rejected",
+    reasonForRejection:
+      "The submission improves on previous versions but still lacks accuracy in several critical areas. Some examples are misleading, and the technical depth is insufficient for practical application.",
+    createdAt: new Date("2024-01-06T14:55:00"),
+    updatedAt: new Date("2024-01-06T14:55:00"),
+  },
+  {
+    updatedBy: {
+      _id: "user7",
+      userName: "Grace Taylor",
+      email: "grace@example.com",
+    },
+    answer: {
+      _id: "ans7",
+      answer:
+        "This explanation provides a narrative-driven overview of the topic, blending theory with applied examples. The approach is creative but occasionally diverges from the main question, adding unnecessary complexity and reducing clarity.",
+      approvalCount: "0",
+    },
+    status: "rejected",
+    reasonForRejection:
+      "While creative, the answer is off-topic in several sections and confuses the main points. Key details necessary for accuracy and completeness are missing.",
+    createdAt: new Date("2024-01-07T09:25:00"),
+    updatedAt: new Date("2024-01-07T09:25:00"),
+  },
+  {
+    updatedBy: {
+      _id: "user8",
+      userName: "Henry Martin",
+      email: "henry@example.com",
+    },
+    answer: {
+      _id: "ans8",
+      answer:
+        "A technically detailed response that attempts to cover all aspects of the question comprehensively. Despite the effort, the explanation uses jargon excessively and lacks step-by-step guidance, making it hard to follow for non-experts.",
+      approvalCount: "0",
+    },
+    status: "rejected",
+    reasonForRejection:
+      "The answer is too technical without sufficient explanation, and several steps are skipped. It does not guide the reader effectively, resulting in a poor learning experience.",
+    createdAt: new Date("2024-01-08T10:40:00"),
+    updatedAt: new Date("2024-01-08T10:40:00"),
+  },
+  {
+    updatedBy: {
+      _id: "user9",
+      userName: "Ivy Wilson",
+      email: "ivy@example.com",
+    },
+    answer: {
+      _id: "ans9",
+      answer:
+        "A highly detailed analysis including both theoretical and practical perspectives. Provides illustrative examples, charts, and comparative studies. However, the volume of information is overwhelming and some parts are redundant, reducing readability.",
+      approvalCount: "0",
+    },
+    status: "rejected",
+    reasonForRejection:
+      "The submission is overly long and redundant. Important conclusions are buried within excessive detail, making it difficult to grasp the key points quickly.",
+    createdAt: new Date("2024-01-09T11:50:00"),
+    updatedAt: new Date("2024-01-09T11:50:00"),
+  },
+  {
+    updatedBy: {
+      _id: "user10",
+      userName: "Jack Harris",
+      email: "jack@example.com",
+    },
+    answer: {
+      _id: "ans10",
+      answer:
+        "Final revision including comprehensive coverage of the topic, multiple viewpoints, and detailed explanations. Incorporates references and suggested further reading. Despite improvements, clarity and conciseness are still lacking in some sections.",
+      approvalCount: "0",
+    },
+    status: "pending",
+    createdAt: new Date("2024-01-10T12:30:00"),
+    updatedAt: new Date("2024-01-10T12:30:00"),
+  },
+];
+
+const ExpandableText = ({
+  text,
+  maxLength = 150,
+}: {
+  text: string;
+  maxLength?: number;
+}) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (text.length <= maxLength) {
+    return <span>{text}</span>;
+  }
+
+  return (
+    <div className="space-y-2">
+      <p>{isExpanded ? text : `${text.substring(0, maxLength)}...`}</p>
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="text-xs text-primary hover:underline flex items-center gap-1"
+      >
+        {isExpanded ? (
+          <>
+            <ChevronUp className="w-3 h-3" />
+            View Less
+          </>
+        ) : (
+          <>
+            <ChevronDown className="w-3 h-3" />
+            View More
+          </>
+        )}
+      </button>
+    </div>
+  );
+};
+
+export const ResponseTimeline = ({
+  isSelectedQuestionLoading,
+  selectedQuestionData,
+  newAnswer,
+  setNewAnswer,
+  sources,
+  setSources,
+  isFinalAnswer,
+  isSubmittingAnswer,
+  handleSubmit,
+  handleReset,
+  SourceUrlManager,
+  history = dummyHistory,
+  onAccept,
+  onReject,
+}: ResponseTimelineProps) => {
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [isRejectionSubmitted, setIsRejectionSubmitted] = useState(false);
+  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [selectedAnswerId, setSelectedAnswerId] = useState("");
+
+  const handleRejectClick = (answerId: string) => {
+    setSelectedAnswerId(answerId);
+    setIsRejectDialogOpen(true);
+  };
+
+  const handleRejectSubmit = () => {
+    if (rejectionReason.trim() && onReject) {
+      onReject(selectedAnswerId, rejectionReason);
+      // setRejectionReason("");
+      // setIsRejectDialogOpen(false);
+    }
+  };
+
+  const formatDate = (date: Date) => {
+    return new Date(date).toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  if (isSelectedQuestionLoading) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Loading responses...
+        </p>
+      </div>
+    );
+  }
+
+  if (!selectedQuestionData) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center text-center space-y-4 px-6">
+        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-2">
+          <MessageCircle className="w-8 h-8 text-muted-foreground" />
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-lg font-medium">No Question Selected</h3>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            Select a question to view its history and add your response.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const showResponseSection = !!rejectionReason && !isRejectDialogOpen;
+
+  return (
+    <div
+      className={`flex flex-col w-full md:max-h-[120vh] max-h-[80vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent gap-6`}
+    >
+      <ScrollArea className="flex-1">
+        <div
+          className={
+            showResponseSection
+              ? "h-1/2 flex flex-col overflow-hidden"
+              : "flex flex-col"
+          }
+        >
+          <Card className="border flex-1 flex flex-col h-full bg-transparent">
+            <CardContent className="p-6 flex-1 flex flex-col overflow-hidden">
+              <div className="flex items-center gap-2 mb-6">
+                <Clock className="w-5 h-5 text-primary" />
+                <h3 className="text-lg font-semibold">Response History</h3>
+              </div>
+
+              <ScrollArea className="flex-1">
+                <div className="space-y-6 pr-4">
+                  {history.map((item, index) => {
+                    const isFirst = index === 0;
+                    return (
+                      <div key={item.answer._id} className="relative">
+                        {/* Timeline line */}
+                        {!isFirst && (
+                          <div className="absolute left-4 top-10 bottom-0 w-0.5 bg-border" />
+                        )}
+
+                        <div className="flex gap-4">
+                          {/* Timeline dot */}
+                          <div
+                            className={`relative flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                              item.status === "approved"
+                                ? "bg-green-100 dark:bg-green-900/30"
+                                : item.status === "rejected"
+                                ? "bg-red-100 dark:bg-red-900/30"
+                                : "bg-primary/10"
+                            }`}
+                          >
+                            {item.status === "approved" ? (
+                              <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                            ) : item.status === "rejected" ? (
+                              <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                            ) : (
+                              <Clock className="w-4 h-4 text-primary" />
+                            )}
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-4 mb-2">
+                              <div className="flex items-center gap-2">
+                                <User className="w-4 h-4 text-muted-foreground" />
+                                <span className="font-medium text-sm">
+                                  {item.updatedBy.userName}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {formatDate(item.createdAt)}
+                                </span>
+                              </div>
+                              <span
+                                className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                  item.status === "approved"
+                                    ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
+                                    : item.status === "rejected"
+                                    ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
+                                    : "bg-primary/10 text-primary"
+                                }`}
+                              >
+                                {item.status.charAt(0).toUpperCase() +
+                                  item.status.slice(1)}
+                              </span>
+                            </div>
+
+                            <div className="text-sm p-3 rounded-md border bg-card break-words">
+                              <ExpandableText
+                                text={item.answer.answer}
+                                maxLength={150}
+                              />
+                            </div>
+
+                            {item.status === "rejected" &&
+                              item.reasonForRejection && (
+                                <div className="mt-2 p-2 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                                  <p className="text-xs font-medium text-red-800 dark:text-red-300">
+                                    Rejection Reason:{" "}
+                                  </p>
+                                  <div className="text-xs text-red-700 dark:text-red-400 mt-1">
+                                    <ExpandableText
+                                      text={item.reasonForRejection}
+                                      maxLength={100}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                            {/* Accept/Reject buttons for last pending item */}
+                            {item.status === "pending" && (
+                              <div className="flex items-center gap-2 mt-3">
+                                <Button
+                                  size="sm"
+                                  onClick={() => onAccept?.(item.answer._id)}
+                                  className="flex items-center gap-1"
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                  Accept
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() =>
+                                    handleRejectClick(item.answer._id)
+                                  }
+                                  className="flex items-center gap-1"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                  Reject
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
+      </ScrollArea>
+      <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+        <DialogContent className="max-w-4xl min-h-[90vh] max-h-[90vh] overflow-y-auto ">
+          <DialogHeader>
+            <DialogTitle>Reject Response</DialogTitle>
+          </DialogHeader>
+
+          {/* <div className="space-y-4 mt-4"> */}
+          {!isRejectionSubmitted && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <div>
+                <Label
+                  htmlFor="rejection-reason"
+                  className="text-base font-semibold"
+                >
+                  Reason for Rejection
+                </Label>
+
+                <Textarea
+                  id="rejection-reason"
+                  placeholder="Please provide a reason for rejecting this response..."
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  className="mt-2 min-h-[50vh] max-h-[60vh] w-full resize-none overflow-y-auto 
+        break-words whitespace-pre-wrap overflow-x-hidden transition-all duration-200 focus:ring-2"
+                  style={{
+                    wordWrap: "break-word",
+                    overflowWrap: "break-word",
+                  }}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsRejectDialogOpen(false);
+                    setRejectionReason("");
+                    setIsRejectionSubmitted(false);
+                  }}
+                  className="transition-all duration-200 hover:scale-105 active:scale-95"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    handleRejectSubmit();
+                    setIsRejectionSubmitted(true);
+                  }}
+                  disabled={!rejectionReason.trim()}
+                  className="transition-all duration-200 hover:scale-105 active:scale-95"
+                >
+                  Submit Reason
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {isRejectionSubmitted && rejectionReason && (
+            <div className="h-fit flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-8 scale-in-95 duration-400">
+              <Card className="border flex-1 flex flex-col ">
+                <CardContent className="p-6 space-y-4 flex-1 overflow-y-auto">
+                  <div className="flex items-center gap-2 ">
+                    <FileText className="w-5 h-5 text-primary" />
+                    <h3 className="text-lg font-semibold">
+                      Submit New Response
+                    </h3>
+                  </div>
+
+                  {/* Query display */}
+                  <div className="flex flex-col w-full animate-in fade-in duration-300 delay-150">
+                    <Label className="text-sm font-medium text-muted-foreground mb-1">
+                      Current Query:
+                    </Label>
+                    <p className="text-sm p-3 rounded-md border break-words bg-muted/50 transition-colors duration-200">
+                      {selectedQuestionData.text}
+                    </p>
+                  </div>
+
+                  {/* Answer textarea */}
+                  <div className="animate-in fade-in duration-300 delay-200">
+                    <Label htmlFor="new-answer" className="text-sm font-medium">
+                      Draft Response:
+                    </Label>
+                    <Textarea
+                      id="new-answer"
+                      placeholder="Enter your answer here..."
+                      value={newAnswer}
+                      onChange={(e) => setNewAnswer(e.target.value)}
+                      className="mt-1 max-h-[120px] min-h-[100px] resize-y text-sm rounded-md overflow-y-auto p-3 pb-0 transition-all duration-200 focus:ring-2"
+                    />
+
+                    {/* Source manager */}
+                    <div className="border rounded-xl p-6 shadow-sm mt-3 bg-muted/20 transition-all duration-200 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-250">
+                      <SourceUrlManager
+                        sources={sources}
+                        onSourcesChange={setSources}
+                      />
+
+                      {/* Sources count display */}
+                      {sources.length > 0 && (
+                        <div className="mt-6 pt-6 border-t animate-in fade-in slide-in-from-bottom-2 duration-200">
+                          <p className="text-sm text-muted-foreground">
+                            {sources.length}{" "}
+                            {sources.length === 1 ? "source" : "sources"} added
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Success message */}
+                    {isFinalAnswer && (
+                      <p className="mt-2 flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium animate-in fade-in scale-in-95 duration-300">
+                        <CheckCircle
+                          className="w-4 h-4 animate-spin"
+                          style={{ animationDuration: "2s" }}
+                        />
+                        <span>
+                          Congratulations! Your response was selected as the
+                          final answer. Great job!
+                        </span>
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 animate-in fade-in duration-300 delay-300">
+                    <div className="flex items-center space-x-3">
+                      <Button
+                        onClick={handleSubmit}
+                        disabled={!newAnswer.trim() || isSubmittingAnswer}
+                        className="flex items-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95"
+                      >
+                        {isSubmittingAnswer ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Submitting…</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4" />
+                            <span>Submit</span>
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        variant="secondary"
+                        onClick={handleReset}
+                        className="transition-all duration-200 hover:scale-105 active:scale-95"
+                      >
+                        <span className="sr-only">Reset answer</span>
+                        <RotateCcw className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <Button
+                      variant="ghost"
+                      onClick={() => setIsRejectionSubmitted(false)}
+                      disabled={!isRejectionSubmitted}
+                      className="flex items-center gap-2 text-sm text-muted-foreground transition-all duration-200 hover:scale-105 active:scale-95 py-2"
+                    >
+                      {!isRejectionSubmitted ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Loading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Pencil className="w-4 h-4" />
+                          <span>Edit Reason</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          {/* </div> */}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

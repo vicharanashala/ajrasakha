@@ -181,7 +181,8 @@ Answer: ${answer}`;
       const userSubmissionData: ISubmissionHistroy = {
         updatedBy: new ObjectId(authorId),
         answer: new ObjectId(insertedId),
-        isFinalAnswer,
+        createdAt: new Date(),
+        status: 'pending',
         updatedAt: new Date(),
       };
 

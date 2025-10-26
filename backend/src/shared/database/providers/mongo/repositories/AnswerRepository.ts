@@ -49,6 +49,7 @@ export class AnswerRepository implements IAnswerRepository {
         answer,
         isFinalAnswer,
         answerIteration,
+        approvalCount: 0,
         embedding,
         sources,
         createdAt: new Date(),

@@ -70,7 +70,7 @@ export interface ISubmissions {
     answer: string;
     id: string;
     isFinalAnswer: boolean;
-    createdAt: string;
+    // createdAt: string;
   };
 }
 
@@ -149,23 +149,13 @@ export interface IUserRef {
 export interface ISubmissionHistory {
   updatedBy: IUserRef | null;
   answer: IAnswer | null;
-  isFinalAnswer: boolean;
-  updatedAt: string;
 }
 
 export interface ISubmission {
   _id: string;
   questionId: string;
-  lastRespondedBy: {
-    _id: string;
-    name: string;
-    email: string;
-  } | null;
-  queue: {
-    _id: string;
-    name: string;
-    email: string;
-  }[];
+  lastRespondedBy: IUserRef | null;
+  queue: IUserRef[];
   history: ISubmissionHistory[];
   createdAt: string;
   updatedAt: string;

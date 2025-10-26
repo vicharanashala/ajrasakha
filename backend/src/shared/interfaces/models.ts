@@ -57,6 +57,7 @@ export interface IAnswer {
   questionId: string | ObjectId;
   authorId: string | ObjectId;
   answerIteration: number;
+  approvalCount: number;
   isFinalAnswer: boolean;
   answer: string;
   sources: string[];
@@ -75,9 +76,12 @@ export interface IContext {
 export interface ISubmissionHistroy {
   updatedBy: string | ObjectId;
   answer: string | ObjectId;
-  isFinalAnswer: boolean;
+  status: 'pending' | 'approved' | 'rejected';
+  reasonForRejection?: string;
+  createdAt: Date;
   updatedAt: Date;
 }
+
 export interface IQuestionSubmission {
   _id?: string | ObjectId;
   questionId: string | ObjectId;

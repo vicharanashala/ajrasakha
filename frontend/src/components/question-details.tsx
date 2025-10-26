@@ -1033,18 +1033,6 @@ export const AnswerTimeline = ({
               </div>
             )}
 
-            {/* {item.answer.threshold > 0 && (
-              <div className="flex justify-end w-full">
-                <Badge
-                  variant="outline"
-                  className="inline-flex text-[10px] text-foreground border border-muted-foreground items-center gap-1 px-1 py-0.5 w-fit"
-                >
-                  <span className="font-medium">Correctness:</span>
-                  <span>{Math.round(item.answer.threshold * 100)}%</span>
-                </Badge>
-              </div>
-            )} */}
-
             <small className="text-xs text-muted-foreground mt-1">
               {item.createdAt}
             </small>
