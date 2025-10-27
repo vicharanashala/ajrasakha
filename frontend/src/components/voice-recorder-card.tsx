@@ -289,10 +289,11 @@ export const VoiceRecorderCard = () => {
   };
 
   return (
-    <div className="min-h-[75%] bg-background p-4 ">
+    <div className="h-screen  p-4 overflow-y-auto scroll-smooth">
       <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="min-h-[80%] md:min-h-[75%] md:max-h-[75%]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 sm:grid-cols-1 gap-6">
+          <div>
+          <Card className="min-h-[80%] md:min-h-[100%] md:max-h-[70%] sm:min-h-[100%] sm:max-h-[100%] lg:min-h-[79%] lg:max-h-[79%] overflow-y-auto scroll-smooth ">
             <CardHeader className="pb-4">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -443,8 +444,9 @@ export const VoiceRecorderCard = () => {
               </div>
             </CardContent>
           </Card>
-
-          <Card className="min-h-[80%]  md:min-h-[75%] md:max-h-[75%]">
+          </div>
+          <div>
+          <Card className="min-h-[80%]  md:min-h-[100%] md:max-h-[100%] sm:min-h-[100%] sm:max-h-[100%]  lg:min-h-[79%] lg:max-h-[79%] overflow-y-auto scroll-smooth ">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <Tooltip>
@@ -584,6 +586,7 @@ export const VoiceRecorderCard = () => {
               )}
             </CardContent>
           </Card>
+          </div>
         </div>
       </div>
     </div>
