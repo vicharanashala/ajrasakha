@@ -47,6 +47,38 @@ function TabsTrigger({
     />
   );
 }
+function TabsListforMobile({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.List>) {
+  return (
+    <TabsPrimitive.List
+      data-slot="tabs-list"
+      className={cn(
+        "flex flex-col w-full gap-2 bg-muted/40 p-3 rounded-2xl shadow-sm backdrop-blur-sm",
+        className
+      )}
+      {...props}
+    />
+  );
+}
+function TabsTriggerforMobile({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Trigger>) {
+  return (
+    <TabsPrimitive.Trigger
+      data-slot="tabs-trigger"
+      className={cn(
+        "flex items-center justify-start gap-3 w-full rounded-xl border border-transparent px-3 py-2 text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-background/80 transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
+        "disabled:opacity-50 disabled:pointer-events-none",
+        className
+      )}
+      {...props}
+    />
+  );
+}
 
 function TabsContent({
   className,
@@ -61,4 +93,4 @@ function TabsContent({
   );
 }
 
-export { Tabs, TabsList, TabsTrigger, TabsContent };
+export { Tabs, TabsList, TabsTrigger, TabsContent,TabsListforMobile,TabsTriggerforMobile };

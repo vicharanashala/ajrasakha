@@ -76,6 +76,7 @@ import { useDeleteQuestion } from "@/hooks/api/question/useDeleteQuestion";
 import { ConfirmationModal } from "./confirmation-modal";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
+import { Card, CardContent, CardHeader, CardTitle,CardFooter } from "./atoms/card";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -207,6 +208,7 @@ export const QuestionsTable = ({
       />
 
       <div className="rounded-lg border bg-card overflow-x-auto min-h-[55vh]">
+      <div className="hidden lg:block   overflow-x-auto">
         <Table className="min-w-[800px]">
           <TableHeader className="bg-card sticky top-0 z-10">
             <TableRow>
@@ -424,7 +426,129 @@ export const QuestionsTable = ({
             )}
           </TableBody>
         </Table>
+        {/* Mobile Cards */}
+  </div>
+ 
+
+{/* Mobile & Tablet Cards */}
+<div
+  className="
+    lg:hidden
+    flex flex-col gap-4
+    w-full max-w-full
+    px-3
+    box-border
+    overflow-x-hidden
+    overflow-y-visible
+  "
+  style={{
+    WebkitOverflowScrolling: "touch",
+  }}
+>
+  {items?.map((q, idx) => (
+    <Card
+      key={q._id}
+      className="
+        w-full 
+        max-w-full 
+        box-border 
+        shadow-sm 
+        hover:shadow-md 
+        transition-shadow 
+        overflow-hidden 
+        flex flex-col 
+        min-w-0
+      "
+    >
+      {/* HEADER */}
+      <CardHeader className="flex justify-between items-center text-sm text-muted-foreground px-4 sm:px-5 md:px-6">
+        <span>#{(currentPage - 1) * totalPages + idx + 1}</span>
+        <span className="text-right">{formatDate(q.createdAt)}</span>
+      </CardHeader>
+
+      {/* CONTENT */}
+      <CardContent className="flex flex-col gap-2 text-sm px-4 sm:px-5 md:px-6 min-w-0">
+        <div className="font-semibold text-start break-words leading-snug">
+          {q.question}
+        </div>
+
+        <div className="flex flex-col gap-1 min-w-0">
+          <Badge
+            variant={
+              q.priority === "high"
+                ? "destructive"
+                : q.priority === "medium"
+                ? "secondary"
+                : "outline"
+            }
+            className={
+              q.priority === "high"
+                ? "bg-red-500/10 text-red-600 border-red-500/30"
+                : q.priority === "medium"
+                ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+                : "bg-green-500/10 text-green-600 border-green-500/30"
+            }
+          >
+            Priority: {q.priority || "NIL"}
+          </Badge>
+
+          <div className="flex flex-col text-muted-foreground break-words">
+            <span className="truncate">State: {q.details.state}</span>
+            <span className="truncate">Crop: {q.details.crop}</span>
+          </div>
+
+          <Badge variant="outline" className="max-w-full truncate">
+            Source: {q.source}
+          </Badge>
+
+          <Badge
+            variant={
+              q.status === "in-review"
+                ? "secondary"
+                : q.status === "open"
+                ? "outline"
+                : "destructive"
+            }
+            className={
+              q.status === "in-review"
+                ? "bg-green-500/10 text-green-600 border-green-500/30"
+                : q.status === "open"
+                ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                : "bg-gray-500/10 text-gray-600 border-gray-500/30"
+            }
+          >
+            Status: {q.status.replace("_", " ")}
+          </Badge>
+
+          <span>Answers: {q.totalAnswersCount}</span>
+        </div>
+      </CardContent>
+
+      {/* FOOTER */}
+      <CardFooter className="justify-end px-4 sm:px-5 md:px-6">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="outline">
+              <MoreVertical className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem onClick={() => onViewMore(q._id?.toString() || "")}>
+              <Eye className="w-4 h-4 mr-2 text-primary" /> View
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </CardFooter>
+    </Card>
+  ))}
+</div>
+
+
+
+
+
       </div>
+    
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}
