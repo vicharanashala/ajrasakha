@@ -413,7 +413,6 @@ export class QuestionService extends BaseService {
     BATCH_EXPECTED_TO_ADD: number = 6,
   ): Promise<boolean> {
     const TOTAL_EXPERTS_LIMIT = 10;
-    // const BATCH_EXPECTED_TO_ADD = 6;
 
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
@@ -461,7 +460,8 @@ export class QuestionService extends BaseService {
       );
 
       const CURRENT_BATCH_SIZE = TOTAL_EXPERTS_LIMIT - EXISTING_QUEUE_COUNT;
-
+      
+      // To ensure allocation will not overflow total limit
       const FINAL_BATCH_SIZE = Math.min(
         BATCH_EXPECTED_TO_ADD,
         CURRENT_BATCH_SIZE,

@@ -22,14 +22,13 @@ import {
   Sprout,
   Sun,
   Layers,
-  Inbox,
-  Activity,
   Clock,
   XCircle,
   User,
-  ChevronUp,
-  ChevronDown,
   Pencil,
+  Check,
+  Copy,
+  Target,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { RadioGroup, RadioGroupItem } from "./atoms/radio-group";
@@ -47,7 +46,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "./atoms/dialog";
-import { AlertDialogHeader } from "./atoms/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -75,8 +73,15 @@ import {
 import type {} from "./questions-page";
 import type { IMyPreference, IQuestion } from "@/types";
 import { ScrollArea } from "./atoms/scroll-area";
+import { ExpandableText } from "./expandable-text";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "./atoms/accordion";
+import { UrlPreviewDialog } from "./url-preview-dialog";
 
-// const questions = await generateQuestionDataSet();
 export type QuestionFilter =
   | "newest"
   | "oldest"
@@ -527,304 +532,7 @@ export const QAInterface = () => {
               </CardContent>
             )}
           </Card>
-          {/* md:max-h-[70vh] max-h-[80vh] */}
-          {/* <Card className="w-full  border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
-            <CardHeader className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <FileText className="w-5 h-5 text-primary" />
-              </div>
-              <CardTitle className="text-lg font-semibold">Response</CardTitle>
-            </CardHeader>
-            <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-hidden scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-200 dark:scrollbar-track-gray-800">
-              {isSelectedQuestionLoading ? (
-                <div className="h-full flex flex-col items-center justify-center">
-                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Loading responses...
-                  </p>
-                </div>
-              ) : selectedQuestionData ? (
-                <>
-                  <div className="flex flex-col w-full">
-                    <div className="flex items-center justify-between gap-2">
-                      <Label className="text-sm font-medium text-muted-foreground">
-                        Current Query:
-                      </Label>
-                      <QuestionDetailsDialog question={selectedQuestionData} />
-                    </div>
 
-                    <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words">
-                      {selectedQuestionData.text}
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="new-answer" className="text-sm font-medium">
-                      Draft Response:
-                    </Label>
-                    <Textarea
-                      id="new-answer"
-                      placeholder="Enter your answer here..."
-                      value={newAnswer}
-                      onChange={(e) => setNewAnswer(e.target.value)}
-                      className="mt-1 md:max-h-[190px] max-h-[170px] min-h-[150px] resize-y border border-gray-200 dark:border-gray-600 text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent"
-                    />
-
-                    <div className="bg-card border border-border rounded-xl p-6 shadow-sm mt-3 md:mt-6">
-                      <SourceUrlManager
-                        sources={sources}
-                        onSourcesChange={setSources}
-                      />
-
-                      {sources.length > 0 && (
-                        <div className="mt-6 pt-6 border-t border-border">
-                          <p className="text-sm text-muted-foreground">
-                            {sources.length}{" "}
-                            {sources.length === 1 ? "source" : "sources"} added
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    {isFinalAnswer && (
-                      <p className="mt-2 flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium">
-                        <CheckCircle className="w-4 h-4" />
-                        <span>
-                          Congratulations! Your response was selected as the
-                          final answer. Great job!
-                        </span>
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between  p-4 pt-0">
-                    <div className="flex items-center space-x-3">
-                      <Button
-                        onClick={handleSubmit}
-                        disabled={!newAnswer.trim() || isSubmittingAnswer}
-                        className="flex items-center gap-2"
-                      >
-                        {isSubmittingAnswer ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Submitting…</span>
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-4 h-4" />
-                            <span>Submit</span>
-                          </>
-                        )}
-                      </Button>
-                      <Button variant="secondary" onClick={handleReset}>
-                        <span className="sr-only">Reset answer</span>
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="bg-transparent flex items-center"
-                        >
-                          <Eye className="w-4 h-4 md:mr-2" />
-
-                          <span className="hidden md:inline">
-                            View Other Responses
-                          </span>
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent
-                        className="max-w-6xl max-h-[80vh] overflow-y-auto "
-                        style={{ maxWidth: "70vw" }}
-                      >
-                        <AlertDialogHeader>
-                          <DialogTitle className="flex  gap-2 items-center ">
-                            <div className="p-2 rounded-lg bg-primary/10">
-                              <FileText className="w-5 h-5 text-primary" />
-                            </div>
-                            Other Responses
-                          </DialogTitle>
-                        </AlertDialogHeader>
-                        <div className="mt-4">
-                          {selectedQuestionData.currentAnswers &&
-                          selectedQuestionData.currentAnswers.length > 0 ? (
-                            <div className="space-y-6">
-                              {selectedQuestionData.currentAnswers
-                                ?.slice()
-                                .sort(
-                                  (a, b) =>
-                                    (b.isFinalAnswer ? 1 : 0) -
-                                    (a.isFinalAnswer ? 1 : 0)
-                                )
-                                .map((currentAnswer, index) => (
-                                  <div
-                                    key={currentAnswer.id}
-                                    className={`relative overflow-hidden rounded-xl border transition-all duration-300 hover:shadow-lg ${
-                                      currentAnswer.isFinalAnswer
-                                        ? "bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/20 border-green-200 dark:border-green-800 shadow-green-100/50 dark:shadow-green-900/20"
-                                        : ""
-                                    }`}
-                                  >
-                                    <div
-                                      className={`absolute left-0 top-0 h-full w-1 ${
-                                        currentAnswer.isFinalAnswer
-                                          ? "bg-gradient-to-b from-green-500 to-emerald-600"
-                                          : "bg-gradient-to-b from-primary to-primary/60"
-                                      }`}
-                                    />
-
-                                    {currentAnswer.isFinalAnswer && (
-                                      <div className="absolute top-0 right-0 w-20 h-20 overflow-hidden">
-                                        <div className="absolute top-0 right-0 w-8 h-8 bg-green-200/30 dark:bg-green-700/20 rounded-bl-full" />
-                                        <div className="absolute top-2 right-2 w-4 h-4 bg-green-300/40 dark:bg-green-600/30 rounded-full" />
-                                      </div>
-                                    )}
-
-                                    <div className="relative p-6">
-                                      <div className="flex items-center justify-between mb-4">
-                                        <div className="flex items-center gap-3">
-                                          <div
-                                            className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                              currentAnswer.isFinalAnswer
-                                                ? "bg-green-100 dark:bg-green-900/50"
-                                                : "bg-gray-100 dark:bg-gray-800"
-                                            }`}
-                                          >
-                                            {currentAnswer.isFinalAnswer ? (
-                                              <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                                            ) : (
-                                              <div className="p-2 rounded-lg bg-primary/10">
-                                                <MessageCircle className="w-4 h-4 text-primary" />
-                                              </div>
-                                            )}
-                                          </div>
-
-                                          <div className="flex flex-col">
-                                            <span className="text-sm font-semibold text-foreground">
-                                              Response {index + 1}
-                                            </span>
-                                            <span className="text-xs text-muted-foreground">
-                                              {new Date(
-                                                currentAnswer.createdAt
-                                              ).toLocaleString("en-US", {
-                                                month: "short",
-                                                day: "numeric",
-                                                hour: "2-digit",
-                                                minute: "2-digit",
-                                              })}
-                                            </span>
-                                          </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          {currentAnswer.isFinalAnswer && (
-                                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 rounded-full border border-green-200 dark:border-green-800">
-                                              <svg
-                                                className="w-3 h-3"
-                                                fill="currentColor"
-                                                viewBox="0 0 20 20"
-                                              >
-                                                <path
-                                                  fillRule="evenodd"
-                                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                                  clipRule="evenodd"
-                                                />
-                                              </svg>
-                                              <span className="text-xs font-semibold">
-                                                Final Answer
-                                              </span>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-
-                                      <div className="space-y-4">
-                                        <div
-                                          className={`prose prose-sm max-w-none ${
-                                            currentAnswer.isFinalAnswer
-                                              ? "prose-green dark:prose-invert"
-                                              : "dark:prose-invert"
-                                          }`}
-                                        >
-                                          <p className="text-base leading-relaxed text-foreground/90 mb-0">
-                                            {currentAnswer.answer}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                            </div>
-                          ) : (
-                            <div className="text-center py-12">
-                              <p className="text-muted-foreground italic">
-                                No responses provided yet, Draft your first
-                                Response!
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                </>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-center space-y-4 px-6">
-                  <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-2">
-                    <svg
-                      className="w-8 h-8 text-gray-400 dark:text-gray-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                  </div>
-
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                      No Question Selected
-                    </h3>
-                    <p className="text-sm text-muted-foreground max-w-sm">
-                      Select a question from the right side to view its details,
-                      add your response, or check existing responses.
-                    </p>
-                  </div>
-
-                  <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div className="flex items-start space-x-3">
-                      <div className="flex-shrink-0">
-                        <svg
-                          className="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </div>
-                      <div className="text-left">
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          Getting Started
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Choose any question from the list to start drafting
-                          responses or reviewing existing answers.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card> */}
           <ResponseTimeline
             SourceUrlManager={SourceUrlManager}
             handleReset={handleReset}
@@ -1029,13 +737,15 @@ interface HistoryItem {
     userName: string;
     email: string;
   };
-  answer: {
+  answer?: {
     _id: string;
     answer: string;
     approvalCount: string;
+    sources: string[];
   };
-  status: "pending" | "approved" | "rejected";
+  status?: "pending" | "approved" | "rejected";
   reasonForRejection?: string;
+  approvedAnswer?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -1056,238 +766,75 @@ interface ResponseTimelineProps {
   onAccept?: (answerId: string) => void;
   onReject?: (answerId: string, reason: string) => void;
 }
+
 const dummyHistory: HistoryItem[] = [
   {
     updatedBy: {
       _id: "user10",
-      userName: "Jack Harris",
-      email: "jack@example.com",
+      userName: "Sophia Turner",
+      email: "sophia@example.com",
     },
-    answer: {
-      _id: "ans10",
-      answer:
-        "Final revision including comprehensive coverage of the topic, multiple viewpoints, and detailed explanations. Incorporates references and suggested further reading. Despite improvements, clarity and conciseness are still lacking in some sections.",
-      approvalCount: "0",
-    },
-    status: "pending",
-    createdAt: new Date("2024-01-10T12:30:00"),
-    updatedAt: new Date("2024-01-10T12:30:00"),
-  },
-  {
-    updatedBy: {
-      _id: "user1",
-      userName: "Alice Johnson",
-      email: "alice@example.com",
-    },
-    answer: {
-      _id: "ans1",
-      answer:
-        "This answer provides a comprehensive explanation covering multiple facets of the topic. It goes into details about the historical context, modern applications, and potential challenges, offering examples and references where appropriate. The explanation ensures clarity for readers of all levels and includes cross-references to related topics.",
-      approvalCount: "0",
-    },
-    status: "rejected",
-    reasonForRejection:
-      "The answer, while detailed, contains several inaccuracies and does not align with the latest research. It also misses critical examples that are necessary for a complete understanding.",
-    createdAt: new Date("2024-01-01T09:00:00"),
-    updatedAt: new Date("2024-01-01T09:00:00"),
-  },
-  {
-    updatedBy: {
-      _id: "user2",
-      userName: "Bob Smith",
-      email: "bob@example.com",
-    },
-    answer: {
-      _id: "ans2",
-      answer:
-        "An in-depth analysis was provided focusing on the technical implementation and practical challenges. The explanation included step-by-step examples and common pitfalls, but the structure made it difficult to follow, and some key points were missing. References to additional resources were insufficient.",
-      approvalCount: "0",
-    },
-    status: "rejected",
-    reasonForRejection:
-      "The submission does not fully address the question and contains partially misleading statements. Critical technical steps are missing, which could confuse readers or lead to improper implementation.",
-    createdAt: new Date("2024-01-02T10:30:00"),
-    updatedAt: new Date("2024-01-02T10:30:00"),
-  },
-  {
-    updatedBy: {
-      _id: "user3",
-      userName: "Carol White",
-      email: "carol@example.com",
-    },
-    answer: {
-      _id: "ans3",
-      answer:
-        "This revision attempts to provide a complete picture of the topic, including both theory and practical examples. It elaborates on each step and provides contextual information for better understanding. However, some of the explanations are repetitive and could be condensed for clarity.",
-      approvalCount: "0",
-    },
-    status: "rejected",
-    reasonForRejection:
-      "The content is overly verbose and repetitive. Certain key points are incorrectly interpreted, and there are inconsistencies in examples provided throughout the explanation.",
-    createdAt: new Date("2024-01-03T11:45:00"),
-    updatedAt: new Date("2024-01-03T11:45:00"),
-  },
-  {
-    updatedBy: {
-      _id: "user4",
-      userName: "David Lee",
-      email: "david@example.com",
-    },
-    answer: {
-      _id: "ans4",
-      answer:
-        "An explanation covering advanced concepts with real-world examples, emphasizing practical use cases and theoretical understanding. While rich in information, the logical flow is inconsistent, making it challenging for a reader to follow and extract actionable insights.",
-      approvalCount: "0",
-    },
-    status: "rejected",
-    reasonForRejection:
-      "The answer contains factual inaccuracies and the reasoning behind some examples is unclear. The submission does not sufficiently clarify advanced concepts for novice users.",
-    createdAt: new Date("2024-01-04T12:20:00"),
-    updatedAt: new Date("2024-01-04T12:20:00"),
-  },
-  {
-    updatedBy: {
-      _id: "user5",
-      userName: "Emma Brown",
-      email: "emma@example.com",
-    },
-    answer: {
-      _id: "ans5",
-      answer:
-        "This detailed response aims to address the question from multiple angles, incorporating case studies, historical context, and analytical reasoning. Despite the thoroughness, some sections are poorly structured, making comprehension difficult without prior knowledge.",
-      approvalCount: "0",
-    },
-    status: "rejected",
-    reasonForRejection:
-      "Although thorough, the answer is not well-organized and contains some speculative claims that are not backed by evidence. Critical references are missing for validation.",
-    createdAt: new Date("2024-01-05T13:10:00"),
-    updatedAt: new Date("2024-01-05T13:10:00"),
-  },
-  {
-    updatedBy: {
-      _id: "user6",
-      userName: "Frank Green",
-      email: "frank@example.com",
-    },
-    answer: {
-      _id: "ans6",
-      answer:
-        "A revision that attempts to integrate feedback from previous submissions. The explanation now includes additional examples and clarifications, yet some of the technical details remain incomplete or slightly inaccurate, affecting the overall correctness.",
-      approvalCount: "0",
-    },
-    status: "rejected",
-    reasonForRejection:
-      "The submission improves on previous versions but still lacks accuracy in several critical areas. Some examples are misleading, and the technical depth is insufficient for practical application.",
-    createdAt: new Date("2024-01-06T14:55:00"),
-    updatedAt: new Date("2024-01-06T14:55:00"),
-  },
-  {
-    updatedBy: {
-      _id: "user7",
-      userName: "Grace Taylor",
-      email: "grace@example.com",
-    },
-    answer: {
-      _id: "ans7",
-      answer:
-        "This explanation provides a narrative-driven overview of the topic, blending theory with applied examples. The approach is creative but occasionally diverges from the main question, adding unnecessary complexity and reducing clarity.",
-      approvalCount: "0",
-    },
-    status: "rejected",
-    reasonForRejection:
-      "While creative, the answer is off-topic in several sections and confuses the main points. Key details necessary for accuracy and completeness are missing.",
-    createdAt: new Date("2024-01-07T09:25:00"),
-    updatedAt: new Date("2024-01-07T09:25:00"),
-  },
-  {
-    updatedBy: {
-      _id: "user8",
-      userName: "Henry Martin",
-      email: "henry@example.com",
-    },
-    answer: {
-      _id: "ans8",
-      answer:
-        "A technically detailed response that attempts to cover all aspects of the question comprehensively. Despite the effort, the explanation uses jargon excessively and lacks step-by-step guidance, making it hard to follow for non-experts.",
-      approvalCount: "0",
-    },
-    status: "rejected",
-    reasonForRejection:
-      "The answer is too technical without sufficient explanation, and several steps are skipped. It does not guide the reader effectively, resulting in a poor learning experience.",
-    createdAt: new Date("2024-01-08T10:40:00"),
-    updatedAt: new Date("2024-01-08T10:40:00"),
-  },
-  {
-    updatedBy: {
-      _id: "user9",
-      userName: "Ivy Wilson",
-      email: "ivy@example.com",
-    },
-    answer: {
-      _id: "ans9",
-      answer:
-        "A highly detailed analysis including both theoretical and practical perspectives. Provides illustrative examples, charts, and comparative studies. However, the volume of information is overwhelming and some parts are redundant, reducing readability.",
-      approvalCount: "0",
-    },
-    status: "rejected",
-    reasonForRejection:
-      "The submission is overly long and redundant. Important conclusions are buried within excessive detail, making it difficult to grasp the key points quickly.",
-    createdAt: new Date("2024-01-09T11:50:00"),
-    updatedAt: new Date("2024-01-09T11:50:00"),
+    createdAt: new Date("2024-01-20T16:45:00"),
+    updatedAt: new Date("2024-01-20T16:45:00"),
   },
   {
     updatedBy: {
       _id: "user10",
-      userName: "Jack Harris",
-      email: "jack@example.com",
+      userName: "Sophia Turner",
+      email: "sophia@example.com",
+    },
+    approvedAnswer: "ans12",
+    createdAt: new Date("2024-01-20T16:45:00"),
+    updatedAt: new Date("2024-01-20T16:45:00"),
+  },
+  {
+    updatedBy: {
+      _id: "user11",
+      userName: "Michael Green",
+      email: "michael@example.com",
+    },
+    approvedAnswer: "ans12",
+    createdAt: new Date("2024-01-18T13:15:00"),
+    updatedAt: new Date("2024-01-18T13:15:00"),
+  },
+  {
+    updatedBy: {
+      _id: "user12",
+      userName: "Liam Johnson",
+      email: "liam@example.com",
     },
     answer: {
-      _id: "ans10",
+      _id: "ans12",
       answer:
-        "Final revision including comprehensive coverage of the topic, multiple viewpoints, and detailed explanations. Incorporates references and suggested further reading. Despite improvements, clarity and conciseness are still lacking in some sections.",
-      approvalCount: "0",
+        "This version attempted to restructure the explanation but introduced several redundant statements, leading to rejection.",
+      approvalCount: "2",
+      sources: ["https://developer.mozilla.org/en-US/docs/Web/JavaScript"],
     },
-    status: "pending",
-    createdAt: new Date("2024-01-10T12:30:00"),
-    updatedAt: new Date("2024-01-10T12:30:00"),
+
+    // status: "approved",
+    createdAt: new Date("2024-01-15T09:00:00"),
+    updatedAt: new Date("2024-01-15T09:00:00"),
+  },
+  {
+    updatedBy: {
+      _id: "user13",
+      userName: "Ava Williams",
+      email: "ava@example.com",
+    },
+    answer: {
+      _id: "ans13",
+      answer:
+        "Initial submission with a general overview and minimal detail. It lacked citations and was not aligned with the expected structure.",
+      approvalCount: "0",
+      sources: ["https://www.britannica.com/"],
+    },
+    reasonForRejection:
+      "The answer was too generic, missing detailed analysis and reference links to support the statements provided.",
+    status: "rejected",
+    createdAt: new Date("2024-01-12T11:25:00"),
+    updatedAt: new Date("2024-01-12T11:25:00"),
   },
 ];
-
-const ExpandableText = ({
-  text,
-  maxLength = 150,
-}: {
-  text: string;
-  maxLength?: number;
-}) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  if (text.length <= maxLength) {
-    return <span>{text}</span>;
-  }
-
-  return (
-    <div className="space-y-2">
-      <p>{isExpanded ? text : `${text.substring(0, maxLength)}...`}</p>
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="text-xs text-primary hover:underline flex items-center gap-1"
-      >
-        {isExpanded ? (
-          <>
-            <ChevronUp className="w-3 h-3" />
-            View Less
-          </>
-        ) : (
-          <>
-            <ChevronDown className="w-3 h-3" />
-            View More
-          </>
-        )}
-      </button>
-    </div>
-  );
-};
 
 export const ResponseTimeline = ({
   isSelectedQuestionLoading,
@@ -1309,10 +856,23 @@ export const ResponseTimeline = ({
   const [isRejectionSubmitted, setIsRejectionSubmitted] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [selectedAnswerId, setSelectedAnswerId] = useState("");
+  const [urlOpen, setUrlOpen] = useState(false);
+  const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const handleRejectClick = (answerId: string) => {
     setSelectedAnswerId(answerId);
     setIsRejectDialogOpen(true);
+  };
+
+  const handleCopy = async (url: string, index: number) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 1500);
+    } catch (err) {
+      console.error("Failed to copy: ", err);
+    }
   };
 
   const handleRejectSubmit = () => {
@@ -1321,6 +881,11 @@ export const ResponseTimeline = ({
       // setRejectionReason("");
       // setIsRejectDialogOpen(false);
     }
+  };
+
+  const handleOpenUrl = (url: string) => {
+    setSelectedUrl(url);
+    setUrlOpen(true);
   };
 
   const formatDate = (date: Date) => {
@@ -1360,72 +925,81 @@ export const ResponseTimeline = ({
     );
   }
 
-  const showResponseSection = !!rejectionReason && !isRejectDialogOpen;
-
   return (
     <div
       className={`flex flex-col w-full md:max-h-[120vh] max-h-[80vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent gap-6`}
     >
-      <ScrollArea className="flex-1">
-        <div
-          className={
-            showResponseSection
-              ? "h-1/2 flex flex-col overflow-hidden"
-              : "flex flex-col"
-          }
-        >
-          <Card className="border flex-1 flex flex-col h-full bg-transparent">
-            <CardContent className="p-6 flex-1 flex flex-col overflow-hidden">
-              <div className="flex items-center gap-2 mb-6">
-                <Clock className="w-5 h-5 text-primary" />
-                <h3 className="text-lg font-semibold">Response History</h3>
-              </div>
+      <Card className="border flex-1 flex flex-col h-full bg-transparent">
+        <CardHeader className="border-b flex flex-row items-center justify-between pb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="w-5 h-5 text-primary" />
+            <h3 className="text-lg font-semibold">Response History</h3>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6 flex-1 flex flex-col overflow-hidden">
+          <ScrollArea className="flex-1">
+            <div className="space-y-6 pr-4">
+              {history.map((item, index) => {
+                const isFirst = index === 0;
+                return (
+                  <div key={item.updatedBy._id} className="relative">
+                    {!isFirst && (
+                      <div className="absolute left-4 top-10 bottom-0 w-0.5 bg-border" />
+                    )}
 
-              <ScrollArea className="flex-1">
-                <div className="space-y-6 pr-4">
-                  {history.map((item, index) => {
-                    const isFirst = index === 0;
-                    return (
-                      <div key={item.answer._id} className="relative">
-                        {/* Timeline line */}
-                        {!isFirst && (
-                          <div className="absolute left-4 top-10 bottom-0 w-0.5 bg-border" />
+                    <div className="flex gap-4">
+                      <div
+                        className={`relative flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                          item.approvedAnswer
+                            ? "bg-green-100 dark:bg-green-900/30"
+                            : !item.answer
+                            ? "bg-primary/10"
+                            : item?.status === "approved"
+                            ? "bg-green-100 dark:bg-green-900/30"
+                            : item?.status === "rejected"
+                            ? "bg-red-100 dark:bg-red-900/30"
+                            : "bg-primary/10"
+                        }`}
+                      >
+                        {!item.approvedAnswer && !item.status && item.answer ? (
+                          <Target className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        ) : item.approvedAnswer ? (
+                          <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                        ) : !item.answer ? (
+                          <Clock className="w-4 h-4 text-primary" />
+                        ) : item.status === "approved" ? (
+                          <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                        ) : item.status === "rejected" ? (
+                          <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                        ) : (
+                          <Clock className="w-4 h-4 text-primary" />
                         )}
+                      </div>
 
-                        <div className="flex gap-4">
-                          {/* Timeline dot */}
-                          <div
-                            className={`relative flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                              item.status === "approved"
-                                ? "bg-green-100 dark:bg-green-900/30"
-                                : item.status === "rejected"
-                                ? "bg-red-100 dark:bg-red-900/30"
-                                : "bg-primary/10"
-                            }`}
-                          >
-                            {item.status === "approved" ? (
-                              <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                            ) : item.status === "rejected" ? (
-                              <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
-                            ) : (
-                              <Clock className="w-4 h-4 text-primary" />
-                            )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-4 mb-2">
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-muted-foreground" />
+                            <span className="font-medium text-sm">
+                              {item.updatedBy.userName}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDate(item.createdAt)}
+                            </span>
                           </div>
 
-                          {/* Content */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-4 mb-2">
-                              <div className="flex items-center gap-2">
-                                <User className="w-4 h-4 text-muted-foreground" />
-                                <span className="font-medium text-sm">
-                                  {item.updatedBy.userName}
+                          <div className="flex items-center gap-4">
+                            {item.status == "approved" && item.answer && (
+                              <p className="text-sm">
+                                <span className="text-foreground">
+                                  Approvals:{" "}
                                 </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {formatDate(item.createdAt)}
-                                </span>
-                              </div>
+                                {item.answer.approvalCount || "0"}
+                              </p>
+                            )}
+                            {item.status && (
                               <span
-                                className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${
                                   item.status === "approved"
                                     ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
                                     : item.status === "rejected"
@@ -1433,11 +1007,27 @@ export const ResponseTimeline = ({
                                     : "bg-primary/10 text-primary"
                                 }`}
                               >
-                                {item.status.charAt(0).toUpperCase() +
-                                  item.status.slice(1)}
+                                {item.status?.charAt(0).toUpperCase() +
+                                  item.status?.slice(1)}
                               </span>
-                            </div>
+                            )}
+                          </div>
+                        </div>
 
+                        {item.approvedAnswer && (
+                          <div className="text-sm p-3 rounded-md border bg-green-50 dark:bg-green-900/10 border-green-300 dark:border-green-700 text-green-800 dark:text-green-300">
+                            Accepted.
+                          </div>
+                        )}
+
+                        {!item.answer && !item.approvedAnswer && (
+                          <div className="text-sm p-3 rounded-md border bg-muted/30 text-muted-foreground">
+                            Awaiting your response.
+                          </div>
+                        )}
+
+                        {item.answer && !item.approvedAnswer && (
+                          <>
                             <div className="text-sm p-3 rounded-md border bg-card break-words">
                               <ExpandableText
                                 text={item.answer.answer}
@@ -1445,63 +1035,123 @@ export const ResponseTimeline = ({
                               />
                             </div>
 
-                            {item.status === "rejected" &&
-                              item.reasonForRejection && (
-                                <div className="mt-2 p-2 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                                  <p className="text-xs font-medium text-red-800 dark:text-red-300">
-                                    Rejection Reason:{" "}
-                                  </p>
-                                  <div className="text-xs text-red-700 dark:text-red-400 mt-1">
-                                    <ExpandableText
-                                      text={item.reasonForRejection}
-                                      maxLength={100}
-                                    />
-                                  </div>
-                                </div>
-                              )}
+                            <Accordion
+                              type="single"
+                              collapsible
+                              className="text-xs"
+                            >
+                              <AccordionItem value="history-details">
+                                <AccordionTrigger className="text-foreground font-medium text-sm underline">
+                                  View Details
+                                </AccordionTrigger>
+                                <AccordionContent className="space-y-2 text-muted-foreground mt-1">
+                                  {item.answer.sources &&
+                                    item.answer.sources.length > 0 && (
+                                      <div>
+                                        <p className="font-medium text-foreground mb-2">
+                                          Sources:
+                                        </p>
+                                        <ul className="list-disc ml-2 mt-1 space-y-1">
+                                          {item.answer.sources.map(
+                                            (url: string, index: number) => (
+                                              <li
+                                                key={index}
+                                                className="flex items-center justify-between gap-2 text-sm 
+                            p-2 border border-border/50 rounded-md 
+                            hover:bg-muted/40 transition-colors duration-200"
+                                              >
+                                                <button
+                                                  onClick={() =>
+                                                    handleOpenUrl(url)
+                                                  }
+                                                  className="text-blue-600 dark:text-blue-400 hover:underline break-all inline-flex items-center gap-1 text-left"
+                                                >
+                                                  {url}
+                                                </button>
 
-                            {/* Accept/Reject buttons for last pending item */}
-                            {item.status === "pending" && (
-                              <div className="flex items-center gap-2 mt-3">
-                                <Button
-                                  size="sm"
-                                  onClick={() => onAccept?.(item.answer._id)}
-                                  className="flex items-center gap-1"
-                                >
-                                  <CheckCircle className="w-4 h-4" />
-                                  Accept
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() =>
-                                    handleRejectClick(item.answer._id)
-                                  }
-                                  className="flex items-center gap-1"
-                                >
-                                  <XCircle className="w-4 h-4" />
-                                  Reject
-                                </Button>
-                              </div>
-                            )}
+                                                <button
+                                                  onClick={() =>
+                                                    handleCopy(url, index)
+                                                  }
+                                                  className="ml-2 text-muted-foreground hover:text-foreground transition-colors"
+                                                  title="Copy URL"
+                                                >
+                                                  {copiedIndex === index ? (
+                                                    <Check className="w-4 h-4 text-green-500" />
+                                                  ) : (
+                                                    <Copy className="w-4 h-4" />
+                                                  )}
+                                                </button>
+                                              </li>
+                                            )
+                                          )}
+                                        </ul>
+
+                                        {item.status === "rejected" &&
+                                          item.reasonForRejection && (
+                                            <div className="mt-4 p-2 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                                              <p className="text-xs font-medium text-red-800 dark:text-red-300">
+                                                Rejection Reason:
+                                              </p>
+                                              <div className="text-xs text-red-700 dark:text-red-400 mt-1">
+                                                <ExpandableText
+                                                  text={item.reasonForRejection}
+                                                  maxLength={100}
+                                                />
+                                              </div>
+                                            </div>
+                                          )}
+                                        <UrlPreviewDialog
+                                          open={urlOpen}
+                                          onOpenChange={setUrlOpen}
+                                          selectedUrl={selectedUrl}
+                                        />
+                                      </div>
+                                    )}
+                                </AccordionContent>
+                              </AccordionItem>
+                            </Accordion>
+                          </>
+                        )}
+                        {!item.answer && !item.approvedAnswer && (
+                          <div className="flex items-center gap-2 mt-3">
+                            <Button
+                              size="sm"
+                              // onClick={() => onAccept?.(item.answer!._id)}
+                              className="flex items-center gap-1"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              Accept
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() =>
+                                handleRejectClick("item.answer!._id")
+                              }
+                              className="flex items-center gap-1"
+                            >
+                              <XCircle className="w-4 h-4" />
+                              Reject
+                            </Button>
                           </div>
-                        </div>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </div>
-      </ScrollArea>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
         <DialogContent className="max-w-4xl min-h-[90vh] max-h-[90vh] overflow-y-auto ">
           <DialogHeader>
             <DialogTitle>Reject Response</DialogTitle>
           </DialogHeader>
 
-          {/* <div className="space-y-4 mt-4"> */}
           {!isRejectionSubmitted && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
               <div>
@@ -1564,7 +1214,6 @@ export const ResponseTimeline = ({
                     </h3>
                   </div>
 
-                  {/* Query display */}
                   <div className="flex flex-col w-full animate-in fade-in duration-300 delay-150">
                     <Label className="text-sm font-medium text-muted-foreground mb-1">
                       Current Query:
@@ -1574,7 +1223,6 @@ export const ResponseTimeline = ({
                     </p>
                   </div>
 
-                  {/* Answer textarea */}
                   <div className="animate-in fade-in duration-300 delay-200">
                     <Label htmlFor="new-answer" className="text-sm font-medium">
                       Draft Response:
@@ -1587,14 +1235,12 @@ export const ResponseTimeline = ({
                       className="mt-1 max-h-[120px] min-h-[100px] resize-y text-sm rounded-md overflow-y-auto p-3 pb-0 transition-all duration-200 focus:ring-2"
                     />
 
-                    {/* Source manager */}
                     <div className="border rounded-xl p-6 shadow-sm mt-3 bg-muted/20 transition-all duration-200 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-250">
                       <SourceUrlManager
                         sources={sources}
                         onSourcesChange={setSources}
                       />
 
-                      {/* Sources count display */}
                       {sources.length > 0 && (
                         <div className="mt-6 pt-6 border-t animate-in fade-in slide-in-from-bottom-2 duration-200">
                           <p className="text-sm text-muted-foreground">
@@ -1605,7 +1251,6 @@ export const ResponseTimeline = ({
                       )}
                     </div>
 
-                    {/* Success message */}
                     {isFinalAnswer && (
                       <p className="mt-2 flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium animate-in fade-in scale-in-95 duration-300">
                         <CheckCircle
@@ -1673,7 +1318,6 @@ export const ResponseTimeline = ({
               </Card>
             </div>
           )}
-          {/* </div> */}
         </DialogContent>
       </Dialog>
     </div>
