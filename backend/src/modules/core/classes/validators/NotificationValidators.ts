@@ -41,6 +41,16 @@ class AddNotificationBody {
   @IsNotEmpty()
   @IsString()
   message: string;
+
+  @JSONSchema({
+    description: 'Notification title',
+    example:
+      'A new question is assigned to you',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  title: string;
 }
 
 class NotificationResponse {
@@ -79,6 +89,14 @@ class NotificationResponse {
   message: string;
 
   @JSONSchema({
+    description: 'Question text',
+    example: 'What is the capital of France?',
+    type: 'string',
+  })
+  @IsString()
+  title: string;
+
+  @JSONSchema({
     description:'Is Notification Read?',
     example:true,
     type:'boolean'
@@ -104,12 +122,20 @@ class NotificationResponse {
 
 }
 
+class DeleteNotificationParams {
+  @IsMongoId()
+  @JSONSchema({example: '650e9c0f5f1b2c001c2f4d9e'})
+  notificationId: string;
+}
+
 export const NOTIFICATION_VALIDATORS = [
   AddNotificationBody,
   NotificationResponse,
+  DeleteNotificationParams
 ];
 
 export {
   AddNotificationBody,
-  NotificationResponse
+  NotificationResponse,
+  DeleteNotificationParams
 };

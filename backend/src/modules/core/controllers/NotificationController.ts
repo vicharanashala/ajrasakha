@@ -8,13 +8,16 @@ import {
   Authorized,
   Get,
   QueryParams,
+  Delete,
+  Params,
+  Patch,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {IUser} from '#root/shared/interfaces/models.js';
-import { AddNotificationBody, NotificationResponse } from '../classes/validators/NotificationValidators.js';
+import { AddNotificationBody, DeleteNotificationParams, NotificationResponse } from '../classes/validators/NotificationValidators.js';
 import { NotificationService } from '../services/NotificationService.js';
 
 @OpenAPI({
@@ -34,12 +37,12 @@ export class NotificationController {
   @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async addAnswer(@Body() body: AddNotificationBody, @CurrentUser() user: IUser) {
-    const {entityId, type, message} = body;
+    const {entityId, type, message,title} = body;
     const userId = user._id.toString();
-    return this.notificationService.addNotification(userId, entityId, type, message);
+    return this.notificationService.addNotification(userId, entityId, type, message,title);
   }
 
-   @OpenAPI({summary: 'Add a new notification to a user'})
+   @OpenAPI({summary: 'Get all notification of a user'})
   @Get('/')
   @HttpCode(201)
   @Authorized()
@@ -49,5 +52,40 @@ export class NotificationController {
     const limit = Number(query.limit) ?? 10;
     const userId = user._id.toString();
     return this.notificationService.getNotifications(userId,page,limit)
+  }
+
+  @OpenAPI({summary: 'Delete a notification'})
+    @Delete('/:notificationId')
+    @HttpCode(200)
+    @Authorized()
+    @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+    async deleteAnswer(@Params() params: DeleteNotificationParams) {
+      const {notificationId} = params;
+      console.log("noti params ",notificationId)
+      return this.notificationService.deleteNotifictaion(notificationId)
+    }
+
+  @OpenAPI({summary: 'Mark notification as read'})
+  @Patch('/:notificationId')
+  @HttpCode(200)
+  @Authorized()
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async markAsRead(
+    @Params() params: DeleteNotificationParams,
+  ) {
+    const {notificationId} = params;
+    return this.notificationService.markAsRead(notificationId)
+  }
+
+  @OpenAPI({summary: 'Mark notification as read'})
+  @Patch('/')
+  @HttpCode(200)
+  @Authorized()
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async markAllAsRead(@CurrentUser() user: IUser
+  ) {
+    console.log('reached all')
+    const userId = user._id.toString()
+    return this.notificationService.markAllAsRead(userId)
   }
 }

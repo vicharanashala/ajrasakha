@@ -15,19 +15,24 @@ export class NotificationService {
     return response
   }
 
-  // async updateQuestion(
-  //   questionId: string,
-  //   updatedData: Partial<IDetailedQuestion>
-  // ): Promise<IDetailedQuestion | null> {
-  //   return apiFetch<IDetailedQuestion>(`${this._baseUrl}/${questionId}`, {
-  //     method: "PUT",
-  //     body: JSON.stringify(updatedData),
-  //   });
-  // }
+  async markNotificationAsRead(
+      notificationId: string,
+    ): Promise<INotification | null> {
+      return apiFetch<INotification>(`${this._baseUrl}/${notificationId}`, {
+        method: "PATCH",
+      });
+    }
 
-  // async deleteQuestion(questionId: string): Promise<void | null> {
-  //   return apiFetch<void>(`${this._baseUrl}/${questionId}`, {
-  //     method: "DELETE",
-  //   });
-  // }
+    async markAllNotificationAsRead(
+    ): Promise<INotification | null> {
+      return apiFetch<INotification>(`${this._baseUrl}`, {
+        method: "PATCH",
+      });
+    }
+
+  async deleteNotification(notificationId: string): Promise<void | null> {
+    return apiFetch<void>(`${this._baseUrl}/${notificationId}`, {
+      method: "DELETE",
+    });
+  }
 }

@@ -14,6 +14,7 @@ export interface IUser {
   firstName: string;
   lastName?: string;
   preference?: IPreference | null;
+  notifications?:number;
   role: UserRole;
   createdAt?: Date;
   updatedAt?: Date;
@@ -127,6 +128,7 @@ export interface INotification{
    _id?: string | ObjectId;
   userId:string | ObjectId;
   enitity_id:string | ObjectId;
+  title:string;
   type:INotificationType;
   message:string;
   is_read:boolean;

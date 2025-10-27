@@ -20,7 +20,7 @@ export class NotificationRepository implements INotificationRepository {
     this.notificationCollection = await this.db.getCollection<INotification>('notifications');
   }
 
-  async addNotification(userId: string, enitity_id: string, type: string, message: string, session?: ClientSession): Promise<{ insertedId: string; }> {
+  async addNotification(userId: string, enitity_id: string, type: string, message: string,title:string, session?: ClientSession): Promise<{ insertedId: string; }> {
     try {
       await this.init();
 
@@ -41,6 +41,7 @@ export class NotificationRepository implements INotificationRepository {
         enitity_id:new ObjectId(enitity_id),
         type: type as INotificationType,
         message,
+        title,
         is_read:false,
         createdAt: new Date(),
         updatedAt: new Date()
@@ -77,18 +78,10 @@ export class NotificationRepository implements INotificationRepository {
       enitity_id:n.enitity_id.toString(),
       message:n.message,
       is_read:n.is_read,
+      title:n.title,
       createdAt:n.createdAt.toString(),
       updatedAt:n.updatedAt.toString()
     }))
-    // const response: NotificationResponse= {
-    //   _id: notification._id?.toString() ?? "",
-    //   userId: notification.userId?.toString() ?? "",
-    //   enitity_id: notification.enitity_id?.toString() ?? "",
-    //   message: notification.message,
-    //   is_read: notification.is_read,
-    //   createdAt: notification.createdAt.toString(),
-    //   updatedAt: notification.updatedAt.toString()
-    // };
 
     return {notifications:response,page,totalCount,totalPages:Math.ceil(totalCount/limit)}
   }
@@ -98,4 +91,60 @@ export class NotificationRepository implements INotificationRepository {
       );
   }
 }
+
+async getNotificationsCount(userId: string,session?:ClientSession): Promise<number> {
+  try {
+    await this.init()
+    const notifications = await this.notificationCollection.countDocuments({userId:new ObjectId(userId),is_read:false},{session})
+    return notifications
+  } catch (error) {
+     throw new InternalServerError(
+        `Error while getting Notification, More/ ${error}`,
+      );
+  }
+}
+
+async deleteNotification(notificationId: string, session: ClientSession): Promise<{deletedCount: number}> {
+  try {
+    await this.init()
+    if (!notificationId || !isValidObjectId(notificationId)) {
+        throw new BadRequestError('Invalid or missing NotificationId');
+      }
+      const result =await this.notificationCollection.deleteOne({_id: new ObjectId(notificationId)},{session})
+      return result
+  } catch (error) {
+     throw new InternalServerError(
+        `Error while deleting Notification, More/ ${error}`,
+      );
+  }
+}
+
+async markAsRead(notificationId: string,session?:ClientSession): Promise<{modifiedCount: number}> {
+  try {
+    await this.init()
+     if (!notificationId || !isValidObjectId(notificationId)) {
+        throw new BadRequestError('Invalid or missing NotificationId');
+      }
+    const result= await this.notificationCollection.updateOne({_id:new ObjectId(notificationId)},{$set:{is_read:true}},{session})
+    return result
+  } catch (error) {
+    throw new InternalServerError(
+        `Error while deleting Notification, More/ ${error}`,
+      );
+  }
+}
+
+async markAllAsRead(userId:string,session?:ClientSession): Promise<{modifiedCount: number}> {
+  try {
+    await this.init()
+    const result= await this.notificationCollection.updateMany({userId:new ObjectId(userId)},{$set:{is_read:true}},{session})
+    return result
+  } catch (error) {
+    throw new InternalServerError(
+        `Error while deleting Notification, More/ ${error}`,
+      );
+  }
+}
+
+
 }

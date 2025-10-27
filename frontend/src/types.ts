@@ -30,6 +30,7 @@ export interface IUser {
   password?: string;
   preference?: IMyPreference;
   role: UserRole;
+  notifications?:number;
   createdAt?: Date;
   updatedAt?: Date;
 }

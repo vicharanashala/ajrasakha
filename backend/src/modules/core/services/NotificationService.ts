@@ -20,15 +20,33 @@ export class NotificationService extends BaseService {
 
 
 
-  async addNotification(userId: string, enitity_id: string, type: string, message: string):Promise<{insertedId:string}>  {
+  async addNotification(userId: string, enitity_id: string, type: string, message: string,title:string):Promise<{insertedId:string}>  {
     return this._withTransaction(async (session:ClientSession) => {
-      return await this.notificationRepository.addNotification(userId,enitity_id,type,message,session)
+      return await this.notificationRepository.addNotification(userId,enitity_id,type,message,title,session)
     })
   }
 
   async getNotifications(userId:string,page:number,limit:number):Promise<{notifications:NotificationResponse[]; page:number; totalCount:number; totalPages:number}>{
     return this._withTransaction(async (session:ClientSession) => {
       return await this.notificationRepository.getNotifications(userId,page,limit,session)
+    })
+  }
+
+  async deleteNotifictaion(notificationId:string):Promise<{deletedCount: number}>{
+    return this._withTransaction(async (session:ClientSession) => {
+      return await this.notificationRepository.deleteNotification(notificationId,session)
+    })
+  }
+
+  async markAsRead(id:string):Promise<{modifiedCount: number}>{
+    return this._withTransaction(async (session:ClientSession) => {
+      return await this.notificationRepository.markAsRead(id,session)
+    })
+  }
+
+  async markAllAsRead(userId:string):Promise<{modifiedCount: number}>{
+    return this._withTransaction(async (session:ClientSession) => {
+      return await this.notificationRepository.markAllAsRead(userId,session)
     })
   }
 }
