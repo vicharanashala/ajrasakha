@@ -55,7 +55,7 @@ function TabsListforMobile({
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        "flex flex-col w-full gap-2 bg-muted/40 p-3 rounded-2xl shadow-sm backdrop-blur-sm",
+        "flex flex-col w-full gap-2 bg-background p-3 rounded-2xl shadow-sm backdrop-blur-sm",
         className
       )}
       {...props}
