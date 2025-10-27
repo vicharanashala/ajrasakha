@@ -373,111 +373,37 @@ export class QuestionRepository implements IQuestionRepository {
     try {
       await this.init();
 
-      const {
-        search,
-        source,
-        state,
-        crop,
-        priority,
-        answersCountMin,
-        answersCountMax,
-        dateRange,
-        domain,
-        user,
-        filter: sortFilter,
-        page = 1,
-        limit = 10,
-      } = query;
+      const {filter: sortFilter, page = 1, limit = 10} = query;
 
       const skip = (page - 1) * limit;
 
-      const filter: any = {status: 'open'};
+      const userObjectId = new ObjectId(userId);
 
-      if (source && source !== 'all') filter.source = source;
-      if (priority && priority !== 'all') filter.priority = priority;
-      if (state && state !== 'all') filter['details.state'] = state;
-      if (crop && crop !== 'all') filter['details.crop'] = crop;
-      if (domain && domain !== 'all') filter['details.domain'] = domain;
-
-      if (answersCountMin !== undefined || answersCountMax !== undefined) {
-        filter.totalAnswersCount = {};
-        if (answersCountMin !== undefined)
-          filter.totalAnswersCount.$gte = answersCountMin;
-        if (answersCountMax !== undefined)
-          filter.totalAnswersCount.$lte = answersCountMax;
-      }
-
-      if (dateRange && dateRange !== 'all') {
-        const now = new Date();
-        let startDate: Date | undefined;
-        switch (dateRange) {
-          case 'today':
-            startDate = new Date(now.setHours(0, 0, 0, 0));
-            break;
-          case 'week':
-            startDate = new Date(now.setDate(now.getDate() - 7));
-            break;
-          case 'month':
-            startDate = new Date(now.setMonth(now.getMonth() - 1));
-            break;
-          case 'quarter':
-            startDate = new Date(now.setMonth(now.getMonth() - 3));
-            break;
-          case 'year':
-            startDate = new Date(now.setFullYear(now.getFullYear() - 1));
-            break;
-        }
-        if (startDate) filter.createdAt = {$gte: startDate};
-      }
-     
-      const pipeline: any = [{$match: filter}];
-
-      if (user && user !== 'all') {
-        pipeline.push({
-          $lookup: {
-            from: 'answers',
-            let: {questionId: '$_id'},
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [
-                      {$eq: ['$questionId', '$$questionId']},
-                      {$eq: ['$authorId', new ObjectId(user)]},
-                    ],
-                  },
-                },
-              },
-            ],
-            as: 'userAnswersBySelectedUser',
-          },
-        });
-
-        pipeline.push({
-          $match: {'userAnswersBySelectedUser.0': {$exists: true}},
-        });
-      }
-
-      pipeline.push({
-        $lookup: {
-          from: 'answers',
-          let: {questionId: '$_id'},
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    {$eq: ['$questionId', '$$questionId']},
-                    {$eq: ['$authorId', new ObjectId(userId)]},
-                  ],
-                },
-              },
+      const submissions = (await this.QuestionSubmissionCollection.aggregate([
+        {
+          $addFields: {
+            lastExpertInQueue: {
+              $arrayElemAt: ['$queue', -1],
             },
-          ],
-          as: 'userAnswers',
+          },
         },
-      });
-      pipeline.push({$match: {userAnswers: {$size: 0}}});
+        {
+          $match: {
+            lastExpertInQueue: userObjectId,
+          },
+        },
+      ]).toArray()) as IQuestionSubmission[];
+
+      const questionIdsToAttempt = submissions.map(
+        sub => new ObjectId(sub.questionId),
+      );
+
+      const filter: any = {
+        status: 'open',
+        _id: {$in: questionIdsToAttempt},
+      };
+      
+      const pipeline: any = [{$match: filter}];
 
       if (sortFilter === 'newest') {
         pipeline.push({$sort: {createdAt: -1}});
@@ -523,6 +449,166 @@ export class QuestionRepository implements IQuestionRepository {
       );
     }
   }
+  // async getAllocatedQuestions(
+  //   userId: string,
+  //   query: GetDetailedQuestionsQuery,
+  //   // userPreference: IUser['preference'] | null,
+  //   session?: ClientSession,
+  // ): Promise<QuestionResponse[]> {
+  //   try {
+  //     await this.init();
+
+  //     const {
+  //       search,
+  //       source,
+  //       state,
+  //       crop,
+  //       priority,
+  //       answersCountMin,
+  //       answersCountMax,
+  //       dateRange,
+  //       domain,
+  //       user,
+  //       filter: sortFilter,
+  //       page = 1,
+  //       limit = 10,
+  //     } = query;
+
+  //     const skip = (page - 1) * limit;
+
+  //     const filter: any = {status: 'open'};
+
+  //     if (source && source !== 'all') filter.source = source;
+  //     if (priority && priority !== 'all') filter.priority = priority;
+  //     if (state && state !== 'all') filter['details.state'] = state;
+  //     if (crop && crop !== 'all') filter['details.crop'] = crop;
+  //     if (domain && domain !== 'all') filter['details.domain'] = domain;
+
+  //     if (answersCountMin !== undefined || answersCountMax !== undefined) {
+  //       filter.totalAnswersCount = {};
+  //       if (answersCountMin !== undefined)
+  //         filter.totalAnswersCount.$gte = answersCountMin;
+  //       if (answersCountMax !== undefined)
+  //         filter.totalAnswersCount.$lte = answersCountMax;
+  //     }
+
+  //     if (dateRange && dateRange !== 'all') {
+  //       const now = new Date();
+  //       let startDate: Date | undefined;
+  //       switch (dateRange) {
+  //         case 'today':
+  //           startDate = new Date(now.setHours(0, 0, 0, 0));
+  //           break;
+  //         case 'week':
+  //           startDate = new Date(now.setDate(now.getDate() - 7));
+  //           break;
+  //         case 'month':
+  //           startDate = new Date(now.setMonth(now.getMonth() - 1));
+  //           break;
+  //         case 'quarter':
+  //           startDate = new Date(now.setMonth(now.getMonth() - 3));
+  //           break;
+  //         case 'year':
+  //           startDate = new Date(now.setFullYear(now.getFullYear() - 1));
+  //           break;
+  //       }
+  //       if (startDate) filter.createdAt = {$gte: startDate};
+  //     }
+
+  //     const pipeline: any = [{$match: filter}];
+
+  //     if (user && user !== 'all') {
+  //       pipeline.push({
+  //         $lookup: {
+  //           from: 'answers',
+  //           let: {questionId: '$_id'},
+  //           pipeline: [
+  //             {
+  //               $match: {
+  //                 $expr: {
+  //                   $and: [
+  //                     {$eq: ['$questionId', '$$questionId']},
+  //                     {$eq: ['$authorId', new ObjectId(user)]},
+  //                   ],
+  //                 },
+  //               },
+  //             },
+  //           ],
+  //           as: 'userAnswersBySelectedUser',
+  //         },
+  //       });
+
+  //       pipeline.push({
+  //         $match: {'userAnswersBySelectedUser.0': {$exists: true}},
+  //       });
+  //     }
+
+  //     pipeline.push({
+  //       $lookup: {
+  //         from: 'answers',
+  //         let: {questionId: '$_id'},
+  //         pipeline: [
+  //           {
+  //             $match: {
+  //               $expr: {
+  //                 $and: [
+  //                   {$eq: ['$questionId', '$$questionId']},
+  //                   {$eq: ['$authorId', new ObjectId(userId)]},
+  //                 ],
+  //               },
+  //             },
+  //           },
+  //         ],
+  //         as: 'userAnswers',
+  //       },
+  //     });
+
+  //     pipeline.push({$match: {userAnswers: {$size: 0}}});
+
+  //     if (sortFilter === 'newest') {
+  //       pipeline.push({$sort: {createdAt: -1}});
+  //     } else if (sortFilter === 'oldest') {
+  //       pipeline.push({$sort: {createdAt: 1}});
+  //     } else if (sortFilter === 'leastResponses') {
+  //       pipeline.push({$sort: {totalAnswersCount: 1}});
+  //     } else if (sortFilter === 'mostResponses') {
+  //       pipeline.push({$sort: {totalAnswersCount: -1}});
+  //     }
+
+  //     pipeline.push({$skip: skip});
+  //     pipeline.push({$limit: limit});
+
+  //     pipeline.push({
+  //       $project: {
+  //         id: {$toString: '$_id'},
+  //         text: '$question',
+  //         priority: '$priority',
+  //         createdAt: {
+  //           $dateToString: {format: '%d-%m-%Y %H:%M:%S', date: '$createdAt'},
+  //         },
+  //         updatedAt: {
+  //           $dateToString: {format: '%d-%m-%Y %H:%M:%S', date: '$updatedAt'},
+  //         },
+  //         totalAnswersCount: 1,
+  //         'details.crop': 1,
+  //         'details.state': 1,
+  //         source: 1,
+  //         _id: 0,
+  //       },
+  //     });
+
+  //     const results = await this.QuestionCollection.aggregate<QuestionResponse>(
+  //       pipeline,
+  //       {session},
+  //     ).toArray();
+
+  //     return results;
+  //   } catch (error) {
+  //     throw new InternalServerError(
+  //       `Failed to fetch unanswered questions: ${error}`,
+  //     );
+  //   }
+  // }
 
   async getQuestionWithFullData(questionId: string, userId: string) {
     await this.init();

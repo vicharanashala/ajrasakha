@@ -280,8 +280,12 @@ export const QAInterface = () => {
   return (
     <div className="container mx-auto px-4 md:px-6 bg-transparent py-4 ">
       <div className="flex flex-col space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="w-full md:max-h-[120vh] max-h-[80vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent">
+        <div
+          className={`grid grid-cols-1 ${
+            questions.length && "lg:grid-cols-2"
+          } gap-6`}
+        >
+          <Card className="w-full md:max-h-[120vh]  max-h-[80vh] min-h-[75vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent">
             <CardHeader className="border-b flex flex-row items-center justify-between pb-4">
               <TooltipProvider>
                 <div className="flex items-center gap-2">
@@ -296,7 +300,7 @@ export const QAInterface = () => {
                       <p>
                         This are the list of pending questions that require a
                         response. These questions are personalized based on the
-                        preferences you set in your profile.
+                        preferences and reputation score .
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -391,9 +395,11 @@ export const QAInterface = () => {
                   </svg>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  No questions available at the moment. The questions displayed
-                  here are personalized based on the preferences you set in your
-                  profile. Please check back later.
+                  No questions are available at the moment. The questions shown
+                  here are curated based on your preferences, expertise domain,
+                  and reputation score to ensure the best match. Once a suitable
+                  question is allocated to you, you will be notified
+                  immediately. Please check back later for new opportunities.
                 </p>
               </div>
             ) : (
@@ -533,22 +539,24 @@ export const QAInterface = () => {
             )}
           </Card>
 
-          <ResponseTimeline
-            SourceUrlManager={SourceUrlManager}
-            handleReset={handleReset}
-            handleSubmit={handleSubmit}
-            isFinalAnswer={isFinalAnswer}
-            isSelectedQuestionLoading={isSelectedQuestionLoading}
-            isSubmittingAnswer={isSubmittingAnswer}
-            newAnswer={newAnswer}
-            selectedQuestionData={selectedQuestionData}
-            setNewAnswer={setNewAnswer}
-            setSources={setSources}
-            sources={sources}
-            // history={history}
-            onAccept={() => {}}
-            onReject={() => {}}
-          />
+          {questions && questions.length != 0 && (
+            <ResponseTimeline
+              SourceUrlManager={SourceUrlManager}
+              handleReset={handleReset}
+              handleSubmit={handleSubmit}
+              isFinalAnswer={isFinalAnswer}
+              isSelectedQuestionLoading={isSelectedQuestionLoading}
+              isSubmittingAnswer={isSubmittingAnswer}
+              newAnswer={newAnswer}
+              selectedQuestionData={selectedQuestionData}
+              setNewAnswer={setNewAnswer}
+              setSources={setSources}
+              sources={sources}
+              // history={history}
+              onAccept={() => {}}
+              onReject={() => {}}
+            />
+          )}
         </div>
       </div>
     </div>

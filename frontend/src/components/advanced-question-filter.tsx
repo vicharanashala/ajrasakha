@@ -131,22 +131,22 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
     a.userName.localeCompare(b.userName)
   );
 
-  useEffect(() => {
-    if (userNameReponse?.myPreference) {
-      setAdvanceFilterValues((prev: AdvanceFilterValues) => {
-        const updatedFilters = {
-          ...prev,
-          state: userNameReponse.myPreference?.state || prev.state,
-          crop: userNameReponse.myPreference?.crop || prev.crop,
-          domain: userNameReponse.myPreference?.domain || prev.domain,
-        };
+  // useEffect(() => {
+  //   if (userNameReponse?.myPreference) {
+  //     setAdvanceFilterValues((prev: AdvanceFilterValues) => {
+  //       const updatedFilters = {
+  //         ...prev,
+  //         state: userNameReponse.myPreference?.state || prev.state,
+  //         crop: userNameReponse.myPreference?.crop || prev.crop,
+  //         domain: userNameReponse.myPreference?.domain || prev.domain,
+  //       };
 
-        handleApplyFilters(updatedFilters);
+  //       handleApplyFilters(updatedFilters);
 
-        return updatedFilters;
-      });
-    }
-  }, [userNameReponse, setAdvanceFilterValues]);
+  //       return updatedFilters;
+  //     });
+  //   }
+  // }, [userNameReponse, setAdvanceFilterValues]);
 
   return (
     <Dialog>
