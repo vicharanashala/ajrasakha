@@ -3,6 +3,8 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  TabsListforMobile,
+  TabsTriggerforMobile
 } from "@/components/atoms/tabs";
 import { HoverCard } from "@/components/atoms/hover-card";
 import { UserProfileActions } from "@/components/atoms/user-profile-actions";
@@ -11,12 +13,28 @@ import { QAInterface } from "./QA-interface";
 import { FullSubmissionHistory } from "./submission-history";
 import { VoiceRecorderCard } from "./voice-recorder-card";
 import { QuestionsPage } from "./questions-page";
-import { BellIcon } from "lucide-react";
+import { BellIcon ,Settings2Icon} from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { RequestsPage } from "./request-page";
+import { useState ,useEffect} from "react";
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser();
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  const handleTabClick = () => setIsDrawerOpen(false);
+ 
+  
+const closeDrawer = () => setIsDrawerOpen(false);
+useEffect(() => {
+  const handleResize = () => {
+    if (window.innerWidth >= 768) {
+      setIsDrawerOpen(false);
+    }
+  };
+  window.addEventListener("resize", handleResize);
+  return () => window.removeEventListener("resize", handleResize);
+}, []);
 
   return (
     <>
@@ -69,11 +87,11 @@ export const PlaygroundPage = () => {
               />
             </div>
 
-            <div className="flex-1 flex justify-center min-w-0">
+            <div className="hidden md:flex flex-1 justify-center">
               <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
                 <TabsTrigger
                   value="questions"
-                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  className="px-2 md:px-3 py-1.5 bg-transparent rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
                 >
                   <span>Questions</span>
                 </TabsTrigger>
@@ -113,13 +131,92 @@ export const PlaygroundPage = () => {
               </TabsList>
             </div>
 
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="hidden md:flex items-center gap-3 shrink-0">
               <BellIcon className="w-5 h-5" />
               <ThemeToggleCompact />
               <UserProfileActions />
             </div>
+            {/* Mobile Settings Button */}
+          <button
+            onClick={() => setIsDrawerOpen(true)}
+            className="md:hidden p-2 rounded-lg border hover:bg-accent transition"
+          >
+            <Settings2Icon className="w-5 h-5" />
+          </button>
           </div>
         </header>
+           {/* Mobile Drawer */}
+      {isDrawerOpen && (
+  <>
+    {/* Backdrop */}
+    <div
+      className="fixed top-0 right-0 h-full w-56 bg-background shadow-xl p-4 flex flex-col gap-3 max-h-screen overflow-y-auto z-50 border rounded-xl border-border dark:border-border md:hidden animate-slideInRight"
+      onClick={closeDrawer} // click outside closes drawer
+    />
+
+    {/* Drawer */}
+    <div className="fixed top-0 right-0 h-full w-56 bg-background shadow-xl p-4 flex flex-col gap-3 max-h-screen overflow-y-auto z-50 border rounded-xl border-border dark:border-border animate-slideInRight">
+      
+      {/* Header with Close / Settings Icon */}
+      <div className="flex justify-end">
+        <button onClick={closeDrawer}  className="md:hidden p-2 rounded-lg border hover:bg-accent transition">
+          <Settings2Icon className="w-5 h-5" />
+        </button>
+      </div>
+
+      <div className="flex flex-col w-full max-w-sm mx-auto p-4 bg-background rounded-2xl shadow-md space-y-6">
+
+      {/* Tabs Section */}
+      <TabsListforMobile>
+        <TabsTriggerforMobile value="questions" onClick={handleTabClick}>
+          Questions
+        </TabsTriggerforMobile>
+
+        <TabsTriggerforMobile value="all_questions" onClick={handleTabClick}>
+          All Questions
+        </TabsTriggerforMobile>
+
+        {user && user.role !== "expert" && (
+          <TabsTriggerforMobile value="request_queue" onClick={handleTabClick}>
+            Request Queue
+          </TabsTriggerforMobile>
+        )}
+
+        <TabsTriggerforMobile value="upload" onClick={handleTabClick}>
+          Upload
+        </TabsTriggerforMobile>
+
+        <TabsTriggerforMobile value="history" onClick={handleTabClick}>
+          History
+        </TabsTriggerforMobile>
+      </TabsListforMobile>
+
+      {/* Divider */}
+      <div className="border-t border-border/60"></div>
+
+      {/* Utility Section */}
+      <div className="flex flex-col gap-4 items-start">
+        <div className="flex items-center gap-3 hover:bg-muted/40 w-full px-3 py-2 rounded-xl transition-all">
+          <BellIcon className="w-5 h-5 text-muted-foreground" />
+          <span className="text-sm font-medium text-foreground/80">Notifications</span>
+        </div>
+
+        <div className="flex items-center gap-3 hover:bg-muted/40 w-full px-3 py-2 rounded-xl transition-all">
+          <ThemeToggleCompact />
+          <span className="text-sm font-medium text-foreground/80">Toggle theme</span>
+        </div>
+
+        <div className="flex items-center gap-3 hover:bg-muted/40 w-full px-3 py-2 rounded-xl transition-all">
+          <UserProfileActions />
+          <span className="text-sm font-medium text-foreground/80">Profile</span>
+        </div>
+      </div>
+    </div>
+  
+
+    </div>
+  </>
+)}
 
         <div className="container h-full py-6">
           <div className="grid h-full items-stretch gap-6 ">
