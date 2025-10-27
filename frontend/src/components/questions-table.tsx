@@ -433,13 +433,15 @@ export const QuestionsTable = ({
 {/* Mobile & Tablet Cards */}
 <div
   className="
-    lg:hidden
-    flex flex-col gap-4
-    w-full max-w-full
-    px-3
-    box-border
-    overflow-x-hidden
-    overflow-y-visible
+  grid
+  grid-cols-1                /* phones (≤420 px) */
+  xs:grid-cols-1             /* small devices 420–639 px */
+  sm:grid-cols-1             /* tablets 640–767 px */
+  md:grid-cols-2             /* medium devices 768–1023 px */
+  lg:grid-cols-3             /* large desktops */
+  gap-4 sm:gap-5 md:gap-6
+  w-full
+  px-2 sm:px-4 md:px-6
   "
   style={{
     WebkitOverflowScrolling: "touch",
@@ -458,6 +460,7 @@ export const QuestionsTable = ({
         overflow-hidden 
         flex flex-col 
         min-w-0
+        w-[85vw]
       "
     >
       {/* HEADER */}
