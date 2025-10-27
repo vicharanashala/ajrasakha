@@ -21,6 +21,7 @@ import {
 } from 'routing-controllers';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
+import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
 
 @injectable()
 export class RequestService extends BaseService {
@@ -33,6 +34,10 @@ export class RequestService extends BaseService {
 
     @inject(GLOBAL_TYPES.UserRepository)
     private readonly userRepo: IUserRepository,
+
+    @inject(GLOBAL_TYPES.NotificationRepository)
+    private readonly notificationRepository: INotificationRepository,
+
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
   ) {
@@ -45,7 +50,15 @@ export class RequestService extends BaseService {
   ): Promise<IRequest> {
     try {
       return await this._withTransaction(async session => {
-        return this.requestRepository.createRequest(data, userId, session);
+        const request= this.requestRepository.createRequest(data, userId, session);
+        let type = data.details.requestType.toString()
+        const moderators = await this.userRepo.findModerators()
+        let message =`A new Question Flag raised QuestionId ${data.entityId}`
+        let title= "New Flag Raised"
+        for(let mod of moderators){
+          const notification = await this.notificationRepository.addNotification(mod._id.toString(),data.entityId.toString(),type,message,title)
+        }
+        return request
       });
     } catch (error) {
       throw new InternalServerError(`Failed to create this request ${error}`);
