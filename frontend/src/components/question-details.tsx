@@ -122,7 +122,7 @@ export const QuestionDetails = ({
   return (
     <main className="mx-auto p-6 pt-0 grid gap-6">
       <header className="grid gap-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center lg:justify-between md:justify-between sm:justify-between">
           <h1 className="text-2xl font-semibold text-pretty">
             {question.question}
           </h1>
