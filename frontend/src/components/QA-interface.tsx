@@ -35,7 +35,7 @@ import { RadioGroup, RadioGroupItem } from "./atoms/radio-group";
 import { Label } from "./atoms/label";
 import { Textarea } from "./atoms/textarea";
 import { Button } from "./atoms/button";
-import { useGetAllQuestions } from "@/hooks/api/question/useGetAllQuestions";
+import { useGetAllocatedQuestions } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
 import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
 import toast from "react-hot-toast";
@@ -155,7 +155,7 @@ export const QAInterface = () => {
     hasNextPage,
     isFetchingNextPage,
     refetch,
-  } = useGetAllQuestions(LIMIT, filter, preferences);
+  } = useGetAllocatedQuestions(LIMIT, filter, preferences);
 
   const questions = questionPages?.pages.flat() || [];
 

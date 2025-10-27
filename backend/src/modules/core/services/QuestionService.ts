@@ -148,78 +148,13 @@ export class QuestionService extends BaseService {
     }
   }
 
-  async getUnAnsweredQuestions(
+  async getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
   ): Promise<QuestionResponse[]> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        // 1. Fetch the user and extract their preference details
-        const user = await this.userRepo.findById(userId, session);
-        const userPreference = user.preference || null;
-
-        // 2. Build a query object (userQuery) based on the user's preferences (state, crop, domain)
-        const userQuery: Record<string, any> = {};
-        if (userPreference.state && userPreference.state !== 'all') {
-          userQuery.state = userPreference.state;
-        }
-        if (userPreference.crop && userPreference.crop !== 'all') {
-          userQuery.crop = userPreference.crop;
-        }
-        if (userPreference.domain && userPreference.domain !== 'all') {
-          userQuery.domain = userPreference.domain;
-        }
-
-        // 3. Get unanswered questions based purely on user preference
-        const userPreferenceQuestions =
-          await this.questionRepo.getUnAnsweredQuestions(
-            userId,
-            userQuery,
-            session,
-          );
-
-        // 4. Define preference keys to be checked (state, crop, domain)
-        const keys = ['state', 'crop', 'domain'] as const;
-
-        // 5. Check if the given query matches the user's preference-based query
-        const isQueryMatchingPreference = keys.every(key => {
-          const prefValue = userQuery[key];
-          const queryValue = query[key];
-
-          if (prefValue && queryValue) return prefValue === queryValue;
-          if (!prefValue) return true;
-          return false;
-        });
-
-        // 6. If query matches preference and no questions exist for that preference,
-        //    delete matching keys from query to widen the filter
-        if (isQueryMatchingPreference && userPreferenceQuestions.length === 0) {
-          keys.forEach(key => {
-            const prefValue = userQuery[key];
-            const queryValue = query[key];
-
-            if (prefValue && queryValue && prefValue === queryValue) {
-              delete query[key];
-            }
-          });
-        }
-
-        // 7. If user still has unanswered preference-based questions,
-        //    return those first before applying broader filters
-        if (
-          !isQueryMatchingPreference &&
-          userPreferenceQuestions.length > 0 &&
-          Object.keys(userQuery).length > 0
-        ) {
-          console.log(
-            'Returning user preference questions as they are pending',
-          );
-          return userPreferenceQuestions;
-        }
-
-        // 8. If no preference-based questions or filters remain,
-        //    return general unanswered questions using the updated query
-        return this.questionRepo.getUnAnsweredQuestions(userId, query, session);
+        return this.questionRepo.getAllocatedQuestions(userId, query, session);
       });
     } catch (error) {
       throw new InternalServerError(
@@ -227,6 +162,85 @@ export class QuestionService extends BaseService {
       );
     }
   }
+  // async getAllocatedQuestions(
+  //   userId: string,
+  //   query: GetDetailedQuestionsQuery,
+  // ): Promise<QuestionResponse[]> {
+  //   try {
+  //     return this._withTransaction(async (session: ClientSession) => {
+  //       // 1. Fetch the user and extract their preference details
+  //       const user = await this.userRepo.findById(userId, session);
+  //       const userPreference = user.preference || null;
+
+  //       // 2. Build a query object (userQuery) based on the user's preferences (state, crop, domain)
+  //       const userQuery: Record<string, any> = {};
+  //       if (userPreference.state && userPreference.state !== 'all') {
+  //         userQuery.state = userPreference.state;
+  //       }
+  //       if (userPreference.crop && userPreference.crop !== 'all') {
+  //         userQuery.crop = userPreference.crop;
+  //       }
+  //       if (userPreference.domain && userPreference.domain !== 'all') {
+  //         userQuery.domain = userPreference.domain;
+  //       }
+
+  //       // 3. Get unanswered questions based purely on user preference
+  //       const userPreferenceQuestions =
+  //         await this.questionRepo.getUnAnsweredQuestions(
+  //           userId,
+  //           userQuery,
+  //           session,
+  //         );
+
+  //       // 4. Define preference keys to be checked (state, crop, domain)
+  //       const keys = ['state', 'crop', 'domain'] as const;
+
+  //       // 5. Check if the given query matches the user's preference-based query
+  //       const isQueryMatchingPreference = keys.every(key => {
+  //         const prefValue = userQuery[key];
+  //         const queryValue = query[key];
+
+  //         if (prefValue && queryValue) return prefValue === queryValue;
+  //         if (!prefValue) return true;
+  //         return false;
+  //       });
+
+  //       // 6. If query matches preference and no questions exist for that preference,
+  //       //    delete matching keys from query to widen the filter
+  //       if (isQueryMatchingPreference && userPreferenceQuestions.length === 0) {
+  //         keys.forEach(key => {
+  //           const prefValue = userQuery[key];
+  //           const queryValue = query[key];
+
+  //           if (prefValue && queryValue && prefValue === queryValue) {
+  //             delete query[key];
+  //           }
+  //         });
+  //       }
+
+  //       // 7. If user still has unanswered preference-based questions,
+  //       //    return those first before applying broader filters
+  //       if (
+  //         !isQueryMatchingPreference &&
+  //         userPreferenceQuestions.length > 0 &&
+  //         Object.keys(userQuery).length > 0
+  //       ) {
+  //         console.log(
+  //           'Returning user preference questions as they are pending',
+  //         );
+  //         return userPreferenceQuestions;
+  //       }
+
+  //       // 8. If no preference-based questions or filters remain,
+  //       //    return general unanswered questions using the updated query
+  //       return this.questionRepo.getUnAnsweredQuestions(userId, query, session);
+  //     });
+  //   } catch (error) {
+  //     throw new InternalServerError(
+  //       `Failed to get unanswered questions: ${error}`,
+  //     );
+  //   }
+  // }
 
   async getDetailedQuestions(
     query: GetDetailedQuestionsQuery,
@@ -460,7 +474,7 @@ export class QuestionService extends BaseService {
       );
 
       const CURRENT_BATCH_SIZE = TOTAL_EXPERTS_LIMIT - EXISTING_QUEUE_COUNT;
-      
+
       // To ensure allocation will not overflow total limit
       const FINAL_BATCH_SIZE = Math.min(
         BATCH_EXPECTED_TO_ADD,

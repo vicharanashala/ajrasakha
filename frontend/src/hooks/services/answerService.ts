@@ -21,6 +21,35 @@ export class AnswerService {
       throw error;
     }
   }
+  async reviewAnswer({
+    questionId,
+    status,
+    answer,
+    sources,
+    reasonForRejection,
+  }: {
+    questionId: string;
+    status: "accepted" | "rejected";
+    answer?: string;
+    sources?: string[];
+    reasonForRejection?: string;
+  }): Promise<SubmitAnswerResponse | null> {
+    try {
+      return await apiFetch<SubmitAnswerResponse>(`${this._baseUrl}/review`, {
+        method: "POST",
+        body: JSON.stringify({
+          questionId,
+          status,
+          answer,
+          sources,
+          reasonForRejection,
+        }),
+      });
+    } catch (error) {
+      console.error(`Error in submitAnswer(${questionId}):`, error);
+      throw error;
+    }
+  }
   async updateAnswer(answerId: string, updatedAnswer: string) {
     try {
       return await apiFetch<SubmitAnswerResponse>(

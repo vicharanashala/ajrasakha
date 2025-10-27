@@ -1,13 +1,18 @@
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
 import {
   IQuestionSubmission,
-  ISubmissionHistroy,
+  ISubmissionHistory,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
-import {InternalServerError} from 'routing-controllers';
+import {
+  BadRequestError,
+  InternalServerError,
+  NotFoundError,
+} from 'routing-controllers';
+import {USER_VALIDATORS} from '#root/modules/core/classes/validators/UserValidators.js';
 
 export class QuestionSubmissionRepository
   implements IQuestionSubmissionRepository
@@ -144,7 +149,7 @@ export class QuestionSubmissionRepository
 
   async update(
     questionId: string,
-    userSubmissionData: ISubmissionHistroy,
+    userSubmissionData: ISubmissionHistory,
     session?: ClientSession,
   ): Promise<void> {
     try {
@@ -175,6 +180,60 @@ export class QuestionSubmissionRepository
       throw new InternalServerError(`Failed to update submission: ${error}`);
     }
   }
+
+  async updateHistoryByUserId(
+    questionId: string,
+    userId: string,
+    updatedDoc: Partial<ISubmissionHistory>,
+    session?: ClientSession,
+  ): Promise<void> {
+    try {
+      await this.init();
+
+      const submission = await this.getByQuestionId(questionId, session);
+
+      if (!submission) {
+        throw new NotFoundError(
+          `Failed to find submission while updating history!`,
+        );
+      }
+
+      const submissionHistory = submission.history || [];
+
+      if (submissionHistory.length === 0) {
+        throw new BadRequestError(`No history found to update!`);
+      }
+
+      const updatedHistory = [...submissionHistory];
+
+      const indexToUpdate = updatedHistory.findIndex(
+        history => history.updatedBy.toString() === userId,
+      );
+
+      if (indexToUpdate === -1) {
+        throw new BadRequestError(
+          `No matching history found for userId: ${userId}`,
+        );
+      }
+
+      updatedHistory[indexToUpdate] = {
+        ...updatedHistory[indexToUpdate],
+        ...updatedDoc,
+        updatedAt: new Date(),
+      };
+
+      await this.QuestionSubmissionCollection.updateOne(
+        {questionId: new ObjectId(questionId)},
+        {$set: {history: updatedHistory}},
+        {session},
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to update history / More: ${error}`,
+      );
+    }
+  }
+
   async deleteByQuestionId(
     questionId: string,
     session?: ClientSession,

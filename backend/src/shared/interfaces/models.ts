@@ -73,11 +73,13 @@ export interface IContext {
   createdAt?: Date;
 }
 
-export interface ISubmissionHistroy {
+export interface ISubmissionHistory {
   updatedBy: string | ObjectId;
   answer: string | ObjectId;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'in-review' | 'approved' | 'rejected' 
   reasonForRejection?: string;
+  rejectedBy?: string | ObjectId;
+  approvedAnswer?: string | ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -86,7 +88,7 @@ export interface IQuestionSubmission {
   _id?: string | ObjectId;
   questionId: string | ObjectId;
   lastRespondedBy: string | ObjectId;
-  history: ISubmissionHistroy[];
+  history: ISubmissionHistory[];
   queue: (string | ObjectId)[];
   createdAt?: Date;
   updatedAt?: Date;

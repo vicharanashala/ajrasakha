@@ -364,7 +364,7 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
-  async getUnAnsweredQuestions(
+  async getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
     // userPreference: IUser['preference'] | null,
@@ -429,15 +429,7 @@ export class QuestionRepository implements IQuestionRepository {
         }
         if (startDate) filter.createdAt = {$gte: startDate};
       }
-
-      // if (search) {
-      //   filter.$or = [
-      //     {question: {$regex: search, $options: 'i'}},
-      //     {'details.crop': {$regex: search, $options: 'i'}},
-      //     {'details.state': {$regex: search, $options: 'i'}},
-      //     {source: {$regex: search, $options: 'i'}},
-      //   ];
-      // }
+     
       const pipeline: any = [{$match: filter}];
 
       if (user && user !== 'all') {

@@ -1,6 +1,6 @@
 import {
   IQuestionSubmission,
-  ISubmissionHistroy,
+  ISubmissionHistory,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
 
@@ -22,7 +22,21 @@ export interface IQuestionSubmissionRepository {
    */
   update(
     questionId: string,
-    userSubmissionData: ISubmissionHistroy,
+    userSubmissionData: ISubmissionHistory,
+    session?: ClientSession,
+  ): Promise<void>;
+  
+  /**
+   * update submission history
+   * @param questionId
+   * @param userId
+   * @param updatedDoc
+   * @param session Optional MongoDB session for transaction
+   */
+  updateHistoryByUserId(
+    questionId: string,
+    userId: string,
+    updatedDoc: Partial<ISubmissionHistory>,
     session?: ClientSession,
   ): Promise<void>;
 

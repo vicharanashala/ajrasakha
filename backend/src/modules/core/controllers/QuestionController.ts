@@ -59,18 +59,18 @@ export class QuestionController {
     return this.questionService.getByContextId(contextId);
   }
 
-  @Get('/')
+  @Get('/allocated')
   @HttpCode(200)
   @ResponseSchema(QuestionResponse, {isArray: true})
   @Authorized()
   @OpenAPI({summary: 'Get all open status questions'})
-  async getUnAnsweredQuestions(
+  async getAllocatedQuestions(
     @QueryParams()
     query: GetDetailedQuestionsQuery,
     @CurrentUser() user: IUser,
   ): Promise<QuestionResponse[]> {
     const userId = user._id.toString();
-    return this.questionService.getUnAnsweredQuestions(userId, query);
+    return this.questionService.getAllocatedQuestions(userId, query);
   }
 
   @Get('/detailed')
@@ -195,7 +195,7 @@ export class QuestionController {
     const {index} = body;
     return this.questionService.removeExpertFromQueue(questionId, index);
   }
-  
+
   @Delete('/:questionId')
   @HttpCode(200)
   @Authorized()

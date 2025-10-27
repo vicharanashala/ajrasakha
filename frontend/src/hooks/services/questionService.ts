@@ -47,7 +47,7 @@ export class QuestionService {
     );
   }
 
-  async getAllQuestions(
+  async useGetAllocatedQuestions(
     pageParam: number,
     limit: number,
     filter: QuestionFilter,
@@ -84,7 +84,7 @@ export class QuestionService {
       params.append("dateRange", preferences.dateRange);
 
     return apiFetch<IQuestion[] | null>(
-      `${this._baseUrl}?${params.toString()}`
+      `${this._baseUrl}/allocated?${params.toString()}`
     );
   }
 
