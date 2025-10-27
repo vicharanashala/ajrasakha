@@ -202,11 +202,15 @@ export const QuestionDetails = ({
         </div>
       </header>
 
-      <Card className="p-4 grid gap-3">
+      <Card className="p-4 grid gap-3 
+      w-[80vw] sm:w-full sm:max-w-full md:max-w-full lg:max-w-full
+      p-4 sm:p-5 md:p-6
+      transition-all duration-300
+        ">
         <p className="text-sm font-medium">Details</p>
 
         {/* Basic Info */}
-        <div className="grid grid-cols-2 gap-2 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm w-full">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-primary" />
             <span className="text-muted-foreground">State:</span>
@@ -233,7 +237,7 @@ export const QuestionDetails = ({
             <span className="truncate">{question.details?.season || "-"}</span>
           </div>
 
-          <div className="flex items-center gap-2 col-span-2">
+          <div className="flex items-center gap-2 sm:col-span-2">
             <Layers className="w-4 h-4 text-primary" />
             <span className="text-muted-foreground">Domain:</span>
             <span className="truncate">{question.details?.domain || "-"}</span>
@@ -317,20 +321,19 @@ export const QuestionDetails = ({
           </Button>
         )}
       </Card>
-
       <SubmissionTimeline
         history={question.submission.history}
         queue={question.submission.queue}
         currentUser={currentUser}
       />
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold flex justify-center gap-2 items-center ">
+      <div className="flex  sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+        <h2 className="text-lg font-semibold flex justify-center sm:justify-start items-center gap-2 ">
           <div className="p-2 rounded-lg bg-primary/10">
             <FileText className="w-5 h-5 text-primary" />
           </div>
           Submission History
         </h2>
-        <div className="flex items-center gap-2">
+        <div className="flex justify-center sm:justify-start">
           <Button
             size="sm"
             variant="outline"
@@ -478,8 +481,8 @@ const SubmissionTimeline = ({
   // }
 
   return (
-    <div className="w-full space-y-6 my-6">
-      <div className="flex items-center justify-between pb-4 border-b border-border">
+    <div className="w-full space-y-6 my-6 px-2 sm:px-4 md:px-6 overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-border">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
             <Users className="w-5 h-5 text-primary" />
@@ -511,95 +514,120 @@ const SubmissionTimeline = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 transition-all duration-500 ease-in-out relative">
-        {displayedQueue?.map((user, index) => {
-          const status = getStatus(index);
-          const styles = getStatusStyles(status);
-          const isLast = index === displayedQueue?.length - 1;
-          const isCurrentUserWaiting =
-            status === "waiting" && currentUser.email === user.email;
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 transition-all duration-500 ease-in-out relative">
+    {displayedQueue?.map((user, index) => {
+      const status = getStatus(index);
+      const styles = getStatusStyles(status);
+      const isLast = index === displayedQueue?.length - 1;
+      const isCurrentUserWaiting =
+        status === "waiting" && currentUser.email === user.email;
 
-          return (
+      return (
+        <div
+          key={`${user._id}-${index}`}
+          className="relative flex flex-col "
+        >
+          {/* Circular Card */}
+          <div
+            className={`flex flex-col items-center justify-center gap-2 p-4 rounded-full w-60 h-60 border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 ${styles.container}
+              ${isExpanded && index >= INITIAL_DISPLAY_COUNT ? "animate-fade-in" : ""}
+              ${isCurrentUserWaiting ? "ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105" : ""}
+            `}
+          >
             <div
-              key={`${user._id}-${index}`}
-              className="relative flex flex-col items-center justify-center"
+              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${styles.iconBg}`}
             >
-              {!isLast && (
-                <div className="absolute top-1/2 right-0 flex items-center transform translate-x-full -translate-y-1/2">
-                  <svg
-                    className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 ${
-                      isCurrentUserWaiting ? "animate-bounce" : ""
-                    }`}
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M5 12h14m0 0l-4-4m4 4l-4 4"
-                    />
-                  </svg>
-                </div>
+              {status === "submitted" ? (
+                <CheckCircle2 className={`w-6 h-6 ${styles.icon}`} />
+              ) : status === "waiting" ? (
+                <Clock
+                  className={`w-6 h-6 ${styles.icon} ${
+                    isCurrentUserWaiting ? "animate-bounce-subtle" : ""
+                  }`}
+                />
+              ) : (
+                <AlertCircle className={`w-6 h-6 ${styles.icon}`} />
               )}
-
-              <div
-                className={`flex flex-col items-center justify-center gap-2 p-4 rounded-full aspect-square border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 ${
-                  styles.container
-                } ${
-                  isExpanded && index >= INITIAL_DISPLAY_COUNT
-                    ? "animate-fade-in"
-                    : ""
-                }${
-                  isCurrentUserWaiting
-                    ? " ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105"
-                    : ""
-                }
-                  `}
-              >
-                <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${styles.iconBg}`}
-                >
-                  {status === "submitted" ? (
-                    <CheckCircle2 className={`w-6 h-6 ${styles.icon}`} />
-                  ) : status === "waiting" ? (
-                    <Clock
-                      className={`w-6 h-6 ${styles.icon} ${
-                        isCurrentUserWaiting ? "animate-bounce-subtle" : ""
-                      }`}
-                    />
-                  ) : (
-                    <AlertCircle className={`w-6 h-6 ${styles.icon}`} />
-                  )}
-                </div>
-
-                <div className="text-center w-full px-2">
-                  <p className="text-xs font-semibold text-foreground truncate">
-                    {user.name}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground truncate mt-0.5">
-                    {user.email}
-                  </p>
-                </div>
-
-                <span
-                  className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${styles.badge}`}
-                >
-                  {status === "submitted"
-                    ? "Submitted"
-                    : status === "waiting"
-                    ? isCurrentUserWaiting
-                      ? "Your Turn"
-                      : "Waiting"
-                    : "Pending"}
-                </span>
-              </div>
             </div>
-          );
-        })}
-      </div>
+
+            <div className="text-center w-full px-2">
+              <p className="text-xs font-semibold  text-foreground">
+                {user.name}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {user.email}
+              </p>
+            </div>
+
+            <span
+              className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${styles.badge}`}
+            >
+              {status === "submitted"
+                ? "Submitted"
+                : status === "waiting"
+                ? isCurrentUserWaiting
+                  ? "Your Turn"
+                  : "Waiting"
+                : "Pending"}
+            </span>
+          </div>
+
+          {/* Arrow */}
+          {!isLast && (
+  <div
+    className={`
+      flex justify-center mt-3 
+      sm:mt-0 sm:absolute sm:top-1/2 sm:right-0 
+      sm:translate-x-full sm:-translate-y-1/2
+    `}
+  >
+    {/* Down arrow for small screens */}
+    <svg
+      className={`block sm:hidden w-5 h-5 text-gray-400 dark:text-gray-500 ${
+        isCurrentUserWaiting ? "animate-bounce" : ""
+      }`}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 5v14m0 0l4-4m-4 4l-4-4"
+      />
+    </svg>
+
+    {/* Right arrow for medium+ screens */}
+    <svg
+      className={`hidden sm:block w-5 h-5 text-gray-400 dark:text-gray-500 ${
+        isCurrentUserWaiting ? "animate-bounce" : ""
+      }`}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M5 12h14m0 0l-4-4m4 4l-4 4"
+      />
+    </svg>
+  </div>
+)}
+
+
+        </div>
+      );
+    })}
+  </div>
+
+
+
+
 
       {hasMore && (
         <div className="flex justify-center pt-4">
