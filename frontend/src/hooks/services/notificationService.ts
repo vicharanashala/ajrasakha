@@ -1,6 +1,4 @@
-import type {
-  IQuestion,
-} from "@/types";
+
 import { apiFetch } from "../api/api-fetch";
 import type { INotification } from "../../types";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -10,7 +8,7 @@ export class NotificationService {
 
 
   async getUserNotifications(page:number,limit:number){
-    const response = apiFetch<INotification[] | null>(`${this._baseUrl}?page=${page}&limit=${limit}`)
+    const response = apiFetch<{notifications:INotification[];page:number;totalCount:number;totalPages:number}>(`${this._baseUrl}?page=${page}&limit=${limit}`)
     console.log("fromn respose ",response)
     return response
   }

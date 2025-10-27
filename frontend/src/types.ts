@@ -271,12 +271,13 @@ export type IRequest = RequestDetails & {
 
 export type INotificationType = "flag" | "answer_creation" | "peer_review"
 export interface INotification{
-   _id?: string 
+   _id: string 
   userId:string
   enitity_id:string 
+  title:string
   type:INotificationType;
   message:string;
   is_read:boolean;
-  createdAt?: string 
-  updatedAt?: string 
+  createdAt: string 
+  updatedAt: string 
 }

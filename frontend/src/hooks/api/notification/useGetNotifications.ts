@@ -13,9 +13,13 @@ export const useGetNotifications = (
       );
     },
     initialPageParam: 1,
-    getNextPageParam: (lastPage, allPages) => {
-      if (lastPage && lastPage.length < limit) return undefined;
-      return allPages.length + 1;
-    },
+    // getNextPageParam: (lastPage, allPages) => {
+    //   if (lastPage && lastPage.length < limit) return undefined;
+    //   return allPages.length + 1;
+    // },
+    getNextPageParam: (lastPage) => {
+  if (!lastPage || lastPage.page >= lastPage.totalPages) return undefined;
+  return lastPage.page + 1;
+},
   });
 };

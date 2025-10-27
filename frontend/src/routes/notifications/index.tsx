@@ -3,10 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 export const Route = createFileRoute('/notifications/')({
   component: Notification,
 })
-
-
 import { useEffect, useState } from "react";
-
 import { BellIcon, CheckCircle, Trash2, MoreVertical, ArrowLeft } from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { Separator } from "@/components/atoms/separator";
@@ -21,9 +18,10 @@ import { useGetNotifications } from '@/hooks/api/notification/useGetNotification
 import { useDeleteNotification } from '@/hooks/api/notification/useDeleteNotifications';
 import { useMarkAsReadNotification } from '@/hooks/api/notification/useUpdateNotification';
 import { useMarkAllAsReadNotification } from '@/hooks/api/notification/useMarkAllAsRead';
-interface Notification {
+import toast from 'react-hot-toast'
+export interface Notification {
   _id: string;
-  entity_id: string;
+  enitity_id: string;
   message: string;
   title: string;
   is_read: boolean;
@@ -35,9 +33,9 @@ interface Notification {
 
 export default function Notification() {
   const { data: user, isLoading } = useGetCurrentUser();
-  const { mutateAsync: deleteNotification, isPending: deletingQuestion } =useDeleteNotification()
-  const {mutateAsync:markAsRead,isPending:markingAsRead} =useMarkAsReadNotification()
-  const {mutateAsync:markAllAsRead,isPending:markingAllAsRead} =useMarkAllAsReadNotification()
+  const { mutateAsync: deleteNotification} = useDeleteNotification()
+  const { mutateAsync: markAsRead} = useMarkAsReadNotification()
+  const { mutateAsync: markAllAsRead } = useMarkAllAsReadNotification()
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
@@ -48,10 +46,9 @@ export default function Notification() {
     isFetchingNextPage,
     refetch,
   } = useGetNotifications();
-  console.log("Data aaa", notificationPages)
   useEffect(() => {
     if (notificationPages?.pages) {
-      const allNotifications = notificationPages.pages.flatMap(page => page.notifications);
+      const allNotifications = notificationPages?.pages.flatMap(page => page?.notifications ?? []) 
       setNotifications(allNotifications);
     }
   }, [notificationPages]);
@@ -59,24 +56,26 @@ export default function Notification() {
   const handleMarkAsRead = async (id: string) => {
     try {
       await markAsRead(id)
+      toast.success("Notification marked as read!")
     } catch (error) {
       console.log("Error: ", error);
     }
   };
 
 
-    const handleDelete = async (notificationId:string) => {
+  const handleDelete = async (notificationId: string) => {
     try {
       await deleteNotification(notificationId);
     } catch (error) {
       console.log("Error: ", error);
     }
   };
-  
 
-  const handleMarkAllAsRead =async () => {
+
+  const handleMarkAllAsRead = async () => {
     try {
       await markAllAsRead()
+      toast.success("Notification marked as read!")
     } catch (error) {
       console.log("Error: ", error);
 
@@ -120,177 +119,207 @@ export default function Notification() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto flex items-center justify-between gap-4 px-4 py-3">
-          <div className="flex items-center gap-3 shrink-0">
-            <img src="/annam-logo.png" alt="Annam Logo" className="h-10 w-auto md:h-14" />
-          </div>
+return (
+  <div className="min-h-screen bg-background flex flex-col">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container mx-auto flex flex-wrap items-center justify-between gap-3 px-3 py-2 sm:px-4 sm:py-3">
+        <div className="flex items-center gap-2 shrink-0">
+          <img
+            src="/annam-logo.png"
+            alt="Annam Logo"
+            className="h-8 w-auto sm:h-10 md:h-12"
+          />
+        </div>
 
-          <div className="flex-1 flex justify-center min-w-0">
-            <div className="flex items-center gap-2">
-              <BellIcon className="w-5 h-5 text-muted-foreground" />
-              <h1 className="text-lg font-semibold">Notifications</h1>
-              {unreadCount > 0 && (
-                <Badge variant="destructive" className="ml-2">{unreadCount}</Badge>
-              )}
+        <div className="flex-1 flex justify-center min-w-0">
+          <div className="flex items-center gap-2 text-center">
+            <BellIcon className="w-5 h-5 text-muted-foreground" />
+            <h1 className="text-base sm:text-lg font-semibold truncate">
+              Notifications
+            </h1>
+            {unreadCount > 0 && (
+              <Badge variant="destructive" className="ml-1 sm:ml-2 text-xs sm:text-sm">
+                {unreadCount}
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <ThemeToggleCompact />
+          <UserProfileActions />
+        </div>
+      </div>
+    </header>
+
+    <div className="container mx-auto flex-1 py-4 sm:py-6 px-3 sm:px-0">
+      <div
+        className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer w-fit"
+        onClick={handleBack}
+      >
+        <div className="flex items-center gap-2">
+          <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground group-hover:-translate-x-1 transition-transform duration-200" />
+          <span className="text-xs sm:text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors duration-200">
+            Go Back
+          </span>
+        </div>
+        <div className="h-[1px] w-0 bg-primary group-hover:w-full transition-all duration-300"></div>
+      </div>
+
+      <div className="flex flex-col h-full gap-4 sm:gap-6">
+        <div className="w-full">
+          <div className="flex flex-wrap items-center justify-between mb-4 sm:mb-6 p-3 sm:p-4 bg-card rounded-lg border">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <Checkbox
+                id="select-all"
+                checked={selectedIds.length === notifications.length && notifications.length > 0}
+                onCheckedChange={handleSelectAll}
+                className="data-[state=checked]:bg-green-500"
+              />
+              <span className="text-sm font-medium text-muted-foreground">
+                {selectedIds.length} selected
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mt-2 sm:mt-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleMarkAllAsRead}
+                disabled={unreadCount === 0}
+                className="flex items-center gap-2 text-xs sm:text-sm"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Mark all as read
+              </Button>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
-            <ThemeToggleCompact />
-            <UserProfileActions />
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      {/* <div className="container mx-auto h-full py-6"> */}
-
-
-      <div className="container mx-auto h-full py-6">
-        <div className="flex items-center gap-2 mb-6 group cursor-pointer w-fit" onClick={handleBack}>
-          <div className="flex items-center gap-2">
-            <ArrowLeft className="h-5 w-5 text-muted-foreground group-hover:-translate-x-1 transition-transform duration-200" />
-            <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors duration-200">
-              Go Back
-            </span>
-          </div>
-          <div className="h-[1px] w-0 bg-primary group-hover:w-full transition-all duration-300"></div>
-        </div>
-
-        <div className="grid h-full items-stretch gap-6">
-          <div className="w-full">
-            {/* Actions Bar */}
-            <div className="flex items-center justify-between mb-6 p-4 bg-card rounded-lg border">
-              <div className="flex items-center gap-4">
-                <Checkbox
-                  id="select-all"
-                  checked={selectedIds.length === notifications.length && notifications.length > 0}
-                  onCheckedChange={handleSelectAll}
-                  className="data-[state=checked]:bg-green-500"
-                />
-                <span className="text-sm font-medium text-muted-foreground">
-                  {selectedIds.length} selected
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleMarkAllAsRead}
-                  disabled={unreadCount === 0}
-                  className="flex items-center gap-2"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  Mark all as read
-                </Button>
-              </div>
-            </div>
-
-            {/* Notifications List */}
-            <ScrollArea className="h-[calc(100vh-200px)] rounded-lg border">
-              <div className="p-4 space-y-4">
-                {notifications.length === 0 ? (
-                  <div className="text-center py-12">
-                    <BellIcon className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No notifications</h3>
-                    <p className="text-muted-foreground">You're all caught up!</p>
-                  </div>
-                ) : (
-                  notifications.map((notification) => (
-                    <div
-                      key={notification._id}
-                      className={`flex items-start gap-4 p-4 rounded-lg border transition-all duration-150 ${!notification.is_read
-                          ? "bg-accent/50 border-accent-foreground/20"
-                          : "bg-card"
-                        } ${selectedIds.includes(notification._id) ? "ring-2 ring-green-500 ring-opacity-30" : ""}`}
-                    >
+          <ScrollArea className="h-[calc(100vh-240px)] sm:h-[calc(100vh-200px)] rounded-lg border">
+            <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+              {notifications.length === 0 ? (
+                <div className="text-center py-10 sm:py-12">
+                  <BellIcon className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mb-3 sm:mb-4" />
+                  <h3 className="text-base sm:text-lg font-semibold mb-1 sm:mb-2">
+                    No notifications
+                  </h3>
+                  <p className="text-sm sm:text-base text-muted-foreground">
+                    You're all caught up!
+                  </p>
+                </div>
+              ) : (
+                notifications.map((notification) => (
+                  <div
+                    key={notification._id}
+                    className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border transition-all duration-150
+                      ${!notification.is_read
+                        ? "bg-accent/50 border-accent-foreground/20"
+                        : "bg-card"}
+                      ${selectedIds.includes(notification._id)
+                        ? "ring-2 ring-green-500 ring-opacity-30"
+                        : ""}`}
+                  >
+                    <div className="flex items-start sm:items-center gap-2">
                       <Checkbox
                         checked={selectedIds.includes(notification._id)}
                         onCheckedChange={(checked) => {
-                          if (checked) setSelectedIds(prev => [...prev, notification._id]);
-                          else setSelectedIds(prev => prev.filter(i => i !== notification._id));
+                          if (checked)
+                            setSelectedIds((prev) => [...prev, notification._id]);
+                          else
+                            setSelectedIds((prev) =>
+                              prev.filter((i) => i !== notification._id)
+                            );
                         }}
                         className="mt-1 flex-shrink-0 data-[state=checked]:bg-green-500"
                       />
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge
-                              variant={
-                                notification.type === "success"
-                                  ? "default"
-                                  : notification.type === "error"
-                                    ? "destructive"
-                                    : notification.type === "warning"
-                                      ? "secondary"
-                                      : "outline"
-                              }
-                              className="text-xs"
-                            >
-                              {notification.type.toUpperCase()}
-                            </Badge>
-                            <h4 className="font-medium truncate">{notification.title || "New Task!!"}</h4>
-                          </div>
-                          <div className="flex items-center gap-2 ml-2">
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">{new Date(notification.createdAt).toLocaleString()}</span>
-                            {!notification.is_read && <div className="w-2 h-2 bg-blue-500 rounded-full" />}
-                          </div>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{notification.message}</p>
-                      </div>
-
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem
-                            onClick={() => handleMarkAsRead(notification._id)}
-                            className="flex items-center gap-2 cursor-pointer"
-                            disabled={notification.is_read}
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                            Mark as read
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDelete(notification._id)}
-                            className="flex items-center gap-2 cursor-pointer text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                     </div>
-                  ))
-                )}
 
-                {/* Infinite Scroll Button */}
-                {hasNextPage && (
-                  <div className="text-center mt-4">
-                    <Button
-                      onClick={() => fetchNextPage()}
-                      disabled={isFetchingNextPage}
-                      variant="outline"
-                    >
-                      {isFetchingNextPage ? "Loading..." : "Load More"}
-                    </Button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center justify-between gap-1 sm:gap-2 mb-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge
+                            variant={
+                              notification.type === "success"
+                                ? "default"
+                                : notification.type === "error"
+                                ? "destructive"
+                                : notification.type === "warning"
+                                ? "secondary"
+                                : "outline"
+                            }
+                            className="text-[10px] sm:text-xs"
+                          >
+                            {notification.type.toUpperCase()}
+                          </Badge>
+                          <h4 className="font-medium truncate text-sm sm:text-base">
+                            {notification.title || "New Task!!"}
+                          </h4>
+                        </div>
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(notification.createdAt).toLocaleString()}
+                          </span>
+                          {!notification.is_read && (
+                            <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-xs sm:text-sm text-muted-foreground line-clamp-3 sm:line-clamp-2">
+                        {notification.message}
+                      </p>
+                    </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 flex-shrink-0 self-end sm:self-auto"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40 sm:w-48">
+                        <DropdownMenuItem
+                          onClick={() => handleMarkAsRead(notification._id)}
+                          className="flex items-center gap-2 cursor-pointer"
+                          disabled={notification.is_read}
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          Mark as read
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDelete(notification._id)}
+                          className="flex items-center gap-2 cursor-pointer text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                )}
-              </div>
-            </ScrollArea>
+                ))
+              )}
 
-            {notifications.length > 0 && <Separator className="my-4" />}
-          </div>
+              {hasNextPage && (
+                <div className="text-center mt-4">
+                  <Button
+                    onClick={() => fetchNextPage()}
+                    disabled={isFetchingNextPage}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs sm:text-sm"
+                  >
+                    {isFetchingNextPage ? "Loading..." : "Load More"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+
+          {notifications.length > 0 && <Separator className="my-4" />}
         </div>
       </div>
     </div>
-  );
-};
+  </div>
+)
+}
