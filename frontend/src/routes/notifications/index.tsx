@@ -56,7 +56,7 @@ export default function Notification() {
   const handleMarkAsRead = async (id: string) => {
     try {
       await markAsRead(id)
-      toast.success("Notification marked as read!")
+      // toast.success("Notification marked as read!")
     } catch (error) {
       console.log("Error: ", error);
     }
@@ -95,7 +95,7 @@ export default function Notification() {
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm mx-auto  ">
         <div className="w-full max-w-sm p-6 bg-card rounded-lg shadow-lg flex flex-col items-center justify-center gap-4">
           <h3 className="text-lg font-semibold text-center">
             Loading notifications...
@@ -120,8 +120,8 @@ export default function Notification() {
   }
 
 return (
-  <div className="min-h-screen bg-background flex flex-col">
-    <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+  <div className="min-h-screen bg-background flex flex-col ">
+    {/* <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex flex-wrap items-center justify-between gap-3 px-3 py-2 sm:px-4 sm:py-3">
         <div className="flex items-center gap-2 shrink-0">
           <img
@@ -150,9 +150,9 @@ return (
           <UserProfileActions />
         </div>
       </div>
-    </header>
+    </header> */}
 
-    <div className="container mx-auto flex-1 py-4 sm:py-6 px-3 sm:px-0">
+    <div className="container mx-auto flex-1 py-4 sm:py-6 px-3 sm:px-0 px-6 py-8 max-w-[60%]">
       <div
         className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer w-fit"
         onClick={handleBack}
@@ -163,7 +163,7 @@ return (
             Go Back
           </span>
         </div>
-        <div className="h-[1px] w-0 bg-primary group-hover:w-full transition-all duration-300"></div>
+        {/* <div className="h-[1px] w-0 bg-primary group-hover:w-full transition-all duration-300"></div> */}
       </div>
 
       <div className="flex flex-col h-full gap-4 sm:gap-6">
