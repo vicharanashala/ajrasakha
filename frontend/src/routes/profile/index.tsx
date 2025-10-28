@@ -188,7 +188,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 w-[70vw]">
       {/* Profile Header */}
       <div className="flex flex-col md:flex-row items-center md:items-start justify-between rounded-lg border bg-card p-6 gap-4 md:gap-6">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 w-full md:w-auto">

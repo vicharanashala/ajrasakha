@@ -438,7 +438,7 @@ export const QuestionsTable = ({
   xs:grid-cols-1             /* small devices 420–639 px */
   sm:grid-cols-1             /* tablets 640–767 px */
   md:grid-cols-2             /* medium devices 768–1023 px */
-  lg:grid-cols-3             /* large desktops */
+  lg:hidden             /* large desktops */
   gap-4 sm:gap-5 md:gap-6
   w-full
   px-2 sm:px-4 md:px-6

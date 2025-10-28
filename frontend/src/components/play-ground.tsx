@@ -150,12 +150,12 @@ useEffect(() => {
   <>
     {/* Backdrop */}
     <div
-      className="fixed top-0 right-0 h-full w-56 bg-background shadow-xl p-4 flex flex-col gap-3 max-h-screen overflow-y-auto z-50 border rounded-xl border-border dark:border-border md:hidden animate-slideInRight"
+      className="fixed top-0 right-0 h-full w-56 bg-background shadow-xl p-4 flex flex-col gap-3 max-h-screen overflow-y-auto z-50 md:hidden "
       onClick={closeDrawer} // click outside closes drawer
     />
 
     {/* Drawer */}
-    <div className="fixed top-0 right-0 h-full w-56 bg-background shadow-xl p-4 flex flex-col gap-3 max-h-screen overflow-y-auto z-50 border rounded-xl border-border dark:border-border animate-slideInRight">
+    <div className=" fixed top-0 right-0 h-full w-56  shadow-xl p-4 flex flex-col  gap-3 max-h-screen overflow-y-auto z-50 rounded-xl  ">
       
       {/* Header with Close / Settings Icon */}
       <div className="flex justify-end">
@@ -164,49 +164,51 @@ useEffect(() => {
         </button>
       </div>
 
-      <div className="flex flex-col w-full max-w-sm mx-auto p-4 bg-background rounded-2xl shadow-md space-y-6">
+      <div >
 
       {/* Tabs Section */}
       <TabsListforMobile>
-        <TabsTriggerforMobile value="questions" onClick={handleTabClick}>
+        <TabsTriggerforMobile value="questions" onClick={handleTabClick} className="hover:bg-muted/100    rounded-xl">
           Questions
         </TabsTriggerforMobile>
 
-        <TabsTriggerforMobile value="all_questions" onClick={handleTabClick}>
+        <TabsTriggerforMobile value="all_questions" onClick={handleTabClick} className="hover:bg-muted/100    rounded-xl">
           All Questions
         </TabsTriggerforMobile>
 
         {user && user.role !== "expert" && (
-          <TabsTriggerforMobile value="request_queue" onClick={handleTabClick}>
+          <TabsTriggerforMobile value="request_queue" onClick={handleTabClick} className="hover:bg-muted/100    rounded-xl">
             Request Queue
           </TabsTriggerforMobile>
         )}
 
-        <TabsTriggerforMobile value="upload" onClick={handleTabClick}>
+        <TabsTriggerforMobile value="upload" onClick={handleTabClick} className="hover:bg-muted/100    rounded-xl">
           Upload
         </TabsTriggerforMobile>
 
-        <TabsTriggerforMobile value="history" onClick={handleTabClick}>
+        <TabsTriggerforMobile value="history" onClick={handleTabClick} className="hover:bg-muted/100    rounded-xl">
           History
         </TabsTriggerforMobile>
       </TabsListforMobile>
 
       {/* Divider */}
-      <div className="border-t border-border/60"></div>
+      
 
       {/* Utility Section */}
-      <div className="flex flex-col gap-4 items-start">
-        <div className="flex items-center gap-3 hover:bg-muted/40 w-full px-3 py-2 rounded-xl transition-all">
-          <BellIcon className="w-5 h-5 text-muted-foreground" />
+      <div className="flex flex-col  items-start">
+        <div className="flex items-center gap-5 hover:bg-muted/100 w-full px-3 py-2 rounded-xl transition-all">
+          <BellIcon className="w-5 h-5  text-muted-foreground" />
           <span className="text-sm font-medium text-foreground/80">Notifications</span>
         </div>
+        
+        
 
-        <div className="flex items-center gap-3 hover:bg-muted/40 w-full px-3 py-2 rounded-xl transition-all">
+        <div className="flex items-center  hover:bg-muted/100 w-full  rounded-xl transition-all">
           <ThemeToggleCompact />
           <span className="text-sm font-medium text-foreground/80">Toggle theme</span>
         </div>
 
-        <div className="flex items-center gap-3 hover:bg-muted/40 w-full px-3 py-2 rounded-xl transition-all">
+        <div className="flex items-center gap-5 m-2 hover:bg-muted/100 w-full  rounded-xl transition-all">
           <UserProfileActions />
           <span className="text-sm font-medium text-foreground/80">Profile</span>
         </div>

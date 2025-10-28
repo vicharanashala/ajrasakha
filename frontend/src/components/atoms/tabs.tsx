@@ -55,7 +55,7 @@ function TabsListforMobile({
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        "flex flex-col w-full gap-2 bg-background p-3 rounded-2xl shadow-sm backdrop-blur-sm",
+        "flex flex-col ",
         className
       )}
       {...props}
@@ -70,7 +70,7 @@ function TabsTriggerforMobile({
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        "flex items-center justify-start gap-3 w-full rounded-xl border border-transparent px-3 py-2 text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-background/80 transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+        "flex items-center justify-start gap-3 w-full rounded-xl  px-3 py-2 text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-background/80 transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
         "disabled:opacity-50 disabled:pointer-events-none",
         className
