@@ -16,10 +16,16 @@ import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { RequestsPage } from "./request-page";
 import { useNavigate } from "@tanstack/react-router";
 import { Badge } from "./atoms/badge";
+import { initializeNotifications } from "@/services/pushService";
+import { useEffect } from "react";
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser();
+  const userId=user?._id?.toString()
   const navigate = useNavigate()
+  useEffect(() => {
+    initializeNotifications(userId)
+  },[userId])
   return (
     <>
       {isLoading && (
