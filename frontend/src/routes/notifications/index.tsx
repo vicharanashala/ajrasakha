@@ -4,7 +4,7 @@ export const Route = createFileRoute('/notifications/')({
   component: Notification,
 })
 import { useEffect, useState } from "react";
-import { BellIcon, CheckCircle, Trash2, MoreVertical, ArrowLeft } from "lucide-react";
+import { BellIcon, CheckCircle, Trash2, MoreVertical, ArrowLeft, XCircle } from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { Separator } from "@/components/atoms/separator";
 import { UserProfileActions } from "@/components/atoms/user-profile-actions";
@@ -25,7 +25,7 @@ export interface Notification {
   message: string;
   title: string;
   is_read: boolean;
-  // type: "info" | "success" | "warning" | "error";
+  // type: "info" | "success" | "warning" | "error" | "Flag_Response";
   type: string;
   createdAt: string;
   updatedAt: string;
@@ -170,7 +170,7 @@ return (
         <div className="w-full">
           <div className="flex flex-wrap items-center justify-between mb-4 sm:mb-6 p-3 sm:p-4 bg-card rounded-lg border">
             <div className="flex items-center gap-2 sm:gap-4">
-              <Checkbox
+              {/* <Checkbox
                 id="select-all"
                 checked={selectedIds.length === notifications.length && notifications.length > 0}
                 onCheckedChange={handleSelectAll}
@@ -178,7 +178,7 @@ return (
               />
               <span className="text-sm font-medium text-muted-foreground">
                 {selectedIds.length} selected
-              </span>
+              </span> */}
             </div>
             <div className="flex items-center gap-2 mt-2 sm:mt-0">
               <Button
@@ -220,7 +220,7 @@ return (
                         : ""}`}
                   >
                     <div className="flex items-start sm:items-center gap-2">
-                      <Checkbox
+                      {/* <Checkbox
                         checked={selectedIds.includes(notification._id)}
                         onCheckedChange={(checked) => {
                           if (checked)
@@ -231,7 +231,7 @@ return (
                             );
                         }}
                         className="mt-1 flex-shrink-0 data-[state=checked]:bg-green-500"
-                      />
+                      /> */}
                     </div>
 
                     <div className="flex-1 min-w-0">
@@ -262,6 +262,14 @@ return (
                           {!notification.is_read && (
                             <div className="w-2 h-2 bg-blue-500 rounded-full" />
                           )}
+
+                          <XCircle className="w-4 h-4 flex items-center gap-2 cursor-pointer text-red-500 hover:text-red-700 transition-colors duration-200"
+                    onClick={(e) =>{
+                            e.stopPropagation();
+                            handleDelete(notification._id)
+                          } }/>
+
+
                         </div>
                       </div>
                       <p className="text-xs sm:text-sm text-muted-foreground line-clamp-3 sm:line-clamp-2">
@@ -269,7 +277,7 @@ return (
                       </p>
                     </div>
 
-                    <DropdownMenu>
+                    {/* <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
                           variant="ghost"
@@ -304,7 +312,7 @@ return (
                           Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
-                    </DropdownMenu>
+                    </DropdownMenu> */}
                   </div>
                 ))
               )}

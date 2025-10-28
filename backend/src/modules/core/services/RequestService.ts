@@ -312,7 +312,11 @@ export class RequestService extends BaseService {
         if (request.status == 'approved' || request.status == 'rejected') {
           throw new BadRequestError('Request already closed!');
         }
-
+        let userId = request.requestedBy.toString();
+        let entityId = request.entityId.toString();
+        let title = `You Flag has Been ${status}`
+        let message = `Response: ${response}`
+        let type = 'Flag_Response'
         if (status == 'approved') {
           const entityId = request.entityId.toString();
           if (request.requestType == 'question_flag') {
@@ -324,13 +328,15 @@ export class RequestService extends BaseService {
             );
           }
         }
-        return this.requestRepository.updateStatus(
+        const result=await this.requestRepository.updateStatus(
           requestId,
           status,
           response,
           userId,
           session,
         );
+        await this.notificationRepository.addNotification(userId,entityId,type,message,title,session)
+        return result
       });
     } catch (error) {
       throw error;
