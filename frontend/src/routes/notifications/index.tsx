@@ -209,6 +209,7 @@ return (
               ) : (
                 notifications.map((notification) => (
                   <div
+                  onClick={() => handleMarkAsRead(notification._id)}
                     key={notification._id}
                     className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border transition-all duration-150
                       ${!notification.is_read
@@ -280,7 +281,11 @@ return (
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-40 sm:w-48">
                         <DropdownMenuItem
-                          onClick={() => handleMarkAsRead(notification._id)}
+                          onClick={(e) =>{
+                             e.stopPropagation();
+                             handleMarkAsRead(notification._id)
+                            }
+                            }
                           className="flex items-center gap-2 cursor-pointer"
                           disabled={notification.is_read}
                         >
@@ -288,7 +293,11 @@ return (
                           Mark as read
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => handleDelete(notification._id)}
+                          onClick={(e) =>{
+                            e.stopPropagation();
+                            handleDelete(notification._id)
+                          }
+                        }
                           className="flex items-center gap-2 cursor-pointer text-destructive"
                         >
                           <Trash2 className="w-4 h-4" />

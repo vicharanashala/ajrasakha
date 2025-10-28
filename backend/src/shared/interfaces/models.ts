@@ -127,9 +127,10 @@ export type INotificationType = "flag" | "answer_creation" | "peer_review"
 export interface INotification{
    _id?: string | ObjectId;
   userId:string | ObjectId;
-  enitity_id:string | ObjectId;
+  enitity_id?:string | ObjectId;
   title:string;
-  type:INotificationType;
+  // type:INotificationType;
+  type:string;
   message:string;
   is_read:boolean;
   createdAt?: string | Date;

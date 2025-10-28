@@ -222,4 +222,9 @@ export class UserRepository implements IUserRepository {
     //4. Return priority queue of users
     return scoredUsers.map(s => s.user);
   }
+  
+  async findModerators():Promise<IUser[]>{
+    await this.init()
+    return await this.usersCollection.find({role:'moderator'}).toArray()
+  }
 }
