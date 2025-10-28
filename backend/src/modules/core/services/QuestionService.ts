@@ -11,7 +11,6 @@ import {
   BadRequestError,
   InternalServerError,
   NotFoundError,
-  UnauthorizedError,
 } from 'routing-controllers';
 import {
   AddQuestionBodyDto,
@@ -358,10 +357,34 @@ export class QuestionService extends BaseService {
     try {
       return this._withTransaction(async (session: ClientSession) => {
         const currentQuestion = await this.questionRepo.getById(questionId);
+
+        if (!currentQuestion)
+          throw new NotFoundError(
+            `Failed to find question with id: ${questionId}`,
+          );
+
         const currentAnswers = await this.answerRepo.getByQuestionId(
           questionId,
           session,
         );
+
+        const questionSubmissions =
+          await this.questionSubmissionRepo.getByQuestionId(
+            questionId,
+            session,
+          );
+
+        if (!questionSubmissions)
+          throw new NotFoundError(
+            `Failed to find question submission document of questionId: ${questionId}`,
+          );
+
+        const submissionHistory =
+          await this.questionSubmissionRepo.getDetailedSubmissionHistory(
+            questionId,
+            session,
+          );
+
         return {
           id: currentQuestion._id.toString(),
           text: currentQuestion.question,
@@ -371,6 +394,7 @@ export class QuestionService extends BaseService {
           createdAt: new Date(currentQuestion.createdAt).toLocaleString(),
           updatedAt: new Date(currentQuestion.updatedAt).toLocaleString(),
           totalAnswersCount: currentQuestion.totalAnswersCount,
+          history: submissionHistory,
           currentAnswers: currentAnswers.map(currentAnswer => ({
             id: currentAnswer._id.toString(),
             answer: currentAnswer.answer,

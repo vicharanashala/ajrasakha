@@ -94,7 +94,7 @@ export class UserRepository implements IUserRepository {
     //   {
     //     $set: {
     //       reputation_score: 0,
-    //       // preference: {crop: 'all', domain: 'all', state: 'all'},
+    //       preference: {crop: 'all', domain: 'all', state: 'all'},
     //       updatedAt: new Date(),
     //     },
     //   },

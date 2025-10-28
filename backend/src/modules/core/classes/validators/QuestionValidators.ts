@@ -121,6 +121,63 @@ class QuestionDetailsDto {
 //   @IsString({each: true})
 //   currentAnswers?: {answer: string; id: string; isFinalAnswer: boolean}[];
 // }
+
+
+class UpdatedBy {
+  @IsString()
+  _id!: string;
+
+  @IsString()
+  userName!: string;
+
+  @IsString()
+  email!: string;
+}
+
+class AnswerDetails {
+  @IsString()
+  _id!: string;
+
+  @IsString()
+  answer!: string;
+
+  @IsString()
+  approvalCount!: string;
+
+  @IsArray()
+  @IsString({each: true})
+  sources!: string[];
+}
+
+class HistoryItem {
+  @ValidateNested()
+  @Type(() => UpdatedBy)
+  updatedBy!: UpdatedBy;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AnswerDetails)
+  answer?: AnswerDetails;
+
+  @IsOptional()
+  @IsEnum(['in-review', 'approved', 'rejected'])
+  status?: 'in-review' | 'approved' | 'rejected';
+
+  @IsOptional()
+  @IsString()
+  reasonForRejection?: string;
+
+  @IsOptional()
+  @IsString()
+  approvedAnswer?: string;
+
+  @Type(() => Date)
+  createdAt!: Date;
+
+  @Type(() => Date)
+  updatedAt!: Date;
+}
+
 class QuestionResponse {
   @IsString()
   id!: string;
@@ -146,6 +203,7 @@ class QuestionResponse {
   @Type(() => QuestionDetailsDto)
   details?: QuestionDetailsDto;
 
+  @IsOptional()
   @IsString()
   userId?: string;
 
@@ -160,6 +218,12 @@ class QuestionResponse {
   @ValidateNested({each: true})
   @Type(() => Object)
   currentAnswers?: {answer: string; id: string; isFinalAnswer: boolean}[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({each: true})
+  @Type(() => HistoryItem)
+  history?: HistoryItem[];
 }
 class AddQuestionBodyDto {
   @IsString()
@@ -195,11 +259,11 @@ class ExpertInput {
 }
 
 class AllocateExpertsRequest {
- experts!: string[];
+  experts!: string[];
 }
 class RemoveAllocateBody {
   @IsNumber()
-  index!: number
+  index!: number;
 }
 class GeneratedQuestionResponse {
   @IsString()
@@ -360,7 +424,9 @@ export const QUESTION_VALIDATORS = [
   AddQuestionBodyDto,
   AllocateExpertsRequest,
   ExpertInput,
-  RemoveAllocateBody
+  RemoveAllocateBody,
+  UpdatedBy,
+  HistoryItem
 ];
 
 export {
@@ -373,5 +439,7 @@ export {
   AddQuestionBodyDto,
   AllocateExpertsRequest,
   ExpertInput,
-  RemoveAllocateBody
+  RemoveAllocateBody,
+  UpdatedBy,
+  HistoryItem
 };

@@ -1,3 +1,4 @@
+import { HistoryItem } from '#root/modules/core/classes/validators/QuestionValidators.js';
 import {
   IQuestionSubmission,
   ISubmissionHistory,
@@ -25,7 +26,7 @@ export interface IQuestionSubmissionRepository {
     userSubmissionData: ISubmissionHistory,
     session?: ClientSession,
   ): Promise<void>;
-  
+
   /**
    * update submission history
    * @param questionId
@@ -39,6 +40,16 @@ export interface IQuestionSubmissionRepository {
     updatedDoc: Partial<ISubmissionHistory>,
     session?: ClientSession,
   ): Promise<void>;
+
+  /**
+   * update submission history
+   * @param questionId
+   * @param session Optional MongoDB session for transaction
+   */
+  getDetailedSubmissionHistory(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<HistoryItem[]>;
 
   /**
    * allocateExperts (push expertIds to queue)

@@ -35,6 +35,26 @@ export interface IUser {
 }
 export type QuestionPriority = "low" | "medium" | "high";
 export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT";
+
+export interface HistoryItem {
+  updatedBy: {
+    _id: string;
+    userName: string;
+    email: string;
+  };
+  answer?: {
+    _id: string;
+    answer: string;
+    approvalCount: string;
+    sources: string[];
+  };
+  status?: "in-review" | "approved" | "rejected";
+  reasonForRejection?: string;
+  approvedAnswer?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface IQuestion {
   id: string;
   text: string;
@@ -44,6 +64,7 @@ export interface IQuestion {
   priority: QuestionPriority;
   status: QuestionStatus;
   source: QuestionSource;
+  history: HistoryItem[];
   details: {
     state: string;
     district: string;

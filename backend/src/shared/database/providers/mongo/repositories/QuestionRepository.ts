@@ -379,41 +379,122 @@ export class QuestionRepository implements IQuestionRepository {
 
       const userObjectId = new ObjectId(userId);
 
-      const submissions = (await this.QuestionSubmissionCollection.aggregate([
+      const submissions = await this.QuestionSubmissionCollection.aggregate([
+        // Step 1: Convert all to ObjectIds for reliable comparison
         {
           $addFields: {
-            lastExpertInQueue: {
-              $arrayElemAt: ['$queue', -1],
+            queue: {
+              $map: {
+                input: '$queue',
+                as: 'q',
+                in: {$toObjectId: '$$q'},
+              },
+            },
+            history: {
+              $map: {
+                input: '$history',
+                as: 'h',
+                in: {
+                  updatedBy: {$toObjectId: '$$h.updatedBy'},
+                  answer: '$$h.answer',
+                  status: '$$h.status',
+                  reasonForRejection: '$$h.reasonForRejection',
+                  rejectedBy: '$$h.rejectedBy',
+                  approvedAnswer: '$$h.approvedAnswer',
+                  createdAt: '$$h.createdAt',
+                  updatedAt: '$$h.updatedAt',
+                },
+              },
             },
           },
         },
+
+        // Step 2: Match docs where user exists in queue
         {
           $match: {
-            lastExpertInQueue: userObjectId,
+            queue: userObjectId,
           },
         },
-      ]).toArray()) as IQuestionSubmission[];
+
+        // Step 3: Compute user index in queue
+        {
+          $addFields: {
+            userIndex: {$indexOfArray: ['$queue', userObjectId]},
+          },
+        },
+
+        // Step 4: Extract previous expert
+        {
+          $addFields: {
+            prevExpert: {
+              $cond: [
+                {$gt: ['$userIndex', 0]},
+                {$arrayElemAt: ['$queue', {$subtract: ['$userIndex', 1]}]},
+                null,
+              ],
+            },
+          },
+        },
+
+        // Step 5: Determine submission states
+        {
+          $addFields: {
+            hasUserSubmitted: {
+              $in: [userObjectId, '$history.updatedBy'],
+            },
+            hasPrevSubmitted: {
+              $cond: [
+                {$ifNull: ['$prevExpert', false]},
+                {$in: ['$prevExpert', '$history.updatedBy']},
+                false,
+              ],
+            },
+            historyCount: {$size: '$history'},
+          },
+        },
+
+        // Step 6: Apply conditional match
+        {
+          $match: {
+            $or: [
+              // Normal case: user hasn’t submitted, previous did
+              {
+                hasUserSubmitted: false,
+                hasPrevSubmitted: true,
+              },
+              // Special case: first in queue & no history
+              {
+                userIndex: 0,
+                hasUserSubmitted: false,
+                historyCount: 0,
+              },
+            ],
+          },
+        },
+      ]).toArray();
 
       const questionIdsToAttempt = submissions.map(
         sub => new ObjectId(sub.questionId),
       );
 
+      console.log('Question Ids to attempt: ', questionIdsToAttempt);
+
       const filter: any = {
         status: 'open',
         _id: {$in: questionIdsToAttempt},
       };
-      
+
       const pipeline: any = [{$match: filter}];
 
-      if (sortFilter === 'newest') {
-        pipeline.push({$sort: {createdAt: -1}});
-      } else if (sortFilter === 'oldest') {
-        pipeline.push({$sort: {createdAt: 1}});
-      } else if (sortFilter === 'leastResponses') {
-        pipeline.push({$sort: {totalAnswersCount: 1}});
-      } else if (sortFilter === 'mostResponses') {
-        pipeline.push({$sort: {totalAnswersCount: -1}});
-      }
+      // if (sortFilter === 'newest') {
+      //   pipeline.push({$sort: {createdAt: -1}});
+      // } else if (sortFilter === 'oldest') {
+      //   pipeline.push({$sort: {createdAt: 1}});
+      // } else if (sortFilter === 'leastResponses') {
+      //   pipeline.push({$sort: {totalAnswersCount: 1}});
+      // } else if (sortFilter === 'mostResponses') {
+      //   pipeline.push({$sort: {totalAnswersCount: -1}});
+      // }
 
       pipeline.push({$skip: skip});
       pipeline.push({$limit: limit});

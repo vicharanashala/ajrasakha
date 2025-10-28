@@ -13,6 +13,7 @@ import {
   NotFoundError,
 } from 'routing-controllers';
 import {USER_VALIDATORS} from '#root/modules/core/classes/validators/UserValidators.js';
+import {HistoryItem} from '#root/modules/core/classes/validators/QuestionValidators.js';
 
 export class QuestionSubmissionRepository
   implements IQuestionSubmissionRepository
@@ -230,6 +231,91 @@ export class QuestionSubmissionRepository
     } catch (error) {
       throw new InternalServerError(
         `Failed to update history / More: ${error}`,
+      );
+    }
+  }
+
+  async getDetailedSubmissionHistory(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<HistoryItem[]> {
+    try {
+      await this.init();
+
+      const historyData = await this.QuestionSubmissionCollection.aggregate(
+        [
+          {$match: {questionId: new ObjectId(questionId)}},
+          {$unwind: '$history'},
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'history.updatedBy',
+              foreignField: '_id',
+              as: 'updatedByUser',
+            },
+          },
+          {
+            $lookup: {
+              from: 'answers',
+              localField: 'history.answer',
+              foreignField: '_id',
+              as: 'answerData',
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              updatedBy: {$arrayElemAt: ['$updatedByUser', 0]},
+              answer: {$arrayElemAt: ['$answerData', 0]},
+              'history.status': 1,
+              'history.reasonForRejection': 1,
+              'history.approvedAnswer': 1,
+              'history.createdAt': 1,
+              'history.updatedAt': 1,
+            },
+          },
+        ],
+        {session},
+      ).toArray();
+
+      const populatedHistory: HistoryItem[] = historyData.map(item => {
+        const h = item.history;
+        const updatedBy = item.updatedBy;
+        const answer = item.answer;
+
+        return {
+          updatedBy: updatedBy
+            ? {
+                _id: updatedBy._id.toString(),
+                userName: updatedBy.userName,
+                email: updatedBy.email,
+              }
+            : {_id: '', userName: '', email: ''},
+
+          answer: answer
+            ? {
+                _id: answer._id.toString(),
+                answer: answer.answer,
+                approvalCount: answer.approvalCount?.toString() ?? '0',
+                sources: answer.sources ?? [],
+              }
+            : undefined,
+
+          status: h.status,
+
+          reasonForRejection: h.reasonForRejection,
+          approvedAnswer: h.approvedAnswer
+            ? h.approvedAnswer.toString()
+            : undefined,
+          createdAt: h.createdAt,
+          updatedAt: h.updatedAt,
+        };
+      });
+
+      return populatedHistory;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get detailed submission history /More: ${error}`,
       );
     }
   }
