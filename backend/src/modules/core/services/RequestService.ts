@@ -219,6 +219,7 @@ import {
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
 import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
+import { notifyUser } from '#root/utils/pushNotification.js';
 
 @injectable()
 export class RequestService extends BaseService {
@@ -336,6 +337,9 @@ export class RequestService extends BaseService {
           session,
         );
         await this.notificationRepository.addNotification(userId,entityId,type,message,title,session)
+        console.log("notification saved")
+        const subscription = await this.notificationRepository.getSubscriptionByUserId(userId);
+        await notifyUser(userId, title,subscription)
         return result
       });
     } catch (error) {

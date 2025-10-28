@@ -122,20 +122,73 @@ class NotificationResponse {
 
 }
 
+class MessageBody{
+  @JSONSchema({
+    description: 'Question text',
+    example: 'What is the capital of France?',
+    type: 'string',
+  })
+  @IsString()
+  message: string;
+}
+
 class DeleteNotificationParams {
   @IsMongoId()
   @JSONSchema({example: '650e9c0f5f1b2c001c2f4d9e'})
   notificationId: string;
 }
 
+class PushSubscriptionKeys {
+  @JSONSchema({
+    description: "Base64-encoded user public key",
+    example: "BOrXK2u9xYVgKxOIFz4eZr9bRzqkG1Q2bH...",
+    type: "string",
+  })
+  @IsNotEmpty()
+  @IsString()
+  p256dh: string;
+
+  @JSONSchema({
+    description: "Base64-encoded auth secret key",
+    example: "6pZhUvFTRRc6xBxJkHk3PQ==",
+    type: "string",
+  })
+  @IsNotEmpty()
+  @IsString()
+  auth: string;
+}
+
+class AddPushSubscriptionBody {
+  @JSONSchema({
+    description: "Push notification endpoint (URL provided by browser)",
+    example: "https://fcm.googleapis.com/fcm/send/eE93xjR...",
+    type: "string",
+  })
+  @IsNotEmpty()
+  @IsString()
+  endpoint: string;
+
+  @JSONSchema({
+    description: "Keys for push subscription (p256dh, auth)",
+    type: "object",
+  })
+  @ValidateNested()
+  @Type(() => PushSubscriptionKeys)
+  subscription: PushSubscriptionKeys;
+}
+
 export const NOTIFICATION_VALIDATORS = [
   AddNotificationBody,
   NotificationResponse,
-  DeleteNotificationParams
+  DeleteNotificationParams,
+  AddPushSubscriptionBody,
+  MessageBody
 ];
 
 export {
   AddNotificationBody,
   NotificationResponse,
-  DeleteNotificationParams
+  DeleteNotificationParams,
+  AddPushSubscriptionBody,
+  MessageBody
 };

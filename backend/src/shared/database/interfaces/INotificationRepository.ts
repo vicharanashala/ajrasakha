@@ -28,9 +28,13 @@ export interface INotificationRepository {
 
   getNotificationsCount(userId:string,session?:ClientSession):Promise<number>
 
-  deleteNotification(notificationId:string,session:ClientSession):Promise<{deletedCount: number}>
+  deleteNotification(notificationId:string,session?:ClientSession):Promise<{deletedCount: number}>
 
   markAsRead(notificationId:string,session?:ClientSession):Promise<{modifiedCount: number}>
 
   markAllAsRead(userId:string,session?:ClientSession): Promise<{modifiedCount: number}>
+
+  saveSubscription(userId:string,subscription:any,session?:ClientSession)
+
+  getSubscriptionByUserId(userId: string)
 }

@@ -1,4 +1,4 @@
-import {INotification, INotificationType} from '#root/shared/interfaces/models.js';
+import {INotification, INotificationType, ISubscription} from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
@@ -10,7 +10,7 @@ import { NotificationResponse } from '#root/modules/core/classes/validators/Noti
 
 export class NotificationRepository implements INotificationRepository {
   private notificationCollection: Collection<INotification>;
-
+  private subscriptionCollection: Collection<ISubscription>
   constructor(
     @inject(GLOBAL_TYPES.Database)
     private db: MongoDatabase,
@@ -18,6 +18,7 @@ export class NotificationRepository implements INotificationRepository {
 
   private async init() {
     this.notificationCollection = await this.db.getCollection<INotification>('notifications');
+    this.subscriptionCollection = await this.db.getCollection<ISubscription>('subscriptions')
   }
 
   async addNotification(userId: string, enitity_id: string, type: string, message: string,title:string, session?: ClientSession): Promise<{ insertedId: string; }> {
@@ -146,5 +147,23 @@ async markAllAsRead(userId:string,session?:ClientSession): Promise<{modifiedCoun
   }
 }
 
+async saveSubscription(userId: string, subscription: any,session?:ClientSession) {
+  try {
+    await this.init()
+    console.log('data from ',userId,subscription)
+    return await this.subscriptionCollection.findOneAndUpdate(
+      { userId: new ObjectId(userId) },
+      { $set:{userId: new ObjectId(userId),subscription:subscription} },{upsert: true}
+    );
+  } catch (error) {
+     throw new InternalServerError(
+        `Error while saving subscription, More/ ${error}`,
+      );
+  } 
+}
 
+async getSubscriptionByUserId(userId: string) {
+    await this.init()
+    return this.subscriptionCollection.findOne({ userId: new ObjectId(userId) })
+}
 }

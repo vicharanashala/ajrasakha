@@ -136,3 +136,15 @@ export interface INotification{
   createdAt?: string | Date;
   updatedAt?: string | Date;
 }
+
+export interface ISubscription {
+  _id?: string | ObjectId; 
+  userId:string| ObjectId;
+  subscription: {
+    endpoint: string;
+    keys: {
+      p256dh: string;
+      auth: string;
+    };
+  };
+}

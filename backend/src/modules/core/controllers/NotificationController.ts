@@ -17,7 +17,7 @@ import {inject} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {IUser} from '#root/shared/interfaces/models.js';
-import { AddNotificationBody, DeleteNotificationParams, NotificationResponse } from '../classes/validators/NotificationValidators.js';
+import { AddNotificationBody, AddPushSubscriptionBody, DeleteNotificationParams, MessageBody, NotificationResponse } from '../classes/validators/NotificationValidators.js';
 import { NotificationService } from '../services/NotificationService.js';
 
 @OpenAPI({
@@ -88,4 +88,27 @@ export class NotificationController {
     const userId = user._id.toString()
     return this.notificationService.markAllAsRead(userId)
   }
-}
+
+  @OpenAPI({summary: 'Save subscription for push notification'})
+  @Post('/subscriptions')
+  @HttpCode(201)
+  @Authorized()
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async saveSubscription(@Body() body: any, @CurrentUser() user: IUser) {
+    console.log("reached here")
+    const {subscription} = body;
+    const userId = user._id.toString();
+    return this.notificationService.saveSubscription(userId,subscription)
+  }
+
+  @OpenAPI({summary: 'Send push notification to user'})
+  @Post('/send-notification')
+  @HttpCode(201)
+  @Authorized()
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async sendNotifications(@Body() body: MessageBody, @CurrentUser() user: IUser) {
+    const {message} = body;
+    const userId = user._id.toString();
+    return this.notificationService.sendNotifications(userId,message)
+  }
+} 
