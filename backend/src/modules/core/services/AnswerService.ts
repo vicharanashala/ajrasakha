@@ -620,25 +620,12 @@ export class AnswerService extends BaseService {
         const currentSubmissionQueue = questionSubmission.queue || [];
 
         const lastHistory = currentSubmissionHistory.at(-1);
-        console.log('---- Auto Allocation review ----');
-        console.log('isAutoAllocate:', question.isAutoAllocate);
-        console.log('Queue length < 10:', currentSubmissionQueue.length < 10);
-        console.log(
-          'Has lastHistory.answer or reviewed:',
-          lastHistory?.answer || lastHistory?.status === 'reviewed',
-        );
-        console.log(
-          'Queue length check:',
-          currentSubmissionQueue.length === currentSubmissionHistory.length + 1,
-        );
+
         const canAutoAllocate =
           question.isAutoAllocate &&
           currentSubmissionQueue.length < 10 &&
-          (lastHistory?.answer || lastHistory?.status == 'reviewed') &&
+          status &&
           currentSubmissionQueue.length === currentSubmissionHistory.length + 1;
-
-        console.log('Final canAutoAllocate:', canAutoAllocate);
-        console.log('-------------------------------');
 
         if (canAutoAllocate) {
           await this.questionService.autoAllocateExperts(questionId, session);
