@@ -9,6 +9,7 @@ import {
   Authorized,
   CurrentUser,
   NotFoundError,
+  QueryParams,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -71,4 +72,22 @@ export class UserController {
     const userId = user._id.toString();
     return await this.userService.getAllUserNames(userId);
   }
+
+  @Get('/')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Get All Users'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async getAllUsers( @QueryParams() query: {page?: number; limit?: number; filter?:string; search?:string},): Promise<IUser[]> {
+    const page = Number(query.page) ?? 1;
+    const limit = Number(query.limit) ?? 10;
+    const filter = query.filter ?? 'all';
+    const search = query.search ?? '';
+    const user = await this.userService.getAllUsers(page,limit,filter,search)
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+    return user;
+  }
+
 }

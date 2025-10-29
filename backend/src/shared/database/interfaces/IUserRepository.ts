@@ -101,4 +101,6 @@ export interface IUserRepository {
   findAll(session?: ClientSession): Promise<IUser[]>;
   
   findModerators():Promise<IUser[]>
+
+  findAllUsers(page:number,limit:number,filter:string,search:string,session?:ClientSession):Promise<IUser[]>
 }

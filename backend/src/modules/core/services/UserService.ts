@@ -92,4 +92,14 @@ export class UserService extends BaseService {
       throw new InternalServerError(`Failed to fetch users: ${error}`);
     }
   }
+
+  async getAllUsers(page:number,limit:number,filter:string,search:string):Promise<IUser[]>{
+    try {
+      return await this._withTransaction(async session => {
+        return await this.userRepo.findAllUsers(page,limit,filter,search,session)
+      });
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch users: ${error}`);
+    }
+  }
 }

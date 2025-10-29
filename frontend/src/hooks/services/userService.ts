@@ -21,4 +21,8 @@ export class UserService {
       body: JSON.stringify({ ...user }),
     });
   }
+
+  async getAllUsers(pageParam:number,limit:number,search:string,filter:string):Promise<IUser[]>{
+    return apiFetch<IUser[]>(`${this._baseUrl}/?page=${pageParam}&limit=${limit}&search=${search}&filter=${filter}`)
+  }
 }

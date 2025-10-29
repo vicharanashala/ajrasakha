@@ -227,4 +227,30 @@ export class UserRepository implements IUserRepository {
     await this.init()
     return await this.usersCollection.find({role:'moderator'}).toArray()
   }
+
+  async findAllUsers(page: number, limit: number, filter: string, search: string, session?: ClientSession): Promise<IUser[]> {
+    await this.init()
+    // const users = await this.usersCollection.find({role:{$ne:'admin'}}).toArray()
+    const query:any = {role:{$ne:'admin'}}
+    if(filter && filter.trim() !=='' && filter!=='all'){
+      query.role = filter
+    }
+
+    if(search && search.trim() !== ''){
+      const regex = new RegExp(search,'i')
+      query.$or = [
+        {email:regex},
+        {firstName:regex},
+        {lastName:regex}
+      ]
+    }
+    const skip = (page - 1) * limit
+    const users = await this.usersCollection.find(query,{session}).skip(skip).limit(limit).sort({createdAt:-1}).toArray()
+    console.log("users ",users)
+    const mappedUsers = users.map((u) => ({
+      ...u,
+      _id:u._id.toString(),
+    }))
+    return mappedUsers
+  }
 }
