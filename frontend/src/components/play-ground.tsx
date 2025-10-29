@@ -131,7 +131,7 @@ useEffect(() => {
               </TabsList>
             </div>
 
-            <div className="hidden md:flex items-center gap-3 shrink-0">
+            <div className=" flex items-center gap-3 shrink-0">
               <BellIcon className="w-5 h-5" />
               <ThemeToggleCompact />
               <UserProfileActions />
@@ -195,24 +195,7 @@ useEffect(() => {
       
 
       {/* Utility Section */}
-      <div className="flex flex-col  items-start">
-        <div className="flex items-center gap-5 hover:bg-muted/100 w-full px-3 py-2 rounded-xl transition-all">
-          <BellIcon className="w-5 h-5  text-muted-foreground" />
-          <span className="text-sm font-medium text-foreground/80">Notifications</span>
-        </div>
-        
-        
-
-        <div className="flex items-center  hover:bg-muted/100 w-full  rounded-xl transition-all">
-          <ThemeToggleCompact />
-          <span className="text-sm font-medium text-foreground/80">Toggle theme</span>
-        </div>
-
-        <div className="flex items-center gap-5 m-2 hover:bg-muted/100 w-full  rounded-xl transition-all">
-          <UserProfileActions />
-          <span className="text-sm font-medium text-foreground/80">Profile</span>
-        </div>
-      </div>
+      
     </div>
   
 
