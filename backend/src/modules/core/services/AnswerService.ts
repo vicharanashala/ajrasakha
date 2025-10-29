@@ -613,23 +613,25 @@ export class AnswerService extends BaseService {
             nextAllocatedSubmissionData,
             session,
           );
+        }else{
+          await this.questionService.autoAllocateExperts(questionId, session);
         }
         console.log('After next allocation');
 
         // Auto allocate more user if necessary
-        const currentSubmissionQueue = questionSubmission.queue || [];
+        // const currentSubmissionQueue = questionSubmission.queue || [];
 
-        const lastHistory = currentSubmissionHistory.at(-1);
+        // const lastHistory = currentSubmissionHistory.at(-1);
 
-        const canAutoAllocate =
-          question.isAutoAllocate &&
-          currentSubmissionQueue.length < 10 &&
-          status &&
-          currentSubmissionQueue.length === currentSubmissionHistory.length + 1;
+        // const canAutoAllocate =
+        //   question.isAutoAllocate &&
+        //   currentSubmissionQueue.length < 10 &&
+        //   status &&
+        //   currentSubmissionQueue.length === currentSubmissionHistory.length + 1;
 
-        if (canAutoAllocate) {
-          await this.questionService.autoAllocateExperts(questionId, session);
-        }
+        // if (canAutoAllocate) {
+        //   await this.questionService.autoAllocateExperts(questionId, session);
+        // }
 
         // Check the history limit reaced, if reached then question status will be in-review
         if (currentSubmissionHistory.length + 1 == 10) {
