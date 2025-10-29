@@ -21,11 +21,13 @@ import { useEffect } from "react";
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser();
-  const userId=user?._id?.toString()
-  const navigate = useNavigate()
+  const userId = user?._id?.toString();
+  const navigate = useNavigate();
+
   useEffect(() => {
-    initializeNotifications(userId)
-  },[userId])
+    initializeNotifications();
+  }, [userId]);
+
   return (
     <>
       {isLoading && (
@@ -131,21 +133,21 @@ export const PlaygroundPage = () => {
             </div> */}
 
             <div className="flex items-center gap-3 shrink-0 relative">
-  <div className="relative">
-    <BellIcon
-      className="w-5 h-5 cursor-pointer"
-      onClick={() => navigate({ to: "/notifications" })}
-    />
-    {user?.notifications! > 0 && (
-      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-        {user?.notifications}
-      </span>
-    )}
-  </div>
+              <div className="relative">
+                <BellIcon
+                  className="w-5 h-5 cursor-pointer"
+                  onClick={() => navigate({ to: "/notifications" })}
+                />
+                {user?.notifications! > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                    {user?.notifications}
+                  </span>
+                )}
+              </div>
 
-  <ThemeToggleCompact />
-  <UserProfileActions />
-</div>
+              <ThemeToggleCompact />
+              <UserProfileActions />
+            </div>
           </div>
         </header>
 
