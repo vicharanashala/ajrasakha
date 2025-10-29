@@ -1213,7 +1213,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         </div>
         <div className="flex items-center justify-center gap-2">
           {props.userRole !== "expert" &&
-            props.questionStatus == "in-review" && (
+            props.questionStatus == "in-review" &&
+            props.answer?.approvalCount !==undefined &&
+            props.answer?.approvalCount >= 3 &&
+             (
               <Dialog open={editOpen} onOpenChange={setEditOpen}>
                 <DialogTrigger asChild>
                   <Button className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2">
