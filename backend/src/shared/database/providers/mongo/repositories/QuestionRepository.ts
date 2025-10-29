@@ -380,93 +380,28 @@ export class QuestionRepository implements IQuestionRepository {
       const userObjectId = new ObjectId(userId);
 
       const submissions = await this.QuestionSubmissionCollection.aggregate([
-        // Step 1: Convert all to ObjectIds for reliable comparison
         {
           $addFields: {
-            queue: {
-              $map: {
-                input: '$queue',
-                as: 'q',
-                in: {$toObjectId: '$$q'},
-              },
-            },
-            history: {
-              $map: {
-                input: '$history',
-                as: 'h',
-                in: {
-                  updatedBy: {$toObjectId: '$$h.updatedBy'},
-                  answer: '$$h.answer',
-                  status: '$$h.status',
-                  reasonForRejection: '$$h.reasonForRejection',
-                  rejectedBy: '$$h.rejectedBy',
-                  approvedAnswer: '$$h.approvedAnswer',
-                  createdAt: '$$h.createdAt',
-                  updatedAt: '$$h.updatedAt',
-                },
-              },
-            },
+            lastHistory: {$arrayElemAt: ['$history', -1]},
+            historyCount: {$size: {$ifNull: ['$history', []]}},
+            firstInQueue: {$arrayElemAt: ['$queue', 0]},
           },
         },
-
-        // Step 2: Match docs where user exists in queue
-        {
-          $match: {
-            queue: userObjectId,
-          },
-        },
-
-        // Step 3: Compute user index in queue
-        {
-          $addFields: {
-            userIndex: {$indexOfArray: ['$queue', userObjectId]},
-          },
-        },
-
-        // Step 4: Extract previous expert
-        {
-          $addFields: {
-            prevExpert: {
-              $cond: [
-                {$gt: ['$userIndex', 0]},
-                {$arrayElemAt: ['$queue', {$subtract: ['$userIndex', 1]}]},
-                null,
-              ],
-            },
-          },
-        },
-
-        // Step 5: Determine submission states
-        {
-          $addFields: {
-            hasUserSubmitted: {
-              $in: [userObjectId, '$history.updatedBy'],
-            },
-            hasPrevSubmitted: {
-              $cond: [
-                {$ifNull: ['$prevExpert', false]},
-                {$in: ['$prevExpert', '$history.updatedBy']},
-                false,
-              ],
-            },
-            historyCount: {$size: '$history'},
-          },
-        },
-
-        // Step 6: Apply conditional match
         {
           $match: {
             $or: [
-              // Normal case: user hasn’t submitted, previous did
               {
-                hasUserSubmitted: false,
-                hasPrevSubmitted: true,
+                'lastHistory.updatedBy': userObjectId,
+                'lastHistory.status': 'in-review',
+                $or: [
+                  {'lastHistory.answer': {$exists: false}},
+                  {'lastHistory.answer': null},
+                  {'lastHistory.answer': ''},
+                ],
               },
-              // Special case: first in queue & no history
               {
-                userIndex: 0,
-                hasUserSubmitted: false,
-                historyCount: 0,
+                historyCount: 0, // if there is no history means , there is no submision yet so this is the first expert who is submitting
+                firstInQueue: userObjectId,
               },
             ],
           },
@@ -476,8 +411,6 @@ export class QuestionRepository implements IQuestionRepository {
       const questionIdsToAttempt = submissions.map(
         sub => new ObjectId(sub.questionId),
       );
-
-      console.log('Question Ids to attempt: ', questionIdsToAttempt);
 
       const filter: any = {
         status: 'open',
@@ -780,6 +713,9 @@ export class QuestionRepository implements IQuestionRepository {
                 updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
               }
             : null,
+          status: h.status,
+          approvedAnswer: h.approvedAnswer?.toString(),
+          rejectedAnswer: h.rejectedAnswer?.toString(),
         })),
         createdAt: submission?.createdAt,
         updatedAt: submission?.updatedAt,

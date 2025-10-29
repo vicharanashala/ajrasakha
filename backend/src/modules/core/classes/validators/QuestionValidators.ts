@@ -122,7 +122,6 @@ class QuestionDetailsDto {
 //   currentAnswers?: {answer: string; id: string; isFinalAnswer: boolean}[];
 // }
 
-
 class UpdatedBy {
   @IsString()
   _id!: string;
@@ -160,8 +159,8 @@ class HistoryItem {
   answer?: AnswerDetails;
 
   @IsOptional()
-  @IsEnum(['in-review', 'approved', 'rejected'])
-  status?: 'in-review' | 'approved' | 'rejected';
+  @IsEnum(['approved', 'rejected'])
+  status?: 'approved' | 'rejected';
 
   @IsOptional()
   @IsString()
@@ -426,7 +425,7 @@ export const QUESTION_VALIDATORS = [
   ExpertInput,
   RemoveAllocateBody,
   UpdatedBy,
-  HistoryItem
+  HistoryItem,
 ];
 
 export {
@@ -441,5 +440,5 @@ export {
   ExpertInput,
   RemoveAllocateBody,
   UpdatedBy,
-  HistoryItem
+  HistoryItem,
 };

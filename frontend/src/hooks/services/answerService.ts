@@ -1,5 +1,6 @@
 import type { ISubmissions, SubmitAnswerResponse } from "@/types";
 import { apiFetch } from "../api/api-fetch";
+import type { IReviewAnswerPayload } from "../api/answer/useReviewAnswer";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -27,13 +28,9 @@ export class AnswerService {
     answer,
     sources,
     reasonForRejection,
-  }: {
-    questionId: string;
-    status: "accepted" | "rejected";
-    answer?: string;
-    sources?: string[];
-    reasonForRejection?: string;
-  }): Promise<SubmitAnswerResponse | null> {
+    approvedAnswer,
+    rejectedAnswer,
+  }:IReviewAnswerPayload): Promise<SubmitAnswerResponse | null> {
     try {
       return await apiFetch<SubmitAnswerResponse>(`${this._baseUrl}/review`, {
         method: "POST",
@@ -43,6 +40,8 @@ export class AnswerService {
           answer,
           sources,
           reasonForRejection,
+          approvedAnswer,
+          rejectedAnswer,
         }),
       });
     } catch (error) {

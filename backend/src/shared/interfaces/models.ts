@@ -75,11 +75,12 @@ export interface IContext {
 
 export interface ISubmissionHistory {
   updatedBy: string | ObjectId;
-  answer: string | ObjectId;
-  status: 'in-review' | 'approved' | 'rejected' 
+  answer?: string | ObjectId;
+  status: 'reviewed' | 'in-review' | 'approved' | 'rejected'; // pending is for initial state of new assigned executive , in-review is state after expert answer, reviewed state is when an expert reviewed (accept/reject) other answer
   reasonForRejection?: string;
   rejectedBy?: string | ObjectId;
   approvedAnswer?: string | ObjectId;
+  rejectedAnswer?: string | ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -248,6 +248,25 @@ export class AnswerRepository implements IAnswerRepository {
     }
   }
 
+  async incrementApprovalCount(
+    answerId: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    try {
+      await this.init();
+
+      await this.AnswerCollection.findOneAndUpdate(
+        {_id: new ObjectId(answerId)},
+        {$inc: {approvalCount: 1}}, 
+        {session},
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while incrementing approval count of answer ${answerId}. More: ${error}`,
+      );
+    }
+  }
+
   async deleteByQuestionId(
     questionId: string,
     session?: ClientSession,

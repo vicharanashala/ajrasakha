@@ -116,7 +116,12 @@ export class QuestionSubmissionRepository
       }
       const result = await this.QuestionSubmissionCollection.updateOne(
         {questionId: new ObjectId(questionId)},
-        {$pull: {queue: new ObjectId(expertId)}},
+        {
+          $pull: {
+            queue: new ObjectId(expertId),
+            history: {updatedBy: new ObjectId(expertId)},
+          },
+        },
         {session},
       );
       if (result.matchedCount === 0) {
@@ -156,15 +161,21 @@ export class QuestionSubmissionRepository
     try {
       await this.init();
 
-      const updateDoc = {
+      const updateDoc: any = {
         $set: {
-          lastRespondedBy: userSubmissionData.updatedBy,
           updatedAt: new Date(),
         },
         $push: {
           history: userSubmissionData,
         },
       };
+
+      if (
+        userSubmissionData.answer &&
+        userSubmissionData.answer.toString().trim() !== ''
+      ) {
+        updateDoc.$set.lastRespondedBy = userSubmissionData.updatedBy;
+      }
 
       const result = await this.QuestionSubmissionCollection.updateOne(
         {questionId: new ObjectId(questionId)},
@@ -246,6 +257,7 @@ export class QuestionSubmissionRepository
         [
           {$match: {questionId: new ObjectId(questionId)}},
           {$unwind: '$history'},
+          {$sort: {'history.createdAt': -1}},
           {
             $lookup: {
               from: 'users',
@@ -287,7 +299,7 @@ export class QuestionSubmissionRepository
           updatedBy: updatedBy
             ? {
                 _id: updatedBy._id.toString(),
-                userName: updatedBy.userName,
+                userName: `${updatedBy.firstName} ${updatedBy.lastName}`,
                 email: updatedBy.email,
               }
             : {_id: '', userName: '', email: ''},
@@ -302,7 +314,6 @@ export class QuestionSubmissionRepository
             : undefined,
 
           status: h.status,
-
           reasonForRejection: h.reasonForRejection,
           approvedAnswer: h.approvedAnswer
             ? h.approvedAnswer.toString()

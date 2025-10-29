@@ -3,26 +3,27 @@ import { AnswerService } from "../../services/answerService";
 import toast from "react-hot-toast";
 import type { SubmitAnswerResponse } from "@/types";
 
+export interface IReviewAnswerPayload {
+  questionId: string;
+  status: "accepted" | "rejected";
+  answer?: string;
+  sources?: string[];
+  reasonForRejection?: string;
+  approvedAnswer?: string;
+  rejectedAnswer?: string;
+}
 const questionService = new AnswerService();
-export const useSubmitAnswer = () => {
+export const useReviewAnswer = () => {
   const queryClient = useQueryClient();
-  return useMutation<
-    SubmitAnswerResponse | null,
-    Error,
-    {
-      questionId: string;
-      status: "accepted" | "rejected";
-      answer?: string;
-      sources?: string[];
-      reasonForRejection?: string;
-    }
-  >({
+  return useMutation<SubmitAnswerResponse | null, Error, IReviewAnswerPayload>({
     mutationFn: async ({
       questionId,
       status,
       answer,
       sources,
       reasonForRejection,
+      approvedAnswer,
+      rejectedAnswer,
     }) => {
       try {
         return await questionService.reviewAnswer({
@@ -31,6 +32,8 @@ export const useSubmitAnswer = () => {
           answer,
           sources,
           reasonForRejection,
+          approvedAnswer,
+          rejectedAnswer,
         });
       } catch (error) {
         throw error instanceof Error ? error : new Error("Unknown error");

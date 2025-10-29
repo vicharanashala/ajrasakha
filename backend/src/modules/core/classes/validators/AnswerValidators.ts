@@ -102,6 +102,15 @@ class ReviewAnswerBody {
   @IsNotEmpty()
   @IsString()
   @JSONSchema({
+    description: 'Approved answer ID (required only if status = accepted)',
+    example: '652ef12345abcf7890123456',
+  })
+  rejectedAnswer?: string;
+
+  @ValidateIf(o => o.status === 'rejected')
+  @IsNotEmpty()
+  @IsString()
+  @JSONSchema({
     description: 'Reason for rejection (required only if status = rejected)',
     example: 'Insufficient factual accuracy and poor structure.',
   })

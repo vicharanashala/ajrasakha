@@ -53,14 +53,14 @@ export class AnswerController {
   }
 
   @OpenAPI({summary: 'review and add a new answer to a question'})
-  @Post('/')
+  @Post('/review')
   @HttpCode(201)
   @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async reviewAnswer(
     @Body() body: ReviewAnswerBody,
     @CurrentUser() user: IUser,
-  ) {
+  ): Promise<{message: string}> {
     const userId = user._id.toString();
     return this.answerService.reviewAnswer(userId, body);
   }

@@ -82,6 +82,10 @@ import {
 } from "./atoms/accordion";
 import { UrlPreviewDialog } from "./url-preview-dialog";
 import { ConfirmationModal } from "./confirmation-modal";
+import {
+  useReviewAnswer,
+  type IReviewAnswerPayload,
+} from "@/hooks/api/answer/useReviewAnswer";
 
 export type QuestionFilter =
   | "newest"
@@ -163,8 +167,10 @@ export const QAInterface = () => {
   const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
     useGetQuestionById(selectedQuestion);
 
-  const { mutateAsync: submitAnswer, isPending: isSubmittingAnswer } =
-    useSubmitAnswer();
+  // const { mutateAsync: submitAnswer, isPending: isSubmittingAnswer } =
+  //   useSubmitAnswer();
+  const { mutateAsync: respondQuestion, isPending: isResponding } =
+    useReviewAnswer();
 
   useEffect(() => {
     if (questions.length > 0 && !selectedQuestion) {
@@ -190,30 +196,30 @@ export const QAInterface = () => {
     return () => container.removeEventListener("scroll", handleScroll);
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  const handleSubmit = async () => {
-    if (!selectedQuestion) return;
-    if (!sources.length) {
-      toast.error("Atleast one source is required!");
-      return;
-    }
-    try {
-      const result = await submitAnswer({
-        questionId: selectedQuestion,
-        answer: newAnswer,
-        sources,
-      });
-      if (result) setIsFinalAnswer(result.isFinalAnswer);
-      toast.success("Response submitted successfully!");
-      setNewAnswer("");
-      setSources([]);
-    } catch (error) {
-      console.error("Error submitting answer:", error);
-    } finally {
-      setTimeout(() => {
-        setIsFinalAnswer(false);
-      }, 5000);
-    }
-  };
+  // const handleSubmit = async () => {
+  //   if (!selectedQuestion) return;
+  //   if (!sources.length) {
+  //     toast.error("Atleast one source is required!");
+  //     return;
+  //   }
+  //   try {
+  //     const result = await submitAnswer({
+  //       questionId: selectedQuestion,
+  //       answer: newAnswer,
+  //       sources,
+  //     });
+  //     if (result) setIsFinalAnswer(result.isFinalAnswer);
+  //     toast.success("Response submitted successfully!");
+  //     setNewAnswer("");
+  //     setSources([]);
+  //   } catch (error) {
+  //     console.error("Error submitting answer:", error);
+  //   } finally {
+  //     setTimeout(() => {
+  //       setIsFinalAnswer(false);
+  //     }, 5000);
+  //   }
+  // };
 
   const handleFilterChange = (value: QuestionFilter) => {
     setFilter(value);
@@ -278,6 +284,46 @@ export const QAInterface = () => {
     refetch();
   };
 
+  const handleSubmitResponse = async (
+    status?: "accepted" | "rejected",
+    currentReviewingAnswer?: string,
+    rejectionReason?: string
+  ) => {
+    if (!selectedQuestion) return;
+
+    let payload = { questionId: selectedQuestion } as IReviewAnswerPayload;
+
+    if (!status) {
+      // responding first time
+      if (!sources.length) {
+        toast.error("Atleast one source is required!");
+        return;
+      }
+
+      payload.sources = sources;
+      payload.answer = newAnswer;
+    } else if (status == "accepted") {
+      payload.status = "accepted";
+      payload.approvedAnswer = currentReviewingAnswer;
+    } else if (status == "rejected") {
+      if (!sources.length) {
+        toast.error("Atleast one source is required!");
+        return;
+      }
+      payload.rejectedAnswer = currentReviewingAnswer;
+      payload.reasonForRejection = rejectionReason;
+      payload.answer = newAnswer;
+      payload.sources = sources;
+      payload.status = "rejected";
+    }
+
+    try {
+      await respondQuestion(payload);
+      toast.success("Your response submitted, thankyou!");
+    } catch (error) {
+      console.log("Failed to submit: ", error);
+    }
+  };
   return (
     <div className="container mx-auto px-4 md:px-6 bg-transparent py-4 ">
       <div className="flex flex-col space-y-6">
@@ -340,16 +386,16 @@ export const QAInterface = () => {
                   isForQA={true}
                 />
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => refetch()}
-                  className="h-9 px-3 bg-transparent hidden md:block"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  <span className="sr-only">Refresh</span>
-                </Button>
-              </div> */}
+                </div> */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => refetch()}
+                className="h-9 px-3 bg-transparent hidden md:block"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span className="sr-only">Refresh</span>
+              </Button>
             </CardHeader>
             {isQuestionsLoading ? (
               <div className="h-full flex flex-col items-center justify-center text-center space-y-4 px-6">
@@ -624,16 +670,13 @@ export const QAInterface = () => {
                             description="You are the first expert responding to this question. Please cross-check your answer carefully before submitting — accurate responses improve your approval conversion rate."
                             confirmText="Submit Response"
                             cancelText="Cancel"
-                            type="edit"
-                            onConfirm={handleSubmit}
+                            onConfirm={() => handleSubmitResponse()}
                             trigger={
                               <Button
-                                disabled={
-                                  !newAnswer.trim() || isSubmittingAnswer
-                                }
+                                disabled={!newAnswer.trim() || isResponding}
                                 className="flex items-center gap-2"
                               >
-                                {isSubmittingAnswer ? (
+                                {isResponding ? (
                                   <>
                                     <Loader2 className="w-4 h-4 animate-spin" />
                                     <span>Submitting…</span>
@@ -671,7 +714,7 @@ export const QAInterface = () => {
                           </Button>
                         </div>
 
-                        <Dialog>
+                        {/* <Dialog>
                           <DialogTrigger asChild>
                             <Button
                               variant="outline"
@@ -807,7 +850,7 @@ export const QAInterface = () => {
                               )}
                             </div>
                           </DialogContent>
-                        </Dialog>
+                        </Dialog> */}
                       </div>
                     </>
                   ) : (
@@ -878,17 +921,15 @@ export const QAInterface = () => {
               <ResponseTimeline
                 SourceUrlManager={SourceUrlManager}
                 handleReset={handleReset}
-                handleSubmit={handleSubmit}
+                handleSubmit={handleSubmitResponse}
                 isFinalAnswer={isFinalAnswer}
                 isSelectedQuestionLoading={isSelectedQuestionLoading}
-                isSubmittingAnswer={isSubmittingAnswer}
+                isSubmittingAnswer={isResponding}
                 newAnswer={newAnswer}
                 selectedQuestionData={selectedQuestionData!}
                 setNewAnswer={setNewAnswer}
                 setSources={setSources}
                 sources={sources}
-                onAccept={() => {}}
-                onReject={() => {}}
               />
             )}
         </div>
@@ -1082,81 +1123,14 @@ interface ResponseTimelineProps {
   setSources: (sources: any[]) => void;
   isFinalAnswer: boolean;
   isSubmittingAnswer: boolean;
-  handleSubmit: () => void;
+  handleSubmit: (
+    status?: "accepted" | "rejected",
+    currentReviewingAnswer?: string,
+    rejectionReason?: string
+  ) => void;
   handleReset: () => void;
   SourceUrlManager: React.ComponentType<any>;
-  onAccept?: (answerId: string) => void;
-  onReject?: (answerId: string, reason: string) => void;
 }
-
-// const dummyHistory: HistoryItem[] = [
-//   {
-//     updatedBy: {
-//       _id: "user10",
-//       userName: "Sophia Turner",
-//       email: "sophia@example.com",
-//     },
-//     createdAt: new Date("2024-01-20T16:45:00"),
-//     updatedAt: new Date("2024-01-20T16:45:00"),
-//   },
-//   {
-//     updatedBy: {
-//       _id: "user10",
-//       userName: "Sophia Turner",
-//       email: "sophia@example.com",
-//     },
-//     approvedAnswer: "ans12",
-//     createdAt: new Date("2024-01-20T16:45:00"),
-//     updatedAt: new Date("2024-01-20T16:45:00"),
-//   },
-//   {
-//     updatedBy: {
-//       _id: "user11",
-//       userName: "Michael Green",
-//       email: "michael@example.com",
-//     },
-//     approvedAnswer: "ans12",
-//     createdAt: new Date("2024-01-18T13:15:00"),
-//     updatedAt: new Date("2024-01-18T13:15:00"),
-//   },
-//   {
-//     updatedBy: {
-//       _id: "user12",
-//       userName: "Liam Johnson",
-//       email: "liam@example.com",
-//     },
-//     answer: {
-//       _id: "ans12",
-//       answer:
-//         "This version attempted to restructure the explanation but introduced several redundant statements, leading to rejection.",
-//       approvalCount: "2",
-//       sources: ["https://developer.mozilla.org/en-US/docs/Web/JavaScript"],
-//     },
-
-//     // status: "approved",
-//     createdAt: new Date("2024-01-15T09:00:00"),
-//     updatedAt: new Date("2024-01-15T09:00:00"),
-//   },
-//   {
-//     updatedBy: {
-//       _id: "user13",
-//       userName: "Ava Williams",
-//       email: "ava@example.com",
-//     },
-//     answer: {
-//       _id: "ans13",
-//       answer:
-//         "Initial submission with a general overview and minimal detail. It lacked citations and was not aligned with the expected structure.",
-//       approvalCount: "0",
-//       sources: ["https://www.britannica.com/"],
-//     },
-//     reasonForRejection:
-//       "The answer was too generic, missing detailed analysis and reference links to support the statements provided.",
-//     status: "rejected",
-//     createdAt: new Date("2024-01-12T11:25:00"),
-//     updatedAt: new Date("2024-01-12T11:25:00"),
-//   },
-// ];
 
 export const ResponseTimeline = ({
   isSelectedQuestionLoading,
@@ -1170,21 +1144,35 @@ export const ResponseTimeline = ({
   handleSubmit,
   handleReset,
   SourceUrlManager,
-  onAccept,
-  onReject,
 }: ResponseTimelineProps) => {
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejectionSubmitted, setIsRejectionSubmitted] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
-  const [selectedAnswerId, setSelectedAnswerId] = useState("");
   const [urlOpen, setUrlOpen] = useState(false);
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
-  const handleRejectClick = (answerId: string) => {
-    setSelectedAnswerId(answerId);
-    setIsRejectDialogOpen(true);
-  };
+  const history = selectedQuestionData?.history || [];
+
+  const currentReviewingAnswer =
+    history && Array.isArray(history)
+      ? [...history]
+          .reverse()
+          .find(
+            (h) =>
+              h?.status !== "approved" &&
+              h?.status !== "rejected" &&
+              h?.answer !== null &&
+              h?.answer !== undefined
+          )?.answer
+      : null;
+
+  console.log("currentReviewingAnswer: ", currentReviewingAnswer);
+
+  useEffect(() => {
+    if (currentReviewingAnswer && currentReviewingAnswer.answer)
+      setNewAnswer(currentReviewingAnswer.answer);
+  }, [currentReviewingAnswer]);
 
   const handleCopy = async (url: string, index: number) => {
     try {
@@ -1196,12 +1184,39 @@ export const ResponseTimeline = ({
     }
   };
 
-  const handleRejectSubmit = () => {
-    if (rejectionReason.trim() && onReject) {
-      onReject(selectedAnswerId, rejectionReason);
-      // setRejectionReason("");
-      // setIsRejectDialogOpen(false);
+  const handleReject = () => {
+    if (rejectionReason.trim() === "") {
+      toast.error("No reason provided for rejection");
+      return;
     }
+    if (rejectionReason.length < 8) {
+      toast.error("Rejection reason must be atleast 8 letters");
+      return;
+    }
+
+    if (!currentReviewingAnswer) {
+      toast.error(
+        "Unable to locate the current review answer. Please refresh and try again."
+      );
+      return;
+    }
+
+    const reviewAnswerId = currentReviewingAnswer._id?.toString();
+
+    handleSubmit("rejected", reviewAnswerId, rejectionReason);
+  };
+
+  const handleAccept = () => {
+    if (!currentReviewingAnswer) {
+      toast.error(
+        "Unable to locate the current review answer. Please refresh and try again."
+      );
+      return;
+    }
+
+    const reviewAnswerId = currentReviewingAnswer._id?.toString();
+
+    handleSubmit("accepted", reviewAnswerId);
   };
 
   const handleOpenUrl = (url: string) => {
@@ -1271,7 +1286,9 @@ export const ResponseTimeline = ({
                     <div className="flex gap-4">
                       <div
                         className={`relative flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                          item.approvedAnswer
+                          item.rejectedAnswer
+                            ? "bg-red-100 dark:bg-red-900/30"
+                            : item.approvedAnswer
                             ? "bg-green-100 dark:bg-green-900/30"
                             : !item.answer
                             ? "bg-primary/10"
@@ -1282,10 +1299,14 @@ export const ResponseTimeline = ({
                             : "bg-primary/10"
                         }`}
                       >
-                        {!item.approvedAnswer && !item.status && item.answer ? (
+                        {!item.approvedAnswer &&
+                        !item.rejectedAnswer &&
+                        item.answer ? (
                           <Target className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                         ) : item.approvedAnswer ? (
                           <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                        ) : item.rejectedAnswer ? (
+                          <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
                         ) : !item.answer ? (
                           <Clock className="w-4 h-4 text-primary" />
                         ) : item.status === "approved" ? (
@@ -1321,15 +1342,21 @@ export const ResponseTimeline = ({
                             {item.status && (
                               <span
                                 className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${
-                                  item.status === "approved"
+                                  item.status == "in-review" && item.answer
+                                    ? ""
+                                    : item.status === "approved"
                                     ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
                                     : item.status === "rejected"
                                     ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
                                     : "bg-primary/10 text-primary"
                                 }`}
                               >
-                                {item.status?.charAt(0).toUpperCase() +
-                                  item.status?.slice(1)}
+                                {item.status === "in-review" && item.answer
+                                  ? ""
+                                  : item.status
+                                  ? item.status.charAt(0).toUpperCase() +
+                                    item.status.slice(1)
+                                  : ""}
                               </span>
                             )}
                           </div>
@@ -1341,13 +1368,13 @@ export const ResponseTimeline = ({
                           </div>
                         )}
 
-                        {!item.answer && !item.approvedAnswer && (
+                        {item.status == "in-review" && !item.answer && (
                           <div className="text-sm p-3 rounded-md border bg-muted/30 text-muted-foreground">
                             Awaiting your response.
                           </div>
                         )}
 
-                        {item.answer && !item.approvedAnswer && (
+                        {item.answer && (
                           <>
                             <div className="text-sm p-3 rounded-md border bg-card break-words">
                               <ExpandableText
@@ -1434,29 +1461,29 @@ export const ResponseTimeline = ({
                             </Accordion>
                           </>
                         )}
-                        {!item.answer && !item.approvedAnswer && (
-                          <div className="flex items-center gap-2 mt-3">
-                            <Button
-                              size="sm"
-                              // onClick={() => onAccept?.(item.answer!._id)}
-                              className="flex items-center gap-1"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                              Accept
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() =>
-                                handleRejectClick("item.answer!._id")
-                              }
-                              className="flex items-center gap-1"
-                            >
-                              <XCircle className="w-4 h-4" />
-                              Reject
-                            </Button>
-                          </div>
-                        )}
+                        {!item.answer &&
+                        !item.approvedAnswer && !item.rejectedAnswer &&
+                          item.status == "in-review" && (
+                            <div className="flex items-center gap-2 mt-3">
+                              <Button
+                                size="sm"
+                                onClick={handleAccept}
+                                className="flex items-center gap-1"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                                Accept
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => setIsRejectDialogOpen(true)}
+                                className="flex items-center gap-1"
+                              >
+                                <XCircle className="w-4 h-4" />
+                                Reject
+                              </Button>
+                            </div>
+                          )}
                       </div>
                     </div>
                   </div>
@@ -1512,7 +1539,6 @@ export const ResponseTimeline = ({
                 <Button
                   variant="destructive"
                   onClick={() => {
-                    handleRejectSubmit();
                     setIsRejectionSubmitted(true);
                   }}
                   disabled={!rejectionReason.trim()}
@@ -1589,7 +1615,7 @@ export const ResponseTimeline = ({
                   <div className="flex items-center justify-between pt-4 animate-in fade-in duration-300 delay-300">
                     <div className="flex items-center space-x-3">
                       <Button
-                        onClick={handleSubmit}
+                        onClick={handleReject}
                         disabled={!newAnswer.trim() || isSubmittingAnswer}
                         className="flex items-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95"
                       >

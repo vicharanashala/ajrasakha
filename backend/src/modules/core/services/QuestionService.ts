@@ -6,6 +6,7 @@ import {ClientSession, ObjectId} from 'mongodb';
 import {
   IQuestion,
   IQuestionSubmission,
+  ISubmissionHistory,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -486,8 +487,9 @@ export class QuestionService extends BaseService {
     const allExpertIds = Array.from(expertIdsSet);
 
     if (
-      EXISTING_QUEUE_COUNT === EXISTING_HISTORY_COUNT &&
-      EXISTING_QUEUE_COUNT < allExpertIds.length
+      EXISTING_QUEUE_COUNT < 3 ||
+      (EXISTING_QUEUE_COUNT === EXISTING_HISTORY_COUNT &&
+        EXISTING_QUEUE_COUNT < allExpertIds.length)
     ) {
       const answeredExperts = new Set(
         questionSubmission.history.map(h => h.updatedBy.toString()),
@@ -505,9 +507,42 @@ export class QuestionService extends BaseService {
         CURRENT_BATCH_SIZE,
       );
 
-      const expertToAdd = unAnsweredExpertIds.slice(0, FINAL_BATCH_SIZE);
+      const existingQueueIds = questionSubmission.queue.map(id =>
+        id.toString(),
+      );
 
-      for (const expertId of expertToAdd) {
+      const filteredExperts = unAnsweredExpertIds.filter(
+        id => !existingQueueIds.includes(id.toString()),
+      );
+
+      if (filteredExperts.length === 0) {
+        await this.questionRepo.updateQuestion(
+          questionId,
+          {status: 'in-review'},
+          session,
+        );
+      }
+
+      const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);
+
+      // Add entry for first expert in the queue as status in-review (only after intial 3 allocation)
+      if (EXISTING_QUEUE_COUNT >= 3) {
+        const nextExpertId = expertsToAdd[0]?.toString();
+        const nextAllocatedSubmissionData: ISubmissionHistory = {
+          updatedBy: new ObjectId(nextExpertId),
+          status: 'in-review',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        await this.questionSubmissionRepo.update(
+          questionId,
+          nextAllocatedSubmissionData,
+          session,
+        );
+      }
+
+      for (const expertId of expertsToAdd) {
         const IS_INCREMENT = true;
         await this.userRepo.updateReputationScore(
           expertId,
@@ -515,7 +550,7 @@ export class QuestionService extends BaseService {
           session,
         );
       }
-      const updatedQueue = [...questionSubmission.queue, ...expertToAdd]
+      const updatedQueue = [...questionSubmission.queue, ...expertsToAdd]
         .slice(0, TOTAL_EXPERTS_LIMIT)
         .map(id => new ObjectId(id));
 
@@ -561,6 +596,7 @@ export class QuestionService extends BaseService {
             session,
             BATCH_EXPECTED_TO_ADD,
           );
+
           if (!out) {
             return {
               message: 'Auto allocate toggled, but queue is already full',
@@ -610,6 +646,28 @@ export class QuestionService extends BaseService {
         //4. Allocate experts
         const expertIds = experts.map(e => new ObjectId(e));
 
+        // if the last expert is not reviewing other question means (if status is not reviewed or submitted an answer)
+        const lastSubmission = questionSubmission.history.at(-1);
+        if (
+          lastSubmission.answer ||
+          lastSubmission.approvedAnswer ||
+          lastSubmission.rejectedAnswer ||
+          lastSubmission.status != 'in-review'
+        ) {
+          const expertId = expertIds[0];
+          const userSubmissionData: ISubmissionHistory = {
+            updatedBy: expertId,
+            createdAt: new Date(),
+            status: 'in-review',
+            updatedAt: new Date(),
+          };
+
+          await this.questionSubmissionRepo.update(
+            questionId,
+            userSubmissionData,
+            session,
+          );
+        }
         //5. Update question submission with new experts
         const updated = await this.questionSubmissionRepo.allocateExperts(
           questionId,
@@ -679,8 +737,9 @@ export class QuestionService extends BaseService {
 
           // If all previous experts have responded and queue is not full, trigger auto allocation
           if (
-            UPDATED_HISTORY_LENGTH == UPDATED_QUEUE_LENGTH &&
-            UPDATED_QUEUE_LENGTH < 10
+            UPDATED_QUEUE_LENGTH < 3 ||
+            (UPDATED_HISTORY_LENGTH == UPDATED_QUEUE_LENGTH &&
+              UPDATED_QUEUE_LENGTH < 10)
           ) {
             await this.autoAllocateExperts(
               questionId,

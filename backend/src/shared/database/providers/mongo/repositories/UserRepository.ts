@@ -244,7 +244,6 @@ export class UserRepository implements IUserRepository {
       [allUsers[i], allUsers[j]] = [allUsers[j], allUsers[i]];
     }
 
-    console.log('All users: ', allUsers);
     // 3. Score users
     const scoredUsers = allUsers
       .map(user => {
@@ -270,16 +269,16 @@ export class UserRepository implements IUserRepository {
         const workloadScore =
           typeof user.reputation_score === 'number' ? user.reputation_score : 0;
 
-        console.log(
-          'email: ',
-          user.email,
-          'score; ',
-          score,
-          'isAllSelected: ',
-          isAllSelected,
-          'Workload score: ',
-          workloadScore,
-        );
+        // console.log(
+        //   'email: ',
+        //   user.email,
+        //   'score; ',
+        //   score,
+        //   'isAllSelected: ',
+        //   isAllSelected,
+        //   'Workload score: ',
+        //   workloadScore,
+        // );
         return {user, score, isAllSelected, workloadScore};
         // }
         // return null;

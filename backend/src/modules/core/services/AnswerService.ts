@@ -325,27 +325,27 @@ export class AnswerService extends BaseService {
         activeSession,
       );
 
-      const submission = await this.questionSubmissionRepo.getByQuestionId(
-        questionId,
-        activeSession,
-      );
-      if (!submission) {
-        throw new BadRequestError('Question submission not found');
-      }
+      // const submission = await this.questionSubmissionRepo.getByQuestionId(
+      //   questionId,
+      //   activeSession,
+      // );
+      // if (!submission) {
+      //   throw new BadRequestError('Question submission not found');
+      // }
 
-      const userSubmissionData: ISubmissionHistory = {
-        updatedBy: new ObjectId(authorId),
-        answer: new ObjectId(insertedId),
-        createdAt: new Date(),
-        status: 'in-review',
-        updatedAt: new Date(),
-      };
+      // const userSubmissionData: ISubmissionHistory = {
+      //   updatedBy: new ObjectId(authorId),
+      //   answer: new ObjectId(insertedId),
+      //   createdAt: new Date(),
+      //   status: 'in-review',
+      //   updatedAt: new Date(),
+      // };
 
-      await this.questionSubmissionRepo.update(
-        questionId,
-        userSubmissionData,
-        activeSession,
-      );
+      // await this.questionSubmissionRepo.update(
+      //   questionId,
+      //   userSubmissionData,
+      //   activeSession,
+      // );
 
       return {insertedId, isFinalAnswer};
     };
@@ -359,7 +359,10 @@ export class AnswerService extends BaseService {
     );
   }
 
-  async reviewAnswer(userId: string, body: ReviewAnswerBody): Promise<void> {
+  async reviewAnswer(
+    userId: string,
+    body: ReviewAnswerBody,
+  ): Promise<{message: string}> {
     try {
       await this._withTransaction(async (session: ClientSession) => {
         const user = await this.userRepo.findById(userId, session);
@@ -375,9 +378,12 @@ export class AnswerService extends BaseService {
           status,
           answer,
           approvedAnswer,
+          rejectedAnswer,
           reasonForRejection,
           sources,
         } = body;
+
+        console.log('Body: ', body);
 
         const question = await this.questionRepo.getById(questionId, session);
         if (!question)
@@ -397,28 +403,74 @@ export class AnswerService extends BaseService {
           );
 
         const currentSubmissionHistory = questionSubmission.history || [];
+        const currentQueue = questionSubmission.queue;
 
         const lastAnsweredHistory = currentSubmissionHistory
           .slice()
           .reverse()
           .find(
             h =>
-              h.answer &&
-              h.answer.toString().trim() !== '' &&
-              h.status !== 'rejected',
+              h?.answer &&
+              h?.answer?.toString()?.trim() !== '' &&
+              h?.status !== 'rejected',
           );
+
+        console.log('Last answeed history: ', lastAnsweredHistory);
+
+        if (!lastAnsweredHistory?.answer && status) {
+          // if there status means, it is either accepting or rejecting
+          throw new BadRequestError(
+            `No answer found under review for this question. Please check the current submission history.`,
+          );
+        }
+
+        if (
+          (approvedAnswer &&
+            approvedAnswer?.toString() !==
+              lastAnsweredHistory?.answer.toString()) ||
+          (rejectedAnswer &&
+            rejectedAnswer?.toString() !==
+              lastAnsweredHistory?.answer.toString())
+        ) {
+          throw new BadRequestError(
+            `Failed to review this answer. You are attempting to review an answer that is not currently under review.`,
+          );
+        }
 
         if (!status) {
           // Answer submission from first assigned expert
-          await this.addAnswer(questionId, userId, answer, sources, session);
-        } else if (status == 'accepted') {
-          const newSubmissionData = {
+          const {insertedId} = await this.addAnswer(
+            questionId,
+            userId,
+            answer,
+            sources,
+            session,
+          );
+
+          const userSubmissionData: ISubmissionHistory = {
             updatedBy: new ObjectId(userId),
-            approvedAnswer: new ObjectId(lastAnsweredHistory.answer.toString()),
+            answer: new ObjectId(insertedId),
             createdAt: new Date(),
+            status: 'in-review',
             updatedAt: new Date(),
+          };
+
+          await this.questionSubmissionRepo.update(
+            questionId,
+            userSubmissionData,
+            session,
+          );
+        } else if (status == 'accepted') {
+          const review_answer_id = lastAnsweredHistory.answer.toString();
+          const updatedSubmissionData = {
+            approvedAnswer: new ObjectId(review_answer_id),
+            status: 'reviewed',
           } as ISubmissionHistory;
 
+          // increment the approval count field in the answerdocuemtn
+          await this.incrementApprovalCount(review_answer_id, session);
+
+          // to check the answer is finalized or not
           const lastThreeSubmissions = currentSubmissionHistory.slice(-3);
 
           if (lastThreeSubmissions.length === 3) {
@@ -434,7 +486,15 @@ export class AnswerService extends BaseService {
               Boolean(last?.approvedAnswer);
 
             if (thirdHasOnlyAnswer && lastTwoHaveApproved) {
-              newSubmissionData.status = 'approved';
+              // Change the status of the review answer to approved (got 3 consecutive approvals)
+              const rejectedExpertId = lastAnsweredHistory.updatedBy.toString();
+
+              await this.questionSubmissionRepo.updateHistoryByUserId(
+                questionId,
+                rejectedExpertId,
+                {status: 'approved'},
+                session,
+              );
 
               await this.questionRepo.updateQuestion(
                 questionId,
@@ -443,14 +503,8 @@ export class AnswerService extends BaseService {
               );
             }
 
-            await this.questionSubmissionRepo.update(
-              questionId,
-              newSubmissionData,
-              session,
-            );
-
             // Calculate current queue and history lengths
-            const queueLength = questionSubmission.queue.length;
+            const queueLength = currentQueue.length;
             const updatedHistoryLength = questionSubmission.history.length + 1; // +1 includes the newly added answer
 
             // If all queued experts have now responded and the total is at least 10,
@@ -466,6 +520,14 @@ export class AnswerService extends BaseService {
               );
             }
           }
+
+          // Mark this user review by changing the status
+          await this.questionSubmissionRepo.updateHistoryByUserId(
+            questionId,
+            userId,
+            updatedSubmissionData,
+            session,
+          );
         } else if (status == 'rejected') {
           // Prepare update payload for the rejected submission
           const rejectedHistoryUpdate: ISubmissionHistory = {
@@ -486,7 +548,28 @@ export class AnswerService extends BaseService {
           );
 
           // Add a new answer entry from the current user
-          await this.addAnswer(questionId, userId, answer, sources, session);
+          const {insertedId} = await this.addAnswer(
+            questionId,
+            userId,
+            answer,
+            sources,
+            session,
+          );
+
+          const updatedSubmissionData = {
+            rejectedAnswer: new ObjectId(lastAnsweredHistory.answer.toString()),
+            status: 'reviewed',
+            answer: new ObjectId(insertedId),
+            reasonForRejection,
+          } as ISubmissionHistory;
+
+          // Mark this user as reivewied review by changing the status
+          await this.questionSubmissionRepo.updateHistoryByUserId(
+            questionId,
+            userId,
+            updatedSubmissionData,
+            session,
+          );
 
           // Calculate current queue and history lengths
           const queueLength = questionSubmission.queue.length;
@@ -506,13 +589,53 @@ export class AnswerService extends BaseService {
           }
         }
 
+        // Find the current user's position in the queue
+        const currentUserIndexInQueue = currentQueue.findIndex(
+          id => id.toString() === userId.toString(),
+        );
+
+        console.log(
+          'Current user index: ',
+          currentUserIndexInQueue,
+          'currentQueue.length: ',
+          currentQueue.length,
+          'currentSubmissionHistory.length : ',
+          currentSubmissionHistory.length,
+        );
+        // Proceed only if the user is found and not the last in queue
+        if (
+          currentUserIndexInQueue !== -1 &&
+          currentUserIndexInQueue < currentQueue.length - 1 &&
+          currentSubmissionHistory.length + 1 < 10
+        ) {
+          const nextExpertId = currentQueue[currentUserIndexInQueue + 1];
+
+          const nextAllocatedSubmissionData: ISubmissionHistory = {
+            updatedBy: new ObjectId(nextExpertId),
+            status: 'in-review',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          await this.questionSubmissionRepo.update(
+            questionId,
+            nextAllocatedSubmissionData,
+            session,
+          );
+        }
+
         // Auto allocation + reputation score decrement
         const currentSubmissionQueue = questionSubmission.queue || [];
-        if (
-          currentSubmissionQueue.length < 10 &&
+
+        const lastHistory = currentSubmissionHistory.at(-1);
+
+        const canAutoAllocate =
           question.isAutoAllocate &&
-          currentSubmissionQueue.length == questionSubmission.history.length + 1 // +1 becuase this history not include current submission
-        ) {
+          currentSubmissionQueue.length < 10 &&
+          lastHistory?.answer &&
+          currentSubmissionQueue.length === currentSubmissionHistory.length + 1;
+
+        if (canAutoAllocate) {
           await this.questionService.autoAllocateExperts(questionId, session);
         }
 
@@ -523,6 +646,7 @@ export class AnswerService extends BaseService {
           session,
         );
       });
+      return {message: 'Your response recorded sucessfully, thankyou!'};
     } catch (error) {
       throw new InternalServerError(
         `Failed to review answer, please try again! /More: ${error}`,
@@ -530,6 +654,24 @@ export class AnswerService extends BaseService {
     }
   }
 
+  async incrementApprovalCount(
+    answerId: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    try {
+      const answer = await this.answerRepo.getById(answerId);
+      if (!answer)
+        throw new NotFoundError(
+          `Failed to find answer while trying increment approvalcount!`,
+        );
+
+      await this.answerRepo.incrementApprovalCount(answerId, session);
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to increment approved count /More ${error}`,
+      );
+    }
+  }
   async getSubmissions(
     userId: string,
     page: number,
