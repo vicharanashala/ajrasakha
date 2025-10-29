@@ -1266,7 +1266,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                 </DialogContent>
               </Dialog>
             )}
-          {props.answer?.approvalCount > 0 && (
+          {props.answer?.approvalCount !==undefined && (
             <p>Approval count: {props.answer.approvalCount}</p>
           )}
           <Dialog>

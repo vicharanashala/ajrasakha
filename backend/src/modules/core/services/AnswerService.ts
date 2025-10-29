@@ -699,17 +699,19 @@ export class AnswerService extends BaseService {
       if (!answer) {
         throw new BadRequestError(`Answer with ID ${answerId} not found`);
       }
-      if (!answer.isFinalAnswer) {
-        throw new BadRequestError(
-          `Cant't edit this answer:${answerId}, it is not finalized yet!`,
-        );
-      }
+
       const questionId = answer.questionId.toString();
 
       const question = await this.questionRepo.getById(questionId);
 
       if (!question) {
         throw new BadRequestError(`Question with ID ${questionId} not found`);
+      }
+
+      if (question.status !== 'in-review') {
+        throw new BadRequestError(
+          `Cant't edit this answer:${answerId}, currently question is not in review!`,
+        );
       }
 
       const answers = await this.answerRepo.getByQuestionId(
