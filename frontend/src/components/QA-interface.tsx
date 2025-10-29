@@ -1342,8 +1342,10 @@ export const ResponseTimeline = ({
                             {item.status && (
                               <span
                                 className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${
-                                  item.status == "in-review" && item.answer
-                                    ? ""
+                                  (item.status == "in-review" || // if the answer is ther andn status is in-review means (first res)and if the status the reviewed that means he reviewed/ rejected previous answer and given new answer
+                                    item.status == "reviewed") &&
+                                  item.answer
+                                    ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300"
                                     : item.status === "approved"
                                     ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
                                     : item.status === "rejected"
@@ -1351,8 +1353,10 @@ export const ResponseTimeline = ({
                                     : "bg-primary/10 text-primary"
                                 }`}
                               >
-                                {item.status !== "rejected" && item.answer
-                                  ? ""
+                                {(item.status == "in-review" || // if the answer is ther andn status is in-review means (first res)and if the status the reviewed that means he reviewed/ rejected previous answer and given new answer
+                                    item.status == "reviewed") &&
+                                  item.answer
+                                  ? "Answer created"
                                   : item.status
                                   ? item.status.charAt(0).toUpperCase() +
                                     item.status.slice(1)

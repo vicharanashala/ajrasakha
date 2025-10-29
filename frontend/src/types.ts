@@ -165,6 +165,7 @@ export interface IAnswer {
   authorId: string;
   answerIteration: number;
   isFinalAnswer: boolean;
+  approvalCount: number;
   sources: string[];
   answer: string;
   threshold: number;

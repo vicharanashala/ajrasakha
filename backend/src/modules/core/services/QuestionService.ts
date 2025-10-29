@@ -456,6 +456,13 @@ export class QuestionService extends BaseService {
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
 
+    if (question.status !== 'open') {
+      console.log(
+        'This question is currently being reviewed or has been closed. Please check back later!',
+      );
+      return false;
+    }
+
     const details = question.details as PreferenceDto;
 
     const questionSubmission =
@@ -623,6 +630,13 @@ export class QuestionService extends BaseService {
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
 
+        if (question.status !== 'open') {
+          console.log(
+            'This question is currently being reviewed or has been closed. Please check back later!',
+          );
+          return;
+        }
+
         //2. Validate question submission existence
         const questionSubmission =
           await this.questionSubmissionRepo.getByQuestionId(
@@ -646,13 +660,11 @@ export class QuestionService extends BaseService {
         //4. Allocate experts
         const expertIds = experts.map(e => new ObjectId(e));
 
-        // if the last expert is not reviewing other question means (if status is not reviewed or submitted an answer)
+        // if the last expert is  reviewing other question means (if status is not reviewed or not submitted an answer)
         const lastSubmission = questionSubmission.history.at(-1);
         if (
-          lastSubmission.answer ||
-          lastSubmission.approvedAnswer ||
-          lastSubmission.rejectedAnswer ||
-          lastSubmission.status != 'in-review'
+          questionSubmission.history.length >= 0 && // if there is no history there
+          (lastSubmission?.answer || lastSubmission?.status == 'reviewed')
         ) {
           const expertId = expertIds[0];
           const userSubmissionData: ISubmissionHistory = {

@@ -211,10 +211,16 @@ export class UserRepository implements IUserRepository {
 
     await this.usersCollection.updateOne(
       {_id: new ObjectId(userId)},
-      {
-        $inc: {reputation_score: incrementValue},
-        $set: {updatedAt: new Date()},
-      },
+      [
+        {
+          $set: {
+            reputation_score: {
+              $max: [0, {$add: ['$reputation_score', incrementValue]}],
+            },
+            updatedAt: new Date(),
+          },
+        },
+      ],
       {session},
     );
   }
@@ -305,9 +311,9 @@ export class UserRepository implements IUserRepository {
 
     return scoredUsers.map(s => s.user);
   }
-  
-  async findModerators():Promise<IUser[]>{
-    await this.init()
-    return await this.usersCollection.find({role:'moderator'}).toArray()
+
+  async findModerators(): Promise<IUser[]> {
+    await this.init();
+    return await this.usersCollection.find({role: 'moderator'}).toArray();
   }
 }

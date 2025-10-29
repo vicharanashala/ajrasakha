@@ -411,6 +411,7 @@ export class QuestionRepository implements IQuestionRepository {
       const questionIdsToAttempt = submissions.map(
         sub => new ObjectId(sub.questionId),
       );
+      console.log("questionIdsToAttempt",questionIdsToAttempt)
 
       const filter: any = {
         status: 'open',
@@ -709,6 +710,7 @@ export class QuestionRepository implements IQuestionRepository {
                   ?.isFinalAnswer,
                 answer: answersMap.get(h.answer?.toString())?.answer,
                 sources: answersMap.get(h.answer?.toString())?.sources,
+                approvalCount: answersMap.get(h.answer?.toString())?.approvalCount,
                 createdAt: answersMap.get(h.answer?.toString())?.createdAt,
                 updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
               }

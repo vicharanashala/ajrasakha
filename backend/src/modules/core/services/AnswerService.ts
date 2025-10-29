@@ -438,6 +438,7 @@ export class AnswerService extends BaseService {
         }
 
         if (!status) {
+          console.log('Inside no status ');
           // Answer submission from first assigned expert
           const {insertedId} = await this.addAnswer(
             questionId,
@@ -473,7 +474,13 @@ export class AnswerService extends BaseService {
             review_answer_id,
             session,
           );
-
+          // Mark this user review by changing the status
+          await this.questionSubmissionRepo.updateHistoryByUserId(
+            questionId,
+            userId,
+            updatedSubmissionData,
+            session,
+          );
           if (currentApprovalCount && currentApprovalCount >= 3) {
             const rejectedExpertId = lastAnsweredHistory.updatedBy.toString();
 
@@ -509,14 +516,6 @@ export class AnswerService extends BaseService {
             );
             return {message: 'Your response recorded sucessfully, thankyou!'};
           }
-
-          // Mark this user review by changing the status
-          await this.questionSubmissionRepo.updateHistoryByUserId(
-            questionId,
-            userId,
-            updatedSubmissionData,
-            session,
-          );
         } else if (status == 'rejected') {
           // Prepare update payload for the rejected submission
           const rejectedHistoryUpdate: ISubmissionHistory = {
@@ -615,17 +614,31 @@ export class AnswerService extends BaseService {
             session,
           );
         }
+        console.log('After next allocation');
 
         // Auto allocate more user if necessary
         const currentSubmissionQueue = questionSubmission.queue || [];
 
         const lastHistory = currentSubmissionHistory.at(-1);
-
+        console.log('---- Auto Allocation review ----');
+        console.log('isAutoAllocate:', question.isAutoAllocate);
+        console.log('Queue length < 10:', currentSubmissionQueue.length < 10);
+        console.log(
+          'Has lastHistory.answer or reviewed:',
+          lastHistory?.answer || lastHistory?.status === 'reviewed',
+        );
+        console.log(
+          'Queue length check:',
+          currentSubmissionQueue.length === currentSubmissionHistory.length + 1,
+        );
         const canAutoAllocate =
           question.isAutoAllocate &&
           currentSubmissionQueue.length < 10 &&
-          (lastHistory?.answer || lastHistory.status == 'reviewed') &&
+          (lastHistory?.answer || lastHistory?.status == 'reviewed') &&
           currentSubmissionQueue.length === currentSubmissionHistory.length + 1;
+
+        console.log('Final canAutoAllocate:', canAutoAllocate);
+        console.log('-------------------------------');
 
         if (canAutoAllocate) {
           await this.questionService.autoAllocateExperts(questionId, session);

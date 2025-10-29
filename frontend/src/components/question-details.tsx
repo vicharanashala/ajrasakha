@@ -4,6 +4,7 @@ import type {
   ISubmission,
   ISubmissionHistory,
   IUser,
+  QuestionStatus,
   UserRole,
 } from "@/types";
 import {
@@ -336,7 +337,7 @@ export const QuestionDetails = ({
         )}
       </Card>
 
-      <SubmissionTimeline
+      <AllocationTimeline
         history={question.submission.history}
         queue={question.submission.queue}
         currentUser={currentUser}
@@ -423,11 +424,13 @@ export const QuestionDetails = ({
 interface AllocationQueueHeaderProps {
   question: IQuestionFullData;
   queue?: ISubmission["queue"];
+  currentUser: IUser;
 }
 
 const AllocationQueueHeader = ({
   question,
   queue = [],
+  currentUser,
 }: AllocationQueueHeaderProps) => {
   const [autoAllocate, setAutoAllocate] = useState(question.isAutoAllocate);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -473,6 +476,12 @@ const AllocationQueueHeader = ({
 
   const handleSubmit = async () => {
     try {
+      if (question.status !== "open") {
+        toast.error(
+          "This question is currently being reviewed or has been closed. Please check back later!"
+        );
+        return;
+      }
       await allocateExpert({
         questionId: question._id,
         experts: selectedExperts,
@@ -510,198 +519,201 @@ const AllocationQueueHeader = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm">
-            <Switch
-              id="auto-allocate"
-              checked={autoAllocate}
-              onCheckedChange={handleToggle}
-            />
-            <Label
-              htmlFor="auto-allocate"
-              className="cursor-pointer font-medium text-sm flex items-center gap-2"
-            >
-              {changingStatus && (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              )}
-              Auto-allocate Experts
-            </Label>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <div className="space-y-1.5 text-sm">
-                    <p>
-                      <strong>ON:</strong> Questions are automatically assigned
-                      to available experts. If there are not enough experts
-                      currently allocated, the system will auto-allocate more.
-                    </p>
-                    <p>
-                      <strong>OFF:</strong> You need to manually add experts
-                      using the option on the right side. After assigning, make
-                      sure to submit to confirm the allocation.
-                    </p>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-
-          {!autoAllocate && (
-            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-              <DialogTrigger asChild>
-                <Button variant="default" className="gap-2">
-                  <UserPlus className="w-4 h-4" />
-                  Select Experts
-                </Button>
-              </DialogTrigger>
-              <DialogContent
-                className="max-w-6xl max-h-[80vh] min-h-[60vh]"
-                style={{ maxWidth: "70vw" }}
+        {currentUser.role !== "expert" && (
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm">
+              <Switch
+                id="auto-allocate"
+                checked={autoAllocate}
+                onCheckedChange={handleToggle}
+              />
+              <Label
+                htmlFor="auto-allocate"
+                className="cursor-pointer font-medium text-sm flex items-center gap-2"
               >
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-3 text-lg font-semibold">
-                    <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <UserPlus className="w-5 h-5 text-primary" />
+                {changingStatus && (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+                Auto-allocate Experts
+              </Label>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <div className="space-y-1.5 text-sm">
+                      <p>
+                        <strong>ON:</strong> Questions are automatically
+                        assigned to available experts. If there are not enough
+                        experts currently allocated, the system will
+                        auto-allocate more.
+                      </p>
+                      <p>
+                        <strong>OFF:</strong> You need to manually add experts
+                        using the option on the right side. After assigning,
+                        make sure to submit to confirm the allocation.
+                      </p>
                     </div>
-                    Select Experts Manually
-                  </DialogTitle>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
 
-                  <div className="mt-3 relative">
-                    <Input
-                      type="text"
-                      placeholder="Search experts by name, email..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary border"
-                    />
-                    {searchTerm && (
-                      <button
-                        type="button"
-                        onClick={() => setSearchTerm("")}
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                </DialogHeader>
-
-                <ScrollArea className="max-h-96 pr-2">
-                  <div className="space-y-3">
-                    {isUsersLoading && (
-                      <div className="flex justify-center items-center py-10 text-muted-foreground">
-                        <div className="flex flex-col items-center space-y-2">
-                          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                          <span className="text-sm">Loading experts...</span>
-                        </div>
+            {!autoAllocate && (
+              <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="default" className="gap-2">
+                    <UserPlus className="w-4 h-4" />
+                    Select Experts
+                  </Button>
+                </DialogTrigger>
+                <DialogContent
+                  className="max-w-6xl max-h-[80vh] min-h-[60vh]"
+                  style={{ maxWidth: "70vw" }}
+                >
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-3 text-lg font-semibold">
+                      <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <UserPlus className="w-5 h-5 text-primary" />
                       </div>
-                    )}
+                      Select Experts Manually
+                    </DialogTitle>
 
-                    {!isUsersLoading && filteredExperts.length === 0 && (
-                      <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
-                        <UserPlus className="w-8 h-8 mb-2 text-muted-foreground/80" />
-                        <p className="text-sm font-medium">
-                          No experts available
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Try refreshing or check back later.
-                        </p>
-                      </div>
-                    )}
-
-                    {!isUsersLoading &&
-                      filteredExperts.map((expert) => (
-                        <div
-                          key={expert._id}
-                          className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                    <div className="mt-3 relative">
+                      <Input
+                        type="text"
+                        placeholder="Search experts by name, email..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary border"
+                      />
+                      {searchTerm && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchTerm("")}
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                         >
-                          <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <User className="w-5 h-5 text-primary" />
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </DialogHeader>
+
+                  <ScrollArea className="max-h-96 pr-2">
+                    <div className="space-y-3">
+                      {isUsersLoading && (
+                        <div className="flex justify-center items-center py-10 text-muted-foreground">
+                          <div className="flex flex-col items-center space-y-2">
+                            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            <span className="text-sm">Loading experts...</span>
                           </div>
-
-                          <Checkbox
-                            id={`expert-${expert._id}`}
-                            checked={selectedExperts.includes(expert._id)}
-                            onCheckedChange={() =>
-                              handleSelectExpert(expert._id)
-                            }
-                            className="mt-1"
-                          />
-
-                          <Label
-                            htmlFor={`expert-${expert._id}`}
-                            className="font-normal cursor-pointer flex-1 w-full"
-                          >
-                            <div className="flex justify-between items-center w-full">
-                              <div className="flex flex-col">
-                                <div
-                                  className="font-medium truncate"
-                                  title={expert.userName}
-                                >
-                                  {expert?.userName?.slice(0, 48)}
-                                  {expert?.userName?.length > 48 ? "..." : ""}
-                                </div>
-                                <div
-                                  className="text-xs text-muted-foreground truncate"
-                                  title={expert.email}
-                                >
-                                  {expert?.email?.slice(0, 48)}
-                                  {expert?.email?.length > 48 ? "..." : ""}
-                                </div>
-                              </div>
-
-                              <div className="text-sm text-muted-foreground flex-shrink-0 ml-2">
-                                {expert.preference?.domain &&
-                                expert.preference.domain !== "all"
-                                  ? expert.preference.domain
-                                  : "Agriculture Expert"}
-                              </div>
-                            </div>
-                          </Label>
                         </div>
-                      ))}
-                  </div>
-                </ScrollArea>
+                      )}
 
-                <DialogFooter className="flex gap-2 justify-end">
-                  <Button variant="outline" onClick={handleCancel}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleSubmit} disabled={allocatingExperts}>
-                    {allocatingExperts && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    )}
-                    {allocatingExperts
-                      ? "Allocating..."
-                      : `Submit (${selectedExperts.length} selected)`}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
-        </div>
+                      {!isUsersLoading && filteredExperts.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                          <UserPlus className="w-8 h-8 mb-2 text-muted-foreground/80" />
+                          <p className="text-sm font-medium">
+                            No experts available
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Try refreshing or check back later.
+                          </p>
+                        </div>
+                      )}
+
+                      {!isUsersLoading &&
+                        filteredExperts.map((expert) => (
+                          <div
+                            key={expert._id}
+                            className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
+                              <User className="w-5 h-5 text-primary" />
+                            </div>
+
+                            <Checkbox
+                              id={`expert-${expert._id}`}
+                              checked={selectedExperts.includes(expert._id)}
+                              onCheckedChange={() =>
+                                handleSelectExpert(expert._id)
+                              }
+                              className="mt-1"
+                            />
+
+                            <Label
+                              htmlFor={`expert-${expert._id}`}
+                              className="font-normal cursor-pointer flex-1 w-full"
+                            >
+                              <div className="flex justify-between items-center w-full">
+                                <div className="flex flex-col">
+                                  <div
+                                    className="font-medium truncate"
+                                    title={expert.userName}
+                                  >
+                                    {expert?.userName?.slice(0, 48)}
+                                    {expert?.userName?.length > 48 ? "..." : ""}
+                                  </div>
+                                  <div
+                                    className="text-xs text-muted-foreground truncate"
+                                    title={expert.email}
+                                  >
+                                    {expert?.email?.slice(0, 48)}
+                                    {expert?.email?.length > 48 ? "..." : ""}
+                                  </div>
+                                </div>
+
+                                <div className="text-sm text-muted-foreground flex-shrink-0 ml-2">
+                                  {expert.preference?.domain &&
+                                  expert.preference.domain !== "all"
+                                    ? expert.preference.domain
+                                    : "Agriculture Expert"}
+                                </div>
+                              </div>
+                            </Label>
+                          </div>
+                        ))}
+                    </div>
+                  </ScrollArea>
+
+                  <DialogFooter className="flex gap-2 justify-end">
+                    <Button variant="outline" onClick={handleCancel}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSubmit} disabled={allocatingExperts}>
+                      {allocatingExperts && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      {allocatingExperts
+                        ? "Allocating..."
+                        : `Submit (${selectedExperts.length} selected)`}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
-interface SubmissionTimelineProps {
+interface AllocationTimelineProps {
   queue: ISubmission["queue"];
   history: ISubmission["history"];
   currentUser: IUser;
   question: IQuestionFullData;
 }
 
-const SubmissionTimeline = ({
+const AllocationTimeline = ({
   currentUser,
   queue,
   history,
   question,
-}: SubmissionTimelineProps) => {
+}: AllocationTimelineProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const INITIAL_DISPLAY_COUNT = 12;
 
@@ -802,7 +814,11 @@ const SubmissionTimeline = ({
 
   return (
     <div className="w-full space-y-6 my-6">
-      <AllocationQueueHeader queue={queue} question={question} />
+      <AllocationQueueHeader
+        queue={queue}
+        question={question}
+        currentUser={currentUser}
+      />
       {!displayedQueue || displayedQueue.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed rounded-lg bg-muted/30 dark:bg-muted/10">
           <div className="flex flex-col items-center gap-3 max-w-sm">
@@ -859,36 +875,37 @@ const SubmissionTimeline = ({
                   {!(
                     submittedUserIds.has(user._id) ||
                     submittedUserEmails.has(user.email)
-                  ) && !question.isAutoAllocate && (
-                    <div className="absolute -top-1 right-3 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-                      <ConfirmationModal
-                        title="Remove Expert Allocation?"
-                        description={`${
-                          // nextWaitingIndex === index &&
-                          // unSubmittedExpertsCount <= 1 &&
-                          question.isAutoAllocate
-                            ? " Since auto-allocation is enabled , the system will automatically allocate the next available expert immediately after removal. "
-                            : ""
-                        }${
-                          submittedUserIds.has(user._id)
-                            ? "The selected expert has already submitted an answer. "
-                            : ""
-                        }Are you sure you want to remove ${
-                          user?.name
-                        }'s allocation? This action cannot be undone. `}
-                        confirmText="Remove"
-                        cancelText="Cancel"
-                        type="delete"
-                        isLoading={removingAllocation}
-                        onConfirm={() => handleRemoveAllocation(index)}
-                        trigger={
-                          <div className="w-6 h-6 bg-black/10 dark:bg-white/10 backdrop-blur-sm rounded-md flex items-center justify-center cursor-pointer hover:text-red-500">
-                            <Trash2 className="w-4 h-4 transition-colors duration-300" />
-                          </div>
-                        }
-                      />
-                    </div>
-                  )}
+                  ) &&
+                    !question.isAutoAllocate && (
+                      <div className="absolute -top-1 right-3 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                        <ConfirmationModal
+                          title="Remove Expert Allocation?"
+                          description={`${
+                            // nextWaitingIndex === index &&
+                            // unSubmittedExpertsCount <= 1 &&
+                            question.isAutoAllocate
+                              ? " Since auto-allocation is enabled , the system will automatically allocate the next available expert immediately after removal. "
+                              : ""
+                          }${
+                            submittedUserIds.has(user._id)
+                              ? "The selected expert has already submitted an answer. "
+                              : ""
+                          }Are you sure you want to remove ${
+                            user?.name
+                          }'s allocation? This action cannot be undone. `}
+                          confirmText="Remove"
+                          cancelText="Cancel"
+                          type="delete"
+                          isLoading={removingAllocation}
+                          onConfirm={() => handleRemoveAllocation(index)}
+                          trigger={
+                            <div className="w-6 h-6 bg-black/10 dark:bg-white/10 backdrop-blur-sm rounded-md flex items-center justify-center cursor-pointer hover:text-red-500">
+                              <Trash2 className="w-4 h-4 transition-colors duration-300" />
+                            </div>
+                          }
+                        />
+                      </div>
+                    )}
                 </div>
 
                 <div
@@ -1066,6 +1083,7 @@ export const AnswerTimeline = ({
               answer={item.answer}
               submissionData={item.submission}
               currentUserId={currentUserId}
+              questionStatus={question.status}
               questionId={question._id}
               ref={commentRef}
               userRole={userRole}
@@ -1083,6 +1101,7 @@ interface AnswerItemProps {
   submissionData?: ISubmissionHistory;
   questionId: string;
   userRole: UserRole;
+  questionStatus: QuestionStatus;
 }
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
@@ -1189,55 +1208,62 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
           {isMine && <UserCheck className="w-4 h-4 text-blue-600 ml-1" />}
         </div>
         <div className="flex items-center justify-center gap-2">
-          {props.userRole !== "expert" && props.answer.isFinalAnswer && (
-            <Dialog open={editOpen} onOpenChange={setEditOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2">
-                  <Edit className="w-4 h-4" />
-                  Edit Answer
-                </Button>
-              </DialogTrigger>
-
-              <DialogContent
-                className="w-[90vw] max-w-6xl max-h-[85vh] flex flex-col"
-                style={{ maxWidth: "70vw" }}
-              >
-                <DialogHeader>
-                  <DialogTitle className="text-lg font-semibold">
+          {props.userRole !== "expert" &&
+            props.questionStatus == "in-review" && (
+              <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2">
+                    <Edit className="w-4 h-4" />
                     Edit Answer
-                  </DialogTitle>
-                </DialogHeader>
+                  </Button>
+                </DialogTrigger>
 
-                <div className="mt-4">
-                  <Textarea
-                    value={editableAnswer}
-                    placeholder="Update answer here..."
-                    onChange={(e) => setEditableAnswer(e.target.value)}
-                    className="min-h-[150px] resize-none border border-border bg-background"
-                  />
-                </div>
-                <div
-                  className="mt-4 p-4 rounded-md border bg-yellow-50 border-yellow-300 text-yellow-900 text-sm
-                dark:bg-yellow-900/20 dark:border-yellow-700/60 dark:text-yellow-200"
+                <DialogContent
+                  className="w-[90vw] max-w-6xl max-h-[85vh] flex flex-col"
+                  style={{ maxWidth: "70vw" }}
                 >
-                  ⚠️ You are about to update a <strong>finalized answer</strong>
-                  . Please review your changes carefully before saving to avoid
-                  mistakes.
-                </div>
+                  <DialogHeader>
+                    <DialogTitle className="text-lg font-semibold">
+                      Edit Answer
+                    </DialogTitle>
+                  </DialogHeader>
 
-                <div className="mt-6 flex justify-end gap-3">
-                  <Button variant="outline" onClick={() => setEditOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleUpdateAnswer}
-                    className="bg-primary text-primary-foreground"
+                  <div className="mt-4">
+                    <Textarea
+                      value={editableAnswer}
+                      placeholder="Update answer here..."
+                      onChange={(e) => setEditableAnswer(e.target.value)}
+                      className="min-h-[150px] resize-none border border-border bg-background"
+                    />
+                  </div>
+                  <div
+                    className="mt-4 p-4 rounded-md border bg-yellow-50 border-yellow-300 text-yellow-900 text-sm
+                dark:bg-yellow-900/20 dark:border-yellow-700/60 dark:text-yellow-200"
                   >
-                    Save
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                    ⚠️ You are about to update a{" "}
+                    <strong>finalized answer</strong>. Please review your
+                    changes carefully before saving to avoid mistakes.
+                  </div>
+
+                  <div className="mt-6 flex justify-end gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => setEditOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleUpdateAnswer}
+                      className="bg-primary text-primary-foreground"
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+          {props.answer?.approvalCount && (
+            <p>Approval count: {props.answer.approvalCount}</p>
           )}
           <Dialog>
             <DialogTrigger asChild>
