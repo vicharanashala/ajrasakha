@@ -120,8 +120,31 @@ export const QuestionDetails = ({
   const commentRef = useRef<any>(null);
 
   return (
-    <main className="mx-auto p-6 pt-0 grid gap-6">
+    <main className="mx-auto  pt-0 grid gap-6 ">
       <header className="grid gap-2">
+      <Button
+              size="sm"
+              variant="outline"
+              className="inline-flex w-[70px] items-center justify-center gap-1 whitespace-nowrap p-2"
+              onClick={() => goBack()}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-4 h-4 "
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                  //d="M17 8l4 4m0 0l-4 4m4-4H3"
+                />
+              </svg>
+              <span className="leading-none">Exit</span>
+            </Button>
         <div className="flex items-center lg:justify-between md:justify-between sm:justify-between">
           <h1 className="text-2xl font-semibold text-pretty">
             {question.question}
@@ -137,28 +160,7 @@ export const QuestionDetails = ({
                 }}
               />
             )}
-            <Button
-              size="sm"
-              variant="outline"
-              className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
-              onClick={() => goBack()}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-                className="w-4 h-4"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M17 8l4 4m0 0l-4 4m4-4H3"
-                />
-              </svg>
-              <span className="leading-none">Exit</span>
-            </Button>
+           
           </div>
         </div>
 
@@ -195,10 +197,16 @@ export const QuestionDetails = ({
             Total answers: {question.totalAnswersCount}
           </span>
         </div>
-
-        <div className="text-xs text-muted-foreground">
-          Created: {new Date(question.createdAt).toLocaleString()} • Updated:{" "}
-          {new Date(question.updatedAt).toLocaleString()}
+        <div className="flex flex-col mt-2 md:flex-row md:mt-0 text-sm">
+        <div className=" text-muted-foreground">
+          Created: {new Date(question.createdAt).toLocaleString()} 
+          <div className="hidden md:inline pl-2  pr-1 ">
+          •
+          </div>
+        </div>
+        <div className=" text-muted-foreground mt-2 md:mt-0">
+          Updated: {new Date(question.createdAt).toLocaleString()}  
+        </div>
         </div>
       </header>
 
@@ -514,7 +522,13 @@ const SubmissionTimeline = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 transition-all duration-500 ease-in-out relative">
+      <div  
+      className="grid gap-6 place-content-center ml-13 "
+      style={{
+        gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+        WebkitOverflowScrolling: "touch",
+      }}
+      >
     {displayedQueue?.map((user, index) => {
       const status = getStatus(index);
       const styles = getStatusStyles(status);
@@ -550,7 +564,7 @@ const SubmissionTimeline = ({
               )}
             </div>
 
-            <div className="text-center w-full px-2">
+            <div className="text-center w-full px-2 break-words">
               <p className="text-xs font-semibold  text-foreground">
                 {user.name}
               </p>
@@ -685,12 +699,18 @@ export const AnswerTimeline = ({
   });
 
   return (
-    <div className="w-full">
+    <div className="w-full   ">
+       <div className="w-full flex items-start">
       <Timeline
         value={events}
-        align="alternate"
+        align="left"
+  pt={{
+    event: { className: "justify-start items-start ml-5" },
+    content: { className: "w-full" },
+    opposite: { className: "hidden md:block" },
+  }}
         opposite={(item) => (
-          <div className="ml-5 flex flex-col gap-1 ">
+          <div className=" hidden sm:flex ml-5 flex flex-col gap-1 ">
             {item.submission?.updatedBy && (
               <div className="text-xs text-foreground px-2 py-1 rounded-md">
                 <span className="font-medium">By:</span>{" "}
@@ -717,7 +737,7 @@ export const AnswerTimeline = ({
           </div>
         )}
         content={(item) => (
-          <div className="flex-1 mb-5">
+          <div className="flex-1 mb-5 ">
             <AnswerItem
               answer={item.answer}
               submissionData={item.submission}
@@ -729,6 +749,7 @@ export const AnswerTimeline = ({
           </div>
         )}
       />
+      </div>
     </div>
   );
 };
@@ -904,7 +925,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
             </DialogTrigger>
             <DialogContent
               className="w-[90vw] max-w-6xl h-[85vh] flex flex-col"
-              style={{ maxWidth: "70vw" }}
+              style={{ maxWidth: "90vw" }}
             >
               <DialogHeader className="pb-4 border-b">
                 <DialogTitle className="text-xl font-semibold">

@@ -212,7 +212,7 @@ useEffect(() => {
 
               <TabsContent
                 value="all_questions"
-                className="mt-0 border-0 md:px-8 px-2 w-full"
+                className="mt-0 border-0 md:px-8  w-full"
               >
                 <QuestionsPage currentUser={user!} />
               </TabsContent>
