@@ -56,8 +56,8 @@ export default function ProfilePage() {
   };
 
   return (
-    <main className="min-h-screen bg-background ">
-      <div className="mx-auto  px-6 py-8 max-w-[60%]">
+    <main className="min-h-screen  bg-background max-w-[100%]  flex items-center justify-center  ">
+      <div className="  px-6 py-8 ">
         {/* Header with Back Button */}
         <div className="mb-8 flex items-center gap-4">
           <Button
@@ -188,7 +188,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   };
 
   return (
-    <div className="space-y-8 w-[70vw]">
+    <div className="space-y-8 w-[100%] ">
       {/* Profile Header */}
       <div className="flex flex-col md:flex-row items-center md:items-start justify-between rounded-lg border bg-card p-6 gap-4 md:gap-6">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 w-full md:w-auto">
