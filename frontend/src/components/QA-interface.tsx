@@ -422,7 +422,7 @@ export const QAInterface = () => {
                           </div>
                         </div>
                         <div className="mt-3 ml-7 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-                          <div className="items-center gap-1.5 flex">
+                          <div className="  flex-col justify-start  md:flex-row md:items-center gap-1.5 flex ">
                             {question?.priority && (
                               <span
                                 className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
@@ -437,7 +437,7 @@ export const QAInterface = () => {
                                   question.priority.slice(1)}
                               </span>
                             )}
-
+                    <div className="flex flex-row items-center">
                             <svg
                               className="w-3 h-3"
                               fill="none"
@@ -451,10 +451,12 @@ export const QAInterface = () => {
                                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                               />
                             </svg>
-                            <span className="font-medium text-xs">
+                            
+                            <span className="font-medium text-xs ml-2">
                               Created:
                             </span>
                             <span>{question?.createdAt}</span>
+                            </div>
                           </div>
 
                           <div className="hidden md:flex items-center gap-1.5">
@@ -473,7 +475,8 @@ export const QAInterface = () => {
                             </svg>
                             <span className="font-medium">Updated:</span>
                             <span>{question?.updatedAt}</span>
-                          </div>
+                            </div>
+                          
 
                           <div className="hidden md:flex items-center gap-1.5">
                             <svg
