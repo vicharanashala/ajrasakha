@@ -264,9 +264,9 @@ export const QAInterface = () => {
       <div className="flex flex-col space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="w-full md:max-h-[120vh] max-h-[80vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent">
-            <CardHeader className="border-b flex flex-row items-center justify-between pb-4">
+            <CardHeader className=" border-b flex flex-col md:flex-row lg:flex-col items-center justify-between pb-4">
               <TooltipProvider>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 ">
                   <CardTitle className="text-md md:text-lg font-semibold">
                     Question Queues
                   </CardTitle>
@@ -285,7 +285,7 @@ export const QAInterface = () => {
                 </div>
               </TooltipProvider>
 
-              <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-3 flex-wrap ">
                 <Select value={filter} onValueChange={handleFilterChange}>
                   <SelectTrigger className="flex items-center w-fit justify-center  md:w-[200px] p-2 ">
                     <Filter className="w-5 h-5 md:hidden mx-auto" />
