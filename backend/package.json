@@ -56,6 +56,7 @@
     "@types/node": "^22.7.5",
     "@types/pdf-parse": "^1.1.4",
     "@types/supertest": "^6.0.2",
+    "@types/web-push": "^3.6.4",
     "@vitest/coverage-v8": "^3.2.3",
     "@vitest/ui": "^3.2.3",
     "chokidar": "^4.0.3",
@@ -121,6 +122,7 @@
     "sarvamai": "^0.1.9",
     "socks-proxy-agent": "^8.0.5",
     "typedi": "^0.10.0",
+    "web-push": "^3.6.7",
     "winston": "^3.17.0"
   }
 }

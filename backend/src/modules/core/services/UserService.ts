@@ -9,12 +9,16 @@ import {
   PreferenceDto,
   UsersNameResponseDto,
 } from '../classes/validators/UserValidators.js';
+import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
 
 @injectable()
 export class UserService extends BaseService {
   constructor(
     @inject(GLOBAL_TYPES.UserRepository)
     private readonly userRepo: IUserRepository,
+
+    @inject(GLOBAL_TYPES.NotificationRepository)
+    private readonly notificationRepository: INotificationRepository,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -27,9 +31,14 @@ export class UserService extends BaseService {
       if (!userId) throw new NotFoundError('User ID is required');
 
       return this._withTransaction(async (session: ClientSession) => {
-        const user = await this.userRepo.findById(userId, session);
+        let user = await this.userRepo.findById(userId, session);
         if (!user) throw new NotFoundError(`User with ID ${userId} not found`);
-        return user;
+        let notifications = await this.notificationRepository.getNotificationsCount(userId,session)
+        const usersWithNotification = {
+          ...user,
+          notifications
+        }
+        return usersWithNotification;
       });
     } catch (error) {
       throw new InternalServerError(

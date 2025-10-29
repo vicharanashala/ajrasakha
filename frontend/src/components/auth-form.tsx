@@ -165,7 +165,8 @@ export const AuthForm = ({
             firstName,
             lastName,
           });
-          console.log("signupMutation success");
+         
+          result = await loginWithEmail(email, password);
         } catch (e) {
           console.error("signupMutation failed:", e);
           throw e;

@@ -306,4 +306,8 @@ export class UserRepository implements IUserRepository {
     return scoredUsers.map(s => s.user);
   }
   
+  async findModerators():Promise<IUser[]>{
+    await this.init()
+    return await this.usersCollection.find({role:'moderator'}).toArray()
+  }
 }
