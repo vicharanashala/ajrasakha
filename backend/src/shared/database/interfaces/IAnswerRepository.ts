@@ -96,7 +96,7 @@ export interface IAnswerRepository {
   incrementApprovalCount(
     answerId: string,
     session?: ClientSession,
-  ): Promise<void>;
+  ): Promise<number>;
 
   /**
    * Deletes an answer by its ID.

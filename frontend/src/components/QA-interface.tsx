@@ -462,7 +462,7 @@ export const QAInterface = () => {
                   }}
                   className="space-y-4"
                 >
-                  {questions?.map((question,index) => (
+                  {questions?.map((question, index) => (
                     <div
                       key={index}
                       className={`relative group rounded-xl border transition-all duration-200 overflow-hidden bg-transparent ${
@@ -1299,8 +1299,8 @@ export const ResponseTimeline = ({
                             : "bg-primary/10"
                         }`}
                       >
-                        {!item.approvedAnswer &&
-                        !item.rejectedAnswer &&
+                        {(item.status == "in-review" || // if the answer is ther andn status is in-review means (first res)and if the status the reviewed that means he reviewed/ rejected previous answer and given new answer
+                          item.status == "reviewed") &&
                         item.answer ? (
                           <Target className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                         ) : item.approvedAnswer ? (
@@ -1351,7 +1351,7 @@ export const ResponseTimeline = ({
                                     : "bg-primary/10 text-primary"
                                 }`}
                               >
-                                {item.status === "in-review" && item.answer
+                                {item.status !== "rejected" && item.answer
                                   ? ""
                                   : item.status
                                   ? item.status.charAt(0).toUpperCase() +
@@ -1462,7 +1462,8 @@ export const ResponseTimeline = ({
                           </>
                         )}
                         {!item.answer &&
-                        !item.approvedAnswer && !item.rejectedAnswer &&
+                          !item.approvedAnswer &&
+                          !item.rejectedAnswer &&
                           item.status == "in-review" && (
                             <div className="flex items-center gap-2 mt-3">
                               <Button

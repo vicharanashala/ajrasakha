@@ -447,6 +447,7 @@ export class AnswerService extends BaseService {
             session,
           );
 
+          // Push entry in to history array in submission
           const userSubmissionData: ISubmissionHistory = {
             updatedBy: new ObjectId(userId),
             answer: new ObjectId(insertedId),
@@ -468,57 +469,45 @@ export class AnswerService extends BaseService {
           } as ISubmissionHistory;
 
           // increment the approval count field in the answerdocuemtn
-          await this.incrementApprovalCount(review_answer_id, session);
+          const currentApprovalCount = await this.incrementApprovalCount(
+            review_answer_id,
+            session,
+          );
 
-          // to check the answer is finalized or not
-          const lastThreeSubmissions = currentSubmissionHistory.slice(-3);
+          if (currentApprovalCount && currentApprovalCount >= 3) {
+            const rejectedExpertId = lastAnsweredHistory.updatedBy.toString();
 
-          if (lastThreeSubmissions.length === 3) {
-            const [thirdLast, secondLast, last] = lastThreeSubmissions;
+            await this.questionSubmissionRepo.updateHistoryByUserId(
+              questionId,
+              rejectedExpertId,
+              {status: 'approved'},
+              session,
+            );
 
-            const thirdHasOnlyAnswer =
-              Boolean(
-                thirdLast?.answer && String(thirdLast.answer).trim() !== '',
-              ) && !Boolean(thirdLast?.approvedAnswer);
+            await this.questionRepo.updateQuestion(
+              questionId,
+              {status: 'in-review'},
+              session,
+            );
+            return {message: 'Your response recorded sucessfully, thankyou!'};
+          }
+          // Calculate current queue and history lengths
+          const queueLength = questionSubmission.queue.length;
+          const updatedHistoryLength = questionSubmission.history.length + 1; // +1 includes the newly added answer
 
-            const lastTwoHaveApproved =
-              Boolean(secondLast?.approvedAnswer) &&
-              Boolean(last?.approvedAnswer);
+          // If all queued experts have now responded and the total is at least 10,
+          // move the question to 'in-review' status
+          const isAllResponsesCompleted =
+            updatedHistoryLength >= 10 &&
+            questionSubmission.queue[queueLength - 1].toString() == userId;
 
-            if (thirdHasOnlyAnswer && lastTwoHaveApproved) {
-              // Change the status of the review answer to approved (got 3 consecutive approvals)
-              const rejectedExpertId = lastAnsweredHistory.updatedBy.toString();
-
-              await this.questionSubmissionRepo.updateHistoryByUserId(
-                questionId,
-                rejectedExpertId,
-                {status: 'approved'},
-                session,
-              );
-
-              await this.questionRepo.updateQuestion(
-                questionId,
-                {status: 'in-review'},
-                session,
-              );
-            }
-
-            // Calculate current queue and history lengths
-            const queueLength = currentQueue.length;
-            const updatedHistoryLength = questionSubmission.history.length + 1; // +1 includes the newly added answer
-
-            // If all queued experts have now responded and the total is at least 10,
-            // move the question to 'in-review' status
-            const isAllResponsesCompleted =
-              queueLength === updatedHistoryLength && queueLength >= 10;
-
-            if (isAllResponsesCompleted) {
-              await this.questionRepo.updateQuestion(
-                questionId,
-                {status: 'in-review'},
-                session,
-              );
-            }
+          if (isAllResponsesCompleted) {
+            await this.questionRepo.updateQuestion(
+              questionId,
+              {status: 'in-review'},
+              session,
+            );
+            return {message: 'Your response recorded sucessfully, thankyou!'};
           }
 
           // Mark this user review by changing the status
@@ -560,7 +549,6 @@ export class AnswerService extends BaseService {
             rejectedAnswer: new ObjectId(lastAnsweredHistory.answer.toString()),
             status: 'reviewed',
             answer: new ObjectId(insertedId),
-            reasonForRejection,
           } as ISubmissionHistory;
 
           // Mark this user as reivewied review by changing the status
@@ -578,7 +566,8 @@ export class AnswerService extends BaseService {
           // If all queued experts have now responded and the total is at least 10,
           // move the question to 'in-review' status
           const isAllResponsesCompleted =
-            queueLength === updatedHistoryLength && queueLength >= 10;
+            updatedHistoryLength >= 10 &&
+            questionSubmission.queue[queueLength - 1].toString() == userId;
 
           if (isAllResponsesCompleted) {
             await this.questionRepo.updateQuestion(
@@ -586,8 +575,11 @@ export class AnswerService extends BaseService {
               {status: 'in-review'},
               session,
             );
+            return {message: 'Your response recorded sucessfully, thankyou!'};
           }
         }
+
+        // Allocate next user in the history from queue if necessary
 
         // Find the current user's position in the queue
         const currentUserIndexInQueue = currentQueue.findIndex(
@@ -602,7 +594,7 @@ export class AnswerService extends BaseService {
           'currentSubmissionHistory.length : ',
           currentSubmissionHistory.length,
         );
-        // Proceed only if the user is found and not the last in queue
+
         if (
           currentUserIndexInQueue !== -1 &&
           currentUserIndexInQueue < currentQueue.length - 1 &&
@@ -624,7 +616,7 @@ export class AnswerService extends BaseService {
           );
         }
 
-        // Auto allocation + reputation score decrement
+        // Auto allocate more user if necessary
         const currentSubmissionQueue = questionSubmission.queue || [];
 
         const lastHistory = currentSubmissionHistory.at(-1);
@@ -632,13 +624,23 @@ export class AnswerService extends BaseService {
         const canAutoAllocate =
           question.isAutoAllocate &&
           currentSubmissionQueue.length < 10 &&
-          lastHistory?.answer &&
+          (lastHistory?.answer || lastHistory.status == 'reviewed') &&
           currentSubmissionQueue.length === currentSubmissionHistory.length + 1;
 
         if (canAutoAllocate) {
           await this.questionService.autoAllocateExperts(questionId, session);
         }
 
+        // Check the history limit reaced, if reached then question status will be in-review
+        if (currentSubmissionHistory.length + 1 == 10) {
+          await this.questionRepo.updateQuestion(
+            questionId,
+            {status: 'in-review'},
+            session,
+          );
+        }
+
+        // Decrement the reputation score of user since the user reviewed
         const IS_INCREMENT = false;
         await this.userRepo.updateReputationScore(
           userId,
@@ -657,7 +659,7 @@ export class AnswerService extends BaseService {
   async incrementApprovalCount(
     answerId: string,
     session?: ClientSession,
-  ): Promise<void> {
+  ): Promise<number> {
     try {
       const answer = await this.answerRepo.getById(answerId);
       if (!answer)
@@ -665,7 +667,7 @@ export class AnswerService extends BaseService {
           `Failed to find answer while trying increment approvalcount!`,
         );
 
-      await this.answerRepo.incrementApprovalCount(answerId, session);
+      return await this.answerRepo.incrementApprovalCount(answerId, session);
     } catch (error) {
       throw new InternalServerError(
         `Failed to increment approved count /More ${error}`,

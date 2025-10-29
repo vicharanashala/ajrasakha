@@ -95,7 +95,6 @@ export class NotificationController {
   @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async saveSubscription(@Body() body: any, @CurrentUser() user: IUser) {
-    console.log("reached here")
     const {subscription} = body;
     const userId = user._id.toString();
     return this.notificationService.saveSubscription(userId,subscription)
