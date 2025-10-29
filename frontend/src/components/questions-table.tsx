@@ -192,7 +192,6 @@ export const QuestionsTable = ({
       console.log("Error: ", error);
     }
   };
-
   return (
     <div>
       <AddOrEditQuestionDialog
@@ -432,18 +431,9 @@ export const QuestionsTable = ({
 
 {/* Mobile & Tablet Cards */}
 <div
-  className="
-  grid
-  grid-cols-1                /* phones (≤420 px) */
-  xs:grid-cols-1             /* small devices 420–639 px */
-  sm:grid-cols-1             /* tablets 640–767 px */
-  md:grid-cols-2             /* medium devices 768–1023 px */
-  lg:hidden             /* large desktops */
-  gap-4 sm:gap-5 md:gap-6
-  w-full
-  px-2 sm:px-4 md:px-6
-  "
+  className="grid gap-6 place-content-center lg:hidden p-4"
   style={{
+    gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
     WebkitOverflowScrolling: "touch",
   }}
 >
