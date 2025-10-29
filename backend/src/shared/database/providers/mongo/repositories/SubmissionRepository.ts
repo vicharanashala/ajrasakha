@@ -114,6 +114,21 @@ export class QuestionSubmissionRepository
           `No expert found at index: ${index} for questionId: ${questionId}`,
         );
       }
+
+      const currentHistory = questionSubmission?.history || [];
+
+      const currentExpertHistory = currentHistory?.find(
+        h => h.updatedBy?.toString() === expertId?.toString(),
+      );
+
+      const nextExpertId = questionSubmission?.queue?.[index + 1];
+
+      const shouldCreateNextHistoryEntry =
+        nextExpertId &&
+        currentExpertHistory &&
+        currentExpertHistory?.status === 'in-review' &&
+        !currentExpertHistory?.answer;
+
       const result = await this.QuestionSubmissionCollection.updateOne(
         {questionId: new ObjectId(questionId)},
         {
@@ -129,6 +144,24 @@ export class QuestionSubmissionRepository
           `No submission found for questionId: ${questionId}`,
         );
       }
+
+      if (shouldCreateNextHistoryEntry) {
+        await this.QuestionSubmissionCollection.updateOne(
+          {questionId: new ObjectId(questionId)},
+          {
+            $push: {
+              history: {
+                updatedBy: new ObjectId(nextExpertId),
+                status: 'in-review',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              },
+            },
+          },
+          {session},
+        );
+      }
+
       return this.getByQuestionId(questionId, session);
     } catch (error) {
       throw new InternalServerError(

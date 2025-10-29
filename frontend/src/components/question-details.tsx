@@ -1027,6 +1027,10 @@ const AllocationTimeline = ({
   );
 };
 
+
+
+
+
 interface IAnswerTimelineProps {
   answers: IAnswer[];
   currentUserId: string;
@@ -1204,7 +1208,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
             >
               Final
             </Badge>
-          )}
+          )} 
           {isMine && <UserCheck className="w-4 h-4 text-blue-600 ml-1" />}
         </div>
         <div className="flex items-center justify-center gap-2">
@@ -1262,7 +1266,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                 </DialogContent>
               </Dialog>
             )}
-          {props.answer?.approvalCount && (
+          {props.answer?.approvalCount > 0 && (
             <p>Approval count: {props.answer.approvalCount}</p>
           )}
           <Dialog>

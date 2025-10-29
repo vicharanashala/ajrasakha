@@ -411,7 +411,7 @@ export class QuestionRepository implements IQuestionRepository {
       const questionIdsToAttempt = submissions.map(
         sub => new ObjectId(sub.questionId),
       );
-      console.log("questionIdsToAttempt",questionIdsToAttempt)
+      console.log('questionIdsToAttempt', questionIdsToAttempt);
 
       const filter: any = {
         status: 'open',
@@ -710,7 +710,8 @@ export class QuestionRepository implements IQuestionRepository {
                   ?.isFinalAnswer,
                 answer: answersMap.get(h.answer?.toString())?.answer,
                 sources: answersMap.get(h.answer?.toString())?.sources,
-                approvalCount: answersMap.get(h.answer?.toString())?.approvalCount,
+                approvalCount: answersMap.get(h.answer?.toString())
+                  ?.approvalCount,
                 createdAt: answersMap.get(h.answer?.toString())?.createdAt,
                 updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
               }
@@ -807,6 +808,38 @@ export class QuestionRepository implements IQuestionRepository {
         {$set: {...updates, updatedAt: new Date()}},
         {session},
       );
+
+      if (updates.status === 'in-review') {
+        const submission = await this.QuestionSubmissionCollection.findOne(
+          {questionId: new ObjectId(questionId)},
+          {session},
+        );
+
+        if (submission) {
+          const history = submission.history || [];
+          const queue = submission.queue || [];
+
+          const lastHistory = history.at(-1);
+          const lastUpdatedById = lastHistory?.updatedBy?.toString();
+
+          if (lastUpdatedById && queue.length > 0) {
+            const currentIndex = queue.findIndex(
+              (id: any) => id?.toString() === lastUpdatedById,
+            );
+
+            // 🔹 If found, remove all users that come after this index
+            if (currentIndex !== -1 && currentIndex < queue?.length - 1) {
+              const remainingQueue = queue?.slice(0, currentIndex + 1);
+
+              await this.QuestionSubmissionCollection.updateOne(
+                {questionId: new ObjectId(questionId)},
+                {$set: {queue: remainingQueue}},
+                {session},
+              );
+            }
+          }
+        }
+      }
 
       return {modifiedCount: result.modifiedCount};
     } catch (error) {

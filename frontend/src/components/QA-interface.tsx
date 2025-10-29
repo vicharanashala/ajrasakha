@@ -1354,8 +1354,8 @@ export const ResponseTimeline = ({
                                 }`}
                               >
                                 {(item.status == "in-review" || // if the answer is ther andn status is in-review means (first res)and if the status the reviewed that means he reviewed/ rejected previous answer and given new answer
-                                    item.status == "reviewed") &&
-                                  item.answer
+                                  item.status == "reviewed") &&
+                                item.answer
                                   ? "Answer created"
                                   : item.status
                                   ? item.status.charAt(0).toUpperCase() +
