@@ -613,25 +613,19 @@ export class AnswerService extends BaseService {
             nextAllocatedSubmissionData,
             session,
           );
-        } else {
+        }else{
           await this.questionService.autoAllocateExperts(questionId, session);
         }
-        // console.log('After next allocation');
+        console.log('After next allocation');
 
-        // // Auto allocate more user if necessary
+        // Auto allocate more user if necessary
         // const currentSubmissionQueue = questionSubmission.queue || [];
 
         // const lastHistory = currentSubmissionHistory.at(-1);
 
-        // const lastQueuedUserId = currentSubmissionQueue.at(-1)?.toString();
-        // const lastHistoryUpdatedById = lastHistory?.updatedBy?.toString();
-
         // const canAutoAllocate =
         //   question.isAutoAllocate &&
         //   currentSubmissionQueue.length < 10 &&
-        //   status &&
-        //   lastQueuedUserId === lastHistoryUpdatedById &&
-        //   lastHistory?.status !== 'in-review';
 
         // if (canAutoAllocate) {
         //   await this.questionService.autoAllocateExperts(questionId, session);
