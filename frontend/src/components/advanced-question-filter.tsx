@@ -153,10 +153,11 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
       <DialogTrigger asChild>
         <Button
           variant="outline"
-          className="flex-1 min-w-[150px] flex items-center justify-center gap-2"
+          className="flex-1 min-w-[30px] md:min-w-[150px] flex items-center justify-center gap-2"
         >
           <Filter className="h-5 w-5 text-primary" />
-          Preferences
+          <span className="hidden md:inline">Preferences</span>
+          
           {activeFiltersCount > 0 && (
             <Badge
               variant="destructive"
