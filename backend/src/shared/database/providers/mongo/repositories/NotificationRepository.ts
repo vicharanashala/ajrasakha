@@ -150,7 +150,6 @@ async markAllAsRead(userId:string,session?:ClientSession): Promise<{modifiedCoun
 async saveSubscription(userId: string, subscription: any,session?:ClientSession) {
   try {
     await this.init()
-    console.log('data from ',userId,subscription)
     return await this.subscriptionCollection.findOneAndUpdate(
       { userId: new ObjectId(userId) },
       { $set:{userId: new ObjectId(userId),subscription:subscription} },{upsert: true}

@@ -13,8 +13,7 @@ export const sendPushNotification = async (
   subscription: any,
   payload: { title: string; body: string; url: string }
 ) => {
-  try {
-    console.log('send push called')
+  try { 
     await webPush.sendNotification(subscription, JSON.stringify(payload));
   } catch (err) {
     console.error('Push notification failed', err);
@@ -24,7 +23,6 @@ export const sendPushNotification = async (
 
 export const notifyUser = async (userId: string, message: string,subscription:any) => {
   if (!subscription) return;
-  console.log('sub from otify ',subscription)
   const payload = {
     title: 'Notification',
     body: message,
