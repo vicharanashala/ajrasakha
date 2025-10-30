@@ -4,12 +4,14 @@ import type {
   ISubmission,
   ISubmissionHistory,
   IUser,
+  IUserRef,
   QuestionStatus,
   UserRole,
 } from "@/types";
 import {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -337,12 +339,14 @@ export const QuestionDetails = ({
         )}
       </Card>
 
-      <AllocationTimeline
-        history={question.submission.history}
-        queue={question.submission.queue}
-        currentUser={currentUser}
-        question={question}
-      />
+      {currentUser.role !== "expert" && (
+        <AllocationTimeline
+          history={question.submission.history}
+          queue={question.submission.queue}
+          currentUser={currentUser}
+          question={question}
+        />
+      )}
       <div className="flex items-center justify-between md:mt-12">
         <h2 className="text-lg font-semibold flex justify-center gap-2 items-center ">
           <div className="p-2 rounded-lg bg-primary/10">
@@ -716,6 +720,9 @@ const AllocationTimeline = ({
 }: AllocationTimelineProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const INITIAL_DISPLAY_COUNT = 12;
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [flippedId, setIsFlippedId] = useState("");
+  const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const [selectedAllocationIndex, setSelectedAllocationIndex] = useState<
     number | null
@@ -723,6 +730,79 @@ const AllocationTimeline = ({
   // Remove Allocation Hook
   const { mutateAsync: removeAllocation, isPending: removingAllocation } =
     useRemoveAllocation();
+
+  let timer: NodeJS.Timeout;
+
+  const handleMouseEnter = (id: string) => {
+    const timeout = setTimeout(() => {
+      setIsFlippedId(id);
+      setIsFlipped(true);
+    }, 1000); // 1 second delay
+    setHoverTimeout(timeout);
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
+      setHoverTimeout(null);
+    }
+    setIsFlippedId("");
+    setIsFlipped(false);
+  };
+
+  const getUserSubmission = (
+    userId: string
+  ): ISubmissionHistory | undefined => {
+    return history.find((h) => h.updatedBy?._id === userId);
+  };
+
+  const getUserActivityText = (userId: string): string => {
+    const submission = getUserSubmission(userId);
+    if (!submission) return "No activity yet.";
+
+    const userName = submission?.updatedBy?.name || "User";
+
+    if (submission.answer) {
+      return `${userName} created an answer.`;
+    }
+
+    if (submission?.approvedAnswer) {
+      const approvedEntry = history.find(
+        (h) => h.answer?._id === submission.approvedAnswer
+      );
+      const approvedUserName = approvedEntry?.updatedBy?.name || "someone";
+      return `${userName} approved ${approvedUserName}'s answer.`;
+    }
+
+    if (submission.rejectedAnswer) {
+      const rejectedEntry = history.find(
+        (h) => h.answer?._id === submission.rejectedAnswer
+      );
+      const rejectedUserName = rejectedEntry?.updatedBy?.name || "someone";
+      return `${userName} rejected ${rejectedUserName}'s answer.`;
+    }
+
+    if (
+      submission.status === "in-review" &&
+      !submission.answer &&
+      !submission.approvedAnswer &&
+      !submission.rejectedAnswer
+    ) {
+      const reviewingEntry = history.find(
+        (h) => h.answer && h.status !== "rejected" && h.status !== "approved"
+      );
+      const reviewingUserName = reviewingEntry?.updatedBy?.name || "someone";
+      return `${userName} is currently reviewing ${reviewingUserName}'s answer.`;
+    }
+
+    return `${userName} has no recent activity.`;
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeout) clearTimeout(hoverTimeout);
+    };
+  }, [hoverTimeout]);
 
   const handleRemoveAllocation = useCallback(
     async (index: number) => {
@@ -843,6 +923,142 @@ const AllocationTimeline = ({
               status === "waiting" && currentUser.email === user.email;
 
             return (
+              // <div
+              //   key={`${user._id}-${index}`}
+              //   className="relative flex flex-col items-center justify-center my-4 group"
+              // >
+              //   {!isLast && (
+              //     <div className="absolute top-1/2 right-0 flex items-center transform translate-x-full -translate-y-1/2">
+              //       <svg
+              //         className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 ${
+              //           isCurrentUserWaiting ? "animate-bounce" : ""
+              //         }`}
+              //         xmlns="http://www.w3.org/2000/svg"
+              //         fill="none"
+              //         stroke="currentColor"
+              //         strokeWidth="2"
+              //         viewBox="0 0 24 24"
+              //       >
+              //         <path
+              //           strokeLinecap="round"
+              //           strokeLinejoin="round"
+              //           d="M5 12h14m0 0l-4-4m4 4l-4 4"
+              //         />
+              //       </svg>
+              //     </div>
+              //   )}
+
+              //   {/* Overlay for delete */}
+              //   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              //     <div className="absolute w-58 h-48 rounded-md bg-card/80 border opacity-0 group-hover:opacity-30 transition-opacity duration-300"></div>
+
+              //     {!(
+              //       submittedUserIds.has(user._id) ||
+              //       submittedUserEmails.has(user.email)
+              //     ) &&
+              //       !question.isAutoAllocate && (
+              //         <div className="absolute -top-1 right-3 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+              //           <ConfirmationModal
+              //             title="Remove Expert Allocation?"
+              //             description={`${
+              //               // nextWaitingIndex === index &&
+              //               // unSubmittedExpertsCount <= 1 &&
+              //               question.isAutoAllocate
+              //                 ? " Since auto-allocation is enabled , the system will automatically allocate the next available expert immediately after removal. "
+              //                 : ""
+              //             }${
+              //               submittedUserIds.has(user._id)
+              //                 ? "The selected expert has already submitted an answer. "
+              //                 : ""
+              //             }Are you sure you want to remove ${
+              //               user?.name
+              //             }'s allocation? This action cannot be undone. `}
+              //             confirmText="Remove"
+              //             cancelText="Cancel"
+              //             type="delete"
+              //             isLoading={removingAllocation}
+              //             onConfirm={() => handleRemoveAllocation(index)}
+              //             trigger={
+              //               <div className="w-6 h-6 bg-black/10 dark:bg-white/10 backdrop-blur-sm rounded-md flex items-center justify-center cursor-pointer hover:text-red-500">
+              //                 <Trash2 className="w-4 h-4 transition-colors duration-300" />
+              //               </div>
+              //             }
+              //           />
+              //         </div>
+              //       )}
+              //   </div>
+
+              //   <div
+              //     className={`relative flex flex-col items-center justify-center gap-2 p-4
+              //     rounded-full border-2 transition-all duration-300 hover:shadow-lg hover:scale-105
+              //     ${styles.container}
+              //     ${
+              //       isExpanded && index >= INITIAL_DISPLAY_COUNT
+              //         ? "animate-fade-in"
+              //         : ""
+              //     }
+              //     ${
+              //       isCurrentUserWaiting
+              //         ? "ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105"
+              //         : ""
+              //     }
+              //     w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44
+              //   `}
+              //   >
+              //     {removingAllocation && selectedAllocationIndex === index && (
+              //       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+              //         <Loader2 className="w-6 h-6 animate-spin text-white/80" />
+              //       </div>
+              //     )}
+
+              //     <div
+              //       className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${styles.iconBg}`}
+              //     >
+              //       {status === "submitted" ? (
+              //         <CheckCircle2 className={`w-6 h-6 ${styles.icon}`} />
+              //       ) : status === "waiting" ? (
+              //         <Clock
+              //           className={`w-6 h-6 ${styles.icon} ${
+              //             isCurrentUserWaiting ? "animate-bounce-subtle" : ""
+              //           }`}
+              //         />
+              //       ) : (
+              //         <AlertCircle className={`w-6 h-6 ${styles.icon}`} />
+              //       )}
+              //     </div>
+
+              //     <div className="text-center w-full px-2">
+              //       <p
+              //         className="text-xs font-semibold text-foreground truncate"
+              //         title={user.name}
+              //       >
+              //         {user.name?.slice(0, 15)}
+              //         {user.name?.length > 15 ? "..." : ""}
+              //       </p>
+              //       <p
+              //         className="text-[10px] text-muted-foreground truncate mt-0.5"
+              //         title={user.email}
+              //       >
+              //         {user.email?.slice(0, 23)}
+              //         {user.email?.length > 23 ? "..." : ""}
+              //       </p>
+              //     </div>
+
+              //     {/* Status Badge */}
+              //     <span
+              //       className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${styles.badge}`}
+              //     >
+              //       {status === "submitted"
+              //         ? "Submitted"
+              //         : status === "waiting"
+              //         ? isCurrentUserWaiting
+              //           ? "Your Turn"
+              //           : "Waiting"
+              //         : "Pending"}
+              //     </span>
+              //   </div>
+              // </div>
+
               <div
                 key={`${user._id}-${index}`}
                 className="relative flex flex-col items-center justify-center my-4 group"
@@ -881,8 +1097,6 @@ const AllocationTimeline = ({
                         <ConfirmationModal
                           title="Remove Expert Allocation?"
                           description={`${
-                            // nextWaitingIndex === index &&
-                            // unSubmittedExpertsCount <= 1 &&
                             question.isAutoAllocate
                               ? " Since auto-allocation is enabled , the system will automatically allocate the next available expert immediately after removal. "
                               : ""
@@ -909,73 +1123,111 @@ const AllocationTimeline = ({
                 </div>
 
                 <div
-                  className={`relative flex flex-col items-center justify-center gap-2 p-4 
-                  rounded-full border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 
-                  ${styles.container} 
-                  ${
-                    isExpanded && index >= INITIAL_DISPLAY_COUNT
-                      ? "animate-fade-in"
-                      : ""
-                  } 
-                  ${
-                    isCurrentUserWaiting
-                      ? "ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105"
-                      : ""
-                  }
-                  w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44
-                `}
+                  className="relative w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44"
+                  style={{ perspective: "1000px" }}
+                  onMouseEnter={() => handleMouseEnter(user._id)}
+                  onMouseLeave={handleMouseLeave}
                 >
-                  {removingAllocation && selectedAllocationIndex === index && (
-                    <div className="absolute inset-0 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                      <Loader2 className="w-6 h-6 animate-spin text-white/80" />
-                    </div>
-                  )}
-
                   <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${styles.iconBg}`}
+                    className={`relative w-full h-full transition-transform duration-700 ${
+                      isFlipped && flippedId == user._id
+                        ? "[transform:rotateY(180deg)]"
+                        : ""
+                    }`}
+                    style={{ transformStyle: "preserve-3d" }}
                   >
-                    {status === "submitted" ? (
-                      <CheckCircle2 className={`w-6 h-6 ${styles.icon}`} />
-                    ) : status === "waiting" ? (
-                      <Clock
-                        className={`w-6 h-6 ${styles.icon} ${
-                          isCurrentUserWaiting ? "animate-bounce-subtle" : ""
-                        }`}
-                      />
-                    ) : (
-                      <AlertCircle className={`w-6 h-6 ${styles.icon}`} />
-                    )}
-                  </div>
-
-                  <div className="text-center w-full px-2">
-                    <p
-                      className="text-xs font-semibold text-foreground truncate"
-                      title={user.name}
+                    <div
+                      className={`absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 
+            rounded-full border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 
+            ${styles.container} 
+            ${
+              isExpanded && index >= INITIAL_DISPLAY_COUNT
+                ? "animate-fade-in"
+                : ""
+            } 
+            ${
+              isCurrentUserWaiting
+                ? "ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105"
+                : ""
+            }`}
+                      style={{ backfaceVisibility: "hidden" }}
                     >
-                      {user.name?.slice(0, 15)}
-                      {user.name?.length > 15 ? "..." : ""}
-                    </p>
-                    <p
-                      className="text-[10px] text-muted-foreground truncate mt-0.5"
-                      title={user.email}
-                    >
-                      {user.email?.slice(0, 23)}
-                      {user.email?.length > 23 ? "..." : ""}
-                    </p>
-                  </div>
+                      {removingAllocation &&
+                        selectedAllocationIndex === index && (
+                          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                            <Loader2 className="w-6 h-6 animate-spin text-white/80" />
+                          </div>
+                        )}
 
-                  {/* Status Badge */}
-                  <span
-                    className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${styles.badge}`}
-                  >
-                    {status === "submitted"
-                      ? "Submitted"
-                      : status === "waiting"
-                      ? isCurrentUserWaiting
-                        ? "Your Turn"
-                        : "Waiting"
-                      : "Pending"}
-                  </span>
+                      <div
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${styles.iconBg}`}
+                      >
+                        {status === "submitted" ? (
+                          <CheckCircle2 className={`w-6 h-6 ${styles.icon}`} />
+                        ) : status === "waiting" ? (
+                          <Clock
+                            className={`w-6 h-6 ${styles.icon} ${
+                              isCurrentUserWaiting
+                                ? "animate-bounce-subtle"
+                                : ""
+                            }`}
+                          />
+                        ) : (
+                          <AlertCircle className={`w-6 h-6 ${styles.icon}`} />
+                        )}
+                      </div>
+
+                      <div className="text-center w-full px-2">
+                        <p
+                          className="text-xs font-semibold text-foreground truncate"
+                          title={user.name}
+                        >
+                          {user.name?.slice(0, 15)}
+                          {user.name?.length > 15 ? "..." : ""}
+                        </p>
+                        <p
+                          className="text-[10px] text-muted-foreground truncate mt-0.5"
+                          title={user.email}
+                        >
+                          {user.email?.slice(0, 23)}
+                          {user.email?.length > 23 ? "..." : ""}
+                        </p>
+                      </div>
+
+                      <span
+                        className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${styles.badge}`}
+                      >
+                        {status === "submitted"
+                          ? "Submitted"
+                          : status === "waiting"
+                          ? isCurrentUserWaiting
+                            ? "Your Turn"
+                            : "Waiting"
+                          : "Pending"}
+                      </span>
+                    </div>
+
+                    <div
+                      className="absolute inset-0 flex items-center justify-center rounded-lg border border-border/50 bg-gradient-to-br from-card to-card/95 shadow-lg transition-all duration-300"
+                      style={{
+                        backfaceVisibility: "hidden",
+                        transform: "rotateY(180deg)",
+                        boxShadow:
+                          "0 20px 25px -5px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
+                      }}
+                    >
+                      <div className="flex flex-col items-center justify-center gap-2 px-4 text-center">
+                        <div className="h-1 w-8 rounded-full bg-gradient-to-r from-primary/60 to-primary/20" />
+                        <p
+                          className="text-sm font-semibold leading-relaxed text-foreground"
+                          title={getUserActivityText(user._id)}
+                        >
+                          {getUserActivityText(user._id)}
+                        </p>
+                        <div className="h-0.5 w-6 rounded-full bg-gradient-to-r from-primary/20 to-primary/60" />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             );

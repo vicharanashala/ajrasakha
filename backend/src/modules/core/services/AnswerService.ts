@@ -396,15 +396,7 @@ export class AnswerService extends BaseService {
           id => id.toString() === userId.toString(),
         );
 
-        console.log(
-          'Current user index: ',
-          currentUserIndexInQueue,
-          'currentQueue.length: ',
-          currentQueue.length,
-          'currentSubmissionHistory.length : ',
-          currentSubmissionHistory.length,
-        );
-
+       
         // Check if the current user is in the queue
         if (currentUserIndexInQueue !== -1) {
           // Case 1: Current user is not the last in the queue and total history (including next) is less than 10
@@ -456,6 +448,7 @@ export class AnswerService extends BaseService {
           session,
         );
       });
+
       return {message: 'Your response recorded sucessfully, thankyou!'};
     } catch (error) {
       throw new InternalServerError(
