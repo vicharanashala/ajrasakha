@@ -262,7 +262,7 @@ export class AnswerService extends BaseService {
           // Push entry in to history array in submission
           const userSubmissionData: ISubmissionHistory = {
             updatedBy: new ObjectId(userId),
-            answer: new ObjectId(insertedId),
+            answer: new ObjectId(insertedId), 
             createdAt: new Date(),
             status: 'in-review',
             updatedAt: new Date(),
@@ -310,23 +310,23 @@ export class AnswerService extends BaseService {
             return {message: 'Your response recorded sucessfully, thankyou!'};
           }
           // Calculate current queue and history lengths
-          const queueLength = questionSubmission.queue.length;
-          const updatedHistoryLength = questionSubmission.history.length + 1; // +1 includes the newly added answer
+          // const queueLength = questionSubmission.queue.length;
+          // const updatedHistoryLength = questionSubmission.history.length + 1; // +1 includes the newly added answer
 
-          // If all queued experts have now responded and the total is at least 10,
-          // move the question to 'in-review' status
-          const isAllResponsesCompleted =
-            updatedHistoryLength >= 10 &&
-            questionSubmission.queue[queueLength - 1].toString() == userId;
+          // // If all queued experts have now responded and the total is at least 10,
+          // // move the question to 'in-review' status
+          // const isAllResponsesCompleted =
+          //   updatedHistoryLength >= 10 &&
+          //   questionSubmission.queue[queueLength - 1].toString() == userId;
 
-          if (isAllResponsesCompleted) {
-            await this.questionRepo.updateQuestion(
-              questionId,
-              {status: 'in-review'},
-              session,
-            );
-            return {message: 'Your response recorded sucessfully, thankyou!'};
-          }
+          // if (isAllResponsesCompleted) {
+          //   await this.questionRepo.updateQuestion(
+          //     questionId,
+          //     {status: 'in-review'},
+          //     session,
+          //   );
+          //   return {message: 'Your response recorded sucessfully, thankyou!'};
+          // }
         } else if (status == 'rejected') {
           // Prepare update payload for the rejected submission
           const rejectedHistoryUpdate: ISubmissionHistory = {
@@ -370,23 +370,23 @@ export class AnswerService extends BaseService {
           );
 
           // Calculate current queue and history lengths
-          const queueLength = questionSubmission.queue.length;
-          const updatedHistoryLength = questionSubmission.history.length + 1; // +1 includes the newly added answer
+          // const queueLength = questionSubmission.queue.length;
+          // const updatedHistoryLength = questionSubmission.history.length + 1; // +1 includes the newly added answer
 
-          // If all queued experts have now responded and the total is at least 10,
-          // move the question to 'in-review' status
-          const isAllResponsesCompleted =
-            updatedHistoryLength >= 10 &&
-            questionSubmission.queue[queueLength - 1].toString() == userId;
+          // // If all queued experts have now responded and the total is at least 10,
+          // // move the question to 'in-review' status
+          // const isAllResponsesCompleted =
+          //   updatedHistoryLength >= 10 &&
+          //   questionSubmission.queue[queueLength - 1].toString() == userId;
 
-          if (isAllResponsesCompleted) {
-            await this.questionRepo.updateQuestion(
-              questionId,
-              {status: 'in-review'},
-              session,
-            );
-            return {message: 'Your response recorded sucessfully, thankyou!'};
-          }
+          // if (isAllResponsesCompleted) {
+          //   await this.questionRepo.updateQuestion(
+          //     questionId,
+          //     {status: 'in-review'},
+          //     session,
+          //   );
+          //   return {message: 'Your response recorded sucessfully, thankyou!'};
+          // }
         }
 
         // Allocate next user in the history from queue if necessary
@@ -396,13 +396,12 @@ export class AnswerService extends BaseService {
           id => id.toString() === userId.toString(),
         );
 
-       
         // Check if the current user is in the queue
         if (currentUserIndexInQueue !== -1) {
           // Case 1: Current user is not the last in the queue and total history (including next) is less than 10
           if (
             currentUserIndexInQueue < currentQueue.length - 1 &&
-            currentSubmissionHistory.length + 1 < 10
+            currentQueue.length  < 10
           ) {
             const nextExpertId = currentQueue[currentUserIndexInQueue + 1];
 
@@ -432,7 +431,7 @@ export class AnswerService extends BaseService {
         }
 
         // Check the history limit reaced, if reached then question status will be in-review
-        if (currentSubmissionHistory.length + 1 == 10) {
+        if (currentSubmissionHistory.length  == 10) {
           await this.questionRepo.updateQuestion(
             questionId,
             {status: 'in-review'},

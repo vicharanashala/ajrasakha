@@ -691,7 +691,6 @@ export const AddOrEditQuestionDialog = ({
             <Button
               variant="default"
               onClick={() => {
-                console.log("[AddQuestionDialog] Adding:", updatedData);
                 onSave?.("add");
               }}
             >
@@ -702,10 +701,6 @@ export const AddOrEditQuestionDialog = ({
             <Button
               variant="destructive"
               onClick={() => {
-                console.log(
-                  "[EditQuestionDialog] Submitting flag:",
-                  updatedData
-                );
                 onSave?.("edit", question?._id!, flagReason);
               }}
             >
@@ -716,7 +711,6 @@ export const AddOrEditQuestionDialog = ({
             <Button
               variant="default"
               onClick={() => {
-                console.log("[EditQuestionDialog] Saving:", updatedData);
                 onSave?.("edit", question?._id!);
               }}
             >
