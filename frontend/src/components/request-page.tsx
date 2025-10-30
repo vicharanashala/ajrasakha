@@ -451,7 +451,7 @@ export const RequestsPage = () => {
     sortOrder
   );
   return (
-    <main className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
+    <main className="mx-auto w-full  pt-2 md:p-6 md:pt-0">
       <section className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
         <section className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -523,7 +523,14 @@ export const RequestsPage = () => {
         </section>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-4 md:grid-cols-3">
+      <section 
+      className="grid gap-6 place-content-center  p-4"
+      style={{
+        gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))",
+       // overflowWrap: "break-word",
+        WebkitOverflowScrolling: "touch",
+      }}
+      >
         {isLoading ? (
           <div className="col-span-full flex justify-center py-10">
             <span className="text-muted-foreground">Loading requests...</span>
