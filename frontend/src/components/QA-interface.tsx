@@ -1477,7 +1477,6 @@ export const ResponseTimeline = ({
                                 description="Are you sure you want to accept this request? This action cannot be undone."
                                 confirmText="Accept"
                                 cancelText="Cancel"
-                                type="edit"
                                 isLoading={isSubmittingAnswer}
                                 open={isAccepConfirmationOpen}
                                 onOpenChange={setIsAccepConfirmationOpen}
