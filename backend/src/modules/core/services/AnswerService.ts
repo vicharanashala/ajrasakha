@@ -58,166 +58,6 @@ export class AnswerService extends BaseService {
     super(mongoDatabase);
   }
 
-  //   async addAnswer(
-  //     questionId: string,
-  //     authorId: string,
-  //     answer: string,
-  //     sources: string[],
-  //     session?: ClientSession
-  //   ): Promise<{insertedId: string; isFinalAnswer: boolean}> {
-  //     return this._withTransaction(async (session: ClientSession) => {
-  //       const question = await this.questionRepo.getById(questionId, session);
-
-  //       if (!question) {
-  //         throw new BadRequestError(`Question with ID ${questionId} not found`);
-  //       }
-
-  //       const isQuestionClosed = question.status === 'closed';
-
-  //       if (isQuestionClosed) {
-  //         throw new BadRequestError(`Question is already closed`);
-  //       }
-
-  //       const isAlreadyResponded = await this.answerRepo.getByAuthorId(
-  //         authorId,
-  //         questionId,
-  //         session,
-  //       );
-
-  //       if (isAlreadyResponded) {
-  //         throw new BadRequestError('You’ve already submitted an answer!');
-  //       }
-
-  //       // lets consider it is not final answer
-  //       let isFinalAnswer = false;
-
-  //       let metrics: IQuestionMetrics | null = null;
-
-  //       let analysisStatus: 'CONTINUE' | 'FLAGGED_FOR_REVIEW' | 'CONVERGED' =
-  //         'CONTINUE';
-
-  //       const answers = (await this.answerRepo.getByQuestionId(questionId)) || [];
-
-  //       // if (answers.length) {
-  //       const answerTexts = answers.map(ans => ans.answer);
-
-  //       const payload: IQuestionWithAnswerTexts = {
-  //         question_id: questionId,
-  //         question_text: question.question,
-  //         answers: [...answerTexts, answer],
-  //       };
-
-  //       // Wait for AI analysis
-  //       // const analysis = await this.aiService.evaluateAnswers(payload);
-
-  //       const analysis: IQuestionAnalysis = {
-  //         question_id: '68f137fe5fbcb9f0f5f091eb',
-  //         num_answers: 5,
-  //         mean_similarity: 0.72,
-  //         std_similarity: 0.15,
-  //         recent_similarity: 0.68,
-  //         collusion_score: 0.85,
-  //         status: 'CONTINUE',
-  //         message: 'Similarity score is high, needs review',
-  //       };
-
-  //       metrics = {
-  //         mean_similarity: analysis.mean_similarity,
-  //         std_similarity: analysis.std_similarity,
-  //         recent_similarity: analysis.recent_similarity,
-  //         collusion_score: analysis.collusion_score,
-  //       };
-
-  //       analysisStatus = analysis.status;
-
-  //       if (analysisStatus == 'CONVERGED') isFinalAnswer = true;
-
-  //       if (isFinalAnswer) {
-  //         const text = `Question: ${question.question}
-  // Answer: ${answer}`;
-  //         const {embedding} = await this.aiService.getEmbedding(text);
-  //         await this.questionRepo.updateQuestion(
-  //           questionId,
-  //           {text, embedding},
-  //           session,
-  //           true,
-  //         );
-  //       }
-
-  //       const updatedAnswerCount = question.totalAnswersCount + 1;
-
-  //       // const {embedding} = await this.aiService.getEmbedding(answer);
-
-  //       const embedding = [];
-
-  //       const {insertedId} = await this.answerRepo.addAnswer(
-  //         questionId,
-  //         authorId,
-  //         answer,
-  //         sources,
-  //         embedding,
-  //         isFinalAnswer,
-  //         updatedAnswerCount,
-  //         session,
-  //       );
-
-  //       await this.questionRepo.updateQuestion(
-  //         questionId,
-  //         {
-  //           totalAnswersCount: updatedAnswerCount,
-  //           metrics,
-  //           status:
-  //             analysisStatus == 'FLAGGED_FOR_REVIEW'
-  //               ? 'in-review'
-  //               : analysisStatus == 'CONTINUE'
-  //                 ? 'open'
-  //                 : 'closed',
-  //         },
-  //         session,
-  //       );
-
-  //       const submission = await this.questionSubmissionRepo.getByQuestionId(
-  //         questionId,
-  //         session,
-  //       );
-  //       if (!submission) {
-  //         throw new BadRequestError('Question submission not found');
-  //       }
-
-  //       // const isCurrentExpertLastInQueue =
-  //       const userSubmissionData: ISubmissionHistroy = {
-  //         updatedBy: new ObjectId(authorId),
-  //         answer: new ObjectId(insertedId),
-  //         createdAt: new Date(),
-  //         status: 'in-review',
-  //         updatedAt: new Date(),
-  //       };
-
-  //       await this.questionSubmissionRepo.update(
-  //         questionId,
-  //         userSubmissionData,
-  //         session,
-  //       );
-
-  //       // const currentSubmissionQueue = submission.queue || [];
-  //       // if (
-  //       //   currentSubmissionQueue.length < 10 &&
-  //       //   question.isAutoAllocate &&
-  //       //   currentSubmissionQueue.length == submission.history.length + 1 // +1 becuase this history not include current submission
-  //       // ) {
-  //       //   await this.questionService.autoAllocateExperts(questionId, session);
-  //       // }
-
-  //       // const IS_INCREMENT = false;
-  //       // await this.userRepo.updateReputationScore(
-  //       //   authorId,
-  //       //   IS_INCREMENT,
-  //       //   session,
-  //       // );
-  //       return {insertedId, isFinalAnswer};
-  //     });
-  //   }
-
   async addAnswer(
     questionId: string,
     authorId: string,
@@ -325,28 +165,6 @@ export class AnswerService extends BaseService {
         activeSession,
       );
 
-      // const submission = await this.questionSubmissionRepo.getByQuestionId(
-      //   questionId,
-      //   activeSession,
-      // );
-      // if (!submission) {
-      //   throw new BadRequestError('Question submission not found');
-      // }
-
-      // const userSubmissionData: ISubmissionHistory = {
-      //   updatedBy: new ObjectId(authorId),
-      //   answer: new ObjectId(insertedId),
-      //   createdAt: new Date(),
-      //   status: 'in-review',
-      //   updatedAt: new Date(),
-      // };
-
-      // await this.questionSubmissionRepo.update(
-      //   questionId,
-      //   userSubmissionData,
-      //   activeSession,
-      // );
-
       return {insertedId, isFinalAnswer};
     };
 
@@ -383,13 +201,9 @@ export class AnswerService extends BaseService {
           sources,
         } = body;
 
-        console.log('Body: ', body);
-
         const question = await this.questionRepo.getById(questionId, session);
         if (!question)
           throw new NotFoundError(`Failed to find question, try again!`);
-
-        console.log('Current status: ', status);
 
         const questionSubmission =
           await this.questionSubmissionRepo.getByQuestionId(
@@ -415,8 +229,6 @@ export class AnswerService extends BaseService {
               h?.status !== 'rejected',
           );
 
-        console.log('Last answeed history: ', lastAnsweredHistory);
-
         if (!lastAnsweredHistory?.answer && status) {
           // if there status means, it is either accepting or rejecting
           throw new BadRequestError(
@@ -438,7 +250,6 @@ export class AnswerService extends BaseService {
         }
 
         if (!status) {
-          console.log('Inside no status ');
           // Answer submission from first assigned expert
           const {insertedId} = await this.addAnswer(
             questionId,
@@ -627,21 +438,6 @@ export class AnswerService extends BaseService {
             await this.questionService.autoAllocateExperts(questionId, session);
           }
         }
-
-        console.log('After next allocation');
-
-        // Auto allocate more user if necessary
-        // const currentSubmissionQueue = questionSubmission.queue || [];
-
-        // const lastHistory = currentSubmissionHistory.at(-1);
-
-        // const canAutoAllocate =
-        //   question.isAutoAllocate &&
-        //   currentSubmissionQueue.length < 10 &&
-
-        // if (canAutoAllocate) {
-        //   await this.questionService.autoAllocateExperts(questionId, session);
-        // }
 
         // Check the history limit reaced, if reached then question status will be in-review
         if (currentSubmissionHistory.length + 1 == 10) {
