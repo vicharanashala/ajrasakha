@@ -703,12 +703,7 @@ export const AnswerTimeline = ({
        <div className="w-full flex items-start">
       <Timeline
         value={events}
-        align="left"
-  pt={{
-    event: { className: "justify-start items-start ml-5" },
-    content: { className: "w-full" },
-    opposite: { className: "hidden md:block" },
-  }}
+        align="alternate"
         opposite={(item) => (
           <div className=" hidden sm:flex ml-5 flex flex-col gap-1 ">
             {item.submission?.updatedBy && (
