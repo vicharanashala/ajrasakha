@@ -16,10 +16,15 @@ import { QuestionsPage } from "./questions-page";
 import { BellIcon ,Settings2Icon} from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { RequestsPage } from "./request-page";
-import { useState ,useEffect} from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { Badge } from "./atoms/badge";
+import { initializeNotifications } from "@/services/pushService";
+import { useEffect,useState } from "react";
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser();
+  const userId = user?._id?.toString();
+  const navigate = useNavigate();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const handleTabClick = () => setIsDrawerOpen(false);
@@ -35,6 +40,10 @@ useEffect(() => {
   window.addEventListener("resize", handleResize);
   return () => window.removeEventListener("resize", handleResize);
 }, []);
+
+  useEffect(() => {
+    initializeNotifications();
+  }, [userId]);
 
   return (
     <>
@@ -131,8 +140,28 @@ useEffect(() => {
               </TabsList>
             </div>
 
-            <div className=" flex items-center gap-3 shrink-0">
-              <BellIcon className="w-5 h-5" />
+            {/* <div className="flex items-center gap-3 shrink-0">
+              <BellIcon className="w-5 h-5" onClick={() => navigate({ to: "/notifications" })} />
+                {user?.notifications! > 0 && (
+                <Badge variant="destructive" className="ml-2">{user?.notifications}</Badge>
+              )}
+              <ThemeToggleCompact />
+              <UserProfileActions />
+            </div> */}
+
+            <div className="flex items-center gap-3 shrink-0 relative">
+              <div className="relative">
+                <BellIcon
+                  className="w-5 h-5 cursor-pointer"
+                  onClick={() => navigate({ to: "/notifications" })}
+                />
+                {user?.notifications! > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                    {user?.notifications}
+                  </span>
+                )}
+              </div>
+
               <ThemeToggleCompact />
               <UserProfileActions />
             </div>

@@ -391,9 +391,9 @@ export const QAInterface = () => {
                   }}
                   className="space-y-4"
                 >
-                  {questions?.map((question) => (
+                  {questions?.map((question,index) => (
                     <div
-                      key={question?.id}
+                      key={index}
                       className={`relative group rounded-xl border transition-all duration-200 overflow-hidden bg-transparent ${
                         selectedQuestion === question?.id
                           ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"

@@ -99,4 +99,6 @@ export interface IUserRepository {
    * @returns A promise that resolves to an array of users.
    */
   findAll(session?: ClientSession): Promise<IUser[]>;
+  
+  findModerators():Promise<IUser[]>
 }

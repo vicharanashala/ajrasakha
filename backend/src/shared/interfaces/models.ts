@@ -14,6 +14,7 @@ export interface IUser {
   firstName: string;
   lastName?: string;
   preference?: IPreference | null;
+  notifications?:number;
   role: UserRole;
   createdAt?: Date;
   updatedAt?: Date;
@@ -121,3 +122,29 @@ export type IRequest = RequestDetails & {
   createdAt?: string | Date;
   updatedAt?: string | Date;
 };
+
+export type INotificationType = "flag" | "answer_creation" | "peer_review"
+export interface INotification{
+   _id?: string | ObjectId;
+  userId:string | ObjectId;
+  enitity_id?:string | ObjectId;
+  title:string;
+  // type:INotificationType;
+  type:string;
+  message:string;
+  is_read:boolean;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+}
+
+export interface ISubscription {
+  _id?: string | ObjectId; 
+  userId:string| ObjectId;
+  subscription: {
+    endpoint: string;
+    keys: {
+      p256dh: string;
+      auth: string;
+    };
+  };
+}

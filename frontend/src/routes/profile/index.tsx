@@ -60,14 +60,17 @@ export default function ProfilePage() {
       <div className="  px-6 py-8 ">
         {/* Header with Back Button */}
         <div className="mb-8 flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
+          <div
+            className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer w-fit"
             onClick={handleBack}
-            className="h-9 w-9"
           >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+            <div className="flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground group-hover:-translate-x-1 transition-transform duration-200" />
+              {/* <span className="text-xs sm:text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors duration-200">
+            Go Back
+          </span> */}
+            </div>
+          </div>
           <div>
             <h1 className="flex items-center text-2xl font-semibold tracking-tight gap-2">
               <Settings className="w-5 h-5 text-muted-foreground shrink-0" />

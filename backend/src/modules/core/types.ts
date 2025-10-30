@@ -14,6 +14,7 @@ export const CORE_TYPES = {
   CommentService: Symbol.for('CommentService'),
   AIService: Symbol.for('AIService'),
   SarvamService: Symbol.for('SarvamService'),
+  NotificationService:Symbol.for('NotificationService'),
 
   // Repositories
   UserRepository: Symbol.for('UserRepository'),
@@ -23,4 +24,5 @@ export const CORE_TYPES = {
   AnswerRepository: Symbol.for('AnswerRepository'),
   ContextRepository: Symbol.for('ContextRepository'),
   RequestRepository: Symbol.for('RequestRepository'),
+  NotificationRepository:Symbol.for('NotificationRepository'),
 };
