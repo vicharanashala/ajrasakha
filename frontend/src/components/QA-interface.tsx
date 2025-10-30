@@ -289,7 +289,7 @@ export const QAInterface = () => {
     currentReviewingAnswer?: string,
     rejectionReason?: string
   ) => {
-    if (!selectedQuestion) return;
+    if (!selectedQuestion || isResponding) return;
 
     let payload = { questionId: selectedQuestion } as IReviewAnswerPayload;
 
@@ -1151,6 +1151,8 @@ export const ResponseTimeline = ({
   const [urlOpen, setUrlOpen] = useState(false);
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [isRejecConfirmationOpen, setIsRejecConfirmationOpen] = useState(false);
+  const [isAccepConfirmationOpen, setIsAccepConfirmationOpen] = useState(false);
 
   const history = selectedQuestionData?.history || [];
 
@@ -1470,19 +1472,32 @@ export const ResponseTimeline = ({
                           !item.rejectedAnswer &&
                           item.status == "in-review" && (
                             <div className="flex items-center gap-2 mt-3">
-                              <Button
-                                size="sm"
-                                onClick={handleAccept}
-                                className="flex items-center gap-1"
-                              >
-                                <CheckCircle className="w-4 h-4" />
-                                Accept
-                              </Button>
+                              <ConfirmationModal
+                                title="Confirm Acceptance"
+                                description="Are you sure you want to accept this request? This action cannot be undone."
+                                confirmText="Accept"
+                                cancelText="Cancel"
+                                type="edit"
+                                isLoading={isSubmittingAnswer}
+                                open={isAccepConfirmationOpen}
+                                onOpenChange={setIsAccepConfirmationOpen}
+                                onConfirm={handleAccept}
+                                trigger={
+                                  <Button
+                                    size="sm"
+                                    className="flex items-center gap-1"
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                    Accept
+                                  </Button>
+                                }
+                              />
+
                               <Button
                                 size="sm"
                                 variant="destructive"
-                                onClick={() => setIsRejectDialogOpen(true)}
                                 className="flex items-center gap-1"
+                                onClick={() => setIsRejectDialogOpen(true)}
                               >
                                 <XCircle className="w-4 h-4" />
                                 Reject
@@ -1619,23 +1634,36 @@ export const ResponseTimeline = ({
 
                   <div className="flex items-center justify-between pt-4 animate-in fade-in duration-300 delay-300">
                     <div className="flex items-center space-x-3">
-                      <Button
-                        onClick={handleReject}
-                        disabled={!newAnswer.trim() || isSubmittingAnswer}
-                        className="flex items-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95"
-                      >
-                        {isSubmittingAnswer ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Submitting…</span>
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-4 h-4" />
-                            <span>Submit</span>
-                          </>
-                        )}
-                      </Button>
+                      <ConfirmationModal
+                        title="Confirm Rejection"
+                        description="Are you sure you want to reject this request? This action cannot be undone."
+                        confirmText="Reject"
+                        cancelText="Cancel"
+                        type="delete"
+                        isLoading={isSubmittingAnswer}
+                        open={isRejecConfirmationOpen}
+                        onOpenChange={setIsRejecConfirmationOpen}
+                        onConfirm={handleReject}
+                        trigger={
+                          <Button
+                            onClick={handleReject}
+                            disabled={!newAnswer.trim() || isSubmittingAnswer}
+                            className="flex items-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95"
+                          >
+                            {isSubmittingAnswer ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Submitting…</span>
+                              </>
+                            ) : (
+                              <>
+                                <Send className="w-4 h-4" />
+                                <span>Submit</span>
+                              </>
+                            )}
+                          </Button>
+                        }
+                      />
 
                       <Button
                         variant="secondary"
