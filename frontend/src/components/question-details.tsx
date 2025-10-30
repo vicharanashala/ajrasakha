@@ -1027,10 +1027,6 @@ const AllocationTimeline = ({
   );
 };
 
-
-
-
-
 interface IAnswerTimelineProps {
   answers: IAnswer[];
   currentUserId: string;
@@ -1051,10 +1047,11 @@ export const AnswerTimeline = ({
   // map answers to timeline events
   const events = answers.slice(0, answerVisibleCount).map((ans) => {
     const submission = question.submission.history.find(
-      (h) => h.answer?._id === ans._id
+      (h) => h.answer?._id === ans?._id
     );
 
     return {
+      firstAnswerId: answers[0]?._id,
       answer: ans,
       submission,
       createdAt: new Date(ans.createdAt || "").toLocaleString(),
@@ -1085,6 +1082,7 @@ export const AnswerTimeline = ({
           <div className="flex-1 mb-5">
             <AnswerItem
               answer={item.answer}
+              firstAnswerId={item.firstAnswerId}
               submissionData={item.submission}
               currentUserId={currentUserId}
               questionStatus={question.status}
@@ -1104,6 +1102,7 @@ interface AnswerItemProps {
   currentUserId: string;
   submissionData?: ISubmissionHistory;
   questionId: string;
+  firstAnswerId: string;
   userRole: UserRole;
   questionStatus: QuestionStatus;
 }
@@ -1208,15 +1207,19 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
             >
               Final
             </Badge>
-          )} 
+          )}
           {isMine && <UserCheck className="w-4 h-4 text-blue-600 ml-1" />}
         </div>
         <div className="flex items-center justify-center gap-2">
-          {props.userRole !== "expert" &&
+          {/* {props.userRole !== "expert" &&
             props.questionStatus == "in-review" &&
-            props.answer?.approvalCount !==undefined &&
-            props.answer?.approvalCount >= 3 &&
-             (
+            ((props.answer?.approvalCount !== undefined &&
+              props.answer?.approvalCount >= 3) ||
+              props.firstAnswerId == props.answer?._id) && ( */}
+          {props.userRole !== "expert" &&
+            props.questionStatus === "in-review" &&
+            // (props.answer?.approvalCount !== undefined && props.answer?.approvalCount >= 3) ||
+            props.firstAnswerId === props.answer?._id && (
               <Dialog open={editOpen} onOpenChange={setEditOpen}>
                 <DialogTrigger asChild>
                   <Button className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2">
@@ -1269,7 +1272,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                 </DialogContent>
               </Dialog>
             )}
-          {props.answer?.approvalCount !==undefined && (
+          {props.answer?.approvalCount !== undefined && (
             <p>Approval count: {props.answer.approvalCount}</p>
           )}
           <Dialog>
