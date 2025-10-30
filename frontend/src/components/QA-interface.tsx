@@ -1647,7 +1647,7 @@ export const ResponseTimeline = ({
                         onConfirm={handleReject}
                         trigger={
                           <Button
-                            onClick={handleReject}
+                            // onClick={handleReject}
                             disabled={!newAnswer.trim() || isSubmittingAnswer}
                             className="flex items-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95"
                           >
