@@ -594,28 +594,40 @@ export class AnswerService extends BaseService {
           currentSubmissionHistory.length,
         );
 
-        if (
-          currentUserIndexInQueue !== -1 &&
-          currentUserIndexInQueue < currentQueue.length - 1 &&
-          currentSubmissionHistory.length + 1 < 10
-        ) {
-          const nextExpertId = currentQueue[currentUserIndexInQueue + 1];
+        // Check if the current user is in the queue
+        if (currentUserIndexInQueue !== -1) {
+          // Case 1: Current user is not the last in the queue and total history (including next) is less than 10
+          if (
+            currentUserIndexInQueue < currentQueue.length - 1 &&
+            currentSubmissionHistory.length + 1 < 10
+          ) {
+            const nextExpertId = currentQueue[currentUserIndexInQueue + 1];
 
-          const nextAllocatedSubmissionData: ISubmissionHistory = {
-            updatedBy: new ObjectId(nextExpertId),
-            status: 'in-review',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
+            const nextAllocatedSubmissionData: ISubmissionHistory = {
+              updatedBy: new ObjectId(nextExpertId),
+              status: 'in-review',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
 
-          await this.questionSubmissionRepo.update(
-            questionId,
-            nextAllocatedSubmissionData,
-            session,
-          );
-        }else{
-          await this.questionService.autoAllocateExperts(questionId, session);
+            // Add a new history entry for the next expert in the queue
+            await this.questionSubmissionRepo.update(
+              questionId,
+              nextAllocatedSubmissionData,
+              session,
+            );
+          }
+
+          // Case 2: Current user is the last in the queue but the queue isn't full
+          else if (
+            currentUserIndexInQueue === currentQueue.length - 1 &&
+            currentQueue.length < 10
+          ) {
+            // Automatically allocate additional experts to fill the queue
+            await this.questionService.autoAllocateExperts(questionId, session);
+          }
         }
+
         console.log('After next allocation');
 
         // Auto allocate more user if necessary
