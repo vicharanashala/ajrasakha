@@ -145,11 +145,11 @@ export const QuestionDetails = ({
               </svg>
               <span className="leading-none">Exit</span>
             </Button>
-        <div className="flex items-center lg:justify-between md:justify-between sm:justify-between">
+        <div className="flex  flex-col items-start sm:flex-row sm:items-center sm:justify-between ">
           <h1 className="text-2xl font-semibold text-pretty">
             {question.question}
           </h1>
-          <div className="flex justify-center gap-2 items-center">
+          <div className="flex justify-center gap-2 items-center mt-2 sm:mt-0">
             {question.status != "closed" && currentUser.role != "expert" && (
               <SubmitAnswerDialog
                 questionId={question._id}
@@ -163,6 +163,7 @@ export const QuestionDetails = ({
            
           </div>
         </div>
+
 
         <div className="flex items-center gap-2 flex-wrap">
           <Badge
@@ -523,7 +524,7 @@ const SubmissionTimeline = ({
       </div>
 
       <div  
-      className="grid gap-6 place-content-center ml-13 "
+      className="grid gap-6 place-items-center   "
       style={{
         gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
         WebkitOverflowScrolling: "touch",
@@ -540,10 +541,11 @@ const SubmissionTimeline = ({
         <div
           key={`${user._id}-${index}`}
           className="relative flex flex-col "
+          data-arrow="right"
         >
           {/* Circular Card */}
           <div
-            className={`flex flex-col items-center justify-center gap-2 p-4 rounded-full w-60 h-60 border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 ${styles.container}
+            className={`flex flex-col items-center justify-center gap-2 p-4 rounded-full w-40 h-40 border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 ${styles.container}
               ${isExpanded && index >= INITIAL_DISPLAY_COUNT ? "animate-fade-in" : ""}
               ${isCurrentUserWaiting ? "ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105" : ""}
             `}
@@ -593,9 +595,11 @@ const SubmissionTimeline = ({
       flex justify-center mt-3 
       sm:mt-0 sm:absolute sm:top-1/2 sm:right-0 
       sm:translate-x-full sm:-translate-y-1/2
+      items-center
     `}
   >
     {/* Down arrow for small screens */}
+   
     <svg
       className={`block sm:hidden w-5 h-5 text-gray-400 dark:text-gray-500 ${
         isCurrentUserWaiting ? "animate-bounce" : ""
@@ -612,6 +616,7 @@ const SubmissionTimeline = ({
         d="M12 5v14m0 0l4-4m-4 4l-4-4"
       />
     </svg>
+    
 
     {/* Right arrow for medium+ screens */}
     <svg
@@ -630,6 +635,7 @@ const SubmissionTimeline = ({
         d="M5 12h14m0 0l-4-4m4 4l-4 4"
       />
     </svg>
+    <h1>({index+1})</h1>
   </div>
 )}
 
@@ -919,7 +925,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
               </Button>
             </DialogTrigger>
             <DialogContent
-              className="w-[90vw] max-w-6xl h-[85vh] flex flex-col"
+              className="w-[90vw] md:w-[50vw] max-w-6xl h-[85vh] flex flex-col"
               style={{ maxWidth: "90vw" }}
             >
               <DialogHeader className="pb-4 border-b">
