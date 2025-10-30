@@ -139,4 +139,15 @@ export interface IQuestionRepository {
     questionId: string,
     session?: ClientSession,
   ): Promise<{deletedCount: number}>;
+
+  /**
+   * Updates a specific question.
+   * @param text - question text.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to question document
+   */
+  getQuestionByQuestionText(
+    text: string,
+    session?: ClientSession,
+  ): Promise<IQuestion>;
 }

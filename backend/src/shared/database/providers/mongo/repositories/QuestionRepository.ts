@@ -777,6 +777,20 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  async getQuestionByQuestionText(
+    text: string,
+    session?: ClientSession,
+  ): Promise<IQuestion> {
+    try {
+      await this.init();
+      return this.QuestionCollection.findOne({question: text}, {session});
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to find question by text /More: ${error}`,
+      );
+    }
+  }
+
   async updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,

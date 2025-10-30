@@ -270,6 +270,18 @@ export class QuestionService extends BaseService {
       return this._withTransaction(async (session: ClientSession) => {
         const {question, priority, source, details, context} = body;
 
+        // Prevent duplicate questoin entry
+        const isQuestionExisit =
+          await this.questionRepo.getQuestionByQuestionText(
+            body?.question || '',
+            session,
+          );
+
+        if (isQuestionExisit)
+          throw new BadRequestError(
+            `This question already exsist in database, try adding new one!`,
+          );
+
         // 1. If context is provided, create context first and get contextId
         let contextId: ObjectId | null = null;
 
