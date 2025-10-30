@@ -319,6 +319,7 @@ export const QAInterface = () => {
 
     try {
       await respondQuestion(payload);
+      setSelectedQuestion(null);
       toast.success("Your response submitted, thankyou!");
     } catch (error) {
       console.log("Failed to submit: ", error);
