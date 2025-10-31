@@ -30,6 +30,9 @@ import {
 } from '../classes/validators/QuestionValidators.js';
 import {QuestionService} from './QuestionService.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
+import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
+import { notifyUser } from '#root/utils/pushNotification.js';
+import { NotificationService } from './NotificationService.js';
 
 @injectable()
 export class AnswerService extends BaseService {
@@ -51,6 +54,12 @@ export class AnswerService extends BaseService {
 
     @inject(GLOBAL_TYPES.QuestionService)
     private readonly questionService: QuestionService,
+
+    @inject(GLOBAL_TYPES.NotificationService)
+    private readonly notificationService : NotificationService,
+
+    @inject(GLOBAL_TYPES.NotificationRepository)
+    private readonly notificationRepository: INotificationRepository,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -159,8 +168,8 @@ export class AnswerService extends BaseService {
             analysisStatus === 'FLAGGED_FOR_REVIEW'
               ? 'in-review'
               : analysisStatus === 'CONTINUE'
-                ? 'open'
-                : 'closed',
+              ? 'open'
+              : 'closed',
         },
         activeSession,
       );
@@ -262,7 +271,7 @@ export class AnswerService extends BaseService {
           // Push entry in to history array in submission
           const userSubmissionData: ISubmissionHistory = {
             updatedBy: new ObjectId(userId),
-            answer: new ObjectId(insertedId), 
+            answer: new ObjectId(insertedId),
             createdAt: new Date(),
             status: 'in-review',
             updatedAt: new Date(),
@@ -401,7 +410,7 @@ export class AnswerService extends BaseService {
           // Case 1: Current user is not the last in the queue and total history (including next) is less than 10
           if (
             currentUserIndexInQueue < currentQueue.length - 1 &&
-            currentQueue.length  < 10
+            currentQueue.length < 10
           ) {
             const nextExpertId = currentQueue[currentUserIndexInQueue + 1];
 
@@ -418,6 +427,26 @@ export class AnswerService extends BaseService {
               nextAllocatedSubmissionData,
               session,
             );
+
+            let message = `A new Review has been assigned to you`;
+            let title = 'New Review Assigned';
+            let entityId = questionId.toString();
+            const user = nextExpertId.toString()
+            const type = 'peer_review';
+            // await this.notificationRepository.addNotification(
+            //   user,
+            //   entityId,
+            //   type,
+            //   message,
+            //   title,
+            //   session,
+            // );
+            // const subscription =
+            //   await this.notificationRepository.getSubscriptionByUserId(
+            //     user.toString(),
+            //   );
+            // await notifyUser(user, title, subscription);
+             await this.notificationService.saveTheNotifications(message,title,entityId,user,type)
           }
 
           // Case 2: Current user is the last in the queue but the queue isn't full
@@ -431,7 +460,7 @@ export class AnswerService extends BaseService {
         }
 
         // Check the history limit reaced, if reached then question status will be in-review
-        if (currentSubmissionHistory.length  == 10) {
+        if (currentSubmissionHistory.length == 10) {
           await this.questionRepo.updateQuestion(
             questionId,
             {status: 'in-review'},
@@ -515,8 +544,9 @@ export class AnswerService extends BaseService {
 
       const text = `Question: ${question.question}
         answer: ${answer}`;
-      const {embedding: questionEmbedding} =
-        await this.aiService.getEmbedding(text);
+      const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
+        text,
+      );
 
       await this.questionRepo.updateQuestion(
         questionId,

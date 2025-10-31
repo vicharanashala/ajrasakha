@@ -61,7 +61,6 @@ export class NotificationController {
     @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
     async deleteAnswer(@Params() params: DeleteNotificationParams) {
       const {notificationId} = params;
-      console.log("noti params ",notificationId)
       return this.notificationService.deleteNotifictaion(notificationId)
     }
 
@@ -84,7 +83,6 @@ export class NotificationController {
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async markAllAsRead(@CurrentUser() user: IUser
   ) {
-    console.log('reached all')
     const userId = user._id.toString()
     return this.notificationService.markAllAsRead(userId)
   }

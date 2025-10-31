@@ -5,11 +5,19 @@ import {inject} from 'inversify';
 import {ClientSession} from 'mongodb';
 import {CORE_TYPES} from '../types.js';
 import {InternalServerError, NotFoundError} from 'routing-controllers';
+import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
+import { NotificationService } from './NotificationService.js';
 
 export class CommentService extends BaseService {
   constructor(
     @inject(CORE_TYPES.CommentRepository)
     private readonly commentRepo: ICommentRepository,
+
+    @inject(GLOBAL_TYPES.AnswerRepository)
+    private readonly answerRepo: IAnswerRepository,
+
+    @inject(GLOBAL_TYPES.NotificationService)
+    private readonly notificationService : NotificationService,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -61,10 +69,18 @@ export class CommentService extends BaseService {
           userId,
           session,
         );
-
+        // need to find the userId from answerId and call
+        
         if (!comment) {
           throw new InternalServerError('Failed to add comment, Try again!');
         }
+        const answer = await this.answerRepo.getById(answerId);
+        const authourId = answer.authorId.toString();
+        let message = `A new Comment has been added to your Answer`;
+        let title = 'New Comment added';
+        let entityId = questionId.toString();
+        const type = 'new_comment';
+        await this.notificationService.saveTheNotifications(message,title,entityId,authourId,type)
       });
       return true;
     } catch (err: any) {
