@@ -808,7 +808,6 @@ export const AddOrEditQuestionDialog = ({
             <Button
               variant="default"
               onClick={() => {
-                console.log("[AddQuestionDialog] Adding:", updatedData);
                 onSave?.("add");
               }}
             >
@@ -819,10 +818,6 @@ export const AddOrEditQuestionDialog = ({
             <Button
               variant="destructive"
               onClick={() => {
-                console.log(
-                  "[EditQuestionDialog] Submitting flag:",
-                  updatedData
-                );
                 onSave?.("edit", question?._id!, flagReason);
               }}
             >
@@ -833,7 +828,6 @@ export const AddOrEditQuestionDialog = ({
             <Button
               variant="default"
               onClick={() => {
-                console.log("[EditQuestionDialog] Saving:", updatedData);
                 onSave?.("edit", question?._id!);
               }}
             >
@@ -889,6 +883,212 @@ export const QuestionsFilters = ({
   );
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion();
+
+//     const detailsArray = [
+//   {
+//     state: 'Tamil Nadu',
+//     district: 'Thanjavur',
+//     crop: 'Rice',
+//     season: 'Kharif',
+//     domain: 'Agriculture',
+//   },
+//   {
+//     state: 'Maharashtra',
+//     district: 'Pune',
+//     crop: 'Sugarcane',
+//     season: 'Rabi',
+//     domain: 'Irrigation',
+//   },
+//   {
+//     state: 'Punjab',
+//     district: 'Ludhiana',
+//     crop: 'Wheat',
+//     season: 'Rabi',
+//     domain: 'Soil Management',
+//   },
+//   {
+//     state: 'Karnataka',
+//     district: 'Mysuru',
+//     crop: 'Ragi',
+//     season: 'Kharif',
+//     domain: 'Fertilizer',
+//   },
+//   {
+//     state: 'Gujarat',
+//     district: 'Rajkot',
+//     crop: 'Cotton',
+//     season: 'Kharif',
+//     domain: 'Pesticide',
+//   },
+//   {
+//     state: 'Uttar Pradesh',
+//     district: 'Varanasi',
+//     crop: 'Rice',
+//     season: 'Kharif',
+//     domain: 'Water Resources',
+//   },
+//   {
+//     state: 'Andhra Pradesh',
+//     district: 'Guntur',
+//     crop: 'Chili',
+//     season: 'Rabi',
+//     domain: 'Crop Protection',
+//   },
+//   {
+//     state: 'Rajasthan',
+//     district: 'Jaipur',
+//     crop: 'Bajra',
+//     season: 'Kharif',
+//     domain: 'Dryland Farming',
+//   },
+//   {
+//     state: 'Madhya Pradesh',
+//     district: 'Indore',
+//     crop: 'Soybean',
+//     season: 'Kharif',
+//     domain: 'Sustainable Farming',
+//   },
+//   {
+//     state: 'West Bengal',
+//     district: 'Kolkata',
+//     crop: 'Jute',
+//     season: 'Kharif',
+//     domain: 'Agro Processing',
+//   },
+// ];
+
+// const priorities: QuestionPriority[] = ['high', 'low', 'medium'];
+// const questionStatus: QuestionStatus[] = ['in-review', 'closed', 'open'];
+
+// const sources: ('AJRASAKHA' | 'AGRI_EXPERT')[] = ['AJRASAKHA', 'AGRI_EXPERT'];
+
+// const dummyQuestions: string[] = [
+//   'What are the major types of soil found in India?',
+//   'How does crop rotation improve soil fertility?',
+//   'What are the effects of over-irrigation on soil health?',
+//   'Explain the role of nitrogen in plant growth.',
+//   'What is the significance of organic farming in sustainable agriculture?',
+//   'How does deforestation contribute to climate change?',
+//   'What is precision agriculture and how does it work?',
+//   'Explain the process of photosynthesis and its importance.',
+//   'What are the different methods of irrigation used in agriculture?',
+//   'How does salinity affect crop production?',
+//   'What is the difference between Kharif and Rabi crops?',
+//   'How does soil pH affect nutrient availability?',
+//   'What are biofertilizers and why are they important?',
+//   'Explain the concept of integrated pest management (IPM).',
+//   'What are greenhouse gases and how do they affect agriculture?',
+//   'How does contour plowing prevent soil erosion?',
+//   'What is the role of drones in modern agriculture?',
+//   'Explain how climate change impacts crop yield.',
+//   'What are genetically modified (GM) crops and their advantages?',
+//   'How does mulching help in water conservation?',
+//   'What are the main causes of land degradation?',
+//   'Explain how organic matter improves soil structure.',
+//   'What are the common diseases that affect rice crops?',
+//   'What are the advantages of drip irrigation systems?',
+//   'How does overuse of fertilizers affect groundwater?',
+//   'What is agroforestry and what are its benefits?',
+//   'Explain how carbon sequestration helps reduce global warming.',
+//   'What is the impact of pesticides on the ecosystem?',
+//   'What is crop diversification and why is it important?',
+//   'Explain the importance of soil testing before cultivation.',
+//   'What are the effects of acid rain on agriculture?',
+//   'What is vermicomposting and how is it done?',
+//   'What are micronutrients essential for plant growth?',
+//   'Explain the role of mycorrhiza in plant development.',
+//   'How can remote sensing be used in agriculture?',
+//   'What are the benefits of conservation tillage?',
+//   'Explain the concept of zero-budget natural farming.',
+//   'What are the major challenges in rainfed agriculture?',
+//   'How does global warming affect rainfall patterns?',
+//   'What is the role of pollinators in food production?',
+//   'How can farmers adapt to climate variability?',
+//   'Explain the function of soil microorganisms in nutrient cycling.',
+//   'What are the impacts of plastic pollution on farmlands?',
+//   'What are sustainable irrigation practices?',
+//   'How does salinity intrusion occur in coastal agriculture?',
+//   'Explain the role of cover crops in maintaining soil fertility.',
+//   'What is the importance of biodiversity in agro-ecosystems?',
+//   'How can renewable energy be integrated into farming?',
+//   'What is hydroponics and how does it differ from traditional farming?',
+//   'Explain the difference between weather and climate.',
+//   'What are the major greenhouse gases and their sources?',
+//   'What are the advantages of mixed cropping?',
+//   'How does deforestation affect water cycles?',
+//   'What are the principles of sustainable agriculture?',
+//   'Explain the process of evapotranspiration.',
+//   'What is the role of carbon dioxide in plant growth?',
+//   'What are the environmental impacts of livestock farming?',
+//   'How do pesticides contaminate soil and water?',
+//   'What are the different types of composting methods?',
+//   'What are the benefits of crop insurance for farmers?',
+//   'Explain the importance of watershed management.',
+//   'What are the causes and effects of desertification?',
+//   'How does temperature affect crop germination?',
+//   'What is the impact of heavy metals on soil health?',
+//   'What is aquaponics and how does it function?',
+//   'Explain the significance of green manures in agriculture.',
+//   'How does intercropping help in pest management?',
+//   'What is precision irrigation and how does it save water?',
+//   'What is the role of GIS in agricultural planning?',
+//   'How does afforestation help in climate regulation?',
+//   'What are biopesticides and how are they used?',
+//   'Explain how rainfall variability affects farming operations.',
+//   'What are the environmental benefits of organic agriculture?',
+//   'How can farmers reduce carbon emissions from agriculture?',
+//   'What are the common methods of soil conservation?',
+//   'How does population growth impact agricultural sustainability?',
+//   'What are drought-resistant crop varieties?',
+//   'Explain the impact of climate change on pest populations.',
+//   'How does irrigation efficiency affect energy use in agriculture?',
+//   'What are the key indicators of soil health?',
+//   'How do fertilizers affect the nitrogen cycle?',
+//   'What are the advantages of using renewable fertilizers?',
+//   'What is the significance of the Green Revolution?',
+//   'Explain how technology improves agricultural productivity.',
+//   'What are the challenges in implementing sustainable farming practices?',
+//   'How do invasive species affect local ecosystems?',
+//   'What is carbon farming and its importance?',
+//   'How can artificial intelligence be used in agriculture?',
+//   'What are eco-friendly alternatives to chemical fertilizers?',
+//   'How do wetlands contribute to ecosystem balance?',
+//   'What is precision livestock farming?',
+//   'What are the negative impacts of monocropping?',
+//   'Explain the relationship between agriculture and water scarcity.',
+//   'How does climate-smart agriculture promote sustainability?',
+//   'What is the role of government policies in environmental conservation?',
+//   'What are the benefits of community-based natural resource management?',
+//   'How do soil organisms contribute to decomposition?',
+//   'What are sustainable practices to control soil erosion?',
+//   'How does groundwater depletion affect agriculture?',
+//   'What are the principles of regenerative agriculture?',
+// ];
+// const handleAddQuestion = async () => {
+//   try {
+//     const toastId = toast.loading("Adding 100 questions...");
+
+//     const questionsToCreate = Array.from({ length: 100 }).map((_, i) => ({
+//       question: dummyQuestions[i % dummyQuestions.length],
+//       priority: priorities[Math.floor(Math.random() * priorities.length)],
+//       source: sources[Math.floor(Math.random() * sources.length)],
+//       details: detailsArray[i % detailsArray.length],
+//       context: "",
+//     }));
+
+//     // Limit number of concurrent requests to avoid overloading backend
+//     const CONCURRENT_LIMIT = 10;
+//     for (let i = 0; i < questionsToCreate.length; i += CONCURRENT_LIMIT) {
+//       const batch = questionsToCreate.slice(i, i + CONCURRENT_LIMIT);
+//       await Promise.all(batch.map(payload => addQuestion(payload)));
+//     }
+
+//     toast.success("100 questions added successfully!", { id: toastId });
+//   } catch (err) {
+//     console.error("Failed to add questions:", err);
+//     toast.error("Failed to add questions");
+//   }
+// };
 
   const handleAddQuestion = async (mode: "add" | "edit") => {
     try {

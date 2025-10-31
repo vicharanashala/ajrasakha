@@ -87,7 +87,7 @@ export interface IQuestionRepository {
    * @param session - Optional MongoDB client session for transactions.
    * @returns A promise that resolves to an array of unanswered questions.
    */
-  getUnAnsweredQuestions(
+  getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
     // userPreference: IUser['preference'] | null,
@@ -113,8 +113,21 @@ export interface IQuestionRepository {
     questionId: string,
     updates: Partial<IQuestion>,
     session?: ClientSession,
-    addText?:boolean,
+    addText?: boolean,
   ): Promise<{modifiedCount: number}>;
+
+  /**
+   * Updates a specific question.
+   * @param questionId - The ID of the question to update.
+   * @param isAutoAllocate - Boolean to set auto allocate or not.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to an object containing IQuestion.
+   */
+  updateAutoAllocate(
+    questionId: string,
+    isAutoAllocate: boolean,
+    session?: ClientSession,
+  ): Promise<IQuestion | null>;
 
   /**
    * Updates a specific question.
@@ -126,4 +139,15 @@ export interface IQuestionRepository {
     questionId: string,
     session?: ClientSession,
   ): Promise<{deletedCount: number}>;
+
+  /**
+   * Updates a specific question.
+   * @param text - question text.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to question document
+   */
+  getQuestionByQuestionText(
+    text: string,
+    session?: ClientSession,
+  ): Promise<IQuestion>;
 }

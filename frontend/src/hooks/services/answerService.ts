@@ -1,5 +1,6 @@
 import type { ISubmissions, SubmitAnswerResponse } from "@/types";
 import { apiFetch } from "../api/api-fetch";
+import type { IReviewAnswerPayload } from "../api/answer/useReviewAnswer";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -15,6 +16,33 @@ export class AnswerService {
       return await apiFetch<SubmitAnswerResponse>(this._baseUrl, {
         method: "POST",
         body: JSON.stringify({ answer, questionId, sources }),
+      });
+    } catch (error) {
+      console.error(`Error in submitAnswer(${questionId}):`, error);
+      throw error;
+    }
+  }
+  async reviewAnswer({
+    questionId,
+    status,
+    answer,
+    sources,
+    reasonForRejection,
+    approvedAnswer,
+    rejectedAnswer,
+  }:IReviewAnswerPayload): Promise<SubmitAnswerResponse | null> {
+    try {
+      return await apiFetch<SubmitAnswerResponse>(`${this._baseUrl}/review`, {
+        method: "POST",
+        body: JSON.stringify({
+          questionId,
+          status,
+          answer,
+          sources,
+          reasonForRejection,
+          approvedAnswer,
+          rejectedAnswer,
+        }),
       });
     } catch (error) {
       console.error(`Error in submitAnswer(${questionId}):`, error);

@@ -10,6 +10,8 @@ import {
   IsArray,
   ArrayNotEmpty,
   IsUrl,
+  ValidateIf,
+  IsIn,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 
@@ -42,8 +44,77 @@ class AddAnswerBody {
   @IsArray()
   @ArrayNotEmpty()
   @IsString({each: true})
-  // @IsUrl({}, {each: true}) 
+  // @IsUrl({}, {each: true})
   sources: string[];
+}
+
+class ReviewAnswerBody {
+  @JSONSchema({
+    description: 'ID of the question being answered',
+    example: '64adf92e9e7c3b1234567890',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  questionId!: string;
+
+  @JSONSchema({
+    description: 'Status of the review (accepted, rejected, or undefined)',
+    example: 'accepted',
+    enum: ['accepted', 'rejected'],
+  })
+  @ValidateIf(o => o.status !== undefined)
+  @IsIn(['accepted', 'rejected'])
+  status?: 'accepted' | 'rejected';
+
+  @ValidateIf(o => o.status === 'rejected' || o.status === undefined)
+  @IsNotEmpty()
+  @IsString()
+  @JSONSchema({
+    description:
+      'Answer text (required if status = rejected or status is not provided)',
+    example:
+      'The main difference is that supervised learning uses labeled data.',
+  })
+  answer?: string;
+
+  @ValidateIf(o => o.status === 'rejected' || o.status === undefined)
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({each: true})
+  @JSONSchema({
+    description:
+      'Source URLs for the answer (required if status = rejected or status is not provided)',
+    example: ['https://example.com', 'https://docs.example.com'],
+  })
+  sources?: string[];
+
+  @ValidateIf(o => o.status === 'accepted')
+  @IsNotEmpty()
+  @IsString()
+  @JSONSchema({
+    description: 'Approved answer ID (required only if status = accepted)',
+    example: '652ef12345abcf7890123456',
+  })
+  approvedAnswer?: string;
+
+  @ValidateIf(o => o.status === 'rejected')
+  @IsNotEmpty()
+  @IsString()
+  @JSONSchema({
+    description: 'Approved answer ID (required only if status = accepted)',
+    example: '652ef12345abcf7890123456',
+  })
+  rejectedAnswer?: string;
+
+  @ValidateIf(o => o.status === 'rejected')
+  @IsNotEmpty()
+  @IsString()
+  @JSONSchema({
+    description: 'Reason for rejection (required only if status = rejected)',
+    example: 'Insufficient factual accuracy and poor structure.',
+  })
+  reasonForRejection?: string;
 }
 
 class AnswerResponse {
@@ -200,6 +271,7 @@ export const ANSWER_VALIDATORS = [
   DeleteAnswerParams,
   UpdateAnswerBody,
   SubmissionResponse,
+  ReviewAnswerBody,
 ];
 
 export {
@@ -209,4 +281,5 @@ export {
   DeleteAnswerParams,
   UpdateAnswerBody,
   SubmissionResponse,
+  ReviewAnswerBody,
 };

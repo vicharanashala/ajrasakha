@@ -85,6 +85,7 @@ export class QuestionRepository implements IQuestionRepository {
           metrics: null,
           text: `Question: ${question}`,
           totalAnswersCount: 0,
+          isAutoAllocate: true,
           priority: randomPrioriy,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -140,6 +141,7 @@ export class QuestionRepository implements IQuestionRepository {
         metrics: null,
         text: `Question: ${question}`,
         totalAnswersCount: 0,
+        isAutoAllocate: true,
         priority: randomPrioriy,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -362,7 +364,7 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
-  async getUnAnsweredQuestions(
+  async getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
     // userPreference: IUser['preference'] | null,
@@ -371,129 +373,62 @@ export class QuestionRepository implements IQuestionRepository {
     try {
       await this.init();
 
-      const {
-        search,
-        source,
-        state,
-        crop,
-        priority,
-        answersCountMin,
-        answersCountMax,
-        dateRange,
-        domain,
-        user,
-        filter: sortFilter,
-        page = 1,
-        limit = 10,
-      } = query;
+      const {filter: sortFilter, page = 1, limit = 10} = query;
 
       const skip = (page - 1) * limit;
 
-      const filter: any = {status: 'open'};
+      const userObjectId = new ObjectId(userId);
 
-      if (source && source !== 'all') filter.source = source;
-      if (priority && priority !== 'all') filter.priority = priority;
-      if (state && state !== 'all') filter['details.state'] = state;
-      if (crop && crop !== 'all') filter['details.crop'] = crop;
-      if (domain && domain !== 'all') filter['details.domain'] = domain;
-
-      if (answersCountMin !== undefined || answersCountMax !== undefined) {
-        filter.totalAnswersCount = {};
-        if (answersCountMin !== undefined)
-          filter.totalAnswersCount.$gte = answersCountMin;
-        if (answersCountMax !== undefined)
-          filter.totalAnswersCount.$lte = answersCountMax;
-      }
-
-      if (dateRange && dateRange !== 'all') {
-        const now = new Date();
-        let startDate: Date | undefined;
-        switch (dateRange) {
-          case 'today':
-            startDate = new Date(now.setHours(0, 0, 0, 0));
-            break;
-          case 'week':
-            startDate = new Date(now.setDate(now.getDate() - 7));
-            break;
-          case 'month':
-            startDate = new Date(now.setMonth(now.getMonth() - 1));
-            break;
-          case 'quarter':
-            startDate = new Date(now.setMonth(now.getMonth() - 3));
-            break;
-          case 'year':
-            startDate = new Date(now.setFullYear(now.getFullYear() - 1));
-            break;
-        }
-        if (startDate) filter.createdAt = {$gte: startDate};
-      }
-
-      // if (search) {
-      //   filter.$or = [
-      //     {question: {$regex: search, $options: 'i'}},
-      //     {'details.crop': {$regex: search, $options: 'i'}},
-      //     {'details.state': {$regex: search, $options: 'i'}},
-      //     {source: {$regex: search, $options: 'i'}},
-      //   ];
-      // }
-      const pipeline: any = [{$match: filter}];
-
-      if (user && user !== 'all') {
-        pipeline.push({
-          $lookup: {
-            from: 'answers',
-            let: {questionId: '$_id'},
-            pipeline: [
+      const submissions = await this.QuestionSubmissionCollection.aggregate([
+        {
+          $addFields: {
+            lastHistory: {$arrayElemAt: ['$history', -1]},
+            historyCount: {$size: {$ifNull: ['$history', []]}},
+            firstInQueue: {$arrayElemAt: ['$queue', 0]},
+          },
+        },
+        {
+          $match: {
+            $or: [
               {
-                $match: {
-                  $expr: {
-                    $and: [
-                      {$eq: ['$questionId', '$$questionId']},
-                      {$eq: ['$authorId', new ObjectId(user)]},
-                    ],
-                  },
-                },
+                'lastHistory.updatedBy': userObjectId,
+                'lastHistory.status': 'in-review',
+                $or: [
+                  {'lastHistory.answer': {$exists: false}},
+                  {'lastHistory.answer': null},
+                  {'lastHistory.answer': ''},
+                ],
+              },
+              {
+                historyCount: 0, // if there is no history means , there is no submision yet so this is the first expert who is submitting
+                firstInQueue: userObjectId,
               },
             ],
-            as: 'userAnswersBySelectedUser',
           },
-        });
-
-        pipeline.push({
-          $match: {'userAnswersBySelectedUser.0': {$exists: true}},
-        });
-      }
-
-      pipeline.push({
-        $lookup: {
-          from: 'answers',
-          let: {questionId: '$_id'},
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    {$eq: ['$questionId', '$$questionId']},
-                    {$eq: ['$authorId', new ObjectId(userId)]},
-                  ],
-                },
-              },
-            },
-          ],
-          as: 'userAnswers',
         },
-      });
-      pipeline.push({$match: {userAnswers: {$size: 0}}});
+      ]).toArray();
 
-      if (sortFilter === 'newest') {
-        pipeline.push({$sort: {createdAt: -1}});
-      } else if (sortFilter === 'oldest') {
-        pipeline.push({$sort: {createdAt: 1}});
-      } else if (sortFilter === 'leastResponses') {
-        pipeline.push({$sort: {totalAnswersCount: 1}});
-      } else if (sortFilter === 'mostResponses') {
-        pipeline.push({$sort: {totalAnswersCount: -1}});
-      }
+      const questionIdsToAttempt = submissions.map(
+        sub => new ObjectId(sub.questionId),
+      );
+      console.log('questionIdsToAttempt', questionIdsToAttempt);
+
+      const filter: any = {
+        status: 'open',
+        _id: {$in: questionIdsToAttempt},
+      };
+
+      const pipeline: any = [{$match: filter}];
+
+      // if (sortFilter === 'newest') {
+      //   pipeline.push({$sort: {createdAt: -1}});
+      // } else if (sortFilter === 'oldest') {
+      //   pipeline.push({$sort: {createdAt: 1}});
+      // } else if (sortFilter === 'leastResponses') {
+      //   pipeline.push({$sort: {totalAnswersCount: 1}});
+      // } else if (sortFilter === 'mostResponses') {
+      //   pipeline.push({$sort: {totalAnswersCount: -1}});
+      // }
 
       pipeline.push({$skip: skip});
       pipeline.push({$limit: limit});
@@ -529,6 +464,166 @@ export class QuestionRepository implements IQuestionRepository {
       );
     }
   }
+  // async getAllocatedQuestions(
+  //   userId: string,
+  //   query: GetDetailedQuestionsQuery,
+  //   // userPreference: IUser['preference'] | null,
+  //   session?: ClientSession,
+  // ): Promise<QuestionResponse[]> {
+  //   try {
+  //     await this.init();
+
+  //     const {
+  //       search,
+  //       source,
+  //       state,
+  //       crop,
+  //       priority,
+  //       answersCountMin,
+  //       answersCountMax,
+  //       dateRange,
+  //       domain,
+  //       user,
+  //       filter: sortFilter,
+  //       page = 1,
+  //       limit = 10,
+  //     } = query;
+
+  //     const skip = (page - 1) * limit;
+
+  //     const filter: any = {status: 'open'};
+
+  //     if (source && source !== 'all') filter.source = source;
+  //     if (priority && priority !== 'all') filter.priority = priority;
+  //     if (state && state !== 'all') filter['details.state'] = state;
+  //     if (crop && crop !== 'all') filter['details.crop'] = crop;
+  //     if (domain && domain !== 'all') filter['details.domain'] = domain;
+
+  //     if (answersCountMin !== undefined || answersCountMax !== undefined) {
+  //       filter.totalAnswersCount = {};
+  //       if (answersCountMin !== undefined)
+  //         filter.totalAnswersCount.$gte = answersCountMin;
+  //       if (answersCountMax !== undefined)
+  //         filter.totalAnswersCount.$lte = answersCountMax;
+  //     }
+
+  //     if (dateRange && dateRange !== 'all') {
+  //       const now = new Date();
+  //       let startDate: Date | undefined;
+  //       switch (dateRange) {
+  //         case 'today':
+  //           startDate = new Date(now.setHours(0, 0, 0, 0));
+  //           break;
+  //         case 'week':
+  //           startDate = new Date(now.setDate(now.getDate() - 7));
+  //           break;
+  //         case 'month':
+  //           startDate = new Date(now.setMonth(now.getMonth() - 1));
+  //           break;
+  //         case 'quarter':
+  //           startDate = new Date(now.setMonth(now.getMonth() - 3));
+  //           break;
+  //         case 'year':
+  //           startDate = new Date(now.setFullYear(now.getFullYear() - 1));
+  //           break;
+  //       }
+  //       if (startDate) filter.createdAt = {$gte: startDate};
+  //     }
+
+  //     const pipeline: any = [{$match: filter}];
+
+  //     if (user && user !== 'all') {
+  //       pipeline.push({
+  //         $lookup: {
+  //           from: 'answers',
+  //           let: {questionId: '$_id'},
+  //           pipeline: [
+  //             {
+  //               $match: {
+  //                 $expr: {
+  //                   $and: [
+  //                     {$eq: ['$questionId', '$$questionId']},
+  //                     {$eq: ['$authorId', new ObjectId(user)]},
+  //                   ],
+  //                 },
+  //               },
+  //             },
+  //           ],
+  //           as: 'userAnswersBySelectedUser',
+  //         },
+  //       });
+
+  //       pipeline.push({
+  //         $match: {'userAnswersBySelectedUser.0': {$exists: true}},
+  //       });
+  //     }
+
+  //     pipeline.push({
+  //       $lookup: {
+  //         from: 'answers',
+  //         let: {questionId: '$_id'},
+  //         pipeline: [
+  //           {
+  //             $match: {
+  //               $expr: {
+  //                 $and: [
+  //                   {$eq: ['$questionId', '$$questionId']},
+  //                   {$eq: ['$authorId', new ObjectId(userId)]},
+  //                 ],
+  //               },
+  //             },
+  //           },
+  //         ],
+  //         as: 'userAnswers',
+  //       },
+  //     });
+
+  //     pipeline.push({$match: {userAnswers: {$size: 0}}});
+
+  //     if (sortFilter === 'newest') {
+  //       pipeline.push({$sort: {createdAt: -1}});
+  //     } else if (sortFilter === 'oldest') {
+  //       pipeline.push({$sort: {createdAt: 1}});
+  //     } else if (sortFilter === 'leastResponses') {
+  //       pipeline.push({$sort: {totalAnswersCount: 1}});
+  //     } else if (sortFilter === 'mostResponses') {
+  //       pipeline.push({$sort: {totalAnswersCount: -1}});
+  //     }
+
+  //     pipeline.push({$skip: skip});
+  //     pipeline.push({$limit: limit});
+
+  //     pipeline.push({
+  //       $project: {
+  //         id: {$toString: '$_id'},
+  //         text: '$question',
+  //         priority: '$priority',
+  //         createdAt: {
+  //           $dateToString: {format: '%d-%m-%Y %H:%M:%S', date: '$createdAt'},
+  //         },
+  //         updatedAt: {
+  //           $dateToString: {format: '%d-%m-%Y %H:%M:%S', date: '$updatedAt'},
+  //         },
+  //         totalAnswersCount: 1,
+  //         'details.crop': 1,
+  //         'details.state': 1,
+  //         source: 1,
+  //         _id: 0,
+  //       },
+  //     });
+
+  //     const results = await this.QuestionCollection.aggregate<QuestionResponse>(
+  //       pipeline,
+  //       {session},
+  //     ).toArray();
+
+  //     return results;
+  //   } catch (error) {
+  //     throw new InternalServerError(
+  //       `Failed to fetch unanswered questions: ${error}`,
+  //     );
+  //   }
+  // }
 
   async getQuestionWithFullData(questionId: string, userId: string) {
     await this.init();
@@ -615,12 +710,15 @@ export class QuestionRepository implements IQuestionRepository {
                   ?.isFinalAnswer,
                 answer: answersMap.get(h.answer?.toString())?.answer,
                 sources: answersMap.get(h.answer?.toString())?.sources,
+                approvalCount: answersMap.get(h.answer?.toString())
+                  ?.approvalCount,
                 createdAt: answersMap.get(h.answer?.toString())?.createdAt,
                 updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
               }
             : null,
-          isFinalAnswer: h.isFinalAnswer,
-          updatedAt: h.updatedAt,
+          status: h.status,
+          approvedAnswer: h.approvedAnswer?.toString(),
+          rejectedAnswer: h.rejectedAnswer?.toString(),
         })),
         createdAt: submission?.createdAt,
         updatedAt: submission?.updatedAt,
@@ -638,7 +736,11 @@ export class QuestionRepository implements IQuestionRepository {
 
       // 9 Final assembled question
       const result = {
-        ...{...question, contextId: question.contextId?.toString()},
+        ...{
+          ...question,
+          contextId: question.contextId?.toString(),
+          isAutoAllocate: question.isAutoAllocate ?? true,
+        },
         _id: question._id?.toString(),
         userId: question.userId?.toString(),
         isAlreadySubmitted,
@@ -650,6 +752,41 @@ export class QuestionRepository implements IQuestionRepository {
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch full question data: ${error}`,
+      );
+    }
+  }
+
+  async updateAutoAllocate(
+    questionId: string,
+    isAutoAllocate: boolean,
+    session?: ClientSession,
+  ): Promise<IQuestion | null> {
+    try {
+      await this.init();
+      const autoAllocateValue =
+        typeof isAutoAllocate === 'boolean' ? !isAutoAllocate : false;
+      return await this.QuestionCollection.findOneAndUpdate(
+        {_id: new ObjectId(questionId)},
+        {$set: {isAutoAllocate: autoAllocateValue}},
+        {session, returnDocument: 'after'},
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while updating auto allocate field: ${error}`,
+      );
+    }
+  }
+
+  async getQuestionByQuestionText(
+    text: string,
+    session?: ClientSession,
+  ): Promise<IQuestion> {
+    try {
+      await this.init();
+      return this.QuestionCollection.findOne({question: text}, {session});
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to find question by text /More: ${error}`,
       );
     }
   }
@@ -685,6 +822,38 @@ export class QuestionRepository implements IQuestionRepository {
         {$set: {...updates, updatedAt: new Date()}},
         {session},
       );
+
+      if (updates.status === 'in-review') {
+        const submission = await this.QuestionSubmissionCollection.findOne(
+          {questionId: new ObjectId(questionId)},
+          {session},
+        );
+
+        if (submission) {
+          const history = submission.history || [];
+          const queue = submission.queue || [];
+
+          const lastHistory = history.at(-1);
+          const lastUpdatedById = lastHistory?.updatedBy?.toString();
+
+          if (lastUpdatedById && queue.length > 0) {
+            const currentIndex = queue.findIndex(
+              (id: any) => id?.toString() === lastUpdatedById,
+            );
+
+            // 🔹 If found, remove all users that come after this index
+            if (currentIndex !== -1 && currentIndex < queue?.length - 1) {
+              const remainingQueue = queue?.slice(0, currentIndex + 1);
+
+              await this.QuestionSubmissionCollection.updateOne(
+                {questionId: new ObjectId(questionId)},
+                {$set: {queue: remainingQueue}},
+                {session},
+              );
+            }
+          }
+        }
+      }
 
       return {modifiedCount: result.modifiedCount};
     } catch (error) {

@@ -1,6 +1,6 @@
 import type { IUser } from "@/types";
 import { apiFetch } from "../api/api-fetch";
-import type { IUsersNameResponse } from "../api/user/useGetAllUserNames";
+import type { IUsersNameResponse } from "../api/user/useGetAllUsers";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -11,7 +11,7 @@ export class UserService {
     return apiFetch<IUser>(`${this._baseUrl}/me`);
   }
 
-  async getAllUserNames(): Promise<IUsersNameResponse | null> {
+  async useGetAllUsers(): Promise<IUsersNameResponse | null> {
     return apiFetch<IUsersNameResponse>(`${this._baseUrl}/all`);
   }
 

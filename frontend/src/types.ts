@@ -36,6 +36,35 @@ export interface IUser {
 }
 export type QuestionPriority = "low" | "medium" | "high";
 export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT";
+
+export interface HistoryItem {
+  updatedBy: { // who submission is this
+    _id: string;
+    userName: string;
+    email: string;
+  };
+  answer?: { //answer
+    _id: string;
+    answer: string;
+    approvalCount: string;
+    sources: string[];
+  };
+  // in-review => if a question assigned to an expert for reiview, or state of a answer before approval or rejection 
+  // reviewed => if an expert reviewed (accpeted/rejected) the previous answer
+  // approved => After three consecutive approvals fo an answer
+  // rejected => If any expert rejects an answer, so that history status would be rejected and rejected person doc status would be reviewed
+  status?: "in-review" | "reviewed" | "approved" | "rejected";
+  // rejection reason
+  reasonForRejection?: string;
+  // If an expert is approving, it store the approved answer id
+  approvedAnswer?: string;
+  // If an expert is rejecting, it store the rejected answer id
+  rejectedAnswer?: string;
+  // timestamp
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface IQuestion {
   id: string;
   text: string;
@@ -45,6 +74,7 @@ export interface IQuestion {
   priority: QuestionPriority;
   status: QuestionStatus;
   source: QuestionSource;
+  history: HistoryItem[];
   details: {
     state: string;
     district: string;
@@ -52,6 +82,7 @@ export interface IQuestion {
     season: string;
     domain: string;
   };
+  isAutoAllocate: boolean;
   currentAnswers?: {
     answer: string;
     id: string;
@@ -134,6 +165,7 @@ export interface IAnswer {
   authorId: string;
   answerIteration: number;
   isFinalAnswer: boolean;
+  approvalCount: number;
   sources: string[];
   answer: string;
   threshold: number;
@@ -149,24 +181,16 @@ export interface IUserRef {
 export interface ISubmissionHistory {
   updatedBy: IUserRef | null;
   answer: IAnswer | null;
-  isFinalAnswer: boolean;
-  updatedAt: string;
+  status: 'reviewed' | 'in-review' | 'approved' | 'rejected';
+  approvedAnswer: string,
+  rejectedAnswer: string
 }
 
 export interface ISubmission {
   _id: string;
   questionId: string;
-  lastRespondedBy: {
-    _id: string;
-    name: string;
-    email: string;
-  } | null;
-  // queue: (string | ObjectId)[];
-  queue: {
-    _id: string;
-    name: string;
-    email: string;
-  }[];
+  lastRespondedBy: IUserRef | null;
+  queue: IUserRef[];
   history: ISubmissionHistory[];
   createdAt: string;
   updatedAt: string;
@@ -183,6 +207,7 @@ export interface IQuestionFullData {
     season: string;
     domain: string;
   };
+  isAutoAllocate: boolean;
   priority: QuestionPriority;
   context: string;
   metrics: IQuestionMetrics;

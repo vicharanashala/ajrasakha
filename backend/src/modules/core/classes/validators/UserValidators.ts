@@ -28,6 +28,17 @@ class UserDto {
 
   @IsString()
   userName: string;
+
+  @IsString()
+  email: string;
+  
+  @IsString()
+  role: string;
+
+  @IsObject()
+  @ValidateNested()
+  @Type(() => PreferenceDto)
+  preference: PreferenceDto;
 }
 
 // Main Response DTO

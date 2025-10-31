@@ -13,23 +13,29 @@ import {
   Post,
   Param,
   NotFoundError,
+  Patch,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
-import {IQuestion, IUser} from '#root/shared/interfaces/models.js';
+import {
+  IQuestion,
+  IQuestionSubmission,
+  IUser,
+} from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {QuestionService} from '../services/QuestionService.js';
 import {ContextIdParam} from '../classes/validators/ContextValidators.js';
 import {
   AddQuestionBodyDto,
+  AllocateExpertsRequest,
   GeneratedQuestionResponse,
   GenerateQuestionsBody,
   GetDetailedQuestionsQuery,
   QuestionIdParam,
   QuestionResponse,
+  RemoveAllocateBody,
 } from '../classes/validators/QuestionValidators.js';
-import {currentUserChecker} from '#root/shared/functions/currentUserChecker.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -53,18 +59,18 @@ export class QuestionController {
     return this.questionService.getByContextId(contextId);
   }
 
-  @Get('/')
+  @Get('/allocated')
   @HttpCode(200)
   @ResponseSchema(QuestionResponse, {isArray: true})
   @Authorized()
   @OpenAPI({summary: 'Get all open status questions'})
-  async getUnAnsweredQuestions(
+  async getAllocatedQuestions(
     @QueryParams()
     query: GetDetailedQuestionsQuery,
     @CurrentUser() user: IUser,
   ): Promise<QuestionResponse[]> {
     const userId = user._id.toString();
-    return this.questionService.getUnAnsweredQuestions(userId, query);
+    return this.questionService.getAllocatedQuestions(userId, query);
   }
 
   @Get('/detailed')
@@ -137,7 +143,31 @@ export class QuestionController {
       throw new NotFoundError(`Question with id ${questionId} not found`);
     }
 
-    return {success: true, data: question, currentUserId: userId};
+    return {success: true, data: question};
+  }
+
+  @Patch('/:questionId/toggle-auto-allocate')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Toggle auto-allocate option for the selected question'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async toggleAutoAllocate(@Params() params: QuestionIdParam) {
+    const {questionId} = params;
+    return await this.questionService.toggleAutoAllocate(questionId);
+  }
+
+  @Post('/:questionId/allocate-experts')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Manually allocate experts to a selected question'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async allocateExperts(
+    @Params() params: QuestionIdParam,
+    @Body() body: AllocateExpertsRequest,
+  ) {
+    const {questionId} = params;
+    const {experts} = body;
+    return await this.questionService.allocateExperts(questionId, experts);
   }
 
   @Put('/:questionId')
@@ -151,6 +181,19 @@ export class QuestionController {
   ): Promise<{modifiedCount: number}> {
     const {questionId} = params;
     return this.questionService.updateQuestion(questionId, updates);
+  }
+
+  @Delete('/:questionId/allocation')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Remove an allocation from a question by ID'})
+  async removeAllocation(
+    @Params() params: QuestionIdParam,
+    @Body() body: RemoveAllocateBody,
+  ): Promise<IQuestionSubmission> {
+    const {questionId} = params;
+    const {index} = body;
+    return this.questionService.removeExpertFromQueue(questionId, index);
   }
 
   @Delete('/:questionId')

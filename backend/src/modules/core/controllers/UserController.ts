@@ -69,6 +69,6 @@ export class UserController {
     @CurrentUser() user: IUser,
   ): Promise<UsersNameResponseDto> {
     const userId = user._id.toString();
-    return await this.userService.getAllUserNames(userId);
+    return await this.userService.getAllUsers(userId);
   }
 }

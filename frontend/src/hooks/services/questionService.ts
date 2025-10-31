@@ -47,7 +47,7 @@ export class QuestionService {
     );
   }
 
-  async getAllQuestions(
+  async useGetAllocatedQuestions(
     pageParam: number,
     limit: number,
     filter: QuestionFilter,
@@ -84,7 +84,7 @@ export class QuestionService {
       params.append("dateRange", preferences.dateRange);
 
     return apiFetch<IQuestion[] | null>(
-      `${this._baseUrl}?${params.toString()}`
+      `${this._baseUrl}/allocated?${params.toString()}`
     );
   }
 
@@ -128,9 +128,43 @@ export class QuestionService {
     });
   }
 
+  async removeAllocation(
+    questionId: string,
+    index: number
+  ): Promise<void | null> {
+    return apiFetch<void>(`${this._baseUrl}/${questionId}/allocation`, {
+      method: "DELETE",
+      body: JSON.stringify({ index }),
+    });
+  }
+
   async deleteQuestion(questionId: string): Promise<void | null> {
     return apiFetch<void>(`${this._baseUrl}/${questionId}`, {
       method: "DELETE",
     });
+  }
+
+  async toggleAutoAllocate(
+    questionId: string
+  ): Promise<IDetailedQuestion | null> {
+    return apiFetch<IDetailedQuestion>(
+      `${this._baseUrl}/${questionId}/toggle-auto-allocate`,
+      {
+        method: "PATCH",
+      }
+    );
+  }
+
+  async allocateExperts(
+    questionId: string,
+    experts: string[]
+  ): Promise<IDetailedQuestion | null> {
+    return apiFetch<IDetailedQuestion>(
+      `${this._baseUrl}/${questionId}/allocate-experts`,
+      {
+        method: "POST",
+        body: JSON.stringify({ experts }),
+      }
+    );
   }
 }

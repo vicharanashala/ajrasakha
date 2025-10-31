@@ -121,6 +121,62 @@ class QuestionDetailsDto {
 //   @IsString({each: true})
 //   currentAnswers?: {answer: string; id: string; isFinalAnswer: boolean}[];
 // }
+
+class UpdatedBy {
+  @IsString()
+  _id!: string;
+
+  @IsString()
+  userName!: string;
+
+  @IsString()
+  email!: string;
+}
+
+class AnswerDetails {
+  @IsString()
+  _id!: string;
+
+  @IsString()
+  answer!: string;
+
+  @IsString()
+  approvalCount!: string;
+
+  @IsArray()
+  @IsString({each: true})
+  sources!: string[];
+}
+
+class HistoryItem {
+  @ValidateNested()
+  @Type(() => UpdatedBy)
+  updatedBy!: UpdatedBy;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AnswerDetails)
+  answer?: AnswerDetails;
+
+  @IsOptional()
+  @IsEnum(['approved', 'rejected'])
+  status?: 'approved' | 'rejected';
+
+  @IsOptional()
+  @IsString()
+  reasonForRejection?: string;
+
+  @IsOptional()
+  @IsString()
+  approvedAnswer?: string;
+
+  @Type(() => Date)
+  createdAt!: Date;
+
+  @Type(() => Date)
+  updatedAt!: Date;
+}
+
 class QuestionResponse {
   @IsString()
   id!: string;
@@ -146,6 +202,7 @@ class QuestionResponse {
   @Type(() => QuestionDetailsDto)
   details?: QuestionDetailsDto;
 
+  @IsOptional()
   @IsString()
   userId?: string;
 
@@ -160,6 +217,12 @@ class QuestionResponse {
   @ValidateNested({each: true})
   @Type(() => Object)
   currentAnswers?: {answer: string; id: string; isFinalAnswer: boolean}[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({each: true})
+  @Type(() => HistoryItem)
+  history?: HistoryItem[];
 }
 class AddQuestionBodyDto {
   @IsString()
@@ -186,7 +249,21 @@ class GenerateQuestionsBody {
   @MinLength(10)
   transcript!: string;
 }
+class ExpertInput {
+  @IsString()
+  _id!: string;
 
+  @IsString()
+  userName!: string;
+}
+
+class AllocateExpertsRequest {
+  experts!: string[];
+}
+class RemoveAllocateBody {
+  @IsNumber()
+  index!: number;
+}
 class GeneratedQuestionResponse {
   @IsString()
   id!: string;
@@ -344,6 +421,11 @@ export const QUESTION_VALIDATORS = [
   GenerateQuestionsBody,
   GetDetailedQuestionsQuery,
   AddQuestionBodyDto,
+  AllocateExpertsRequest,
+  ExpertInput,
+  RemoveAllocateBody,
+  UpdatedBy,
+  HistoryItem,
 ];
 
 export {
@@ -354,4 +436,9 @@ export {
   GeneratedQuestionResponse,
   GetDetailedQuestionsQuery,
   AddQuestionBodyDto,
+  AllocateExpertsRequest,
+  ExpertInput,
+  RemoveAllocateBody,
+  UpdatedBy,
+  HistoryItem,
 };

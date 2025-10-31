@@ -4,11 +4,12 @@ import type {
   ISubmission,
   ISubmissionHistory,
   IUser,
+  IUserRef,
+  QuestionStatus,
   UserRole,
 } from "@/types";
 import {
   forwardRef,
-  use,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -50,6 +51,7 @@ import {
   Eye,
   FileText,
   Gauge,
+  Info,
   Landmark,
   Layers,
   Link2,
@@ -59,8 +61,12 @@ import {
   RefreshCw,
   Send,
   Sprout,
+  Trash2,
+  User,
   UserCheck,
+  UserPlus,
   Users,
+  X,
 } from "lucide-react";
 import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
 import { useGetComments } from "@/hooks/api/comment/useGetComments";
@@ -68,6 +74,21 @@ import { useAddComment } from "@/hooks/api/comment/useAddComment";
 import { SourceUrlManager } from "./source-url-manager";
 import { Timeline } from "primereact/timeline";
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./atoms/tooltip";
+import { Checkbox } from "./atoms/checkbox";
+import { Label } from "./atoms/label";
+import { Switch } from "./atoms/switch";
+import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
+import { useAllocateExpert } from "@/hooks/api/question/useAllocateExperts";
+import { useToggleAutoAllocateQuestion } from "@/hooks/api/question/useToggleAutoAllocateQuestion";
+import { useRemoveAllocation } from "@/hooks/api/question/useRemoveAllocation";
+import { ConfirmationModal } from "./confirmation-modal";
+import { Input } from "./atoms/input";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -330,13 +351,17 @@ export const QuestionDetails = ({
           </Button>
         )}
       </Card>
-      <SubmissionTimeline
-        history={question.submission.history}
-        queue={question.submission.queue}
-        currentUser={currentUser}
-      />
-      <div className="flex  sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-        <h2 className="text-lg font-semibold flex justify-center sm:justify-start items-center gap-2 ">
+
+      {currentUser.role !== "expert" && (
+        <AllocationTimeline
+          history={question.submission.history}
+          queue={question.submission.queue}
+          currentUser={currentUser}
+          question={question}
+        />
+      )}
+      <div className="flex items-center justify-between md:mt-12">
+        <h2 className="text-lg font-semibold flex justify-center gap-2 items-center ">
           <div className="p-2 rounded-lg bg-primary/10">
             <FileText className="w-5 h-5 text-primary" />
           </div>
@@ -412,26 +437,417 @@ export const QuestionDetails = ({
     </main>
   );
 };
-interface SubmissionTimelineProps {
-  queue: ISubmission["queue"];
-  history: ISubmission["history"];
+
+interface AllocationQueueHeaderProps {
+  question: IQuestionFullData;
+  queue?: ISubmission["queue"];
   currentUser: IUser;
 }
 
-const SubmissionTimeline = ({
+const AllocationQueueHeader = ({
+  question,
+  queue = [],
+  currentUser,
+}: AllocationQueueHeaderProps) => {
+  const [autoAllocate, setAutoAllocate] = useState(question.isAutoAllocate);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const { data: usersData, isLoading: isUsersLoading } = useGetAllUsers();
+  const { mutateAsync: allocateExpert, isPending: allocatingExperts } =
+    useAllocateExpert();
+  const { mutateAsync: toggleAutoAllocateStatus, isPending: changingStatus } =
+    useToggleAutoAllocateQuestion();
+
+  const expertsIdsInQueue = new Set(queue.map((expert) => expert._id));
+
+  const experts =
+    usersData?.users.filter(
+      (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id)
+    ) || [];
+
+  const filteredExperts = experts.filter(
+    (expert) =>
+      expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      expert.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleToggle = async (checked: boolean) => {
+    try {
+      await toggleAutoAllocateStatus(question._id);
+      setAutoAllocate(checked);
+    } catch (error) {
+      console.error("Error toggling auto-allocate:", error);
+      toast.error("Error toggling auto-allocate. Please try again.");
+    }
+  };
+
+  const handleSelectExpert = (expertId: string) => {
+    setSelectedExperts((prev) =>
+      prev.includes(expertId)
+        ? prev.filter((id) => id !== expertId)
+        : [...prev, expertId]
+    );
+  };
+
+  const handleSubmit = async () => {
+    try {
+      if (question.status !== "open") {
+        toast.error(
+          "This question is currently being reviewed or has been closed. Please check back later!"
+        );
+        return;
+      }
+      await allocateExpert({
+        questionId: question._id,
+        experts: selectedExperts,
+      });
+      setSelectedExperts([]);
+      setIsModalOpen(false);
+    } catch (error: any) {
+      console.error("Error allocating experts:", error);
+      toast.error(
+        error?.message || "Failed to allocate experts. Please try again."
+      );
+    }
+  };
+
+  const handleCancel = () => {
+    setSelectedExperts([]);
+    setIsModalOpen(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-4 pb-6 border-b border-border">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-primary/10">
+            <Users className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold text-foreground">
+              Allocation Queue
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {queue?.length} {queue?.length === 1 ? "expert" : "experts"} in
+              queue
+            </p>
+          </div>
+        </div>
+
+        {currentUser.role !== "expert" && (
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm">
+              <Switch
+                id="auto-allocate"
+                checked={autoAllocate}
+                onCheckedChange={handleToggle}
+              />
+              <Label
+                htmlFor="auto-allocate"
+                className="cursor-pointer font-medium text-sm flex items-center gap-2"
+              >
+                {changingStatus && (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+                Auto-allocate Experts
+              </Label>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <div className="space-y-1.5 text-sm">
+                      <p>
+                        <strong>ON:</strong> Questions are automatically
+                        assigned to available experts. If there are not enough
+                        experts currently allocated, the system will
+                        auto-allocate more.
+                      </p>
+                      <p>
+                        <strong>OFF:</strong> You need to manually add experts
+                        using the option on the right side. After assigning,
+                        make sure to submit to confirm the allocation.
+                      </p>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+
+            {!autoAllocate && (
+              <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="default" className="gap-2">
+                    <UserPlus className="w-4 h-4" />
+                    Select Experts
+                  </Button>
+                </DialogTrigger>
+                <DialogContent
+                  className="max-w-6xl max-h-[80vh] min-h-[60vh]"
+                  style={{ maxWidth: "70vw" }}
+                >
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-3 text-lg font-semibold">
+                      <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <UserPlus className="w-5 h-5 text-primary" />
+                      </div>
+                      Select Experts Manually
+                    </DialogTitle>
+
+                    <div className="mt-3 relative">
+                      <Input
+                        type="text"
+                        placeholder="Search experts by name, email..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary border"
+                      />
+                      {searchTerm && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchTerm("")}
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </DialogHeader>
+
+                  <ScrollArea className="max-h-96 pr-2">
+                    <div className="space-y-3">
+                      {isUsersLoading && (
+                        <div className="flex justify-center items-center py-10 text-muted-foreground">
+                          <div className="flex flex-col items-center space-y-2">
+                            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            <span className="text-sm">Loading experts...</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {!isUsersLoading && filteredExperts.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                          <UserPlus className="w-8 h-8 mb-2 text-muted-foreground/80" />
+                          <p className="text-sm font-medium">
+                            No experts available
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Try refreshing or check back later.
+                          </p>
+                        </div>
+                      )}
+
+                      {!isUsersLoading &&
+                        filteredExperts.map((expert) => (
+                          <div
+                            key={expert._id}
+                            className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
+                              <User className="w-5 h-5 text-primary" />
+                            </div>
+
+                            <Checkbox
+                              id={`expert-${expert._id}`}
+                              checked={selectedExperts.includes(expert._id)}
+                              onCheckedChange={() =>
+                                handleSelectExpert(expert._id)
+                              }
+                              className="mt-1"
+                            />
+
+                            <Label
+                              htmlFor={`expert-${expert._id}`}
+                              className="font-normal cursor-pointer flex-1 w-full"
+                            >
+                              <div className="flex justify-between items-center w-full">
+                                <div className="flex flex-col">
+                                  <div
+                                    className="font-medium truncate"
+                                    title={expert.userName}
+                                  >
+                                    {expert?.userName?.slice(0, 48)}
+                                    {expert?.userName?.length > 48 ? "..." : ""}
+                                  </div>
+                                  <div
+                                    className="text-xs text-muted-foreground truncate"
+                                    title={expert.email}
+                                  >
+                                    {expert?.email?.slice(0, 48)}
+                                    {expert?.email?.length > 48 ? "..." : ""}
+                                  </div>
+                                </div>
+
+                                <div className="text-sm text-muted-foreground flex-shrink-0 ml-2">
+                                  {expert.preference?.domain &&
+                                  expert.preference.domain !== "all"
+                                    ? expert.preference.domain
+                                    : "Agriculture Expert"}
+                                </div>
+                              </div>
+                            </Label>
+                          </div>
+                        ))}
+                    </div>
+                  </ScrollArea>
+
+                  <DialogFooter className="flex gap-2 justify-end">
+                    <Button variant="outline" onClick={handleCancel}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSubmit} disabled={allocatingExperts}>
+                      {allocatingExperts && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      {allocatingExperts
+                        ? "Allocating..."
+                        : `Submit (${selectedExperts.length} selected)`}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+interface AllocationTimelineProps {
+  queue: ISubmission["queue"];
+  history: ISubmission["history"];
+  currentUser: IUser;
+  question: IQuestionFullData;
+}
+
+const AllocationTimeline = ({
   currentUser,
   queue,
   history,
-}: SubmissionTimelineProps) => {
+  question,
+}: AllocationTimelineProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const INITIAL_DISPLAY_COUNT = 12;
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [flippedId, setIsFlippedId] = useState("");
+  const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null);
+
+  const [selectedAllocationIndex, setSelectedAllocationIndex] = useState<
+    number | null
+  >(null);
+  // Remove Allocation Hook
+  const { mutateAsync: removeAllocation, isPending: removingAllocation } =
+    useRemoveAllocation();
+
+  let timer: NodeJS.Timeout;
+
+  const handleMouseEnter = (id: string) => {
+    const timeout = setTimeout(() => {
+      setIsFlippedId(id);
+      setIsFlipped(true);
+    }, 1000); // 1 second delay
+    setHoverTimeout(timeout);
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
+      setHoverTimeout(null);
+    }
+    setIsFlippedId("");
+    setIsFlipped(false);
+  };
+
+  const getUserSubmission = (
+    userId: string
+  ): ISubmissionHistory | undefined => {
+    return history.find((h) => h.updatedBy?._id === userId);
+  };
+
+  const getUserActivityText = (userId: string): string => {
+    const submission = getUserSubmission(userId);
+    if (!submission) return "No activity yet.";
+
+    const userName = submission?.updatedBy?.name || "User";
+
+    if (submission.answer) {
+      return `${userName} created an answer.`;
+    }
+
+    if (submission?.approvedAnswer) {
+      const approvedEntry = history.find(
+        (h) => h.answer?._id === submission.approvedAnswer
+      );
+      const approvedUserName = approvedEntry?.updatedBy?.name || "someone";
+      return `${userName} approved ${approvedUserName}'s answer.`;
+    }
+
+    if (submission.rejectedAnswer) {
+      const rejectedEntry = history.find(
+        (h) => h.answer?._id === submission.rejectedAnswer
+      );
+      const rejectedUserName = rejectedEntry?.updatedBy?.name || "someone";
+      return `${userName} rejected ${rejectedUserName}'s answer.`;
+    }
+
+    if (
+      submission.status === "in-review" &&
+      !submission.answer &&
+      !submission.approvedAnswer &&
+      !submission.rejectedAnswer
+    ) {
+      const reviewingEntry = history.find(
+        (h) => h.answer && h.status !== "rejected" && h.status !== "approved"
+      );
+      const reviewingUserName = reviewingEntry?.updatedBy?.name || "someone";
+      return `${userName} is currently reviewing ${reviewingUserName}'s answer.`;
+    }
+
+    return `${userName} has no recent activity.`;
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeout) clearTimeout(hoverTimeout);
+    };
+  }, [hoverTimeout]);
+
+  const handleRemoveAllocation = useCallback(
+    async (index: number) => {
+      try {
+        setSelectedAllocationIndex(index);
+        await removeAllocation({ questionId: question._id, index });
+        toast.success("Allocation removed successfully.");
+      } catch (error) {
+        console.error("Error removing allocation:", error);
+        toast.error("Error removing allocation. Please try again.");
+      } finally {
+        setSelectedAllocationIndex(null);
+      }
+    },
+    [question._id, removeAllocation]
+  );
 
   const submittedUserIds = new Set(
-    history.map((entry) => entry.updatedBy?._id)
+    history
+      .filter((entry) => entry.answer || entry.status == "reviewed")
+      .map((entry) => entry.updatedBy?._id)
   );
+
   const submittedUserEmails = new Set(
-    history.map((entry) => entry.updatedBy?.email)
+    history
+      .filter((entry) => entry.answer || entry.status == "reviewed")
+      .map((entry) => entry.updatedBy?.email)
   );
+
+  const unSubmittedExpertsCount = queue?.filter(
+    (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email)
+  ).length;
 
   const nextWaitingIndex = queue?.findIndex(
     (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email)
@@ -490,164 +906,366 @@ const SubmissionTimeline = ({
   // }
 
   return (
-    <div className="w-full space-y-6 my-6 px-2 sm:px-4 md:px-6 overflow-hidden">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-border">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Users className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold text-foreground">
-              Allocation Queue
-            </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {queue?.length} {queue?.length === 1 ? "expert" : "experts"} in
-              queue
+    <div className="w-full space-y-6 my-6">
+      <AllocationQueueHeader
+        queue={queue}
+        question={question}
+        currentUser={currentUser}
+      />
+      {!displayedQueue || displayedQueue.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed rounded-lg bg-muted/30 dark:bg-muted/10">
+          <div className="flex flex-col items-center gap-3 max-w-sm">
+            <AlertCircle className="w-10 h-10 text-muted-foreground" />
+            <h3 className="text-base font-semibold text-foreground">
+              No Experts Allocated
+            </h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              This question is currently in a state where no experts are
+              assigned to review or answer it. Please allocate experts to allow
+              responses and reviews to proceed.
             </p>
           </div>
         </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 transition-all duration-500 ease-in-out">
+          {displayedQueue?.map((user, index) => {
+            const status = getStatus(index);
+            const styles = getStatusStyles(status);
+            const isLast = index === displayedQueue?.length - 1;
+            const isCurrentUserWaiting =
+              status === "waiting" && currentUser.email === user.email;
 
-        <div className="flex flex-wrap gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-            <span className="text-muted-foreground font-medium">Submitted</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-            <span className="text-muted-foreground font-medium">Waiting</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40" />
-            <span className="text-muted-foreground font-medium">Pending</span>
-          </div>
+            return (
+              // <div
+              //   key={`${user._id}-${index}`}
+              //   className="relative flex flex-col items-center justify-center my-4 group"
+              // >
+              //   {!isLast && (
+              //     <div className="absolute top-1/2 right-0 flex items-center transform translate-x-full -translate-y-1/2">
+              //       <svg
+              //         className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 ${
+              //           isCurrentUserWaiting ? "animate-bounce" : ""
+              //         }`}
+              //         xmlns="http://www.w3.org/2000/svg"
+              //         fill="none"
+              //         stroke="currentColor"
+              //         strokeWidth="2"
+              //         viewBox="0 0 24 24"
+              //       >
+              //         <path
+              //           strokeLinecap="round"
+              //           strokeLinejoin="round"
+              //           d="M5 12h14m0 0l-4-4m4 4l-4 4"
+              //         />
+              //       </svg>
+              //     </div>
+              //   )}
+
+              //   {/* Overlay for delete */}
+              //   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              //     <div className="absolute w-58 h-48 rounded-md bg-card/80 border opacity-0 group-hover:opacity-30 transition-opacity duration-300"></div>
+
+              //     {!(
+              //       submittedUserIds.has(user._id) ||
+              //       submittedUserEmails.has(user.email)
+              //     ) &&
+              //       !question.isAutoAllocate && (
+              //         <div className="absolute -top-1 right-3 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+              //           <ConfirmationModal
+              //             title="Remove Expert Allocation?"
+              //             description={`${
+              //               // nextWaitingIndex === index &&
+              //               // unSubmittedExpertsCount <= 1 &&
+              //               question.isAutoAllocate
+              //                 ? " Since auto-allocation is enabled , the system will automatically allocate the next available expert immediately after removal. "
+              //                 : ""
+              //             }${
+              //               submittedUserIds.has(user._id)
+              //                 ? "The selected expert has already submitted an answer. "
+              //                 : ""
+              //             }Are you sure you want to remove ${
+              //               user?.name
+              //             }'s allocation? This action cannot be undone. `}
+              //             confirmText="Remove"
+              //             cancelText="Cancel"
+              //             type="delete"
+              //             isLoading={removingAllocation}
+              //             onConfirm={() => handleRemoveAllocation(index)}
+              //             trigger={
+              //               <div className="w-6 h-6 bg-black/10 dark:bg-white/10 backdrop-blur-sm rounded-md flex items-center justify-center cursor-pointer hover:text-red-500">
+              //                 <Trash2 className="w-4 h-4 transition-colors duration-300" />
+              //               </div>
+              //             }
+              //           />
+              //         </div>
+              //       )}
+              //   </div>
+
+              //   <div
+              //     className={`relative flex flex-col items-center justify-center gap-2 p-4
+              //     rounded-full border-2 transition-all duration-300 hover:shadow-lg hover:scale-105
+              //     ${styles.container}
+              //     ${
+              //       isExpanded && index >= INITIAL_DISPLAY_COUNT
+              //         ? "animate-fade-in"
+              //         : ""
+              //     }
+              //     ${
+              //       isCurrentUserWaiting
+              //         ? "ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105"
+              //         : ""
+              //     }
+              //     w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44
+              //   `}
+              //   >
+              //     {removingAllocation && selectedAllocationIndex === index && (
+              //       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+              //         <Loader2 className="w-6 h-6 animate-spin text-white/80" />
+              //       </div>
+              //     )}
+
+              //     <div
+              //       className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${styles.iconBg}`}
+              //     >
+              //       {status === "submitted" ? (
+              //         <CheckCircle2 className={`w-6 h-6 ${styles.icon}`} />
+              //       ) : status === "waiting" ? (
+              //         <Clock
+              //           className={`w-6 h-6 ${styles.icon} ${
+              //             isCurrentUserWaiting ? "animate-bounce-subtle" : ""
+              //           }`}
+              //         />
+              //       ) : (
+              //         <AlertCircle className={`w-6 h-6 ${styles.icon}`} />
+              //       )}
+              //     </div>
+
+              //     <div className="text-center w-full px-2">
+              //       <p
+              //         className="text-xs font-semibold text-foreground truncate"
+              //         title={user.name}
+              //       >
+              //         {user.name?.slice(0, 15)}
+              //         {user.name?.length > 15 ? "..." : ""}
+              //       </p>
+              //       <p
+              //         className="text-[10px] text-muted-foreground truncate mt-0.5"
+              //         title={user.email}
+              //       >
+              //         {user.email?.slice(0, 23)}
+              //         {user.email?.length > 23 ? "..." : ""}
+              //       </p>
+              //     </div>
+
+              //     {/* Status Badge */}
+              //     <span
+              //       className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${styles.badge}`}
+              //     >
+              //       {status === "submitted"
+              //         ? "Submitted"
+              //         : status === "waiting"
+              //         ? isCurrentUserWaiting
+              //           ? "Your Turn"
+              //           : "Waiting"
+              //         : "Pending"}
+              //     </span>
+              //   </div>
+              // </div>
+
+              <div
+                key={`${user._id}-${index}`}
+                className="relative flex flex-col items-center justify-center my-4 group"
+              >
+                {!isLast && (
+                  <div className="absolute top-1/2 right-0 flex items-center transform translate-x-full -translate-y-1/2">
+                    <svg
+                      className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 ${
+                        isCurrentUserWaiting ? "animate-bounce" : ""
+                      }`}
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M5 12h14m0 0l-4-4m4 4l-4 4"
+                      />
+                    </svg>
+                  </div>
+                )}
+
+                {/* Overlay for delete */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="absolute w-58 h-48 rounded-md bg-card/80 border opacity-0 group-hover:opacity-30 transition-opacity duration-300"></div>
+
+                  {!(
+                    submittedUserIds.has(user._id) ||
+                    submittedUserEmails.has(user.email)
+                  ) &&
+                    !question.isAutoAllocate && (
+                      <div className="absolute -top-1 right-3 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                        <ConfirmationModal
+                          title="Remove Expert Allocation?"
+                          description={`${
+                            question.isAutoAllocate
+                              ? " Since auto-allocation is enabled , the system will automatically allocate the next available expert immediately after removal. "
+                              : ""
+                          }${
+                            submittedUserIds.has(user._id)
+                              ? "The selected expert has already submitted an answer. "
+                              : ""
+                          }Are you sure you want to remove ${
+                            user?.name
+                          }'s allocation? This action cannot be undone. `}
+                          confirmText="Remove"
+                          cancelText="Cancel"
+                          type="delete"
+                          isLoading={removingAllocation}
+                          onConfirm={() => handleRemoveAllocation(index)}
+                          trigger={
+                            <div className="w-6 h-6 bg-black/10 dark:bg-white/10 backdrop-blur-sm rounded-md flex items-center justify-center cursor-pointer hover:text-red-500">
+                              <Trash2 className="w-4 h-4 transition-colors duration-300" />
+                            </div>
+                          }
+                        />
+                      </div>
+                    )}
+                </div>
+
+                <div
+                  className="relative w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44"
+                  style={{ perspective: "1000px" }}
+                  onMouseEnter={() => handleMouseEnter(user._id)}
+                  onMouseLeave={handleMouseLeave}
+                >
+                  <div
+                    className={`relative w-full h-full transition-transform duration-700 ${
+                      isFlipped && flippedId == user._id
+                        ? "[transform:rotateY(180deg)]"
+                        : ""
+                    }`}
+                    style={{ transformStyle: "preserve-3d" }}
+                  >
+                    <div
+                      className={`absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 
+            rounded-full border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 
+            ${styles.container} 
+            ${
+              isExpanded && index >= INITIAL_DISPLAY_COUNT
+                ? "animate-fade-in"
+                : ""
+            } 
+            ${
+              isCurrentUserWaiting
+                ? "ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105"
+                : ""
+            }`}
+                      style={{ backfaceVisibility: "hidden" }}
+                    >
+                      {removingAllocation &&
+                        selectedAllocationIndex === index && (
+                          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                            <Loader2 className="w-6 h-6 animate-spin text-white/80" />
+                          </div>
+                        )}
+
+                      <div
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${styles.iconBg}`}
+                      >
+                        {status === "submitted" ? (
+                          <CheckCircle2 className={`w-6 h-6 ${styles.icon}`} />
+                        ) : status === "waiting" ? (
+                          <Clock
+                            className={`w-6 h-6 ${styles.icon} ${
+                              isCurrentUserWaiting
+                                ? "animate-bounce-subtle"
+                                : ""
+                            }`}
+                          />
+                        ) : (
+                          <AlertCircle className={`w-6 h-6 ${styles.icon}`} />
+                        )}
+                      </div>
+
+                      <div className="text-center w-full px-2">
+                        <p
+                          className="text-xs font-semibold text-foreground truncate"
+                          title={user.name}
+                        >
+                          {user.name?.slice(0, 15)}
+                          {user.name?.length > 15 ? "..." : ""}
+                        </p>
+                        <p
+                          className="text-[10px] text-muted-foreground truncate mt-0.5"
+                          title={user.email}
+                        >
+                          {user.email?.slice(0, 23)}
+                          {user.email?.length > 23 ? "..." : ""}
+                        </p>
+                      </div>
+
+                      <span
+                        className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${styles.badge}`}
+                      >
+                        {status === "submitted"
+                          ? "Submitted"
+                          : status === "waiting"
+                          ? isCurrentUserWaiting
+                            ? "Your Turn"
+                            : "Waiting"
+                          : "Pending"}
+                      </span>
+                    </div>
+
+                    <div
+                      className="absolute inset-0 flex items-center justify-center rounded-lg border border-border/50 bg-gradient-to-br from-card to-card/95 shadow-lg transition-all duration-300"
+                      style={{
+                        backfaceVisibility: "hidden",
+                        transform: "rotateY(180deg)",
+                        boxShadow:
+                          "0 20px 25px -5px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
+                      }}
+                    >
+                      <div className="flex flex-col items-center justify-center gap-2 px-4 text-center">
+                        <div className="h-1 w-8 rounded-full bg-gradient-to-r from-primary/60 to-primary/20" />
+                        <p
+                          className="text-sm font-semibold leading-relaxed text-foreground"
+                          title={getUserActivityText(user._id)}
+                        >
+                          {getUserActivityText(user._id)}
+                        </p>
+                        <div className="h-0.5 w-6 rounded-full bg-gradient-to-r from-primary/20 to-primary/60" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="flex flex-wrap justify-end gap-4 mt-4 text-sm">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
+          <div className="w-2 h-2 rounded-full bg-green-500" />
+          <span className="text-green-700 dark:text-green-400 font-medium">
+            Submitted
+          </span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20">
+          <div className="w-2 h-2 rounded-full bg-blue-500" />
+          <span className="text-blue-700 dark:text-blue-400 font-medium">
+            Waiting
+          </span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted border border-border">
+          <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />
+          <span className="text-muted-foreground font-medium">Pending</span>
         </div>
       </div>
-
-      <div  
-      className="grid gap-6 place-items-center   "
-      style={{
-        gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-        WebkitOverflowScrolling: "touch",
-      }}
-      >
-    {displayedQueue?.map((user, index) => {
-      const status = getStatus(index);
-      const styles = getStatusStyles(status);
-      const isLast = index === displayedQueue?.length - 1;
-      const isCurrentUserWaiting =
-        status === "waiting" && currentUser.email === user.email;
-
-      return (
-        <div
-          key={`${user._id}-${index}`}
-          className="relative flex flex-col "
-          data-arrow="right"
-        >
-          {/* Circular Card */}
-          <div
-            className={`flex flex-col items-center justify-center gap-2 p-4 rounded-full w-40 h-40 border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 ${styles.container}
-              ${isExpanded && index >= INITIAL_DISPLAY_COUNT ? "animate-fade-in" : ""}
-              ${isCurrentUserWaiting ? "ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105" : ""}
-            `}
-          >
-            <div
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${styles.iconBg}`}
-            >
-              {status === "submitted" ? (
-                <CheckCircle2 className={`w-6 h-6 ${styles.icon}`} />
-              ) : status === "waiting" ? (
-                <Clock
-                  className={`w-6 h-6 ${styles.icon} ${
-                    isCurrentUserWaiting ? "animate-bounce-subtle" : ""
-                  }`}
-                />
-              ) : (
-                <AlertCircle className={`w-6 h-6 ${styles.icon}`} />
-              )}
-            </div>
-
-            <div className="text-center w-full px-2 break-words">
-              <p className="text-xs font-semibold  text-foreground">
-                {user.name}
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                {user.email}
-              </p>
-            </div>
-
-            <span
-              className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${styles.badge}`}
-            >
-              {status === "submitted"
-                ? "Submitted"
-                : status === "waiting"
-                ? isCurrentUserWaiting
-                  ? "Your Turn"
-                  : "Waiting"
-                : "Pending"}
-            </span>
-          </div>
-
-          {/* Arrow */}
-          {!isLast && (
-  <div
-    className={`
-      flex justify-center mt-3 
-      sm:mt-0 sm:absolute sm:top-1/2 sm:right-0 
-      sm:translate-x-full sm:-translate-y-1/2
-      items-center
-    `}
-  >
-    {/* Down arrow for small screens */}
-   
-    <svg
-      className={`block sm:hidden w-5 h-5 text-gray-400 dark:text-gray-500 ${
-        isCurrentUserWaiting ? "animate-bounce" : ""
-      }`}
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 5v14m0 0l4-4m-4 4l-4-4"
-      />
-    </svg>
-    
-
-    {/* Right arrow for medium+ screens */}
-    <svg
-      className={`hidden sm:block w-5 h-5 text-gray-400 dark:text-gray-500 ${
-        isCurrentUserWaiting ? "animate-bounce" : ""
-      }`}
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M5 12h14m0 0l-4-4m4 4l-4 4"
-      />
-    </svg>
-    <h1>({index+1})</h1>
-  </div>
-)}
-
-
-        </div>
-      );
-    })}
-  </div>
-
-
-
-
 
       {hasMore && (
         <div className="flex justify-center pt-4">
@@ -694,10 +1312,11 @@ export const AnswerTimeline = ({
   // map answers to timeline events
   const events = answers.slice(0, answerVisibleCount).map((ans) => {
     const submission = question.submission.history.find(
-      (h) => h.answer?._id === ans._id
+      (h) => h.answer?._id === ans?._id
     );
 
     return {
+      firstAnswerId: answers[0]?._id,
       answer: ans,
       submission,
       createdAt: new Date(ans.createdAt || "").toLocaleString(),
@@ -720,18 +1339,6 @@ export const AnswerTimeline = ({
               </div>
             )}
 
-            {/* {item.answer.threshold > 0 && (
-              <div className="flex justify-end w-full">
-                <Badge
-                  variant="outline"
-                  className="inline-flex text-[10px] text-foreground border border-muted-foreground items-center gap-1 px-1 py-0.5 w-fit"
-                >
-                  <span className="font-medium">Correctness:</span>
-                  <span>{Math.round(item.answer.threshold * 100)}%</span>
-                </Badge>
-              </div>
-            )} */}
-
             <small className="text-xs text-muted-foreground mt-1">
               {item.createdAt}
             </small>
@@ -741,8 +1348,10 @@ export const AnswerTimeline = ({
           <div className="flex-1 mb-5 ">
             <AnswerItem
               answer={item.answer}
+              firstAnswerId={item.firstAnswerId}
               submissionData={item.submission}
               currentUserId={currentUserId}
+              questionStatus={question.status}
               questionId={question._id}
               ref={commentRef}
               userRole={userRole}
@@ -760,7 +1369,9 @@ interface AnswerItemProps {
   currentUserId: string;
   submissionData?: ISubmissionHistory;
   questionId: string;
+  firstAnswerId: string;
   userRole: UserRole;
+  questionStatus: QuestionStatus;
 }
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
@@ -867,55 +1478,69 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
           {isMine && <UserCheck className="w-4 h-4 text-blue-600 ml-1" />}
         </div>
         <div className="flex items-center justify-center gap-2">
-          {props.userRole !== "expert" && props.answer.isFinalAnswer && (
-            <Dialog open={editOpen} onOpenChange={setEditOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2">
-                  <Edit className="w-4 h-4" />
-                  Edit Answer
-                </Button>
-              </DialogTrigger>
-
-              <DialogContent
-                className="w-[90vw] max-w-6xl max-h-[85vh] flex flex-col"
-                style={{ maxWidth: "70vw" }}
-              >
-                <DialogHeader>
-                  <DialogTitle className="text-lg font-semibold">
+          {/* {props.userRole !== "expert" &&
+            props.questionStatus == "in-review" &&
+            ((props.answer?.approvalCount !== undefined &&
+              props.answer?.approvalCount >= 3) ||
+              props.firstAnswerId == props.answer?._id) && ( */}
+          {props.userRole !== "expert" &&
+            props.questionStatus === "in-review" &&
+            // (props.answer?.approvalCount !== undefined && props.answer?.approvalCount >= 3) ||
+            props.firstAnswerId === props.answer?._id && (
+              <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2">
+                    <Edit className="w-4 h-4" />
                     Edit Answer
-                  </DialogTitle>
-                </DialogHeader>
+                  </Button>
+                </DialogTrigger>
 
-                <div className="mt-4">
-                  <Textarea
-                    value={editableAnswer}
-                    placeholder="Update answer here..."
-                    onChange={(e) => setEditableAnswer(e.target.value)}
-                    className="min-h-[150px] resize-none border border-border bg-background"
-                  />
-                </div>
-                <div
-                  className="mt-4 p-4 rounded-md border bg-yellow-50 border-yellow-300 text-yellow-900 text-sm
-                dark:bg-yellow-900/20 dark:border-yellow-700/60 dark:text-yellow-200"
+                <DialogContent
+                  className="w-[90vw] max-w-6xl max-h-[85vh] flex flex-col"
+                  style={{ maxWidth: "70vw" }}
                 >
-                  ⚠️ You are about to update a <strong>finalized answer</strong>
-                  . Please review your changes carefully before saving to avoid
-                  mistakes.
-                </div>
+                  <DialogHeader>
+                    <DialogTitle className="text-lg font-semibold">
+                      Edit Answer
+                    </DialogTitle>
+                  </DialogHeader>
 
-                <div className="mt-6 flex justify-end gap-3">
-                  <Button variant="outline" onClick={() => setEditOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleUpdateAnswer}
-                    className="bg-primary text-primary-foreground"
+                  <div className="mt-4">
+                    <Textarea
+                      value={editableAnswer}
+                      placeholder="Update answer here..."
+                      onChange={(e) => setEditableAnswer(e.target.value)}
+                      className="min-h-[150px] resize-none border border-border bg-background"
+                    />
+                  </div>
+                  <div
+                    className="mt-4 p-4 rounded-md border bg-yellow-50 border-yellow-300 text-yellow-900 text-sm
+                dark:bg-yellow-900/20 dark:border-yellow-700/60 dark:text-yellow-200"
                   >
-                    Save
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                    ⚠️ You are about to update a{" "}
+                    <strong>finalized answer</strong>. Please review your
+                    changes carefully before saving to avoid mistakes.
+                  </div>
+
+                  <div className="mt-6 flex justify-end gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => setEditOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleUpdateAnswer}
+                      className="bg-primary text-primary-foreground"
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+          {props.answer?.approvalCount !== undefined && (
+            <p>Approval count: {props.answer.approvalCount}</p>
           )}
           <Dialog>
             <DialogTrigger asChild>

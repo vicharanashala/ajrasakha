@@ -14,6 +14,7 @@ export interface IUser {
   firstName: string;
   lastName?: string;
   preference?: IPreference | null;
+  reputation_score: number;
   notifications?:number;
   role: UserRole;
   createdAt?: Date;
@@ -43,6 +44,7 @@ export interface IQuestion {
     season: string;
     domain: string;
   };
+  isAutoAllocate: boolean;
   source: 'AJRASAKHA' | 'AGRI_EXPERT';
   embedding: number[];
   metrics: IQuestionMetrics | null;
@@ -56,6 +58,7 @@ export interface IAnswer {
   questionId: string | ObjectId;
   authorId: string | ObjectId;
   answerIteration: number;
+  approvalCount: number;
   isFinalAnswer: boolean;
   answer: string;
   sources: string[];
@@ -71,17 +74,23 @@ export interface IContext {
   createdAt?: Date;
 }
 
-export interface ISubmissionHistroy {
+export interface ISubmissionHistory {
   updatedBy: string | ObjectId;
-  answer: string | ObjectId;
-  isFinalAnswer: boolean;
+  answer?: string | ObjectId;
+  status: 'reviewed' | 'in-review' | 'approved' | 'rejected'; // pending is for initial state of new assigned executive , in-review is state after expert answer, reviewed state is when an expert reviewed (accept/reject) other answer
+  reasonForRejection?: string;
+  rejectedBy?: string | ObjectId;
+  approvedAnswer?: string | ObjectId;
+  rejectedAnswer?: string | ObjectId;
+  createdAt: Date;
   updatedAt: Date;
 }
+
 export interface IQuestionSubmission {
   _id?: string | ObjectId;
   questionId: string | ObjectId;
   lastRespondedBy: string | ObjectId;
-  history: ISubmissionHistroy[];
+  history: ISubmissionHistory[];
   queue: (string | ObjectId)[];
   createdAt?: Date;
   updatedAt?: Date;

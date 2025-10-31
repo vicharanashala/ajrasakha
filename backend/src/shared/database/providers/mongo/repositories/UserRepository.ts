@@ -89,6 +89,16 @@ export class UserRepository implements IUserRepository {
       },
     );
 
+    // await this.usersCollection.updateMany(
+    //   {},
+    //   {
+    //     $set: {
+    //       reputation_score: 0,
+    //       preference: {crop: 'all', domain: 'all', state: 'all'},
+    //       updatedAt: new Date(),
+    //     },
+    //   },
+    // );
     if (!user) return null;
 
     return instanceToPlain(new User(user)) as IUser;
@@ -143,7 +153,12 @@ export class UserRepository implements IUserRepository {
     const {_id, ...sanitizedData} = userData;
     const result = await this.usersCollection.updateOne(
       {_id: new ObjectId(userId)},
-      {$set: sanitizedData},
+      {
+        $set: {
+          ...sanitizedData,
+          updatedAt: new Date(),
+        },
+      },
       {session},
     );
     if (result.matchedCount === 0) return null;
@@ -170,61 +185,135 @@ export class UserRepository implements IUserRepository {
 
   async findAll(session?: ClientSession): Promise<IUser[]> {
     await this.init();
-    return this.usersCollection.find({}, {session}).toArray();
+    const allUsers = await this.usersCollection.find({}, {session}).toArray();
+
+    // Remove duplicate users (in case multiple  emails point to same user)
+    const uniqueUsersMap = new Map<string, IUser>();
+    for (const user of allUsers) {
+      const uniqueKey = user.email || user._id.toString();
+      if (!uniqueUsersMap.has(uniqueKey)) {
+        uniqueUsersMap.set(uniqueKey, user);
+      }
+    }
+    const uniqueUsers = Array.from(uniqueUsersMap.values());
+
+    return uniqueUsers;
   }
 
-  async findUsersByPreference(
+  async updateReputationScore(
+    userId: string,
+    isIncrement: boolean,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+
+    const incrementValue = isIncrement ? 1 : -1;
+
+    await this.usersCollection.updateOne(
+      {_id: new ObjectId(userId)},
+      [
+        {
+          $set: {
+            reputation_score: {
+              $max: [0, {$add: ['$reputation_score', incrementValue]}],
+            },
+            updatedAt: new Date(),
+          },
+        },
+      ],
+      {session},
+    );
+  }
+
+  async findExpertsByPreference(
     details: PreferenceDto,
     session?: ClientSession,
   ): Promise<IUser[]> {
     await this.init();
 
-    //1. Find all expert users who are relevant (at least one preference matches or is "all")
-    const baseQuery: any = {
-      role: 'expert',
-      $or: [
-        {'preference.crop': {$in: [details.crop, 'all']}},
-        {'preference.state': {$in: [details.state, 'all']}},
-        {'preference.domain': {$in: [details.domain, 'all']}},
-      ],
-    };
-
-    const allUsers = await this.usersCollection
-      .find(baseQuery, {session})
+    // 1. Fetch all experts
+    const allUsersRaw = await this.usersCollection
+      .find({role: 'expert'}, {session})
       .toArray();
 
-    //2. Score users based on number of matching preferences
-    const scoredUsers = allUsers.map(user => {
-      let score = 0;
+    // 2. Remove duplicates based on email
+    const uniqueUsersMap = new Map<string, IUser>();
+    for (const user of allUsersRaw) {
+      if (!user.email) continue;
+      if (!uniqueUsersMap.has(user.email)) uniqueUsersMap.set(user.email, user);
+    }
+    let allUsers = Array.from(uniqueUsersMap.values());
 
-      if (user.preference?.crop === details.crop) score++;
-      if (user.preference?.state === details.state) score++;
-      if (user.preference?.domain === details.domain) score++;
+    // Shuffle on random basis
+    for (let i = allUsers.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allUsers[i], allUsers[j]] = [allUsers[j], allUsers[i]];
+    }
 
-      //  if all are 'all', push to the very end
-      const isAllSelected =
-        user.preference?.crop === 'all' &&
-        user.preference?.state === 'all' &&
-        user.preference?.domain === 'all';
+    // 3. Score users
+    const scoredUsers = allUsers
+      .map(user => {
+        const pref: PreferenceDto = user.preference || {};
 
-      return {user, score, isAllSelected};
-    });
+        const isAllSelected =
+          pref.crop === 'all' && pref.state === 'all' && pref.domain === 'all';
 
-    //3. Sort users by:
-    // - Highest score first (3 → 2 → 1)
-    // - Then those who selected "all" for everything go last
+        let score = 0;
+        if (pref.crop && pref.crop !== 'all' && pref.crop === details.crop)
+          score++;
+        if (pref.state && pref.state !== 'all' && pref.state === details.state)
+          score++;
+        if (
+          pref.domain &&
+          pref.domain !== 'all' &&
+          pref.domain === details.domain
+        )
+          score++;
+
+        // Include only if score > 0 or allSelected
+        // if (score > 0 || isAllSelected) {
+        const workloadScore =
+          typeof user.reputation_score === 'number' ? user.reputation_score : 0;
+
+        // console.log(
+        //   'email: ',
+        //   user.email,
+        //   'score; ',
+        //   score,
+        //   'isAllSelected: ',
+        //   isAllSelected,
+        //   'Workload score: ',
+        //   workloadScore,
+        // );
+        return {user, score, isAllSelected, workloadScore};
+        // }
+        // return null;
+      })
+      .filter(Boolean) as {
+      user: IUser;
+      score: number;
+      isAllSelected: boolean;
+      workloadScore: number;
+    }[];
+
+    // 4. Sort
     scoredUsers.sort((a, b) => {
+      // Users with all = 'all' go last
       if (a.isAllSelected && !b.isAllSelected) return 1;
       if (!a.isAllSelected && b.isAllSelected) return -1;
-      return b.score - a.score;
+
+      // Higher score first
+      if (b.score !== a.score) return b.score - a.score;
+
+      // Lower workload first
+      return a.workloadScore - b.workloadScore;
     });
 
-    //4. Return priority queue of users
     return scoredUsers.map(s => s.user);
   }
-  
-  async findModerators():Promise<IUser[]>{
-    await this.init()
-    return await this.usersCollection.find({role:'moderator'}).toArray()
+
+  async findModerators(): Promise<IUser[]> {
+    await this.init();
+    return await this.usersCollection.find({role: 'moderator'}).toArray();
   }
 }

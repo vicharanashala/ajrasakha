@@ -49,6 +49,7 @@ export class AnswerRepository implements IAnswerRepository {
         answer,
         isFinalAnswer,
         answerIteration,
+        approvalCount: 0,
         embedding,
         sources,
         createdAt: new Date(),
@@ -246,6 +247,35 @@ export class AnswerRepository implements IAnswerRepository {
       );
     }
   }
+
+ async incrementApprovalCount(
+  answerId: string,
+  session?: ClientSession,
+): Promise<number> {
+  try {
+    await this.init();
+
+    const result = await this.AnswerCollection.findOneAndUpdate(
+      { _id: new ObjectId(answerId) },
+      { $inc: { approvalCount: 1 } },
+      {
+        session,
+        returnDocument: 'after', 
+      },
+    );
+
+    if (!result) {
+      throw new InternalServerError(`Answer not found with ID ${answerId}`);
+    }
+
+    return result.approvalCount ?? 0;
+  } catch (error) {
+    throw new InternalServerError(
+      `Error while incrementing approval count of answer ${answerId}. More: ${error}`,
+    );
+  }
+}
+
 
   async deleteByQuestionId(
     questionId: string,

@@ -248,7 +248,7 @@ useEffect(() => {
               {user && user.role !== "expert" && (
                 <TabsContent
                   value="request_queue"
-                  className="mt-0 border-0 md:px-8 px-2 w-full"
+                  className="mt-0 border-0 md:px-8 px-2 w-full "
                 >
                   <RequestsPage />
                 </TabsContent>

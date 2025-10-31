@@ -5,7 +5,7 @@ import type { AdvanceFilterValues } from "@/components/advanced-question-filter"
 
 const questionService = new QuestionService();
 
-export const useGetAllQuestions = (
+export const useGetAllocatedQuestions = (
   limit: number,
   filter: QuestionFilter,
   preferences: AdvanceFilterValues
@@ -13,7 +13,7 @@ export const useGetAllQuestions = (
   return useInfiniteQuery({
     queryKey: ["questions", limit, filter, preferences],
     queryFn: async ({ pageParam }) => {
-      return await questionService.getAllQuestions(
+      return await questionService.useGetAllocatedQuestions(
         pageParam,
         limit,
         filter,

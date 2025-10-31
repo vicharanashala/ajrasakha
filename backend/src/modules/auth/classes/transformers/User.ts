@@ -28,6 +28,15 @@ class User implements IUser {
   lastName: string;
 
   @Expose()
+  reputation_score: number;
+
+  @Expose()
+  createdAt?: Date;
+
+  @Expose()
+  updatedAt?: Date;
+
+  @Expose()
   role: 'admin' | 'moderator' | 'expert';
 
   constructor(data: Partial<IUser>) {
@@ -42,6 +51,9 @@ class User implements IUser {
       state: data?.preference?.state || 'all',
       domain: data?.preference?.domain || 'all',
     };
+    this.reputation_score = data?.reputation_score || 0;
+    this.createdAt = data?.createdAt || new Date();
+    this.updatedAt = data?.updatedAt || new Date();
   }
 }
 

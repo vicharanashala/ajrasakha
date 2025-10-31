@@ -68,7 +68,7 @@ export interface IUserRepository {
    * @param session - The session for transaction.
    * @returns A promise that resolves to the users.
    */
-  findUsersByPreference(
+  findExpertsByPreference(
     details: PreferenceDto,
     session?: ClientSession,
   ): Promise<IUser[]>;
@@ -99,6 +99,18 @@ export interface IUserRepository {
    * @returns A promise that resolves to an array of users.
    */
   findAll(session?: ClientSession): Promise<IUser[]>;
+
+  /**
+   * Finds all users.
+   * @param userId -  user IDs to find.
+   * @param newScore -  New score.
+   * @returns A promise that resolves to an array of users.
+   */
+  updateReputationScore(
+    userId: string,
+    isIncrement: boolean,
+    session?: ClientSession,
+  ): Promise<void>;
   
   findModerators():Promise<IUser[]>
 }

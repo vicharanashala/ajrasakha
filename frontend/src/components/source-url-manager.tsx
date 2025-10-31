@@ -25,7 +25,9 @@ export const SourceUrlManager = ({
       toast.error("Please enter a valid URL before adding a new one.");
       return;
     }
-    if (trimmedValue && !sources.includes(trimmedValue)) {
+    if (trimmedValue && sources.includes(trimmedValue)) {
+      toast.error("This URL already added, try adding new one.");
+    } else {
       onSourcesChange([...sources, trimmedValue]);
       setInputValue("");
     }

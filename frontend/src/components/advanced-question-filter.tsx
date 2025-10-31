@@ -37,7 +37,7 @@ import {
   Info,
   AlertTriangle,
 } from "lucide-react";
-import { useGetAllUserNames } from "@/hooks/api/user/useGetAllUserNames";
+import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 import type { IMyPreference } from "@/types";
 
@@ -125,28 +125,28 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   onReset,
   isForQA,
 }) => {
-  const { data: userNameReponse, isLoading } = useGetAllUserNames();
+  const { data: userNameReponse, isLoading } = useGetAllUsers();
 
   const users = (userNameReponse?.users || []).sort((a, b) =>
     a.userName.localeCompare(b.userName)
   );
 
-  useEffect(() => {
-    if (userNameReponse?.myPreference) {
-      setAdvanceFilterValues((prev: AdvanceFilterValues) => {
-        const updatedFilters = {
-          ...prev,
-          state: userNameReponse.myPreference?.state || prev.state,
-          crop: userNameReponse.myPreference?.crop || prev.crop,
-          domain: userNameReponse.myPreference?.domain || prev.domain,
-        };
+  // useEffect(() => {
+  //   if (userNameReponse?.myPreference) {
+  //     setAdvanceFilterValues((prev: AdvanceFilterValues) => {
+  //       const updatedFilters = {
+  //         ...prev,
+  //         state: userNameReponse.myPreference?.state || prev.state,
+  //         crop: userNameReponse.myPreference?.crop || prev.crop,
+  //         domain: userNameReponse.myPreference?.domain || prev.domain,
+  //       };
 
-        handleApplyFilters(updatedFilters);
+  //       handleApplyFilters(updatedFilters);
 
-        return updatedFilters;
-      });
-    }
-  }, [userNameReponse, setAdvanceFilterValues]);
+  //       return updatedFilters;
+  //     });
+  //   }
+  // }, [userNameReponse, setAdvanceFilterValues]);
 
   return (
     <Dialog>
