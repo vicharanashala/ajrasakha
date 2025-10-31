@@ -89,6 +89,7 @@ import { useToggleAutoAllocateQuestion } from "@/hooks/api/question/useToggleAut
 import { useRemoveAllocation } from "@/hooks/api/question/useRemoveAllocation";
 import { ConfirmationModal } from "./confirmation-modal";
 import { Input } from "./atoms/input";
+import { formatDate } from "@/utils/formatDate";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -218,8 +219,8 @@ export const QuestionDetails = ({
         </div>
 
         <div className="text-xs text-muted-foreground">
-          Created: {new Date(question.createdAt).toLocaleString()} • Updated:{" "}
-          {new Date(question.updatedAt).toLocaleString()}
+          Created: {formatDate(new Date(question.createdAt))} • Updated:{" "}
+          {formatDate(new Date(question.updatedAt))}
         </div>
       </header>
 
@@ -1733,7 +1734,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                                 {c.userName || "Unknown User"}
                               </span>
                               <span className="text-xs text-muted-foreground">
-                                {new Date(c.createdAt).toLocaleString()}
+                                {formatDate(new Date(c.createdAt))}
                               </span>
                             </div>
                             <p className="text-sm ms-2 text-foreground leading-relaxed">

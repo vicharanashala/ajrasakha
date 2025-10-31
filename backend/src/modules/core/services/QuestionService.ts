@@ -841,6 +841,52 @@ export class QuestionService extends BaseService {
           throw new BadRequestError(`Question with ID ${questionId} not found`);
         }
         await this.answerRepo.deleteByQuestionId(questionId, session);
+
+        const questionSubmission =
+          await this.questionSubmissionRepo.getByQuestionId(
+            questionId,
+            session,
+          );
+
+        if (!questionSubmission) {
+          throw new NotFoundError(
+            `No question submission found for question ID: ${questionId}`,
+          );
+        }
+
+        const history = questionSubmission.history || [];
+        if (history.length > 0) {
+          // Get the last history entry
+          const lastHistoryEntry = history[history.length - 1];
+
+          if (!lastHistoryEntry) {
+            throw new BadRequestError(
+              `Invalid submission history for question ID: ${questionId}`,
+            );
+          }
+
+          // Check if the last entry is still under review and no answer provided yet
+          const isUnderReviewWithoutAnswer =
+            lastHistoryEntry.status === 'in-review' && !lastHistoryEntry.answer;
+
+          if (isUnderReviewWithoutAnswer) {
+            const IS_INCREMENT = false;
+            const expertId = lastHistoryEntry.updatedBy?.toString();
+
+            if (!expertId) {
+              throw new BadRequestError(
+                `Expert ID missing in the last history entry for question ID: ${questionId}`,
+              );
+            }
+
+            await this.userRepo.updateReputationScore(
+              expertId,
+              IS_INCREMENT,
+              session,
+            );
+          }
+        }
+
         await this.questionSubmissionRepo.deleteByQuestionId(
           questionId,
           session,
