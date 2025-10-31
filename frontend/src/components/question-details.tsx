@@ -1475,10 +1475,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
             props.firstAnswerId === props.answer?._id && (
               <Dialog open={editOpen} onOpenChange={setEditOpen}>
                 <DialogTrigger asChild>
-                  <Button className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2">
+                  <CheckCircle2 className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2">
                     <Edit className="w-4 h-4" />
-                    Edit Answer
-                  </Button>
+                    Approve Answer
+                  </CheckCircle2>
                 </DialogTrigger>
 
                 <DialogContent
@@ -1487,7 +1487,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                 >
                   <DialogHeader>
                     <DialogTitle className="text-lg font-semibold">
-                      Edit Answer
+                      Approve Answer
                     </DialogTitle>
                   </DialogHeader>
 
@@ -1503,9 +1503,9 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                     className="mt-4 p-4 rounded-md border bg-yellow-50 border-yellow-300 text-yellow-900 text-sm
                 dark:bg-yellow-900/20 dark:border-yellow-700/60 dark:text-yellow-200"
                   >
-                    ⚠️ You are about to update a{" "}
-                    <strong>finalized answer</strong>. Please review your
-                    changes carefully before saving to avoid mistakes.
+                    ⚠️ You are about to approve a <strong> answer</strong>.
+                    Please review your changes carefully before saving to avoid
+                    mistakes.
                   </div>
 
                   <div className="mt-6 flex justify-end gap-3">
@@ -1519,7 +1519,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       onClick={handleUpdateAnswer}
                       className="bg-primary text-primary-foreground"
                     >
-                      Save
+                      Save && finalize
                     </Button>
                   </div>
                 </DialogContent>
