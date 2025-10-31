@@ -36,6 +36,15 @@ import {
   Loader2,
   Info,
   AlertTriangle,
+  Circle,
+  Clock,
+  CheckCircle2,
+  Eye,
+  Bot,
+  UserRound,
+  ArrowUp,
+  ArrowDown,
+  ListFilter,
 } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
@@ -207,10 +216,40 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="open">🟢 Open</SelectItem>
-                      <SelectItem value="in-review">🔵 In Review</SelectItem>
-                      <SelectItem value="closed">🔴 Closed</SelectItem>
+                      <SelectItem value="all">
+                        <div className="flex items-center gap-2">
+                          <Eye className="w-4 h-4 text-primary" />
+                          <span>All Statuses</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="open">
+                        <div className="flex items-center gap-2">
+                          <Circle className="w-4 h-4 text-green-500 fill-green-500/20" />
+                          <span>Open</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="in-review">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-blue-500" />
+                          <span>In Review</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="delayed">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                          <span>Delayed</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="closed">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-red-500" />
+                          <span>Closed</span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -226,12 +265,29 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   onValueChange={(v) => handleDialogChange("source", v)}
                 >
                   <SelectTrigger className="bg-background">
-                    <SelectValue />
+                    <SelectValue placeholder="Select Source" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Sources</SelectItem>
-                    <SelectItem value="AJRASAKHA">Ajrasakha</SelectItem>
-                    <SelectItem value="AGRI_EXPERT">Agri Expert</SelectItem>
+                    <SelectItem value="all">
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-primary" />
+                        <span>All Sources</span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="AJRASAKHA">
+                      <div className="flex items-center gap-2">
+                        <Bot className="w-4 h-4 text-primary" />
+                        <span>Ajrasakha </span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="AGRI_EXPERT">
+                      <div className="flex items-center gap-2">
+                        <UserRound className="w-4 h-4 text-primary" />
+                        <span>Agri Expert</span>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -402,13 +458,37 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   onValueChange={(v) => handleDialogChange("priority", v)}
                 >
                   <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Select priority" />
+                    <SelectValue placeholder="Select Priority" />
                   </SelectTrigger>
+
                   <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="all">
+                      <div className="flex items-center gap-2">
+                        <ListFilter className="w-4 h-4 text-gray-500" />
+                        <span>All</span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="low">
+                      <div className="flex items-center gap-2">
+                        <ArrowDown className="w-4 h-4 text-green-500" />
+                        <span>Low</span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="medium">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                        <span>Medium</span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="high">
+                      <div className="flex items-center gap-2">
+                        <ArrowUp className="w-4 h-4 text-red-500" />
+                        <span>High</span>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
