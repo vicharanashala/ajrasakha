@@ -520,6 +520,7 @@ export class AnswerService extends BaseService {
   }
 
   async updateAnswer(
+    userId: string,
     answerId: string,
     updates: UpdateAnswerBody,
   ): Promise<{modifiedCount: number}> {
@@ -530,6 +531,13 @@ export class AnswerService extends BaseService {
       if (!answer) {
         throw new BadRequestError(`Answer with ID ${answerId} not found`);
       }
+
+      const user = await this.userRepo.findById(userId, session);
+      
+      if (!user || user.role == 'expert')
+        throw new UnauthorizedError(
+          "You don't have permission to approve an answer!",
+        );
 
       const questionId = answer.questionId.toString();
 
@@ -564,6 +572,7 @@ export class AnswerService extends BaseService {
         ...updates,
         embedding,
         isFinalAnswer: true,
+        approvedBy: new ObjectId(userId),
       };
       return this.answerRepo.updateAnswer(answerId, payload, session);
     });
