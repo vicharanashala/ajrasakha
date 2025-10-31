@@ -927,7 +927,7 @@ const AllocationTimeline = ({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 transition-all duration-500 ease-in-out">
+        <div className="mr-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 transition-all duration-500 ease-in-out">
           {displayedQueue?.map((user, index) => {
             const status = getStatus(index);
             const styles = getStatusStyles(status);
@@ -1074,10 +1074,10 @@ const AllocationTimeline = ({
 
               <div
                 key={`${user._id}-${index}`}
-                className="relative flex flex-col items-center justify-center my-4 group"
+                className="relative flex flex-col  my-4 group"
               >
                 {!isLast && (
-                  <div className="absolute top-1/2 right-0 flex items-center transform translate-x-full -translate-y-1/2">
+                  <div className="absolute top-1/2  right-0 md:ml-8 flex items-center transform translate-x-full -translate-y-1/2">
                     <svg
                       className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 ${
                         isCurrentUserWaiting ? "animate-bounce" : ""
@@ -1136,7 +1136,7 @@ const AllocationTimeline = ({
                 </div>
 
                 <div
-                  className="relative w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44"
+                  className="relative w-31 h-31 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44"
                   style={{ perspective: "1000px" }}
                   onMouseEnter={() => handleMouseEnter(user._id)}
                   onMouseLeave={handleMouseLeave}
