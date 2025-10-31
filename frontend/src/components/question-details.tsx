@@ -142,13 +142,36 @@ export const QuestionDetails = ({
   const commentRef = useRef<any>(null);
 
   return (
-    <main className="mx-auto p-6 pt-0 grid gap-6">
+    <main className="mx-auto  pt-0 grid gap-6 ">
       <header className="grid gap-2">
-        <div className="flex items-center justify-between">
+        <Button
+          size="sm"
+          variant="outline"
+          className="inline-flex w-[70px] items-center justify-center gap-1 whitespace-nowrap p-2"
+          onClick={() => goBack()}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+            className="w-4 h-4 "
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+              //d="M17 8l4 4m0 0l-4 4m4-4H3"
+            />
+          </svg>
+          <span className="leading-none">Exit</span>
+        </Button>
+        <div className="flex  flex-col items-start sm:flex-row sm:items-center sm:justify-between ">
           <h1 className="text-2xl font-semibold text-pretty">
             {question.question}
           </h1>
-          <div className="flex justify-center gap-2 items-center">
+          <div className="flex justify-center gap-2 items-center mt-2 sm:mt-0">
             {question.status != "closed" && currentUser.role != "expert" && (
               <SubmitAnswerDialog
                 questionId={question._id}
@@ -159,28 +182,6 @@ export const QuestionDetails = ({
                 }}
               />
             )}
-            <Button
-              size="sm"
-              variant="outline"
-              className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
-              onClick={() => goBack()}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-                className="w-4 h-4"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M17 8l4 4m0 0l-4 4m4-4H3"
-                />
-              </svg>
-              <span className="leading-none">Exit</span>
-            </Button>
           </div>
         </div>
 
@@ -217,18 +218,28 @@ export const QuestionDetails = ({
             Total answers: {question.totalAnswersCount}
           </span>
         </div>
-
-        <div className="text-xs text-muted-foreground">
-          Created: {formatDate(new Date(question.createdAt))} • Updated:{" "}
-          {formatDate(new Date(question.updatedAt))}
+        <div className="flex flex-col mt-2 md:flex-row md:mt-0 text-sm">
+          <div className=" text-muted-foreground">
+            Created: {formatDate(new Date(question.createdAt))}
+            <div className="hidden md:inline pl-2  pr-1 ">•</div>
+          </div>
+          <div className=" text-muted-foreground mt-2 md:mt-0">
+            Updated: {formatDate(new Date(question.updatedAt))}
+          </div>
         </div>
       </header>
 
-      <Card className="p-4 grid gap-3">
+      <Card
+        className="p-4 grid gap-3 
+      w-[80vw] sm:w-full sm:max-w-full md:max-w-full lg:max-w-full
+      p-4 sm:p-5 md:p-6
+      transition-all duration-300
+        "
+      >
         <p className="text-sm font-medium">Details</p>
 
         {/* Basic Info */}
-        <div className="grid grid-cols-2 gap-2 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm w-full">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-primary" />
             <span className="text-muted-foreground">State:</span>
@@ -255,7 +266,7 @@ export const QuestionDetails = ({
             <span className="truncate">{question.details?.season || "-"}</span>
           </div>
 
-          <div className="flex items-center gap-2 col-span-2">
+          <div className="flex items-center gap-2 sm:col-span-2">
             <Layers className="w-4 h-4 text-primary" />
             <span className="text-muted-foreground">Domain:</span>
             <span className="truncate">{question.details?.domain || "-"}</span>
@@ -355,7 +366,7 @@ export const QuestionDetails = ({
           </div>
           Submission History
         </h2>
-        <div className="flex items-center gap-2">
+        <div className="flex justify-center sm:justify-start">
           <Button
             size="sm"
             variant="outline"
@@ -508,7 +519,7 @@ const AllocationQueueHeader = ({
 
   return (
     <div className="flex flex-col gap-4 pb-6 border-b border-border">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-primary/10">
             <Users className="w-6 h-6 text-primary" />
@@ -525,7 +536,7 @@ const AllocationQueueHeader = ({
         </div>
 
         {currentUser.role !== "expert" && (
-          <div className="flex items-center gap-4">
+          <div className="flex  flex-col md:flex-row  max-w-fit mt-4 md:mt-0 md:items-center gap-4">
             <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm">
               <Switch
                 id="auto-allocate"
@@ -575,8 +586,8 @@ const AllocationQueueHeader = ({
                   </Button>
                 </DialogTrigger>
                 <DialogContent
-                  className="max-w-6xl max-h-[80vh] min-h-[60vh]"
-                  style={{ maxWidth: "70vw" }}
+                  className="max-w-6xl max-h-[80vh] min-h-[60vh]  w-[90vw] md:w-[70vw] "
+                  // style={{maxWidth:"70vw"}}
                 >
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-3 text-lg font-semibold">
@@ -633,7 +644,7 @@ const AllocationQueueHeader = ({
                         filteredExperts.map((expert) => (
                           <div
                             key={expert._id}
-                            className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                            className="  flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
                           >
                             <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
                               <User className="w-5 h-5 text-primary" />
@@ -652,7 +663,7 @@ const AllocationQueueHeader = ({
                               htmlFor={`expert-${expert._id}`}
                               className="font-normal cursor-pointer flex-1 w-full"
                             >
-                              <div className="flex justify-between items-center w-full">
+                              <div className="flex flex-col md:flex-row justify-between items-center w-full">
                                 <div className="flex flex-col">
                                   <div
                                     className="font-medium truncate"
@@ -915,7 +926,7 @@ const AllocationTimeline = ({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 transition-all duration-500 ease-in-out">
+        <div className="mr-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 transition-all duration-500 ease-in-out">
           {displayedQueue?.map((user, index) => {
             const status = getStatus(index);
             const styles = getStatusStyles(status);
@@ -1062,10 +1073,10 @@ const AllocationTimeline = ({
 
               <div
                 key={`${user._id}-${index}`}
-                className="relative flex flex-col items-center justify-center my-4 group"
+                className="relative flex flex-col  my-4 group"
               >
                 {!isLast && (
-                  <div className="absolute top-1/2 right-0 flex items-center transform translate-x-full -translate-y-1/2">
+                  <div className="absolute top-1/2  right-0 md:ml-8 flex items-center transform translate-x-full -translate-y-1/2">
                     <svg
                       className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 ${
                         isCurrentUserWaiting ? "animate-bounce" : ""
@@ -1124,7 +1135,7 @@ const AllocationTimeline = ({
                 </div>
 
                 <div
-                  className="relative w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44"
+                  className="relative w-31 h-31 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44"
                   style={{ perspective: "1000px" }}
                   onMouseEnter={() => handleMouseEnter(user._id)}
                   onMouseLeave={handleMouseLeave}
@@ -1312,40 +1323,42 @@ export const AnswerTimeline = ({
   });
 
   return (
-    <div className="w-full">
-      <Timeline
-        value={events}
-        align="alternate"
-        opposite={(item) => (
-          <div className="ml-5 flex flex-col gap-1 ">
-            {item.submission?.updatedBy && (
-              <div className="text-xs text-foreground px-2 py-1 rounded-md">
-                <span className="font-medium">By:</span>{" "}
-                {item.submission.updatedBy.name} (
-                {item.submission.updatedBy.email})
-              </div>
-            )}
+    <div className="w-full   ">
+      <div className="w-full flex items-start">
+        <Timeline
+          value={events}
+          align="alternate"
+          opposite={(item) => (
+            <div className=" hidden sm:flex ml-5 flex flex-col gap-1 ">
+              {item.submission?.updatedBy && (
+                <div className="text-xs text-foreground px-2 py-1 rounded-md">
+                  <span className="font-medium">By:</span>{" "}
+                  {item.submission.updatedBy.name} (
+                  {item.submission.updatedBy.email})
+                </div>
+              )}
 
-            <small className="text-xs text-muted-foreground mt-1">
-              {item.createdAt}
-            </small>
-          </div>
-        )}
-        content={(item) => (
-          <div className="flex-1 mb-5">
-            <AnswerItem
-              answer={item.answer}
-              firstAnswerId={item.firstAnswerId}
-              submissionData={item.submission}
-              currentUserId={currentUserId}
-              questionStatus={question.status}
-              questionId={question._id}
-              ref={commentRef}
-              userRole={userRole}
-            />
-          </div>
-        )}
-      />
+              <small className="text-xs text-muted-foreground mt-1">
+                {item.createdAt}
+              </small>
+            </div>
+          )}
+          content={(item) => (
+            <div className="flex-1 mb-5 ">
+              <AnswerItem
+                answer={item.answer}
+                firstAnswerId={item.firstAnswerId}
+                submissionData={item.submission}
+                currentUserId={currentUserId}
+                questionStatus={question.status}
+                questionId={question._id}
+                ref={commentRef}
+                userRole={userRole}
+              />
+            </div>
+          )}
+        />
+      </div>
     </div>
   );
 };
@@ -1536,8 +1549,8 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
               </Button>
             </DialogTrigger>
             <DialogContent
-              className="w-[90vw] max-w-6xl h-[85vh] flex flex-col"
-              style={{ maxWidth: "70vw" }}
+              className="w-[90vw] md:w-[50vw] max-w-6xl h-[85vh] flex flex-col"
+              style={{ maxWidth: "90vw" }}
             >
               <DialogHeader className="pb-4 border-b">
                 <DialogTitle className="text-xl font-semibold">

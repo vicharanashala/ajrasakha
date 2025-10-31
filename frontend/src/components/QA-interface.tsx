@@ -7,7 +7,6 @@ import {
   RefreshCw,
   RotateCcw,
   MessageCircle,
-  Filter,
   Info,
   Loader2,
   Send,
@@ -37,7 +36,6 @@ import { Textarea } from "./atoms/textarea";
 import { Button } from "./atoms/button";
 import { useGetAllocatedQuestions } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
-import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
 import toast from "react-hot-toast";
 import {
   Dialog,
@@ -46,13 +44,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "./atoms/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./atoms/select";
+
 import {
   Tooltip,
   TooltipContent,
@@ -61,9 +53,6 @@ import {
 } from "./atoms/tooltip";
 import { SourceUrlManager } from "./source-url-manager";
 import {
-  AdvanceFilterDialog,
-  CROPS,
-  STATES,
   type AdvanceFilterValues,
   type QuestionDateRangeFilter,
   type QuestionFilterStatus,
@@ -71,7 +60,7 @@ import {
   type QuestionSourceFilter,
 } from "./advanced-question-filter";
 import type {} from "./questions-page";
-import type { HistoryItem, IMyPreference, IQuestion } from "@/types";
+import type { IMyPreference, IQuestion } from "@/types";
 import { ScrollArea } from "./atoms/scroll-area";
 import { ExpandableText } from "./expandable-text";
 import {
@@ -337,7 +326,7 @@ export const QAInterface = () => {
           <Card className="w-full md:max-h-[120vh]  max-h-[80vh] min-h-[75vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent">
             <CardHeader className="border-b flex flex-row items-center justify-between pb-4">
               <TooltipProvider>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 ">
                   <CardTitle className="text-md md:text-lg font-semibold">
                     Question Queues
                   </CardTitle>
@@ -495,7 +484,7 @@ export const QAInterface = () => {
                           </div>
                         </div>
                         <div className="mt-3 ml-7 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-                          <div className="items-center gap-1.5 flex">
+                          <div className="  flex-col justify-start  md:flex-row md:items-center gap-1.5 flex ">
                             {question?.priority && (
                               <span
                                 className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
@@ -510,26 +499,27 @@ export const QAInterface = () => {
                                   question.priority.slice(1)}
                               </span>
                             )}
-
-                            <svg
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                            <span className="font-medium text-xs">
-                              Created:
-                            </span>
-                            <span>
-                              {formatDate(new Date(question?.createdAt!))}
-                            </span>
+                            <div className="flex flex-row items-center">
+                              <svg
+                                className="w-3 h-3"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                              </svg>
+                              <span className="font-medium text-xs ml-2">
+                                Created:
+                              </span>
+                              <span>
+                                {formatDate(new Date(question?.createdAt!))}
+                              </span>
+                            </div>
                           </div>
 
                           <div className="hidden md:flex items-center gap-1.5">

@@ -148,7 +148,7 @@ export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
   };
 
   return (
-    <main className="mx-auto w-full p-4 md:p-6 space-y-6 ">
+    <main className="mx-auto w-full  md:p-6 space-y-6 ">
       {selectedQuestionId && questionDetails ? (
         <>
           <QuestionDetails
