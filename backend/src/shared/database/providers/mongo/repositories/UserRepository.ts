@@ -89,16 +89,16 @@ export class UserRepository implements IUserRepository {
       },
     );
 
-    await this.usersCollection.updateMany(
-      {},
-      {
-        $set: {
-          reputation_score: 0,
-          preference: {crop: 'all', domain: 'all', state: 'all'},
-          updatedAt: new Date(),
-        },
-      },
-    );
+    // await this.usersCollection.updateMany(
+    //   {},
+    //   {
+    //     $set: {
+    //       reputation_score: 0,
+    //       preference: {crop: 'all', domain: 'all', state: 'all'},
+    //       updatedAt: new Date(),
+    //     },
+    //   },
+    // );
     if (!user) return null;
 
     return instanceToPlain(new User(user)) as IUser;
@@ -206,9 +206,7 @@ export class UserRepository implements IUserRepository {
     session?: ClientSession,
   ): Promise<void> {
     await this.init();
-
     const incrementValue = isIncrement ? 1 : -1;
-
     await this.usersCollection.updateOne(
       {_id: new ObjectId(userId)},
       [
