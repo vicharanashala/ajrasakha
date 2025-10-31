@@ -1,7 +1,7 @@
 import {ObjectId} from 'mongodb';
 
 export type UserRole = 'admin' | 'moderator' | 'expert';
-export type QuestionStatus = 'open' | 'in-review' | 'closed';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed';
 export interface IPreference {
   state: string;
   crop: string;

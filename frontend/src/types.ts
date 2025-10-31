@@ -157,7 +157,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed";
 
 export interface IAnswer {
   _id?: string;
