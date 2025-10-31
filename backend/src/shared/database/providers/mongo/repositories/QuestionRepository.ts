@@ -438,12 +438,8 @@ export class QuestionRepository implements IQuestionRepository {
           id: {$toString: '$_id'},
           text: '$question',
           priority: '$priority',
-          createdAt: {
-            $dateToString: {format: '%d-%m-%Y %H:%M:%S', date: '$createdAt'},
-          },
-          updatedAt: {
-            $dateToString: {format: '%d-%m-%Y %H:%M:%S', date: '$updatedAt'},
-          },
+          createdAt: '$createdAt',
+          updatedAt: '$updatedAt',
           totalAnswersCount: 1,
           'details.crop': 1,
           'details.state': 1,

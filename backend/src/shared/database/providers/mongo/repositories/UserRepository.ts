@@ -89,16 +89,16 @@ export class UserRepository implements IUserRepository {
       },
     );
 
-    // await this.usersCollection.updateMany(
-    //   {},
-    //   {
-    //     $set: {
-    //       reputation_score: 0,
-    //       preference: {crop: 'all', domain: 'all', state: 'all'},
-    //       updatedAt: new Date(),
-    //     },
-    //   },
-    // );
+    await this.usersCollection.updateMany(
+      {},
+      {
+        $set: {
+          reputation_score: 0,
+          preference: {crop: 'all', domain: 'all', state: 'all'},
+          updatedAt: new Date(),
+        },
+      },
+    );
     if (!user) return null;
 
     return instanceToPlain(new User(user)) as IUser;

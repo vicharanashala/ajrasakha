@@ -89,6 +89,7 @@ import { useToggleAutoAllocateQuestion } from "@/hooks/api/question/useToggleAut
 import { useRemoveAllocation } from "@/hooks/api/question/useRemoveAllocation";
 import { ConfirmationModal } from "./confirmation-modal";
 import { Input } from "./atoms/input";
+import { formatDate } from "@/utils/formatDate";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -143,29 +144,29 @@ export const QuestionDetails = ({
   return (
     <main className="mx-auto  pt-0 grid gap-6 ">
       <header className="grid gap-2">
-      <Button
-              size="sm"
-              variant="outline"
-              className="inline-flex w-[70px] items-center justify-center gap-1 whitespace-nowrap p-2"
-              onClick={() => goBack()}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-                className="w-4 h-4 "
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  //d="M17 8l4 4m0 0l-4 4m4-4H3"
-                />
-              </svg>
-              <span className="leading-none">Exit</span>
-            </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="inline-flex w-[70px] items-center justify-center gap-1 whitespace-nowrap p-2"
+          onClick={() => goBack()}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+            className="w-4 h-4 "
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+              //d="M17 8l4 4m0 0l-4 4m4-4H3"
+            />
+          </svg>
+          <span className="leading-none">Exit</span>
+        </Button>
         <div className="flex  flex-col items-start sm:flex-row sm:items-center sm:justify-between ">
           <h1 className="text-2xl font-semibold text-pretty">
             {question.question}
@@ -181,10 +182,8 @@ export const QuestionDetails = ({
                 }}
               />
             )}
-           
           </div>
         </div>
-
 
         <div className="flex items-center gap-2 flex-wrap">
           <Badge
@@ -220,23 +219,23 @@ export const QuestionDetails = ({
           </span>
         </div>
         <div className="flex flex-col mt-2 md:flex-row md:mt-0 text-sm">
-        <div className=" text-muted-foreground">
-          Created: {new Date(question.createdAt).toLocaleString()} 
-          <div className="hidden md:inline pl-2  pr-1 ">
-          •
+          <div className=" text-muted-foreground">
+            Created: {formatDate(new Date(question.createdAt))}
+            <div className="hidden md:inline pl-2  pr-1 ">•</div>
           </div>
-        </div>
-        <div className=" text-muted-foreground mt-2 md:mt-0">
-          Updated: {new Date(question.createdAt).toLocaleString()}  
-        </div>
+          <div className=" text-muted-foreground mt-2 md:mt-0">
+            Updated: {formatDate(new Date(question.updatedAt))}
+          </div>
         </div>
       </header>
 
-      <Card className="p-4 grid gap-3 
+      <Card
+        className="p-4 grid gap-3 
       w-[80vw] sm:w-full sm:max-w-full md:max-w-full lg:max-w-full
       p-4 sm:p-5 md:p-6
       transition-all duration-300
-        ">
+        "
+      >
         <p className="text-sm font-medium">Details</p>
 
         {/* Basic Info */}
@@ -588,9 +587,9 @@ const AllocationQueueHeader = ({
                 </DialogTrigger>
                 <DialogContent
                   className="max-w-6xl max-h-[80vh] min-h-[60vh]  w-[90vw] md:w-[70vw] "
-                 // style={{maxWidth:"70vw"}}
+                  // style={{maxWidth:"70vw"}}
                 >
-                  <DialogHeader >
+                  <DialogHeader>
                     <DialogTitle className="flex items-center gap-3 text-lg font-semibold">
                       <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
                         <UserPlus className="w-5 h-5 text-primary" />
@@ -1325,40 +1324,40 @@ export const AnswerTimeline = ({
 
   return (
     <div className="w-full   ">
-       <div className="w-full flex items-start">
-      <Timeline
-        value={events}
-        align="alternate"
-        opposite={(item) => (
-          <div className=" hidden sm:flex ml-5 flex flex-col gap-1 ">
-            {item.submission?.updatedBy && (
-              <div className="text-xs text-foreground px-2 py-1 rounded-md">
-                <span className="font-medium">By:</span>{" "}
-                {item.submission.updatedBy.name} (
-                {item.submission.updatedBy.email})
-              </div>
-            )}
+      <div className="w-full flex items-start">
+        <Timeline
+          value={events}
+          align="alternate"
+          opposite={(item) => (
+            <div className=" hidden sm:flex ml-5 flex flex-col gap-1 ">
+              {item.submission?.updatedBy && (
+                <div className="text-xs text-foreground px-2 py-1 rounded-md">
+                  <span className="font-medium">By:</span>{" "}
+                  {item.submission.updatedBy.name} (
+                  {item.submission.updatedBy.email})
+                </div>
+              )}
 
-            <small className="text-xs text-muted-foreground mt-1">
-              {item.createdAt}
-            </small>
-          </div>
-        )}
-        content={(item) => (
-          <div className="flex-1 mb-5 ">
-            <AnswerItem
-              answer={item.answer}
-              firstAnswerId={item.firstAnswerId}
-              submissionData={item.submission}
-              currentUserId={currentUserId}
-              questionStatus={question.status}
-              questionId={question._id}
-              ref={commentRef}
-              userRole={userRole}
-            />
-          </div>
-        )}
-      />
+              <small className="text-xs text-muted-foreground mt-1">
+                {item.createdAt}
+              </small>
+            </div>
+          )}
+          content={(item) => (
+            <div className="flex-1 mb-5 ">
+              <AnswerItem
+                answer={item.answer}
+                firstAnswerId={item.firstAnswerId}
+                submissionData={item.submission}
+                currentUserId={currentUserId}
+                questionStatus={question.status}
+                questionId={question._id}
+                ref={commentRef}
+                userRole={userRole}
+              />
+            </div>
+          )}
+        />
       </div>
     </div>
   );
@@ -1748,7 +1747,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                                 {c.userName || "Unknown User"}
                               </span>
                               <span className="text-xs text-muted-foreground">
-                                {new Date(c.createdAt).toLocaleString()}
+                                {formatDate(new Date(c.createdAt))}
                               </span>
                             </div>
                             <p className="text-sm ms-2 text-foreground leading-relaxed">

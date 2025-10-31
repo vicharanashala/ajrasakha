@@ -75,6 +75,7 @@ import {
   useReviewAnswer,
   type IReviewAnswerPayload,
 } from "@/hooks/api/answer/useReviewAnswer";
+import { formatDate } from "@/utils/formatDate";
 
 export type QuestionFilter =
   | "newest"
@@ -512,11 +513,12 @@ export const QAInterface = () => {
                                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                                 />
                               </svg>
-
                               <span className="font-medium text-xs ml-2">
                                 Created:
                               </span>
-                              <span>{question?.createdAt}</span>
+                              <span>
+                                {formatDate(new Date(question?.createdAt!))}
+                              </span>
                             </div>
                           </div>
 
@@ -535,7 +537,7 @@ export const QAInterface = () => {
                               />
                             </svg>
                             <span className="font-medium">Updated:</span>
-                            <span>{question?.updatedAt}</span>
+                            {formatDate(new Date(question?.updatedAt!))}
                           </div>
 
                           <div className="hidden md:flex items-center gap-1.5">
@@ -1214,16 +1216,6 @@ export const ResponseTimeline = ({
   const handleOpenUrl = (url: string) => {
     setSelectedUrl(url);
     setUrlOpen(true);
-  };
-
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   };
 
   if (isSelectedQuestionLoading) {
