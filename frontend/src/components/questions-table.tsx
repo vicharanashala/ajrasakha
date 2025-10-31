@@ -243,203 +243,25 @@ export const QuestionsTable = ({
                 </TableCell>
               </TableRow>
             ) : (
-              items?.map((q, idx) => {
-                // const isSecondLastItem = idx === items?.length - 2;
-                return (
-                  // <TableRow
-                  //   key={q._id}
-                  //   className="text-center"
-                  //   // ref={isSecondLastItem ? lastElementRef : null}
-                  // >
-                  //   <TableCell
-                  //     className="align-middle text-center"
-                  //     title={idx.toString()}
-                  //   >
-                  //     {(currentPage - 1) * totalPages + idx + 1}
-                  //   </TableCell>
-                  //   <TableCell
-                  //     className="text-start ps-3 w-[35%]"
-                  //     title={q.question}
-                  //   >
-                  //     <span
-                  //       className="cursor-pointer hover:underline"
-                  //       onClick={() => onViewMore(q._id?.toString() || "")}
-                  //     >
-                  //       {truncate(q.question, 60)}
-                  //     </span>
-                  //   </TableCell>
-                  //   <TableCell className="align-middle text-center">
-                  //     {q.priority ? (
-                  //       <Badge
-                  //         variant={
-                  //           q.priority === "high"
-                  //             ? "destructive"
-                  //             : q.priority === "medium"
-                  //             ? "secondary"
-                  //             : "outline"
-                  //         }
-                  //         className={
-                  //           q.priority === "high"
-                  //             ? "bg-red-500/10 text-red-600 border-red-500/30"
-                  //             : q.priority === "medium"
-                  //             ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-                  //             : "bg-green-500/10 text-green-600 border-green-500/30"
-                  //         }
-                  //       >
-                  //         {q.priority.charAt(0).toUpperCase() +
-                  //           q.priority.slice(1)}
-                  //       </Badge>
-                  //     ) : (
-                  //       <Badge
-                  //         variant="outline"
-                  //         className="text-muted-foreground"
-                  //       >
-                  //         NIL
-                  //       </Badge>
-                  //     )}
-                  //   </TableCell>
-                  //   <TableCell className="align-middle">
-                  //     {q.details.state}
-                  //   </TableCell>
-                  //   <TableCell className="align-middle">
-                  //     {q.details.crop}
-                  //   </TableCell>
-                  //   <TableCell className="align-middle">
-                  //     <Badge variant="outline">{q.source}</Badge>
-                  //   </TableCell>
-                  //   <TableCell className="align-middle">
-                  //     <Badge
-                  //       variant={
-                  //         q.status === "in-review"
-                  //           ? "secondary"
-                  //           : q.status === "open"
-                  //           ? "outline"
-                  //           : q.status === "closed"
-                  //           ? "destructive"
-                  //           : "outline"
-                  //       }
-                  //       className={
-                  //         q.status === "in-review"
-                  //           ? "bg-green-500/10 text-green-600 border-green-500/30"
-                  //           : q.status === "open"
-                  //           ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                  //           : q.status === "closed"
-                  //           ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-                  //           : "bg-muted text-foreground"
-                  //       }
-                  //     >
-                  //       {q.status ? q.status.replace("_", " ") : "NIL"}
-                  //     </Badge>
-                  //   </TableCell>
-
-                  //   <TableCell className="align-middle">
-                  //     {q.totalAnswersCount}
-                  //   </TableCell>
-                  //   <TableCell className="align-middle">
-                  //     {formatDate(new Date(q.createdAt!))}
-                  //   </TableCell>
-                  //   <TableCell className="align-middle">
-                  //     <div className="flex justify-center">
-                  //       <DropdownMenu>
-                  //         <DropdownMenuTrigger asChild>
-                  //           <Button size="sm" variant="outline" className="p-1">
-                  //             <MoreVertical className="w-4 h-4" />
-                  //           </Button>
-                  //         </DropdownMenuTrigger>
-                  //         <DropdownMenuContent align="end" className="w-44">
-                  //           <DropdownMenuItem
-                  //             onClick={() =>
-                  //               onViewMore(q._id?.toString() || "")
-                  //             }
-                  //             className="hover:bg-primary/10"
-                  //           >
-                  //             <Eye className="w-4 h-4 mr-2 text-primary" />
-                  //             View
-                  //           </DropdownMenuItem>
-
-                  //           <DropdownMenuSeparator />
-
-                  //           {userRole === "expert" ? (
-                  //             <>
-                  //               <DropdownMenuItem
-                  //                 onSelect={(e) => {
-                  //                   e.preventDefault();
-                  //                   setSelectedQuestion(q);
-                  //                   setEditOpen(true);
-                  //                 }}
-                  //               >
-                  //                 <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
-                  //                 Raise Flag
-                  //               </DropdownMenuItem>
-                  //             </>
-                  //           ) : (
-                  //             <>
-                  //               <DropdownMenuItem
-                  //                 onSelect={(e) => {
-                  //                   e.preventDefault();
-                  //                   setSelectedQuestion(q);
-                  //                   setEditOpen(true);
-                  //                 }}
-                  //               >
-                  //                 <Edit className="w-4 h-4 mr-2 text-blue-500" />
-                  //                 {updatingQuestion ? "Editing..." : "Edit"}
-                  //               </DropdownMenuItem>
-                  //               <DropdownMenuSeparator />
-
-                  //               <DropdownMenuItem
-                  //                 onSelect={(e) => {
-                  //                   e.preventDefault();
-                  //                   setQuestionIdToDelete(q._id!);
-                  //                 }}
-                  //               >
-                  //                 <ConfirmationModal
-                  //                   title="Delete Question Permanently?"
-                  //                   description="Are you sure you want to delete this question? This action is irreversible and will also remove all related data, including submissions, answers, and flag requests."
-                  //                   confirmText="Delete"
-                  //                   cancelText="Cancel"
-                  //                   isLoading={deletingQuestion}
-                  //                   type="delete"
-                  //                   onConfirm={async () => {
-                  //                     await handleDelete();
-                  //                   }}
-                  //                   trigger={
-                  //                     <button className="flex justify-center items-center gap-2">
-                  //                       <Trash className="w-4 h-4 mr-2 text-red-500" />
-                  //                       {deletingQuestion
-                  //                         ? "Deleting..."
-                  //                         : "Delete"}
-                  //                     </button>
-                  //                   }
-                  //                 />
-                  //                 {/* <Trash className="w-4 h-4 mr-2 text-red-500" />
-                  //                 Delete */}
-                  //               </DropdownMenuItem>
-                  //             </>
-                  //           )}
-                  //         </DropdownMenuContent>
-                  //       </DropdownMenu>
-                  //     </div>
-                  //   </TableCell>
-                  // </TableRow>
-                  <QuestionRow
-                    currentPage={currentPage}
-                    deletingQuestion={deletingQuestion}
-                    handleDelete={handleDelete}
-                    idx={idx}
-                    onViewMore={onViewMore}
-                    q={q}
-                    setUpdatedData={setUpdatedData}
-                    updateQuestion={handleUpdateQuestion}
-                    setEditOpen={setEditOpen}
-                    setQuestionIdToDelete={setQuestionIdToDelete}
-                    setSelectedQuestion={setSelectedQuestion}
-                    totalPages={totalPages}
-                    updatingQuestion={updatingQuestion}
-                    userRole={userRole!}
-                    key={q._id}
-                  />
-                );
-              })
+              items?.map((q, idx) => (
+                <QuestionRow
+                  currentPage={currentPage}
+                  deletingQuestion={deletingQuestion}
+                  handleDelete={handleDelete}
+                  idx={idx}
+                  onViewMore={onViewMore}
+                  q={q}
+                  setUpdatedData={setUpdatedData}
+                  updateQuestion={handleUpdateQuestion}
+                  setEditOpen={setEditOpen}
+                  setQuestionIdToDelete={setQuestionIdToDelete}
+                  setSelectedQuestion={setSelectedQuestion}
+                  totalPages={totalPages}
+                  updatingQuestion={updatingQuestion}
+                  userRole={userRole!}
+                  key={q._id}
+                />
+              ))
             )}
           </TableBody>
         </Table>
