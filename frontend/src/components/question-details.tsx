@@ -587,10 +587,10 @@ const AllocationQueueHeader = ({
                   </Button>
                 </DialogTrigger>
                 <DialogContent
-                  className="max-w-6xl max-h-[80vh] min-h-[60vh]"
-                  style={{ maxWidth: "70vw" }}
+                  className="max-w-6xl max-h-[80vh] min-h-[60vh]  w-[90vw] md:w-[70vw] "
+                 // style={{maxWidth:"70vw"}}
                 >
-                  <DialogHeader>
+                  <DialogHeader >
                     <DialogTitle className="flex items-center gap-3 text-lg font-semibold">
                       <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
                         <UserPlus className="w-5 h-5 text-primary" />
@@ -645,7 +645,7 @@ const AllocationQueueHeader = ({
                         filteredExperts.map((expert) => (
                           <div
                             key={expert._id}
-                            className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                            className="  flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
                           >
                             <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
                               <User className="w-5 h-5 text-primary" />
@@ -664,7 +664,7 @@ const AllocationQueueHeader = ({
                               htmlFor={`expert-${expert._id}`}
                               className="font-normal cursor-pointer flex-1 w-full"
                             >
-                              <div className="flex justify-between items-center w-full">
+                              <div className="flex flex-col md:flex-row justify-between items-center w-full">
                                 <div className="flex flex-col">
                                   <div
                                     className="font-medium truncate"
