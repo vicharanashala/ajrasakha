@@ -13,7 +13,9 @@ import { Input } from "./atoms/input";
 
 import {
   AlertCircle,
+  AlertTriangle,
   CheckCircle,
+  Clock,
   Edit,
   Eye,
   Flag,
@@ -77,21 +79,12 @@ import { ConfirmationModal } from "./confirmation-modal";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
 import { useCountdown } from "@/hooks/useCountdown";
+import { formatDate } from "@/utils/formatDate";
+import { TimerDisplay } from "./timer-display";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
-};
-
-const formatDate = (d?: string | Date) => {
-  const date = typeof d === "string" ? new Date(d) : d;
-  return date
-    ? new Intl.DateTimeFormat(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-      }).format(date)
-    : "";
 };
 
 type QuestionsTableProps = {
@@ -138,7 +131,8 @@ export const QuestionsTable = ({
   const handleUpdateQuestion = async (
     mode: "add" | "edit",
     entityId?: string,
-    flagReason?: string
+    flagReason?: string,
+    status?: QuestionStatus
   ) => {
     try {
       if (!entityId) {
@@ -147,11 +141,12 @@ export const QuestionsTable = ({
       }
 
       if (!updatedData) {
-        toast.error("No data available to update.");
+        // if just status update is needed then no need updatedData
+        console.error("No data available to update.");
         return;
       }
 
-      if (userRole === "expert") {
+      if (userRole === "expert" && !status) {
         if (!flagReason || flagReason.trim().length < 8) {
           toast.error(
             "Please provide a valid reason for flagging (minimum 8 characters)."
@@ -173,8 +168,14 @@ export const QuestionsTable = ({
         return;
       }
 
-      await updateQuestion(updatedData);
-      toast.success("Question updated successfully.");
+      if (updatedData) {
+        const payload: IDetailedQuestion = status
+          ? { ...updatedData, status }
+          : updatedData;
+
+        await updateQuestion(payload);
+      }
+      if (!status) toast.success("Question updated successfully.");
       setEditOpen(false);
     } catch (error: any) {
       console.error("Error in handleUpdateQuestion:", error);
@@ -427,6 +428,8 @@ export const QuestionsTable = ({
                     idx={idx}
                     onViewMore={onViewMore}
                     q={q}
+                    setUpdatedData={setUpdatedData}
+                    updateQuestion={handleUpdateQuestion}
                     setEditOpen={setEditOpen}
                     setQuestionIdToDelete={setQuestionIdToDelete}
                     setSelectedQuestion={setSelectedQuestion}
@@ -462,24 +465,39 @@ interface QuestionRowProps {
   setSelectedQuestion: (q: any) => void;
   setQuestionIdToDelete: (id: string) => void;
   handleDelete: () => Promise<void>;
+  setUpdatedData: React.Dispatch<
+    React.SetStateAction<IDetailedQuestion | null>
+  >;
+  updateQuestion: (
+    mode: "add" | "edit",
+    entityId?: string,
+    flagReason?: string,
+    status?: QuestionStatus
+  ) => Promise<void>;
   onViewMore: (id: string) => void;
 }
 
-export const QuestionRow: React.FC<QuestionRowProps> = ({
+const QuestionRow: React.FC<QuestionRowProps> = ({
   q,
   idx,
   currentPage,
   totalPages,
   userRole,
   updatingQuestion,
+  updateQuestion,
   deletingQuestion,
+  setUpdatedData,
   setEditOpen,
   setSelectedQuestion,
   setQuestionIdToDelete,
   handleDelete,
   onViewMore,
 }) => {
-  const timer = useCountdown(q.createdAt!, 4, () => alert("Time out!!!"));
+  const timer = useCountdown(q.createdAt!, 4, () => {
+    if (q.status == "delayed" || q.status !== "open") return;
+    setUpdatedData(q);
+    updateQuestion("edit", q._id, undefined, "delayed");
+  });
 
   const serialNumber = useMemo(
     () => (currentPage - 1) * totalPages + idx + 1,
@@ -494,13 +512,6 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
         </Badge>
       );
 
-    const variant =
-      q.priority === "high"
-        ? "destructive"
-        : q.priority === "medium"
-        ? "secondary"
-        : "outline";
-
     const colorClass =
       q.priority === "high"
         ? "bg-red-500/10 text-red-600 border-red-500/30"
@@ -509,7 +520,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
         : "bg-green-500/10 text-green-600 border-green-500/30";
 
     return (
-      <Badge variant={variant} className={colorClass}>
+      <Badge variant="outline" className={colorClass}>
         {q.priority.charAt(0).toUpperCase() + q.priority.slice(1)}
       </Badge>
     );
@@ -518,15 +529,6 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   const statusBadge = useMemo(() => {
     const status = q.status || "NIL";
     const formatted = status.replace("_", " ");
-
-    const variant =
-      status === "in-review"
-        ? "secondary"
-        : status === "open"
-        ? "outline"
-        : status === "closed"
-        ? "destructive"
-        : "outline";
 
     const colorClass =
       status === "in-review"
@@ -538,7 +540,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
         : "bg-muted text-foreground";
 
     return (
-      <Badge variant={variant} className={colorClass}>
+      <Badge variant="outline" className={colorClass}>
         {formatted}
       </Badge>
     );
@@ -553,12 +555,17 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
 
       {/* Question Text */}
       <TableCell className="text-start ps-3 w-[35%]" title={q.question}>
-        <span
-          className="cursor-pointer hover:underline"
-          onClick={() => onViewMore(q._id?.toString() || "")}
-        >
-          {truncate(q.question, 60)}
-        </span>
+        <div className="flex flex-col gap-1">
+          <span
+            className="cursor-pointer hover:underline"
+            onClick={() => onViewMore(q._id?.toString() || "")}
+          >
+            {truncate(q.question, 60)}
+          </span>
+          {q.status !== "delayed" && (
+            <TimerDisplay timer={timer} status={q.status} />
+          )}
+        </div>
       </TableCell>
 
       {/* Priority */}
@@ -581,17 +588,8 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
       {/* Total Answers */}
       <TableCell className="align-middle">{q.totalAnswersCount}</TableCell>
 
-      {/* Timer */}
       <TableCell className="align-middle">
-        <span
-          className={`${
-            timer === "00:00:00"
-              ? "text-red-500 font-semibold"
-              : "text-primary font-medium"
-          }`}
-        >
-          {timer}
-        </span>
+        {formatDate(new Date(q.createdAt!), false)}
       </TableCell>
 
       {/* Actions */}
@@ -834,6 +832,7 @@ export const AddOrEditQuestionDialog = ({
                       <SelectContent>
                         <SelectItem value="open">Open</SelectItem>
                         <SelectItem value="in-review">In review</SelectItem>
+                        <SelectItem value="delayed">Delayed</SelectItem>
                         <SelectItem value="closed">Closed</SelectItem>
                       </SelectContent>
                     </Select>

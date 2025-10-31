@@ -90,6 +90,8 @@ import { useRemoveAllocation } from "@/hooks/api/question/useRemoveAllocation";
 import { ConfirmationModal } from "./confirmation-modal";
 import { Input } from "./atoms/input";
 import { formatDate } from "@/utils/formatDate";
+import { useCountdown } from "@/hooks/useCountdown";
+import { TimerDisplay } from "./timer-display";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -139,6 +141,8 @@ export const QuestionDetails = ({
   const metrics = question.metrics;
   const context = question.context;
 
+  const timer = useCountdown(question.createdAt!, 4, () => {});
+
   const commentRef = useRef<any>(null);
 
   return (
@@ -148,39 +152,42 @@ export const QuestionDetails = ({
           <h1 className="text-2xl font-semibold text-pretty">
             {question.question}
           </h1>
-          <div className="flex justify-center gap-2 items-center">
-            {question.status != "closed" && currentUser.role != "expert" && (
-              <SubmitAnswerDialog
-                questionId={question._id}
-                isAlreadySubmitted={question.isAlreadySubmitted}
-                currentUserId={currentUserId}
-                onSubmitted={() => {
-                  refetchAnswers();
-                }}
-              />
-            )}
-            <Button
-              size="sm"
-              variant="outline"
-              className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
-              onClick={() => goBack()}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-                className="w-4 h-4"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M17 8l4 4m0 0l-4 4m4-4H3"
+          <div className="flex gap-8 items-center justify-center">
+            <TimerDisplay timer={timer} status={question.status} size="lg" />
+            <div className="flex justify-center gap-2 items-center">
+              {/* {question.status != "closed" && currentUser.role != "expert" && (
+                <SubmitAnswerDialog
+                  questionId={question._id}
+                  isAlreadySubmitted={question.isAlreadySubmitted}
+                  currentUserId={currentUserId}
+                  onSubmitted={() => {
+                    refetchAnswers();
+                  }}
                 />
-              </svg>
-              <span className="leading-none">Exit</span>
-            </Button>
+              )} */}
+              <Button
+                size="sm"
+                variant="outline"
+                className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
+                onClick={() => goBack()}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                  className="w-4 h-4"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M17 8l4 4m0 0l-4 4m4-4H3"
+                  />
+                </svg>
+                <span className="leading-none">Exit</span>
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -1464,14 +1471,8 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
           {isMine && <UserCheck className="w-4 h-4 text-blue-600 ml-1" />}
         </div>
         <div className="flex items-center justify-center gap-2">
-          {/* {props.userRole !== "expert" &&
-            props.questionStatus == "in-review" &&
-            ((props.answer?.approvalCount !== undefined &&
-              props.answer?.approvalCount >= 3) ||
-              props.firstAnswerId == props.answer?._id) && ( */}
           {props.userRole !== "expert" &&
             props.questionStatus === "in-review" &&
-            // (props.answer?.approvalCount !== undefined && props.answer?.approvalCount >= 3) ||
             props.firstAnswerId === props.answer?._id && (
               <Dialog open={editOpen} onOpenChange={setEditOpen}>
                 <DialogTrigger asChild>
