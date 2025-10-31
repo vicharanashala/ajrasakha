@@ -411,7 +411,6 @@ export class QuestionRepository implements IQuestionRepository {
       const questionIdsToAttempt = submissions.map(
         sub => new ObjectId(sub.questionId),
       );
-      console.log('questionIdsToAttempt', questionIdsToAttempt);
 
       const filter: any = {
         status: 'open',

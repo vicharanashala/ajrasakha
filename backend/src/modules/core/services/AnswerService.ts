@@ -30,9 +30,9 @@ import {
 } from '../classes/validators/QuestionValidators.js';
 import {QuestionService} from './QuestionService.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
-import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
-import { notifyUser } from '#root/utils/pushNotification.js';
-import { NotificationService } from './NotificationService.js';
+import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
+import {notifyUser} from '#root/utils/pushNotification.js';
+import {NotificationService} from './NotificationService.js';
 
 @injectable()
 export class AnswerService extends BaseService {
@@ -56,7 +56,7 @@ export class AnswerService extends BaseService {
     private readonly questionService: QuestionService,
 
     @inject(GLOBAL_TYPES.NotificationService)
-    private readonly notificationService : NotificationService,
+    private readonly notificationService: NotificationService,
 
     @inject(GLOBAL_TYPES.NotificationRepository)
     private readonly notificationRepository: INotificationRepository,
@@ -277,7 +277,7 @@ export class AnswerService extends BaseService {
             updatedAt: new Date(),
           };
 
-          await this.questionSubmissionRepo.update(
+          const one = await this.questionSubmissionRepo.update(
             questionId,
             userSubmissionData,
             session,
@@ -431,7 +431,7 @@ export class AnswerService extends BaseService {
             let message = `A new Review has been assigned to you`;
             let title = 'New Review Assigned';
             let entityId = questionId.toString();
-            const user = nextExpertId.toString()
+            const user = nextExpertId.toString();
             const type = 'peer_review';
             // await this.notificationRepository.addNotification(
             //   user,
@@ -446,7 +446,14 @@ export class AnswerService extends BaseService {
             //     user.toString(),
             //   );
             // await notifyUser(user, title, subscription);
-             await this.notificationService.saveTheNotifications(message,title,entityId,user,type)
+            await this.notificationService.saveTheNotifications(
+              message,
+              title,
+              entityId,
+              user,
+              type,
+              session,
+            );
           }
 
           // Case 2: Current user is the last in the queue but the queue isn't full
@@ -476,7 +483,7 @@ export class AnswerService extends BaseService {
           session,
         );
       });
-
+      
       return {message: 'Your response recorded sucessfully, thankyou!'};
     } catch (error) {
       throw new InternalServerError(
