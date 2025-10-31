@@ -98,40 +98,40 @@ export class AnswerService extends BaseService {
 
       let isFinalAnswer = false;
       let metrics: IQuestionMetrics | null = null;
-      let analysisStatus: 'CONTINUE' | 'FLAGGED_FOR_REVIEW' | 'CONVERGED' =
-        'CONTINUE';
+      // let analysisStatus: 'CONTINUE' | 'FLAGGED_FOR_REVIEW' | 'CONVERGED' =
+      //   'CONTINUE';
 
       const answers = (await this.answerRepo.getByQuestionId(questionId)) || [];
       const answerTexts = answers.map(ans => ans.answer);
 
-      const payload: IQuestionWithAnswerTexts = {
-        question_id: questionId,
-        question_text: question.question,
-        answers: [...answerTexts, answer],
-      };
+      // const payload: IQuestionWithAnswerTexts = {
+      //   question_id: questionId,
+      //   question_text: question.question,
+      //   answers: [...answerTexts, answer],
+      // };
 
       // const analysis = await this.aiService.evaluateAnswers(payload);
-      const analysis: IQuestionAnalysis = {
-        question_id: '68f137fe5fbcb9f0f5f091eb',
-        num_answers: 5,
-        mean_similarity: 0.72,
-        std_similarity: 0.15,
-        recent_similarity: 0.68,
-        collusion_score: 0.85,
-        status: 'CONTINUE',
-        message: 'Similarity score is high, needs review',
-      };
+      // const analysis: IQuestionAnalysis = {
+      //   question_id: '68f137fe5fbcb9f0f5f091eb',
+      //   num_answers: 5,
+      //   mean_similarity: 0.72,
+      //   std_similarity: 0.15,
+      //   recent_similarity: 0.68,
+      //   collusion_score: 0.85,
+      //   status: 'CONTINUE',
+      //   message: 'Similarity score is high, needs review',
+      // };
 
-      metrics = {
-        mean_similarity: analysis.mean_similarity,
-        std_similarity: analysis.std_similarity,
-        recent_similarity: analysis.recent_similarity,
-        collusion_score: analysis.collusion_score,
-      };
+      // metrics = {
+      //   mean_similarity: analysis.mean_similarity,
+      //   std_similarity: analysis.std_similarity,
+      //   recent_similarity: analysis.recent_similarity,
+      //   collusion_score: analysis.collusion_score,
+      // };
 
-      analysisStatus = analysis.status;
+      // analysisStatus = analysis.status;
 
-      if (analysisStatus === 'CONVERGED') isFinalAnswer = true;
+      // if (analysisStatus === 'CONVERGED') isFinalAnswer = true;
 
       if (isFinalAnswer) {
         const text = `Question: ${question.question}\nAnswer: ${answer}`;
@@ -146,7 +146,8 @@ export class AnswerService extends BaseService {
 
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
-      const embedding = []; // replace with actual embedding if needed
+      // const embedding = [];
+      const {embedding} = await this.aiService.getEmbedding(answer);
 
       const {insertedId} = await this.answerRepo.addAnswer(
         questionId,
@@ -164,12 +165,12 @@ export class AnswerService extends BaseService {
         {
           totalAnswersCount: updatedAnswerCount,
           metrics,
-          status:
-            analysisStatus === 'FLAGGED_FOR_REVIEW'
-              ? 'in-review'
-              : analysisStatus === 'CONTINUE'
-              ? 'open'
-              : 'closed',
+          // status
+          // analysisStatus === 'FLAGGED_FOR_REVIEW'
+          //   ? 'in-review'
+          //   : analysisStatus === 'CONTINUE'
+          //     ? 'open'
+          //     : 'closed',
         },
         activeSession,
       );
@@ -483,7 +484,7 @@ export class AnswerService extends BaseService {
           session,
         );
       });
-      
+
       return {message: 'Your response recorded sucessfully, thankyou!'};
     } catch (error) {
       throw new InternalServerError(
@@ -544,16 +545,12 @@ export class AnswerService extends BaseService {
         );
       }
 
-      const answers = await this.answerRepo.getByQuestionId(
-        questionId,
-        session,
-      );
+      await this.answerRepo.getByQuestionId(questionId, session);
 
       const text = `Question: ${question.question}
         answer: ${answer}`;
-      const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
-        text,
-      );
+      const {embedding: questionEmbedding} =
+        await this.aiService.getEmbedding(text);
 
       await this.questionRepo.updateQuestion(
         questionId,
@@ -563,7 +560,11 @@ export class AnswerService extends BaseService {
       );
 
       const {embedding} = await this.aiService.getEmbedding(text);
-      const payload = {...updates, embedding};
+      const payload: Partial<IAnswer> = {
+        ...updates,
+        embedding,
+        isFinalAnswer: true,
+      };
       return this.answerRepo.updateAnswer(answerId, payload, session);
     });
   }
