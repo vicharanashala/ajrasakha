@@ -14,6 +14,7 @@ import {
   Param,
   NotFoundError,
   Patch,
+  UploadedFile,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -36,6 +37,7 @@ import {
   QuestionResponse,
   RemoveAllocateBody,
 } from '../classes/validators/QuestionValidators.js';
+import { jsonUploadOptions } from '../classes/validators/fileUploadOptions.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -101,13 +103,28 @@ export class QuestionController {
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   @OpenAPI({summary: 'Add a new question'})
   async addQuestion(
+    @UploadedFile('file',{options:jsonUploadOptions}) file:Express.Multer.File,
     @Body()
     body: AddQuestionBodyDto,
     @CurrentUser() user: IUser,
   ): Promise<Partial<IQuestion>> {
     const userId = user._id.toString();
+    console.log('fie ',file)
+    if(file){
+      console.log("file recieved till in progress")
+      try {
+      const fileContent = file.buffer.toString('utf-8');
+      const payload = JSON.parse(fileContent);
+      console.log(payload)
+    } catch (err) {
+      throw new Error('Invalid JSON file uploaded');
+    }
+      return
+    }else{
+       return this.questionService.addQuestion(userId, body);
+    }
     // const userId = '';
-    return this.questionService.addQuestion(userId, body);
+   
   }
 
   @Get('/:questionId')

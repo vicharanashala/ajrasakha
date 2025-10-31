@@ -10,8 +10,12 @@ export const useAddQuestion = () => {
 
   return useMutation({
     mutationKey: ["addQuestion"],
-    mutationFn: async (newQuestionData: Partial<IDetailedQuestion>) => {
-      return await questionService.addQuestion(newQuestionData);
+    mutationFn: async (newQuestionData: Partial<IDetailedQuestion> | FormData) => {
+      // return await questionService.addQuestion(newQuestionData);
+      if(newQuestionData instanceof FormData){
+        return await questionService.addQuestion(newQuestionData,true)
+      }
+      return await questionService.addQuestion(newQuestionData)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });

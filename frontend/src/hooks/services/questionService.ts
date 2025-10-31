@@ -110,11 +110,24 @@ export class QuestionService {
   }
 
   async addQuestion(
-    newQuestionData: Partial<IDetailedQuestion>
+    newQuestionData: Partial<IDetailedQuestion> | FormData,isFormData=false
   ): Promise<void | null> {
+    const body: BodyInit | null =
+    isFormData
+      ? (newQuestionData as FormData)
+      : JSON.stringify(newQuestionData);
     return apiFetch<void>(`${this._baseUrl}`, {
+      // method: "POST",
+      // // body: JSON.stringify(newQuestionData),
+      // body:isFormData ? newQuestionData : JSON.stringify(newQuestionData),
+      // headers: isFormData
+      // ? undefined // Let browser set correct multipart/form-data boundary
+      // : { "Content-Type": "application/json" }, 
       method: "POST",
-      body: JSON.stringify(newQuestionData),
+    body,
+    headers: isFormData
+      ? undefined // Let browser set multipart boundary automatically
+      : { "Content-Type": "application/json" },
     });
   }
 

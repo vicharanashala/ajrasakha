@@ -32,6 +32,7 @@ import {
   Save,
   Search,
   Trash,
+  Upload,
   X,
 } from "lucide-react";
 
@@ -503,7 +504,8 @@ interface AddOrEditQuestionDialogProps {
   onSave?: (
     mode: "add" | "edit",
     entityId?: string,
-    flagReason?: string
+    flagReason?: string,
+    formData?:FormData
   ) => void;
   question?: IDetailedQuestion | null;
   userRole: UserRole;
@@ -523,6 +525,7 @@ export const AddOrEditQuestionDialog = ({
   mode,
 }: AddOrEditQuestionDialogProps) => {
   const [flagReason, setFlagReason] = useState("");
+  const [file, setFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (mode === "edit" && question) {
@@ -742,6 +745,33 @@ export const AddOrEditQuestionDialog = ({
         </div>
 
         <DialogFooter className="flex justify-end gap-2">
+          
+            {/* <X className="mr-2 h-4 w-4" aria-hidden="true" />  */}
+          
+  <input
+    type="file"
+    id="upload-json"
+    accept=".json"
+    className="hidden"
+    onChange={(e) => {
+      const selected = e.target.files?.[0];
+      if (selected) setFile(selected);
+    }}
+  />
+  <label htmlFor="upload-json">
+    <Button
+      asChild
+      variant={file ? "default" : "outline"}
+      className={`cursor-pointer ${file ? "bg-green-600 text-white hover:bg-green-700" : ""}`}
+    >
+      <span className="flex items-center gap-2">
+        <Upload className="h-4 w-4" />
+        {file ? `File Selected: ${file.name}` : "Upload JSON"}
+      </span>
+    </Button>
+  </label>
+
+
           <Button variant="outline" onClick={() => setOpen(false)}>
             <X className="mr-2 h-4 w-4" aria-hidden="true" />
             Cancel
@@ -750,9 +780,24 @@ export const AddOrEditQuestionDialog = ({
           {mode === "add" ? (
             <Button
               variant="default"
-              onClick={() => {
-                onSave?.("add");
-              }}
+              // onClick={() => {
+              //   onSave?.("add");
+              // }}
+               onClick={() => {
+    if (file) {
+      // If a file is uploaded, send it using FormData through the same API
+      const formData = new FormData();
+      formData.append("file", file);
+
+      // You can also append other fields if required by the backend
+      // formData.append("mode", "add");
+
+      onSave?.("add", undefined, undefined, formData);
+    } else {
+      // Normal form submission (no file)
+      onSave?.("add");
+    }
+  }}
             >
               <Save className="mr-2 h-4 w-4" aria-hidden="true" />
               {isLoadingAction ? "Adding..." : "Add Question"}
@@ -827,10 +872,17 @@ export const QuestionsFilters = ({
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion();
 
-  const handleAddQuestion = async (mode: "add" | "edit") => {
+  const handleAddQuestion = async (mode: "add" | "edit",entityId?: string,
+  flagReason?: string,formData?:FormData) => {
     try {
+      console.log("formdata called ",formData)
       if (mode !== "add") return;
-
+      if(formData){
+        await addQuestion(formData as any)
+        toast.success('File Uploaded succesfully')
+        setAddOpen(false)
+        return
+      }
       if (!updatedData) {
         toast.error("No data found to add. Please try again!");
         return;
