@@ -520,7 +520,7 @@ const AllocationQueueHeader = ({
 
   return (
     <div className="flex flex-col gap-4 pb-6 border-b border-border">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-primary/10">
             <Users className="w-6 h-6 text-primary" />
@@ -537,7 +537,7 @@ const AllocationQueueHeader = ({
         </div>
 
         {currentUser.role !== "expert" && (
-          <div className="flex items-center gap-4">
+          <div className="flex  flex-col md:flex-row  max-w-fit mt-4 md:mt-0 md:items-center gap-4">
             <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm">
               <Switch
                 id="auto-allocate"
