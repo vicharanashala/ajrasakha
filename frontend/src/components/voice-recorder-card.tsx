@@ -289,7 +289,7 @@ export const VoiceRecorderCard = () => {
   };
 
   return (
-    <div className="min-h-[75%] bg-background p-4 ">
+    <div className="min-h-[75%] bg-background p-4">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="min-h-[80%] md:min-h-[75%] md:max-h-[75%]">
