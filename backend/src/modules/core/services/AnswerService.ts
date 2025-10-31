@@ -519,6 +519,7 @@ export class AnswerService extends BaseService {
     return await this.answerRepo.getAllSubmissions(userId, page, limit);
   }
 
+  // Currently using for approving answer
   async updateAnswer(
     userId: string,
     answerId: string,
@@ -533,7 +534,7 @@ export class AnswerService extends BaseService {
       }
 
       const user = await this.userRepo.findById(userId, session);
-      
+
       if (!user || user.role == 'expert')
         throw new UnauthorizedError(
           "You don't have permission to approve an answer!",
@@ -562,7 +563,7 @@ export class AnswerService extends BaseService {
 
       await this.questionRepo.updateQuestion(
         questionId,
-        {text, embedding: questionEmbedding},
+        {text, embedding: questionEmbedding, status: 'closed'},
         session,
         true,
       );
