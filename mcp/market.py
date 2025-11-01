@@ -3,7 +3,8 @@ import aiohttp
 from fastmcp import FastMCP
 import asyncio
 import pandas as pd
-
+import re
+from bs4 import BeautifulSoup
 mcp = FastMCP("GD")
 
 
@@ -129,6 +130,88 @@ async def get_latest_date_for_market() -> dict:
 
     except Exception as e:
         return {"status": 500, "error": str(e)}
+
+
+
+#Function to extract commodity table from html
+
+def extract_commodity_table(html: str):
+    soup = BeautifulSoup(html, "html.parser")
+
+    data = []
+    current_category = None
+    current_commodity = None
+
+    def clean_text(text: str):
+        # Keep only English and basic punctuation before Kannada part
+        if "/" in text:
+            text = text.split("/")[0]
+        text = re.sub(r"[^A-Za-z0-9\s\-\(\)\*]", "", text)
+        return text.strip()
+
+    for tr in soup.select("table#_ctl0_MainContent_Table2 tr"):
+        tds = tr.find_all("td")
+        if not tds:
+            continue
+
+        # Detect category rows (bold text, no prices)
+        if len(tds) == 3 and tds[0].find("strong") and not tds[1].text.strip():
+            current_category = clean_text(tds[0].get_text(strip=True))
+            continue
+
+        # Commodity row (bold, no prices)
+        if len(tds) == 3 and tds[0].find("a") and not tds[1].text.strip():
+            current_commodity = clean_text(tds[0].get_text(strip=True))
+            continue
+
+        # Variety rows (have <a> + prices)
+        if len(tds) == 3 and tds[0].find("a") and (tds[1].text.strip() or tds[2].text.strip()):
+            variety = clean_text(tds[0].get_text(strip=True))
+            min_price = tds[1].get_text(strip=True)
+            max_price = tds[2].get_text(strip=True)
+
+            data.append({
+                "Category": current_category,
+                "Commodity": current_commodity,
+                "Variety": variety,
+                "Min_Price": min_price,
+                "Max_Price": max_price
+            })
+
+    return data
+
+
+
+@mcp.tool()
+async def get_commodities_available_for_KA() -> dict:
+    """
+    Fetch all commodities and their varieties for Karnataka
+    from the Krama Karnataka website for the latest reported date.
+
+    Cleans Kannada text and extra symbols or slashes.
+    Returns: {status, source, entries, data}
+    """
+
+    try:
+        url = "https://krama.karnataka.gov.in/Home"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                html = await response.text()
+
+        # Run parsing in thread to avoid blocking event loop
+        extracted_data = await asyncio.to_thread(extract_commodity_table, html)
+
+        return {
+            "status": 200,
+            "source": url,
+            "entries": len(extracted_data),
+            "data": extracted_data
+        }
+
+    except Exception as e:
+        return {"status": 500, "error": str(e)}
+
+
 
 
 if __name__ == "__main__":
