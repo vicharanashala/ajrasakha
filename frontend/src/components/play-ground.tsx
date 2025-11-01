@@ -18,6 +18,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Badge } from "./atoms/badge";
 import { initializeNotifications } from "@/services/pushService";
 import { useEffect } from "react";
+import {PerformanceMatrics} from './performanceMatrics'
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser();
