@@ -321,7 +321,8 @@ export class QuestionService extends BaseService {
           embedding,
           metrics: null,
           text,
-          createdAt: new Date(),
+          // createdAt: new Date(),
+          createdAt: body.createdAt ? new Date(body.createdAt) : new Date(),
           updatedAt: new Date(),
         };
         // 4. Save Question to DB

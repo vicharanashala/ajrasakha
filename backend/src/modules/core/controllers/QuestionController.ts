@@ -123,9 +123,12 @@ export class QuestionController {
         if (!Array.isArray(payload)) {
           throw new Error('File content must be a JSON array');
         }
+        const baseTime = new Date();
         for (const [index, question] of payload.entries()) {
           try {
-            await this.questionService.addQuestion(userId, question);
+            const createdAt = new Date(baseTime.getTime() + index * 60_000);
+            // await this.questionService.addQuestion(userId, question);
+            await this.questionService.addQuestion(userId, {...question,createdAt});
             successCount++;
           } catch (err) {
             failedCount++;
