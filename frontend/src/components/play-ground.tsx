@@ -68,7 +68,10 @@ export const PlaygroundPage = () => {
         </div>
       )}
 
-      <Tabs defaultValue="questions" className="h-full w-full">
+      <Tabs
+        defaultValue={user?.role == "expert" ? "questions" : "all_questions"}
+        className="h-full w-full"
+      >
         <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="container mx-auto flex items-center justify-between gap-4 px-4 py-3">
             <div className="flex items-center gap-3 shrink-0">
