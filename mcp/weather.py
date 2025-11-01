@@ -124,7 +124,6 @@ async def retry_with_backoff(func, *args, max_retries=MAX_RETRIES, **kwargs):
 
 @mcp.tool()
 async def get_weather_forecast(
-    city: Optional[str] = None,
     lat: Optional[float] = None,
     lon: Optional[float] = None,
     zip_code: Optional[str] = None,
@@ -152,24 +151,23 @@ async def get_weather_forecast(
 
     if use_fallback:
         return await _get_forecast_from_weatherapi(
-            city=city, lat=lat, lon=lon,
+            lat=lat, lon=lon, zip_code=zip_code, country_code=country_code,
             units=units, lang=lang, days=days
         )
     else:
         ow = await _get_forecast_from_openweathermap(
-            city=city, lat=lat, lon=lon, zip_code=zip_code,
+            lat=lat, lon=lon, zip_code=zip_code,
             country_code=country_code, units=units, lang=lang, days=days
         )
         if not ow.get("success", True):
             logger.warning(f"OpenWeatherMap forecast failed: {ow.get('error')}. Falling back.")
             return await _get_forecast_from_weatherapi(
-                city=city, lat=lat, lon=lon,
+                lat=lat, lon=lon, zip_code=zip_code, country_code=country_code,
                 units=units, lang=lang, days=days
             )
         return ow
 
 async def _get_forecast_from_openweathermap(
-    city: Optional[str],
     lat: Optional[float],
     lon: Optional[float],
     zip_code: Optional[str],
@@ -186,15 +184,12 @@ async def _get_forecast_from_openweathermap(
             "hint": "Set OPENWEATHERMAP_API_KEY or call with use_fallback=True"
         }
 
-    # 1) if we have no coordinates, first resolve city/zip -> coords using your current logic
+    # 1) if we have no coordinates, first resolve zip -> coords
     if lat is None and lon is None:
         # reuse the current endpoint to resolve location
         base = "https://api.openweathermap.org/data/2.5/weather"
         params = {"appid": api_key, "units": units, "lang": lang}
-        if city:
-            city = city.strip()
-            params["q"] = f"{city},{country_code}" if country_code else city
-        elif zip_code:
+        if zip_code:
             zip_code = zip_code.strip()
             params["zip"] = f"{zip_code},{country_code}" if country_code else zip_code
         else:
@@ -212,7 +207,7 @@ async def _get_forecast_from_openweathermap(
             lat = resolved["coord"]["lat"]
             lon = resolved["coord"]["lon"]
         except Exception as e:
-            logger.error(f"Failed to resolve city/zip to coords: {e}")
+            logger.error(f"Failed to resolve zip to coords: {e}")
             return {"success": False, "error": "resolve_failed", "detail": str(e)}
 
     # 2) now call One Call
@@ -286,9 +281,10 @@ async def _get_forecast_from_openweathermap(
 
 
 async def _get_forecast_from_weatherapi(
-    city: Optional[str],
     lat: Optional[float],
     lon: Optional[float],
+    zip_code: Optional[str],
+    country_code: str,
     units: str,
     lang: str,
     days: int,
@@ -304,12 +300,13 @@ async def _get_forecast_from_weatherapi(
         days = 10  # WeatherAPI forecast cap on typical plans
 
     # location str
-    if city:
-        loc = city.strip()
-    elif lat is not None and lon is not None:
+    if lat is not None and lon is not None:
         loc = f"{lat},{lon}"
+    elif zip_code:
+        zip_code = zip_code.strip()
+        loc = f"{zip_code},{country_code}" if country_code else zip_code
     else:
-        return {"success": False, "error": "Provide city or lat+lon"}
+        return {"success": False, "error": "Provide zip_code or lat+lon"}
 
     # language mapping same as your other helper
     supported_langs = {"en","ar","bn","bg","zh","cs","nl","fi","fr","de","el","hi","hu","it","ja","jv","ko","mr","pl","pt","pa","ro","ru","sr","si","sk","es","sv","ta","te","tr","uk","ur","vi","zh_cn","zh_tw","zu"}
@@ -401,7 +398,6 @@ async def _get_forecast_from_weatherapi(
 
 @mcp.tool()
 async def get_current_weather(
-    city: Optional[str] = None,
     lat: Optional[float] = None,
     lon: Optional[float] = None,
     zip_code: Optional[str] = None,
@@ -413,13 +409,11 @@ async def get_current_weather(
     """
     Get current weather information for a location.
     
-    Location can be specified in THREE ways (priority order):
+    Location can be specified in TWO ways (priority order):
     1. Coordinates: Both lat AND lon (must provide both together)
     2. ZIP code: zip_code with optional country_code
-    3. City name: city with optional country_code
     
     Args:
-        city: City name (e.g., "Mumbai", "London")
         lat: Latitude coordinate (-90 to 90). MUST provide with lon.
         lon: Longitude coordinate (-180 to 180). MUST provide with lat.
         zip_code: ZIP/postal code
@@ -461,24 +455,23 @@ async def get_current_weather(
     if use_fallback:
         # User explicitly wants WeatherAPI as primary
         logger.info("Using WeatherAPI as primary source (use_fallback=True)")
-        return await _get_weather_from_weatherapi(city=city, lat=lat, lon=lon, units=units, lang=lang)
+        return await _get_weather_from_weatherapi(lat=lat, lon=lon, zip_code=zip_code, country_code=country_code, units=units, lang=lang)
     else:
         # Try OpenWeatherMap first, fallback to WeatherAPI on error
         result = await _get_weather_from_openweathermap(
-            city=city, lat=lat, lon=lon, zip_code=zip_code, 
+            lat=lat, lon=lon, zip_code=zip_code, 
             country_code=country_code, units=units, lang=lang
         )
         
         # If OpenWeatherMap returns an error (check success field robustly), try WeatherAPI as fallback
         if isinstance(result, dict) and (not result.get("success", True) or result.get("error")):
             logger.warning(f"OpenWeatherMap failed: {result.get('error', 'Unknown error')}. Trying WeatherAPI fallback.")
-            return await _get_weather_from_weatherapi(city=city, lat=lat, lon=lon, units=units, lang=lang)
+            return await _get_weather_from_weatherapi(lat=lat, lon=lon, zip_code=zip_code, country_code=country_code, units=units, lang=lang)
         
         return result
 
 
 async def _get_weather_from_openweathermap(
-    city: Optional[str], 
     lat: Optional[float], 
     lon: Optional[float],
     zip_code: Optional[str],
@@ -499,7 +492,7 @@ async def _get_weather_from_openweathermap(
     base = "https://api.openweathermap.org/data/2.5/weather"
     params = {"appid": api_key, "units": units, "lang": lang}
     
-    # Determine location query method (priority: lat/lon > zip > city)
+    # Determine location query method (priority: lat/lon > zip)
     if lat is not None and lon is not None:
         params["lat"] = str(lat)
         params["lon"] = str(lon)
@@ -511,19 +504,11 @@ async def _get_weather_from_openweathermap(
         else:
             # Only append country_code if it's truthy (avoid "zip,None" or "zip,")
             params["zip"] = f"{zip_code},{country_code}" if country_code else zip_code
-    elif city:
-        # City format: "city_name" or "city_name,country_code" - sanitize input
-        city = city.strip()
-        if "," in city:
-            params["q"] = city
-        else:
-            # Only append country_code if it's truthy (avoid "city,None" or "city,")
-            params["q"] = f"{city},{country_code}" if country_code else city
     else:
         return {
             "success": False,
-            "error": "Provide 'city', 'zip_code', or both 'lat' and 'lon'",
-            "hint": "Specify location using city name, coordinates (lat+lon), or ZIP code"
+            "error": "Provide 'zip_code' or both 'lat' and 'lon'",
+            "hint": "Specify location using coordinates (lat+lon) or ZIP code"
         }
 
     # Make request with retry logic
@@ -643,9 +628,10 @@ async def _get_weather_from_openweathermap(
 
 
 async def _get_weather_from_weatherapi(
-    city: Optional[str], 
     lat: Optional[float], 
     lon: Optional[float],
+    zip_code: Optional[str],
+    country_code: str,
     units: str,
     lang: str
 ) -> dict:
@@ -661,16 +647,21 @@ async def _get_weather_from_weatherapi(
     # Security: Use HTTPS instead of HTTP
     base = "https://api.weatherapi.com/v1/current.json"
     
-    # Determine location query - sanitize city input
-    if city:
-        location = city.strip()
-    elif lat is not None and lon is not None:
+    # Determine location query
+    if lat is not None and lon is not None:
         location = f"{lat},{lon}"
+    elif zip_code:
+        # WeatherAPI supports ZIP codes - sanitize input
+        zip_code = zip_code.strip()
+        if "," in zip_code:
+            location = zip_code
+        else:
+            location = f"{zip_code},{country_code}" if country_code else zip_code
     else:
         return {
             "success": False,
-            "error": "Provide either 'city' or both 'lat' and 'lon'",
-            "hint": "WeatherAPI requires city name or coordinates (lat+lon pair)"
+            "error": "Provide 'zip_code' or both 'lat' and 'lon'",
+            "hint": "WeatherAPI requires coordinates (lat+lon pair) or ZIP code"
         }
     
     # WeatherAPI has limited language support compared to OpenWeatherMap
@@ -819,6 +810,173 @@ async def _get_weather_from_weatherapi(
     
     logger.info(f"WeatherAPI successful: {location_data.get('name')}, {location_data.get('country')}")
     return result
+
+
+@mcp.tool()
+async def get_location_info(
+    lat: float,
+    lon: float,
+    location_type: Optional[str] = None,
+    lang: str = "en",
+    limit: int = 1
+) -> dict:
+    """
+    Get detailed location information (address) from coordinates using reverse geocoding.
+    
+    This tool performs reverse geocoding to convert latitude/longitude coordinates
+    into a human-readable address with detailed components.
+    
+    Args:
+        lat: Latitude coordinate (-90 to 90)
+        lon: Longitude coordinate (-180 to 180)
+        location_type: Optional location type filter. Possible values:
+                      'country', 'state', 'city', 'postcode', 'street', 'amenity'
+        lang: Language code (2-character ISO 639-1). Default: "en"
+        limit: Maximum number of results. Default: 1
+    
+    Returns:
+        Dictionary containing location information with address components:
+        - formatted: Complete formatted address
+        - address_line1: Main address (street + house number)
+        - address_line2: Secondary address parts
+        - city, state, country, postcode: Address components
+        - coordinates: lat/lon of the location
+        - result_type: Type of location found
+        - timezone: Timezone information
+        Includes 'success': True on successful fetch, False on error.
+    
+    Raises:
+        ValueError: If coordinates are invalid
+    """
+    
+    # Input validation
+    if not (-90 <= lat <= 90):
+        raise ValueError(f"Invalid latitude: {lat}. Must be between -90 and 90.")
+    
+    if not (-180 <= lon <= 180):
+        raise ValueError(f"Invalid longitude: {lon}. Must be between -180 and 180.")
+    
+    # Get API key from environment
+    api_key = os.getenv("GEOAPIFY_API_KEY")
+    if not api_key:
+        return {
+            "success": False,
+            "error": "GEOAPIFY_API_KEY not set in environment",
+            "hint": "Set environment variable GEOAPIFY_API_KEY. Get a free key at https://www.geoapify.com/"
+        }
+    
+    # Build request URL
+    base = "https://api.geoapify.com/v1/geocode/reverse"
+    params = {
+        "lat": str(lat),
+        "lon": str(lon),
+        "format": "json",
+        "apiKey": api_key,
+        "lang": lang,
+        "limit": str(limit)
+    }
+    
+    # Add optional type filter
+    if location_type:
+        valid_types = ['country', 'state', 'city', 'postcode', 'street', 'amenity']
+        if location_type not in valid_types:
+            return {
+                "success": False,
+                "error": f"Invalid location_type: {location_type}",
+                "hint": f"Must be one of: {', '.join(valid_types)}"
+            }
+        params["type"] = location_type
+    
+    # Make request with retry logic
+    async def make_request():
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(base, params=params, timeout=TIMEOUT)
+            resp.raise_for_status()
+            return resp
+    
+    try:
+        resp = await retry_with_backoff(make_request)
+    except httpx.HTTPStatusError as e:
+        error_data = {
+            "success": False,
+            "error": "api_error",
+            "status_code": e.response.status_code
+        }
+        try:
+            error_data["message"] = e.response.json().get("message", e.response.text)
+        except:
+            error_data["message"] = e.response.text
+        log_msg = str(error_data.get('message', ''))[:100]
+        logger.warning(f"Geoapify API error {e.response.status_code}: {log_msg}")
+        return error_data
+    except Exception as e:
+        logger.error(f"Geoapify request failed after retries: {e}")
+        return {
+            "success": False,
+            "error": "request_failed",
+            "detail": str(e)
+        }
+    
+    data = resp.json()
+    
+    # Check if we got results
+    if not data.get("results") or len(data["results"]) == 0:
+        return {
+            "success": False,
+            "error": "no_results",
+            "message": "No address found for the given coordinates",
+            "coordinates": {"lat": lat, "lon": lon}
+        }
+    
+    # Extract the first result
+    result = data["results"][0]
+    
+    # Build structured response
+    response = {
+        "success": True,
+        "source": "Geoapify",
+        "query": {
+            "lat": lat,
+            "lon": lon,
+            "type": location_type,
+            "lang": lang
+        },
+        "location": {
+            "formatted": result.get("formatted"),
+            "address_line1": result.get("address_line1"),
+            "address_line2": result.get("address_line2"),
+            "name": result.get("name"),
+            "street": result.get("street"),
+            "housenumber": result.get("housenumber"),
+            "postcode": result.get("postcode"),
+            "city": result.get("city"),
+            "county": result.get("county"),
+            "county_code": result.get("county_code"),
+            "state": result.get("state"),
+            "state_code": result.get("state_code"),
+            "country": result.get("country"),
+            "country_code": result.get("country_code"),
+            "coordinates": {
+                "lat": result.get("lat"),
+                "lon": result.get("lon")
+            }
+        },
+        "result_type": result.get("result_type"),
+        "distance_meters": result.get("distance"),
+        "rank": {
+            "confidence": result.get("rank", {}).get("confidence"),
+            "confidence_city_level": result.get("rank", {}).get("confidence_city_level"),
+            "confidence_street_level": result.get("rank", {}).get("confidence_street_level"),
+            "match_type": result.get("rank", {}).get("match_type")
+        },
+        "timezone": result.get("timezone", {}),
+        "category": result.get("category"),
+        "datasource": result.get("datasource", {}).get("sourcename"),
+        "raw_response": result  # Full API response for advanced use
+    }
+    
+    logger.info(f"Geoapify reverse geocoding successful: {result.get('formatted', 'N/A')}")
+    return response
 
 
 if __name__ == "__main__":
