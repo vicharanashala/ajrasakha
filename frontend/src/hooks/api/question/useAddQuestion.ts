@@ -27,7 +27,7 @@ export const useAddQuestion = () => {
 
     },
     onError: (error: any) => {
-      toast.error("Failed to add question");
+      toast.error(error?.message || "Failed to add question");
       console.error("Add question error:", error);
     },
   });

@@ -68,7 +68,10 @@ export const PlaygroundPage = () => {
         </div>
       )}
 
-      <Tabs defaultValue="questions" className="h-full w-full">
+      <Tabs
+        defaultValue={user?.role == "expert" ? "questions" : "all_questions"}
+        className="h-full w-full"
+      >
         <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="container mx-auto flex items-center justify-between gap-4 px-4 py-3">
             <div className="flex items-center gap-3 shrink-0">
@@ -81,13 +84,14 @@ export const PlaygroundPage = () => {
 
             <div className="flex-1 flex justify-center min-w-0">
               <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
-                <TabsTrigger
-                  value="questions"
-                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                >
-                  <span>Questions</span>
-                </TabsTrigger>
-
+                {user && user.role == "expert" && (
+                  <TabsTrigger
+                    value="questions"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <span>Questions</span>
+                  </TabsTrigger>
+                )}
                 <TabsTrigger
                   value="all_questions"
                   className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
@@ -112,14 +116,16 @@ export const PlaygroundPage = () => {
                   </HoverCard>
                 </TabsTrigger>
 
-                <TabsTrigger
-                  value="history"
-                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                >
-                  <HoverCard openDelay={150}>
-                    <span>History</span>
-                  </HoverCard>
-                </TabsTrigger>
+                {user && user.role == "expert" && (
+                  <TabsTrigger
+                    value="history"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <HoverCard openDelay={150}>
+                      <span>History</span>
+                    </HoverCard>
+                  </TabsTrigger>
+                )}
               </TabsList>
             </div>
 
@@ -154,10 +160,11 @@ export const PlaygroundPage = () => {
         <div className="container h-full py-6">
           <div className="grid h-full items-stretch gap-6 ">
             <div className="md:order-1 w-full ">
-              <TabsContent value="questions" className="mt-0 border-0 p-0 ">
-                <QAInterface />
-              </TabsContent>
-
+              {user && user.role == "expert" && (
+                <TabsContent value="questions" className="mt-0 border-0 p-0 ">
+                  <QAInterface />
+                </TabsContent>
+              )}
               <TabsContent
                 value="all_questions"
                 className="mt-0 border-0 md:px-8 px-2 "
@@ -179,13 +186,14 @@ export const PlaygroundPage = () => {
                   </div>
                 </div>
               </TabsContent>
-
-              <TabsContent
-                value="history"
-                className="mt-0 border-0 p-0 max-w-[98%]"
-              >
-                <FullSubmissionHistory currentUser={user!} />
-              </TabsContent>
+              {user && user.role == "expert" && (
+                <TabsContent
+                  value="history"
+                  className="mt-0 border-0 p-0 max-w-[98%]"
+                >
+                  <FullSubmissionHistory currentUser={user!} />
+                </TabsContent>
+              )}
             </div>
           </div>
         </div>

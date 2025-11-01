@@ -11,7 +11,7 @@ import {inject} from 'inversify';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
 import {isValidObjectId} from '#root/utils/isValidObjectId.js';
-import {BadRequestError, InternalServerError} from 'routing-controllers';
+import {BadRequestError, InternalServerError, NotFoundError} from 'routing-controllers';
 import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
@@ -220,6 +220,9 @@ export class QuestionRepository implements IQuestionRepository {
         },
         {session},
       );
+
+      if(!question)
+        throw new NotFoundError(`Faile to find question ${questionId}`)
 
       const formattedQuestion: IQuestion = {
         ...question,
