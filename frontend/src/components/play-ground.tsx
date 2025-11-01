@@ -82,12 +82,23 @@ export const PlaygroundPage = () => {
 
             <div className="flex-1 flex justify-center min-w-0">
               <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
-                <TabsTrigger
-                  value="questions"
+              {user && user.role !== "expert" ?
+                  <TabsTrigger
+                  value="performance"
                   className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
                 >
-                  <span>Questions</span>
-                </TabsTrigger>
+                  <HoverCard openDelay={150}>
+                    <span>Performance</span>
+                  </HoverCard>
+                </TabsTrigger>:
+                   <TabsTrigger
+                   value="questions"
+                   className="px-2 md:px-3 py-1.5 bg-transparent rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                 >
+                   <span>Questions</span>
+                 </TabsTrigger>
+
+                }
 
                 <TabsTrigger
                   value="all_questions"
@@ -186,6 +197,12 @@ export const PlaygroundPage = () => {
                 className="mt-0 border-0 p-0 max-w-[98%]"
               >
                 <FullSubmissionHistory currentUser={user!} />
+              </TabsContent>
+              <TabsContent
+                value="performance"
+                className="mt-0 border-0 p-0 max-w-[98%]"
+              >
+               <PerformanceMatrics/>
               </TabsContent>
             </div>
           </div>
