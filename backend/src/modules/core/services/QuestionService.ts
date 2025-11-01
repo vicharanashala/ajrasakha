@@ -848,11 +848,11 @@ export class QuestionService extends BaseService {
             session,
           );
 
-        if (!questionSubmission) {
-          throw new NotFoundError(
-            `No question submission found for question ID: ${questionId}`,
-          );
-        }
+        // if (!questionSubmission) {
+        //   throw new NotFoundError(
+        //     `No question submission found for question ID: ${questionId}`,
+        //   );
+        // }
 
         const history = questionSubmission.history || [];
         if (history.length > 0) {

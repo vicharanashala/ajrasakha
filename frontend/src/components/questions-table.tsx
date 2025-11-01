@@ -179,9 +179,11 @@ export const QuestionsTable = ({
       setEditOpen(false);
     } catch (error: any) {
       console.error("Error in handleUpdateQuestion:", error);
-      toast.error(
-        error?.message || "An error occurred while saving. Please try again."
-      );
+      if (!status)
+        // if status is there that means, then updating question to delayed
+        toast.error(
+          error?.message || "An error occurred while saving. Please try again."
+        );
       setEditOpen(false);
     }
   };
@@ -315,19 +317,13 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   handleDelete,
   onViewMore,
 }) => {
-  const triggeredRef = useRef(false);
-
   const handleDelayStatus = useCallback(() => {
-    if (triggeredRef.current) return;
-    if (!q || !q.status || q.status === "delayed" || q.status !== "open")
-      return;
-
-    triggeredRef.current = true;
+    if (!q || q.status !== "open") return;
     setUpdatedData(q);
     updateQuestion("edit", q._id, undefined, "delayed");
   }, [q, updateQuestion, setUpdatedData]);
 
-  const timer = useCountdown(q.createdAt!, 4, handleDelayStatus);
+  const timer = useCountdown(q.createdAt!, 1 / 69, handleDelayStatus);
 
   const serialNumber = useMemo(
     () => (currentPage - 1) * totalPages + idx + 1,
@@ -920,7 +916,7 @@ export const QuestionsFilters = ({
       setAddOpen(false);
     } catch (error) {
       console.error("Error in handleAddQuestion:", error);
-      toast.error("An unexpected error occurred. Please try again.");
+      // toast.error("An unexpected error occurred. Please try again.");
       setAddOpen(false);
     }
   };
