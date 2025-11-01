@@ -30,6 +30,9 @@ import {
 } from '../classes/validators/QuestionValidators.js';
 import {QuestionService} from './QuestionService.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
+import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
+import {notifyUser} from '#root/utils/pushNotification.js';
+import {NotificationService} from './NotificationService.js';
 
 @injectable()
 export class AnswerService extends BaseService {
@@ -51,6 +54,12 @@ export class AnswerService extends BaseService {
 
     @inject(GLOBAL_TYPES.QuestionService)
     private readonly questionService: QuestionService,
+
+    @inject(GLOBAL_TYPES.NotificationService)
+    private readonly notificationService: NotificationService,
+
+    @inject(GLOBAL_TYPES.NotificationRepository)
+    private readonly notificationRepository: INotificationRepository,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -89,40 +98,40 @@ export class AnswerService extends BaseService {
 
       let isFinalAnswer = false;
       let metrics: IQuestionMetrics | null = null;
-      let analysisStatus: 'CONTINUE' | 'FLAGGED_FOR_REVIEW' | 'CONVERGED' =
-        'CONTINUE';
+      // let analysisStatus: 'CONTINUE' | 'FLAGGED_FOR_REVIEW' | 'CONVERGED' =
+      //   'CONTINUE';
 
       const answers = (await this.answerRepo.getByQuestionId(questionId)) || [];
       const answerTexts = answers.map(ans => ans.answer);
 
-      const payload: IQuestionWithAnswerTexts = {
-        question_id: questionId,
-        question_text: question.question,
-        answers: [...answerTexts, answer],
-      };
+      // const payload: IQuestionWithAnswerTexts = {
+      //   question_id: questionId,
+      //   question_text: question.question,
+      //   answers: [...answerTexts, answer],
+      // };
 
       // const analysis = await this.aiService.evaluateAnswers(payload);
-      const analysis: IQuestionAnalysis = {
-        question_id: '68f137fe5fbcb9f0f5f091eb',
-        num_answers: 5,
-        mean_similarity: 0.72,
-        std_similarity: 0.15,
-        recent_similarity: 0.68,
-        collusion_score: 0.85,
-        status: 'CONTINUE',
-        message: 'Similarity score is high, needs review',
-      };
+      // const analysis: IQuestionAnalysis = {
+      //   question_id: '68f137fe5fbcb9f0f5f091eb',
+      //   num_answers: 5,
+      //   mean_similarity: 0.72,
+      //   std_similarity: 0.15,
+      //   recent_similarity: 0.68,
+      //   collusion_score: 0.85,
+      //   status: 'CONTINUE',
+      //   message: 'Similarity score is high, needs review',
+      // };
 
-      metrics = {
-        mean_similarity: analysis.mean_similarity,
-        std_similarity: analysis.std_similarity,
-        recent_similarity: analysis.recent_similarity,
-        collusion_score: analysis.collusion_score,
-      };
+      // metrics = {
+      //   mean_similarity: analysis.mean_similarity,
+      //   std_similarity: analysis.std_similarity,
+      //   recent_similarity: analysis.recent_similarity,
+      //   collusion_score: analysis.collusion_score,
+      // };
 
-      analysisStatus = analysis.status;
+      // analysisStatus = analysis.status;
 
-      if (analysisStatus === 'CONVERGED') isFinalAnswer = true;
+      // if (analysisStatus === 'CONVERGED') isFinalAnswer = true;
 
       if (isFinalAnswer) {
         const text = `Question: ${question.question}\nAnswer: ${answer}`;
@@ -137,7 +146,8 @@ export class AnswerService extends BaseService {
 
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
-      const embedding = []; // replace with actual embedding if needed
+      const embedding = [];
+      // const {embedding} = await this.aiService.getEmbedding(answer);
 
       const {insertedId} = await this.answerRepo.addAnswer(
         questionId,
@@ -155,12 +165,12 @@ export class AnswerService extends BaseService {
         {
           totalAnswersCount: updatedAnswerCount,
           metrics,
-          status:
-            analysisStatus === 'FLAGGED_FOR_REVIEW'
-              ? 'in-review'
-              : analysisStatus === 'CONTINUE'
-                ? 'open'
-                : 'closed',
+          // status
+          // analysisStatus === 'FLAGGED_FOR_REVIEW'
+          //   ? 'in-review'
+          //   : analysisStatus === 'CONTINUE'
+          //     ? 'open'
+          //     : 'closed',
         },
         activeSession,
       );
@@ -262,13 +272,13 @@ export class AnswerService extends BaseService {
           // Push entry in to history array in submission
           const userSubmissionData: ISubmissionHistory = {
             updatedBy: new ObjectId(userId),
-            answer: new ObjectId(insertedId), 
+            answer: new ObjectId(insertedId),
             createdAt: new Date(),
             status: 'in-review',
             updatedAt: new Date(),
           };
 
-          await this.questionSubmissionRepo.update(
+          const one = await this.questionSubmissionRepo.update(
             questionId,
             userSubmissionData,
             session,
@@ -401,7 +411,7 @@ export class AnswerService extends BaseService {
           // Case 1: Current user is not the last in the queue and total history (including next) is less than 10
           if (
             currentUserIndexInQueue < currentQueue.length - 1 &&
-            currentQueue.length  < 10
+            currentQueue.length < 10
           ) {
             const nextExpertId = currentQueue[currentUserIndexInQueue + 1];
 
@@ -418,6 +428,33 @@ export class AnswerService extends BaseService {
               nextAllocatedSubmissionData,
               session,
             );
+
+            let message = `A new Review has been assigned to you`;
+            let title = 'New Review Assigned';
+            let entityId = questionId.toString();
+            const user = nextExpertId.toString();
+            const type = 'peer_review';
+            // await this.notificationRepository.addNotification(
+            //   user,
+            //   entityId,
+            //   type,
+            //   message,
+            //   title,
+            //   session,
+            // );
+            // const subscription =
+            //   await this.notificationRepository.getSubscriptionByUserId(
+            //     user.toString(),
+            //   );
+            // await notifyUser(user, title, subscription);
+            await this.notificationService.saveTheNotifications(
+              message,
+              title,
+              entityId,
+              user,
+              type,
+              session,
+            );
           }
 
           // Case 2: Current user is the last in the queue but the queue isn't full
@@ -431,7 +468,7 @@ export class AnswerService extends BaseService {
         }
 
         // Check the history limit reaced, if reached then question status will be in-review
-        if (currentSubmissionHistory.length  == 10) {
+        if (currentSubmissionHistory.length == 10) {
           await this.questionRepo.updateQuestion(
             questionId,
             {status: 'in-review'},
@@ -482,7 +519,9 @@ export class AnswerService extends BaseService {
     return await this.answerRepo.getAllSubmissions(userId, page, limit);
   }
 
+  // Currently using for approving answer
   async updateAnswer(
+    userId: string,
     answerId: string,
     updates: UpdateAnswerBody,
   ): Promise<{modifiedCount: number}> {
@@ -493,6 +532,13 @@ export class AnswerService extends BaseService {
       if (!answer) {
         throw new BadRequestError(`Answer with ID ${answerId} not found`);
       }
+
+      const user = await this.userRepo.findById(userId, session);
+
+      if (!user || user.role == 'expert')
+        throw new UnauthorizedError(
+          "You don't have permission to approve an answer!",
+        );
 
       const questionId = answer.questionId.toString();
 
@@ -508,10 +554,7 @@ export class AnswerService extends BaseService {
         );
       }
 
-      const answers = await this.answerRepo.getByQuestionId(
-        questionId,
-        session,
-      );
+      await this.answerRepo.getByQuestionId(questionId, session);
 
       const text = `Question: ${question.question}
         answer: ${answer}`;
@@ -520,13 +563,18 @@ export class AnswerService extends BaseService {
 
       await this.questionRepo.updateQuestion(
         questionId,
-        {text, embedding: questionEmbedding},
+        {text, embedding: questionEmbedding, status: 'closed'},
         session,
         true,
       );
 
       const {embedding} = await this.aiService.getEmbedding(text);
-      const payload = {...updates, embedding};
+      const payload: Partial<IAnswer> = {
+        ...updates,
+        embedding,
+        isFinalAnswer: true,
+        approvedBy: new ObjectId(userId),
+      };
       return this.answerRepo.updateAnswer(answerId, payload, session);
     });
   }

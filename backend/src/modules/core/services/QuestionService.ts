@@ -28,6 +28,9 @@ import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepos
 import {dummyEmbeddings} from '../utils/questionGen.js';
 import {IContextRepository} from '#root/shared/database/interfaces/IContextRepository.js';
 import {PreferenceDto} from '../classes/validators/UserValidators.js';
+import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
+import {notifyUser} from '#root/utils/pushNotification.js';
+import {NotificationService} from './NotificationService.js';
 
 @injectable()
 export class QuestionService extends BaseService {
@@ -52,6 +55,12 @@ export class QuestionService extends BaseService {
 
     @inject(GLOBAL_TYPES.AnswerRepository)
     private readonly answerRepo: IAnswerRepository,
+
+    @inject(GLOBAL_TYPES.NotificationRepository)
+    private readonly notificationRepository: INotificationRepository,
+
+    @inject(GLOBAL_TYPES.NotificationService)
+    private readonly notificationService: NotificationService,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -351,6 +360,23 @@ export class QuestionService extends BaseService {
           createdAt: new Date(),
           updatedAt: new Date(),
         };
+
+        //send notification to the first assigned expert
+        let message = `A Question has been assigned for answering`;
+        let title = 'Answer Creation Assigned';
+        let entityId = savedQuestion._id.toString();
+        const user = intialUsersToAllocate[0]._id.toString();
+        const type = 'answer_creation';
+        await this.notificationService.saveTheNotifications(
+          message,
+          title,
+          entityId,
+          user,
+          type,
+        );
+        // await this.notificationRepository.addNotification(user._id.toString(),entityId.toString(),type,message,title,session)
+        // const subscription = await this.notificationRepository.getSubscriptionByUserId(user._id.toString());
+        // await notifyUser(userId, title,subscription)
         // 6. Save QuestionSubmission to DB
         await this.questionSubmissionRepo.addSubmission(
           submissionData,
@@ -559,6 +585,18 @@ export class QuestionService extends BaseService {
           nextAllocatedSubmissionData,
           session,
         );
+        let message = `A new Review has been assigned to you`;
+        let title = 'New Review Assigned';
+        let entityId = questionId.toString();
+        const user = nextExpertId.toString();
+        const type = 'peer_review';
+        await this.notificationService.saveTheNotifications(
+          message,
+          title,
+          entityId,
+          user,
+          type,
+        );
       }
 
       for (const expertId of expertsToAdd) {
@@ -685,7 +723,19 @@ export class QuestionService extends BaseService {
             status: 'in-review',
             updatedAt: new Date(),
           };
-
+          //need to add here
+          let message = `A new Review has been assigned to you`;
+          let title = 'New Review Assigned';
+          let entityId = questionId.toString();
+          const user = expertId.toString();
+          const type = 'peer_review';
+          await this.notificationService.saveTheNotifications(
+            message,
+            title,
+            entityId,
+            user,
+            type,
+          );
           await this.questionSubmissionRepo.update(
             questionId,
             userSubmissionData,

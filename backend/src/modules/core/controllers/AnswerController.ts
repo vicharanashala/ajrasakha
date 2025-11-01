@@ -88,9 +88,11 @@ export class AnswerController {
   async updateAnswer(
     @Params() params: AnswerIdParam,
     @Body() body: UpdateAnswerBody,
+    @CurrentUser() user: IUser,
   ) {
     const {answerId} = params;
-    return this.answerService.updateAnswer(answerId, body);
+    const {_id: userId} = user;
+    return this.answerService.updateAnswer(userId.toString(), answerId, body);
   }
 
   @OpenAPI({summary: 'Delete an answer and update the related question state'})

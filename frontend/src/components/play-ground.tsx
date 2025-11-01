@@ -253,10 +253,7 @@ useEffect(() => {
                   <RequestsPage />
                 </TabsContent>
               )}
-              <TabsContent
-                value="upload"
-                className="mt-0 border-0 p-0 max-w-[95%]"
-              >
+              <TabsContent value="upload" className="mt-0 border-0 p-0 ">
                 <div className="max-h-[70vh] overflow-hidden bg-background p-4 ps-0">
                   <div className="container mx-auto py-8 pt-0">
                     <VoiceRecorderCard />

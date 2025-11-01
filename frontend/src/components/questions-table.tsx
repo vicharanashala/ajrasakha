@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
 import {
@@ -13,7 +13,9 @@ import { Input } from "./atoms/input";
 
 import {
   AlertCircle,
+  AlertTriangle,
   CheckCircle,
+  Clock,
   Edit,
   Eye,
   Flag,
@@ -77,21 +79,13 @@ import { ConfirmationModal } from "./confirmation-modal";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
 import { Card, CardContent, CardHeader, CardTitle,CardFooter } from "./atoms/card";
+import { useCountdown } from "@/hooks/useCountdown";
+import { formatDate } from "@/utils/formatDate";
+import { TimerDisplay } from "./timer-display";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
-};
-
-const formatDate = (d?: string | Date) => {
-  const date = typeof d === "string" ? new Date(d) : d;
-  return date
-    ? new Intl.DateTimeFormat(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-      }).format(date)
-    : "";
 };
 
 type QuestionsTableProps = {
@@ -138,7 +132,8 @@ export const QuestionsTable = ({
   const handleUpdateQuestion = async (
     mode: "add" | "edit",
     entityId?: string,
-    flagReason?: string
+    flagReason?: string,
+    status?: QuestionStatus
   ) => {
     try {
       if (!entityId) {
@@ -147,11 +142,12 @@ export const QuestionsTable = ({
       }
 
       if (!updatedData) {
-        toast.error("No data available to update.");
+        // if just status update is needed then no need updatedData
+        console.error("No data available to update.");
         return;
       }
 
-      if (userRole === "expert") {
+      if (userRole === "expert" && !status) {
         if (!flagReason || flagReason.trim().length < 8) {
           toast.error(
             "Please provide a valid reason for flagging (minimum 8 characters)."
@@ -173,8 +169,14 @@ export const QuestionsTable = ({
         return;
       }
 
-      await updateQuestion(updatedData);
-      toast.success("Question updated successfully.");
+      if (updatedData) {
+        const payload: IDetailedQuestion = status
+          ? { ...updatedData, status }
+          : updatedData;
+
+        await updateQuestion(payload);
+      }
+      if (!status) toast.success("Question updated successfully.");
       setEditOpen(false);
     } catch (error: any) {
       console.error("Error in handleUpdateQuestion:", error);
@@ -242,186 +244,25 @@ export const QuestionsTable = ({
                 </TableCell>
               </TableRow>
             ) : (
-              items?.map((q, idx) => {
-                // const isSecondLastItem = idx === items?.length - 2;
-                return (
-                  <TableRow
-                    key={q._id}
-                    className="text-center"
-                    // ref={isSecondLastItem ? lastElementRef : null}
-                  >
-                    <TableCell
-                      className="align-middle text-center"
-                      title={idx.toString()}
-                    >
-                      {(currentPage - 1) * totalPages + idx + 1}
-                    </TableCell>
-                    <TableCell
-                      className="text-start ps-3 w-[35%]"
-                      title={q.question}
-                    >
-                      <span
-                        className="cursor-pointer hover:underline"
-                        onClick={() => onViewMore(q._id?.toString() || "")}
-                      >
-                        {truncate(q.question, 60)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="align-middle text-center">
-                      {q.priority ? (
-                        <Badge
-                          variant={
-                            q.priority === "high"
-                              ? "destructive"
-                              : q.priority === "medium"
-                              ? "secondary"
-                              : "outline"
-                          }
-                          className={
-                            q.priority === "high"
-                              ? "bg-red-500/10 text-red-600 border-red-500/30"
-                              : q.priority === "medium"
-                              ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-                              : "bg-green-500/10 text-green-600 border-green-500/30"
-                          }
-                        >
-                          {q.priority.charAt(0).toUpperCase() +
-                            q.priority.slice(1)}
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="text-muted-foreground"
-                        >
-                          NIL
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="align-middle">
-                      {q.details.state}
-                    </TableCell>
-                    <TableCell className="align-middle">
-                      {q.details.crop}
-                    </TableCell>
-                    <TableCell className="align-middle">
-                      <Badge variant="outline">{q.source}</Badge>
-                    </TableCell>
-                    <TableCell className="align-middle">
-                      <Badge
-                        variant={
-                          q.status === "in-review"
-                            ? "secondary"
-                            : q.status === "open"
-                            ? "outline"
-                            : q.status === "closed"
-                            ? "destructive"
-                            : "outline"
-                        }
-                        className={
-                          q.status === "in-review"
-                            ? "bg-green-500/10 text-green-600 border-green-500/30"
-                            : q.status === "open"
-                            ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                            : q.status === "closed"
-                            ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-                            : "bg-muted text-foreground"
-                        }
-                      >
-                        {q.status ? q.status.replace("_", " ") : "NIL"}
-                      </Badge>
-                    </TableCell>
-
-                    <TableCell className="align-middle">
-                      {q.totalAnswersCount}
-                    </TableCell>
-                    <TableCell className="align-middle">
-                      {formatDate(new Date(q.createdAt!))}
-                    </TableCell>
-                    <TableCell className="align-middle">
-                      <div className="flex justify-center">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button size="sm" variant="outline" className="p-1">
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44">
-                            <DropdownMenuItem
-                              onClick={() =>
-                                onViewMore(q._id?.toString() || "")
-                              }
-                              className="hover:bg-primary/10"
-                            >
-                              <Eye className="w-4 h-4 mr-2 text-primary" />
-                              View
-                            </DropdownMenuItem>
-
-                            <DropdownMenuSeparator />
-
-                            {userRole === "expert" ? (
-                              <>
-                                <DropdownMenuItem
-                                  onSelect={(e) => {
-                                    e.preventDefault();
-                                    setSelectedQuestion(q);
-                                    setEditOpen(true);
-                                  }}
-                                >
-                                  <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
-                                  Raise Flag
-                                </DropdownMenuItem>
-                              </>
-                            ) : (
-                              <>
-                                <DropdownMenuItem
-                                  onSelect={(e) => {
-                                    e.preventDefault();
-                                    setSelectedQuestion(q);
-                                    setEditOpen(true);
-                                  }}
-                                >
-                                  <Edit className="w-4 h-4 mr-2 text-blue-500" />
-                                  {updatingQuestion ? "Editing..." : "Edit"}
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-
-                                <DropdownMenuItem
-                                  onSelect={(e) => {
-                                    e.preventDefault();
-                                    setQuestionIdToDelete(q._id!);
-                                  }}
-                                >
-                                  <ConfirmationModal
-                                    title="Delete Question Permanently?"
-                                    description="Are you sure you want to delete this question? This action is irreversible and will also remove all related data, including submissions, answers, and flag requests."
-                                    confirmText="Delete"
-                                    cancelText="Cancel"
-                                    isLoading={deletingQuestion}
-                                    type="delete"
-                                    onConfirm={async () => {
-                                      await handleDelete();
-                                    }}
-                                    trigger={
-                                      <button className="flex justify-center items-center gap-2">
-                                        <Trash className="w-4 h-4 mr-2 text-red-500" />
-                                        {deletingQuestion
-                                          ? "Deleting..."
-                                          : "Delete"}
-                                      </button>
-                                    }
-                                  />
-                                  {/* <Trash className="w-4 h-4 mr-2 text-red-500" />
-                                  Delete */}
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
+              items?.map((q, idx) => (
+                <QuestionRow
+                  currentPage={currentPage}
+                  deletingQuestion={deletingQuestion}
+                  handleDelete={handleDelete}
+                  idx={idx}
+                  onViewMore={onViewMore}
+                  q={q}
+                  setUpdatedData={setUpdatedData}
+                  updateQuestion={handleUpdateQuestion}
+                  setEditOpen={setEditOpen}
+                  setQuestionIdToDelete={setQuestionIdToDelete}
+                  setSelectedQuestion={setSelectedQuestion}
+                  totalPages={totalPages}
+                  updatingQuestion={updatingQuestion}
+                  userRole={userRole!}
+                  key={q._id}
+                />
+              ))
             )}
           </TableBody>
         </Table>
@@ -456,7 +297,7 @@ export const QuestionsTable = ({
       {/* HEADER */}
       <CardHeader className="flex justify-between items-center text-sm text-muted-foreground px-4 sm:px-5 md:px-6">
         <span>#{(currentPage - 1) * totalPages + idx + 1}</span>
-        <span className="text-right">{formatDate(q.createdAt)}</span>
+        <span className="text-right">{formatDate(new Date(q.createdAt!))}</span>
       </CardHeader>
 
       {/* CONTENT */}
@@ -548,6 +389,232 @@ export const QuestionsTable = ({
         onPageChange={(page) => setCurrentPage(page)}
       />
     </div>
+  );
+};
+
+interface QuestionRowProps {
+  q: IDetailedQuestion;
+  idx: number;
+  currentPage: number;
+  totalPages: number;
+  userRole: UserRole;
+  updatingQuestion: boolean;
+  deletingQuestion: boolean;
+  setEditOpen: (val: boolean) => void;
+  setSelectedQuestion: (q: any) => void;
+  setQuestionIdToDelete: (id: string) => void;
+  handleDelete: () => Promise<void>;
+  setUpdatedData: React.Dispatch<
+    React.SetStateAction<IDetailedQuestion | null>
+  >;
+  updateQuestion: (
+    mode: "add" | "edit",
+    entityId?: string,
+    flagReason?: string,
+    status?: QuestionStatus
+  ) => Promise<void>;
+  onViewMore: (id: string) => void;
+}
+
+const QuestionRow: React.FC<QuestionRowProps> = ({
+  q,
+  idx,
+  currentPage,
+  totalPages,
+  userRole,
+  updatingQuestion,
+  updateQuestion,
+  deletingQuestion,
+  setUpdatedData,
+  setEditOpen,
+  setSelectedQuestion,
+  setQuestionIdToDelete,
+  handleDelete,
+  onViewMore,
+}) => {
+  const triggeredRef = useRef(false);
+
+  const handleDelayStatus = useCallback(() => {
+    if (triggeredRef.current) return;
+    if (!q || !q.status || q.status === "delayed" || q.status !== "open")
+      return;
+
+    triggeredRef.current = true;
+    setUpdatedData(q);
+    updateQuestion("edit", q._id, undefined, "delayed");
+  }, [q, updateQuestion, setUpdatedData]);
+
+  const timer = useCountdown(q.createdAt!, 4, handleDelayStatus);
+
+  const serialNumber = useMemo(
+    () => (currentPage - 1) * totalPages + idx + 1,
+    [currentPage, totalPages, idx]
+  );
+
+  const priorityBadge = useMemo(() => {
+    if (!q.priority)
+      return (
+        <Badge variant="outline" className="text-muted-foreground">
+          NIL
+        </Badge>
+      );
+
+    const colorClass =
+      q.priority === "high"
+        ? "bg-red-500/10 text-red-600 border-red-500/30"
+        : q.priority === "medium"
+        ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+        : "bg-green-500/10 text-green-600 border-green-500/30";
+
+    return (
+      <Badge variant="outline" className={colorClass}>
+        {q.priority.charAt(0).toUpperCase() + q.priority.slice(1)}
+      </Badge>
+    );
+  }, [q.priority]);
+
+  const statusBadge = useMemo(() => {
+    const status = q.status || "NIL";
+    const formatted = status.replace("_", " ");
+
+    const colorClass =
+      status === "in-review"
+        ? "bg-green-500/10 text-green-600 border-green-500/30"
+        : status === "open"
+        ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+        : status === "closed"
+        ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
+        : "bg-muted text-foreground";
+
+    return (
+      <Badge variant="outline" className={colorClass}>
+        {formatted}
+      </Badge>
+    );
+  }, [q.status]);
+
+  return (
+    <TableRow key={q._id} className="text-center">
+      {/* Serial Number */}
+      <TableCell className="align-middle text-center" title={idx.toString()}>
+        {serialNumber}
+      </TableCell>
+
+      {/* Question Text */}
+      <TableCell className="text-start ps-3 w-[35%]" title={q.question}>
+        <div className="flex flex-col gap-1">
+          <span
+            className="cursor-pointer hover:underline"
+            onClick={() => onViewMore(q._id?.toString() || "")}
+          >
+            {truncate(q.question, 60)}
+          </span>
+          {q.status !== "delayed" && (
+            <TimerDisplay timer={timer} status={q.status} />
+          )}
+        </div>
+      </TableCell>
+
+      {/* Priority */}
+      <TableCell className="align-middle text-center">
+        {priorityBadge}
+      </TableCell>
+
+      {/* Details */}
+      <TableCell className="align-middle">{q.details.state}</TableCell>
+      <TableCell className="align-middle">{q.details.crop}</TableCell>
+
+      {/* Source */}
+      <TableCell className="align-middle">
+        <Badge variant="outline">{q.source}</Badge>
+      </TableCell>
+
+      {/* Status */}
+      <TableCell className="align-middle">{statusBadge}</TableCell>
+
+      {/* Total Answers */}
+      <TableCell className="align-middle">{q.totalAnswersCount}</TableCell>
+
+      <TableCell className="align-middle">
+        {formatDate(new Date(q.createdAt!), false)}
+      </TableCell>
+
+      {/* Actions */}
+      <TableCell className="align-middle">
+        <div className="flex justify-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="p-1">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem
+                onClick={() => onViewMore(q._id?.toString() || "")}
+                className="hover:bg-primary/10"
+              >
+                <Eye className="w-4 h-4 mr-2 text-primary" />
+                View
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              {userRole === "expert" ? (
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setSelectedQuestion(q);
+                    setEditOpen(true);
+                  }}
+                >
+                  <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
+                  Raise Flag
+                </DropdownMenuItem>
+              ) : (
+                <>
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setSelectedQuestion(q);
+                      setEditOpen(true);
+                    }}
+                  >
+                    <Edit className="w-4 h-4 mr-2 text-blue-500" />
+                    {updatingQuestion ? "Editing..." : "Edit"}
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setQuestionIdToDelete(q._id!);
+                    }}
+                  >
+                    <ConfirmationModal
+                      title="Delete Question Permanently?"
+                      description="Are you sure you want to delete this question? This action is irreversible and will also remove all related data, including submissions, answers, and flag requests."
+                      confirmText="Delete"
+                      cancelText="Cancel"
+                      isLoading={deletingQuestion}
+                      type="delete"
+                      onConfirm={handleDelete}
+                      trigger={
+                        <button className="flex justify-center items-center gap-2">
+                          <Trash className="w-4 h-4 mr-2 text-red-500" />
+                          {deletingQuestion ? "Deleting..." : "Delete"}
+                        </button>
+                      }
+                    />
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 };
 
@@ -712,6 +779,7 @@ export const AddOrEditQuestionDialog = ({
                       <SelectContent>
                         <SelectItem value="open">Open</SelectItem>
                         <SelectItem value="in-review">In review</SelectItem>
+                        <SelectItem value="delayed">Delayed</SelectItem>
                         <SelectItem value="closed">Closed</SelectItem>
                       </SelectContent>
                     </Select>
@@ -883,212 +951,6 @@ export const QuestionsFilters = ({
   );
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion();
-
-  //     const detailsArray = [
-  //   {
-  //     state: 'Tamil Nadu',
-  //     district: 'Thanjavur',
-  //     crop: 'Rice',
-  //     season: 'Kharif',
-  //     domain: 'Agriculture',
-  //   },
-  //   {
-  //     state: 'Maharashtra',
-  //     district: 'Pune',
-  //     crop: 'Sugarcane',
-  //     season: 'Rabi',
-  //     domain: 'Irrigation',
-  //   },
-  //   {
-  //     state: 'Punjab',
-  //     district: 'Ludhiana',
-  //     crop: 'Wheat',
-  //     season: 'Rabi',
-  //     domain: 'Soil Management',
-  //   },
-  //   {
-  //     state: 'Karnataka',
-  //     district: 'Mysuru',
-  //     crop: 'Ragi',
-  //     season: 'Kharif',
-  //     domain: 'Fertilizer',
-  //   },
-  //   {
-  //     state: 'Gujarat',
-  //     district: 'Rajkot',
-  //     crop: 'Cotton',
-  //     season: 'Kharif',
-  //     domain: 'Pesticide',
-  //   },
-  //   {
-  //     state: 'Uttar Pradesh',
-  //     district: 'Varanasi',
-  //     crop: 'Rice',
-  //     season: 'Kharif',
-  //     domain: 'Water Resources',
-  //   },
-  //   {
-  //     state: 'Andhra Pradesh',
-  //     district: 'Guntur',
-  //     crop: 'Chili',
-  //     season: 'Rabi',
-  //     domain: 'Crop Protection',
-  //   },
-  //   {
-  //     state: 'Rajasthan',
-  //     district: 'Jaipur',
-  //     crop: 'Bajra',
-  //     season: 'Kharif',
-  //     domain: 'Dryland Farming',
-  //   },
-  //   {
-  //     state: 'Madhya Pradesh',
-  //     district: 'Indore',
-  //     crop: 'Soybean',
-  //     season: 'Kharif',
-  //     domain: 'Sustainable Farming',
-  //   },
-  //   {
-  //     state: 'West Bengal',
-  //     district: 'Kolkata',
-  //     crop: 'Jute',
-  //     season: 'Kharif',
-  //     domain: 'Agro Processing',
-  //   },
-  // ];
-
-  // const priorities: QuestionPriority[] = ['high', 'low', 'medium'];
-  // const questionStatus: QuestionStatus[] = ['in-review', 'closed', 'open'];
-
-  // const sources: ('AJRASAKHA' | 'AGRI_EXPERT')[] = ['AJRASAKHA', 'AGRI_EXPERT'];
-
-  // const dummyQuestions: string[] = [
-  //   'What are the major types of soil found in India?',
-  //   'How does crop rotation improve soil fertility?',
-  //   'What are the effects of over-irrigation on soil health?',
-  //   'Explain the role of nitrogen in plant growth.',
-  //   'What is the significance of organic farming in sustainable agriculture?',
-  //   'How does deforestation contribute to climate change?',
-  //   'What is precision agriculture and how does it work?',
-  //   'Explain the process of photosynthesis and its importance.',
-  //   'What are the different methods of irrigation used in agriculture?',
-  //   'How does salinity affect crop production?',
-  //   'What is the difference between Kharif and Rabi crops?',
-  //   'How does soil pH affect nutrient availability?',
-  //   'What are biofertilizers and why are they important?',
-  //   'Explain the concept of integrated pest management (IPM).',
-  //   'What are greenhouse gases and how do they affect agriculture?',
-  //   'How does contour plowing prevent soil erosion?',
-  //   'What is the role of drones in modern agriculture?',
-  //   'Explain how climate change impacts crop yield.',
-  //   'What are genetically modified (GM) crops and their advantages?',
-  //   'How does mulching help in water conservation?',
-  //   'What are the main causes of land degradation?',
-  //   'Explain how organic matter improves soil structure.',
-  //   'What are the common diseases that affect rice crops?',
-  //   'What are the advantages of drip irrigation systems?',
-  //   'How does overuse of fertilizers affect groundwater?',
-  //   'What is agroforestry and what are its benefits?',
-  //   'Explain how carbon sequestration helps reduce global warming.',
-  //   'What is the impact of pesticides on the ecosystem?',
-  //   'What is crop diversification and why is it important?',
-  //   'Explain the importance of soil testing before cultivation.',
-  //   'What are the effects of acid rain on agriculture?',
-  //   'What is vermicomposting and how is it done?',
-  //   'What are micronutrients essential for plant growth?',
-  //   'Explain the role of mycorrhiza in plant development.',
-  //   'How can remote sensing be used in agriculture?',
-  //   'What are the benefits of conservation tillage?',
-  //   'Explain the concept of zero-budget natural farming.',
-  //   'What are the major challenges in rainfed agriculture?',
-  //   'How does global warming affect rainfall patterns?',
-  //   'What is the role of pollinators in food production?',
-  //   'How can farmers adapt to climate variability?',
-  //   'Explain the function of soil microorganisms in nutrient cycling.',
-  //   'What are the impacts of plastic pollution on farmlands?',
-  //   'What are sustainable irrigation practices?',
-  //   'How does salinity intrusion occur in coastal agriculture?',
-  //   'Explain the role of cover crops in maintaining soil fertility.',
-  //   'What is the importance of biodiversity in agro-ecosystems?',
-  //   'How can renewable energy be integrated into farming?',
-  //   'What is hydroponics and how does it differ from traditional farming?',
-  //   'Explain the difference between weather and climate.',
-  //   'What are the major greenhouse gases and their sources?',
-  //   'What are the advantages of mixed cropping?',
-  //   'How does deforestation affect water cycles?',
-  //   'What are the principles of sustainable agriculture?',
-  //   'Explain the process of evapotranspiration.',
-  //   'What is the role of carbon dioxide in plant growth?',
-  //   'What are the environmental impacts of livestock farming?',
-  //   'How do pesticides contaminate soil and water?',
-  //   'What are the different types of composting methods?',
-  //   'What are the benefits of crop insurance for farmers?',
-  //   'Explain the importance of watershed management.',
-  //   'What are the causes and effects of desertification?',
-  //   'How does temperature affect crop germination?',
-  //   'What is the impact of heavy metals on soil health?',
-  //   'What is aquaponics and how does it function?',
-  //   'Explain the significance of green manures in agriculture.',
-  //   'How does intercropping help in pest management?',
-  //   'What is precision irrigation and how does it save water?',
-  //   'What is the role of GIS in agricultural planning?',
-  //   'How does afforestation help in climate regulation?',
-  //   'What are biopesticides and how are they used?',
-  //   'Explain how rainfall variability affects farming operations.',
-  //   'What are the environmental benefits of organic agriculture?',
-  //   'How can farmers reduce carbon emissions from agriculture?',
-  //   'What are the common methods of soil conservation?',
-  //   'How does population growth impact agricultural sustainability?',
-  //   'What are drought-resistant crop varieties?',
-  //   'Explain the impact of climate change on pest populations.',
-  //   'How does irrigation efficiency affect energy use in agriculture?',
-  //   'What are the key indicators of soil health?',
-  //   'How do fertilizers affect the nitrogen cycle?',
-  //   'What are the advantages of using renewable fertilizers?',
-  //   'What is the significance of the Green Revolution?',
-  //   'Explain how technology improves agricultural productivity.',
-  //   'What are the challenges in implementing sustainable farming practices?',
-  //   'How do invasive species affect local ecosystems?',
-  //   'What is carbon farming and its importance?',
-  //   'How can artificial intelligence be used in agriculture?',
-  //   'What are eco-friendly alternatives to chemical fertilizers?',
-  //   'How do wetlands contribute to ecosystem balance?',
-  //   'What is precision livestock farming?',
-  //   'What are the negative impacts of monocropping?',
-  //   'Explain the relationship between agriculture and water scarcity.',
-  //   'How does climate-smart agriculture promote sustainability?',
-  //   'What is the role of government policies in environmental conservation?',
-  //   'What are the benefits of community-based natural resource management?',
-  //   'How do soil organisms contribute to decomposition?',
-  //   'What are sustainable practices to control soil erosion?',
-  //   'How does groundwater depletion affect agriculture?',
-  //   'What are the principles of regenerative agriculture?',
-  // ];
-  // const handleAddQuestion = async () => {
-  //   try {
-  //     const toastId = toast.loading("Adding 100 questions...");
-
-  //     const questionsToCreate = Array.from({ length: 100 }).map((_, i) => ({
-  //       question: dummyQuestions[i % dummyQuestions.length],
-  //       priority: priorities[Math.floor(Math.random() * priorities.length)],
-  //       source: sources[Math.floor(Math.random() * sources.length)],
-  //       details: detailsArray[i % detailsArray.length],
-  //       context: "",
-  //     }));
-
-  //     // Limit number of concurrent requests to avoid overloading backend
-  //     const CONCURRENT_LIMIT = 10;
-  //     for (let i = 0; i < questionsToCreate.length; i += CONCURRENT_LIMIT) {
-  //       const batch = questionsToCreate.slice(i, i + CONCURRENT_LIMIT);
-  //       await Promise.all(batch.map(payload => addQuestion(payload)));
-  //     }
-
-  //     toast.success("100 questions added successfully!", { id: toastId });
-  //   } catch (err) {
-  //     console.error("Failed to add questions:", err);
-  //     toast.error("Failed to add questions");
-  //   }
-  // };
 
   const handleAddQuestion = async (mode: "add" | "edit") => {
     try {

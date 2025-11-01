@@ -1,7 +1,7 @@
 import {ObjectId} from 'mongodb';
 
 export type UserRole = 'admin' | 'moderator' | 'expert';
-export type QuestionStatus = 'open' | 'in-review' | 'closed';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed';
 export interface IPreference {
   state: string;
   crop: string;
@@ -15,7 +15,7 @@ export interface IUser {
   lastName?: string;
   preference?: IPreference | null;
   reputation_score: number;
-  notifications?:number;
+  notifications?: number;
   role: UserRole;
   createdAt?: Date;
   updatedAt?: Date;
@@ -60,6 +60,7 @@ export interface IAnswer {
   answerIteration: number;
   approvalCount: number;
   isFinalAnswer: boolean;
+  approvedBy?: string | ObjectId;
   answer: string;
   sources: string[];
   embedding: number[];
@@ -132,23 +133,23 @@ export type IRequest = RequestDetails & {
   updatedAt?: string | Date;
 };
 
-export type INotificationType = "flag" | "answer_creation" | "peer_review"
-export interface INotification{
-   _id?: string | ObjectId;
-  userId:string | ObjectId;
-  enitity_id?:string | ObjectId;
-  title:string;
+export type INotificationType = 'flag' | 'answer_creation' | 'peer_review';
+export interface INotification {
+  _id?: string | ObjectId;
+  userId: string | ObjectId;
+  enitity_id?: string | ObjectId;
+  title: string;
   // type:INotificationType;
-  type:string;
-  message:string;
-  is_read:boolean;
+  type: string;
+  message: string;
+  is_read: boolean;
   createdAt?: string | Date;
   updatedAt?: string | Date;
 }
 
 export interface ISubscription {
-  _id?: string | ObjectId; 
-  userId:string| ObjectId;
+  _id?: string | ObjectId;
+  userId: string | ObjectId;
   subscription: {
     endpoint: string;
     keys: {

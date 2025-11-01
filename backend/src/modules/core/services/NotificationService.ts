@@ -7,8 +7,11 @@ import {
   AddPushSubscriptionBody,
   NotificationResponse,
 } from '../classes/validators/NotificationValidators.js';
-import { NotFoundError } from 'routing-controllers';
-import { sendPushNotification } from '#root/utils/pushNotification.js';
+import {NotFoundError} from 'routing-controllers';
+import {
+  notifyUser,
+  sendPushNotification,
+} from '#root/utils/pushNotification.js';
 
 @injectable()
 export class NotificationService extends BaseService {
@@ -86,34 +89,56 @@ export class NotificationService extends BaseService {
 
   async saveSubscription(userId: string, subscription: any) {
     // return this._withTransaction(async (session: ClientSession) => {
-      return await this.notificationRepository.saveSubscription(
-        userId,
-        subscription,
-        // session,
-      );
+    return await this.notificationRepository.saveSubscription(
+      userId,
+      subscription,
+      // session,
+    );
     // });
   }
 
   async sendNotifications(userId: string, message: string) {
     // return this._withTransaction(async (session: ClientSession) => {
-      if (!userId || !message) {
-        throw new Error('Fields are required');
-      }
+    if (!userId || !message) {
+      throw new Error('Fields are required');
+    }
 
-      const subscription = await this.notificationRepository.getSubscriptionByUserId(
+    const subscription =
+      await this.notificationRepository.getSubscriptionByUserId(userId);
+    if (!subscription) {
+      throw new NotFoundError('Subscription is not found');
+    }
+
+    const payload = {
+      title: 'Notification',
+      body: message,
+      url: '/notifications',
+    };
+
+    await sendPushNotification(subscription.subscription, payload);
+    // });
+  }
+
+  async saveTheNotifications(
+    message: string,
+    title: string,
+    entityId: string,
+    userId: string,
+    type: string,
+    session?:ClientSession
+  ) {
+    // return await this._withTransaction(async (session: ClientSession) => {
+      await this.notificationRepository.addNotification(
         userId,
+        entityId,
+        type,
+        message,
+        title,
+        session,
       );
-      if (!subscription){
-        throw new NotFoundError('Subscription is not found')
-      }
-
-      const payload = {
-        title: 'Notification',
-        body: message, 
-        url: '/notifications',
-      };
-
-      await sendPushNotification(subscription.subscription, payload);
+      const subscription =
+        await this.notificationRepository.getSubscriptionByUserId(userId); 
+      await notifyUser(userId, title, subscription);
     // });
   }
 }
