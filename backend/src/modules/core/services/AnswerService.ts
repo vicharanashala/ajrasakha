@@ -558,8 +558,9 @@ export class AnswerService extends BaseService {
 
       const text = `Question: ${question.question}
         answer: ${answer}`;
-      const {embedding: questionEmbedding} =
-        await this.aiService.getEmbedding(text);
+      // const {embedding: questionEmbedding} =
+      //   await this.aiService.getEmbedding(text);
+      const questionEmbedding = [];
 
       await this.questionRepo.updateQuestion(
         questionId,
