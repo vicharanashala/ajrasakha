@@ -33,6 +33,7 @@ export interface IUser {
   notifications?:number;
   createdAt?: Date;
   updatedAt?: Date;
+  reputation_score?:number
 }
 export type QuestionPriority = "low" | "medium" | "high";
 export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT";
