@@ -123,6 +123,283 @@ async def retry_with_backoff(func, *args, max_retries=MAX_RETRIES, **kwargs):
 
 
 @mcp.tool()
+async def get_weather_forecast(
+    city: Optional[str] = None,
+    lat: Optional[float] = None,
+    lon: Optional[float] = None,
+    zip_code: Optional[str] = None,
+    country_code: Optional[str] = "IN",
+    units: str = "metric",
+    lang: str = "en",
+    days: int = 3,
+    use_fallback: bool = False,
+) -> dict:
+    """
+    Get weather forecast for the next `days` days.
+    Tries OpenWeatherMap first (more uniform with your current tool),
+    then falls back to WeatherAPI.
+    """
+    # basic validation
+    if days < 1:
+        raise ValueError("days must be >= 1")
+    if days > 16:
+        # 16 is a pragmatic ceiling, since many APIs top out before that
+        days = 16
+
+    # prefer coordinates, same as current
+    if (lat is None) != (lon is None):
+        raise ValueError("Provide both 'lat' and 'lon' together, or neither.")
+
+    if use_fallback:
+        return await _get_forecast_from_weatherapi(
+            city=city, lat=lat, lon=lon,
+            units=units, lang=lang, days=days
+        )
+    else:
+        ow = await _get_forecast_from_openweathermap(
+            city=city, lat=lat, lon=lon, zip_code=zip_code,
+            country_code=country_code, units=units, lang=lang, days=days
+        )
+        if not ow.get("success", True):
+            logger.warning(f"OpenWeatherMap forecast failed: {ow.get('error')}. Falling back.")
+            return await _get_forecast_from_weatherapi(
+                city=city, lat=lat, lon=lon,
+                units=units, lang=lang, days=days
+            )
+        return ow
+
+async def _get_forecast_from_openweathermap(
+    city: Optional[str],
+    lat: Optional[float],
+    lon: Optional[float],
+    zip_code: Optional[str],
+    country_code: str,
+    units: str,
+    lang: str,
+    days: int,
+) -> dict:
+    api_key = os.getenv("OPENWEATHERMAP_API_KEY")
+    if not api_key:
+        return {
+            "success": False,
+            "error": "OPENWEATHERMAP_API_KEY not set",
+            "hint": "Set OPENWEATHERMAP_API_KEY or call with use_fallback=True"
+        }
+
+    # 1) if we have no coordinates, first resolve city/zip -> coords using your current logic
+    if lat is None and lon is None:
+        # reuse the current endpoint to resolve location
+        base = "https://api.openweathermap.org/data/2.5/weather"
+        params = {"appid": api_key, "units": units, "lang": lang}
+        if city:
+            city = city.strip()
+            params["q"] = f"{city},{country_code}" if country_code else city
+        elif zip_code:
+            zip_code = zip_code.strip()
+            params["zip"] = f"{zip_code},{country_code}" if country_code else zip_code
+        else:
+            return {"success": False, "error": "No location provided"}
+        
+        async def make_resolve_req():
+            async with httpx.AsyncClient() as client:
+                r = await client.get(base, params=params, timeout=TIMEOUT)
+                r.raise_for_status()
+                return r
+        
+        try:
+            r = await retry_with_backoff(make_resolve_req)
+            resolved = r.json()
+            lat = resolved["coord"]["lat"]
+            lon = resolved["coord"]["lon"]
+        except Exception as e:
+            logger.error(f"Failed to resolve city/zip to coords: {e}")
+            return {"success": False, "error": "resolve_failed", "detail": str(e)}
+
+    # 2) now call One Call
+    onecall_base = "https://api.openweathermap.org/data/3.0/onecall"
+    oc_params = {
+        "appid": api_key,
+        "lat": lat,
+        "lon": lon,
+        "units": units,
+        "lang": lang,
+        "exclude": "minutely,hourly,alerts",
+    }
+
+    async def make_onecall_req():
+        async with httpx.AsyncClient() as client:
+            r = await client.get(onecall_base, params=oc_params, timeout=TIMEOUT)
+            r.raise_for_status()
+            return r
+
+    try:
+        resp = await retry_with_backoff(make_onecall_req)
+    except httpx.HTTPStatusError as e:
+        return {
+            "success": False,
+            "error": "api_error",
+            "status_code": e.response.status_code,
+            "message": e.response.text[:200],
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": "request_failed",
+            "detail": str(e),
+        }
+
+    data = resp.json()
+    daily = data.get("daily", [])[:days]
+
+    # normalize
+    return {
+        "success": True,
+        "source": "OpenWeatherMap",
+        "units": units,
+        "language": lang,
+        "location": {
+            "coordinates": {"lat": lat, "lon": lon},
+            "timezone": data.get("timezone"),
+            "timezone_offset": data.get("timezone_offset")
+        },
+        "forecast_days": len(daily),
+        "forecast": [
+            {
+                "date_iso": datetime.fromtimestamp(d["dt"], tz=timezone.utc).isoformat(),
+                "sunrise_iso": datetime.fromtimestamp(d["sunrise"], tz=timezone.utc).isoformat() if d.get("sunrise") else None,
+                "sunset_iso": datetime.fromtimestamp(d["sunset"], tz=timezone.utc).isoformat() if d.get("sunset") else None,
+                "temp": d.get("temp", {}),
+                "feels_like": d.get("feels_like", {}),
+                "pressure_hpa": d.get("pressure"),
+                "humidity_percent": d.get("humidity"),
+                "wind_speed": d.get("wind_speed"),
+                "wind_deg": d.get("wind_deg"),
+                "clouds_percent": d.get("clouds"),
+                "rain_mm": d.get("rain", 0),
+                "snow_mm": d.get("snow", 0),
+                "weather": d.get("weather", []),
+            }
+            for d in daily
+        ],
+        "raw_response": data,
+    }
+
+
+async def _get_forecast_from_weatherapi(
+    city: Optional[str],
+    lat: Optional[float],
+    lon: Optional[float],
+    units: str,
+    lang: str,
+    days: int,
+) -> dict:
+    api_key = os.getenv("WEATHERAPI_KEY")
+    if not api_key:
+        return {
+            "success": False,
+            "error": "WEATHERAPI_KEY not set in environment",
+        }
+
+    if days > 10:
+        days = 10  # WeatherAPI forecast cap on typical plans
+
+    # location str
+    if city:
+        loc = city.strip()
+    elif lat is not None and lon is not None:
+        loc = f"{lat},{lon}"
+    else:
+        return {"success": False, "error": "Provide city or lat+lon"}
+
+    # language mapping same as your other helper
+    supported_langs = {"en","ar","bn","bg","zh","cs","nl","fi","fr","de","el","hi","hu","it","ja","jv","ko","mr","pl","pt","pa","ro","ru","sr","si","sk","es","sv","ta","te","tr","uk","ur","vi","zh_cn","zh_tw","zu"}
+    weatherapi_lang = lang if lang in supported_langs else "en"
+
+    base = "https://api.weatherapi.com/v1/forecast.json"
+    params = {
+        "key": api_key,
+        "q": loc,
+        "days": days,
+        "aqi": "yes",
+        "alerts": "no",
+        "lang": weatherapi_lang,
+    }
+
+    async def make_req():
+        async with httpx.AsyncClient() as client:
+            r = await client.get(base, params=params, timeout=TIMEOUT)
+            r.raise_for_status()
+            return r
+
+    try:
+        resp = await retry_with_backoff(make_req)
+    except Exception as e:
+        return {"success": False, "error": "request_failed", "detail": str(e)}
+
+    data = resp.json()
+    location = data.get("location", {})
+    forecast_days = data.get("forecast", {}).get("forecastday", [])
+
+    # unit conversion similar to your current fallback helper
+    out_days = []
+    for fd in forecast_days:
+        day = fd.get("day", {})
+        astro = fd.get("astro", {})
+        hour = fd.get("hour", [])
+
+        # WeatherAPI day temps are in C; convert if needed
+        max_c = day.get("maxtemp_c")
+        min_c = day.get("mintemp_c")
+        avg_c = day.get("avgtemp_c")
+
+        if units == "imperial":
+            def c2f(c): return (c * 9/5 + 32) if c is not None else None
+            max_t = c2f(max_c); min_t = c2f(min_c); avg_t = c2f(avg_c)
+            temp_unit = "°F"
+        elif units == "standard":
+            def c2k(c): return (c + 273.15) if c is not None else None
+            max_t = c2k(max_c); min_t = c2k(min_c); avg_t = c2k(avg_c)
+            temp_unit = "K"
+        else:
+            max_t = max_c; min_t = min_c; avg_t = avg_c
+            temp_unit = "°C"
+
+        out_days.append({
+            "date": fd.get("date"),
+            "date_epoch": fd.get("date_epoch"),
+            "temp": {
+                "max": max_t,
+                "min": min_t,
+                "avg": avg_t,
+                "unit": temp_unit,
+            },
+            "condition": day.get("condition", {}),
+            "humidity_percent": day.get("avghumidity"),
+            "rain_mm": day.get("totalprecip_mm"),
+            "max_wind_kph": day.get("maxwind_kph"),
+            "astro": astro,
+            "hourly": hour,  # you can drop or shorten this if payload is too big
+        })
+
+    return {
+        "success": True,
+        "source": "WeatherAPI.com",
+        "units": units,
+        "language": weatherapi_lang,
+        "location": {
+            "name": location.get("name"),
+            "country": location.get("country"),
+            "lat": location.get("lat"),
+            "lon": location.get("lon"),
+            "tz_id": location.get("tz_id"),
+        },
+        "forecast_days": len(out_days),
+        "forecast": out_days,
+        "raw_response": data,
+    }
+
+
+@mcp.tool()
 async def get_current_weather(
     city: Optional[str] = None,
     lat: Optional[float] = None,
@@ -545,4 +822,4 @@ async def _get_weather_from_weatherapi(
 
 
 if __name__ == "__main__":
-    mcp.run(transport='streamable-http', host='localhost', port=9004)
+    mcp.run(transport='streamable-http', host='0.0.0.0', port=9004)
