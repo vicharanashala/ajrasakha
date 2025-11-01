@@ -591,7 +591,26 @@ export const AddOrEditQuestionDialog = ({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="h-[420px]">
+        <div className="h-[420px] ">
+          {file ? (
+    // File preview: center content
+    <div className="flex items-center justify-center h-full">
+      <div className="flex flex-col items-center justify-center text-center space-y-4 border border-gray-300 rounded-md p-8 bg-gray-50 dark:bg-gray-900 transition-all">
+        <PaperclipIcon className="h-16 w-16 text-gray-500" />
+        <p className="text-lg font-medium text-gray-800 dark:text-gray-100">
+          {file.name}
+        </p>
+        <button
+          type="button"
+          onClick={() => setFile(null)}
+          className="text-sm text-red-500 hover:text-red-700 flex items-center gap-1"
+        >
+          <X className="h-4 w-4" />
+          Remove File
+        </button>
+      </div>
+    </div>
+  ) : (
           <ScrollArea className="h-full pr-4">
             <div className="grid gap-4 p-2">
               <div className="flex flex-col gap-4">
@@ -754,6 +773,7 @@ export const AddOrEditQuestionDialog = ({
               )}
             </div>
           </ScrollArea>
+  )}
         </div>
 
         <DialogFooter className="flex justify-end gap-2">
@@ -765,6 +785,7 @@ export const AddOrEditQuestionDialog = ({
             accept=".json"
             className="hidden"
             onChange={(e) => {
+              let input = e.target
               const selected = e.target.files?.[0];
               // if (selected) setFile(selected);
               setError(null);
@@ -774,6 +795,7 @@ export const AddOrEditQuestionDialog = ({
                 setTimeout(() => {
                   setError(null);
                 }, 2000);
+                input.value=''
                 return;
               }
               const maxSize = 5 * 1024 * 1024;
@@ -783,9 +805,11 @@ export const AddOrEditQuestionDialog = ({
                 setTimeout(() => {
                   setError(null);
                 }, 2000);
+                input.value=''
                 return;
               }
               setFile(selected);
+              input.value=''
             }}
           />
           
