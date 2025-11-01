@@ -25,6 +25,8 @@ import {
   Loader2,
   MessageSquareText,
   MoreVertical,
+  Paperclip,
+  PaperclipIcon,
   PencilLine,
   Plus,
   PlusCircle,
@@ -134,7 +136,7 @@ export const QuestionsTable = ({
     entityId?: string,
     flagReason?: string,
     status?: QuestionStatus,
-    formData?:FormData
+    formData?: FormData
   ) => {
     try {
       if (!entityId) {
@@ -329,7 +331,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
     updateQuestion("edit", q._id, undefined, "delayed");
   }, [q, updateQuestion, setUpdatedData]);
 
-  const timer = useCountdown(q.createdAt!, 4, handleDelayStatus);
+  const timer = useCountdown(q.createdAt!, 1, handleDelayStatus);
 
   const serialNumber = useMemo(
     () => (currentPage - 1) * totalPages + idx + 1,
@@ -514,14 +516,13 @@ interface AddOrEditQuestionDialogProps {
     mode: "add" | "edit",
     entityId?: string,
     flagReason?: string,
-    status?:QuestionStatus,
-    formData?:FormData
+    status?: QuestionStatus,
+    formData?: FormData
   ) => void;
   question?: IDetailedQuestion | null;
   userRole: UserRole;
   isLoadingAction: boolean;
   mode: "add" | "edit";
-
 }
 
 export const AddOrEditQuestionDialog = ({
@@ -756,71 +757,74 @@ export const AddOrEditQuestionDialog = ({
         </div>
 
         <DialogFooter className="flex justify-end gap-2">
-          
-            {/* <X className="mr-2 h-4 w-4" aria-hidden="true" />  */}
-          
-  <input
-    type="file"
-    id="upload-json"
-    accept=".json"
-    className="hidden"
-    onChange={(e) => {
-      const selected = e.target.files?.[0];
-      // if (selected) setFile(selected);
-      setError(null)
-      if(selected?.type !== 'application/json'){
-        setError("Only JSON files are allowed.")
-        setFile(undefined)
-        setTimeout(() => {
-          setError(null)
-        },2000)
-        return
-      }
-      const maxSize = 5 * 1024 * 1024
-      if(selected.size >maxSize){
-        setError("File size must be less than 5MB.")
-        setFile(undefined)
-        setTimeout(() => {
-          setError(null)
-        },2000)
-        return
-      }
-      setFile(selected)
-    }}
-  />
-  <label htmlFor="upload-json">
-    <Button
-      asChild
-      variant={file ? "default" : "outline"}
-      className={`cursor-pointer ${file ? "bg-green-600 text-white hover:bg-green-700" : ""}`}
-    >
-      <span className="flex items-center gap-2">
-        <Upload className="h-4 w-4" />
-        {/* {file ? `File Selected: ${file.name}` : "Upload JSON"} */}
-        {file ? (
-        <>
-          File Selected: {file.name}
-          {/* ✅ NEW: Add a remove button/icon */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation(); // Prevent triggering file select again
-              e.preventDefault()
-              setFile(undefined);  // Remove the file
-            }}
-            className="ml-2 text-red-500 hover:text-red-700"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </>
-      ) : (
-        "Upload JSON"
-      )}
-      </span>
-    </Button>
-  </label>
-  {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+          {/* <X className="mr-2 h-4 w-4" aria-hidden="true" />  */}
 
+          <input
+            type="file"
+            id="upload-json"
+            accept=".json"
+            className="hidden"
+            onChange={(e) => {
+              const selected = e.target.files?.[0];
+              // if (selected) setFile(selected);
+              setError(null);
+              if (selected?.type !== "application/json") {
+                setError("Only JSON files are allowed.");
+                setFile(null);
+                setTimeout(() => {
+                  setError(null);
+                }, 2000);
+                return;
+              }
+              const maxSize = 5 * 1024 * 1024;
+              if (selected.size > maxSize) {
+                setError("File size must be less than 5MB.");
+                setFile(null);
+                setTimeout(() => {
+                  setError(null);
+                }, 2000);
+                return;
+              }
+              setFile(selected);
+            }}
+          />
+          
+
+          <label htmlFor="upload-json">
+            <Button
+              asChild
+              variant="default"
+              className="bg-dark hover:bg-dark  cursor-pointer flex items-center gap-2"
+            >
+              <span className="flex items-center gap-2">
+                {file ? (
+                  <>
+                    {/* <Attachment className="h-4 w-4" /> Show attachment icon */}
+                    <PaperclipIcon className="h-4 w-4" />
+                    {file.name} {/* Show only file name */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setFile(null); // Remove file
+                      }}
+                      className="ml-2 text-dark "
+                    >
+                      <X className="h-4 w-4 text-dark dark:text-white" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />{" "}
+                    Upload JSON
+                  </>
+                )}
+              </span>
+            </Button>
+          </label>
+
+          {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
 
           <Button variant="outline" onClick={() => setOpen(false)}>
             <X className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -830,24 +834,15 @@ export const AddOrEditQuestionDialog = ({
           {mode === "add" ? (
             <Button
               variant="default"
-              // onClick={() => {
-              //   onSave?.("add");
-              // }}
-               onClick={() => {
-    if (file) {
-      // If a file is uploaded, send it using FormData through the same API
-      const formData = new FormData();
-      formData.append("file", file);
-
-      // You can also append other fields if required by the backend
-      // formData.append("mode", "add");
-
-      onSave?.("add", undefined, undefined,undefined, formData);
-    } else {
-      // Normal form submission (no file)
-      onSave?.("add");
-    }
-  }}
+              onClick={() => {
+                if (file) {
+                  const formData = new FormData();
+                  formData.append("file", file);
+                  onSave?.("add", undefined, undefined, undefined, formData);
+                } else {
+                  onSave?.("add");
+                }
+              }}
             >
               <Save className="mr-2 h-4 w-4" aria-hidden="true" />
               {isLoadingAction ? "Adding..." : "Add Question"}
@@ -922,15 +917,20 @@ export const QuestionsFilters = ({
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion();
 
-  const handleAddQuestion = async (mode: "add" | "edit",entityId?: string,
-  flagReason?: string,status?:QuestionStatus,formData?:FormData) => {
+  const handleAddQuestion = async (
+    mode: "add" | "edit",
+    entityId?: string,
+    flagReason?: string,
+    status?: QuestionStatus,
+    formData?: FormData
+  ) => {
     try {
       if (mode !== "add") return;
-      if(formData){
-        await addQuestion(formData as any)
+      if (formData) {
+        await addQuestion(formData as any);
         // toast.success('File Uploaded succesfully')
-        setAddOpen(false)
-        return
+        setAddOpen(false);
+        return;
       }
       if (!updatedData) {
         toast.error("No data found to add. Please try again!");

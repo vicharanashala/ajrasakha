@@ -142,33 +142,6 @@ export class QuestionController {
             : `✅ ${successCount} questions added successfully, ❌ ${failedCount} failed.`;
 
         return {message};
-        // const results = await Promise.allSettled(
-        //   payload.map(question =>
-        //     this.questionService.addQuestion(userId, question),
-        //   ),
-        // );
-        // console.log('promise result ',results)
-        // let successCount = 0;
-        // let failedCount = 0;
-
-        // results.forEach((result, index) => {
-        //   if (result.status === 'fulfilled') {
-        //     successCount++;
-        //   } else {
-        //     failedCount++;
-        //     console.error(
-        //       `❌ Failed to insert question #${index + 1}:`,
-        //       result.reason?.message,
-        //     );
-        //   }
-        // });
-
-        // const message =
-        //   failedCount === 0
-        //     ? `✅ All ${successCount} questions added successfully.`
-        //     : `✅ ${successCount} questions added successfully, ❌ ${failedCount} failed.`;
-
-        // return {message};
       } catch (err) {
         console.error('Error during addQuestion:', err);
         throw err;
