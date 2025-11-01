@@ -1,3 +1,13 @@
 hf_cache/
 .vscode/
 __pycache__/
+
+# Virtual environment folders
+.venv/
+venv/
+env/
+ENV/
+tests/
+docs/
+# Local requirements
+requirements.txt
