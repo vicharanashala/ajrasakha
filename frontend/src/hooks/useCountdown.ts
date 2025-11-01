@@ -7,7 +7,9 @@ export const useCountdown = (
 ) => {
   const targetTime =
     new Date(createdAt).getTime() + durationHours * 60 * 60 * 1000;
-  const [remaining, setRemaining] = useState(targetTime - Date.now());
+  const [remaining, setRemaining] = useState(() =>
+    Math.max(targetTime - Date.now(), 0)
+  );
 
   useEffect(() => {
     if (remaining <= 0) {
