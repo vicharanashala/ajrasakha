@@ -569,7 +569,8 @@ export class AnswerService extends BaseService {
         true,
       );
 
-      const {embedding} = await this.aiService.getEmbedding(text);
+      // const {embedding} = await this.aiService.getEmbedding(text);
+      const embedding = [];
       const payload: Partial<IAnswer> = {
         ...updates,
         embedding,
