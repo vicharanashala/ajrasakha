@@ -2,12 +2,12 @@ import { Clock, AlertTriangle } from "lucide-react";
 import React from "react";
 
 interface TimerDisplayProps {
-  timer: string; 
+  timer: string;
   status?: string;
   warningThreshold?: number;
   criticalThreshold?: number;
   className?: string;
-  size?: "sm" | "md" | "lg"; 
+  size?: "sm" | "md" | "lg";
 }
 
 export const TimerDisplay: React.FC<TimerDisplayProps> = ({
@@ -22,7 +22,8 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
   if (!timer) return null;
 
   const [hours, minutes] = timer.split(":").map(Number);
-
+  if (timer === "00:00:00") return null;
+  
   const sizeMap = {
     sm: { icon: "w-3 h-3", text: "text-xs" },
     md: { icon: "w-4 h-4", text: "text-sm" },
