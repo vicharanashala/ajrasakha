@@ -59,16 +59,61 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
     return processed_nodes
 
 
+import requests
+
 @mcp.tool()
-async def upload_question_to_reviewer_system(question: str, state_code: str, crop: str) -> dict:
+async def upload_question_to_reviewer_system(question: str, state_name: str, crop: str, details: dict) -> dict:
     """
     Upload the question to the reviewer system for further review by human experts.
-    This is called when the system is unable to find a satisfactory answer from both the datasets(golden dataset and package of practices dataset) for the particular state and crop.
+    This function is called when the system is unable to find a satisfactory answer from both the datasets (golden dataset and package of practices dataset) 
+    for the particular state and crop.
+
+    Parameters:
+    - question (str): The question that needs to be reviewed by human experts. 
+                      This should be a string containing the query related to crop protection or any other agricultural query.
+    - state_name (str): The name of the state in which the query is relevant. 
+                        This is typically a string corresponding to the full state name (e.g., "Punjab").
+    - crop (str): The type of crop associated with the query. This will be a string like "Paddy" or other crop names.
+    - details (dict): A dictionary containing detailed information about the location, crop, season, and domain of the query.
+                      The dictionary should have the following structure:
+                      {
+                        "state": str,       # Name of the state (e.g., "Punjab")
+                        "district": str,    # Name of the district (e.g., "Chandigarh")
+                        "crop": str,        # Crop name (e.g., "Paddy")
+                        "season": str,      # Season of the year (e.g., "Kharif")
+                        "domain": str       # Domain of the query, such as "Crop Protection"
+                      }
     """
-    state_codes = {
-        "status": "Uploaded Successfully",
+    
+    # Define constant values
+    source = "AJRASAKHA"
+    priority = "high"
+    context = ""  # Empty string as context for now
+    
+    # Construct the payload according to the schema
+    payload = {
+        "question": question,
+        "priority": priority,
+        "source": source,
+        "details": details,
+        "context": context
     }
-    return state_codes
+    
+    # Send the POST request
+    url = "http://34.131.207.81:4000/api/questions"
+    headers = {"Content-Type": "application/json"}
+
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        
+        if response.status_code == 201:
+            return {"status": "Uploaded Successfully"}
+        else:
+            return {"status": "Failed", "message": response.text}
+
+    except requests.exceptions.RequestException as e:
+        return {"status": "Error", "message": str(e)}
+
 
 
 
