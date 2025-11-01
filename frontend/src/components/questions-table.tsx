@@ -323,7 +323,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
     updateQuestion("edit", q._id, undefined, "delayed");
   }, [q, updateQuestion, setUpdatedData]);
 
-  const timer = useCountdown(q.createdAt!, 1 / 69, handleDelayStatus);
+  const timer = useCountdown(q.createdAt!, 4, handleDelayStatus);
 
   const serialNumber = useMemo(
     () => (currentPage - 1) * totalPages + idx + 1,
