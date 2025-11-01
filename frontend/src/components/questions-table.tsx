@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
 import {
@@ -315,11 +315,19 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   handleDelete,
   onViewMore,
 }) => {
-  const timer = useCountdown(q.createdAt!, 4, () => {
-    if (q.status == "delayed" || q.status !== "open") return;
+  const triggeredRef = useRef(false);
+
+  const handleDelayStatus = useCallback(() => {
+    if (triggeredRef.current) return;
+    if (!q || !q.status || q.status === "delayed" || q.status !== "open")
+      return;
+
+    triggeredRef.current = true;
     setUpdatedData(q);
     updateQuestion("edit", q._id, undefined, "delayed");
-  });
+  }, [q, updateQuestion, setUpdatedData]);
+
+  const timer = useCountdown(q.createdAt!, 4, handleDelayStatus);
 
   const serialNumber = useMemo(
     () => (currentPage - 1) * totalPages + idx + 1,
