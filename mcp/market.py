@@ -1,6 +1,8 @@
 from typing import List
 import aiohttp
 from fastmcp import FastMCP
+import asyncio
+import pandas as pd
 
 mcp = FastMCP("GD")
 
@@ -100,5 +102,34 @@ async def get_trade_data_list(state_name: str, apmc_name: str, commodity_name: s
             return [{"error": str(e)}]
 
 
+#For karnataka market data
+@mcp.tool()
+async def get_latest_date_for_market() -> dict:
+    """
+    Fetch the latest market report date from the Krama Karnataka website.
+    Returns the date and total markets reported for that date.
+    """
+    url = "https://krama.karnataka.gov.in/Home"
+
+    try:
+        # Pandas read_html is blocking, so use asyncio.to_thread to offload
+        tables = await asyncio.to_thread(pd.read_html, url)
+
+        if not tables or len(tables) < 2:
+            return {"status": 500, "error": "Unexpected table structure from source"}
+
+        df = tables[1]  # Second table contains date info
+        result_row = df.iloc[1]  # Extract the row with date info
+
+        latest_report = {
+            "status": 200,
+            "date_text": result_row[1],  # e.g. "Markets Reported For 01/11/2025: 1"
+        }
+        return latest_report
+
+    except Exception as e:
+        return {"status": 500, "error": str(e)}
+
+
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=9003)
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=9010)
