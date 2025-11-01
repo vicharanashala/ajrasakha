@@ -37,7 +37,7 @@ import {
   QuestionResponse,
   RemoveAllocateBody,
 } from '../classes/validators/QuestionValidators.js';
-import { jsonUploadOptions } from '../classes/validators/fileUploadOptions.js';
+import {jsonUploadOptions} from '../classes/validators/fileUploadOptions.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -103,28 +103,79 @@ export class QuestionController {
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   @OpenAPI({summary: 'Add a new question'})
   async addQuestion(
-    @UploadedFile('file',{options:jsonUploadOptions}) file:Express.Multer.File,
+    @UploadedFile('file', {options: jsonUploadOptions})
+    file: Express.Multer.File,
     @Body()
     body: AddQuestionBodyDto,
     @CurrentUser() user: IUser,
-  ): Promise<Partial<IQuestion>> {
+  ): Promise<Partial<IQuestion> | {message: string}> {
     const userId = user._id.toString();
-    console.log('fie ',file)
-    if(file){
-      console.log("file recieved till in progress")
+    if (file) {
+      let successCount = 0;
+      let failedCount = 0;
       try {
-      const fileContent = file.buffer.toString('utf-8');
-      const payload = JSON.parse(fileContent);
-      console.log(payload)
-    } catch (err) {
-      throw new Error('Invalid JSON file uploaded');
+        const fileContent = file.buffer
+          .toString('utf-8')
+          .trim()
+          .replace(/^\uFEFF/, '');
+        const payload = JSON.parse(fileContent);
+
+        if (!Array.isArray(payload)) {
+          throw new Error('File content must be a JSON array');
+        }
+        for (const [index, question] of payload.entries()) {
+          try {
+            await this.questionService.addQuestion(userId, question);
+            successCount++;
+          } catch (err) {
+            failedCount++;
+            console.error(
+              `❌ Failed to insert question #${index + 1}:`,
+              err.message,
+            );
+          }
+        }
+
+        const message =
+          failedCount === 0
+            ? `✅ All ${successCount} questions added successfully.`
+            : `✅ ${successCount} questions added successfully, ❌ ${failedCount} failed.`;
+
+        return {message};
+        // const results = await Promise.allSettled(
+        //   payload.map(question =>
+        //     this.questionService.addQuestion(userId, question),
+        //   ),
+        // );
+        // console.log('promise result ',results)
+        // let successCount = 0;
+        // let failedCount = 0;
+
+        // results.forEach((result, index) => {
+        //   if (result.status === 'fulfilled') {
+        //     successCount++;
+        //   } else {
+        //     failedCount++;
+        //     console.error(
+        //       `❌ Failed to insert question #${index + 1}:`,
+        //       result.reason?.message,
+        //     );
+        //   }
+        // });
+
+        // const message =
+        //   failedCount === 0
+        //     ? `✅ All ${successCount} questions added successfully.`
+        //     : `✅ ${successCount} questions added successfully, ❌ ${failedCount} failed.`;
+
+        // return {message};
+      } catch (err) {
+        console.error('Error during addQuestion:', err);
+        throw err;
+      }
+    } else {
+      return this.questionService.addQuestion(userId, body);
     }
-      return
-    }else{
-       return this.questionService.addQuestion(userId, body);
-    }
-    // const userId = '';
-   
   }
 
   @Get('/:questionId')

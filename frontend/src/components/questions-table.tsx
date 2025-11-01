@@ -133,7 +133,8 @@ export const QuestionsTable = ({
     mode: "add" | "edit",
     entityId?: string,
     flagReason?: string,
-    status?: QuestionStatus
+    status?: QuestionStatus,
+    formData?:FormData
   ) => {
     try {
       if (!entityId) {
@@ -191,7 +192,7 @@ export const QuestionsTable = ({
     try {
       await deleteQuestion(questionIdToDelete);
     } catch (error) {
-      console.log("Error: ", error);
+      console.error("Error: ", error);
     }
   };
 
@@ -317,7 +318,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   onViewMore,
 }) => {
   const timer = useCountdown(q.createdAt!, 4, () => {
-    if (q.status == "delayed" || q.status !== "open") return;
+    if (q.status == "delayed" || q.status !== "open" ||!q.status) return;
     setUpdatedData(q);
     updateQuestion("edit", q._id, undefined, "delayed");
   });
@@ -505,12 +506,14 @@ interface AddOrEditQuestionDialogProps {
     mode: "add" | "edit",
     entityId?: string,
     flagReason?: string,
+    status?:QuestionStatus,
     formData?:FormData
   ) => void;
   question?: IDetailedQuestion | null;
   userRole: UserRole;
   isLoadingAction: boolean;
   mode: "add" | "edit";
+
 }
 
 export const AddOrEditQuestionDialog = ({
@@ -526,7 +529,7 @@ export const AddOrEditQuestionDialog = ({
 }: AddOrEditQuestionDialogProps) => {
   const [flagReason, setFlagReason] = useState("");
   const [file, setFile] = useState<File | null>(null);
-
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     if (mode === "edit" && question) {
       setUpdatedData(question);
@@ -534,7 +537,7 @@ export const AddOrEditQuestionDialog = ({
       setUpdatedData({
         question: "",
         priority: "medium",
-        source: "AJRASAKHA",
+        source: "AGRI_EXPERT",
         details: {
           state: "",
           district: "",
@@ -663,11 +666,11 @@ export const AddOrEditQuestionDialog = ({
                     </Select>
                   </>
                 )}
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                {/* <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                   <Globe className="h-4 w-4" aria-hidden="true" />
                   <label>Source*</label>
-                </div>
-                <Select
+                </div> */}
+                {/* <Select
                   value={updatedData?.source || "AJRASAKHA"}
                   onValueChange={(v) =>
                     setUpdatedData((prev) =>
@@ -682,7 +685,7 @@ export const AddOrEditQuestionDialog = ({
                     <SelectItem value="AJRASAKHA">AJRASAKHA</SelectItem>
                     <SelectItem value="AGRI_EXPERT">AGRI_EXPERT</SelectItem>
                   </SelectContent>
-                </Select>
+                </Select> */}
 
                 {(
                   [
@@ -755,7 +758,26 @@ export const AddOrEditQuestionDialog = ({
     className="hidden"
     onChange={(e) => {
       const selected = e.target.files?.[0];
-      if (selected) setFile(selected);
+      // if (selected) setFile(selected);
+      setError(null)
+      if(selected?.type !== 'application/json'){
+        setError("Only JSON files are allowed.")
+        setFile(undefined)
+        setTimeout(() => {
+          setError(null)
+        },2000)
+        return
+      }
+      const maxSize = 5 * 1024 * 1024
+      if(selected.size >maxSize){
+        setError("File size must be less than 5MB.")
+        setFile(undefined)
+        setTimeout(() => {
+          setError(null)
+        },2000)
+        return
+      }
+      setFile(selected)
     }}
   />
   <label htmlFor="upload-json">
@@ -766,10 +788,30 @@ export const AddOrEditQuestionDialog = ({
     >
       <span className="flex items-center gap-2">
         <Upload className="h-4 w-4" />
-        {file ? `File Selected: ${file.name}` : "Upload JSON"}
+        {/* {file ? `File Selected: ${file.name}` : "Upload JSON"} */}
+        {file ? (
+        <>
+          File Selected: {file.name}
+          {/* ✅ NEW: Add a remove button/icon */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent triggering file select again
+              e.preventDefault()
+              setFile(undefined);  // Remove the file
+            }}
+            className="ml-2 text-red-500 hover:text-red-700"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </>
+      ) : (
+        "Upload JSON"
+      )}
       </span>
     </Button>
   </label>
+  {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
 
 
           <Button variant="outline" onClick={() => setOpen(false)}>
@@ -792,7 +834,7 @@ export const AddOrEditQuestionDialog = ({
       // You can also append other fields if required by the backend
       // formData.append("mode", "add");
 
-      onSave?.("add", undefined, undefined, formData);
+      onSave?.("add", undefined, undefined,undefined, formData);
     } else {
       // Normal form submission (no file)
       onSave?.("add");
@@ -873,13 +915,12 @@ export const QuestionsFilters = ({
     useAddQuestion();
 
   const handleAddQuestion = async (mode: "add" | "edit",entityId?: string,
-  flagReason?: string,formData?:FormData) => {
+  flagReason?: string,status?:QuestionStatus,formData?:FormData) => {
     try {
-      console.log("formdata called ",formData)
       if (mode !== "add") return;
       if(formData){
         await addQuestion(formData as any)
-        toast.success('File Uploaded succesfully')
+        // toast.success('File Uploaded succesfully')
         setAddOpen(false)
         return
       }
@@ -891,7 +932,7 @@ export const QuestionsFilters = ({
       const payload = {
         question: updatedData.question?.trim() ?? "",
         priority: updatedData.priority ?? "medium",
-        source: updatedData.source ?? "AJRASAKHA",
+        source: "AGRI_EXPERT" as QuestionSource,
         details: updatedData.details,
         context: updatedData.context || "",
       };
@@ -960,7 +1001,7 @@ export const QuestionsFilters = ({
       }
 
       await addQuestion(payload);
-      toast.success("Question added successfully.");
+      // toast.success("Question added successfully.");
       setAddOpen(false);
     } catch (error) {
       console.error("Error in handleAddQuestion:", error);

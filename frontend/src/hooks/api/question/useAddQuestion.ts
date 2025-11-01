@@ -17,8 +17,14 @@ export const useAddQuestion = () => {
       }
       return await questionService.addQuestion(newQuestionData)
     },
-    onSuccess: () => {
+    onSuccess: (data:any) => {
       queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
+      if (data?.message) {
+        toast.success(data.message);
+      } else {
+        toast.success("Question added successfully!");
+      }
+
     },
     onError: (error: any) => {
       toast.error("Failed to add question");
