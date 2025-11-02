@@ -318,12 +318,12 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   onViewMore,
 }) => {
   const handleDelayStatus = useCallback(() => {
-    if (!q || q.status !== "open") return;
+    if (!q || !q.createdAt || q.status !== "open") return;
     setUpdatedData(q);
     updateQuestion("edit", q._id, undefined, "delayed");
   }, [q, updateQuestion, setUpdatedData]);
 
-  const timer = useCountdown(q.createdAt!, 4, handleDelayStatus);
+  const timer = useCountdown(q.createdAt, 4, handleDelayStatus);
 
   const serialNumber = useMemo(
     () => (currentPage - 1) * totalPages + idx + 1,

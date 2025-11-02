@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
 
 export const useCountdown = (
-  createdAt: string,
+  createdAt: string | undefined | null,
   durationHours: number,
   onExpire: () => void
 ) => {
+  if (!createdAt || isNaN(new Date(createdAt).getTime())) {
+    return "00:00:00";
+  }
+
   const targetTime =
     new Date(createdAt).getTime() + durationHours * 60 * 60 * 1000;
   const [remaining, setRemaining] = useState(() =>
@@ -12,6 +16,8 @@ export const useCountdown = (
   );
 
   useEffect(() => {
+    if (!createdAt || isNaN(targetTime)) return;
+
     if (remaining <= 0) {
       onExpire();
       return;
