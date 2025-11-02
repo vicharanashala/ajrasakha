@@ -279,7 +279,6 @@ export class QuestionService extends BaseService {
     try {
       return this._withTransaction(async (session: ClientSession) => {
         const {question, priority, source, details, context} = body;
-
         // Prevent duplicate questoin entry
         const isQuestionExisit =
           await this.questionRepo.getQuestionByQuestionText(
@@ -326,7 +325,6 @@ export class QuestionService extends BaseService {
           createdAt: new Date(),
           updatedAt: new Date(),
         };
-
         // 4. Save Question to DB
         const savedQuestion = await this.questionRepo.addQuestion(newQuestion);
 
@@ -375,9 +373,6 @@ export class QuestionService extends BaseService {
           user,
           type,
         );
-        // await this.notificationRepository.addNotification(user._id.toString(),entityId.toString(),type,message,title,session)
-        // const subscription = await this.notificationRepository.getSubscriptionByUserId(user._id.toString());
-        // await notifyUser(userId, title,subscription)
         // 6. Save QuestionSubmission to DB
         await this.questionSubmissionRepo.addSubmission(
           submissionData,
