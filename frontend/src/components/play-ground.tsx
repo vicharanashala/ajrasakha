@@ -68,7 +68,7 @@ export const PlaygroundPage = () => {
       )}
 
       <Tabs
-        defaultValue={user?.role == "expert" ? "questions" : "all_questions"}
+        defaultValue={user?.role != "expert" ? "all_questions" : "questions"}
         className="h-full w-full"
       >
         <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
