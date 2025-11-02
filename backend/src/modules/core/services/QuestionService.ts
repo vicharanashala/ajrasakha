@@ -575,11 +575,10 @@ export class QuestionService extends BaseService {
 
       const lastSubmission = questionSubmission.history.at(-1);
 
+
       if (
-        !(
-          questionSubmission.history.length >= 0 &&
-          (lastSubmission?.answer || lastSubmission?.status == 'reviewed')
-        ) &&
+        questionSubmission.history.length >= 0 &&
+        ((lastSubmission?.answer && lastSubmission.status !== 'in-review') ||  lastSubmission?.status == 'reviewed') &&
         EXISTING_QUEUE_COUNT >= 3
       ) {
         const nextExpertId = expertsToAdd[0]?.toString();
