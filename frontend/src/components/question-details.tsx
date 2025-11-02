@@ -347,14 +347,14 @@ export const QuestionDetails = ({
         )}
       </Card>
 
-      {currentUser.role !== "expert" && (
+      {/* {currentUser.role !== "expert" && ( */}
         <AllocationTimeline
           history={question.submission.history}
           queue={question.submission.queue}
           currentUser={currentUser}
           question={question}
         />
-      )}
+      {/* )} */}
       <div className="flex items-center justify-between md:mt-12">
         <h2 className="text-lg font-semibold flex justify-center gap-2 items-center ">
           <div className="p-2 rounded-lg bg-primary/10">

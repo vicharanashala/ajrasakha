@@ -164,10 +164,16 @@ export class QuestionController {
   async allocateExperts(
     @Params() params: QuestionIdParam,
     @Body() body: AllocateExpertsRequest,
+    @CurrentUser() user: IUser,
   ) {
+    const {_id: userId} = user;
     const {questionId} = params;
     const {experts} = body;
-    return await this.questionService.allocateExperts(questionId, experts);
+    return await this.questionService.allocateExperts(
+      userId.toString(),
+      questionId,
+      experts,
+    );
   }
 
   @Put('/:questionId')
@@ -190,10 +196,16 @@ export class QuestionController {
   async removeAllocation(
     @Params() params: QuestionIdParam,
     @Body() body: RemoveAllocateBody,
+    @CurrentUser() user: IUser,
   ): Promise<IQuestionSubmission> {
+    const {_id: userId} = user;
     const {questionId} = params;
     const {index} = body;
-    return this.questionService.removeExpertFromQueue(questionId, index);
+    return this.questionService.removeExpertFromQueue(
+      userId.toString(),
+      questionId,
+      index,
+    );
   }
 
   @Delete('/:questionId')

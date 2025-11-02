@@ -319,7 +319,6 @@ export class AnswerService extends BaseService {
             );
             return {message: 'Your response recorded sucessfully, thankyou!'};
           }
-      
         } else if (status == 'rejected') {
           // Prepare update payload for the rejected submission
           const rejectedHistoryUpdate: ISubmissionHistory = {
@@ -394,7 +393,7 @@ export class AnswerService extends BaseService {
           // Case 1: Current user is not the last in the queue and total history (including next) is less than 10
           if (
             currentUserIndexInQueue < currentQueue.length - 1 &&
-            currentQueue.length < 10
+            currentQueue.length <= 10
           ) {
             const nextExpertId = currentQueue[currentUserIndexInQueue + 1];
 
@@ -417,7 +416,7 @@ export class AnswerService extends BaseService {
             let entityId = questionId.toString();
             const user = nextExpertId.toString();
             const type = 'peer_review';
-           
+
             await this.notificationService.saveTheNotifications(
               message,
               title,
