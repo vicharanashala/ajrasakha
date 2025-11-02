@@ -572,7 +572,15 @@ export class QuestionService extends BaseService {
       const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);
 
       // Add entry for first expert in the queue as status in-review (only after intial 3 allocation)
-      if (EXISTING_QUEUE_COUNT >= 3) {
+
+      const lastSubmission = questionSubmission.history.at(-1);
+
+
+      if (
+        questionSubmission.history.length >= 0 &&
+        ((lastSubmission?.answer && lastSubmission.status !== 'in-review') ||  lastSubmission?.status == 'reviewed') &&
+        EXISTING_QUEUE_COUNT >= 3
+      ) {
         const nextExpertId = expertsToAdd[0]?.toString();
         const nextAllocatedSubmissionData: ISubmissionHistory = {
           updatedBy: new ObjectId(nextExpertId),
