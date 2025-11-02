@@ -14,10 +14,12 @@ import { Input } from "./atoms/input";
 import {
   AlertCircle,
   AlertTriangle,
+  Check,
   CheckCircle,
   Clock,
   Edit,
   Eye,
+  File,
   Flag,
   FlagTriangleRight,
   Globe,
@@ -84,6 +86,12 @@ import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
 import { useCountdown } from "@/hooks/useCountdown";
 import { formatDate } from "@/utils/formatDate";
 import { TimerDisplay } from "./timer-display";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./atoms/tooltip";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -595,20 +603,72 @@ export const AddOrEditQuestionDialog = ({
         <div className="h-[420px] ">
           {file ? (
             // File preview: center content
-            <div className="flex items-center justify-center h-full">
-              <div className="flex flex-col items-center justify-center text-center space-y-4 border border-gray-300 rounded-md p-8 bg-gray-50 dark:bg-gray-900 transition-all">
-                <PaperclipIcon className="h-16 w-16 text-gray-500" />
-                <p className="text-lg font-medium text-gray-800 dark:text-gray-100">
-                  {file.name}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setFile(null)}
-                  className="text-sm text-red-500 hover:text-red-700 flex items-center gap-1"
-                >
-                  <X className="h-4 w-4" />
-                  Remove File
-                </button>
+            <div className="flex items-center justify-center h-full p-4">
+              <div className="relative w-full max-w-md">
+                <div className="absolute -top-3 -right-3 w-10 h-10 rounded-full border-4 border-background flex items-center justify-center bg-green-600 z-10">
+                  <Check className="h-5 w-5 text-white" />
+                </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="absolute top-0 left-0 w-10 h-10 rounded-full  flex items-center justify-center  z-10 cursor-pointer transition-colors">
+                        <Info className="h-5 w-5 text-white" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="bottom"
+                      align="start"
+                      className="max-w-xs text-sm"
+                    >
+                      Before submitting the JSON file, ensure all required
+                      fields are present. Any question already existing in the
+                      database will be skipped automatically.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <div className="relative overflow-hidden rounded-xl border-2 border-border bg-card shadow-lg transition-all hover:shadow-xl">
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 opacity-50" />
+
+                  <div className="relative p-8 space-y-6">
+                    <div className="flex justify-center">
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl" />
+                        <div className="relative w-20 h-20 rounded-full border-2 border-border bg-background flex items-center justify-center">
+                          <File className="h-10 w-10 text-primary" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-center space-y-2">
+                      <p className="text-lg font-semibold text-foreground truncate px-4">
+                        {file.name}
+                      </p>
+                      {file.size && (
+                        <p className="text-sm text-muted-foreground">
+                          {(file.size / 1024).toFixed(2)} KB
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex justify-center">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border border-border bg-background">
+                        {file.name.split(".").pop()?.toUpperCase() || "FILE"}
+                      </span>
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setFile(null)}
+                        className="flex-1 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive dark:text-red-800"
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
