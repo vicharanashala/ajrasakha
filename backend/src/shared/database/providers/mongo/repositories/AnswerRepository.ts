@@ -254,16 +254,7 @@ if (date && date !== 'all') {
 
 const submissions = await this.AnswerCollection.aggregate([
   // Filter answers by userId if provided (from answers collection)
-  ...(userId !== "all"
-    ? [
-        {
-          $match: {
-            
-approvedBy: userObjectId   // ✅ filter answers by author
-          }
-        }
-      ]
-    : []),
+  
 
   // Join question details
   {
@@ -281,6 +272,26 @@ approvedBy: userObjectId   // ✅ filter answers by author
   // Optional date filter (works on answer createdAt)
   ...(Object.keys(dateMatch).length > 0
     ? [{ $match: { createdAt: dateMatch } }]
+    : []),
+    ...(userId !== "all"
+    ? [
+        {
+          $match: {
+            "question.userId": userObjectId
+            
+   // ✅ filter answers by author
+          }
+        }
+      ]
+    : []),
+    ...(userId !== "all"
+    ? [
+        {
+          $match: {
+            approvalCount: 3   // <-- THIS is the condition you wanted
+          }
+        }
+      ]
     : []),
 
   // Sort newest first
