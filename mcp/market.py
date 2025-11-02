@@ -342,4 +342,4 @@ def _extract_market_table(url: str) -> dict:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=9010)
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=9003)
