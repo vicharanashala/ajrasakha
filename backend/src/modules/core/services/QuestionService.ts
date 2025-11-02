@@ -283,6 +283,14 @@ export class QuestionService extends BaseService {
         if(!priorities.includes(priority)){
           priority="medium"
         }
+        if(!question || question.trim() ==''){
+          console.error('required fields are missing')
+          return
+        }
+        if(!details.crop || !details.district || !details.domain || !details.season || !details.state){
+          console.error('required fields are missing')
+          return
+        }
         // Prevent duplicate questoin entry
         const isQuestionExisit =
           await this.questionRepo.getQuestionByQuestionText(
@@ -326,8 +334,8 @@ export class QuestionService extends BaseService {
           embedding,
           metrics: null,
           text,
-          // createdAt: new Date(),
-          createdAt: body.createdAt ? new Date(body.createdAt) : new Date(),
+          createdAt: new Date(),
+          // createdAt: body.createdAt ? new Date(body.createdAt) : new Date(),
           updatedAt: new Date(),
         };
         // 4. Save Question to DB

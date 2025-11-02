@@ -126,9 +126,8 @@ export class QuestionController {
         const baseTime = new Date();
         for (const [index, question] of payload.entries()) {
           try {
-            const createdAt = new Date(baseTime.getTime() + index * 60_000);
             // await this.questionService.addQuestion(userId, question);
-            await this.questionService.addQuestion(userId, {...question,createdAt});
+            await this.questionService.addQuestion(userId,question);
             successCount++;
           } catch (err) {
             failedCount++;
