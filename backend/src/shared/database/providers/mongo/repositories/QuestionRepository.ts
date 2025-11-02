@@ -429,7 +429,7 @@ export class QuestionRepository implements IQuestionRepository {
       );
 
       const filter: any = {
-        status: 'open',
+        status: {$in: ['open', 'delayed']},
         _id: {$in: questionIdsToAttempt},
       };
 
@@ -444,6 +444,23 @@ export class QuestionRepository implements IQuestionRepository {
       // } else if (sortFilter === 'mostResponses') {
       //   pipeline.push({$sort: {totalAnswersCount: -1}});
       // }
+
+      pipeline.push({
+        $addFields: {
+          priorityOrder: {
+            $switch: {
+              branches: [
+                {case: {$eq: ['$priority', 'high']}, then: 1},
+                {case: {$eq: ['$priority', 'medium']}, then: 2},
+                {case: {$eq: ['$priority', 'low']}, then: 3},
+              ],
+              default: 4,
+            },
+          },
+        },
+      });
+
+      pipeline.push({$sort: {priorityOrder: 1}});
 
       pipeline.push({$skip: skip});
       pipeline.push({$limit: limit});
