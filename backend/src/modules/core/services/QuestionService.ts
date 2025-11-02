@@ -284,12 +284,14 @@ export class QuestionService extends BaseService {
           priority="medium"
         }
         if(!question || question.trim() ==''){
-          console.error('required fields are missing')
-          return
+          throw new BadRequestError(
+            `Question is required`,
+          );
         }
         if(!details.crop || !details.district || !details.domain || !details.season || !details.state){
-          console.error('required fields are missing')
-          return
+          throw new BadRequestError(
+            `All fields are required`,
+          );
         }
         // Prevent duplicate questoin entry
         const isQuestionExisit =
@@ -318,8 +320,8 @@ export class QuestionService extends BaseService {
 
         // 2. Create Embedding for the question based on text
         const text = `Question: ${question}`;
-        const {embedding} = await this.aiService.getEmbedding(text);
-        // const embedding = [];
+        // const {embedding} = await this.aiService.getEmbedding(text);
+        const embedding = [];
         // 3. Create Question entry
         const newQuestion: IQuestion = {
           userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
