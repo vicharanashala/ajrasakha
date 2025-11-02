@@ -146,8 +146,8 @@ export class AnswerService extends BaseService {
 
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
-      // const embedding = [];
-      const {embedding} = await this.aiService.getEmbedding(answer);
+      const embedding = [];
+      // const {embedding} = await this.aiService.getEmbedding(answer);
 
       const {insertedId} = await this.answerRepo.addAnswer(
         questionId,

@@ -278,7 +278,19 @@ export class QuestionService extends BaseService {
   ): Promise<Partial<IQuestion>> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        const {question, priority, source, details, context} = body;
+        let {question, priority, source, details, context} = body;
+        let priorities = ["low" , 'high', 'medium,' ]
+        if(!priorities.includes(priority)){
+          priority="medium"
+        }
+        if(!question || question.trim() ==''){
+          console.error('required fields are missing')
+          return
+        }
+        if(!details.crop || !details.district || !details.domain || !details.season || !details.state){
+          console.error('required fields are missing')
+          return
+        }
         // Prevent duplicate questoin entry
         const isQuestionExisit =
           await this.questionRepo.getQuestionByQuestionText(
@@ -323,6 +335,7 @@ export class QuestionService extends BaseService {
           metrics: null,
           text,
           createdAt: new Date(),
+          // createdAt: body.createdAt ? new Date(body.createdAt) : new Date(),
           updatedAt: new Date(),
         };
         // 4. Save Question to DB
