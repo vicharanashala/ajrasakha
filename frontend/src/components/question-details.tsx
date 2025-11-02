@@ -1428,7 +1428,9 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         answerId,
       });
 
-      toast.success("Answer updated successfully!");
+      toast.success(
+        "Answer approved successfully! The question is now closed. Thank you!"
+      );
       setEditOpen(false);
     } catch (error) {
       console.error("Failed to edit answer:", error);
@@ -1520,7 +1522,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       onClick={handleUpdateAnswer}
                       className="bg-primary text-primary-foreground"
                     >
-                      Save && finalize
+                      Save & finalize
                     </Button>
                   </div>
                 </DialogContent>
