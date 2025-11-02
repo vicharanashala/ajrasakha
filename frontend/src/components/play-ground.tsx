@@ -15,7 +15,6 @@ import { BellIcon } from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { RequestsPage } from "./request-page";
 import { useNavigate } from "@tanstack/react-router";
-import { Badge } from "./atoms/badge";
 import { initializeNotifications } from "@/services/pushService";
 import { useEffect } from "react";
 
