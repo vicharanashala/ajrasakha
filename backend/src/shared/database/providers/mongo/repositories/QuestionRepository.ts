@@ -629,14 +629,14 @@ export class QuestionRepository implements IQuestionRepository {
       await this.init();
       await this.ensureIndexes();
 
-      // const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
 
-      const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
+      // const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
 
       const result = await this.QuestionCollection.updateMany(
         {
           status: {$nin: ['closed', 'in-review']},
-          createdAt: {$lte: oneMinuteAgo},
+          createdAt: {$lte: fourHoursAgo},
         },
         {$set: {status: 'delayed'}},
       );

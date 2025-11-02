@@ -329,7 +329,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   handleDelete,
   onViewMore,
 }) => {
-  const timer = useCountdown(q.createdAt, 1 / 60, () => {});
+  const timer = useCountdown(q.createdAt, 4, () => {});
 
   const serialNumber = useMemo(
     () => (currentPage - 1) * totalPages + idx + 1,
