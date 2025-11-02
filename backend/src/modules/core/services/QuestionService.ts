@@ -752,6 +752,15 @@ export class QuestionService extends BaseService {
             `Cannot allocate more than 10 experts. Currently allocated: ${totalAllocatedExperts}`,
           );
 
+        for(let expert of experts){
+          const IS_INCREMENT=true
+          await this.userRepo.updateReputationScore(
+            expert,
+            IS_INCREMENT,
+            session,
+          );
+        }
+
         //6. Allocate experts
         const expertIds = experts.map(e => new ObjectId(e));
 
@@ -793,6 +802,7 @@ export class QuestionService extends BaseService {
           expertIds,
           session,
         );
+
 
         //8. Return updated question submission
         return updated;
