@@ -361,7 +361,9 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   const statusBadge = useMemo(() => {
     // const status = q.status || "NIL";
     const effectiveStatus =
-      timer === "00:00:00" ? "delayed" : q.status || "NIL";
+      timer === "00:00:00" && q.status == "open"
+        ? "delayed"
+        : q.status || "NIL";
 
     const formatted = effectiveStatus.replace("_", " ");
 
