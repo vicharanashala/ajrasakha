@@ -189,8 +189,45 @@ export interface SubmissionResponse {
     domain: string;
   };
 }
+export interface QuestionDetails {
+  id: string;
+  text: string;
+  status: string;
+  details: {
+    state?: string;
+    crop?: string;
+    domain?: string;
+  };
+  priority?: string;
+  source?: string;
+  totalAnswersCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FinalizedAnswer {
+  id: string;
+  answer: string;
+  isFinalAnswer: boolean;
+  approvalCount: number;
+  authorId: string | null;
+  questionId: string | null;
+  sources: string[];
+  createdAt: string;
+  updatedAt: string;
+  question: QuestionDetails;
+  details: {
+    state: string;
+    district: string;
+    crop: string;
+    season: string;
+    domain: string;
+  };
+  status:string;
+}
+
 export interface FinalizedAnswersResponse {
-  finalizedSubmissions: SubmissionResponse[];
+  finalizedSubmissions: FinalizedAnswer[];
   currentUserAnswers: CurrentUserAnswer[];
   totalQuestionsCount: number;
 }

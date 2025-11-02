@@ -252,57 +252,41 @@ if (date && date !== 'all') {
 }
 
 
-      const submissions = await this.AnswerCollection.aggregate([
+const submissions = await this.AnswerCollection.aggregate([
+  // Filter answers by userId if provided (from answers collection)
+  ...(userId !== "all"
+    ? [
         {
           $match: {
-            isFinalAnswer: true
+            
+approvedBy: userObjectId   // ✅ filter answers by author
           }
-        },
-        {
-          $lookup: {
-            from: "questions",
-            localField: "questionId",
-            foreignField: "_id",
-            as: "question"
-          }
-        },
-        { $unwind: "$question" },
-      
-        // ✅ Filter questions by userId if not "all"
-        ...(userId !== "all"
-          ? [
-              {
-                $match: {
-                  "question.userId": userObjectId
-                }
-              }
-            ]
-          : []),
-          ...(Object.keys(dateMatch).length > 0
-    ? [{ $match: dateMatch }]
+        }
+      ]
     : []),
-      
-        {
-          $group: {
-            _id: "$question._id",
-            text: { $first: "$question.question" },
-            createdAt: { $first: "$question.createdAt" },
-            updatedAt: { $first: "$question.updatedAt" },
-            totalAnswersCount: { $sum: 1 },
-            details:{$first: "$question.details"},
-            status:{$first: "$question.status"},
-            responses: {
-              $push: {
-                answer: "$answer",
-                id: { $toString: "$_id" },
-                isFinalAnswer: "$isFinalAnswer",
-                createdAt: "$createdAt"
-              }
-            }
-          }
-        },
-        { $sort: { createdAt: -1 } }
-      ]).toArray();
+
+  // Join question details
+  {
+    $lookup: {
+      from: "questions",
+      localField: "questionId",
+      foreignField: "_id",
+      as: "question"
+    }
+  },
+
+  // Convert question[] → question object
+  { $unwind: "$question" },
+
+  // Optional date filter (works on answer createdAt)
+  ...(Object.keys(dateMatch).length > 0
+    ? [{ $match: { createdAt: dateMatch } }]
+    : []),
+
+  // Sort newest first
+  { $sort: { createdAt: -1 } }
+]).toArray();
+
       
       const currentUserAnswers = await this.AnswerCollection.aggregate([
         {
@@ -395,16 +379,35 @@ if (date && date !== 'all') {
       ]).toArray()).length
       
            
-      const finalizedSubmissions = submissions.map(sub => ({
-        id: sub._id.toString(),
-        text: sub.text,
-        createdAt: sub.createdAt.toISOString(),
-        updatedAt: sub.updatedAt.toISOString(),
-        totalAnwersCount: sub.totalAnswersCount,
-        status:sub.status,
-        details:sub.details,
-        reponse: sub.responses[0] || null,
-      }));
+           const finalizedSubmissions = submissions.map(sub => ({
+            id: sub._id.toString(),
+          
+            // Answer fields
+            answer: sub.answer,
+            isFinalAnswer: sub.isFinalAnswer,
+            approvalCount: sub.approvalCount,
+            authorId: sub.authorId?.toString() || null,
+            questionId: sub.questionId?.toString() || null,
+            sources: sub.sources || [],
+          
+            createdAt: sub.createdAt?.toISOString(),
+            updatedAt: sub.updatedAt?.toISOString(),
+            details:sub.question?.details,
+            status: sub.question?.status,
+            // Question fields (nested)
+            question: {
+              id: sub.question?._id?.toString(),
+              text: sub.question?.question,
+              status: sub.question?.status,
+              details: sub.question?.details,
+              priority: sub.question?.priority,
+              source: sub.question?.source,
+              totalAnswersCount: sub.question?.totalAnswersCount || 0,
+              createdAt: sub.question?.createdAt?.toISOString(),
+              updatedAt: sub.question?.updatedAt?.toISOString(),
+            }
+          }));
+          
       
 
 return {

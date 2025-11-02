@@ -101,24 +101,38 @@ const approvalPercentage = totalQuestionsCount > 0
   
 
 
-function groupWithCount(questions: BaseStatusItem[], field: "status" | "state" | "crop") {
-  const grouped = questions.reduce<Record<string, number>>((acc, q) => {
-    const value =
-      field === "status"
-        ? q.status
-        : q.details[field] || "unknown";
-
-    const key = value.toLowerCase();
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, {});
-
-  // Convert to chart-friendly format: { name: "open (4)", value: 4 }
-  return Object.entries(grouped).map(([name, value]) => ({
-    name: `${name} (${value})`,
-    value,
-  }));
-}
+  function groupWithCount<T extends { status?: any; details?: any }>(
+    data: T[],
+    field: "status" | "state" | "crop"
+  ) {
+    const grouped = data.reduce<Record<string, number>>((acc, item) => {
+      let value;
+  
+      if (field === "status") {
+        value = item.status;
+      } else {
+        value = item.details?.[field];
+      }
+  
+      // ✅ Ensure value is always a safe string
+      if (value === undefined || value === null) {
+        value = "unknown";
+      } else if (typeof value !== "string") {
+        value = String(value); // Convert numbers/objects safely
+      }
+  
+      const key = value.toLowerCase();
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+  
+    // ✅ Convert to chart-friendly format
+    return Object.entries(grouped).map(([name, value]) => ({
+      name: `${name} (${value})`,
+      value,
+    }));
+  }
+  
 function PieBox({ title, data }: { title: string; data: any[] }) {
   return (
     <Card className="shadow-sm min-w-0">
@@ -170,7 +184,7 @@ function PieBox({ title, data }: { title: string; data: any[] }) {
 const statusData = groupWithCount(questions ?? [], "status");
 const cropData   = groupWithCount(questions ?? [], "crop");
 const stateData  = groupWithCount(questions ?? [], "state");
-const AnswerData=groupWithCount(finalized ?? [], "status");
+const AnswerData=groupWithCount(finalized?? [], "status");
 const answerCropData=groupWithCount(finalized ?? [], "crop");
 const answerStateData=groupWithCount(finalized ?? [], "state");
 const COLORS = [
