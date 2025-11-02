@@ -518,6 +518,17 @@ export class AnswerService extends BaseService {
   ): Promise<SubmissionResponse[]> {
     return await this.answerRepo.getAllSubmissions(userId, page, limit);
   }
+  async getFinalAnswerQuestions(
+    userId: string,
+   currentUserId:string,
+   date:string
+  ): Promise<{
+    finalizedSubmissions: any[],
+    currentUserAnswers: any[],
+    totalQuestionsCount: number
+  }> {
+    return await this.answerRepo.getAllFinalizedAnswers(userId,currentUserId,date);
+  }
 
   // Currently using for approving answer
   async updateAnswer(

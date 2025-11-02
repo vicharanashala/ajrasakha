@@ -159,7 +159,41 @@ export type SupportedLanguage =
   | "sd-IN";
 
 export type QuestionStatus = "open" | "in-review" | "closed" | "delayed";
-
+export interface ResponseDto {
+  id: string;
+  answer: string;
+  isFinalAnswer: boolean;
+  createdAt: string;
+}
+export interface CurrentUserAnswer {
+  _id: string;
+  text: string;
+  createdAt: string;
+  updatedAt: string;
+  totalAnswersCount: number;
+  responses: ResponseDto[];
+}
+export interface SubmissionResponse {
+  id: string;
+  text: string;
+  createdAt: string;
+  updatedAt: string;
+  totalAnwersCount: number;
+  reponse: ResponseDto | null;
+  status:string;
+  details: {
+    state: string;
+    district: string;
+    crop: string;
+    season: string;
+    domain: string;
+  };
+}
+export interface FinalizedAnswersResponse {
+  finalizedSubmissions: SubmissionResponse[];
+  currentUserAnswers: CurrentUserAnswer[];
+  totalQuestionsCount: number;
+}
 export interface IAnswer {
   _id?: string;
   questionId: string;

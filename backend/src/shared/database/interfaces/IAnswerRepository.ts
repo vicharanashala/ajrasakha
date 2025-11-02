@@ -42,6 +42,16 @@ export interface IAnswerRepository {
     session?: ClientSession,
   ): Promise<SubmissionResponse[]>;
 
+getAllFinalizedAnswers(
+    userId: string,
+    currentUserId:string,
+    date:string,
+    session?: ClientSession,
+  ): Promise<{
+    finalizedSubmissions: any[],
+    currentUserAnswers: any[],
+    totalQuestionsCount: number
+  }> ;
   /**
    * Adds a new answer for a specific question.
    * @param authorId - The ID of the author creating the answer.

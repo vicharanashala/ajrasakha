@@ -1,8 +1,9 @@
-import { useState,useMemo } from "react";
+import { useState,useMemo, useEffect } from "react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
-import { MessageSquarePlus, BarChart3, Bell,Loader2} from "lucide-react";
+import { MessageSquarePlus, BarChart3, Bell,Loader2,UserIcon,Info,Calendar} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle,} from "./atoms/card";
-import {PieChart, Pie, Tooltip, Cell,ResponsiveContainer} from 'recharts'
+import {PieChart, Pie,Tooltip as ChartTooltip, Cell,ResponsiveContainer} from 'recharts'
+import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 import {
   CROPS,
   STATES,
@@ -14,13 +15,24 @@ import {
   type QuestionSourceFilter,
 } from "./advanced-question-filter";
 import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetailedQuestions";
+import {useGetFinalizedAnswers} from "@/hooks/api/answer/useGetFinalizedAnswers"
+import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
+import { Label } from "@/components/atoms/label";
+
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/atoms/select";
 
 import type {
   IMyPreference,
 } from "@/types";
 
 export const PerformanceMatrics=()=>{
-  type Question = {
+  type BaseStatusItem = {
     status: string;
     details: {
       state?: string;
@@ -41,18 +53,55 @@ export const PerformanceMatrics=()=>{
       user: "all",
     }
   );
+  const [selectedUser,setSelectedUser]=useState('all')
+  const [date,setDate]=useState('all')
   const filter = useMemo(() => advanceFilter, [advanceFilter]);
  
   const currentPage=1
-  const LIMIT = 200;//Limitation not required
+  const LIMIT = 2000;
   const search=''
- const {data: questionData,isLoading:isLoadingQuestions,refetch} = useGetAllDetailedQuestions(currentPage, LIMIT, advanceFilter, search);
+ const {data: questionData,isLoading:isLoadingQuestions,} = useGetAllDetailedQuestions(currentPage, LIMIT, filter, search);
+ const {data:finalizedAnswers,refetch}=useGetFinalizedAnswers(selectedUser,date)
+ const finalized = finalizedAnswers?.finalizedSubmissions || [];
+const currentUserAnswers = finalizedAnswers?.currentUserAnswers || [];
+const totalQuestionsCount = finalizedAnswers?.totalQuestionsCount || 0;
+const approvedCount = currentUserAnswers.length;
+const approvalPercentage = totalQuestionsCount > 0
+? ((approvedCount / totalQuestionsCount) * 100).toFixed(2)
+: 0;
+ useEffect(()=>{
+ refetch()
+ },[selectedUser,date])
+
+ const { data: userNameReponse, isLoading:isLoadingUsers } = useGetAllUsers();
+ const { data: user,isLoading } = useGetCurrentUser();
+  const safeCurrentUser = user  
+  ? {
+      _id: '',
+      userName: user.firstName + user.lastName, 
+      role: user.role,
+      email: user.email,
+      preference: user.preference
+    }
+  : null;
+
+ const otherModerators =
+ (userNameReponse?.users || [])
+   .filter((u) => u.role === "moderator")   // ✅ keep only moderators
+   .sort((a, b) => a.userName.localeCompare(b.userName));
+   const users = [
+    ...(safeCurrentUser ? [safeCurrentUser] : []),
+    ...otherModerators
+  ];
+
+ 
   
   const total = questionData?.totalCount||0;
   const questions=questionData?.questions
+  
 
 
-function groupWithCount(questions: Question[], field: "status" | "state" | "crop") {
+function groupWithCount(questions: BaseStatusItem[], field: "status" | "state" | "crop") {
   const grouped = questions.reduce<Record<string, number>>((acc, q) => {
     const value =
       field === "status"
@@ -97,7 +146,7 @@ function PieBox({ title, data }: { title: string; data: any[] }) {
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip />
+              <ChartTooltip />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -121,6 +170,9 @@ function PieBox({ title, data }: { title: string; data: any[] }) {
 const statusData = groupWithCount(questions ?? [], "status");
 const cropData   = groupWithCount(questions ?? [], "crop");
 const stateData  = groupWithCount(questions ?? [], "state");
+const AnswerData=groupWithCount(finalized ?? [], "status");
+const answerCropData=groupWithCount(finalized ?? [], "crop");
+const answerStateData=groupWithCount(finalized ?? [], "state");
 const COLORS = [
     "#8884d8",
     "#82ca9d",
@@ -131,32 +183,25 @@ const COLORS = [
     "#8dd1e1",
   ];
   
-  console.log("performance matrix===")
 
-  const { data: user,isLoading } = useGetCurrentUser();
+  
   
   const quickActions = [
     {
       title: 'Current Workload',
-      value: user?.reputation_score,
+      value: `${totalQuestionsCount-currentUserAnswers.length}`||0,
       description: 'Pending assignments',
       icon: < MessageSquarePlus />,
       //path: `${getBasePath()}/review-queue`,
     },
     {
       title: 'Approval Rate',
-      value: `80%` ,
-    description:  `Of 20 reviews` ,
+      value: `${approvalPercentage}%` ,
+    description:  `Of ${totalQuestionsCount} reviews` ,
       icon: <BarChart3 />,
      // path: `${getBasePath()}/performance?data=${encodeURIComponent(JSON.stringify(performance))}`,
     },
-    {
-      title: 'Performance Score',
-      value: "10",
-      description: `+2 / -0`,
-      icon: <Bell />,
-     // path: `${getBasePath()}/notifications`,
-    },
+    
     
    
   ]
@@ -300,6 +345,109 @@ const COLORS = [
     </Card>
   ))}
     </div>
+    {/**to get finalized Answers */}
+    <div className="space-y-6 p-6  ">
+      <div className="flex flex-col  lg:flex-row gap-4 w-full">
+    <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
+  
+ 
+
+      <CardHeader>
+        <CardTitle className="text-xl font-semibold"> Total Finalized Answers: { finalized.length }</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col md:justify-between md:flex-row w-max-fit">
+        
+      <div className="w-max-fit">
+      <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <UserIcon className="h-4 w-4 text-primary" />
+                  User
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-sm">
+                      <p>
+                        This option allows filtering questions that have been
+                        submitted at least once by the selected user.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </Label>
+
+                <Select
+                  value={selectedUser}
+                  onValueChange={(v) => setSelectedUser( v)}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    {isLoading ? (
+                      <div className="flex items-center justify-center p-3">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        <span className="ml-2 text-sm text-muted-foreground">
+                          Loading users...
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        <SelectItem value="all">All Users</SelectItem>
+                        {users?.map((u) => (
+                          <SelectItem key={u._id} value={u._id||u.email}>
+                            {u.userName}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+        </div>
+        <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  Date Range
+                </Label>
+                <Select
+                  value={date}
+                  onValueChange={(v) => setDate( v)}
+                >
+                  <SelectTrigger className="bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Time</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="week">This Week</SelectItem>
+                    <SelectItem value="month">This Month</SelectItem>
+                    <SelectItem value="quarter">Last 3 Months</SelectItem>
+                    <SelectItem value="year">This Year</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+      </CardContent>
+    </Card>
+  
+    {/* Example second card (optional) */}
+    {/* <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">...</Card> */}
+      </div>
+      {
+            finalized && finalized?.length>=1?
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <PieBox title="Answers by Status" data={AnswerData} />
+          <PieBox title="Answers by Crop" data={answerCropData} />
+          <PieBox title="Answers by Region" data={answerStateData} />
+        </div>:''
+          }
+  </div>
     
       
       <div className="space-y-6 p-6  ">
