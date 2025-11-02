@@ -279,19 +279,21 @@ export class QuestionService extends BaseService {
     try {
       return this._withTransaction(async (session: ClientSession) => {
         let {question, priority, source, details, context} = body;
-        let priorities = ["low" , 'high', 'medium,' ]
-        if(!priorities.includes(priority)){
-          priority="medium"
+        let priorities = ['low', 'high', 'medium,'];
+        if (!priorities.includes(priority)) {
+          priority = 'medium';
         }
-        if(!question || question.trim() ==''){
-          throw new BadRequestError(
-            `Question is required`,
-          );
+        if (!question || question.trim() == '') {
+          throw new BadRequestError(`Question is required`);
         }
-        if(!details.crop || !details.district || !details.domain || !details.season || !details.state){
-          throw new BadRequestError(
-            `All fields are required`,
-          );
+        if (
+          !details.crop ||
+          !details.district ||
+          !details.domain ||
+          !details.season ||
+          !details.state
+        ) {
+          throw new BadRequestError(`All fields are required`);
         }
         // Prevent duplicate questoin entry
         const isQuestionExisit =
@@ -505,7 +507,7 @@ export class QuestionService extends BaseService {
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
 
-    if (question.status !== 'open') {
+    if (question.status !== 'open' && question.status !== 'delayed') {
       console.log(
         'This question is currently being reviewed or has been closed. Please check back later!',
       );
@@ -585,10 +587,10 @@ export class QuestionService extends BaseService {
 
       const lastSubmission = questionSubmission.history.at(-1);
 
-
       if (
         questionSubmission.history.length >= 0 &&
-        ((lastSubmission?.answer && lastSubmission.status !== 'in-review') ||  lastSubmission?.status == 'reviewed') &&
+        ((lastSubmission?.answer && lastSubmission.status !== 'in-review') ||
+          lastSubmission?.status == 'reviewed') &&
         EXISTING_QUEUE_COUNT >= 3
       ) {
         const nextExpertId = expertsToAdd[0]?.toString();
@@ -708,7 +710,7 @@ export class QuestionService extends BaseService {
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
 
-        if (question.status !== 'open') {
+        if (question.status !== 'open' && question.status !== 'delayed') {
           console.log(
             'This question is currently being in reviewe or has been closed. Please check back later!',
           );

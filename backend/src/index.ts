@@ -17,6 +17,7 @@ import {authorizationChecker} from './shared/functions/authorizationChecker.js';
 import {currentUserChecker} from './shared/functions/currentUserChecker.js';
 import path from 'path';
 import {fileURLToPath} from 'url';
+import { initJobs } from './bootstrap/jobs/index.js';
 
 const app = express();
 
@@ -70,5 +71,6 @@ if (NODE_ENV === 'production' || NODE_ENV === 'staging') {
 useExpressServer(app, moduleOptions);
 
 app.listen(appConfig.port, () => {
+  initJobs();
   printStartupSummary();
 });

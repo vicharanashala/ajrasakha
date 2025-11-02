@@ -329,13 +329,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   handleDelete,
   onViewMore,
 }) => {
-  const handleDelayStatus = useCallback(() => {
-    if (!q || !q.createdAt || q.status !== "open") return;
-    setUpdatedData(q);
-    updateQuestion("edit", q._id, undefined, "delayed");
-  }, [q, updateQuestion, setUpdatedData]);
-
-  const timer = useCountdown(q.createdAt, 4, handleDelayStatus);
+  const timer = useCountdown(q.createdAt, 1 / 60, () => {});
 
   const serialNumber = useMemo(
     () => (currentPage - 1) * totalPages + idx + 1,
@@ -365,15 +359,18 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   }, [q.priority]);
 
   const statusBadge = useMemo(() => {
-    const status = q.status || "NIL";
-    const formatted = status.replace("_", " ");
+    // const status = q.status || "NIL";
+    const effectiveStatus =
+      timer === "00:00:00" ? "delayed" : q.status || "NIL";
+
+    const formatted = effectiveStatus.replace("_", " ");
 
     const colorClass =
-      status === "in-review"
+      effectiveStatus === "in-review"
         ? "bg-green-500/10 text-green-600 border-green-500/30"
-        : status === "open"
+        : effectiveStatus === "open"
         ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-        : status === "closed"
+        : effectiveStatus === "closed"
         ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
         : "bg-muted text-foreground";
 
@@ -382,7 +379,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
         {formatted}
       </Badge>
     );
-  }, [q.status]);
+  }, [q.status, timer]);
 
   return (
     <TableRow key={q._id} className="text-center">

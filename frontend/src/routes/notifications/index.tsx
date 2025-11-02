@@ -1,37 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
-
 export const Route = createFileRoute("/notifications/")({
   component: Notification,
 });
 import { useEffect, useState } from "react";
-import {
-  BellIcon,
-  CheckCircle,
-  Trash2,
-  MoreVertical,
-  ArrowLeft,
-  XCircle,
-} from "lucide-react";
+import { BellIcon, CheckCircle, ArrowLeft, XCircle } from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { Separator } from "@/components/atoms/separator";
-import { UserProfileActions } from "@/components/atoms/user-profile-actions";
 import { Badge } from "@/components/atoms/badge";
-import { ThemeToggleCompact } from "@/components/atoms/ThemeToggle";
-import { Checkbox } from "@/components/atoms/checkbox";
 import { Button } from "@/components/atoms/button";
 import { ScrollArea } from "@/components/atoms/scroll-area";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/atoms/dropdown-menu";
 import { useGetNotifications } from "@/hooks/api/notification/useGetNotifications";
 import { useDeleteNotification } from "@/hooks/api/notification/useDeleteNotifications";
 import { useMarkAsReadNotification } from "@/hooks/api/notification/useUpdateNotification";
 import { useMarkAllAsReadNotification } from "@/hooks/api/notification/useMarkAllAsRead";
 import toast from "react-hot-toast";
 import { formatDate } from "@/utils/formatDate";
+import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
+import { QuestionDetails } from "@/components/question-details";
 export interface Notification {
   _id: string;
   enitity_id: string;
@@ -46,11 +31,22 @@ export interface Notification {
 
 export default function Notification() {
   const { data: user, isLoading } = useGetCurrentUser();
-  const { mutateAsync: deleteNotification } = useDeleteNotification();
+  const {
+    mutateAsync: deleteNotification,
+    isPending: isDeletingNotifications,
+  } = useDeleteNotification();
   const { mutateAsync: markAsRead } = useMarkAsReadNotification();
   const { mutateAsync: markAllAsRead } = useMarkAllAsReadNotification();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // const [selectedQuestionId, setSelectedQuestionId] = useState("");
+
+  // const {
+  //   data: questionDetails,
+  //   refetch: refechSelectedQuestion,
+  //   isLoading: isLoadingSelectedQuestion,
+  // } = useGetQuestionFullDataById(selectedQuestionId);
 
   const {
     data: notificationPages,
@@ -59,6 +55,7 @@ export default function Notification() {
     isFetchingNextPage,
     refetch,
   } = useGetNotifications();
+
   useEffect(() => {
     if (notificationPages?.pages) {
       const allNotifications = notificationPages?.pages.flatMap(
@@ -71,6 +68,13 @@ export default function Notification() {
   const handleMarkAsRead = async (id: string) => {
     try {
       await markAsRead(id);
+      // const selectedNotification = notifications.find(
+      //   (notification) => notification._id === id
+      // );
+
+      // if (selectedNotification?.type === "Flag_Response") {
+      //   setSelectedQuestionId(selectedNotification.enitity_id);
+      // }
       // toast.success("Notification marked as read!")
     } catch (error) {
       console.log("Error: ", error);
@@ -105,12 +109,13 @@ export default function Notification() {
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-  if (isLoading) {
+  if (isLoading || isDeletingNotifications) {
+    // if (isLoading || isLoadingSelectedQuestion) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm mx-auto  ">
         <div className="w-full max-w-sm p-6 bg-card rounded-lg shadow-lg flex flex-col items-center justify-center gap-4">
           <h3 className="text-lg font-semibold text-center">
-            Loading notifications...
+            Loading {isLoading && "notifications"}...
           </h3>
           <div className="flex items-center justify-center">
             <svg
@@ -143,38 +148,20 @@ export default function Notification() {
   }
 
   return (
+    // <>
+    //   {selectedQuestionId && questionDetails ? (
+    //     <>
+    //       <QuestionDetails
+    //         question={questionDetails.data}
+    //         currentUserId={questionDetails.currentUserId}
+    //         refetchAnswers={refechSelectedQuestion}
+    //         isRefetching={isLoadingSelectedQuestion}
+    //         goBack={() => setSelectedQuestionId("")}
+    //         currentUser={user!}
+    //       />
+    //     </>
+    //   ) : (
     <div className="min-h-screen bg-background flex flex-col ">
-      {/* <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex flex-wrap items-center justify-between gap-3 px-3 py-2 sm:px-4 sm:py-3">
-        <div className="flex items-center gap-2 shrink-0">
-          <img
-            src="/annam-logo.png"
-            alt="Annam Logo"
-            className="h-8 w-auto sm:h-10 md:h-12"
-          />
-        </div>
-
-        <div className="flex-1 flex justify-center min-w-0">
-          <div className="flex items-center gap-2 text-center">
-            <BellIcon className="w-5 h-5 text-muted-foreground" />
-            <h1 className="text-base sm:text-lg font-semibold truncate">
-              Notifications
-            </h1>
-            {unreadCount > 0 && (
-              <Badge variant="destructive" className="ml-1 sm:ml-2 text-xs sm:text-sm">
-                {unreadCount}
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <ThemeToggleCompact />
-          <UserProfileActions />
-        </div>
-      </div>
-    </header> */}
-
       <div className="container mx-auto flex-1 py-4 sm:py-6 px-3 sm:px-0 px-6 py-8 max-w-[60%]">
         <div
           className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer w-fit"
@@ -365,5 +352,9 @@ export default function Notification() {
         </div>
       </div>
     </div>
+    //   )}
+    // </>
+    //   )}
+    // </>
   );
 }

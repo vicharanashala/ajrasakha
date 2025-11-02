@@ -150,4 +150,9 @@ export interface IQuestionRepository {
     text: string,
     session?: ClientSession,
   ): Promise<IQuestion>;
+
+  /**
+   * Updates a  question to delyed after 4hrs if still open.
+   */
+  updateExpiredAfterFourHours(): Promise<void>;
 }
