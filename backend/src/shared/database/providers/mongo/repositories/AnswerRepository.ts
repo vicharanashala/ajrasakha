@@ -1,4 +1,4 @@
-import {IAnswer} from '#root/shared/interfaces/models.js';
+import {IAnswer, IQuestion, IUser} from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
@@ -10,6 +10,8 @@ import {SubmissionResponse} from '#root/modules/core/classes/validators/AnswerVa
 
 export class AnswerRepository implements IAnswerRepository {
   private AnswerCollection: Collection<IAnswer>;
+  private QuestionCollection: Collection<IQuestion>;
+  private usersCollection!: Collection<IUser>;
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
@@ -18,6 +20,9 @@ export class AnswerRepository implements IAnswerRepository {
 
   private async init() {
     this.AnswerCollection = await this.db.getCollection<IAnswer>('answers');
+    this.QuestionCollection =
+      await this.db.getCollection<IQuestion>('questions');
+    this.usersCollection = await this.db.getCollection<IUser>('users');
   }
 
   async addAnswer(
@@ -194,6 +199,239 @@ export class AnswerRepository implements IAnswerRepository {
       throw new InternalServerError(`Failed to fetch submissions: ${error}`);
     }
   }
+  async getAllFinalizedAnswers(
+    userId: string,
+    currentUserId: string,
+    date: string,
+    session?: ClientSession,
+  ): Promise<{
+    finalizedSubmissions: any[];
+    currentUserAnswers: any[];
+    totalQuestionsCount: number;
+  }> {
+    try {
+      await this.init();
+
+      let userObjectId = null;
+
+      if (userId && userId !== 'all') {
+        // Check if it's an email
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userId);
+
+        if (isEmail) {
+          const user = await this.usersCollection.findOne({email: userId});
+          if (user) userObjectId = user._id;
+        } else {
+          // Treat it as an ObjectId
+          userObjectId = new ObjectId(userId);
+        }
+      }
+      let dateMatch = {};
+      if (date && date !== 'all') {
+        const now = new Date();
+        let startDate: Date | undefined;
+        switch (date) {
+          case 'today':
+            startDate = new Date(now.setHours(0, 0, 0, 0));
+            break;
+          case 'week':
+            startDate = new Date(now.setDate(now.getDate() - 7));
+            break;
+          case 'month':
+            startDate = new Date(now.setMonth(now.getMonth() - 1));
+            break;
+          case 'quarter':
+            startDate = new Date(now.setMonth(now.getMonth() - 3));
+            break;
+          case 'year':
+            startDate = new Date(now.setFullYear(now.getFullYear() - 1));
+            break;
+        }
+        if (startDate) {
+          dateMatch = {'question.createdAt': {$gte: startDate}};
+        }
+      }
+
+      const submissions = await this.AnswerCollection.aggregate([
+        // Filter answers by userId if provided (from answers collection)
+
+        // Join question details
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
+
+        // Convert question[] → question object
+        {$unwind: '$question'},
+
+        // Optional date filter (works on answer createdAt)
+        ...(Object.keys(dateMatch).length > 0
+          ? [{$match: {createdAt: dateMatch}}]
+          : []),
+          ...(userId !== "all"
+          ? [
+              {
+                $match: {
+                  "question.userId": userObjectId,
+                  "question.status": { $in: ["in-review", "closed","open","delayed"] },
+                  approvalCount: { $in: [0, 3] }
+                }
+              },
+              // ✅ sort so most recent answers come first
+              { 
+                $sort: { createdAt: -1 } 
+              },
+              // ✅ group answers by questionId and pick the latest one
+              {
+                $group: {
+                  _id: "$questionId",
+                  latestAnswer: { $first: "$$ROOT" }
+                }
+              },
+              {
+                $replaceRoot: { newRoot: "$latestAnswer" }
+              }
+            ]
+          : []),
+
+           
+
+        // Sort newest first
+        {$sort: {createdAt: -1}},
+      ]).toArray();
+
+      const currentUserAnswers = await this.AnswerCollection.aggregate([
+        {
+          $match: {
+            isFinalAnswer: true,
+          },
+        },
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
+        {$unwind: '$question'},
+
+        {
+          $match: {
+            'question.userId': new ObjectId(currentUserId),
+          },
+        },
+
+        {
+          $group: {
+            _id: {$toString: '$question._id'}, // ✅ Convert to string here
+            text: {$first: '$question.question'},
+            createdAt: {$first: '$question.createdAt'},
+            updatedAt: {$first: '$question.updatedAt'},
+            totalAnswersCount: {$sum: 1},
+            details: {$first: '$question.details'},
+            status: {$first: '$question.status'},
+            responses: {
+              $push: {
+                answer: '$answer',
+                id: {$toString: '$_id'},
+                isFinalAnswer: '$isFinalAnswer',
+                createdAt: '$createdAt',
+              },
+            },
+          },
+        },
+
+        {$sort: {createdAt: -1}},
+      ]).toArray();
+      const totalQuestionsCount = (
+        await this.AnswerCollection.aggregate([
+          {
+            $match: {
+              approvalCount: 3,
+            },
+          },
+          {
+            $lookup: {
+              from: 'questions',
+              localField: 'questionId',
+              foreignField: '_id',
+              as: 'question',
+            },
+          },
+          {$unwind: '$question'},
+
+          {
+            $match: {
+              'question.userId': new ObjectId(currentUserId),
+            },
+          },
+
+          {
+            $group: {
+              _id: {$toString: '$question._id'}, // ✅ Convert to string here
+              text: {$first: '$question.question'},
+              createdAt: {$first: '$question.createdAt'},
+              updatedAt: {$first: '$question.updatedAt'},
+              totalAnswersCount: {$sum: 1},
+              details: {$first: '$question.details'},
+              responses: {
+                $push: {
+                  answer: '$answer',
+                  id: {$toString: '$_id'},
+                  isFinalAnswer: '$isFinalAnswer',
+                  createdAt: '$createdAt',
+                },
+              },
+            },
+          },
+
+          {$sort: {createdAt: -1}},
+        ]).toArray()
+      ).length;
+
+      const finalizedSubmissions = submissions.map(sub => ({
+        id: sub._id.toString(),
+
+        // Answer fields
+        answer: sub.answer,
+        isFinalAnswer: sub.isFinalAnswer,
+        approvalCount: sub.approvalCount,
+        authorId: sub.authorId?.toString() || null,
+        questionId: sub.questionId?.toString() || null,
+        sources: sub.sources || [],
+
+        createdAt: sub.createdAt?.toISOString(),
+        updatedAt: sub.updatedAt?.toISOString(),
+        details: sub.question?.details,
+        status: sub.question?.status,
+        // Question fields (nested)
+        question: {
+          id: sub.question?._id?.toString(),
+          text: sub.question?.question,
+          status: sub.question?.status,
+          details: sub.question?.details,
+          priority: sub.question?.priority,
+          source: sub.question?.source,
+          totalAnswersCount: sub.question?.totalAnswersCount || 0,
+          createdAt: sub.question?.createdAt?.toISOString(),
+          updatedAt: sub.question?.updatedAt?.toISOString(),
+        },
+      }));
+
+      return {
+        finalizedSubmissions,
+        currentUserAnswers,
+        totalQuestionsCount,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch submissions: ${error}`);
+    }
+  }
 
   async updateAnswer(
     answerId: string,
@@ -248,34 +486,33 @@ export class AnswerRepository implements IAnswerRepository {
     }
   }
 
- async incrementApprovalCount(
-  answerId: string,
-  session?: ClientSession,
-): Promise<number> {
-  try {
-    await this.init();
+  async incrementApprovalCount(
+    answerId: string,
+    session?: ClientSession,
+  ): Promise<number> {
+    try {
+      await this.init();
 
-    const result = await this.AnswerCollection.findOneAndUpdate(
-      { _id: new ObjectId(answerId) },
-      { $inc: { approvalCount: 1 } },
-      {
-        session,
-        returnDocument: 'after', 
-      },
-    );
+      const result = await this.AnswerCollection.findOneAndUpdate(
+        {_id: new ObjectId(answerId)},
+        {$inc: {approvalCount: 1}},
+        {
+          session,
+          returnDocument: 'after',
+        },
+      );
 
-    if (!result) {
-      throw new InternalServerError(`Answer not found with ID ${answerId}`);
+      if (!result) {
+        throw new InternalServerError(`Answer not found with ID ${answerId}`);
+      }
+
+      return result.approvalCount ?? 0;
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while incrementing approval count of answer ${answerId}. More: ${error}`,
+      );
     }
-
-    return result.approvalCount ?? 0;
-  } catch (error) {
-    throw new InternalServerError(
-      `Error while incrementing approval count of answer ${answerId}. More: ${error}`,
-    );
   }
-}
-
 
   async deleteByQuestionId(
     questionId: string,

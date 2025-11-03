@@ -82,7 +82,7 @@ export class UserService extends BaseService {
 
         return {
           myPreference,
-          users: usersExceptMe.map(u => ({
+          users: users.map(u => ({
             _id: u._id.toString(),
             role: u.role,
             email: u.email,

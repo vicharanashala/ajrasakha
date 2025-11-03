@@ -22,7 +22,7 @@ import { Card } from "./atoms/card";
 import { Separator } from "./atoms/separator";
 import { Textarea } from "./atoms/textarea";
 import { Button } from "./atoms/button";
-import toast from "react-hot-toast";
+import {toast} from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -90,6 +90,8 @@ import { useRemoveAllocation } from "@/hooks/api/question/useRemoveAllocation";
 import { ConfirmationModal } from "./confirmation-modal";
 import { Input } from "./atoms/input";
 import { formatDate } from "@/utils/formatDate";
+import { useCountdown } from "@/hooks/useCountdown";
+import { TimerDisplay } from "./timer-display";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -139,6 +141,8 @@ export const QuestionDetails = ({
   const metrics = question.metrics;
   const context = question.context;
 
+  const timer = useCountdown(question.createdAt!, 4, () => {});
+
   const commentRef = useRef<any>(null);
 
   return (
@@ -171,17 +175,42 @@ export const QuestionDetails = ({
           <h1 className="text-2xl font-semibold text-pretty">
             {question.question}
           </h1>
-          <div className="flex justify-center gap-2 items-center mt-2 sm:mt-0">
-            {question.status != "closed" && currentUser.role != "expert" && (
-              <SubmitAnswerDialog
-                questionId={question._id}
-                isAlreadySubmitted={question.isAlreadySubmitted}
-                currentUserId={currentUserId}
-                onSubmitted={() => {
-                  refetchAnswers();
-                }}
-              />
-            )}
+          <div className="flex gap-8 items-center justify-center">
+            <TimerDisplay timer={timer} status={question.status} size="lg" />
+            <div className="flex justify-center gap-2 items-center">
+              {/* {question.status != "closed" && currentUser.role != "expert" && (
+                <SubmitAnswerDialog
+                  questionId={question._id}
+                  isAlreadySubmitted={question.isAlreadySubmitted}
+                  currentUserId={currentUserId}
+                  onSubmitted={() => {
+                    refetchAnswers();
+                  }}
+                />
+              )} */}
+              <Button
+                size="sm"
+                variant="outline"
+                className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
+                onClick={() => goBack()}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                  className="w-4 h-4"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M17 8l4 4m0 0l-4 4m4-4H3"
+                  />
+                </svg>
+                <span className="leading-none">Exit</span>
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -351,14 +380,14 @@ export const QuestionDetails = ({
         )}
       </Card>
 
-      {currentUser.role !== "expert" && (
+      {/* {currentUser.role !== "expert" && ( */}
         <AllocationTimeline
           history={question.submission.history}
           queue={question.submission.queue}
           currentUser={currentUser}
           question={question}
         />
-      )}
+      {/* )} */}
       <div className="flex items-center justify-between md:mt-12">
         <h2 className="text-lg font-semibold flex justify-center gap-2 items-center ">
           <div className="p-2 rounded-lg bg-primary/10">
@@ -492,7 +521,7 @@ const AllocationQueueHeader = ({
 
   const handleSubmit = async () => {
     try {
-      if (question.status !== "open") {
+      if (question.status !== "open" && question.status !== "delayed") {
         toast.error(
           "This question is currently being reviewed or has been closed. Please check back later!"
         );
@@ -1434,7 +1463,9 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         answerId,
       });
 
-      toast.success("Answer updated successfully!");
+      toast.success(
+        "Answer approved successfully! The question is now closed. Thank you!"
+      );
       setEditOpen(false);
     } catch (error) {
       console.error("Failed to edit answer:", error);
@@ -1477,21 +1508,15 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
           {isMine && <UserCheck className="w-4 h-4 text-blue-600 ml-1" />}
         </div>
         <div className="flex items-center justify-center gap-2">
-          {/* {props.userRole !== "expert" &&
-            props.questionStatus == "in-review" &&
-            ((props.answer?.approvalCount !== undefined &&
-              props.answer?.approvalCount >= 3) ||
-              props.firstAnswerId == props.answer?._id) && ( */}
           {props.userRole !== "expert" &&
             props.questionStatus === "in-review" &&
-            // (props.answer?.approvalCount !== undefined && props.answer?.approvalCount >= 3) ||
             props.firstAnswerId === props.answer?._id && (
               <Dialog open={editOpen} onOpenChange={setEditOpen}>
                 <DialogTrigger asChild>
-                  <Button className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2">
-                    <Edit className="w-4 h-4" />
-                    Edit Answer
-                  </Button>
+                  <button className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2 rounded">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Approve Answer
+                  </button>
                 </DialogTrigger>
 
                 <DialogContent
@@ -1500,7 +1525,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                 >
                   <DialogHeader>
                     <DialogTitle className="text-lg font-semibold">
-                      Edit Answer
+                      Approve Answer
                     </DialogTitle>
                   </DialogHeader>
 
@@ -1516,9 +1541,9 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                     className="mt-4 p-4 rounded-md border bg-yellow-50 border-yellow-300 text-yellow-900 text-sm
                 dark:bg-yellow-900/20 dark:border-yellow-700/60 dark:text-yellow-200"
                   >
-                    ⚠️ You are about to update a{" "}
-                    <strong>finalized answer</strong>. Please review your
-                    changes carefully before saving to avoid mistakes.
+                    ⚠️ You are about to approve a <strong> answer</strong>.
+                    Please review your changes carefully before saving to avoid
+                    mistakes.
                   </div>
 
                   <div className="mt-6 flex justify-end gap-3">
@@ -1532,7 +1557,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       onClick={handleUpdateAnswer}
                       className="bg-primary text-primary-foreground"
                     >
-                      Save
+                      Save & finalize
                     </Button>
                   </div>
                 </DialogContent>

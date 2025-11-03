@@ -17,9 +17,9 @@ import { BellIcon ,Settings2Icon} from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { RequestsPage } from "./request-page";
 import { useNavigate } from "@tanstack/react-router";
-import { Badge } from "./atoms/badge";
 import { initializeNotifications } from "@/services/pushService";
 import { useEffect,useState } from "react";
+import { PerformanceMatrics } from "./performanceMatrics";
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser();
@@ -85,7 +85,13 @@ useEffect(() => {
         </div>
       )}
 
-      <Tabs defaultValue="questions" className="h-full w-full">
+      <Tabs
+        key={user?.role}
+        defaultValue={
+          user && user.role !== "expert" ? "performance" : "questions"
+        }
+        className="h-full w-full"
+      >
         <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="container mx-auto flex items-center justify-between gap-4 px-4 py-3">
             <div className="flex items-center gap-3 shrink-0">
@@ -104,7 +110,25 @@ useEffect(() => {
                 >
                   <span>Questions</span>
                 </TabsTrigger>
+                {user && user.role !== "expert" && (
+                  <TabsTrigger
+                    value="performance"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <HoverCard openDelay={150}>
+                      <span>Performance</span>
+                    </HoverCard>
+                  </TabsTrigger>
+                )}
 
+                {user && user.role == "expert" && (
+                  <TabsTrigger
+                    value="questions"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <span>Questions</span>
+                  </TabsTrigger>
+                )}
                 <TabsTrigger
                   value="all_questions"
                   className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
@@ -129,14 +153,16 @@ useEffect(() => {
                   </HoverCard>
                 </TabsTrigger>
 
-                <TabsTrigger
-                  value="history"
-                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                >
-                  <HoverCard openDelay={150}>
-                    <span>History</span>
-                  </HoverCard>
-                </TabsTrigger>
+                {user && user.role == "expert" && (
+                  <TabsTrigger
+                    value="history"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <HoverCard openDelay={150}>
+                      <span>History</span>
+                    </HoverCard>
+                  </TabsTrigger>
+                )}
               </TabsList>
             </div>
 
@@ -235,10 +261,19 @@ useEffect(() => {
         <div className="container h-full py-6">
           <div className="grid h-full items-stretch gap-6 ">
             <div className="md:order-1 w-full ">
-              <TabsContent value="questions" className="mt-0 border-0 p-0 ">
-                <QAInterface />
-              </TabsContent>
-
+              {user && user.role !== "expert" && (
+                <TabsContent
+                  value="performance"
+                  className="mt-0 border-0 p-0 max-w-[98%]"
+                >
+                  <PerformanceMatrics />
+                </TabsContent>
+              )}
+              {user && user.role == "expert" && (
+                <TabsContent value="questions" className="mt-0 border-0 p-0 ">
+                  <QAInterface />
+                </TabsContent>
+              )}
               <TabsContent
                 value="all_questions"
                 className="mt-0 border-0 md:px-8  w-full"
@@ -253,23 +288,21 @@ useEffect(() => {
                   <RequestsPage />
                 </TabsContent>
               )}
-              <TabsContent
-                value="upload"
-                className="mt-0 border-0 p-0 max-w-[95%]"
-              >
+              <TabsContent value="upload" className="mt-0 border-0 p-0 ">
                 <div className="max-h-[70vh] overflow-hidden bg-background p-4 ps-0">
                   <div className="container mx-auto py-8 pt-0">
                     <VoiceRecorderCard />
                   </div>
                 </div>
               </TabsContent>
-
-              <TabsContent
-                value="history"
-                className="mt-0 border-0 p-0 max-w-[98%]"
-              >
-                <FullSubmissionHistory currentUser={user!} />
-              </TabsContent>
+              {user && user.role == "expert" && (
+                <TabsContent
+                  value="history"
+                  className="mt-0 border-0 p-0 max-w-[98%]"
+                >
+                  <FullSubmissionHistory currentUser={user!} />
+                </TabsContent>
+              )}
             </div>
           </div>
         </div>

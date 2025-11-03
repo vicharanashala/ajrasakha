@@ -1,8 +1,8 @@
 import { Outlet, createRootRoute } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "react-hot-toast";
-
+// import { Toaster as ReactHotToast } from "react-hot-toast";
+import {Toaster as SonnerToast} from 'sonner'
 export const queryClient = new QueryClient();
 
 export const Route = createRootRoute({
@@ -10,7 +10,8 @@ export const Route = createRootRoute({
     <>
       <ThemeProvider>
           <QueryClientProvider client={queryClient}>
-            <Toaster position="bottom-right" reverseOrder={false} />
+            {/* <ReactHotToast position="bottom-right" reverseOrder={false} /> */}
+            <SonnerToast richColors position="bottom-right"  />
             <Outlet />
           </QueryClientProvider>
       </ThemeProvider>

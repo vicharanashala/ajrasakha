@@ -44,7 +44,7 @@ import { useGetRequestDiff } from "@/hooks/api/request/useGetRequestDiff";
 import { Skeleton } from "./atoms/skeleton";
 import { ScrollArea } from "./atoms/scroll-area";
 import { useUpdateRequestStatus } from "@/hooks/api/request/useUpdateRequestStatus";
-import toast from "react-hot-toast";
+import {toast} from "sonner";
 import { Separator } from "./atoms/separator";
 import {
   Dialog,

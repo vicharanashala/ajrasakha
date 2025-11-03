@@ -79,6 +79,26 @@ export class AnswerController {
     const userId = user._id.toString();
     return this.answerService.getSubmissions(userId, page, limit);
   }
+  @Get('/finalizedAnswers')
+  @HttpCode(200)
+  @Authorized()
+  @ResponseSchema(SubmissionResponse, {isArray: true})
+  @OpenAPI({summary: 'Get all FinalizedAnswers'})
+  async getfinalAnswerQuestions(
+    @QueryParams() query: {userId,date},
+    @CurrentUser() user: IUser,
+  ): Promise<{
+    finalizedSubmissions: any[],
+    currentUserAnswers: any[],
+    totalQuestionsCount: number
+  }>  {
+   
+    const userId = query?.userId || "all";
+    const date=query?.date || "all";
+    const currentUserId = user._id.toString(); // Default to "all" if not passed
+  
+    return this.answerService.getFinalAnswerQuestions(userId,currentUserId,date);
+  }
 
   @OpenAPI({summary: 'Update an existing answer'})
   @Put('/:answerId')
@@ -88,9 +108,11 @@ export class AnswerController {
   async updateAnswer(
     @Params() params: AnswerIdParam,
     @Body() body: UpdateAnswerBody,
+    @CurrentUser() user: IUser,
   ) {
     const {answerId} = params;
-    return this.answerService.updateAnswer(answerId, body);
+    const {_id: userId} = user;
+    return this.answerService.updateAnswer(userId.toString(), answerId, body);
   }
 
   @OpenAPI({summary: 'Delete an answer and update the related question state'})

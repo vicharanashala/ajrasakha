@@ -5,6 +5,8 @@ import {useContainer} from 'routing-controllers';
 import {InversifyAdapter} from '#root/inversify-adapter.js';
 import {appConfig} from '#root/config/app.js';
 
+let container: Container | null = null;
+
 interface LoadedModuleResult {
   controllers: Function[];
   validators: Function[];
@@ -17,7 +19,7 @@ export async function loadAppModules(
   let modulesDir;
   if (appConfig.isProduction || appConfig.isStaging) {
     modulesDir = path.resolve('./build/modules');
-  } else { 
+  } else {
     modulesDir = path.resolve('./src/modules');
   }
   const files = await fs.readdir(modulesDir);
@@ -55,7 +57,7 @@ export async function loadAppModules(
 
   if (isAll) {
     const uniqueModules = Array.from(new Set(allContainerModules));
-    const container = new Container();
+    container = new Container();
     await container.load(...uniqueModules);
     const inversifyAdapter = new InversifyAdapter(container);
     useContainer(inversifyAdapter);
@@ -63,3 +65,12 @@ export async function loadAppModules(
 
   return {controllers, validators};
 }
+
+export const getContainer = (): Container => {
+  if (!container) {
+    throw new Error(
+      'Container not initialized. Call loadAppModules("all") first.',
+    );
+  }
+  return container;
+};

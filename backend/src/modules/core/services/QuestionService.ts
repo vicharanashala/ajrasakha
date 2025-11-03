@@ -12,6 +12,7 @@ import {
   BadRequestError,
   InternalServerError,
   NotFoundError,
+  UnauthorizedError,
 } from 'routing-controllers';
 import {
   AddQuestionBodyDto,
@@ -28,6 +29,9 @@ import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepos
 import {dummyEmbeddings} from '../utils/questionGen.js';
 import {IContextRepository} from '#root/shared/database/interfaces/IContextRepository.js';
 import {PreferenceDto} from '../classes/validators/UserValidators.js';
+import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
+import {notifyUser} from '#root/utils/pushNotification.js';
+import {NotificationService} from './NotificationService.js';
 
 @injectable()
 export class QuestionService extends BaseService {
@@ -52,6 +56,12 @@ export class QuestionService extends BaseService {
 
     @inject(GLOBAL_TYPES.AnswerRepository)
     private readonly answerRepo: IAnswerRepository,
+
+    @inject(GLOBAL_TYPES.NotificationRepository)
+    private readonly notificationRepository: INotificationRepository,
+
+    @inject(GLOBAL_TYPES.NotificationService)
+    private readonly notificationService: NotificationService,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -268,8 +278,23 @@ export class QuestionService extends BaseService {
   ): Promise<Partial<IQuestion>> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        const {question, priority, source, details, context} = body;
-
+        let {question, priority, source, details, context} = body;
+        let priorities = ['low', 'high', 'medium,'];
+        if (!priorities.includes(priority)) {
+          priority = 'medium';
+        }
+        if (!question || question.trim() == '') {
+          throw new BadRequestError(`Question is required`);
+        }
+        if (
+          !details.crop ||
+          !details.district ||
+          !details.domain ||
+          !details.season ||
+          !details.state
+        ) {
+          throw new BadRequestError(`All fields are required`);
+        }
         // Prevent duplicate questoin entry
         const isQuestionExisit =
           await this.questionRepo.getQuestionByQuestionText(
@@ -297,8 +322,8 @@ export class QuestionService extends BaseService {
 
         // 2. Create Embedding for the question based on text
         const text = `Question: ${question}`;
-        // const {embedding} = await this.aiService.getEmbedding(text);
-        const embedding = [];
+        const {embedding} = await this.aiService.getEmbedding(text);
+        // const embedding = [];
         // 3. Create Question entry
         const newQuestion: IQuestion = {
           userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
@@ -314,9 +339,9 @@ export class QuestionService extends BaseService {
           metrics: null,
           text,
           createdAt: new Date(),
+          // createdAt: body.createdAt ? new Date(body.createdAt) : new Date(),
           updatedAt: new Date(),
         };
-
         // 4. Save Question to DB
         const savedQuestion = await this.questionRepo.addQuestion(newQuestion);
 
@@ -351,6 +376,20 @@ export class QuestionService extends BaseService {
           createdAt: new Date(),
           updatedAt: new Date(),
         };
+
+        //send notification to the first assigned expert
+        let message = `A Question has been assigned for answering`;
+        let title = 'Answer Creation Assigned';
+        let entityId = savedQuestion._id.toString();
+        const user = intialUsersToAllocate[0]._id.toString();
+        const type = 'answer_creation';
+        await this.notificationService.saveTheNotifications(
+          message,
+          title,
+          entityId,
+          user,
+          type,
+        );
         // 6. Save QuestionSubmission to DB
         await this.questionSubmissionRepo.addSubmission(
           submissionData,
@@ -468,7 +507,7 @@ export class QuestionService extends BaseService {
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
 
-    if (question.status !== 'open') {
+    if (question.status !== 'open' && question.status !== 'delayed') {
       console.log(
         'This question is currently being reviewed or has been closed. Please check back later!',
       );
@@ -545,7 +584,15 @@ export class QuestionService extends BaseService {
       const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);
 
       // Add entry for first expert in the queue as status in-review (only after intial 3 allocation)
-      if (EXISTING_QUEUE_COUNT >= 3) {
+
+      const lastSubmission = questionSubmission.history.at(-1);
+
+      if (
+        questionSubmission.history.length >= 0 &&
+        ((lastSubmission?.answer && lastSubmission.status !== 'in-review') ||
+          lastSubmission?.status == 'reviewed') &&
+        EXISTING_QUEUE_COUNT >= 3
+      ) {
         const nextExpertId = expertsToAdd[0]?.toString();
         const nextAllocatedSubmissionData: ISubmissionHistory = {
           updatedBy: new ObjectId(nextExpertId),
@@ -558,6 +605,18 @@ export class QuestionService extends BaseService {
           questionId,
           nextAllocatedSubmissionData,
           session,
+        );
+        let message = `A new Review has been assigned to you`;
+        let title = 'New Review Assigned';
+        let entityId = questionId.toString();
+        const user = nextExpertId.toString();
+        const type = 'peer_review';
+        await this.notificationService.saveTheNotifications(
+          message,
+          title,
+          entityId,
+          user,
+          type,
         );
       }
 
@@ -633,18 +692,27 @@ export class QuestionService extends BaseService {
   }
 
   async allocateExperts(
+    userId: string,
     questionId: string,
     experts: string[],
   ): Promise<IQuestionSubmission> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
+        // Validate that user has authorization for this
+        const user = await this.userRepo.findById(userId, session);
+        if (!user)
+          throw new UnauthorizedError(`Cannot find user, try relogin!`);
+        if (user.role == 'expert')
+          throw new UnauthorizedError(
+            `You don't have permission to perform this operation`,
+          );
         //1. Validate question existence
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
 
-        if (question.status !== 'open') {
+        if (question.status !== 'open' && question.status !== 'delayed') {
           console.log(
-            'This question is currently being reviewed or has been closed. Please check back later!',
+            'This question is currently being in reviewe or has been closed. Please check back later!',
           );
           return;
         }
@@ -658,7 +726,24 @@ export class QuestionService extends BaseService {
         if (!questionSubmission)
           throw new NotFoundError('Question submission not found');
 
-        //3. Validate experts array
+        // 3. Validate if the queue is full
+        if (questionSubmission.queue.length >= 10)
+          throw new BadRequestError(
+            'Cannot allocate more than 10 experts for a question.',
+          );
+
+        const hasExistingExpert = experts.some(expertId =>
+          questionSubmission.queue.includes(expertId),
+        );
+
+        // 4. Validate if the expert Id is already there in queue
+
+        if (hasExistingExpert) {
+          throw new BadRequestError(
+            'The selected expert is already in the queue. Please choose another expert.',
+          );
+        }
+        //5. Validate experts array
         if (!experts || experts.length === 0)
           throw new BadRequestError('Experts list cannot be empty');
 
@@ -669,7 +754,16 @@ export class QuestionService extends BaseService {
             `Cannot allocate more than 10 experts. Currently allocated: ${totalAllocatedExperts}`,
           );
 
-        //4. Allocate experts
+        for(let expert of experts){
+          const IS_INCREMENT=true
+          await this.userRepo.updateReputationScore(
+            expert,
+            IS_INCREMENT,
+            session,
+          );
+        }
+
+        //6. Allocate experts
         const expertIds = experts.map(e => new ObjectId(e));
 
         // if the last expert is  reviewing other question means (if status is not reviewed or not submitted an answer)
@@ -685,21 +779,34 @@ export class QuestionService extends BaseService {
             status: 'in-review',
             updatedAt: new Date(),
           };
-
+          //need to add here
+          let message = `A new Review has been assigned to you`;
+          let title = 'New Review Assigned';
+          let entityId = questionId.toString();
+          const user = expertId.toString();
+          const type = 'peer_review';
+          await this.notificationService.saveTheNotifications(
+            message,
+            title,
+            entityId,
+            user,
+            type,
+          );
           await this.questionSubmissionRepo.update(
             questionId,
             userSubmissionData,
             session,
           );
         }
-        //5. Update question submission with new experts
+        //7. Update question submission with new experts
         const updated = await this.questionSubmissionRepo.allocateExperts(
           questionId,
           expertIds,
           session,
         );
 
-        //6. Return updated question submission
+
+        //8. Return updated question submission
         return updated;
       });
     } catch (error) {
@@ -708,11 +815,20 @@ export class QuestionService extends BaseService {
   }
 
   async removeExpertFromQueue(
+    userId: string,
     questionId: string,
     index: number,
   ): Promise<IQuestionSubmission> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
+        // Validate that user has authorization for this
+        const user = await this.userRepo.findById(userId, session);
+        if (!user)
+          throw new UnauthorizedError(`Cannot find user, try relogin!`);
+        if (user.role == 'expert')
+          throw new UnauthorizedError(
+            `You don't have permission to perform this operation`,
+          );
         //1. Validate that the question exists
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
@@ -797,12 +913,6 @@ export class QuestionService extends BaseService {
             questionId,
             session,
           );
-
-        if (!questionSubmission) {
-          throw new NotFoundError(
-            `No question submission found for question ID: ${questionId}`,
-          );
-        }
 
         const history = questionSubmission.history || [];
         if (history.length > 0) {

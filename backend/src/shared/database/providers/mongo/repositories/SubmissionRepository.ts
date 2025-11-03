@@ -215,7 +215,6 @@ export class QuestionSubmissionRepository
         updateDoc,
         {session},
       );
-
       if (result.matchedCount === 0) {
         throw new InternalServerError(
           `No submission found for questionId: ${questionId}`,

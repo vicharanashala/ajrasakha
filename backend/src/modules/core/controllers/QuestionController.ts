@@ -14,6 +14,7 @@ import {
   Param,
   NotFoundError,
   Patch,
+  UploadedFile,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -36,6 +37,7 @@ import {
   QuestionResponse,
   RemoveAllocateBody,
 } from '../classes/validators/QuestionValidators.js';
+import {jsonUploadOptions} from '../classes/validators/fileUploadOptions.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -101,13 +103,54 @@ export class QuestionController {
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   @OpenAPI({summary: 'Add a new question'})
   async addQuestion(
+    @UploadedFile('file', {options: jsonUploadOptions})
+    file: Express.Multer.File,
     @Body()
     body: AddQuestionBodyDto,
     @CurrentUser() user: IUser,
-  ): Promise<Partial<IQuestion>> {
+  ): Promise<Partial<IQuestion> | {message: string}> {
     const userId = user._id.toString();
-    // const userId = '';
-    return this.questionService.addQuestion(userId, body);
+    if (file) {
+      let successCount = 0;
+      let failedCount = 0;
+      try {
+        const fileContent = file.buffer
+          .toString('utf-8')
+          .trim()
+          .replace(/^\uFEFF/, '');
+        const payload = JSON.parse(fileContent);
+
+        if (!Array.isArray(payload)) {
+          throw new Error('File content must be a JSON array');
+        }
+        const baseTime = new Date();
+        for (const [index, question] of payload.entries()) {
+          try {
+            // await this.questionService.addQuestion(userId, question);
+            await this.questionService.addQuestion(userId,question);
+            successCount++;
+          } catch (err) {
+            failedCount++;
+            console.error(
+              `❌ Failed to insert question #${index + 1}:`,
+              err.message,
+            );
+          }
+        }
+
+        const message =
+          failedCount === 0
+            ? `✅ All ${successCount} questions added successfully.`
+            : `✅ ${successCount} questions added successfully, ❌ ${failedCount} failed.`;
+
+        return {message};
+      } catch (err) {
+        console.error('Error during addQuestion:', err);
+        throw err;
+      }
+    } else {
+      return this.questionService.addQuestion(userId, body);
+    }
   }
 
   @Get('/:questionId')
@@ -164,10 +207,16 @@ export class QuestionController {
   async allocateExperts(
     @Params() params: QuestionIdParam,
     @Body() body: AllocateExpertsRequest,
+    @CurrentUser() user: IUser,
   ) {
+    const {_id: userId} = user;
     const {questionId} = params;
     const {experts} = body;
-    return await this.questionService.allocateExperts(questionId, experts);
+    return await this.questionService.allocateExperts(
+      userId.toString(),
+      questionId,
+      experts,
+    );
   }
 
   @Put('/:questionId')
@@ -190,10 +239,16 @@ export class QuestionController {
   async removeAllocation(
     @Params() params: QuestionIdParam,
     @Body() body: RemoveAllocateBody,
+    @CurrentUser() user: IUser,
   ): Promise<IQuestionSubmission> {
+    const {_id: userId} = user;
     const {questionId} = params;
     const {index} = body;
-    return this.questionService.removeExpertFromQueue(questionId, index);
+    return this.questionService.removeExpertFromQueue(
+      userId.toString(),
+      questionId,
+      index,
+    );
   }
 
   @Delete('/:questionId')

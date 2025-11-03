@@ -115,6 +115,7 @@
     "mathjs": "^14.5.2",
     "mongodb": "^6.17.0",
     "multer": "^2.0.2",
+    "node-cron": "^4.2.1",
     "nodemailer": "^7.0.3",
     "reflect-metadata": "^0.2.2",
     "routing-controllers": "^0.11.2",

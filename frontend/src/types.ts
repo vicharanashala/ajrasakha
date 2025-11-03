@@ -33,6 +33,7 @@ export interface IUser {
   notifications?:number;
   createdAt?: Date;
   updatedAt?: Date;
+  reputation_score?:number
 }
 export type QuestionPriority = "low" | "medium" | "high";
 export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT";
@@ -157,8 +158,79 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed";
+export interface ResponseDto {
+  id: string;
+  answer: string;
+  isFinalAnswer: boolean;
+  createdAt: string;
+}
+export interface CurrentUserAnswer {
+  _id: string;
+  text: string;
+  createdAt: string;
+  updatedAt: string;
+  totalAnswersCount: number;
+  responses: ResponseDto[];
+}
+export interface SubmissionResponse {
+  id: string;
+  text: string;
+  createdAt: string;
+  updatedAt: string;
+  totalAnwersCount: number;
+  reponse: ResponseDto | null;
+  status:string;
+  details: {
+    state: string;
+    district: string;
+    crop: string;
+    season: string;
+    domain: string;
+  };
+}
+export interface QuestionDetails {
+  id: string;
+  text: string;
+  status: string;
+  details: {
+    state?: string;
+    crop?: string;
+    domain?: string;
+  };
+  priority?: string;
+  source?: string;
+  totalAnswersCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
+export interface FinalizedAnswer {
+  id: string;
+  answer: string;
+  isFinalAnswer: boolean;
+  approvalCount: number;
+  authorId: string | null;
+  questionId: string | null;
+  sources: string[];
+  createdAt: string;
+  updatedAt: string;
+  question: QuestionDetails;
+  details: {
+    state: string;
+    district: string;
+    crop: string;
+    season: string;
+    domain: string;
+  };
+  status:string;
+}
+
+export interface FinalizedAnswersResponse {
+  finalizedSubmissions: FinalizedAnswer[];
+  currentUserAnswers: CurrentUserAnswer[];
+  totalQuestionsCount: number;
+}
 export interface IAnswer {
   _id?: string;
   questionId: string;
