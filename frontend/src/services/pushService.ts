@@ -5,30 +5,9 @@ export const initializeNotifications = async () => {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
   try {
-    console.log('reached initalisation')
     const registration = await navigator.serviceWorker.register('/service-worker.js');
-    console.log('registration ',registration)
     const permission = await Notification.requestPermission();
-    console.log("permisson ",permission)
     if (permission !== 'granted') return;
-
-    // const subscription = await registration.pushManager.subscribe({
-    //   userVisibleOnly: true,
-    //   applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY),
-    // });
-    // console.log('after settimg n',subscription)
-
-    // // await apiFetch(`${API_URL}/notifications/subscriptions`, { userId, subscription });
-    // await apiFetch<void>(
-    //     `${API_BASE_URL}/notifications/subscriptions`,
-    //     {
-    //       method: "POST",
-    //       body: JSON.stringify({ subscription}),
-    //     }
-    //   )
-    // console.log('Push subscription saved automatically!');
-
-
     const existingSubscription = await registration.pushManager.getSubscription();
     const newKey = urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY);
 
@@ -39,24 +18,22 @@ export const initializeNotifications = async () => {
         existingKey &&
         !arraysEqual(new Uint8Array(existingKey), newKey)
       ) {
-        console.log('Different VAPID key detected. Unsubscribing old subscription...');
+        // console.log('Different VAPID key detected. Unsubscribing old subscription...');
         await existingSubscription.unsubscribe();
       } else {
-        console.log('Reusing existing push subscription.');
+        // console.log('Reusing existing push subscription.');
         await saveSubscription(existingSubscription);
         return;
       }
     }
 
-    // ✅ Create a new subscription
+    // Create a new subscription
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: newKey,
     });
-    console.log('New push subscription created:', subscription);
 
     await saveSubscription(subscription);
-    console.log('Push subscription saved successfully!');
   } catch (err) {
     console.error('Error initializing notifications:', err);
   }
@@ -73,7 +50,3 @@ async function saveSubscription(subscription: PushSubscription) {
     body: JSON.stringify({ subscription }),
   });
 }
-//   } catch (err) {
-//     console.error('Error initializing notifications:', err);
-//   }
-// };

@@ -10,14 +10,24 @@ export const useAddQuestion = () => {
 
   return useMutation({
     mutationKey: ["addQuestion"],
-    mutationFn: async (newQuestionData: Partial<IDetailedQuestion>) => {
-      return await questionService.addQuestion(newQuestionData);
+    mutationFn: async (newQuestionData: Partial<IDetailedQuestion> | FormData) => {
+      // return await questionService.addQuestion(newQuestionData);
+      if(newQuestionData instanceof FormData){
+        return await questionService.addQuestion(newQuestionData,true)
+      }
+      return await questionService.addQuestion(newQuestionData)
     },
-    onSuccess: () => {
+    onSuccess: (data:any) => {
       queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
+      if (data?.message) {
+        toast.success(data.message);
+      } else {
+        toast.success("Question added successfully!");
+      }
+
     },
     onError: (error: any) => {
-      toast.error("Failed to add question");
+      toast.error(error?.message || "Failed to add question");
       console.error("Add question error:", error);
     },
   });

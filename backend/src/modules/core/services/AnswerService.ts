@@ -319,24 +319,6 @@ export class AnswerService extends BaseService {
             );
             return {message: 'Your response recorded sucessfully, thankyou!'};
           }
-          // Calculate current queue and history lengths
-          // const queueLength = questionSubmission.queue.length;
-          // const updatedHistoryLength = questionSubmission.history.length + 1; // +1 includes the newly added answer
-
-          // // If all queued experts have now responded and the total is at least 10,
-          // // move the question to 'in-review' status
-          // const isAllResponsesCompleted =
-          //   updatedHistoryLength >= 10 &&
-          //   questionSubmission.queue[queueLength - 1].toString() == userId;
-
-          // if (isAllResponsesCompleted) {
-          //   await this.questionRepo.updateQuestion(
-          //     questionId,
-          //     {status: 'in-review'},
-          //     session,
-          //   );
-          //   return {message: 'Your response recorded sucessfully, thankyou!'};
-          // }
         } else if (status == 'rejected') {
           // Prepare update payload for the rejected submission
           const rejectedHistoryUpdate: ISubmissionHistory = {
@@ -411,7 +393,7 @@ export class AnswerService extends BaseService {
           // Case 1: Current user is not the last in the queue and total history (including next) is less than 10
           if (
             currentUserIndexInQueue < currentQueue.length - 1 &&
-            currentQueue.length < 10
+            currentQueue.length <= 10
           ) {
             const nextExpertId = currentQueue[currentUserIndexInQueue + 1];
 
@@ -434,19 +416,7 @@ export class AnswerService extends BaseService {
             let entityId = questionId.toString();
             const user = nextExpertId.toString();
             const type = 'peer_review';
-            // await this.notificationRepository.addNotification(
-            //   user,
-            //   entityId,
-            //   type,
-            //   message,
-            //   title,
-            //   session,
-            // );
-            // const subscription =
-            //   await this.notificationRepository.getSubscriptionByUserId(
-            //     user.toString(),
-            //   );
-            // await notifyUser(user, title, subscription);
+
             await this.notificationService.saveTheNotifications(
               message,
               title,
@@ -460,7 +430,8 @@ export class AnswerService extends BaseService {
           // Case 2: Current user is the last in the queue but the queue isn't full
           else if (
             currentUserIndexInQueue === currentQueue.length - 1 &&
-            currentQueue.length < 10
+            currentQueue.length < 10 &&
+            question.isAutoAllocate
           ) {
             // Automatically allocate additional experts to fill the queue
             await this.questionService.autoAllocateExperts(questionId, session);
@@ -571,6 +542,7 @@ export class AnswerService extends BaseService {
         answer: ${answer}`;
       const {embedding: questionEmbedding} =
         await this.aiService.getEmbedding(text);
+      // const questionEmbedding = [];
 
       await this.questionRepo.updateQuestion(
         questionId,
@@ -580,6 +552,7 @@ export class AnswerService extends BaseService {
       );
 
       const {embedding} = await this.aiService.getEmbedding(text);
+      // const embedding = [];
       const payload: Partial<IAnswer> = {
         ...updates,
         embedding,

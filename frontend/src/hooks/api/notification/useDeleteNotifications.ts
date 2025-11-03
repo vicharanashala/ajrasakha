@@ -13,7 +13,7 @@ export const useDeleteNotification = () => {
       await notificationService.deleteNotification(notificationId);
     },
     onSuccess: () => {
-      toast.success("Notification deleted successfully");
+      // toast.success("Notification deleted successfully");
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
     onError: (error: any) => {

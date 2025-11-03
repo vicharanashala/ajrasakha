@@ -347,14 +347,14 @@ export const QuestionDetails = ({
         )}
       </Card>
 
-      {currentUser.role !== "expert" && (
+      {/* {currentUser.role !== "expert" && ( */}
         <AllocationTimeline
           history={question.submission.history}
           queue={question.submission.queue}
           currentUser={currentUser}
           question={question}
         />
-      )}
+      {/* )} */}
       <div className="flex items-center justify-between md:mt-12">
         <h2 className="text-lg font-semibold flex justify-center gap-2 items-center ">
           <div className="p-2 rounded-lg bg-primary/10">
@@ -1428,7 +1428,9 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         answerId,
       });
 
-      toast.success("Answer updated successfully!");
+      toast.success(
+        "Answer approved successfully! The question is now closed. Thank you!"
+      );
       setEditOpen(false);
     } catch (error) {
       console.error("Failed to edit answer:", error);
@@ -1520,7 +1522,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       onClick={handleUpdateAnswer}
                       className="bg-primary text-primary-foreground"
                     >
-                      Save && finalize
+                      Save & finalize
                     </Button>
                   </div>
                 </DialogContent>
