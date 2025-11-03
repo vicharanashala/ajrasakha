@@ -33,13 +33,13 @@ from pymongo import MongoClient
 load_dotenv()
 
 # Configuration
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
-DATABASE_NAME = os.getenv("FAQ_DATABASE_NAME", "ajrasakha_faq")
-COLLECTION_NAME = os.getenv("FAQ_COLLECTION_NAME", "faq_data")
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb+srv://agriai:agriai1224@staging.1fo96dy.mongodb.net/?retryWrites=true&w=majority&appName=staging")
+DATABASE_NAME = os.getenv("FAQ_DATABASE_NAME", "golden_db")
+COLLECTION_NAME = os.getenv("FAQ_COLLECTION_NAME", "faq")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-large-en")
 
 # CSV file path
-CSV_FILE = "FAQ Question Sheet  - Sheet1.csv"
+CSV_FILE = "data/FAQ Question Sheet  - Sheet1.csv"
 
 
 class CSVFAQIngestion:
@@ -157,6 +157,7 @@ class CSVFAQIngestion:
             # Check if entry already exists (by link)
             existing = self.db_collection.find_one({"link": faq_entry['link']})
             if existing:
+                print(f"⚠️  Entry already exists: {faq_entry['link']}")z
                 return False  # Already exists
             
             # Generate embedding for the query

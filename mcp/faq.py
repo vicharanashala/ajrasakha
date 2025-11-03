@@ -31,12 +31,15 @@ from fastmcp import FastMCP
 load_dotenv()
 
 # Initialize FastMCP server
-mcp = FastMCP("Ajrasakha FAQ MCP")
+mcp = FastMCP("faq-video")
+
+user = "agriai"
+password = "agriai1224"
 
 # MongoDB connection settings
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
-DATABASE_NAME = os.getenv("FAQ_DATABASE_NAME", "ajrasakha_faq")
-COLLECTION_NAME = os.getenv("FAQ_COLLECTION_NAME", "faq_data")
+MONGODB_URI = os.getenv("MONGODB_URI", f"mongodb+srv://{user}:{password}@staging.1fo96dy.mongodb.net/?retryWrites=true&w=majority&appName=staging")
+DATABASE_NAME = os.getenv("FAQ_DATABASE_NAME", "golden_db")
+COLLECTION_NAME = os.getenv("FAQ_COLLECTION_NAME", "faq")
 
 # Embedding model
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-large-en")
@@ -357,6 +360,6 @@ if __name__ == "__main__":
         print(f"🤖 Model: {EMBEDDING_MODEL}")
         print("\nServer is ready to accept connections.\n")
         
-        mcp.run()
+        mcp.run(transport='streamable-http', host='0.0.0.0', port=9005)
     finally:
         close_connections()
