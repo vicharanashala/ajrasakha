@@ -226,11 +226,14 @@ class QuestionResponse {
 }
 class AddQuestionBodyDto {
   @IsString()
+  @IsOptional()
   question!: string;
 
+  @IsOptional()
   @IsEnum(['low', 'medium', 'high'])
   priority!: 'low' | 'medium' | 'high';
 
+  @IsOptional()
   @IsEnum(['AJRASAKHA', 'AGRI_EXPERT'])
   source!: 'AJRASAKHA' | 'AGRI_EXPERT';
 
@@ -242,6 +245,10 @@ class AddQuestionBodyDto {
   @IsString()
   @IsOptional()
   context?: string;
+
+  @IsString()
+  @IsOptional()
+  createdAt?: string;
 }
 
 class GenerateQuestionsBody {

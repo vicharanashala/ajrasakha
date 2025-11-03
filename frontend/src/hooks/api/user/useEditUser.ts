@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserService } from "../../services/userService";
 import type { IUser } from "@/types";
-import toast from "react-hot-toast";
+import {toast} from "sonner";
 
 const userService = new UserService();
 

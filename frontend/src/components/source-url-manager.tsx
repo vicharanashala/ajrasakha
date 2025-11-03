@@ -2,7 +2,7 @@ import { PlusCircle, X } from "lucide-react";
 import { Input } from "./atoms/input";
 import { useState, type KeyboardEvent } from "react";
 import { ScrollArea } from "./atoms/scroll-area";
-import toast from "react-hot-toast";
+import {toast} from "sonner";
 
 interface SourceUrlManagerProps {
   sources: string[];
