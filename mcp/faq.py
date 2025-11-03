@@ -27,6 +27,23 @@ import numpy as np
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 
+from typing import List
+from fastmcp import FastMCP
+import pymongo
+from llama_index.core import Settings
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+
+from functions import get_retriever
+from constants import COLLECTION_POP, COLLECTION_QA, EMBEDDING_MODEL, MONGODB_URI
+from functions import process_nodes_pop, process_nodes_qa
+from models import ContextPOP, ContextQuestionAnswerPair
+from llama_index.core.settings import Settings
+from golden_query_function import collection, search
+
+Settings.embed_model = HuggingFaceEmbedding(
+    model_name=EMBEDDING_MODEL, cache_folder="./hf_cache", trust_remote_code=True
+)
+
 # Load environment variables
 load_dotenv()
 
@@ -65,10 +82,6 @@ def initialize_connections():
         db_collection = db[COLLECTION_NAME]
         
         print(f"✓ Connected to MongoDB: {DATABASE_NAME}.{COLLECTION_NAME}")
-        
-        # Initialize embedding model
-        embedding_model = SentenceTransformer(EMBEDDING_MODEL)
-        print(f"✓ Loaded embedding model: {EMBEDDING_MODEL}")
         
         return True
     except Exception as e:
@@ -163,17 +176,17 @@ async def search_faq(
         min_similarity = max(0.0, min(min_similarity, 1.0))
         
         # Initialize connections if needed
-        if db_collection is None or embedding_model is None:
+        if db_collection is None:
             init_success = initialize_connections()
             if not init_success:
                 return {
                     "status": "error",
-                    "message": "Failed to initialize database or embedding model",
+                    "message": "Failed to initialize database",
                     "query": query
                 }
         
         # Generate query embedding
-        query_embedding = embedding_model.encode(query).tolist()
+        query_embedding = Settings.embed_model.get_text_embedding(query)
         
         # Fetch all documents from MongoDB
         documents = list(db_collection.find({}, {
