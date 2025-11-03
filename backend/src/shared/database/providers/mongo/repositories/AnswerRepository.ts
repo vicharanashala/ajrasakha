@@ -297,8 +297,8 @@ export class AnswerRepository implements IAnswerRepository {
               }
             ]
           : []),
-          
-       
+
+         
 
         // Sort newest first
         {$sort: {createdAt: -1}},
