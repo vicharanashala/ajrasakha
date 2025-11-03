@@ -488,7 +488,7 @@ const AllocationQueueHeader = ({
 
   const handleSubmit = async () => {
     try {
-      if (question.status !== "open") {
+      if (question.status !== "open" && question.status !== "delayed") {
         toast.error(
           "This question is currently being reviewed or has been closed. Please check back later!"
         );
