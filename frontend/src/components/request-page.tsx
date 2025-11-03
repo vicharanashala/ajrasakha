@@ -524,12 +524,13 @@ export const RequestsPage = () => {
       </section>
 
       <section 
-      className="grid gap-6 place-content-center  p-4"
-      style={{
-        gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))",
-       // overflowWrap: "break-word",
-        WebkitOverflowScrolling: "touch",
-      }}
+      // className="grid gap-6 place-content-center  p-4"
+      className="grid gap-4 sm:gap-6 md:gap-8 place-content-center p-2 sm:p-4 md:p-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+      // style={{
+      //   gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))",
+      //  // overflowWrap: "break-word",
+      //   WebkitOverflowScrolling: "touch",
+      // }}
       >
         {isLoading ? (
           <div className="col-span-full flex justify-center py-10">
