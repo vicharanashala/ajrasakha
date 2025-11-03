@@ -492,13 +492,14 @@ export class AnswerService extends BaseService {
   async getFinalAnswerQuestions(
     userId: string,
    currentUserId:string,
-   date:string
+   date:string,
+   status:string
   ): Promise<{
     finalizedSubmissions: any[],
     currentUserAnswers: any[],
     totalQuestionsCount: number
   }> {
-    return await this.answerRepo.getAllFinalizedAnswers(userId,currentUserId,date);
+    return await this.answerRepo.getAllFinalizedAnswers(userId,currentUserId,date,status);
   }
 
   // Currently using for approving answer

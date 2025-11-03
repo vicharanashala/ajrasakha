@@ -46,6 +46,7 @@ getAllFinalizedAnswers(
     userId: string,
     currentUserId:string,
     date:string,
+    status:string,
     session?: ClientSession,
   ): Promise<{
     finalizedSubmissions: any[],

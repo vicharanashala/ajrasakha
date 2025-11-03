@@ -203,6 +203,7 @@ export class AnswerRepository implements IAnswerRepository {
     userId: string,
     currentUserId: string,
     date: string,
+    status:string,
     session?: ClientSession,
   ): Promise<{
     finalizedSubmissions: any[];
@@ -226,7 +227,7 @@ export class AnswerRepository implements IAnswerRepository {
           userObjectId = new ObjectId(userId);
         }
       }
-      let dateMatch = {};
+      let dateMatch :any = {}
       if (date && date !== 'all') {
         const now = new Date();
         let startDate: Date | undefined;
@@ -247,62 +248,71 @@ export class AnswerRepository implements IAnswerRepository {
             startDate = new Date(now.setFullYear(now.getFullYear() - 1));
             break;
         }
-        if (startDate) {
-          dateMatch = {'question.createdAt': {$gte: startDate}};
-        }
+        if (startDate) dateMatch.createdAt = {$gte: startDate};
       }
+console.log("the date match===",dateMatch)
+    
 
-      const submissions = await this.AnswerCollection.aggregate([
-        // Filter answers by userId if provided (from answers collection)
+      // Build status filter dynamically
+let statusFilter: any = {};
+if (status !== "all") {
+  statusFilter["question.status"] = status;
+}
 
-        // Join question details
+const submissions = await this.AnswerCollection.aggregate([
+  // Join question details
+  {
+    $lookup: {
+      from: "questions",
+      localField: "questionId",
+      foreignField: "_id",
+      as: "question",
+    },
+  },
+  { $unwind: "$question" },
+
+  // ✅ Date filter (works for both cases)
+  ...(Object.keys(dateMatch).length > 0 ? [{ $match: dateMatch }] : []),
+
+  // ✅ If user selected a specific user → restrict questions to that user
+  ...(userId !== "all"
+    ? [
         {
-          $lookup: {
-            from: 'questions',
-            localField: 'questionId',
-            foreignField: '_id',
-            as: 'question',
+          $match: {
+            "question.userId": userObjectId,
+            ...statusFilter, // applies status only if status != "all"
           },
         },
 
-        // Convert question[] → question object
-        {$unwind: '$question'},
+        // Sort latest answers first so we can pick the final/latest one
+        { $sort: { createdAt: -1 } },
 
-        // Optional date filter (works on answer createdAt)
-        ...(Object.keys(dateMatch).length > 0
-          ? [{$match: {createdAt: dateMatch}}]
-          : []),
-          ...(userId !== "all"
-          ? [
-              {
-                $match: {
-                  "question.userId": userObjectId,
-                  "question.status": { $in: ["in-review", "closed","open","delayed"] },
-                  approvalCount: { $in: [0, 3] }
-                }
-              },
-              // ✅ sort so most recent answers come first
-              { 
-                $sort: { createdAt: -1 } 
-              },
-              // ✅ group answers by questionId and pick the latest one
-              {
-                $group: {
-                  _id: "$questionId",
-                  latestAnswer: { $first: "$$ROOT" }
-                }
-              },
-              {
-                $replaceRoot: { newRoot: "$latestAnswer" }
-              }
-            ]
-          : []),
+        // ✅ Group → get only the latest answer for each question
+        {
+          $group: {
+            _id: "$questionId",
+            latestAnswer: { $first: "$$ROOT" },
+          },
+        },
+        { $replaceRoot: { newRoot: "$latestAnswer" } }, // flatten result
+      ]
+    : status !== "all"
+    ? [
+        // ✅ If status chosen while user = all → just filter status
+        {
+          $match: {
+            ...statusFilter,
+          },
+        },
+      ]
+    : []),
 
-           
+  // ✅ Sort final results newest first (applies to both cases)
+  { $sort: { createdAt: -1 } },
+]).toArray();
 
-        // Sort newest first
-        {$sort: {createdAt: -1}},
-      ]).toArray();
+
+
 
       const currentUserAnswers = await this.AnswerCollection.aggregate([
         {
