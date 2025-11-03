@@ -22,7 +22,7 @@ import { Card } from "./atoms/card";
 import { Separator } from "./atoms/separator";
 import { Textarea } from "./atoms/textarea";
 import { Button } from "./atoms/button";
-import toast from "react-hot-toast";
+import {toast} from "sonner";
 import {
   Dialog,
   DialogContent,

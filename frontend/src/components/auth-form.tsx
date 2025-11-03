@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Button } from "./atoms/button";
 import { Label } from "./atoms/label";
 import { Input } from "./atoms/input";
-import toast from "react-hot-toast";
+import {toast} from "sonner";
 import { useLoginWithGoogle } from "@/hooks/api/auth/useLoginWithGoogle";
 import { useNavigate } from "@tanstack/react-router";
 import { Check, Eye, EyeOff } from "lucide-react";

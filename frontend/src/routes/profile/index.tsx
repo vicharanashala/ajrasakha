@@ -18,7 +18,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import type { IUser } from "@/types";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
-import toast from "react-hot-toast";
+import {toast} from "sonner";
 import {
   Edit2,
   ArrowLeft,

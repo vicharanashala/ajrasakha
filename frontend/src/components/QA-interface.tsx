@@ -38,7 +38,7 @@ import { Button } from "./atoms/button";
 import { useGetAllocatedQuestions } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
 import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
-import toast from "react-hot-toast";
+import {toast} from "sonner";
 import {
   Dialog,
   DialogContent,

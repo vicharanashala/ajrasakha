@@ -69,7 +69,7 @@ import {
 } from "./atoms/dialog";
 import { Textarea } from "./atoms/textarea";
 import { useCreateRequest } from "@/hooks/api/request/useCreateRequest";
-import toast from "react-hot-toast";
+import {toast} from "sonner";
 import {
   Select,
   SelectContent,
