@@ -272,26 +272,32 @@ export class AnswerRepository implements IAnswerRepository {
         ...(Object.keys(dateMatch).length > 0
           ? [{$match: {createdAt: dateMatch}}]
           : []),
-        ...(userId !== 'all'
+          ...(userId !== "all"
           ? [
               {
                 $match: {
-                  'question.userId': userObjectId,
-
-                  // ✅ filter answers by author
-                },
+                  "question.userId": userObjectId,
+                  "question.status": { $in: ["in-review", "closed","open","delayed"] },
+                  approvalCount: { $in: [0, 3] }
+                }
               },
-            ]
-          : []),
-        ...(userId !== 'all'
-          ? [
+              // ✅ sort so most recent answers come first
+              { 
+                $sort: { createdAt: -1 } 
+              },
+              // ✅ group answers by questionId and pick the latest one
               {
-                $match: {
-                  approvalCount: 3, // <-- THIS is the condition you wanted
-                },
+                $group: {
+                  _id: "$questionId",
+                  latestAnswer: { $first: "$$ROOT" }
+                }
               },
+              {
+                $replaceRoot: { newRoot: "$latestAnswer" }
+              }
             ]
           : []),
+       
 
         // Sort newest first
         {$sort: {createdAt: -1}},
