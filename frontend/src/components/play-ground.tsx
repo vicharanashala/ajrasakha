@@ -104,12 +104,6 @@ useEffect(() => {
 
             <div className="hidden md:flex flex-1 justify-center">
               <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
-                <TabsTrigger
-                  value="questions"
-                  className="px-2 md:px-3 py-1.5 bg-transparent rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                >
-                  <span>Questions</span>
-                </TabsTrigger>
                 {user && user.role !== "expert" && (
                   <TabsTrigger
                     value="performance"
