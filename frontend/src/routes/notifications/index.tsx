@@ -13,7 +13,7 @@ import { useGetNotifications } from "@/hooks/api/notification/useGetNotification
 import { useDeleteNotification } from "@/hooks/api/notification/useDeleteNotifications";
 import { useMarkAsReadNotification } from "@/hooks/api/notification/useUpdateNotification";
 import { useMarkAllAsReadNotification } from "@/hooks/api/notification/useMarkAllAsRead";
-import toast from "react-hot-toast";
+import {toast} from "sonner";
 import { formatDate } from "@/utils/formatDate";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "@/components/question-details";
