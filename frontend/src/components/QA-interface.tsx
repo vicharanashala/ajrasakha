@@ -36,12 +36,8 @@ import { Textarea } from "./atoms/textarea";
 import { Button } from "./atoms/button";
 import { useGetAllocatedQuestions } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
-<<<<<<< HEAD
-import toast from "react-hot-toast";
-=======
 import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
 import {toast} from "sonner";
->>>>>>> 79d11bdf61ddc57e0f0fb3b86b339e27c113e7d5
 import {
   Dialog,
   DialogContent,
