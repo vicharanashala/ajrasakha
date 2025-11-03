@@ -75,7 +75,7 @@ const approvalPercentage = totalQuestionsCount > 0
 
  const { data: userNameReponse, isLoading:isLoadingUsers } = useGetAllUsers();
  const { data: user,isLoading } = useGetCurrentUser();
-  const safeCurrentUser = user  
+  /*const safeCurrentUser = user  
   ? {
       _id: '',
       userName: user.firstName + user.lastName, 
@@ -83,14 +83,14 @@ const approvalPercentage = totalQuestionsCount > 0
       email: user.email,
       preference: user.preference
     }
-  : null;
+  : null;*/
 
  const otherModerators =
  (userNameReponse?.users || [])
    .filter((u) => u.role === "moderator")   // ✅ keep only moderators
    .sort((a, b) => a.userName.localeCompare(b.userName));
    const users = [
-    ...(safeCurrentUser ? [safeCurrentUser] : []),
+   // ...(safeCurrentUser ? [safeCurrentUser] : []),
     ...otherModerators
   ];
 
@@ -367,7 +367,7 @@ const COLORS = [
  
 
       <CardHeader>
-        <CardTitle className="text-xl font-semibold"> Total Finalized Answers: { finalized.length }</CardTitle>
+        <CardTitle className="text-xl font-semibold"> Total Answers: { finalized.length }</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col md:justify-between md:flex-row w-max-fit">
         

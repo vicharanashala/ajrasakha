@@ -274,25 +274,33 @@ const submissions = await this.AnswerCollection.aggregate([
     ? [{ $match: { createdAt: dateMatch } }]
     : []),
     ...(userId !== "all"
-    ? [
-        {
-          $match: {
-            "question.userId": userObjectId
-            
-   // ✅ filter answers by author
-          }
+  ? [
+      {
+        $match: {
+          "question.userId": userObjectId,
+          "question.status": { $in: ["in-review", "closed","open","delayed"] },
+          approvalCount: { $in: [0, 3] }
         }
-      ]
-    : []),
-    ...(userId !== "all"
-    ? [
-        {
-          $match: {
-            approvalCount: 3   // <-- THIS is the condition you wanted
-          }
+      },
+      // ✅ sort so most recent answers come first
+      { 
+        $sort: { createdAt: -1 } 
+      },
+      // ✅ group answers by questionId and pick the latest one
+      {
+        $group: {
+          _id: "$questionId",
+          latestAnswer: { $first: "$$ROOT" }
         }
-      ]
-    : []),
+      },
+      // ✅ replace the document root back to the answer object
+      {
+        $replaceRoot: { newRoot: "$latestAnswer" }
+      }
+    ]
+  : []),
+
+    
 
   // Sort newest first
   { $sort: { createdAt: -1 } }
