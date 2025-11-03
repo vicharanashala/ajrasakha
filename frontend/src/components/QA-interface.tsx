@@ -174,11 +174,11 @@ export const QAInterface = () => {
     useReviewAnswer();
 
   useEffect(() => {
-    if (questions.length > 0 && !selectedQuestion) {
+    if (questions.length > 0 ) {
       const firstQuestionId = questions[0]?.id ? questions[0]?.id : null;
       setSelectedQuestion(firstQuestionId);
     }
-  }, [questions, selectedQuestion]);
+  }, [questions]);
 
   useEffect(() => {
     const container = scrollRef.current;
