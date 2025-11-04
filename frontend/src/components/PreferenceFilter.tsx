@@ -33,6 +33,122 @@ import {
   Eye,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
+import { DateRange } from "react-date-range";
+import "react-date-range/dist/styles.css";
+import "react-date-range/dist/theme/default.css";
+
+
+function DateFilterModal({  date,
+  setDate}: {  date: string;
+    setDate: (value: string) => void;}) {
+  const today = new Date();
+
+  type RangeType = {
+    startDate: Date | null;
+    endDate: Date | null;
+    key: string;
+  };
+
+  const [showModal, setShowModal] = useState(false);
+  const parseDate = (str: string) => {
+    const [s, e] = str.split(":");
+    return [new Date(s), new Date(e)];
+  };
+
+  const [dateRange, setDateRange] = useState([
+    {
+      startDate: date !== "all" ? parseDate(date)[0] : null,
+      endDate: date !== "all" ? parseDate(date)[1] : null,
+      key: "selection",
+    },
+  ]);
+
+  const onDateChange = (ranges: any) => {
+    setDateRange([ranges.selection]);
+  };
+  const format = (date: Date) => {
+    const fixed = new Date(date);
+    fixed.setHours(12, 0, 0, 0); // ✅ force midday to avoid timezone shifting
+    return fixed.toISOString().split("T")[0];
+  };
+  
+
+  const handleApply = () => {
+    const { startDate, endDate } = dateRange[0];
+    if (startDate && endDate) {
+      const format = (d: Date) => {
+        const t = new Date(d);
+        t.setHours(12, 0, 0, 0);
+        return t.toISOString().split("T")[0];
+      };
+      setDate(`${format(startDate)}:${format(endDate)}`); // ✅ save to parent
+    } else {
+      setDate("all");
+    }
+    setShowModal(false);
+  };
+
+  const handleReset = () => {
+    setDate("all");
+    setDateRange([{ startDate: null, endDate: null, key: "selection" }]);
+  };
+
+  const label =
+    dateRange[0].startDate && dateRange[0].endDate
+      ? `${dateRange[0].startDate.toLocaleDateString()} - ${dateRange[0].endDate.toLocaleDateString()}`
+      : "All Time";
+
+  return (
+    <div>
+      <button
+        onClick={() => setShowModal(true)}
+        className="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-700 bg-white shadow-sm hover:shadow"
+      >
+        {label}
+      </button>
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white p-5 rounded-md shadow-lg w-[350px]">
+            <DateRange
+              ranges={dateRange}
+              onChange={onDateChange}
+              maxDate={today}
+              moveRangeOnFirstSelection={false}
+              showDateDisplay={false}
+              showPreview={false}
+            />
+
+            <div className="flex justify-between mt-4">
+            <Button
+              variant="outline"
+              onClick={handleReset} >
+              <RefreshCcw className="h-4 w-4 mr-2" />
+              Reset
+            </Button>
+              
+
+              <div className="flex gap-3">
+              <Button variant="secondary"  onClick={() => setShowModal(false)}>Cancel</Button>
+              <Button onClick={handleApply}>
+                  Apply 
+                </Button>
+                
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+
+
+
+
 
 interface PreferenceFilterProps {
   selectedUser: string;
@@ -64,6 +180,7 @@ export default function PreferenceFilter({
 
   const [open, setOpen] = useState(false);
   const [shouldApply, setShouldApply] = useState(false);
+  
   useEffect(() => {
     if (shouldApply) {
       handleApplyFilters();
@@ -90,6 +207,8 @@ export default function PreferenceFilter({
     (status !== "all" ? 1 : 0);
 
   return (
+    <>
+   
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
@@ -161,25 +280,7 @@ export default function PreferenceFilter({
           </div>
           <Separator/>
 
-          {/* DATE */}
-          <div className="space-y-2">
-          <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Calendar className="h-4 w-4 text-primary" />
-                  Date Range
-                </Label>
-            <Select value={date} onValueChange={setDate}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Time</SelectItem>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="week">This Week</SelectItem>
-                <SelectItem value="month">This Month</SelectItem>
-                <SelectItem value="quarter">Last 3 Months</SelectItem>
-                <SelectItem value="year">This Year</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Separator/>
+         
 
           {/* STATUS */}
           <div className="space-y-2">
@@ -228,6 +329,16 @@ export default function PreferenceFilter({
             </Select>
           </div>
           <Separator/>
+           {/* DATE */}
+           <div className="space-y-2">
+          <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  Date Range
+                </Label>
+                
+                <DateFilterModal date={date} setDate={setDate} />
+          </div>
+          <Separator/>
         </div>
 
         <DialogFooter className="flex justify-between sm:justify-between">
@@ -257,5 +368,6 @@ export default function PreferenceFilter({
 
       </DialogContent>
     </Dialog>
+    </>
   );
 }

@@ -227,30 +227,18 @@ export class AnswerRepository implements IAnswerRepository {
           userObjectId = new ObjectId(userId);
         }
       }
-      let dateMatch :any = {}
-      if (date && date !== 'all') {
-        const now = new Date();
-        let startDate: Date | undefined;
-        switch (date) {
-          case 'today':
-            startDate = new Date(now.setHours(0, 0, 0, 0));
-            break;
-          case 'week':
-            startDate = new Date(now.setDate(now.getDate() - 7));
-            break;
-          case 'month':
-            startDate = new Date(now.setMonth(now.getMonth() - 1));
-            break;
-          case 'quarter':
-            startDate = new Date(now.setMonth(now.getMonth() - 3));
-            break;
-          case 'year':
-            startDate = new Date(now.setFullYear(now.getFullYear() - 1));
-            break;
-        }
-        if (startDate) dateMatch.createdAt = {$gte: startDate};
-      }
-console.log("the date match===",dateMatch)
+      let dateMatch: any = {};
+
+if (date && date !== "all") {
+  if (date.includes(":")) {
+    const [start, end] = date.split(":");
+    dateMatch.createdAt = {
+      $gte: new Date(start),
+      $lte: new Date(end + "T23:59:59.999Z"),
+    };
+  }
+}
+//console.log("the date match===",dateMatch)
     
 
       // Build status filter dynamically
@@ -358,51 +346,11 @@ const submissions = await this.AnswerCollection.aggregate([
 
         {$sort: {createdAt: -1}},
       ]).toArray();
-      const totalQuestionsCount = (
-        await this.AnswerCollection.aggregate([
-          {
-            $match: {
-              approvalCount: 3,
-            },
-          },
-          {
-            $lookup: {
-              from: 'questions',
-              localField: 'questionId',
-              foreignField: '_id',
-              as: 'question',
-            },
-          },
-          {$unwind: '$question'},
-
-          {
-            $match: {
-              'question.userId': new ObjectId(currentUserId),
-            },
-          },
-
-          {
-            $group: {
-              _id: {$toString: '$question._id'}, // ✅ Convert to string here
-              text: {$first: '$question.question'},
-              createdAt: {$first: '$question.createdAt'},
-              updatedAt: {$first: '$question.updatedAt'},
-              totalAnswersCount: {$sum: 1},
-              details: {$first: '$question.details'},
-              responses: {
-                $push: {
-                  answer: '$answer',
-                  id: {$toString: '$_id'},
-                  isFinalAnswer: '$isFinalAnswer',
-                  createdAt: '$createdAt',
-                },
-              },
-            },
-          },
-
-          {$sort: {createdAt: -1}},
-        ]).toArray()
-      ).length;
+      const totalQuestionsCount = await this.QuestionCollection.countDocuments({
+        userId: new ObjectId(currentUserId),
+        status: { $in: ["in-review", "closed"] }
+      });
+      //console.log("the total questions====",totalQuestionsCount)
 
       const finalizedSubmissions = submissions.map(sub => ({
         id: sub._id.toString(),
