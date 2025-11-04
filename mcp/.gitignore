@@ -47,6 +47,7 @@ tests/
 .coverage
 htmlcov/
 .tox/
+examples/
 
 # OS
 .DS_Store
