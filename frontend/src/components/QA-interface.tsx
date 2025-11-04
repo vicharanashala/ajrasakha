@@ -291,7 +291,8 @@ export const QAInterface = () => {
     rejectionReason?: string
   ) => {
     if (!selectedQuestion || isResponding) return;
-
+    setNewAnswer('')
+    setSources([])
     let payload = { questionId: selectedQuestion } as IReviewAnswerPayload;
 
     if (!status) {
