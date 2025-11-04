@@ -100,7 +100,7 @@ async def upload_question_to_reviewer_system(question: str, state_name: str, cro
     }
     
     # Send the POST request
-    url = "http://34.131.207.81:4000/api/questions"
+    url = "https://desk.vicharanashala.ai/api/questions"
     headers = {"Content-Type": "application/json"}
 
     try:

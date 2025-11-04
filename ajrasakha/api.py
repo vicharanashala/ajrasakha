@@ -37,6 +37,22 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from constants import EMBEDDING_MODEL
+from functions import get_retriever, process_nodes_qa
+import pymongo
+from constants import MONGODB_URI, COLLECTION_QA
+
+
+Settings.embed_model = HuggingFaceEmbedding(
+    model_name=EMBEDDING_MODEL, cache_folder="./hf_cache", trust_remote_code=True
+)
+
+
+client: pymongo.MongoClient = pymongo.MongoClient(MONGODB_URI)
+
+retriever_qa = get_retriever(
+    client=client, collection_name=COLLECTION_QA, similarity_top_k=4
+)
+
 
 logger = logging.getLogger("myapp")
 
@@ -442,6 +458,26 @@ def evaluate_answers(req: EvaluateRequest):
         num_answers=len(req.answers),
         **result
     )
+
+@app.post("/questions/", response_model=List[QuestionAnswerResponse])
+async def get_questions(request: ContextRequest):
+    # retrieve context nodes
+    nodes = await retriever_qa.aretrieve(request.context)
+
+    # process into ContextQuestionAnswerPair list
+    processed_nodes_qa: List[ContextQuestionAnswerPair] = await process_nodes_qa(nodes)
+
+    # filter only needed fields
+    response = [
+        QuestionAnswerResponse(
+            question=item.question,
+            answer=item.answer,
+            agri_specialist=item.meta_data.agri_specialist,
+        )
+        for item in processed_nodes_qa
+    ]
+
+    return response
 
 
 class SingleEmbedRequest(BaseModel):
