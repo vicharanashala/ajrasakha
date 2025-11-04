@@ -763,6 +763,25 @@ export class QuestionService extends BaseService {
           );
         }
 
+        //if manuall alloacation is first person
+
+        if(questionSubmission.queue.length===0){
+          const firstPerson = experts[0]
+          let message = `A Question has been assigned for answering`;
+          let title = 'Answer Creation Assigned';
+          let entityId = questionId.toString();
+          const user = firstPerson.toString();
+          const type = 'peer_review';
+          await this.notificationService.saveTheNotifications(
+            message,
+            title,
+            entityId,
+            user,
+            type,
+          );
+
+        }
+
         //6. Allocate experts
         const expertIds = experts.map(e => new ObjectId(e));
 
