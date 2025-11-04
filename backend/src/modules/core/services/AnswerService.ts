@@ -146,8 +146,8 @@ export class AnswerService extends BaseService {
 
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
-      // const embedding = [];
-      const {embedding} = await this.aiService.getEmbedding(answer);
+      const embedding = [];
+      // const {embedding} = await this.aiService.getEmbedding(answer);
 
       const {insertedId} = await this.answerRepo.addAnswer(
         questionId,
@@ -540,9 +540,9 @@ export class AnswerService extends BaseService {
 
       const text = `Question: ${question.question}
         answer: ${answer}`;
-      const {embedding: questionEmbedding} =
-        await this.aiService.getEmbedding(text);
-      // const questionEmbedding = [];
+      // const {embedding: questionEmbedding} =
+      //   await this.aiService.getEmbedding(text);
+      const questionEmbedding = [];
 
       await this.questionRepo.updateQuestion(
         questionId,
@@ -551,8 +551,8 @@ export class AnswerService extends BaseService {
         true,
       );
 
-      const {embedding} = await this.aiService.getEmbedding(text);
-      // const embedding = [];
+      // const {embedding} = await this.aiService.getEmbedding(text);
+      const embedding = [];
       const payload: Partial<IAnswer> = {
         ...updates,
         embedding,
@@ -592,5 +592,12 @@ export class AnswerService extends BaseService {
 
       return this.answerRepo.deleteAnswer(answerId, session);
     });
+  }
+
+  async goldenFaq(userId:string,page:number,limit:number,search:string):Promise<{faqs:any[];totalFaqs:number
+  }>{
+    return await this._withTransaction(async (session:ClientSession) => {
+      return await this.answerRepo.getGoldenFaqs(userId,page,limit,search,session)
+    })
   }
 }

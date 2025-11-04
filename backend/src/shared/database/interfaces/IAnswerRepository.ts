@@ -129,4 +129,15 @@ getAllFinalizedAnswers(
     questionId: string,
     session?: ClientSession,
   ): Promise<void>;
+
+  /**
+   * Retrieves all goldenFaqs created .
+   * @param userId- Moderator Id who created the Golden FAQ
+   * @param page - Current page count.
+   * @param limit - Total limit count.
+   * @param search - Search to find
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to an array of submissions.
+   */
+  getGoldenFaqs(userId:string,page:number,limit:number,search?:string,session?:ClientSession):Promise<{faqs:any[] ; totalFaqs:number}>
 }
