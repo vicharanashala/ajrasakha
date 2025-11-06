@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
-import {toast} from "sonner";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -126,7 +126,7 @@ export const VoiceRecorderCard = () => {
   };
 
   useEffect(() => {
-    if (!isRecording) return;
+    if (!isRecording && !transcript) return;
     if (!transcript || transcript.trim().length <= 10) return;
 
     // Avoid generating questions if transcript hasn’t changed
