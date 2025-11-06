@@ -2,11 +2,12 @@ import { PlusCircle, X } from "lucide-react";
 import { Input } from "./atoms/input";
 import { useState, type KeyboardEvent } from "react";
 import { ScrollArea } from "./atoms/scroll-area";
-import {toast} from "sonner";
+import { toast } from "sonner";
+import type { SourceItem } from "@/types";
 
 interface SourceUrlManagerProps {
-  sources: string[];
-  onSourcesChange: (sources: string[]) => void;
+  sources: SourceItem[];
+  onSourcesChange: (sources: SourceItem[]) => void;
   className?: string;
 }
 
@@ -15,22 +16,36 @@ export const SourceUrlManager = ({
   onSourcesChange,
   className,
 }: SourceUrlManagerProps) => {
-  const [inputValue, setInputValue] = useState("");
+  const [urlInput, setUrlInput] = useState("");
+  const [pageInput, setPageInput] = useState("");
 
   const addSource = () => {
-    const trimmedValue = inputValue.trim();
+    const trimmedUrl = urlInput.trim();
+    const pageNum = pageInput ? Number(pageInput) : undefined;
+
     try {
-      new URL(trimmedValue);
+      new URL(trimmedUrl);
     } catch {
-      toast.error("Please enter a valid URL before adding a new one.");
+      toast.error("Please enter a valid URL before adding.");
       return;
     }
-    if (trimmedValue && sources.includes(trimmedValue)) {
-      toast.error("This URL already added, try adding new one.");
-    } else {
-      onSourcesChange([...sources, trimmedValue]);
-      setInputValue("");
+
+    if (pageNum !== undefined && (isNaN(pageNum) || pageNum < 1)) {
+      toast.error("Please enter a valid page number (1 or greater).");
+      return;
     }
+
+    const exists = sources.some(
+      (item) => item.source === trimmedUrl && item.page === pageNum
+    );
+    if (exists) {
+      toast.error("This source already exists.");
+      return;
+    }
+
+    onSourcesChange([...sources, { source: trimmedUrl, page: pageNum }]);
+    setUrlInput("");
+    setPageInput("");
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -46,39 +61,54 @@ export const SourceUrlManager = ({
 
   return (
     <div className={`grid gap-3 ${className}`}>
-      <label className="text-sm font-medium text-foreground">Source URLs</label>
+      <label className="text-sm font-medium text-foreground">
+        Source References
+      </label>
 
       <div className="space-y-3">
-        {/* Input */}
         <div className="flex gap-2">
           <Input
             type="url"
             placeholder="https://example.com"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            value={urlInput}
+            onChange={(e) => setUrlInput(e.target.value)}
             onKeyDown={handleKeyDown}
             className="flex-1"
+          />
+          <Input
+            type="number"
+            placeholder="Page"
+            value={pageInput}
+            onChange={(e) => setPageInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="w-24"
+            min={1}
           />
           <button
             type="button"
             onClick={addSource}
-            className="px-4 py-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+            className="px-3 py-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
           >
             <PlusCircle className="h-5 w-5" />
           </button>
         </div>
 
         {sources.length > 0 && (
-          <ScrollArea className="h-[4.5rem] rounded-lg border p-2">
+          <ScrollArea className="h-[5rem] rounded-lg border p-2">
             <div className="flex flex-wrap gap-2">
-              {sources.map((source, idx) => (
+              {sources.map((item, idx) => (
                 <div
                   key={idx}
-                  className="group inline-flex items-center gap-1.5 px-3 py-1.5 bg-tag border border-tag-border rounded-lg text-sm text-tag-foreground hover:bg-tag-hover transition-colors"
+                  className="group inline-flex items-center gap-2 px-3 py-1.5 bg-tag border border-tag-border rounded-lg text-sm text-tag-foreground hover:bg-tag-hover transition-colors"
                 >
-                  <span className="max-w-[200px] truncate" title={source}>
-                    {source}
+                  <span className="max-w-[200px] truncate" title={item.source}>
+                    {item.source}
                   </span>
+                  {item.page && (
+                    <span className="text-xs text-muted-foreground">
+                      (p.{item.page})
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => removeSource(idx)}

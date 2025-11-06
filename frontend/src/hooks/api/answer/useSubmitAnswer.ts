@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AnswerService } from "../../services/answerService";
 import {toast} from "sonner";
-import type { SubmitAnswerResponse } from "@/types";
+import type { SourceItem, SubmitAnswerResponse } from "@/types";
 
 const questionService = new AnswerService();
 export const useSubmitAnswer = () => {
@@ -9,7 +9,7 @@ export const useSubmitAnswer = () => {
   return useMutation<
     SubmitAnswerResponse | null,
     Error,
-    { questionId: string; answer: string, sources: string[] }
+    { questionId: string; answer: string, sources: SourceItem[] }
   >({
     mutationFn: async ({ questionId, answer, sources }) => {
       try {

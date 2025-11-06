@@ -12,9 +12,29 @@ import {
   IsUrl,
   ValidateIf,
   IsIn,
+  IsOptional,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 
+class SourceItem {
+  @JSONSchema({
+    description: 'Source URL for the answer',
+    example: 'https://example.com',
+    format: 'uri',
+  })
+  @IsString()
+  source: string;
+
+  @JSONSchema({
+    description: 'Page number of the source reference',
+    example: 12,
+    type: 'integer',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  page?: number;
+}
 class AddAnswerBody {
   @JSONSchema({
     description: 'ID of the question being answered',
@@ -36,17 +56,51 @@ class AddAnswerBody {
   answer: string;
 
   @JSONSchema({
-    description: 'Source URLs for the answer',
-    example: ['https://example.com', 'https://docs.example.com'],
+    description: 'List of sources with page numbers',
+    example: [
+      {source: 'https://example.com', page: 1},
+      {source: 'https://docs.example.com', page: 5},
+    ],
     type: 'array',
-    items: {type: 'string', format: 'uri'},
+    items: {$ref: '#/definitions/SourceItem'},
   })
   @IsArray()
-  @ArrayNotEmpty()
-  @IsString({each: true})
-  // @IsUrl({}, {each: true})
-  sources: string[];
+  @ValidateNested({each: true})
+  @Type(() => SourceItem)
+  sources: SourceItem[];
 }
+// class AddAnswerBody {
+//   @JSONSchema({
+//     description: 'ID of the question being answered',
+//     example: '64adf92e9e7c3b1234567890',
+//     type: 'string',
+//   })
+//   @IsNotEmpty()
+//   @IsString()
+//   questionId: string;
+
+//   @JSONSchema({
+//     description: 'Answer text',
+//     example:
+//       'The main difference is that supervised learning uses labeled data.',
+//     type: 'string',
+//   })
+//   @IsNotEmpty()
+//   @IsString()
+//   answer: string;
+
+//   @JSONSchema({
+//     description: 'Source URLs for the answer',
+//     example: ['https://example.com', 'https://docs.example.com'],
+//     type: 'array',
+//     items: {type: 'string', format: 'uri'},
+//   })
+//   @IsArray()
+//   @ArrayNotEmpty()
+//   @IsString({each: true})
+//   // @IsUrl({}, {each: true})
+//   sources: string[];
+// }
 
 class ReviewAnswerBody {
   @JSONSchema({
@@ -79,15 +133,19 @@ class ReviewAnswerBody {
   answer?: string;
 
   @ValidateIf(o => o.status === 'rejected' || o.status === undefined)
-  @IsArray()
-  @ArrayNotEmpty()
-  @IsString({each: true})
   @JSONSchema({
-    description:
-      'Source URLs for the answer (required if status = rejected or status is not provided)',
-    example: ['https://example.com', 'https://docs.example.com'],
+    description: 'List of sources with page numbers',
+    example: [
+      {source: 'https://example.com', page: 1},
+      {source: 'https://docs.example.com', page: 5},
+    ],
+    type: 'array',
+    items: {$ref: '#/definitions/SourceItem'},
   })
-  sources?: string[];
+  @IsArray()
+  @ValidateNested({each: true})
+  @Type(() => SourceItem)
+  sources: SourceItem[];
 
   @ValidateIf(o => o.status === 'accepted')
   @IsNotEmpty()
@@ -116,6 +174,74 @@ class ReviewAnswerBody {
   })
   reasonForRejection?: string;
 }
+// class ReviewAnswerBody {
+//   @JSONSchema({
+//     description: 'ID of the question being answered',
+//     example: '64adf92e9e7c3b1234567890',
+//     type: 'string',
+//   })
+//   @IsNotEmpty()
+//   @IsString()
+//   questionId!: string;
+
+//   @JSONSchema({
+//     description: 'Status of the review (accepted, rejected, or undefined)',
+//     example: 'accepted',
+//     enum: ['accepted', 'rejected'],
+//   })
+//   @ValidateIf(o => o.status !== undefined)
+//   @IsIn(['accepted', 'rejected'])
+//   status?: 'accepted' | 'rejected';
+
+//   @ValidateIf(o => o.status === 'rejected' || o.status === undefined)
+//   @IsNotEmpty()
+//   @IsString()
+//   @JSONSchema({
+//     description:
+//       'Answer text (required if status = rejected or status is not provided)',
+//     example:
+//       'The main difference is that supervised learning uses labeled data.',
+//   })
+//   answer?: string;
+
+//   @ValidateIf(o => o.status === 'rejected' || o.status === undefined)
+//   @IsArray()
+//   @ArrayNotEmpty()
+//   @IsString({each: true})
+//   @JSONSchema({
+//     description:
+//       'Source URLs for the answer (required if status = rejected or status is not provided)',
+//     example: ['https://example.com', 'https://docs.example.com'],
+//   })
+//   sources?: string[];
+
+//   @ValidateIf(o => o.status === 'accepted')
+//   @IsNotEmpty()
+//   @IsString()
+//   @JSONSchema({
+//     description: 'Approved answer ID (required only if status = accepted)',
+//     example: '652ef12345abcf7890123456',
+//   })
+//   approvedAnswer?: string;
+
+//   @ValidateIf(o => o.status === 'rejected')
+//   @IsNotEmpty()
+//   @IsString()
+//   @JSONSchema({
+//     description: 'Approved answer ID (required only if status = accepted)',
+//     example: '652ef12345abcf7890123456',
+//   })
+//   rejectedAnswer?: string;
+
+//   @ValidateIf(o => o.status === 'rejected')
+//   @IsNotEmpty()
+//   @IsString()
+//   @JSONSchema({
+//     description: 'Reason for rejection (required only if status = rejected)',
+//     example: 'Insufficient factual accuracy and poor structure.',
+//   })
+//   reasonForRejection?: string;
+// }
 
 class AnswerResponse {
   @JSONSchema({

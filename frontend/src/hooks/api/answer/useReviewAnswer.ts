@@ -1,13 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AnswerService } from "../../services/answerService";
-import {toast} from "sonner";
-import type { SubmitAnswerResponse } from "@/types";
+import { toast } from "sonner";
+import type { SourceItem, SubmitAnswerResponse } from "@/types";
 
 export interface IReviewAnswerPayload {
   questionId: string;
   status: "accepted" | "rejected";
   answer?: string;
-  sources?: string[];
+  sources?: SourceItem[];
   reasonForRejection?: string;
   approvedAnswer?: string;
   rejectedAnswer?: string;

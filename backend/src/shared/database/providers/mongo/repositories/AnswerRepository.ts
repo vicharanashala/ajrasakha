@@ -1,4 +1,4 @@
-import {IAnswer, IQuestion, IUser} from '#root/shared/interfaces/models.js';
+import {IAnswer, IQuestion, IUser, SourceItem} from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
@@ -30,7 +30,7 @@ export class AnswerRepository implements IAnswerRepository {
     questionId: string,
     authorId: string,
     answer: string,
-    sources: string[],
+    sources: SourceItem[],
     embedding: number[],
     isFinalAnswer: boolean = false,
     answerIteration: number = 1,

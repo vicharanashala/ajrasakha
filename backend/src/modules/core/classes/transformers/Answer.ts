@@ -2,7 +2,7 @@ import {
   ObjectIdToString,
   StringToObjectId,
 } from '#shared/constants/transformerConstants.js';
-import {IAnswer} from '#shared/interfaces/models.js';
+import {IAnswer, SourceItem} from '#shared/interfaces/models.js';
 import {Expose, Transform} from 'class-transformer';
 import {ObjectId} from 'mongodb';
 
@@ -32,7 +32,7 @@ class Answer implements IAnswer {
   answer: string;
 
   @Expose()
-  sources: string[];
+  sources: SourceItem[];
 
   @Expose()
   embedding: number[];
@@ -41,8 +41,8 @@ class Answer implements IAnswer {
   threshold: number;
 
   @Expose()
-  approvalCount: number;;
-  
+  approvalCount: number;
+
   @Expose()
   createdAt?: Date;
 
