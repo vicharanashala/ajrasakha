@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   CheckCircle,
@@ -174,11 +173,11 @@ export const QAInterface = () => {
     useReviewAnswer();
 
   useEffect(() => {
-    if (questions.length > 0 ) {
+    if (questions.length > 0 && !selectedQuestion) {
       const firstQuestionId = questions[0]?.id ? questions[0]?.id : null;
       setSelectedQuestion(firstQuestionId);
     }
-  }, [questions]);
+  }, [questions, selectedQuestion]);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -291,8 +290,7 @@ export const QAInterface = () => {
     rejectionReason?: string
   ) => {
     if (!selectedQuestion || isResponding) return;
-    setNewAnswer('')
-    setSources([])
+
     let payload = { questionId: selectedQuestion } as IReviewAnswerPayload;
 
     if (!status) {
