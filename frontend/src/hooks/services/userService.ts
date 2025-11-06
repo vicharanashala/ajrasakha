@@ -21,4 +21,11 @@ export class UserService {
       body: JSON.stringify({ ...user }),
     });
   }
+
+   async notificationDeletePreference(preference:string):Promise<void | null>{
+    return apiFetch<void>(`${this._baseUrl}/`,{
+      body:JSON.stringify({ preference }),
+      method:"PATCH"
+    })
+  }
 }

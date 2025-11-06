@@ -1,5 +1,5 @@
 import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
-import {IUser} from '#shared/interfaces/models.js';
+import {IUser, NotificationRetentionType} from '#shared/interfaces/models.js';
 import {MongoClient, ClientSession, ObjectId} from 'mongodb';
 
 /**
@@ -112,5 +112,17 @@ export interface IUserRepository {
     session?: ClientSession,
   ): Promise<void>;
   
+  /**
+   * Finds all moderators.
+   * @returns A promise that resolves to an array of moderators.
+   */
   findModerators():Promise<IUser[]>
+
+  /**
+   * Finds all users.
+   * @param userId -  user IDs to find.
+   * @param preference -  Time period when to delete the notifications.
+   * @returns void.
+   */
+  updateAutoDeleteNotificationPreference(preference:NotificationRetentionType,userId:string,session?:ClientSession):Promise<void>
 }

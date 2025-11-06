@@ -7,6 +7,7 @@ export interface IPreference {
   crop: string;
   domain: string;
 }
+export type NotificationRetentionType = '3d' | '1w' | '2w' | '1m' |'never'
 export interface IUser {
   _id?: string | ObjectId;
   firebaseUID: string;
@@ -17,6 +18,7 @@ export interface IUser {
   reputation_score: number;
   notifications?: number;
   role: UserRole;
+  notificationRetention?:NotificationRetentionType
   createdAt?: Date;
   updatedAt?: Date;
 }

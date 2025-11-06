@@ -3,7 +3,7 @@ export const Route = createFileRoute("/notifications/")({
   component: Notification,
 });
 import { useEffect, useState } from "react";
-import { BellIcon, CheckCircle, ArrowLeft, XCircle } from "lucide-react";
+import { BellIcon, CheckCircle, ArrowLeft, XCircle, Clock } from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { Separator } from "@/components/atoms/separator";
 import { Badge } from "@/components/atoms/badge";
@@ -13,10 +13,19 @@ import { useGetNotifications } from "@/hooks/api/notification/useGetNotification
 import { useDeleteNotification } from "@/hooks/api/notification/useDeleteNotifications";
 import { useMarkAsReadNotification } from "@/hooks/api/notification/useUpdateNotification";
 import { useMarkAllAsReadNotification } from "@/hooks/api/notification/useMarkAllAsRead";
-import {toast} from "sonner";
+import { toast } from "sonner";
 import { formatDate } from "@/utils/formatDate";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "@/components/question-details";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/atoms/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
+import { useAutoDeletePreference } from "@/hooks/api/user/useAutoDeleteNotifications";
 export interface Notification {
   _id: string;
   enitity_id: string;
@@ -37,9 +46,10 @@ export default function Notification() {
   } = useDeleteNotification();
   const { mutateAsync: markAsRead } = useMarkAsReadNotification();
   const { mutateAsync: markAllAsRead } = useMarkAllAsReadNotification();
+  const {mutateAsync:autoDeletePreference} = useAutoDeletePreference()
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
+  const [deletePreference, setDeletePreference] = useState("1w");
   // const [selectedQuestionId, setSelectedQuestionId] = useState("");
 
   // const {
@@ -106,6 +116,15 @@ export default function Notification() {
   const handleBack = () => {
     window.history.back();
   };
+  const handlePreferenceChange =async (value: string) => {
+    setDeletePreference(value);
+    try {
+      await autoDeletePreference(value)
+      toast.success('Preference Updated')
+    } catch (error) {
+      toast.error('Error updating Preference')
+    }
+  };
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
@@ -148,19 +167,6 @@ export default function Notification() {
   }
 
   return (
-    // <>
-    //   {selectedQuestionId && questionDetails ? (
-    //     <>
-    //       <QuestionDetails
-    //         question={questionDetails.data}
-    //         currentUserId={questionDetails.currentUserId}
-    //         refetchAnswers={refechSelectedQuestion}
-    //         isRefetching={isLoadingSelectedQuestion}
-    //         goBack={() => setSelectedQuestionId("")}
-    //         currentUser={user!}
-    //       />
-    //     </>
-    //   ) : (
     <div className="min-h-screen bg-background flex flex-col ">
       <div className="container mx-auto flex-1 py-4 sm:py-6 px-3 sm:px-0 px-6 py-8 max-w-[60%]">
         <div
@@ -173,22 +179,40 @@ export default function Notification() {
               Go Back
             </span>
           </div>
-          {/* <div className="h-[1px] w-0 bg-primary group-hover:w-full transition-all duration-300"></div> */}
         </div>
 
         <div className="flex flex-col h-full gap-4 sm:gap-6">
           <div className="w-full">
             <div className="flex flex-wrap items-center justify-between mb-4 sm:mb-6 p-3 sm:p-4 bg-card rounded-lg border">
               <div className="flex items-center gap-2 sm:gap-4">
-                {/* <Checkbox
-                id="select-all"
-                checked={selectedIds.length === notifications.length && notifications.length > 0}
-                onCheckedChange={handleSelectAll}
-                className="data-[state=checked]:bg-green-500"
-              />
-              <span className="text-sm font-medium text-muted-foreground">
-                {selectedIds.length} selected
-              </span> */}
+                <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground hidden sm:inline">
+                  Auto-delete after:
+                </span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs max-w-[200px]">
+              Notifications older than this duration will be automatically deleted.
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <Select onValueChange={handlePreferenceChange} value={deletePreference}>
+          <SelectTrigger className="w-[130px] sm:w-[150px]">
+            <SelectValue placeholder="Select duration" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="3d">3 days</SelectItem>
+            <SelectItem value="1w">1 week</SelectItem>
+            <SelectItem value="2w">2 weeks</SelectItem>
+            <SelectItem value="1m">1 month</SelectItem>
+            <SelectItem value="never">Never</SelectItem>
+          </SelectContent>
+        </Select>
               </div>
               <div className="flex items-center gap-2 mt-2 sm:mt-0">
                 <Button
@@ -233,20 +257,7 @@ export default function Notification() {
                           : ""
                       }`}
                     >
-                      <div className="flex items-start sm:items-center gap-2">
-                        {/* <Checkbox
-                        checked={selectedIds.includes(notification._id)}
-                        onCheckedChange={(checked) => {
-                          if (checked)
-                            setSelectedIds((prev) => [...prev, notification._id]);
-                          else
-                            setSelectedIds((prev) =>
-                              prev.filter((i) => i !== notification._id)
-                            );
-                        }}
-                        className="mt-1 flex-shrink-0 data-[state=checked]:bg-green-500"
-                      /> */}
-                      </div>
+                      <div className="flex items-start sm:items-center gap-2"></div>
 
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center justify-between gap-1 sm:gap-2 mb-1">
@@ -290,43 +301,6 @@ export default function Notification() {
                           {notification.message}
                         </p>
                       </div>
-
-                      {/* <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 flex-shrink-0 self-end sm:self-auto"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40 sm:w-48">
-                        <DropdownMenuItem
-                          onClick={(e) =>{
-                             e.stopPropagation();
-                             handleMarkAsRead(notification._id)
-                            }
-                            }
-                          className="flex items-center gap-2 cursor-pointer"
-                          disabled={notification.is_read}
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                          Mark as read
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={(e) =>{
-                            e.stopPropagation();
-                            handleDelete(notification._id)
-                          }
-                        }
-                          className="flex items-center gap-2 cursor-pointer text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu> */}
                     </div>
                   ))
                 )}
@@ -352,9 +326,5 @@ export default function Notification() {
         </div>
       </div>
     </div>
-    //   )}
-    // </>
-    //   )}
-    // </>
   );
 }
