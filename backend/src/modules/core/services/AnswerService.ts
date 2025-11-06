@@ -560,9 +560,9 @@ answer: ${answer.answer}`;
       // const embedding = [];
       const payload: Partial<IAnswer> = {
         ...updates,
+        approvedBy: new ObjectId(userId),
         embedding,
         isFinalAnswer: true,
-        approvedBy: new ObjectId(userId),
       };
       return this.answerRepo.updateAnswer(answerId, payload, session);
     });
