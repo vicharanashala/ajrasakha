@@ -4,6 +4,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/atoms/dialog";
+import { Loader2 } from "lucide-react";
+import { useState } from "react";
 
 interface UrlPreviewDialogProps {
   open: boolean;
@@ -11,11 +13,13 @@ interface UrlPreviewDialogProps {
   selectedUrl: string | null;
 }
 
-export function UrlPreviewDialog({
+export const UrlPreviewDialog = ({
   open,
   onOpenChange,
   selectedUrl,
-}: UrlPreviewDialogProps) {
+}: UrlPreviewDialogProps) => {
+  const [isLoading, setIsLoading] = useState(true);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -29,15 +33,23 @@ export function UrlPreviewDialog({
         </DialogHeader>
 
         {selectedUrl && (
-          <div className="flex-1 overflow-hidden">
+          <div className="relative flex-1 overflow-hidden">
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <span className="sr-only">Loading preview...</span>
+              </div>
+            )}
+
             <iframe
               src={selectedUrl}
               title="Source Preview"
               className="w-full h-full border-0"
+              onLoad={() => setIsLoading(false)}
             />
           </div>
         )}
       </DialogContent>
     </Dialog>
   );
-}
+};

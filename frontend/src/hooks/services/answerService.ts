@@ -1,4 +1,4 @@
-import type {  ISubmissions, SubmitAnswerResponse,FinalizedAnswersResponse } from "@/types";
+import type {  ISubmissions, SubmitAnswerResponse,FinalizedAnswersResponse, SourceItem } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { IReviewAnswerPayload } from "../api/answer/useReviewAnswer";
 
@@ -10,7 +10,7 @@ export class AnswerService {
   async submitAnswer(
     questionId: string,
     answer: string,
-    sources: string[]
+    sources: SourceItem[]
   ): Promise<SubmitAnswerResponse | null> {
     try {
       return await apiFetch<SubmitAnswerResponse>(this._baseUrl, {

@@ -6,6 +6,7 @@ import type {
   IUser,
   IUserRef,
   QuestionStatus,
+  SourceItem,
   UserRole,
 } from "@/types";
 import {
@@ -22,7 +23,7 @@ import { Card } from "./atoms/card";
 import { Separator } from "./atoms/separator";
 import { Textarea } from "./atoms/textarea";
 import { Button } from "./atoms/button";
-import {toast} from "sonner";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -348,12 +349,12 @@ export const QuestionDetails = ({
       </Card>
 
       {/* {currentUser.role !== "expert" && ( */}
-        <AllocationTimeline
-          history={question.submission.history}
-          queue={question.submission.queue}
-          currentUser={currentUser}
-          question={question}
-        />
+      <AllocationTimeline
+        history={question.submission.history}
+        queue={question.submission.queue}
+        currentUser={currentUser}
+        question={question}
+      />
       {/* )} */}
       <div className="flex items-center justify-between md:mt-12">
         <h2 className="text-lg font-semibold flex justify-center gap-2 items-center ">
@@ -1654,22 +1655,46 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       <p className="text-sm font-medium text-foreground mb-3">
                         Source URLs
                       </p>
+
                       <div className="space-y-2">
-                        {props.answer.sources.map((url, idx) => (
+                        {props.answer.sources.map((source, idx) => (
                           <div
                             key={idx}
-                            className="flex items-center justify-between rounded-lg border bg-muted/30 p-2"
+                            className="flex items-center justify-between rounded-lg border bg-muted/30 p-2 pr-3"
                           >
-                            <span className="text-sm truncate text-foreground">
-                              {url}
-                            </span>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span
+                                    className="text-sm truncate max-w-[260px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                                    onClick={() =>
+                                      window.open(source.source, "_blank")
+                                    }
+                                  >
+                                    {source.source}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>{source.source}</TooltipContent>
+                              </Tooltip>
+
+                              {source.page && (
+                                <>
+                                  <span className="text-muted-foreground">
+                                    •
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    page {source.page}
+                                  </span>
+                                </>
+                              )}
+                            </div>
                             <a
-                              href={url}
+                              href={source.source}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="p-1 rounded hover:bg-muted/20 dark:hover:bg-muted/50 transition-colors"
                             >
-                              <ArrowUpRight className="w-4 h-4 text-foreground" />
+                              <ArrowUpRight className="w-4 h-4 text-foreground/80" />
                             </a>
                           </div>
                         ))}
@@ -1805,7 +1830,7 @@ export const SubmitAnswerDialog = ({
 }: SubmitAnswerDialogProps) => {
   const [open, setOpen] = useState(false);
   const [answer, setAnswer] = useState("");
-  const [sources, setSources] = useState<string[]>([]);
+  const [sources, setSources] = useState<SourceItem[]>([]);
   const { mutateAsync: submitAnswer, isPending: isSubmittingAnswer } =
     useSubmitAnswer();
 

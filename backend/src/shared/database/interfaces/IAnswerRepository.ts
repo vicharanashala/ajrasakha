@@ -1,5 +1,5 @@
 import {SubmissionResponse} from '#root/modules/core/classes/validators/AnswerValidators.js';
-import {IAnswer} from '#root/shared/interfaces/models.js';
+import {IAnswer, SourceItem} from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
 
 /**
@@ -20,7 +20,7 @@ export interface IAnswerRepository {
     questionId: string,
     authorId: string,
     answer: string,
-    source: string[],
+    source: SourceItem[],
     embedding: number[],
     isFinalAnswer?: boolean,
     answerIteration?: number,

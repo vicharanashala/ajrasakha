@@ -8,6 +8,7 @@ import {
   IAnswer,
   IQuestionMetrics,
   ISubmissionHistory,
+  SourceItem,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -71,7 +72,7 @@ export class AnswerService extends BaseService {
     questionId: string,
     authorId: string,
     answer: string,
-    sources: string[],
+    sources: SourceItem[],
     session?: ClientSession,
   ): Promise<{insertedId: string; isFinalAnswer: boolean}> {
     const execute = async (activeSession: ClientSession) => {
@@ -491,14 +492,18 @@ export class AnswerService extends BaseService {
   }
   async getFinalAnswerQuestions(
     userId: string,
-   currentUserId:string,
-   date:string
+    currentUserId: string,
+    date: string,
   ): Promise<{
-    finalizedSubmissions: any[],
-    currentUserAnswers: any[],
-    totalQuestionsCount: number
+    finalizedSubmissions: any[];
+    currentUserAnswers: any[];
+    totalQuestionsCount: number;
   }> {
-    return await this.answerRepo.getAllFinalizedAnswers(userId,currentUserId,date);
+    return await this.answerRepo.getAllFinalizedAnswers(
+      userId,
+      currentUserId,
+      date,
+    );
   }
 
   // Currently using for approving answer
@@ -539,7 +544,7 @@ export class AnswerService extends BaseService {
       await this.answerRepo.getByQuestionId(questionId, session);
 
       const text = `Question: ${question.question}
-        answer: ${answer}`;
+answer: ${answer.answer}`;
       const {embedding: questionEmbedding} =
         await this.aiService.getEmbedding(text);
       // const questionEmbedding = [];
