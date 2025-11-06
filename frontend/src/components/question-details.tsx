@@ -57,6 +57,8 @@ import {
   Loader2,
   MapPin,
   MessageSquare,
+  PlusCircle,
+  RefreshCcw,
   RefreshCw,
   Send,
   Sprout,
@@ -759,7 +761,11 @@ const AllocationTimeline = ({
 
     const userName = submission?.updatedBy?.name || "User";
 
-    if (submission.answer) {
+    if (
+      submission.answer &&
+      !submission.rejectedAnswer &&
+      !submission.approvedAnswer
+    ) {
       return `${userName} created an answer.`;
     }
 
@@ -776,7 +782,7 @@ const AllocationTimeline = ({
         (h) => h.answer?._id === submission.rejectedAnswer
       );
       const rejectedUserName = rejectedEntry?.updatedBy?.name || "someone";
-      return `${userName} rejected ${rejectedUserName}'s answer.`;
+      return `${userName} rejected ${rejectedUserName}'s answer and created a new answer.`;
     }
 
     if (
@@ -836,16 +842,39 @@ const AllocationTimeline = ({
   const nextWaitingIndex = queue?.findIndex(
     (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email)
   );
-
   const getStatus = (index: number) => {
     const user = queue[index];
+    const activityText = getUserActivityText(user._id);
     const hasSubmitted =
       submittedUserIds.has(user._id) || submittedUserEmails.has(user.email);
 
-    if (hasSubmitted) return "submitted";
+    if (hasSubmitted) {
+      if (activityText.includes("created an answer")) {
+        return "answerCreated";
+      }
+      if (activityText.includes("approved")) {
+        return "approved";
+      }
+      if (activityText.includes("rejected")) {
+        return "rejected";
+      }
+      return "submitted";
+    }
+
     if (index === nextWaitingIndex) return "waiting";
     return "pending";
   };
+
+  // const getStatus = (index: number) => {
+  //   const user = queue[index];
+  //   const userActivity = getUserActivityText(user._id);
+  //   const hasSubmitted =
+  //     submittedUserIds.has(user._id) || submittedUserEmails.has(user.email);
+
+  //   if (hasSubmitted) return "submitted";
+  //   if (index === nextWaitingIndex) return "waiting";
+  //   return "pending";
+  // };
 
   const displayedQueue = isExpanded
     ? queue
@@ -854,7 +883,17 @@ const AllocationTimeline = ({
 
   const getStatusStyles = (status: string) => {
     switch (status) {
-      case "submitted":
+      case "answerCreated":
+        return {
+          container:
+            "bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700 shadow-yellow-100/50",
+          icon: "text-yellow-700 dark:text-yellow-400",
+          badge:
+            "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-700",
+          iconBg: "bg-yellow-200 dark:bg-yellow-800/40",
+          legendDot: "bg-yellow-500",
+        };
+      case "approved":
         return {
           container:
             "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 shadow-green-100/50",
@@ -863,6 +902,16 @@ const AllocationTimeline = ({
             "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700",
           iconBg: "bg-green-200 dark:bg-green-800/40",
           legendDot: "bg-green-500",
+        };
+      case "rejected":
+        return {
+          container:
+            "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 shadow-red-100/50",
+          icon: "text-red-700 dark:text-red-400",
+          badge:
+            "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-700",
+          iconBg: "bg-red-200 dark:bg-red-800/40",
+          legendDot: "bg-red-500",
         };
       case "waiting":
         return {
@@ -873,6 +922,14 @@ const AllocationTimeline = ({
             "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-700",
           iconBg: "bg-blue-200 dark:bg-blue-800/40",
           legendDot: "bg-blue-500",
+        };
+      case "pending":
+        return {
+          container: "bg-muted/50 border-muted shadow-muted/5",
+          icon: "text-muted-foreground",
+          badge: "bg-muted/50 text-muted-foreground border border-muted",
+          iconBg: "bg-muted",
+          legendDot: "bg-muted-foreground/40",
         };
       default:
         return {
@@ -885,7 +942,38 @@ const AllocationTimeline = ({
     }
   };
 
-
+  // const getStatusStyles = (status: string) => {
+  //   switch (status) {
+  //     case "submitted":
+  //       return {
+  //         container:
+  //           "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 shadow-green-100/50",
+  //         icon: "text-green-700 dark:text-green-400",
+  //         badge:
+  //           "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700",
+  //         iconBg: "bg-green-200 dark:bg-green-800/40",
+  //         legendDot: "bg-green-500",
+  //       };
+  //     case "waiting":
+  //       return {
+  //         container:
+  //           "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 shadow-blue-100/50",
+  //         icon: "text-blue-700 dark:text-blue-400",
+  //         badge:
+  //           "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-700",
+  //         iconBg: "bg-blue-200 dark:bg-blue-800/40",
+  //         legendDot: "bg-blue-500",
+  //       };
+  //     default:
+  //       return {
+  //         container: "bg-muted/50 border-muted shadow-muted/5",
+  //         icon: "text-muted-foreground",
+  //         badge: "bg-muted/50 text-muted-foreground border border-muted",
+  //         iconBg: "bg-muted",
+  //         legendDot: "bg-muted-foreground/40",
+  //       };
+  //   }
+  // };
 
   return (
     <div className="w-full space-y-6 my-6">
@@ -1017,12 +1105,15 @@ const AllocationTimeline = ({
                             <Loader2 className="w-6 h-6 animate-spin text-white/80" />
                           </div>
                         )}
-
                       <div
                         className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${styles.iconBg}`}
                       >
-                        {status === "submitted" ? (
+                        {status === "answerCreated" ? (
+                          <PlusCircle className={`w-6 h-6 ${styles.icon}`} />
+                        ) : status === "approved" ? (
                           <CheckCircle2 className={`w-6 h-6 ${styles.icon}`} />
+                        ) : status === "rejected" ? (
+                          <RefreshCcw className={`w-6 h-6 ${styles.icon}`} />
                         ) : status === "waiting" ? (
                           <Clock
                             className={`w-6 h-6 ${styles.icon} ${
@@ -1056,8 +1147,12 @@ const AllocationTimeline = ({
                       <span
                         className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${styles.badge}`}
                       >
-                        {status === "submitted"
-                          ? "Submitted"
+                        {status === "answerCreated"
+                          ? "Answer Created"
+                          : status === "approved"
+                          ? "Approved"
+                          : status === "rejected"
+                          ? "Rejected"
                           : status === "waiting"
                           ? isCurrentUserWaiting
                             ? "Your Turn"
@@ -1093,25 +1188,6 @@ const AllocationTimeline = ({
           })}
         </div>
       )}
-
-      <div className="flex flex-wrap justify-end gap-4 mt-4 text-sm">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
-          <div className="w-2 h-2 rounded-full bg-green-500" />
-          <span className="text-green-700 dark:text-green-400 font-medium">
-            Submitted
-          </span>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20">
-          <div className="w-2 h-2 rounded-full bg-blue-500" />
-          <span className="text-blue-700 dark:text-blue-400 font-medium">
-            Waiting
-          </span>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted border border-border">
-          <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />
-          <span className="text-muted-foreground font-medium">Pending</span>
-        </div>
-      </div>
 
       {hasMore && (
         <div className="flex justify-center pt-4">
