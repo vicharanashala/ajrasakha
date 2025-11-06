@@ -49,7 +49,7 @@ export default function Notification() {
   const {mutateAsync:autoDeletePreference} = useAutoDeletePreference()
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [deletePreference, setDeletePreference] = useState("1w");
+  const [deletePreference, setDeletePreference] = useState("never");
   // const [selectedQuestionId, setSelectedQuestionId] = useState("");
 
   // const {
