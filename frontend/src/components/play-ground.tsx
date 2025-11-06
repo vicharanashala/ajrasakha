@@ -126,7 +126,7 @@ export const PlaygroundPage = () => {
                   className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
                 >
                   <HoverCard openDelay={150}>
-                    <span>Upload</span>
+                    <span>Agents Interface</span>
                   </HoverCard>
                 </TabsTrigger>
 

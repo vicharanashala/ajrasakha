@@ -78,4 +78,10 @@ tsconfig.tsbuildinfo
 client/
 build/
 
+# Firebase credentials
 agriai-a2fba-firebase-adminsdk-fbsvc-452072d744.json
+
+# DB migration scripts
+src/migrations
+
+backups

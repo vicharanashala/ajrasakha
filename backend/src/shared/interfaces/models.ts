@@ -55,6 +55,10 @@ export interface IQuestion {
   updatedAt?: Date;
 }
 
+export interface SourceItem {
+  source: string;
+  page?: number;
+}
 export interface IAnswer {
   _id?: string | ObjectId;
   questionId: string | ObjectId;
@@ -64,7 +68,7 @@ export interface IAnswer {
   isFinalAnswer: boolean;
   approvedBy?: string | ObjectId;
   answer: string;
-  sources: string[];
+  sources: SourceItem[];
   embedding: number[];
   createdAt?: Date;
   updatedAt?: Date;
