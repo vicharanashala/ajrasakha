@@ -154,49 +154,97 @@ export class AnswerRepository implements IAnswerRepository {
     try {
       await this.init();
       const skip = (page - 1) * limit;
-
-      const submissions = await this.AnswerCollection.aggregate([
-        {$match: {authorId: new ObjectId(userId)}},
-        {
-          $lookup: {
-            from: 'questions',
-            localField: 'questionId',
-            foreignField: '_id',
-            as: 'question',
+      const user = await this.usersCollection.findOne({_id: new ObjectId(userId)})
+      const role = user.role
+      console.log("role ",role,userId)
+      if(role ==='moderator'){
+        const submissions = await this.AnswerCollection.aggregate([
+          {$match:{approvedBy:new ObjectId(userId)}},
+          {
+            $lookup:{
+              from:'questions',
+              localField:'questionId',
+              foreignField:'_id',
+              as:'question'
+            }
           },
-        },
-        {$unwind: '$question'},
-        {
+          
+          {$unwind: {path: '$question', preserveNullAndEmptyArrays: true}},
+          {
           $group: {
-            _id: '$question._id',
-            text: {$first: '$question.question'},
-            createdAt: {$first: '$question.createdAt'},
-            updatedAt: {$first: '$question.updatedAt'},
-            totalAnswersCount: {$sum: 1},
-            responses: {
-              $push: {
-                answer: '$answer',
-                id: {$toString: '$_id'},
-                isFinalAnswer: '$isFinalAnswer',
-                createdAt: '$createdAt',
+              _id: '$question._id',
+              text: {$first: '$question.question'},
+              createdAt: {$first: '$question.createdAt'},
+              updatedAt: {$first: '$question.updatedAt'},
+              totalAnswersCount: {$sum: 1},
+              responses: {
+                $push: {
+                  answer: '$answer',
+                  id: {$toString: '$_id'},
+                  isFinalAnswer: '$isFinalAnswer',
+                  createdAt: '$createdAt',
+                },
               },
             },
           },
-        },
-        {$sort: {createdAt: -1}},
-        {$skip: skip},
-        {$limit: limit},
-      ]).toArray();
+          { $match: { _id: { $ne: null } } },
+          {$sort: {createdAt: -1}},
+          {$skip: skip},
+          {$limit: limit},
+        ]).toArray()
+        return submissions.map(sub => ({
+          id: sub._id.toString(),
+          text: sub.text,
+          createdAt: sub.createdAt.toISOString(),
+          updatedAt: sub.updatedAt.toISOString(),
+          totalAnwersCount: sub.totalAnswersCount,
+          reponse: sub.responses[0] || [],
+        }));
+      }else{
+        const submissions = await this.AnswerCollection.aggregate([
+          {$match: {authorId: new ObjectId(userId)}},
+          {
+            $lookup: {
+              from: 'questions',
+              localField: 'questionId',
+              foreignField: '_id',
+              as: 'question',
+            },
+          },
+          {$unwind: '$question'},
+          {
+            $group: {
+              _id: '$question._id',
+              text: {$first: '$question.question'},
+              createdAt: {$first: '$question.createdAt'},
+              updatedAt: {$first: '$question.updatedAt'},
+              totalAnswersCount: {$sum: 1},
+              responses: {
+                $push: {
+                  answer: '$answer',
+                  id: {$toString: '$_id'},
+                  isFinalAnswer: '$isFinalAnswer',
+                  createdAt: '$createdAt',
+                },
+              },
+            },
+          },
+          {$sort: {createdAt: -1}},
+          {$skip: skip},
+          {$limit: limit},
+        ]).toArray();
+        return submissions.map(sub => ({
+          id: sub._id.toString(),
+          text: sub.text,
+          createdAt: sub.createdAt.toISOString(),
+          updatedAt: sub.updatedAt.toISOString(),
+          totalAnwersCount: sub.totalAnswersCount,
+          reponse: sub.responses[0],
+        }));
+      }
 
-      return submissions.map(sub => ({
-        id: sub._id.toString(),
-        text: sub.text,
-        createdAt: sub.createdAt.toISOString(),
-        updatedAt: sub.updatedAt.toISOString(),
-        totalAnwersCount: sub.totalAnswersCount,
-        reponse: sub.responses[0],
-      }));
     } catch (error) {
+      console.error(error)
       throw new InternalServerError(`Failed to fetch submissions: ${error}`);
     }
   }
@@ -541,7 +589,6 @@ export class AnswerRepository implements IAnswerRepository {
   ): Promise<{faqs: any[]; totalFaqs: number}> {
     try {
       await this.init();
-      console.log('reached repo')
       const skip = (page - 1) * limit;
       const filter: any = {isFinalAnswer: true};
       if (userId) {

@@ -130,7 +130,7 @@ export const PlaygroundPage = () => {
                   </HoverCard>
                 </TabsTrigger>
 
-                {user && user.role == "expert" && (
+                {user && (
                   <TabsTrigger
                     value="history"
                     className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
@@ -208,7 +208,7 @@ export const PlaygroundPage = () => {
                   </div>
                 </div>
               </TabsContent>
-              {user && user.role == "expert" && (
+              {user &&  (
                 <TabsContent
                   value="history"
                   className="mt-0 border-0 p-0 max-w-[98%]"
