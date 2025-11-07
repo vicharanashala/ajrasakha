@@ -9,14 +9,7 @@ This folder contains **ONLY** the essential file needed to run PARAM models with
 2. Loads the model with vLLM optimized backend
 3. Serves the model via FastAPI with OpenAI-compatible API
 
-## Why Only One File?
 
-The `run_fastapi_server.py` file contains:
-- ✅ Model registration (lines 28-31)
-- ✅ vLLM initialization (lines 67-75)
-- ✅ FastAPI endpoints (all API routes)
-- ✅ Error handling
-- ✅ CORS support
 
 **You don't need separate registration files** because the registration is done inline before vLLM is imported.
 
@@ -65,5 +58,5 @@ curl -X POST http://localhost:8064/v1/completions \
   }'
 ```
 
-That's it! Just one file to run the entire server with vLLM optimized backend.
+
 
