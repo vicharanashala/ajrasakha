@@ -1534,7 +1534,7 @@ export const ResponseTimeline = ({
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
         <DialogContent
           className="max-w-4xl min-h-[70vh] max-h-[90vh] overflow-y-auto "
-          style={{ minWidth: "70vh" }}
+          style={{ minWidth: "100vh" }}
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
