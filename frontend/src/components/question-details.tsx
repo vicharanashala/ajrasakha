@@ -91,7 +91,7 @@ import { useRemoveAllocation } from "@/hooks/api/question/useRemoveAllocation";
 import { ConfirmationModal } from "./confirmation-modal";
 import { Input } from "./atoms/input";
 import { formatDate } from "@/utils/formatDate";
-import { useCountdown } from "@/hooks/useCountdown";
+import { useCountdown } from "@/hooks/ui/useCountdown";
 import { TimerDisplay } from "./timer-display";
 
 interface QuestionDetailProps {

@@ -258,13 +258,21 @@ export class QuestionService extends BaseService {
     let searchEmbedding: number[] | null = null;
 
     if (query?.search) {
-      const {embedding} = await this.aiService.getEmbedding(query.search);
-      searchEmbedding = embedding;
+      try {
+        const {embedding} = await this.aiService.getEmbedding(query.search);
+        searchEmbedding = embedding; 
+      } catch (err) {
+        console.error(
+          'Embedding generation failed, falling back to normal search:',
+          err,
+        );
+        searchEmbedding = null;
+      }
     }
 
     return this.questionRepo.findDetailedQuestions({
       ...query,
-      searchEmbedding, 
+      searchEmbedding,
     });
   }
 

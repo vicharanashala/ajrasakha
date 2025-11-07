@@ -12,6 +12,7 @@ import {
   type QuestionPriorityFilter,
   type QuestionSourceFilter,
 } from "./advanced-question-filter";
+import { useDebounce } from "@/hooks/ui/useDebounce";
 
 export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
   const [search, setSearch] = useState("");
@@ -28,6 +29,10 @@ export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [domain, setDomain] = useState("all");
   const [user, setUser] = useState("all");
+
+  const debouncedSearch = useDebounce(search); 
+
+
   const LIMIT = 12;
   const filter = useMemo(
     () => ({
@@ -65,7 +70,7 @@ export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
     data: questionData,
     isLoading,
     refetch,
-  } = useGetAllDetailedQuestions(currentPage, LIMIT, filter, search);
+  } = useGetAllDetailedQuestions(currentPage, LIMIT, filter, debouncedSearch);
   const {
     data: questionDetails,
     refetch: refechSelectedQuestion,
@@ -105,9 +110,9 @@ export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
   // }, [filter, refetch]);
 
   useEffect(() => {
-    if (search === "") return;
+    if (debouncedSearch === "") return;
     if (currentUser?.role !== "expert") onReset(); // Reset filters on search change for non-experts
-  }, [search]);
+  }, [debouncedSearch]);
 
   const onChangeFilters = (next: {
     status?: QuestionFilterStatus;
