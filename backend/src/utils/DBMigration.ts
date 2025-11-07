@@ -10,7 +10,7 @@ import {EJSON} from 'bson';
 /**
  * Connect to MongoDB via Inversify
  */
-async function connectMongo() {
+const connectMongo = async () => {
   const container = new Container();
   container.bind(GLOBAL_TYPES.uri).toConstantValue(dbConfig.url);
   container.bind(GLOBAL_TYPES.dbName).toConstantValue(dbConfig.dbName);
@@ -18,7 +18,7 @@ async function connectMongo() {
 
   const mongoDatabase = container.get(MongoDatabase);
   return mongoDatabase;
-}
+};
 
 /**
  * Backup documents from a specific collection based on a filter
