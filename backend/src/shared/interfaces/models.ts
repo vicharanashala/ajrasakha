@@ -158,3 +158,8 @@ export interface ISubscription {
     };
   };
 }
+export interface IReviewerHeatmapRow {
+  reviewerId: string;
+  reviewerName: string;
+  counts: Record<string, number>;
+}

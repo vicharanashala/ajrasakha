@@ -225,11 +225,19 @@ export interface FinalizedAnswer {
   };
   status:string;
 }
+interface HeatMapResult {
+  reviewerId: string;
+  reviewerName: string;
+  counts: {
+    [bucket: string]: number; // e.g., "0_6": 4
+  };
+}
 
 export interface FinalizedAnswersResponse {
   finalizedSubmissions: FinalizedAnswer[];
   currentUserAnswers: CurrentUserAnswer[];
   totalQuestionsCount: number;
+  heatMapResults: HeatMapResult[];
 }
 export interface IAnswer {
   _id?: string;

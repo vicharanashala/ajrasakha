@@ -497,9 +497,20 @@ export class AnswerService extends BaseService {
   ): Promise<{
     finalizedSubmissions: any[],
     currentUserAnswers: any[],
-    totalQuestionsCount: number
+    totalQuestionsCount: number,
+    heatMapResults: any[] | null
   }> {
-    return await this.answerRepo.getAllFinalizedAnswers(userId,currentUserId,date,status);
+    const heatMapResults =await this.questionSubmissionRepo.heatMapResultsForReviewer();
+    console.log("the submissionHistrory====",heatMapResults)
+    const { finalizedSubmissions, currentUserAnswers, totalQuestionsCount } =
+    await this.answerRepo.getAllFinalizedAnswers(userId, currentUserId, date, status);
+    return {
+      finalizedSubmissions,
+      currentUserAnswers,
+      totalQuestionsCount,
+      heatMapResults
+    };
+  
   }
 
   // Currently using for approving answer

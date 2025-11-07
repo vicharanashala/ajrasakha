@@ -29,7 +29,7 @@ import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import type { IMyPreference } from "@/types";
 import { ScrollArea } from "./atoms/scroll-area";
 import PreferenceFilter from "./PreferenceFilter";
-
+import HeatMap from "./HeatMap";
 export const PerformanceMatrics = () => {
   type BaseStatusItem = {
     status: string;
@@ -71,6 +71,7 @@ export const PerformanceMatrics = () => {
   const currentUserAnswers = finalizedAnswers?.currentUserAnswers || [];
   const totalQuestionsCount = finalizedAnswers?.totalQuestionsCount || 0;
   const approvedCount = currentUserAnswers.length;
+  const heatMapResults=finalizedAnswers?.heatMapResults||[]
   const approvalPercentage =
     totalQuestionsCount > 0
       ? ((approvedCount / totalQuestionsCount) * 100).toFixed(2)
@@ -437,6 +438,18 @@ export const PerformanceMatrics = () => {
           ""
         )}
       </div>
+      <div className="space-y-6 p-6  ">
+      <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
+            <CardHeader>
+              <CardTitle className="text-xl font-semibold">
+                Heat Map Of Reviewers
+              </CardTitle>
+            </CardHeader>
+            </Card>
+      <HeatMap heatMapResults={finalizedAnswers?.heatMapResults ?? []} />
+      </div>
+
+     
     </div>
   );
 };

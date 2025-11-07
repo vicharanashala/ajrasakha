@@ -1,4 +1,4 @@
-import {IAnswer, IQuestion, IUser} from '#root/shared/interfaces/models.js';
+import {IAnswer, IQuestion, IUser,IQuestionSubmission} from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
@@ -12,6 +12,7 @@ export class AnswerRepository implements IAnswerRepository {
   private AnswerCollection: Collection<IAnswer>;
   private QuestionCollection: Collection<IQuestion>;
   private usersCollection!: Collection<IUser>;
+  private QuestionSubmissionCollection: Collection<IQuestionSubmission>;
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
@@ -23,6 +24,7 @@ export class AnswerRepository implements IAnswerRepository {
     this.QuestionCollection =
       await this.db.getCollection<IQuestion>('questions');
     this.usersCollection = await this.db.getCollection<IUser>('users');
+    await this.db.getCollection<IQuestionSubmission>('question_submissions');
   }
 
   async addAnswer(
@@ -381,6 +383,90 @@ const submissions = await this.AnswerCollection.aggregate([
         },
       }));
 
+
+
+
+/*const result = await this.AnswerCollection.aggregate([
+  // Join reviewer info (agri-specialist)
+  {
+    $lookup: {
+      from: "users",
+      localField: "authorId",
+      foreignField: "_id",
+      as: "reviewer",
+    }
+  },
+  { $unwind: "$reviewer" },
+
+  // Join question to compute turnaround time
+  {
+    $lookup: {
+      from: "questions",
+      localField: "questionId",
+      foreignField: "_id",
+      as: "question"
+    }
+  },
+  { $unwind: "$question" },
+
+  // Apply Date Filter (if selected)
+
+
+  // Calculate turnaround hours
+  {
+    $addFields: {
+      turnaroundHours: {
+        $divide: [
+          { $subtract: ["$createdAt", "$question.createdAt"] },
+          1000 * 60 * 60 // convert ms → hours
+        ]
+      }
+    }
+  },
+
+  // Create time buckets
+  {
+    $addFields: {
+      timeBucket: {
+        $switch: {
+          branches: [
+            { case: { $lt: ["$turnaroundHours", 6] }, then: "0-6" },
+            { case: { $lt: ["$turnaroundHours", 12] }, then: "6-12" },
+            { case: { $lt: ["$turnaroundHours", 24] }, then: "12-24" }
+          ],
+          default: "24+"
+        }
+      }
+    }
+  },
+
+  // Group to count how many answers fall into each bucket per reviewer
+  {
+    $group: {
+      _id: { reviewer: "$reviewer.email", bucket: "$timeBucket" },
+      count: { $sum: 1 }
+    }
+  },
+
+  // Convert into heatmap-friendly format
+  {
+    $group: {
+      _id: "$_id.reviewer",
+      buckets: {
+        $push: { k: "$_id.bucket", v: "$count" }
+      }
+    }
+  },
+  {
+    $project: {
+      reviewer: "$_id",
+      _id: 0,
+      buckets: { $arrayToObject: "$buckets" }
+    }
+  }
+]).toArray();*/
+
+//console.log("the heatmap results====",result)
       return {
         finalizedSubmissions,
         currentUserAnswers,

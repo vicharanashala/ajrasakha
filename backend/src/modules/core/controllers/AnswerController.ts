@@ -90,7 +90,8 @@ export class AnswerController {
   ): Promise<{
     finalizedSubmissions: any[],
     currentUserAnswers: any[],
-    totalQuestionsCount: number
+    totalQuestionsCount: number,
+    heatMapResults: any[] | null
   }>  {
    
     const userId = query?.userId || "all";

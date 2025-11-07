@@ -2,6 +2,7 @@ import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQ
 import {
   IQuestionSubmission,
   ISubmissionHistory,
+  IReviewerHeatmapRow
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -377,4 +378,128 @@ export class QuestionSubmissionRepository
       throw new InternalServerError(`Failed to update submission: ${error}`);
     }
   }
+  async heatMapResultsForReviewer(): Promise<IReviewerHeatmapRow[] | null> {
+    try {
+      await this.init();
+  
+      const pipeline = [
+        // Flatten history
+        { $unwind: "$history" },
+  
+        // Only reviewer decisions
+        {
+          $match: {
+            "history.status": { $in: ["reviewed", "rejected"] }
+          }
+        },
+  
+        // Compute turnaround in hours
+        {
+          $addFields: {
+            turnaroundHours: {
+              $divide: [
+                { $subtract: ["$history.updatedAt", "$createdAt"] },
+                1000 * 60 * 60
+              ]
+            }
+          }
+        },
+  
+        // Assign bucket label directly (no buggy $bucket stage)
+        {
+          $addFields: {
+            timeRange: {
+              $switch: {
+                branches: [
+                  { case: { $lt: ["$turnaroundHours", 6] }, then: "0_6" },
+                  { case: { $lt: ["$turnaroundHours", 12] }, then: "6_12" },
+                  { case: { $lt: ["$turnaroundHours", 18] }, then: "12_18" },
+                  { case: { $lt: ["$turnaroundHours", 24] }, then: "18_24" },
+                  { case: { $lt: ["$turnaroundHours", 30] }, then: "24_30" },
+                  { case: { $lt: ["$turnaroundHours", 36] }, then: "30_36" },
+                  { case: { $lt: ["$turnaroundHours", 42] }, then: "36_42" },
+                  
+                ],
+                default: "48_plus"
+              }
+            }
+          }
+        },
+  
+        // Group → Count each bucket for each reviewer
+        {
+          $group: {
+            _id: {
+              reviewerId: "$history.updatedBy",
+              timeRange: "$timeRange"
+            },
+            count: { $sum: 1 }
+          }
+        },
+  
+        // Rearrange bucket counts under each reviewer
+        {
+          $group: {
+            _id: "$_id.reviewerId",
+            counts: {
+              $push: { k: "$_id.timeRange", v: "$count" }
+            }
+          }
+        },
+  
+        // Convert array to object
+        {
+          $project: {
+            reviewerId: "$_id",
+            counts: { $arrayToObject: "$counts" }
+          }
+        },
+  
+        // Lookup reviewer details
+        {
+          $lookup: {
+            from: "users",
+            localField: "reviewerId",
+            foreignField: "_id",
+            as: "reviewer"
+          }
+        },
+        { $unwind: "$reviewer" },
+  
+        // Final clean shape
+        {
+          $project: {
+            _id: 0,
+            reviewerId: { $toString: "$reviewerId" },
+            reviewerName: {
+              $trim: {
+                input: {
+                  $concat: [
+                    { $ifNull: ["$reviewer.firstName", ""] },
+                    {
+                      $cond: [
+                        { $ifNull: ["$reviewer.lastName", false] },
+                        { $concat: [" ", "$reviewer.lastName"] },
+                        ""
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            counts: 1
+          }
+        }
+      ];
+  
+      const result = await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
+      return result.length ? (result as IReviewerHeatmapRow[]) : null;
+  
+    } catch (err) {
+      console.error("Error generating reviewer heatmap:", err);
+      return null;
+    }
+  }
+  
+  
 }
