@@ -255,7 +255,17 @@ export class QuestionService extends BaseService {
   async getDetailedQuestions(
     query: GetDetailedQuestionsQuery,
   ): Promise<{questions: IQuestion[]; totalPages: number}> {
-    return this.questionRepo.findDetailedQuestions(query);
+    let searchEmbedding: number[] | null = null;
+
+    if (query?.search) {
+      const {embedding} = await this.aiService.getEmbedding(query.search);
+      searchEmbedding = embedding;
+    }
+
+    return this.questionRepo.findDetailedQuestions({
+      ...query,
+      searchEmbedding, 
+    });
   }
 
   async getQuestionFromRawContext(
@@ -754,8 +764,8 @@ export class QuestionService extends BaseService {
             `Cannot allocate more than 10 experts. Currently allocated: ${totalAllocatedExperts}`,
           );
 
-        for(let expert of experts){
-          const IS_INCREMENT=true
+        for (let expert of experts) {
+          const IS_INCREMENT = true;
           await this.userRepo.updateReputationScore(
             expert,
             IS_INCREMENT,
@@ -765,8 +775,8 @@ export class QuestionService extends BaseService {
 
         //if manuall alloacation is first person
 
-        if(questionSubmission.queue.length===0){
-          const firstPerson = experts[0]
+        if (questionSubmission.queue.length === 0) {
+          const firstPerson = experts[0];
           let message = `A Question has been assigned for answering`;
           let title = 'Answer Creation Assigned';
           let entityId = questionId.toString();
@@ -779,7 +789,6 @@ export class QuestionService extends BaseService {
             user,
             type,
           );
-
         }
 
         //6. Allocate experts
@@ -823,7 +832,6 @@ export class QuestionService extends BaseService {
           expertIds,
           session,
         );
-
 
         //8. Return updated question submission
         return updated;
