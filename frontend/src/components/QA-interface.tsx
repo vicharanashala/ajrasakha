@@ -167,7 +167,10 @@ export const QAInterface = () => {
     refetch,
   } = useGetAllocatedQuestions(LIMIT, filter, preferences);
 
-  const questions = questionPages?.pages.flat() || [];
+ // const questions = questionPages?.pages.flat() || [];
+ const questions = useMemo(() => {
+  return questionPages?.pages.flat() || [];
+}, [questionPages]);
 
   const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
     useGetQuestionById(selectedQuestion);
@@ -178,11 +181,11 @@ export const QAInterface = () => {
     useReviewAnswer();
 
   useEffect(() => {
-    if (questions.length > 0 && !selectedQuestion) {
+    if (questions.length > 0 ) {
       const firstQuestionId = questions[0]?.id ? questions[0]?.id : null;
       setSelectedQuestion(firstQuestionId);
     }
-  }, [questions, selectedQuestion]);
+  }, [questions]);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -325,6 +328,8 @@ export const QAInterface = () => {
     try {
       await respondQuestion(payload);
       setSelectedQuestion(null);
+      setNewAnswer('')
+      setSources([])
       toast.success("Your response submitted, thankyou!");
     } catch (error) {
       console.log("Failed to submit: ", error);
