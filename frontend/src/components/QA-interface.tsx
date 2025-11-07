@@ -167,10 +167,10 @@ export const QAInterface = () => {
     refetch,
   } = useGetAllocatedQuestions(LIMIT, filter, preferences);
 
- // const questions = questionPages?.pages.flat() || [];
- const questions = useMemo(() => {
-  return questionPages?.pages.flat() || [];
-}, [questionPages]);
+  // const questions = questionPages?.pages.flat() || [];
+  const questions = useMemo(() => {
+    return questionPages?.pages.flat() || [];
+  }, [questionPages]);
 
   const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
     useGetQuestionById(selectedQuestion);
@@ -181,7 +181,7 @@ export const QAInterface = () => {
     useReviewAnswer();
 
   useEffect(() => {
-    if (questions.length > 0 ) {
+    if (questions.length > 0) {
       const firstQuestionId = questions[0]?.id ? questions[0]?.id : null;
       setSelectedQuestion(firstQuestionId);
     }
@@ -328,8 +328,8 @@ export const QAInterface = () => {
     try {
       await respondQuestion(payload);
       setSelectedQuestion(null);
-      setNewAnswer('')
-      setSources([])
+      setNewAnswer("");
+      setSources([]);
       toast.success("Your response submitted, thankyou!");
     } catch (error) {
       console.log("Failed to submit: ", error);
@@ -1532,9 +1532,17 @@ export const ResponseTimeline = ({
       </Card>
 
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-        <DialogContent className="max-w-4xl min-h-[90vh] max-h-[90vh] overflow-y-auto ">
+        <DialogContent
+          className="max-w-4xl min-h-[70vh] max-h-[90vh] overflow-y-auto "
+          style={{ minWidth: "70vh" }}
+        >
           <DialogHeader>
-            <DialogTitle>Reject Response</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="p-2 rounded-lg ">
+                <XCircle className="w-5 h-5 text-red-500 dark:text-red-700" />
+              </div>
+              Reject Response
+            </DialogTitle>
           </DialogHeader>
 
           {!isRejectionSubmitted && (
