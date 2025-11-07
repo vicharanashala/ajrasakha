@@ -378,14 +378,11 @@ export class QuestionRepository implements IQuestionRepository {
               index: 'review_questions_vector_index',
               path: 'embedding',
               queryVector: searchEmbedding,
-              numCandidates: 200,
-              limit,
+              numCandidates: 500,
+              limit: 100,
             },
           },
           {$match: filter},
-          {$sort: {createdAt: -1}},
-          {$skip: (page - 1) * limit},
-          {$limit: limit},
           {
             $project: {
               userId: 0,
@@ -396,6 +393,9 @@ export class QuestionRepository implements IQuestionRepository {
               score: {$meta: 'vectorSearchScore'},
             },
           },
+          {$sort: {score: -1}},
+          {$skip: (page - 1) * limit},
+          {$limit: 100},
         ];
 
         result = await this.QuestionCollection.aggregate(pipeline).toArray();
