@@ -933,8 +933,8 @@ export class QuestionService extends BaseService {
             session,
           );
 
-        const history = questionSubmission.history || [];
-        if (history.length > 0) {
+        const history = questionSubmission?.history || [];
+        if (history && history.length > 0) {
           // Get the last history entry
           const lastHistoryEntry = history[history.length - 1];
 
