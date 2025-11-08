@@ -296,7 +296,13 @@ export class QuestionService extends BaseService {
   ): Promise<Partial<IQuestion>> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        let {question, priority, source = "AGRI_EXPERT", details, context} = body;
+        let {
+          question,
+          priority,
+          source = 'AGRI_EXPERT',
+          details,
+          context,
+        } = body;
 
         if (!details) {
           const b: any = body;
@@ -311,7 +317,7 @@ export class QuestionService extends BaseService {
         }
 
         let priorities = ['low', 'high', 'medium,'];
-        if (!priorities.includes(priority)) {
+        if (!priorities.includes(priority.toLowerCase())) {
           priority = 'medium';
         }
         if (!question || question.trim() == '') {
