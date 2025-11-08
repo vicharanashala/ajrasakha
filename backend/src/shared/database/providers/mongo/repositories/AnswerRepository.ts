@@ -395,7 +395,7 @@ return {
   }> {
     try {
       await this.init();
-      console.log("thje current userid===",currentUserId)
+      
    const currentUserAnswers = await this.AnswerCollection.aggregate([
         {
           $match: {
