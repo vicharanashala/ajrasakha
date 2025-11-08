@@ -152,22 +152,25 @@ export const PlaygroundPage = () => {
               <UserProfileActions />
             </div> */}
 
-            <div className="flex items-center gap-3 shrink-0 relative">
-              <div className="relative">
-                <BellIcon
-                  className="w-5 h-5 cursor-pointer"
+            <div className="flex items-center gap-4 relative shrink-0">
+              <div className="relative flex items-center justify-center">
+                <button
                   onClick={() => navigate({ to: "/notifications" })}
-                />
-                {user?.notifications! > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                    {((user && user.notifications) || 0) > 99
-                      ? "99+"
-                      : user?.notifications}
-                  </span>
-                )}
+                  className="relative p-1 rounded-md hover:bg-accent transition-colors"
+                >
+                  <BellIcon className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
+                  {user?.notifications && user.notifications > 0 && (
+                    <span className="absolute -top-[4px] -right-[16px] flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-white shadow-sm leading-none">
+                      {user.notifications > 99 ? "99+" : user.notifications}
+                    </span>
+                  )}
+                </button>
               </div>
 
+              {/* Theme Toggle */}
               <ThemeToggleCompact />
+
+              {/* User Profile Actions */}
               <UserProfileActions />
             </div>
           </div>
