@@ -304,11 +304,11 @@ export class AnswerService extends BaseService {
             session,
           );
           if (currentApprovalCount && currentApprovalCount >= 3) {
-            const rejectedExpertId = lastAnsweredHistory.updatedBy.toString();
+            const approvedExpertId = lastAnsweredHistory.updatedBy.toString();
 
             await this.questionSubmissionRepo.updateHistoryByUserId(
               questionId,
-              rejectedExpertId,
+              approvedExpertId,
               {status: 'approved'},
               session,
             );
@@ -544,9 +544,13 @@ export class AnswerService extends BaseService {
       await this.answerRepo.getByQuestionId(questionId, session);
 
       const text = `Question: ${question.question}
-answer: ${answer.answer}`;
-      const {embedding: questionEmbedding} =
-        await this.aiService.getEmbedding(text);
+
+
+answer: ${updates.answer}`;
+
+      const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
+        text,
+      );
       // const questionEmbedding = [];
 
       await this.questionRepo.updateQuestion(
@@ -599,10 +603,20 @@ answer: ${answer.answer}`;
     });
   }
 
-  async goldenFaq(userId:string,page:number,limit:number,search:string):Promise<{faqs:any[];totalFaqs:number
-  }>{
-    return await this._withTransaction(async (session:ClientSession) => {
-      return await this.answerRepo.getGoldenFaqs(userId,page,limit,search,session)
-    })
+  async goldenFaq(
+    userId: string,
+    page: number,
+    limit: number,
+    search: string,
+  ): Promise<{faqs: any[]; totalFaqs: number}> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      return await this.answerRepo.getGoldenFaqs(
+        userId,
+        page,
+        limit,
+        search,
+        session,
+      );
+    });
   }
 }
