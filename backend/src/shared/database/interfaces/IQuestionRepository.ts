@@ -98,7 +98,7 @@ export interface IQuestionRepository {
    * @returns A promise that resolves to an array of detailed questions.
    */
   findDetailedQuestions(
-    query: GetDetailedQuestionsQuery,
+  query: GetDetailedQuestionsQuery & { searchEmbedding: number[] | null }
   ): Promise<{questions: IQuestion[]; totalPages: number; totalCount: number}>;
 
   /**

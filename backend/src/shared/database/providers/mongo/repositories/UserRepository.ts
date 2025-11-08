@@ -1,10 +1,10 @@
 import {IUserRepository} from '#shared/database/interfaces/IUserRepository.js';
-import {IUser} from '#shared/interfaces/models.js';
+import {IUser, NotificationRetentionType} from '#shared/interfaces/models.js';
 import {instanceToPlain} from 'class-transformer';
 import {injectable, inject} from 'inversify';
 import {Collection, MongoClient, ClientSession, ObjectId} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
-import {InternalServerError} from 'routing-controllers';
+import {InternalServerError, NotFoundError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {User} from '#auth/classes/transformers/User.js';
 import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
@@ -313,5 +313,29 @@ export class UserRepository implements IUserRepository {
   async findModerators(): Promise<IUser[]> {
     await this.init();
     return await this.usersCollection.find({role: 'moderator'}).toArray();
+  }
+
+  async updateAutoDeleteNotificationPreference(
+    preference: NotificationRetentionType,
+    userId: string,
+    session?: ClientSession,
+  ) {
+    await this.init();
+    try {
+      const user = await this.usersCollection.findOne({
+        _id: new ObjectId(userId),
+      });
+      if (!user) {
+        throw new NotFoundError('user not found');
+      }
+      await this.usersCollection.findOneAndUpdate(
+        {_id: new ObjectId(userId)},
+        {$set: {notificationRetention: preference}},
+        {upsert: true, session},
+      );
+    } catch (error) {
+      console.log(error);
+      throw new InternalServerError(`Failed to update notification Preference`);
+    }
   }
 }

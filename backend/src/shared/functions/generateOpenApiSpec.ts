@@ -292,6 +292,8 @@ export function generateOpenAPISpec(
         },
       },
     },
+
+    
     servers: getOpenApiServers(),
     security: [
       {

@@ -48,7 +48,7 @@ export interface HistoryItem {
     _id: string;
     answer: string;
     approvalCount: string;
-    sources: string[];
+    sources: SourceItem[];
   };
   // in-review => if a question assigned to an expert for reiview, or state of a answer before approval or rejection 
   // reviewed => if an expert reviewed (accpeted/rejected) the previous answer
@@ -212,7 +212,7 @@ export interface FinalizedAnswer {
   approvalCount: number;
   authorId: string | null;
   questionId: string | null;
-  sources: string[];
+  sources: SourceItem[];
   createdAt: string;
   updatedAt: string;
   question: QuestionDetails;
@@ -244,6 +244,12 @@ export interface FinalizedAnswersResponse {
   totalQuestionsCount: number;
   heatMapResults: HeatMapResult[];
 }
+
+export interface SourceItem {
+  source: string;
+  page?: number;
+}
+
 export interface IAnswer {
   _id?: string;
   questionId: string;
@@ -251,7 +257,7 @@ export interface IAnswer {
   answerIteration: number;
   isFinalAnswer: boolean;
   approvalCount: number;
-  sources: string[];
+  sources: SourceItem[];
   answer: string;
   threshold: number;
   createdAt?: Date;

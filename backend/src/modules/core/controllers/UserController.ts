@@ -9,14 +9,15 @@ import {
   Authorized,
   CurrentUser,
   NotFoundError,
+  Patch,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
-import {IUser} from '#root/shared/interfaces/models.js';
+import {IUser, NotificationRetentionType} from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {UserService} from '../services/UserService.js';
-import {UsersNameResponseDto} from '../classes/validators/UserValidators.js';
+import {NotificationDeletePreferenceDTO, UsersNameResponseDto} from '../classes/validators/UserValidators.js';
 
 @OpenAPI({
   tags: ['users'],
@@ -70,5 +71,20 @@ export class UserController {
   ): Promise<UsersNameResponseDto> {
     const userId = user._id.toString();
     return await this.userService.getAllUsers(userId);
+  }
+
+  @Patch('/')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Update user information'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async updateAutoDeleteNotificationPreference(
+    @Body() body: NotificationDeletePreferenceDTO,
+    @CurrentUser() currentUser: IUser,
+  ): Promise<{message:string}> {
+    const userId = currentUser._id.toString();
+    const {preference} = body
+    await this.userService.updateAutoDeleteNotificationPreference(preference,userId)
+    return { message: 'Notification preference updated successfully' };
   }
 }

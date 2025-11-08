@@ -1,4 +1,4 @@
-import {INotification, INotificationType, ISubscription} from '#root/shared/interfaces/models.js';
+import {INotification, INotificationType, ISubscription, IUser} from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
@@ -11,6 +11,7 @@ import { NotificationResponse } from '#root/modules/core/classes/validators/Noti
 export class NotificationRepository implements INotificationRepository {
   private notificationCollection: Collection<INotification>;
   private subscriptionCollection: Collection<ISubscription>
+  private userCollection:Collection<IUser>
   constructor(
     @inject(GLOBAL_TYPES.Database)
     private db: MongoDatabase,
@@ -18,7 +19,8 @@ export class NotificationRepository implements INotificationRepository {
 
   private async init() {
     this.notificationCollection = await this.db.getCollection<INotification>('notifications');
-    this.subscriptionCollection = await this.db.getCollection<ISubscription>('subscriptions')
+    this.subscriptionCollection = await this.db.getCollection<ISubscription>('subscriptions');
+    this.userCollection = await this.db.getCollection<IUser>('users')
   }
 
   async addNotification(userId: string, enitity_id: string, type: string, message: string,title:string, session?: ClientSession): Promise<{ insertedId: string; }> {
@@ -164,5 +166,40 @@ async saveSubscription(userId: string, subscription: any,session?:ClientSession)
 async getSubscriptionByUserId(userId: string) {
     await this.init()
     return this.subscriptionCollection.findOne({ userId: new ObjectId(userId) })
+}
+
+async autoDeleteNotifications(){
+  await this.init()
+  try {
+    const retentionPeriods = {    
+  "3d": 3,
+  "1w": 7,
+  "2w": 14,
+  "1m": 30,
+  "never": null, 
+};
+    const users = await this.userCollection.find().toArray()
+    for(const user of users){
+      const retention = user.notificationRetention || 'never'
+      const days =retentionPeriods[retention]
+      if(!days){
+        // console.log(`Skipping user ${user._id} (retention: never)`);
+        continue;
+      }
+      const cutoff = new Date(Date.now() - days * 24 * 60 * 60  *1000)
+      const result =await this.notificationCollection.deleteMany({
+        userId:new ObjectId(user._id),
+        createdAt:{$lt:cutoff},
+      })
+      console.log(
+      `Deleted ${result.deletedCount} notifications for user ${user._id} older than ${days} days.`
+    );
+    }
+    console.log("✅ Notification cleanup complete.");
+  } catch (error) {
+    throw new InternalServerError(
+      "Error In Cleanup"
+    )
+  }
 }
 }

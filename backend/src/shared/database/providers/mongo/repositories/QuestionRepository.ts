@@ -29,6 +29,11 @@ import {
   sources,
 } from '#root/modules/core/utils/questionGen.js';
 
+const VECTOR_INDEX_NAME = 'questions_vector_index';
+const EMBEDDING_FIELD = 'embedding';
+const VECTOR_NUM_CANDIDATES = 200;
+const VECTOR_COUNT_LIMIT = 20000;
+
 export class QuestionRepository implements IQuestionRepository {
   private QuestionCollection: Collection<IQuestion>;
   private QuestionSubmissionCollection: Collection<IQuestionSubmission>;
@@ -58,6 +63,12 @@ export class QuestionRepository implements IQuestionRepository {
     } catch (error) {
       console.error('Failed to create index:', error);
     }
+  }
+
+  private async getEmbeddingForText(text: string): Promise<number[]> {
+    throw new Error(
+      'getEmbeddingForText not implemented. Replace with your embedding call.',
+    );
   }
 
   async addQuestions(
@@ -251,13 +262,14 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   async findDetailedQuestions(
-    query: GetDetailedQuestionsQuery,
+    query: GetDetailedQuestionsQuery & {searchEmbedding: number[] | null},
   ): Promise<{questions: IQuestion[]; totalPages: number; totalCount: number}> {
     try {
       await this.init();
 
       const {
         search,
+        searchEmbedding,
         status,
         source,
         state,
@@ -314,24 +326,6 @@ export class QuestionRepository implements IQuestionRepository {
         if (startDate) filter.createdAt = {$gte: startDate};
       }
 
-      // --- Search filter ---
-      if (search) {
-        filter.$or = [
-          {question: {$regex: search, $options: 'i'}},
-          {'details.crop': {$regex: search, $options: 'i'}},
-          {'details.state': {$regex: search, $options: 'i'}},
-          {
-            $expr: {
-              $regexMatch: {
-                input: {$toString: '$_id'},
-                regex: search,
-                options: 'i',
-              },
-            },
-          },
-        ];
-      }
-
       let questionIdsByUser: string[] | null = null;
       if (user && user !== 'all') {
         const submissions = await this.QuestionSubmissionCollection.find({
@@ -349,12 +343,94 @@ export class QuestionRepository implements IQuestionRepository {
         filter._id = {$in: questionIdsByUser.map(id => new ObjectId(id))};
       }
 
-      // --- Total count for pagination ---
-      const totalCount = await this.QuestionCollection.countDocuments(filter);
+      let totalCount = 0;
+      let result = [];
+
+      if (searchEmbedding && searchEmbedding.length > 0) {
+        const countPipeline = [
+          {
+            $vectorSearch: {
+              index: 'review_questions_vector_index',
+              path: 'embedding',
+              queryVector: searchEmbedding,
+              numCandidates: 500,
+              limit,
+            },
+          },
+          {$match: filter},
+          {$count: 'count'},
+        ];
+
+        const countResult =
+          await this.QuestionCollection.aggregate(countPipeline).toArray();
+        totalCount = countResult[0]?.count ?? 0;
+
+        const totalPages = Math.ceil(totalCount / limit);
+
+        if (totalCount === 0) {
+          return {questions: [], totalPages, totalCount};
+        }
+
+        // --- DATA FETCH with vector search ---
+        const pipeline = [
+          {
+            $vectorSearch: {
+              index: 'review_questions_vector_index',
+              path: 'embedding',
+              queryVector: searchEmbedding,
+              numCandidates: 500,
+              limit: 100,
+            },
+          },
+          {$match: filter},
+          {
+            $project: {
+              userId: 0,
+              updatedAt: 0,
+              contextId: 0,
+              metrics: 0,
+              embedding: 0,
+              score: {$meta: 'vectorSearchScore'},
+            },
+          },
+          {$sort: {score: -1}},
+          {$skip: (page - 1) * limit},
+          {$limit: 100},
+        ];
+
+        result = await this.QuestionCollection.aggregate(pipeline).toArray();
+
+        const formattedQuestions: IQuestion[] = result.map((q: any) => ({
+          ...q,
+          _id: q._id.toString(),
+          details: {...q.details},
+        }));
+
+        return {questions: formattedQuestions, totalPages, totalCount};
+      }
+
+      if (search && search.trim() !== '') {
+        filter.$or = [
+          {question: {$regex: search, $options: 'i'}},
+          {'details.crop': {$regex: search, $options: 'i'}},
+          {'details.state': {$regex: search, $options: 'i'}},
+          {'details.domain': {$regex: search, $options: 'i'}},
+          {
+            $expr: {
+              $regexMatch: {
+                input: {$toString: '$_id'},
+                regex: search,
+                options: 'i',
+              },
+            },
+          },
+        ];
+      }
+
+      totalCount = await this.QuestionCollection.countDocuments(filter);
       const totalPages = Math.ceil(totalCount / limit);
 
-      // --- Paginated data ---
-      const result = await this.QuestionCollection.find(filter)
+      result = await this.QuestionCollection.find(filter)
         .sort({createdAt: -1})
         .skip((page - 1) * limit)
         .limit(limit)
@@ -366,6 +442,24 @@ export class QuestionRepository implements IQuestionRepository {
           embedding: 0,
         })
         .toArray();
+
+      // // --- Total count for pagination ---
+      // const totalCount = await this.QuestionCollection.countDocuments(filter);
+      // const totalPages = Math.ceil(totalCount / limit);
+
+      // // --- Paginated data ---
+      // const result = await this.QuestionCollection.find(filter)
+      //   .sort({createdAt: -1})
+      //   .skip((page - 1) * limit)
+      //   .limit(limit)
+      //   .project({
+      //     userId: 0,
+      //     updatedAt: 0,
+      //     contextId: 0,
+      //     metrics: 0,
+      //     embedding: 0,
+      //   })
+      //   .toArray();
 
       // --- Convert ObjectIds to string ---
       const formattedQuestions: IQuestion[] = result.map((q: any) => ({

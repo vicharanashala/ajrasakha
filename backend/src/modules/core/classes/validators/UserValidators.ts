@@ -1,11 +1,13 @@
 import {
   IsArray,
+  IsEnum,
   IsObject,
   IsOptional,
   IsString,
   ValidateNested,
 } from 'class-validator';
 import {Type} from 'class-transformer';
+import { NotificationRetentionType } from '#root/shared/index.js';
 
 class PreferenceDto {
   @IsOptional()
@@ -54,6 +56,15 @@ class UsersNameResponseDto {
   users: UserDto[];
 }
 
-export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto];
+class NotificationDeletePreferenceDTO{
+  @IsOptional()
+  @IsEnum(["3d", "1w", "2w", "1m", "never"], {
+    message:
+      'retention must be one of the following values: 3d, 1w, 2w, 1m, never',
+  })
+  preference?: NotificationRetentionType;
+}
 
-export {PreferenceDto, UsersNameResponseDto, UserDto};
+export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO];
+
+export {PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO};

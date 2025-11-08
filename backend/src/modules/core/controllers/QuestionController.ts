@@ -109,7 +109,7 @@ export class QuestionController {
     body: AddQuestionBodyDto,
     @CurrentUser() user: IUser,
   ): Promise<Partial<IQuestion> | {message: string}> {
-    const userId = user._id.toString();
+    const userId = user?._id.toString();
     if (file) {
       let successCount = 0;
       let failedCount = 0;

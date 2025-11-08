@@ -255,7 +255,25 @@ export class QuestionService extends BaseService {
   async getDetailedQuestions(
     query: GetDetailedQuestionsQuery,
   ): Promise<{questions: IQuestion[]; totalPages: number}> {
-    return this.questionRepo.findDetailedQuestions(query);
+    let searchEmbedding: number[] | null = null;
+
+    if (query?.search) {
+      try {
+        const {embedding} = await this.aiService.getEmbedding(query.search);
+        searchEmbedding = embedding;
+      } catch (err) {
+        console.error(
+          'Embedding generation failed, falling back to normal search:',
+          err,
+        );
+        searchEmbedding = null;
+      }
+    }
+
+    return this.questionRepo.findDetailedQuestions({
+      ...query,
+      searchEmbedding,
+    });
   }
 
   async getQuestionFromRawContext(
@@ -278,8 +296,28 @@ export class QuestionService extends BaseService {
   ): Promise<Partial<IQuestion>> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        let {question, priority, source, details, context} = body;
+        let {
+          question,
+          priority,
+          source = 'AGRI_EXPERT',
+          details,
+          context,
+        } = body;
+
+        if (!details) {
+          const b: any = body;
+
+          details = {
+            state: b?.state || '',
+            district: b?.district || '',
+            crop: b?.crop || '',
+            season: b?.season || '',
+            domain: b?.domain || '',
+          };
+        }
+
         let priorities = ['low', 'high', 'medium,'];
+        priority = priority.toLowerCase() as IQuestion['priority'];
         if (!priorities.includes(priority)) {
           priority = 'medium';
         }
@@ -754,12 +792,30 @@ export class QuestionService extends BaseService {
             `Cannot allocate more than 10 experts. Currently allocated: ${totalAllocatedExperts}`,
           );
 
-        for(let expert of experts){
-          const IS_INCREMENT=true
+        for (let expert of experts) {
+          const IS_INCREMENT = true;
           await this.userRepo.updateReputationScore(
             expert,
             IS_INCREMENT,
             session,
+          );
+        }
+
+        //if manuall alloacation is first person
+
+        if (questionSubmission.queue.length === 0) {
+          const firstPerson = experts[0];
+          let message = `A Question has been assigned for answering`;
+          let title = 'Answer Creation Assigned';
+          let entityId = questionId.toString();
+          const user = firstPerson.toString();
+          const type = 'peer_review';
+          await this.notificationService.saveTheNotifications(
+            message,
+            title,
+            entityId,
+            user,
+            type,
           );
         }
 
@@ -804,7 +860,6 @@ export class QuestionService extends BaseService {
           expertIds,
           session,
         );
-
 
         //8. Return updated question submission
         return updated;
@@ -914,8 +969,8 @@ export class QuestionService extends BaseService {
             session,
           );
 
-        const history = questionSubmission.history || [];
-        if (history.length > 0) {
+        const history = questionSubmission?.history || [];
+        if (history && history.length > 0) {
           // Get the last history entry
           const lastHistoryEntry = history[history.length - 1];
 

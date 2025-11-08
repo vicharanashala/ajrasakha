@@ -1,6 +1,6 @@
 import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
-import {IUser} from '#root/shared/interfaces/models.js';
+import {IUser, NotificationRetentionType} from '#root/shared/interfaces/models.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {InternalServerError, NotFoundError} from 'routing-controllers';
 import {BaseService, MongoDatabase} from '#root/shared/index.js';
@@ -95,4 +95,11 @@ export class UserService extends BaseService {
       throw new InternalServerError(`Failed to fetch users: ${error}`);
     }
   }
+
+  async updateAutoDeleteNotificationPreference(preference:NotificationRetentionType,userId:string):Promise<void>{
+    await this._withTransaction(async (session:ClientSession) => {
+      await this.userRepo.updateAutoDeleteNotificationPreference(preference,userId,session)
+    })
+  }
+
 }

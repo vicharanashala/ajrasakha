@@ -8,6 +8,7 @@ import {
   IAnswer,
   IQuestionMetrics,
   ISubmissionHistory,
+  SourceItem,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -71,7 +72,7 @@ export class AnswerService extends BaseService {
     questionId: string,
     authorId: string,
     answer: string,
-    sources: string[],
+    sources: SourceItem[],
     session?: ClientSession,
   ): Promise<{insertedId: string; isFinalAnswer: boolean}> {
     const execute = async (activeSession: ClientSession) => {
@@ -303,11 +304,11 @@ export class AnswerService extends BaseService {
             session,
           );
           if (currentApprovalCount && currentApprovalCount >= 3) {
-            const rejectedExpertId = lastAnsweredHistory.updatedBy.toString();
+            const approvedExpertId = lastAnsweredHistory.updatedBy.toString();
 
             await this.questionSubmissionRepo.updateHistoryByUserId(
               questionId,
-              rejectedExpertId,
+              approvedExpertId,
               {status: 'approved'},
               session,
             );
@@ -547,9 +548,12 @@ export class AnswerService extends BaseService {
       await this.answerRepo.getByQuestionId(questionId, session);
 
       const text = `Question: ${question.question}
-        answer: ${answer}`;
-      const {embedding: questionEmbedding} =
-        await this.aiService.getEmbedding(text);
+
+answer: ${updates.answer}`;
+
+      const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
+        text,
+      );
       // const questionEmbedding = [];
 
       await this.questionRepo.updateQuestion(
@@ -563,9 +567,9 @@ export class AnswerService extends BaseService {
       // const embedding = [];
       const payload: Partial<IAnswer> = {
         ...updates,
+        approvedBy: new ObjectId(userId),
         embedding,
         isFinalAnswer: true,
-        approvedBy: new ObjectId(userId),
       };
       return this.answerRepo.updateAnswer(answerId, payload, session);
     });
@@ -599,6 +603,23 @@ export class AnswerService extends BaseService {
       );
 
       return this.answerRepo.deleteAnswer(answerId, session);
+    });
+  }
+
+  async goldenFaq(
+    userId: string,
+    page: number,
+    limit: number,
+    search: string,
+  ): Promise<{faqs: any[]; totalFaqs: number}> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      return await this.answerRepo.getGoldenFaqs(
+        userId,
+        page,
+        limit,
+        search,
+        session,
+      );
     });
   }
 }

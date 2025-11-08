@@ -1,4 +1,4 @@
-import {IAnswer, IQuestion, IUser,IQuestionSubmission} from '#root/shared/interfaces/models.js';
+import {IAnswer, IQuestion, IUser, SourceItem,IQuestionSubmission} from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
@@ -21,8 +21,9 @@ export class AnswerRepository implements IAnswerRepository {
 
   private async init() {
     this.AnswerCollection = await this.db.getCollection<IAnswer>('answers');
-    this.QuestionCollection =
-      await this.db.getCollection<IQuestion>('questions');
+    this.QuestionCollection = await this.db.getCollection<IQuestion>(
+      'questions',
+    );
     this.usersCollection = await this.db.getCollection<IUser>('users');
     await this.db.getCollection<IQuestionSubmission>('question_submissions');
   }
@@ -31,7 +32,7 @@ export class AnswerRepository implements IAnswerRepository {
     questionId: string,
     authorId: string,
     answer: string,
-    sources: string[],
+    sources: SourceItem[],
     embedding: number[],
     isFinalAnswer: boolean = false,
     answerIteration: number = 1,
@@ -155,49 +156,97 @@ export class AnswerRepository implements IAnswerRepository {
     try {
       await this.init();
       const skip = (page - 1) * limit;
-
-      const submissions = await this.AnswerCollection.aggregate([
-        {$match: {authorId: new ObjectId(userId)}},
-        {
-          $lookup: {
-            from: 'questions',
-            localField: 'questionId',
-            foreignField: '_id',
-            as: 'question',
+      const user = await this.usersCollection.findOne({_id: new ObjectId(userId)})
+      const role = user.role
+      console.log("role ",role,userId)
+      if(role ==='moderator'){
+        const submissions = await this.AnswerCollection.aggregate([
+          {$match:{approvedBy:new ObjectId(userId)}},
+          {
+            $lookup:{
+              from:'questions',
+              localField:'questionId',
+              foreignField:'_id',
+              as:'question'
+            }
           },
-        },
-        {$unwind: '$question'},
-        {
+          
+          {$unwind: {path: '$question', preserveNullAndEmptyArrays: true}},
+          {
           $group: {
-            _id: '$question._id',
-            text: {$first: '$question.question'},
-            createdAt: {$first: '$question.createdAt'},
-            updatedAt: {$first: '$question.updatedAt'},
-            totalAnswersCount: {$sum: 1},
-            responses: {
-              $push: {
-                answer: '$answer',
-                id: {$toString: '$_id'},
-                isFinalAnswer: '$isFinalAnswer',
-                createdAt: '$createdAt',
+              _id: '$question._id',
+              text: {$first: '$question.question'},
+              createdAt: {$first: '$question.createdAt'},
+              updatedAt: {$first: '$question.updatedAt'},
+              totalAnswersCount: {$sum: 1},
+              responses: {
+                $push: {
+                  answer: '$answer',
+                  id: {$toString: '$_id'},
+                  isFinalAnswer: '$isFinalAnswer',
+                  createdAt: '$createdAt',
+                },
               },
             },
           },
-        },
-        {$sort: {createdAt: -1}},
-        {$skip: skip},
-        {$limit: limit},
-      ]).toArray();
+          { $match: { _id: { $ne: null } } },
+          {$sort: {createdAt: -1}},
+          {$skip: skip},
+          {$limit: limit},
+        ]).toArray()
+        return submissions.map(sub => ({
+          id: sub._id.toString(),
+          text: sub.text,
+          createdAt: sub.createdAt.toISOString(),
+          updatedAt: sub.updatedAt.toISOString(),
+          totalAnwersCount: sub.totalAnswersCount,
+          reponse: sub.responses[0] || [],
+        }));
+      }else{
+        const submissions = await this.AnswerCollection.aggregate([
+          {$match: {authorId: new ObjectId(userId)}},
+          {
+            $lookup: {
+              from: 'questions',
+              localField: 'questionId',
+              foreignField: '_id',
+              as: 'question',
+            },
+          },
+          {$unwind: '$question'},
+          {
+            $group: {
+              _id: '$question._id',
+              text: {$first: '$question.question'},
+              createdAt: {$first: '$question.createdAt'},
+              updatedAt: {$first: '$question.updatedAt'},
+              totalAnswersCount: {$sum: 1},
+              responses: {
+                $push: {
+                  answer: '$answer',
+                  id: {$toString: '$_id'},
+                  isFinalAnswer: '$isFinalAnswer',
+                  createdAt: '$createdAt',
+                },
+              },
+            },
+          },
+          {$sort: {createdAt: -1}},
+          {$skip: skip},
+          {$limit: limit},
+        ]).toArray();
+        return submissions.map(sub => ({
+          id: sub._id.toString(),
+          text: sub.text,
+          createdAt: sub.createdAt.toISOString(),
+          updatedAt: sub.updatedAt.toISOString(),
+          totalAnwersCount: sub.totalAnswersCount,
+          reponse: sub.responses[0],
+        }));
+      }
 
-      return submissions.map(sub => ({
-        id: sub._id.toString(),
-        text: sub.text,
-        createdAt: sub.createdAt.toISOString(),
-        updatedAt: sub.updatedAt.toISOString(),
-        totalAnwersCount: sub.totalAnswersCount,
-        reponse: sub.responses[0],
-      }));
     } catch (error) {
+      console.error(error)
       throw new InternalServerError(`Failed to fetch submissions: ${error}`);
     }
   }
@@ -497,6 +546,104 @@ return {
         {session},
       );
     } catch (error) {
+      throw new InternalServerError(
+        `Error while deleting answer, More/ ${error}`,
+      );
+    }
+  }
+
+  async getGoldenFaqs(
+    userId: string,
+    page: number,
+    limit: number,
+    search?: string,
+    session?: ClientSession,
+  ): Promise<{faqs: any[]; totalFaqs: number}> {
+    try {
+      await this.init();
+      const skip = (page - 1) * limit;
+      const filter: any = {isFinalAnswer: true};
+      if (userId) {
+        filter.approvedBy = new ObjectId(userId);
+      }
+
+      // if (search) {
+      //   filter.answer = {$regex: search, $options: 'i'};
+      // }
+
+      const pipeline: any[] = [
+        {$match: filter},
+
+        // Lookup Question
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
+        {$unwind: {path: '$question', preserveNullAndEmptyArrays: true}},
+
+        // Lookup User (author)
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'approvedBy',
+            foreignField: '_id',
+            as: 'moderator',
+          },
+        },
+        {$unwind: {path: '$moderator', preserveNullAndEmptyArrays: true}},
+        {$skip: skip},
+        {$limit: limit},
+      ];
+
+      // const pipeline: any[] = [
+      //   {$match: filter}]
+      const faqs = await this.AnswerCollection.aggregate(pipeline, {
+        session,
+      }).toArray();
+
+      // Count total (with same filters)
+      const totalFaqs = await this.AnswerCollection.countDocuments(filter, {
+        session,
+      });
+
+      // Convert ObjectIds to strings
+      const formattedFaqs = faqs.map(faq => ({
+        ...faq,
+        _id: faq._id?.toString(),
+        questionId: faq.questionId?.toString(),
+        authorId: faq.authorId?.toString(),
+        approvedBy: faq.approvedBy?.toString(),
+        question: faq.question
+          ? {
+              ...faq.question,
+              _id: faq.question._id?.toString(),
+              userId: faq.question.userId?.toString(),
+              contextId: faq.question.contextId?.toString() ?? null,
+            }
+          : null,
+        moderator: faq.moderator
+          ? {
+              ...faq.moderator,
+              _id: faq.moderator._id?.toString(),
+            }
+          : null,
+      }));
+      return { faqs: formattedFaqs, totalFaqs };
+      // if(userId){
+      //   const faqs = await this.AnswerCollection.find({isFinalAnswer:true,approvedBy:new ObjectId(userId)}).skip(skip).limit(limit).toArray()
+      //   const totalFaqs = await this.AnswerCollection.countDocuments({isFinalAnswer:true,approvedBy:new ObjectId(userId)})
+      //   return {faqs,totalFaqs}
+      // }else{
+      //   const faqs = await this.AnswerCollection.find({isFinalAnswer:true}).skip(skip).limit(limit).toArray()
+      //   const totalFaqs = await this.AnswerCollection.countDocuments({isFinalAnswer:true})
+      //   return {faqs,totalFaqs}
+      // }
+    } catch (error) {
+      console.error(error)
       throw new InternalServerError(
         `Error while deleting answer, More/ ${error}`,
       );

@@ -33,4 +33,5 @@ export class NotificationService {
       method: "DELETE",
     });
   }
+
 }

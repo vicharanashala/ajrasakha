@@ -4,8 +4,8 @@ import type {
   ISubmission,
   ISubmissionHistory,
   IUser,
-  IUserRef,
   QuestionStatus,
+  SourceItem,
   UserRole,
 } from "@/types";
 import {
@@ -22,7 +22,7 @@ import { Card } from "./atoms/card";
 import { Separator } from "./atoms/separator";
 import { Textarea } from "./atoms/textarea";
 import { Button } from "./atoms/button";
-import {toast} from "sonner";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -47,7 +47,6 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
-  Edit,
   Eye,
   FileText,
   Gauge,
@@ -58,6 +57,8 @@ import {
   Loader2,
   MapPin,
   MessageSquare,
+  PlusCircle,
+  RefreshCcw,
   RefreshCw,
   Send,
   Sprout,
@@ -90,7 +91,7 @@ import { useRemoveAllocation } from "@/hooks/api/question/useRemoveAllocation";
 import { ConfirmationModal } from "./confirmation-modal";
 import { Input } from "./atoms/input";
 import { formatDate } from "@/utils/formatDate";
-import { useCountdown } from "@/hooks/useCountdown";
+import { useCountdown } from "@/hooks/ui/useCountdown";
 import { TimerDisplay } from "./timer-display";
 
 interface QuestionDetailProps {
@@ -155,16 +156,6 @@ export const QuestionDetails = ({
           <div className="flex gap-8 items-center justify-center">
             <TimerDisplay timer={timer} status={question.status} size="lg" />
             <div className="flex justify-center gap-2 items-center">
-              {/* {question.status != "closed" && currentUser.role != "expert" && (
-                <SubmitAnswerDialog
-                  questionId={question._id}
-                  isAlreadySubmitted={question.isAlreadySubmitted}
-                  currentUserId={currentUserId}
-                  onSubmitted={() => {
-                    refetchAnswers();
-                  }}
-                />
-              )} */}
               <Button
                 size="sm"
                 variant="outline"
@@ -348,12 +339,12 @@ export const QuestionDetails = ({
       </Card>
 
       {/* {currentUser.role !== "expert" && ( */}
-        <AllocationTimeline
-          history={question.submission.history}
-          queue={question.submission.queue}
-          currentUser={currentUser}
-          question={question}
-        />
+      <AllocationTimeline
+        history={question.submission.history}
+        queue={question.submission.queue}
+        currentUser={currentUser}
+        question={question}
+      />
       {/* )} */}
       <div className="flex items-center justify-between md:mt-12">
         <h2 className="text-lg font-semibold flex justify-center gap-2 items-center ">
@@ -770,7 +761,11 @@ const AllocationTimeline = ({
 
     const userName = submission?.updatedBy?.name || "User";
 
-    if (submission.answer) {
+    if (
+      submission.answer &&
+      !submission.rejectedAnswer &&
+      !submission.approvedAnswer
+    ) {
       return `${userName} created an answer.`;
     }
 
@@ -787,7 +782,7 @@ const AllocationTimeline = ({
         (h) => h.answer?._id === submission.rejectedAnswer
       );
       const rejectedUserName = rejectedEntry?.updatedBy?.name || "someone";
-      return `${userName} rejected ${rejectedUserName}'s answer.`;
+      return `${userName} rejected ${rejectedUserName}'s answer and created a new answer.`;
     }
 
     if (
@@ -847,16 +842,39 @@ const AllocationTimeline = ({
   const nextWaitingIndex = queue?.findIndex(
     (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email)
   );
-
   const getStatus = (index: number) => {
     const user = queue[index];
+    const activityText = getUserActivityText(user._id);
     const hasSubmitted =
       submittedUserIds.has(user._id) || submittedUserEmails.has(user.email);
 
-    if (hasSubmitted) return "submitted";
+    if (hasSubmitted) {
+      if (activityText.includes("created an answer")) {
+        return "answerCreated";
+      }
+      if (activityText.includes("approved")) {
+        return "approved";
+      }
+      if (activityText.includes("rejected")) {
+        return "rejected";
+      }
+      return "submitted";
+    }
+
     if (index === nextWaitingIndex) return "waiting";
     return "pending";
   };
+
+  // const getStatus = (index: number) => {
+  //   const user = queue[index];
+  //   const userActivity = getUserActivityText(user._id);
+  //   const hasSubmitted =
+  //     submittedUserIds.has(user._id) || submittedUserEmails.has(user.email);
+
+  //   if (hasSubmitted) return "submitted";
+  //   if (index === nextWaitingIndex) return "waiting";
+  //   return "pending";
+  // };
 
   const displayedQueue = isExpanded
     ? queue
@@ -865,7 +883,17 @@ const AllocationTimeline = ({
 
   const getStatusStyles = (status: string) => {
     switch (status) {
-      case "submitted":
+      case "answerCreated":
+        return {
+          container:
+            "bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700 shadow-yellow-100/50",
+          icon: "text-yellow-700 dark:text-yellow-400",
+          badge:
+            "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-700",
+          iconBg: "bg-yellow-200 dark:bg-yellow-800/40",
+          legendDot: "bg-yellow-500",
+        };
+      case "approved":
         return {
           container:
             "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 shadow-green-100/50",
@@ -874,6 +902,16 @@ const AllocationTimeline = ({
             "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700",
           iconBg: "bg-green-200 dark:bg-green-800/40",
           legendDot: "bg-green-500",
+        };
+      case "rejected":
+        return {
+          container:
+            "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 shadow-red-100/50",
+          icon: "text-red-700 dark:text-red-400",
+          badge:
+            "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-700",
+          iconBg: "bg-red-200 dark:bg-red-800/40",
+          legendDot: "bg-red-500",
         };
       case "waiting":
         return {
@@ -884,6 +922,14 @@ const AllocationTimeline = ({
             "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-700",
           iconBg: "bg-blue-200 dark:bg-blue-800/40",
           legendDot: "bg-blue-500",
+        };
+      case "pending":
+        return {
+          container: "bg-muted/50 border-muted shadow-muted/5",
+          icon: "text-muted-foreground",
+          badge: "bg-muted/50 text-muted-foreground border border-muted",
+          iconBg: "bg-muted",
+          legendDot: "bg-muted-foreground/40",
         };
       default:
         return {
@@ -896,9 +942,38 @@ const AllocationTimeline = ({
     }
   };
 
-  // for (let i = 0; i < 20; i++) {
-  //   queue?.push(queue[i % queue?.length]);
-  // }
+  // const getStatusStyles = (status: string) => {
+  //   switch (status) {
+  //     case "submitted":
+  //       return {
+  //         container:
+  //           "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 shadow-green-100/50",
+  //         icon: "text-green-700 dark:text-green-400",
+  //         badge:
+  //           "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700",
+  //         iconBg: "bg-green-200 dark:bg-green-800/40",
+  //         legendDot: "bg-green-500",
+  //       };
+  //     case "waiting":
+  //       return {
+  //         container:
+  //           "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 shadow-blue-100/50",
+  //         icon: "text-blue-700 dark:text-blue-400",
+  //         badge:
+  //           "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-700",
+  //         iconBg: "bg-blue-200 dark:bg-blue-800/40",
+  //         legendDot: "bg-blue-500",
+  //       };
+  //     default:
+  //       return {
+  //         container: "bg-muted/50 border-muted shadow-muted/5",
+  //         icon: "text-muted-foreground",
+  //         badge: "bg-muted/50 text-muted-foreground border border-muted",
+  //         iconBg: "bg-muted",
+  //         legendDot: "bg-muted-foreground/40",
+  //       };
+  //   }
+  // };
 
   return (
     <div className="w-full space-y-6 my-6">
@@ -931,142 +1006,6 @@ const AllocationTimeline = ({
               status === "waiting" && currentUser.email === user.email;
 
             return (
-              // <div
-              //   key={`${user._id}-${index}`}
-              //   className="relative flex flex-col items-center justify-center my-4 group"
-              // >
-              //   {!isLast && (
-              //     <div className="absolute top-1/2 right-0 flex items-center transform translate-x-full -translate-y-1/2">
-              //       <svg
-              //         className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 ${
-              //           isCurrentUserWaiting ? "animate-bounce" : ""
-              //         }`}
-              //         xmlns="http://www.w3.org/2000/svg"
-              //         fill="none"
-              //         stroke="currentColor"
-              //         strokeWidth="2"
-              //         viewBox="0 0 24 24"
-              //       >
-              //         <path
-              //           strokeLinecap="round"
-              //           strokeLinejoin="round"
-              //           d="M5 12h14m0 0l-4-4m4 4l-4 4"
-              //         />
-              //       </svg>
-              //     </div>
-              //   )}
-
-              //   {/* Overlay for delete */}
-              //   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              //     <div className="absolute w-58 h-48 rounded-md bg-card/80 border opacity-0 group-hover:opacity-30 transition-opacity duration-300"></div>
-
-              //     {!(
-              //       submittedUserIds.has(user._id) ||
-              //       submittedUserEmails.has(user.email)
-              //     ) &&
-              //       !question.isAutoAllocate && (
-              //         <div className="absolute -top-1 right-3 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-              //           <ConfirmationModal
-              //             title="Remove Expert Allocation?"
-              //             description={`${
-              //               // nextWaitingIndex === index &&
-              //               // unSubmittedExpertsCount <= 1 &&
-              //               question.isAutoAllocate
-              //                 ? " Since auto-allocation is enabled , the system will automatically allocate the next available expert immediately after removal. "
-              //                 : ""
-              //             }${
-              //               submittedUserIds.has(user._id)
-              //                 ? "The selected expert has already submitted an answer. "
-              //                 : ""
-              //             }Are you sure you want to remove ${
-              //               user?.name
-              //             }'s allocation? This action cannot be undone. `}
-              //             confirmText="Remove"
-              //             cancelText="Cancel"
-              //             type="delete"
-              //             isLoading={removingAllocation}
-              //             onConfirm={() => handleRemoveAllocation(index)}
-              //             trigger={
-              //               <div className="w-6 h-6 bg-black/10 dark:bg-white/10 backdrop-blur-sm rounded-md flex items-center justify-center cursor-pointer hover:text-red-500">
-              //                 <Trash2 className="w-4 h-4 transition-colors duration-300" />
-              //               </div>
-              //             }
-              //           />
-              //         </div>
-              //       )}
-              //   </div>
-
-              //   <div
-              //     className={`relative flex flex-col items-center justify-center gap-2 p-4
-              //     rounded-full border-2 transition-all duration-300 hover:shadow-lg hover:scale-105
-              //     ${styles.container}
-              //     ${
-              //       isExpanded && index >= INITIAL_DISPLAY_COUNT
-              //         ? "animate-fade-in"
-              //         : ""
-              //     }
-              //     ${
-              //       isCurrentUserWaiting
-              //         ? "ring-4 ring-blue-400 ring-offset-2 dark:ring-blue-600 dark:ring-offset-gray-900 scale-105"
-              //         : ""
-              //     }
-              //     w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44
-              //   `}
-              //   >
-              //     {removingAllocation && selectedAllocationIndex === index && (
-              //       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-              //         <Loader2 className="w-6 h-6 animate-spin text-white/80" />
-              //       </div>
-              //     )}
-
-              //     <div
-              //       className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${styles.iconBg}`}
-              //     >
-              //       {status === "submitted" ? (
-              //         <CheckCircle2 className={`w-6 h-6 ${styles.icon}`} />
-              //       ) : status === "waiting" ? (
-              //         <Clock
-              //           className={`w-6 h-6 ${styles.icon} ${
-              //             isCurrentUserWaiting ? "animate-bounce-subtle" : ""
-              //           }`}
-              //         />
-              //       ) : (
-              //         <AlertCircle className={`w-6 h-6 ${styles.icon}`} />
-              //       )}
-              //     </div>
-
-              //     <div className="text-center w-full px-2">
-              //       <p
-              //         className="text-xs font-semibold text-foreground truncate"
-              //         title={user.name}
-              //       >
-              //         {user.name?.slice(0, 15)}
-              //         {user.name?.length > 15 ? "..." : ""}
-              //       </p>
-              //       <p
-              //         className="text-[10px] text-muted-foreground truncate mt-0.5"
-              //         title={user.email}
-              //       >
-              //         {user.email?.slice(0, 23)}
-              //         {user.email?.length > 23 ? "..." : ""}
-              //       </p>
-              //     </div>
-
-              //     {/* Status Badge */}
-              //     <span
-              //       className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${styles.badge}`}
-              //     >
-              //       {status === "submitted"
-              //         ? "Submitted"
-              //         : status === "waiting"
-              //         ? isCurrentUserWaiting
-              //           ? "Your Turn"
-              //           : "Waiting"
-              //         : "Pending"}
-              //     </span>
-              //   </div>
-              // </div>
-
               <div
                 key={`${user._id}-${index}`}
                 className="relative flex flex-col items-center justify-center my-4 group"
@@ -1166,12 +1105,15 @@ const AllocationTimeline = ({
                             <Loader2 className="w-6 h-6 animate-spin text-white/80" />
                           </div>
                         )}
-
                       <div
                         className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${styles.iconBg}`}
                       >
-                        {status === "submitted" ? (
+                        {status === "answerCreated" ? (
+                          <PlusCircle className={`w-6 h-6 ${styles.icon}`} />
+                        ) : status === "approved" ? (
                           <CheckCircle2 className={`w-6 h-6 ${styles.icon}`} />
+                        ) : status === "rejected" ? (
+                          <RefreshCcw className={`w-6 h-6 ${styles.icon}`} />
                         ) : status === "waiting" ? (
                           <Clock
                             className={`w-6 h-6 ${styles.icon} ${
@@ -1205,8 +1147,12 @@ const AllocationTimeline = ({
                       <span
                         className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${styles.badge}`}
                       >
-                        {status === "submitted"
-                          ? "Submitted"
+                        {status === "answerCreated"
+                          ? "Answer Created"
+                          : status === "approved"
+                          ? "Approved"
+                          : status === "rejected"
+                          ? "Rejected"
                           : status === "waiting"
                           ? isCurrentUserWaiting
                             ? "Your Turn"
@@ -1242,25 +1188,6 @@ const AllocationTimeline = ({
           })}
         </div>
       )}
-
-      <div className="flex flex-wrap justify-end gap-4 mt-4 text-sm">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
-          <div className="w-2 h-2 rounded-full bg-green-500" />
-          <span className="text-green-700 dark:text-green-400 font-medium">
-            Submitted
-          </span>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20">
-          <div className="w-2 h-2 rounded-full bg-blue-500" />
-          <span className="text-blue-700 dark:text-blue-400 font-medium">
-            Waiting
-          </span>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted border border-border">
-          <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />
-          <span className="text-muted-foreground font-medium">Pending</span>
-        </div>
-      </div>
 
       {hasMore && (
         <div className="flex justify-center pt-4">
@@ -1387,7 +1314,8 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const [editOpen, setEditOpen] = useState(false);
   const { mutateAsync: addComment, isPending: isAddingComment } =
     useAddComment();
-  const { mutateAsync: updateAnswer } = useUpdateAnswer();
+  const { mutateAsync: updateAnswer, isPending: isUpdatingAnswer } =
+    useUpdateAnswer();
 
   useImperativeHandle(ref, () => {
     refetchComments;
@@ -1520,9 +1448,17 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                     </Button>
                     <Button
                       onClick={handleUpdateAnswer}
-                      className="bg-primary text-primary-foreground"
+                      className="bg-primary text-primary-foreground flex items-center gap-2"
+                      disabled={isUpdatingAnswer}
                     >
-                      Save & finalize
+                      {isUpdatingAnswer ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save & finalize"
+                      )}
                     </Button>
                   </div>
                 </DialogContent>
@@ -1586,27 +1522,6 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       </div>
                     </div>
 
-                    {/* {props.submissionData?.updatedBy && (
-                      <div className="rounded-lg border bg-muted/50 p-4">
-                        <p className="text-sm font-medium text-foreground mb-1">
-                          Submitted By
-                        </p>
-                        
-                        <p className="text-sm text-muted-foreground">
-                          {props.submissionData.updatedBy.name} (
-                          {props.submissionData.updatedBy.email})
-                        </p>
-
-                         {props.answer.threshold > 0 && (
-                          <Badge
-                            variant="outline"
-                            className="text-foreground border border-muted-foreground"
-                          >
-                            Threshold: {props.answer.threshold}
-                          </Badge>
-                        )}
-                      </div>
-                    )} */}
                     {props.submissionData?.updatedBy && (
                       <div className="rounded-lg border bg-muted/50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div className="flex items-center gap-2">
@@ -1654,22 +1569,46 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       <p className="text-sm font-medium text-foreground mb-3">
                         Source URLs
                       </p>
+
                       <div className="space-y-2">
-                        {props.answer.sources.map((url, idx) => (
+                        {props.answer.sources.map((source, idx) => (
                           <div
                             key={idx}
-                            className="flex items-center justify-between rounded-lg border bg-muted/30 p-2"
+                            className="flex items-center justify-between rounded-lg border bg-muted/30 p-2 pr-3"
                           >
-                            <span className="text-sm truncate text-foreground">
-                              {url}
-                            </span>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span
+                                    className="text-sm truncate max-w-[260px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                                    onClick={() =>
+                                      window.open(source.source, "_blank")
+                                    }
+                                  >
+                                    {source.source}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>{source.source}</TooltipContent>
+                              </Tooltip>
+
+                              {source.page && (
+                                <>
+                                  <span className="text-muted-foreground">
+                                    •
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    page {source.page}
+                                  </span>
+                                </>
+                              )}
+                            </div>
                             <a
-                              href={url}
+                              href={source.source}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="p-1 rounded hover:bg-muted/20 dark:hover:bg-muted/50 transition-colors"
                             >
-                              <ArrowUpRight className="w-4 h-4 text-foreground" />
+                              <ArrowUpRight className="w-4 h-4 text-foreground/80" />
                             </a>
                           </div>
                         ))}
@@ -1805,7 +1744,7 @@ export const SubmitAnswerDialog = ({
 }: SubmitAnswerDialogProps) => {
   const [open, setOpen] = useState(false);
   const [answer, setAnswer] = useState("");
-  const [sources, setSources] = useState<string[]>([]);
+  const [sources, setSources] = useState<SourceItem[]>([]);
   const { mutateAsync: submitAnswer, isPending: isSubmittingAnswer } =
     useSubmitAnswer();
 

@@ -69,7 +69,7 @@ import {
 } from "./atoms/dialog";
 import { Textarea } from "./atoms/textarea";
 import { useCreateRequest } from "@/hooks/api/request/useCreateRequest";
-import {toast} from "sonner";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -83,7 +83,7 @@ import { useDeleteQuestion } from "@/hooks/api/question/useDeleteQuestion";
 import { ConfirmationModal } from "./confirmation-modal";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
-import { useCountdown } from "@/hooks/useCountdown";
+import { useCountdown } from "@/hooks/ui/useCountdown";
 import { formatDate } from "@/utils/formatDate";
 import { TimerDisplay } from "./timer-display";
 import {
@@ -888,7 +888,12 @@ export const AddOrEditQuestionDialog = ({
                   <>
                     {/* <Attachment className="h-4 w-4" /> Show attachment icon */}
                     <PaperclipIcon className="h-4 w-4" />
-                    {file.name} {/* Show only file name */}
+                    <span
+                      className="truncate text-sm text-muted-foreground"
+                      title={file.name}
+                    >
+                      {truncate(file.name, 20)}
+                    </span>
                     <button
                       type="button"
                       onClick={(e) => {
@@ -1000,6 +1005,7 @@ export const QuestionsFilters = ({
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
     null
   );
+
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion();
 

@@ -125,4 +125,22 @@ export class AnswerController {
     const {answerId, questionId} = params;
     return this.answerService.deleteAnswer(questionId, answerId);
   }
+
+  @Get('/faqs/mod')
+  @HttpCode(200)
+  @Authorized()
+  @ResponseSchema(SubmissionResponse, {isArray: true})
+  @OpenAPI({summary: 'Get all FinalizedAnswers'})
+  async getGoldenFaqs(
+    @QueryParams() query: {page:number,limit:number,search:string,userId?:string},
+    @CurrentUser() user: IUser,
+  ): Promise<{faqs:any[];totalFaqs:number
+  }>  {
+    let {page=1,limit=10,search,userId} = query
+    if(!userId){
+      userId = user._id.toString()
+    }
+    return await this.answerService.goldenFaq(userId,Number(page),Number(limit),search)
+  }
+
 }

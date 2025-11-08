@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   CheckCircle,
@@ -38,7 +37,7 @@ import { Button } from "./atoms/button";
 import { useGetAllocatedQuestions } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
 import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
-import {toast} from "sonner";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -71,7 +70,12 @@ import {
   type QuestionSourceFilter,
 } from "./advanced-question-filter";
 import type {} from "./questions-page";
-import type { HistoryItem, IMyPreference, IQuestion } from "@/types";
+import type {
+  HistoryItem,
+  IMyPreference,
+  IQuestion,
+  SourceItem,
+} from "@/types";
 import { ScrollArea } from "./atoms/scroll-area";
 import { ExpandableText } from "./expandable-text";
 import {
@@ -98,7 +102,7 @@ export const QAInterface = () => {
   const [newAnswer, setNewAnswer] = useState<string>("");
   const [isFinalAnswer, setIsFinalAnswer] = useState<boolean>(false);
   const [filter, setFilter] = useState<QuestionFilter>("newest");
-  const [sources, setSources] = useState<string[]>([]);
+  const [sources, setSources] = useState<SourceItem[]>([]);
 
   //for preference
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
@@ -163,7 +167,10 @@ export const QAInterface = () => {
     refetch,
   } = useGetAllocatedQuestions(LIMIT, filter, preferences);
 
-  const questions = questionPages?.pages.flat() || [];
+  // const questions = questionPages?.pages.flat() || [];
+  const questions = useMemo(() => {
+    return questionPages?.pages.flat() || [];
+  }, [questionPages]);
 
   const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
     useGetQuestionById(selectedQuestion);
@@ -174,11 +181,11 @@ export const QAInterface = () => {
     useReviewAnswer();
 
   useEffect(() => {
-    if (questions.length > 0 && !selectedQuestion) {
+    if (questions.length > 0) {
       const firstQuestionId = questions[0]?.id ? questions[0]?.id : null;
       setSelectedQuestion(firstQuestionId);
     }
-  }, [questions, selectedQuestion]);
+  }, [questions]);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -321,6 +328,8 @@ export const QAInterface = () => {
     try {
       await respondQuestion(payload);
       setSelectedQuestion(null);
+      setNewAnswer("");
+      setSources([]);
       toast.success("Your response submitted, thankyou!");
     } catch (error) {
       console.log("Failed to submit: ", error);
@@ -1123,7 +1132,7 @@ interface ResponseTimelineProps {
   selectedQuestionData: IQuestion;
   newAnswer: string;
   setNewAnswer: (value: string) => void;
-  sources: string[];
+  sources: SourceItem[];
   setSources: (sources: any[]) => void;
   isFinalAnswer: boolean;
   isSubmittingAnswer: boolean;
@@ -1399,7 +1408,10 @@ export const ResponseTimeline = ({
                                         </p>
                                         <ul className="list-disc ml-2 mt-1 space-y-1">
                                           {item.answer.sources.map(
-                                            (url: string, index: number) => (
+                                            (
+                                              source: SourceItem,
+                                              index: number
+                                            ) => (
                                               <li
                                                 key={index}
                                                 className="flex items-center justify-between gap-2 text-sm 
@@ -1408,16 +1420,30 @@ export const ResponseTimeline = ({
                                               >
                                                 <button
                                                   onClick={() =>
-                                                    handleOpenUrl(url)
+                                                    handleOpenUrl(source.source)
                                                   }
-                                                  className="text-blue-600 dark:text-blue-400 hover:underline break-all inline-flex items-center gap-1 text-left"
+                                                  className="text-blue-600 dark:text-blue-400  break-all inline-flex items-center gap-2 text-left"
                                                 >
-                                                  {url}
+                                                  <span className="hover:underline">
+                                                    {source.source}
+                                                  </span>
+                                                  {source.page && (
+                                                    <>
+                                                      <span className="text-muted-foreground">
+                                                        •
+                                                      </span>
+                                                      <span className="text-xs text-muted-foreground">
+                                                        page {source.page}
+                                                      </span>
+                                                    </>
+                                                  )}
                                                 </button>
-
                                                 <button
                                                   onClick={() =>
-                                                    handleCopy(url, index)
+                                                    handleCopy(
+                                                      source.source,
+                                                      index
+                                                    )
                                                   }
                                                   className="ml-2 text-muted-foreground hover:text-foreground transition-colors"
                                                   title="Copy URL"
@@ -1506,9 +1532,17 @@ export const ResponseTimeline = ({
       </Card>
 
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-        <DialogContent className="max-w-4xl min-h-[90vh] max-h-[90vh] overflow-y-auto ">
+        <DialogContent
+          className="max-w-4xl min-h-[70vh] max-h-[90vh] overflow-y-auto "
+          style={{ minWidth: "100vh" }}
+        >
           <DialogHeader>
-            <DialogTitle>Reject Response</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="p-2 rounded-lg ">
+                <XCircle className="w-5 h-5 text-red-500 dark:text-red-700" />
+              </div>
+              Reject Response
+            </DialogTitle>
           </DialogHeader>
 
           {!isRejectionSubmitted && (
