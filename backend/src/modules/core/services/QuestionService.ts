@@ -296,7 +296,7 @@ export class QuestionService extends BaseService {
   ): Promise<Partial<IQuestion>> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        let {question, priority, source, details, context} = body;
+        let {question, priority, source = "AGRI_EXPERT", details, context} = body;
 
         if (!details) {
           const b: any = body;
