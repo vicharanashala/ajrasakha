@@ -496,20 +496,16 @@ export class AnswerService extends BaseService {
    status:string
   ): Promise<{
     finalizedSubmissions: any[],
-    currentUserAnswers: any[],
-    totalQuestionsCount: number,
-    heatMapResults: any[] | null
+   
+    
   }> {
-    const heatMapResults =await this.questionSubmissionRepo.heatMapResultsForReviewer();
-    console.log("the submissionHistrory====",heatMapResults)
-    const { finalizedSubmissions, currentUserAnswers, totalQuestionsCount } =
+   
+   
+    const { finalizedSubmissions } =
     await this.answerRepo.getAllFinalizedAnswers(userId, currentUserId, date, status);
     return {
       finalizedSubmissions,
-      currentUserAnswers,
-      totalQuestionsCount,
-      heatMapResults
-    };
+     };
   
   }
 
