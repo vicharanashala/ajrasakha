@@ -260,7 +260,7 @@ export class QuestionService extends BaseService {
     if (query?.search) {
       try {
         const {embedding} = await this.aiService.getEmbedding(query.search);
-        searchEmbedding = embedding; 
+        searchEmbedding = embedding;
       } catch (err) {
         console.error(
           'Embedding generation failed, falling back to normal search:',
@@ -297,6 +297,19 @@ export class QuestionService extends BaseService {
     try {
       return this._withTransaction(async (session: ClientSession) => {
         let {question, priority, source, details, context} = body;
+
+        if (!details) {
+          const b: any = body;
+
+          details = {
+            state: b?.state || '',
+            district: b?.district || '',
+            crop: b?.crop || '',
+            season: b?.season || '',
+            domain: b?.domain || '',
+          };
+        }
+
         let priorities = ['low', 'high', 'medium,'];
         if (!priorities.includes(priority)) {
           priority = 'medium';
