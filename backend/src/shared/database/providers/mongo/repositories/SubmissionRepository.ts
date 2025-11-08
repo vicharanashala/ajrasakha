@@ -383,17 +383,14 @@ export class QuestionSubmissionRepository
       await this.init();
   
       const pipeline = [
-        // Flatten history
         { $unwind: "$history" },
-  
-        // Only reviewer decisions
+      
         {
           $match: {
             "history.status": { $in: ["reviewed", "rejected"] }
           }
         },
-  
-        // Compute turnaround in hours
+      
         {
           $addFields: {
             turnaroundHours: {
@@ -404,58 +401,51 @@ export class QuestionSubmissionRepository
             }
           }
         },
-  
-        // Assign bucket label directly (no buggy $bucket stage)
+      
+        // ✅ ONE-HOUR BUCKET INTERVALS
         {
           $addFields: {
             timeRange: {
               $switch: {
                 branches: [
-                  { case: { $lt: ["$turnaroundHours", 6] }, then: "0_6" },
-                  { case: { $lt: ["$turnaroundHours", 12] }, then: "6_12" },
-                  { case: { $lt: ["$turnaroundHours", 18] }, then: "12_18" },
-                  { case: { $lt: ["$turnaroundHours", 24] }, then: "18_24" },
-                  { case: { $lt: ["$turnaroundHours", 30] }, then: "24_30" },
-                  { case: { $lt: ["$turnaroundHours", 36] }, then: "30_36" },
-                  { case: { $lt: ["$turnaroundHours", 42] }, then: "36_42" },
-                  
+                  { case: { $lt: ["$turnaroundHours", 1] }, then: "0_1" },
+                  { case: { $lt: ["$turnaroundHours", 2] }, then: "1_2" },
+                  { case: { $lt: ["$turnaroundHours", 3] }, then: "2_3" },
+                  { case: { $lt: ["$turnaroundHours", 4] }, then: "3_4" },
+                  { case: { $lt: ["$turnaroundHours", 5] }, then: "4_5" },
+                  { case: { $lt: ["$turnaroundHours", 6] }, then: "5_6" },
+                  { case: { $lt: ["$turnaroundHours", 7] }, then: "6_7" },
+                  { case: { $lt: ["$turnaroundHours", 8] }, then: "7_8" },
+                  { case: { $lt: ["$turnaroundHours", 9] }, then: "8_9" },
+                  { case: { $lt: ["$turnaroundHours", 10] }, then: "9_10" },
+                  { case: { $lt: ["$turnaroundHours", 11] }, then: "10_11" },
+                  { case: { $lt: ["$turnaroundHours", 12] }, then: "11_12" }
                 ],
-                default: "48_plus"
+                default: "12_plus"
               }
             }
           }
         },
-  
-        // Group → Count each bucket for each reviewer
+        
+      
         {
           $group: {
-            _id: {
-              reviewerId: "$history.updatedBy",
-              timeRange: "$timeRange"
-            },
+            _id: { reviewerId: "$history.updatedBy", timeRange: "$timeRange" },
             count: { $sum: 1 }
           }
         },
-  
-        // Rearrange bucket counts under each reviewer
         {
           $group: {
             _id: "$_id.reviewerId",
-            counts: {
-              $push: { k: "$_id.timeRange", v: "$count" }
-            }
+            counts: { $push: { k: "$_id.timeRange", v: "$count" } }
           }
         },
-  
-        // Convert array to object
         {
           $project: {
             reviewerId: "$_id",
             counts: { $arrayToObject: "$counts" }
           }
         },
-  
-        // Lookup reviewer details
         {
           $lookup: {
             from: "users",
@@ -465,8 +455,6 @@ export class QuestionSubmissionRepository
           }
         },
         { $unwind: "$reviewer" },
-  
-        // Final clean shape
         {
           $project: {
             _id: 0,
@@ -491,6 +479,7 @@ export class QuestionSubmissionRepository
           }
         }
       ];
+      
   
       const result = await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
       return result.length ? (result as IReviewerHeatmapRow[]) : null;

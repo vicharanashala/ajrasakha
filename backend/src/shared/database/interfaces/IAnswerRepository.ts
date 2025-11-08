@@ -49,9 +49,16 @@ getAllFinalizedAnswers(
     status:string,
     session?: ClientSession,
   ): Promise<{
-    finalizedSubmissions: any[],
+    finalizedSubmissions: any[]
+  }> ;
+  getCurrentUserWorkLoad(
+    currentUserId:string,
+    session?: ClientSession,
+  ): Promise<{
+   
     currentUserAnswers: any[],
-    totalQuestionsCount: number
+    totalQuestionsCount: number,
+    totalInreviewQuestionsCount:number
   }> ;
   /**
    * Adds a new answer for a specific question.

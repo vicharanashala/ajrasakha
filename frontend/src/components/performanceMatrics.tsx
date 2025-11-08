@@ -30,6 +30,7 @@ import type { IMyPreference } from "@/types";
 import { ScrollArea } from "./atoms/scroll-area";
 import PreferenceFilter from "./PreferenceFilter";
 import HeatMap from "./HeatMap";
+import {useGetWorkLoad} from '@/hooks/api/performance/useGetWorkLoad'
 export const PerformanceMatrics = () => {
   type BaseStatusItem = {
     status: string;
@@ -67,9 +68,11 @@ export const PerformanceMatrics = () => {
     date,
     status
   );
+  const { data: WorkLoad } = useGetWorkLoad();
+  
   const finalized = finalizedAnswers?.finalizedSubmissions || [];
-  const currentUserAnswers = finalizedAnswers?.currentUserAnswers || [];
-  const totalQuestionsCount = finalizedAnswers?.totalQuestionsCount || 0;
+  const currentUserAnswers = WorkLoad?.currentUserAnswers || [];
+  const totalQuestionsCount = WorkLoad?.totalQuestionsCount || 0;
   const approvedCount = currentUserAnswers.length;
   const heatMapResults=finalizedAnswers?.heatMapResults||[]
   const approvalPercentage =
@@ -204,7 +207,7 @@ export const PerformanceMatrics = () => {
   const quickActions = [
     {
       title: "Current Workload",
-      value: `${totalQuestionsCount - currentUserAnswers.length}` || 0,
+      value: `${WorkLoad?.totalInreviewQuestionsCount}` || 0,
       description: "Pending assignments",
       icon: <MessageSquarePlus />,
       //path: `${getBasePath()}/review-queue`,

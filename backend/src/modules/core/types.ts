@@ -15,6 +15,7 @@ export const CORE_TYPES = {
   AIService: Symbol.for('AIService'),
   SarvamService: Symbol.for('SarvamService'),
   NotificationService:Symbol.for('NotificationService'),
+  PerformanceService:Symbol.for('PerformanceService'),
 
   // Repositories
   UserRepository: Symbol.for('UserRepository'),

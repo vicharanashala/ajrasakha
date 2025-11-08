@@ -209,8 +209,7 @@ export class AnswerRepository implements IAnswerRepository {
     session?: ClientSession,
   ): Promise<{
     finalizedSubmissions: any[];
-    currentUserAnswers: any[];
-    totalQuestionsCount: number;
+    
   }> {
     try {
       await this.init();
@@ -230,6 +229,7 @@ export class AnswerRepository implements IAnswerRepository {
         }
       }
       let dateMatch: any = {};
+    
 
 if (date && date !== "all") {
   if (date.includes(":")) {
@@ -269,7 +269,7 @@ const submissions = await this.AnswerCollection.aggregate([
     ? [
         {
           $match: {
-            "question.userId": userObjectId,
+            "approvedBy": userObjectId,
             ...statusFilter, // applies status only if status != "all"
           },
         },
@@ -299,15 +299,60 @@ const submissions = await this.AnswerCollection.aggregate([
 
   // ✅ Sort final results newest first (applies to both cases)
   { $sort: { createdAt: -1 } },
-]).toArray();
+]).toArray()
+const finalizedSubmissions = submissions.map(sub => ({
+        id: sub._id.toString(),
 
+        // Answer fields
+        answer: sub.answer,
+        isFinalAnswer: sub.isFinalAnswer,
+        approvalCount: sub.approvalCount,
+        authorId: sub.authorId?.toString() || null,
+        questionId: sub.questionId?.toString() || null,
+        sources: sub.sources || [],
 
-
-
-      const currentUserAnswers = await this.AnswerCollection.aggregate([
+        createdAt: sub.createdAt?.toISOString(),
+        updatedAt: sub.updatedAt?.toISOString(),
+        details: sub.question?.details,
+        status: sub.isFinalAnswer==true?"Finalized Answers":"Reject Or Pending",
+        // Question fields (nested)
+        question: {
+          id: sub.question?._id?.toString(),
+          text: sub.question?.question,
+          status: sub.question?.status,
+          details: sub.question?.details,
+          priority: sub.question?.priority,
+          source: sub.question?.source,
+          totalAnswersCount: sub.question?.totalAnswersCount || 0,
+          createdAt: sub.question?.createdAt?.toISOString(),
+          updatedAt: sub.question?.updatedAt?.toISOString(),
+        },
+      }));
+return {
+        finalizedSubmissions,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch submissions: ${error}`);
+    }
+  }
+  async getCurrentUserWorkLoad(
+   currentUserId: string,
+    session?: ClientSession,
+  ): Promise<{
+    
+    currentUserAnswers: any[];
+    totalQuestionsCount: number;
+    totalInreviewQuestionsCount:number
+  }> {
+    try {
+      await this.init();
+      console.log("thje current userid===",currentUserId)
+   const currentUserAnswers = await this.AnswerCollection.aggregate([
         {
           $match: {
             isFinalAnswer: true,
+            approvedBy:new ObjectId(currentUserId)
+
           },
         },
         {
@@ -320,15 +365,10 @@ const submissions = await this.AnswerCollection.aggregate([
         },
         {$unwind: '$question'},
 
-        {
-          $match: {
-            'question.userId': new ObjectId(currentUserId),
-          },
-        },
-
+        
         {
           $group: {
-            _id: {$toString: '$question._id'}, // ✅ Convert to string here
+            _id: {$toString: '$question._id'}, 
             text: {$first: '$question.question'},
             createdAt: {$first: '$question.createdAt'},
             updatedAt: {$first: '$question.updatedAt'},
@@ -348,129 +388,17 @@ const submissions = await this.AnswerCollection.aggregate([
 
         {$sort: {createdAt: -1}},
       ]).toArray();
-      const totalQuestionsCount = await this.QuestionCollection.countDocuments({
-        userId: new ObjectId(currentUserId),
-        status: { $in: ["in-review", "closed"] }
+      const totalInreviewQuestionsCount = await this.QuestionCollection.countDocuments({
+       
+        status: { $in: ["in-review"] }
       });
+      const totalQuestionsCount = await this.QuestionCollection.countDocuments({});
       //console.log("the total questions====",totalQuestionsCount)
-
-      const finalizedSubmissions = submissions.map(sub => ({
-        id: sub._id.toString(),
-
-        // Answer fields
-        answer: sub.answer,
-        isFinalAnswer: sub.isFinalAnswer,
-        approvalCount: sub.approvalCount,
-        authorId: sub.authorId?.toString() || null,
-        questionId: sub.questionId?.toString() || null,
-        sources: sub.sources || [],
-
-        createdAt: sub.createdAt?.toISOString(),
-        updatedAt: sub.updatedAt?.toISOString(),
-        details: sub.question?.details,
-        status: sub.question?.status,
-        // Question fields (nested)
-        question: {
-          id: sub.question?._id?.toString(),
-          text: sub.question?.question,
-          status: sub.question?.status,
-          details: sub.question?.details,
-          priority: sub.question?.priority,
-          source: sub.question?.source,
-          totalAnswersCount: sub.question?.totalAnswersCount || 0,
-          createdAt: sub.question?.createdAt?.toISOString(),
-          updatedAt: sub.question?.updatedAt?.toISOString(),
-        },
-      }));
-
-
-
-
-/*const result = await this.AnswerCollection.aggregate([
-  // Join reviewer info (agri-specialist)
-  {
-    $lookup: {
-      from: "users",
-      localField: "authorId",
-      foreignField: "_id",
-      as: "reviewer",
-    }
-  },
-  { $unwind: "$reviewer" },
-
-  // Join question to compute turnaround time
-  {
-    $lookup: {
-      from: "questions",
-      localField: "questionId",
-      foreignField: "_id",
-      as: "question"
-    }
-  },
-  { $unwind: "$question" },
-
-  // Apply Date Filter (if selected)
-
-
-  // Calculate turnaround hours
-  {
-    $addFields: {
-      turnaroundHours: {
-        $divide: [
-          { $subtract: ["$createdAt", "$question.createdAt"] },
-          1000 * 60 * 60 // convert ms → hours
-        ]
-      }
-    }
-  },
-
-  // Create time buckets
-  {
-    $addFields: {
-      timeBucket: {
-        $switch: {
-          branches: [
-            { case: { $lt: ["$turnaroundHours", 6] }, then: "0-6" },
-            { case: { $lt: ["$turnaroundHours", 12] }, then: "6-12" },
-            { case: { $lt: ["$turnaroundHours", 24] }, then: "12-24" }
-          ],
-          default: "24+"
-        }
-      }
-    }
-  },
-
-  // Group to count how many answers fall into each bucket per reviewer
-  {
-    $group: {
-      _id: { reviewer: "$reviewer.email", bucket: "$timeBucket" },
-      count: { $sum: 1 }
-    }
-  },
-
-  // Convert into heatmap-friendly format
-  {
-    $group: {
-      _id: "$_id.reviewer",
-      buckets: {
-        $push: { k: "$_id.bucket", v: "$count" }
-      }
-    }
-  },
-  {
-    $project: {
-      reviewer: "$_id",
-      _id: 0,
-      buckets: { $arrayToObject: "$buckets" }
-    }
-  }
-]).toArray();*/
-
-//console.log("the heatmap results====",result)
       return {
-        finalizedSubmissions,
+       
         currentUserAnswers,
         totalQuestionsCount,
+        totalInreviewQuestionsCount
       };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch submissions: ${error}`);

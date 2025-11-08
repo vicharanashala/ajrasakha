@@ -1,5 +1,6 @@
 import { ResponsiveHeatMap } from "@nivo/heatmap";
 import { useRef, useLayoutEffect, useState } from "react";
+import {useGetHeapMap} from '@/hooks/api/performance/useGetHeatMap'
 
 interface HeatMapRow {
   reviewerId: string;
@@ -7,31 +8,60 @@ interface HeatMapRow {
   counts: Record<string, number>;
 }
 
-export default function HeatMap({
-  heatMapResults = [],
-}: {
-  heatMapResults: HeatMapRow[];
-}) {
+export default function HeatMap() {
+  const { data:heatMapData, isLoading } = useGetHeapMap()
  
+  if (isLoading) return <div>Loading heatmap...</div>;
+
+  if (!heatMapData || heatMapData.length === 0) {
+    return <div>No reviewer performance data found.</div>;
+  }
 
 
-  const data = heatMapResults.map((r) => ({
+  const allBuckets = [
+    "0_1","1_2","2_3","3_4","4_5","5_6",
+    "6_7","7_8","8_9","9_10","10_11","11_12","12_plus"
+  ];
+  
+  const formatBucket = (bucket: string) =>
+    bucket === "12_plus" ? "12+" : bucket.replace("_", "–");
+  
+  const data = heatMapData.map((r) => ({
     id: r.reviewerName,
-    data: [
-      { x: "0–6", y: r.counts?.["0_6"] ?? 0 },
-      { x: "6–12", y: r.counts?.["6_12"] ?? 0 },
-      { x: "12–18", y: r.counts?.["12_18"] ?? 0 },
-      { x: "18–24", y: r.counts?.["18_24"] ?? 0 },
-      { x: "24–30", y: r.counts?.["24_30"] ?? 0 },
-      { x: "30–36", y: r.counts?.["30_36"] ?? 0 },
-      { x: "36–42", y: r.counts?.["36_42"] ?? 0 },
-    ],
+    data: allBuckets.map((bucket) => ({
+      x: formatBucket(bucket),
+      y: r.counts?.[bucket] ?? 0,
+    })),
   }));
+  const timeBuckets = [
+    "0_1",
+    "1_2",
+    "2_3",
+    "3_4",
+    "4_5",
+    "5_6",
+    "6_12",
+    "12_plus",
+  ];
+  const getBackground = (value: number) => {
+    if (value === 0) return "bg-gray-200 dark:bg-gray-900";
+  
+    if (value <= 2) return "bg-green-200 dark:bg-green-800";
+    if (value <= 4) return "bg-green-400 dark:bg-green-700";
+    if (value <= 6) return "bg-green-600 dark:bg-green-600";
+  
+    if (value <= 8) return "bg-green-700 dark:bg-green-500";
+    if (value <= 10) return "bg-green-800 dark:bg-green-400";
+    if (value <= 12) return "bg-green-900 dark:bg-green-300";
+  
+    return "bg-green-900 dark:bg-green-200"; // for 12+ bucket
+  };
+
 
   return (
-    <div className="min-w-[70vw] border rounded-lg overflow-auto">
+    <div className="  min-w-[80vw] border rounded-lg overflow-auto text-gray-900 dark:text-white">
     {/* This inner div must NOT be flex centered. It must be inline-block. */}
-    <div className="min-w-[80vw] min-h-[450px]">
+    <div className="min-w-[80vw] min-h-[450px] hidden md:block text-black dark:text-white">
       <ResponsiveHeatMap
         data={data}
         margin={{ top: 60, right: 80, bottom: 60, left: 190 }}
@@ -42,26 +72,25 @@ export default function HeatMap({
         label={(d) => `${d.data.y}`}
         theme={{
           axis: {
-            legend: {
+            legend: { text: { fill: "currentColor", fontSize: 16, fontWeight: 600 }},
+            ticks: { text: { fill: "currentColor", fontSize: 13 }},
+          },
+          labels: { text: { fill: "currentColor", fontSize: 12 }},
+          legends: {
+            title: {
               text: {
-                fontSize: 18,
-                fontWeight: 700,   // <--- BOLD
-                fill: "#000000",
-              },
+                fill: "currentColor",   
+                fontSize: 13,
+                fontWeight: 700
+              }
             },
             ticks: {
               text: {
-                fontSize: 13,
-                fontWeight: 400,   // Optional: bold tick labels too
-                fill: "#000",
-              },
-            },
-          },
-          labels: {
-            text: {
-              fontSize: 12,
-              fontWeight: 600,
-            },
+                fill: "currentColor",  
+                fontSize: 12,
+                fontWeight: 600
+              }
+            }
           },
         }}
        
@@ -78,7 +107,7 @@ export default function HeatMap({
           tickSize: 5,
           tickPadding: 5,
           tickRotation: 0,
-          legend: "Average Turnaround Time (hrs)",
+          legend: "Turnaround Time (hrs)",
           legendPosition: "middle",
           legendOffset: 40,
         }}
@@ -93,15 +122,63 @@ export default function HeatMap({
         legends={[
           {
             anchor: "right",
-            direction: "column",
             translateX: 40,
-           
+            translateY: 0,
+            direction: "column",
+            length: 200,      // width/height of color bar
+            thickness: 12,     // thickness of color bar
+            tickSize: 3,
+            tickSpacing: 4,
+            title: "Turnaround (hrs)",
+            titleAlign: "start",
+            titleOffset: 6,
             
-            
-          },
+            },
         ]}
         animate={true}
       />
+    </div>
+    <div>
+    <div className="md:hidden mt-10">Reviewers vs. Turnaround Time</div>
+    </div>
+    <div className="overflow-x-auto w-[80vw] mt-4 border rounded-lg md:hidden ">
+     
+      <table className="min-w-[90vw] border-collapse w-full text-sm">
+        {/* Header */}
+        <thead>
+          <tr className="bg-gray-200 text-gray-800">
+            <th className="p-3 text-left left-0 bg-gray-200 z-10">Reviewer</th>
+            {allBuckets.map((bucket) => (
+              <th key={bucket} className="px-4 py-2 whitespace-nowrap text-center">
+                {bucket.replace("_", "–").replace("plus", "+")} hrs
+              </th>
+            ))}
+          </tr>
+        </thead>
+
+        {/* Body */}
+        <tbody>
+          {heatMapData.map((row) => (
+            <tr key={row.reviewerId} className="border-t">
+              <td className="px-4 py-2 font-medium  left-0  z-10">
+                {row.reviewerName}
+              </td>
+
+              {allBuckets.map((bucket) => {
+                const value = row.counts?.[bucket] ?? 0;
+                return (
+                  <td
+                    key={bucket}
+                    className={`px-4 py-2 text-center font-semibold ${getBackground(value)}`}
+                  >
+                    {value}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
    
 
