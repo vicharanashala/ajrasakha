@@ -159,8 +159,8 @@ export const PlaygroundPage = () => {
                   className="relative p-1 rounded-md hover:bg-accent transition-colors"
                 >
                   <BellIcon className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
-                  {user?.notifications && user.notifications > 0 && (
-                    <span className="absolute -top-[4px] -right-[16px] flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-white shadow-sm leading-none">
+                  {user?.notifications !==undefined && user.notifications > 0 && (
+                    <span className="absolute -top-[4px] -right-[12px] flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-white shadow-sm leading-none">
                       {user.notifications > 99 ? "99+" : user.notifications}
                     </span>
                   )}
