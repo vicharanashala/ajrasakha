@@ -317,7 +317,8 @@ export class QuestionService extends BaseService {
         }
 
         let priorities = ['low', 'high', 'medium,'];
-        if (!priorities.includes(priority.toLowerCase())) {
+        priority = priority.toLowerCase() as IQuestion['priority'];
+        if (!priorities.includes(priority)) {
           priority = 'medium';
         }
         if (!question || question.trim() == '') {
