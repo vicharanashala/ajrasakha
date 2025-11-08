@@ -1314,7 +1314,8 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const [editOpen, setEditOpen] = useState(false);
   const { mutateAsync: addComment, isPending: isAddingComment } =
     useAddComment();
-  const { mutateAsync: updateAnswer } = useUpdateAnswer();
+  const { mutateAsync: updateAnswer, isPending: isUpdatingAnswer } =
+    useUpdateAnswer();
 
   useImperativeHandle(ref, () => {
     refetchComments;
@@ -1447,9 +1448,17 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                     </Button>
                     <Button
                       onClick={handleUpdateAnswer}
-                      className="bg-primary text-primary-foreground"
+                      className="bg-primary text-primary-foreground flex items-center gap-2"
+                      disabled={isUpdatingAnswer}
                     >
-                      Save & finalize
+                      {isUpdatingAnswer ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save & finalize"
+                      )}
                     </Button>
                   </div>
                 </DialogContent>

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 export const Route = createFileRoute("/notifications/")({
   component: Notification,
 });
@@ -24,7 +24,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 import { useAutoDeletePreference } from "@/hooks/api/user/useAutoDeleteNotifications";
 export interface Notification {
   _id: string;
@@ -46,7 +51,7 @@ export default function Notification() {
   } = useDeleteNotification();
   const { mutateAsync: markAsRead } = useMarkAsReadNotification();
   const { mutateAsync: markAllAsRead } = useMarkAllAsReadNotification();
-  const {mutateAsync:autoDeletePreference} = useAutoDeletePreference()
+  const { mutateAsync: autoDeletePreference } = useAutoDeletePreference();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [deletePreference, setDeletePreference] = useState("never");
@@ -57,6 +62,7 @@ export default function Notification() {
   //   refetch: refechSelectedQuestion,
   //   isLoading: isLoadingSelectedQuestion,
   // } = useGetQuestionFullDataById(selectedQuestionId);
+  const navigate = useNavigate();
 
   const {
     data: notificationPages,
@@ -114,15 +120,16 @@ export default function Notification() {
   };
 
   const handleBack = () => {
-    window.history.back();
+    // window.history.back();
+    navigate({ to: "/home" });
   };
-  const handlePreferenceChange =async (value: string) => {
+  const handlePreferenceChange = async (value: string) => {
     setDeletePreference(value);
     try {
-      await autoDeletePreference(value)
-      toast.success('Preference Updated')
+      await autoDeletePreference(value);
+      toast.success("Preference Updated");
     } catch (error) {
-      toast.error('Error updating Preference')
+      toast.error("Error updating Preference");
     }
   };
 
@@ -186,33 +193,40 @@ export default function Notification() {
             <div className="flex flex-wrap items-center justify-between mb-4 sm:mb-6 p-3 sm:p-4 bg-card rounded-lg border">
               <div className="flex items-center gap-2 sm:gap-4">
                 <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-muted-foreground hidden sm:inline">
-                  Auto-delete after:
-                </span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs max-w-[200px]">
-              Notifications older than this duration will be automatically deleted.
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-medium text-muted-foreground hidden sm:inline">
+                          Auto-delete after:
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="bottom"
+                      className="text-xs max-w-[200px]"
+                    >
+                      Notifications older than this duration will be
+                      automatically deleted.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-        <Select onValueChange={handlePreferenceChange} value={deletePreference}>
-          <SelectTrigger className="w-[130px] sm:w-[150px]">
-            <SelectValue placeholder="Select duration" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="3d">3 days</SelectItem>
-            <SelectItem value="1w">1 week</SelectItem>
-            <SelectItem value="2w">2 weeks</SelectItem>
-            <SelectItem value="1m">1 month</SelectItem>
-            <SelectItem value="never">Never</SelectItem>
-          </SelectContent>
-        </Select>
+                <Select
+                  onValueChange={handlePreferenceChange}
+                  value={deletePreference}
+                >
+                  <SelectTrigger className="w-[130px] sm:w-[150px]">
+                    <SelectValue placeholder="Select duration" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="3d">3 days</SelectItem>
+                    <SelectItem value="1w">1 week</SelectItem>
+                    <SelectItem value="2w">2 weeks</SelectItem>
+                    <SelectItem value="1m">1 month</SelectItem>
+                    <SelectItem value="never">Never</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex items-center gap-2 mt-2 sm:mt-0">
                 <Button

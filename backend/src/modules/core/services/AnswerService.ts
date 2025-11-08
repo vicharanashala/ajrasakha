@@ -545,7 +545,6 @@ export class AnswerService extends BaseService {
 
       const text = `Question: ${question.question}
 
-
 answer: ${updates.answer}`;
 
       const {embedding: questionEmbedding} = await this.aiService.getEmbedding(

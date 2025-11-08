@@ -160,7 +160,9 @@ export const PlaygroundPage = () => {
                 />
                 {user?.notifications! > 0 && (
                   <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                    {user?.notifications}
+                    {((user && user.notifications) || 0) > 99
+                      ? "99+"
+                      : user?.notifications}
                   </span>
                 )}
               </div>
@@ -208,7 +210,7 @@ export const PlaygroundPage = () => {
                   </div>
                 </div>
               </TabsContent>
-              {user &&  (
+              {user && (
                 <TabsContent
                   value="history"
                   className="mt-0 border-0 p-0 max-w-[98%]"
