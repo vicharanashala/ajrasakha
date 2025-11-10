@@ -296,6 +296,7 @@ export class QuestionService extends BaseService {
   ): Promise<Partial<IQuestion>> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
+        body = normalizeKeysToLower(body)
         let {
           question,
           priority,
@@ -360,8 +361,8 @@ export class QuestionService extends BaseService {
 
         // 2. Create Embedding for the question based on text
         const text = `Question: ${question}`;
-        const {embedding} = await this.aiService.getEmbedding(text);
-        // const embedding = [];
+        // const {embedding} = await this.aiService.getEmbedding(text);
+        const embedding = [];
         // 3. Create Question entry
         const newQuestion: IQuestion = {
           userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
@@ -1036,4 +1037,15 @@ export class QuestionService extends BaseService {
       throw new InternalServerError(`Failed to fetch question data: ${error}`);
     }
   }
+}
+function normalizeKeysToLower(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(normalizeKeysToLower);
+  } else if (obj && typeof obj === 'object') {
+    return Object.keys(obj).reduce((acc, key) => {
+      acc[key.toLowerCase()] = normalizeKeysToLower(obj[key]);
+      return acc;
+    }, {} as any);
+  }
+  return obj;
 }

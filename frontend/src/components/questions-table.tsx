@@ -846,15 +846,21 @@ export const AddOrEditQuestionDialog = ({
           <input
             type="file"
             id="upload-json"
-            accept=".json"
+            accept=".json,.xls, .xlsx, application/json, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             className="hidden"
             onChange={(e) => {
               let input = e.target;
               const selected = e.target.files?.[0];
-              // if (selected) setFile(selected);
+              if (selected) setFile(selected);
               setError(null);
-              if (selected?.type !== "application/json") {
-                setError("Only JSON files are allowed.");
+              const allowedTypes = [
+                "application/json",
+                "application/vnd.ms-excel",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              ];
+
+              if (!selected || !allowedTypes.includes(selected.type)) {
+                setError("Only JSON And EXCEL files are allowed.");
                 setFile(null);
                 setTimeout(() => {
                   setError(null);
@@ -908,7 +914,7 @@ export const AddOrEditQuestionDialog = ({
                   </>
                 ) : (
                   <>
-                    <Upload className="h-4 w-4" /> Upload JSON
+                    <Upload className="h-4 w-4" /> Upload FILE
                   </>
                 )}
               </span>
