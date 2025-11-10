@@ -7,7 +7,7 @@ import {
 import {IAuthService} from '#auth/interfaces/IAuthService.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {injectable, inject} from 'inversify';
-import {InternalServerError} from 'routing-controllers';
+import {InternalServerError, UnauthorizedError} from 'routing-controllers';
 import admin from 'firebase-admin';
 import {IUser} from '#root/shared/interfaces/models.js';
 import {BaseService} from '#root/shared/classes/BaseService.js';
@@ -16,6 +16,7 @@ import {MongoDatabase} from '#root/shared/database/providers/mongo/MongoDatabase
 import path from 'path';
 import {fileURLToPath} from 'url';
 import serviceAccount from '../../../../agriai-a2fba-firebase-adminsdk-fbsvc-452072d744.json' with {type: 'json'};
+import { error } from 'console';
 
 /**
  * Custom error thrown during password change operations.
@@ -60,29 +61,39 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
 
     // Retrieve the user from our database using the Firebase UID
     const user = await this.userRepository.findByFirebaseUID(firebaseUID);
-    if (!user) {
-      // get user data from Firebase
-      try {
-        const firebaseUser = await this.auth.getUser(firebaseUID);
-        if (!firebaseUser) {
-          throw new InternalServerError('Firebase user not found');
-        }
-        // Map Firebase user data to our application user model
-        const userData: GoogleSignUpBody = {
-          email: firebaseUser.email,
-          firstName: firebaseUser.displayName?.split(' ')[0] || '',
-          lastName: firebaseUser.displayName?.split(' ')[1] || '',
-        };
-        const createdUser = await this.googleSignup(userData, token);
-        if (!createdUser) {
-          throw new InternalServerError('Failed to create the user');
-        }
-      } catch (error) {
-        throw new InternalServerError(
-          `Failed to retrieve user from Firebase: ${error.message}`,
-        );
-      }
+    if(!user){
+      console.warn(`Firebase user ${firebaseUID} not found in DB. Deleting from firebase`)
+      await this.auth.deleteUser(firebaseUID).catch(err => {
+        console.error("failed to delete firebase user ",error)
+      })
+      console.log("deleted firebase user ")
+      throw new UnauthorizedError("User not found in database")
     }
+    // if (!user) {
+    //   // get user data from Firebase
+    //   console.log("creating new userr for firebase UID ",firebaseUID)
+    //   console.trace()
+    //   try {
+    //     const firebaseUser = await this.auth.getUser(firebaseUID);
+    //     if (!firebaseUser) {
+    //       throw new InternalServerError('Firebase user not found');
+    //     }
+    //     // Map Firebase user data to our application user model
+    //     const userData: GoogleSignUpBody = {
+    //       email: firebaseUser.email,
+    //       firstName: firebaseUser.displayName?.split(' ')[0] || '',
+    //       lastName: firebaseUser.displayName?.split(' ')[1] || '',
+    //     };
+    //     const createdUser = await this.googleSignup(userData, token);
+    //     if (!createdUser) {
+    //       throw new InternalServerError('Failed to create the user');
+    //     }
+    //   } catch (error) {
+    //     throw new InternalServerError(
+    //       `Failed to retrieve user from Firebase: ${error.message}`,
+    //     );
+    //   }
+    // }
     user._id = user._id.toString();
     return user;
   }
@@ -217,5 +228,9 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     await this.auth.updateUser(firebaseUID, {
       displayName: `${body.firstName} ${body.lastName}`,
     });
+  }
+
+  async findByFirebaseUID(uid:string):Promise<IUser>{
+    return await this.userRepository.findByFirebaseUID(uid)
   }
 }
