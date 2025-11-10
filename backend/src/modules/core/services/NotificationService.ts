@@ -12,12 +12,17 @@ import {
   notifyUser,
   sendPushNotification,
 } from '#root/utils/pushNotification.js';
+import {sendEmailNotification} from '#root/utils/mailer.js';
+import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 
 @injectable()
 export class NotificationService extends BaseService {
   constructor(
     @inject(GLOBAL_TYPES.NotificationRepository)
     private readonly notificationRepository: INotificationRepository,
+
+    @inject(GLOBAL_TYPES.UserRepository)
+    private readonly userRepo: IUserRepository,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -125,20 +130,22 @@ export class NotificationService extends BaseService {
     entityId: string,
     userId: string,
     type: string,
-    session?:ClientSession
+    session?: ClientSession,
   ) {
     // return await this._withTransaction(async (session: ClientSession) => {
-      await this.notificationRepository.addNotification(
-        userId,
-        entityId,
-        type,
-        message,
-        title,
-        session,
-      );
-      const subscription =
-        await this.notificationRepository.getSubscriptionByUserId(userId); 
-      await notifyUser(userId, title, subscription);
+    await this.notificationRepository.addNotification(
+      userId,
+      entityId,
+      type,
+      message,
+      title,
+      session,
+    );
+    const user = await this.userRepo.findById(userId.toString());
+    const subscription =
+      await this.notificationRepository.getSubscriptionByUserId(userId);
+    await sendEmailNotification(user.email.toString(), title, message);
+    await notifyUser(userId, title, subscription);
     // });
   }
 }

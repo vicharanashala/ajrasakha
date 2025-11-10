@@ -44,6 +44,9 @@ importers:
       body-parser:
         specifier: ^1.20.3
         version: 1.20.3
+      bson:
+        specifier: ^7.0.0
+        version: 7.0.0
       chalk:
         specifier: ^5.4.1
         version: 5.6.2
@@ -2636,6 +2639,10 @@ packages:
   bson@6.10.4:
     resolution: {integrity: sha512-WIsKqkSC0ABoBJuT1LEX+2HEvNmNKKgnTAyd0fL8qzK4SH2i9NXg+t08YtdZp/V9IZ33cxe3iV4yM0qg8lMQng==}
     engines: {node: '>=16.20.1'}
+
+  bson@7.0.0:
+    resolution: {integrity: sha512-Kwc6Wh4lQ5OmkqqKhYGKIuELXl+EPYSCObVE6bWsp1T/cGkOCBN0I8wF/T44BiuhHyNi1mmKVPXk60d41xZ7kw==}
+    engines: {node: '>=20.19.0'}
 
   buffer-crc32@0.2.13:
     resolution: {integrity: sha512-VO9Ht/+p3SN7SKWqcrgEzjGbRSJYTx+Q1pTQC0wrWqHx0vpJraQ6GtHx8tvcg1rlK1byhU5gccxgOgj7B0TDkQ==}
@@ -9204,6 +9211,8 @@ snapshots:
       node-int64: 0.4.0
 
   bson@6.10.4: {}
+
+  bson@7.0.0: {}
 
   buffer-crc32@0.2.13: {}
 
