@@ -37,6 +37,7 @@ export class AnswerRepository implements IAnswerRepository {
     isFinalAnswer: boolean = false,
     answerIteration: number = 1,
     session?: ClientSession,
+    status?:string
   ): Promise<{insertedId: string}> {
     try {
       await this.init();
@@ -62,6 +63,7 @@ export class AnswerRepository implements IAnswerRepository {
         sources,
         createdAt: new Date(),
         updatedAt: new Date(),
+        status
       };
 
       const result = await this.AnswerCollection.insertOne(doc, {session});
@@ -295,7 +297,7 @@ if (date && date !== "all") {
       // Build status filter dynamically
 let statusFilter: any = {};
 if (status !== "all") {
-  statusFilter["question.status"] = status;
+  statusFilter["status"] = status;
 }
 
 const submissions = await this.AnswerCollection.aggregate([
@@ -315,7 +317,28 @@ const submissions = await this.AnswerCollection.aggregate([
 
   // ✅ If user selected a specific user → restrict questions to that user
   ...(userId !== "all"
-    ? [
+    ?status=="in-review"? 
+    [
+      {
+        $match: {
+          approvalCount:3,
+          ...statusFilter, // applies status only if status != "all"
+        },
+      },
+
+      // Sort latest answers first so we can pick the final/latest one
+      { $sort: { createdAt: -1 } },
+
+      // ✅ Group → get only the latest answer for each question
+      {
+        $group: {
+          _id: "$questionId",
+          latestAnswer: { $first: "$$ROOT" },
+        },
+      },
+      { $replaceRoot: { newRoot: "$latestAnswer" } }, // flatten result
+    ]
+    : [
         {
           $match: {
             "approvedBy": userObjectId,
@@ -362,14 +385,14 @@ const finalizedSubmissions = submissions.map(sub => ({
 
         createdAt: sub.createdAt?.toISOString(),
         updatedAt: sub.updatedAt?.toISOString(),
-        details: sub.question?.details,
-        status: sub.isFinalAnswer==true?"Finalized Answers":"Reject Or Pending",
+       details: sub.question?.details,
+        status: sub.status,
         // Question fields (nested)
         question: {
           id: sub.question?._id?.toString(),
           text: sub.question?.question,
           status: sub.question?.status,
-          details: sub.question?.details,
+         // details: sub.question?.details,
           priority: sub.question?.priority,
           source: sub.question?.source,
           totalAnswersCount: sub.question?.totalAnswersCount || 0,
@@ -646,6 +669,35 @@ return {
       console.error(error)
       throw new InternalServerError(
         `Error while deleting answer, More/ ${error}`,
+      );
+    }
+  }
+
+  async updateAnswerStatus(
+    answerId: string,
+    updates: Partial<IAnswer>,
+    session?: ClientSession,
+  ): Promise<{modifiedCount: number}> {
+    try {
+      await this.init();
+
+      if (!answerId || !isValidObjectId(answerId)) {
+        throw new BadRequestError('Invalid or missing answerId');
+      }
+      if (!updates || Object.keys(updates).length === 0) {
+        throw new BadRequestError('Updates object cannot be empty');
+      }
+
+      const result = await this.AnswerCollection.updateOne(
+        {_id: new ObjectId(answerId)},
+        {$set: {...updates, updatedAt: new Date()}},
+        {session},
+      );
+
+      return {modifiedCount: result.modifiedCount};
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while updating answer, More/ ${error}`,
       );
     }
   }
