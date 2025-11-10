@@ -1,0 +1,14 @@
+[Unit]
+Description=agri_param LLM FastAPI Server (User Mode)
+After=network.target
+
+[Service]
+WorkingDirectory=/home/aic_u2/Shubhankar/Pop
+ExecStart=/bin/bash -lc "export CUDA_VISIBLE_DEVICES=0 && source /home/aic_u2/Shubhankar/Pop/open_sourced_agri_llm/llm_env/bin/activate && python /home/aic_u2/Shubhankar/Pop/github_agri_llm/ajrasakha/testing_agri_llm/agri_param/run_fastapi_server.py"
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/aic_u2/Shubhankar/Pop/agri_param.log
+StandardError=append:/home/aic_u2/Shubhankar/Pop/agri_param_error.log
+
+[Install]
+WantedBy=default.target
