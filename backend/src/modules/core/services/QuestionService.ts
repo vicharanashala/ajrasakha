@@ -381,7 +381,7 @@ export class QuestionService extends BaseService {
           updatedAt: new Date(),
         };
         // 4. Save Question to DB
-        const savedQuestion = await this.questionRepo.addQuestion(newQuestion);
+        const savedQuestion = await this.questionRepo.addQuestion(newQuestion, session);
 
         // 5. Fetch userId based on provided preference and create queue
         // i) Find users matching the preference
@@ -415,6 +415,12 @@ export class QuestionService extends BaseService {
           updatedAt: new Date(),
         };
 
+        // 6. Save QuestionSubmission to DB
+        await this.questionSubmissionRepo.addSubmission(
+          submissionData,
+          session,
+        );
+
         //send notification to the first assigned expert
         let message = `A Question has been assigned for answering`;
         let title = 'Answer Creation Assigned';
@@ -427,11 +433,6 @@ export class QuestionService extends BaseService {
           entityId,
           user,
           type,
-        );
-        // 6. Save QuestionSubmission to DB
-        await this.questionSubmissionRepo.addSubmission(
-          submissionData,
-          session,
         );
 
         // 7. Return the saved question
