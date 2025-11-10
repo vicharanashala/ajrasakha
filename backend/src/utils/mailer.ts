@@ -5,7 +5,7 @@ export async function sendEmailNotification(email: string,title:string,message:s
       service: "gmail",
       auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
     });
-     transporter.sendMail({
+    await transporter.sendMail({
       from: process.env.EMAIL,
       to: email,
       subject: title,

@@ -141,7 +141,7 @@ export class NotificationService extends BaseService {
       title,
       session,
     );
-    const user = await this.userRepo.findById(userId.toString());
+    const user = await this.userRepo.findById(userId.toString(),session);
     const subscription =
       await this.notificationRepository.getSubscriptionByUserId(userId);
     await sendEmailNotification(user.email.toString(), title, message);
