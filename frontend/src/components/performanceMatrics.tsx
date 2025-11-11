@@ -139,6 +139,26 @@ export const PerformanceMatrics = () => {
   }
 
   function PieBox({ title, data }: { title: string; data: any[] }) {
+   
+    const getColor = (name:string) => {
+      if (!name) return "#8884d8";
+  
+      const label = name.toLowerCase();
+  
+      if (label.includes("approved")) return "#52C41A"; // green
+      if (label.includes("rejected")) return "#FF4D4F"; // red
+      if (label.includes("review")) return "#FAAD14"; // yellow
+  
+      // For other pie charts — auto-generate consistent colors
+      const palette = [
+        "#8884d8", "#82ca9d", "#ffc658", "#8dd1e1", "#a4de6c",
+        "#d0ed57", "#ffa07a", "#ff8042", "#a28cff", "#4cc9f0",
+        "#f72585", "#b5179e", "#7209b7", "#3a0ca3", "#4361ee",
+        "#4895ef", "#4cc9f0", "#90be6d", "#43aa8b", "#577590",
+        "#f9c74f", "#f9844a", "#e63946"
+      ];
+      return palette[Math.abs(label.length) % palette.length];
+    };
     return (
       <Card className="shadow-sm min-w-0">
         <CardHeader>
@@ -160,8 +180,10 @@ export const PerformanceMatrics = () => {
                   label={{ position: "inside", fill: "#fff" }}
                   labelLine={false}
                 >
-                  {data.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  {data.map((entry, i) => (
+                    <Cell key={i} 
+                    fill={getColor(entry.name)}
+                     />
                   ))}
                 </Pie>
                 <ChartTooltip />
@@ -175,7 +197,7 @@ export const PerformanceMatrics = () => {
                 <div key={i} className="flex items-center gap-2 text-sm">
                   <span
                     className="w-3 h-3 rounded-sm"
-                    style={{ background: COLORS[i % COLORS.length] }}
+                    style={{ background: getColor(item.name) }}
                   />
                   <span className="truncate">{item.name}</span>
                   <span className="ml-auto font-medium">{item.value}</span>
