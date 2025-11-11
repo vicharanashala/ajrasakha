@@ -7,6 +7,7 @@ import {
   IQuestion,
   IQuestionSubmission,
   ISubmissionHistory,
+  IAnswer
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -259,6 +260,7 @@ export class QuestionService extends BaseService {
 
     if (query?.search) {
       try {
+       // const embedding=[]
         const {embedding} = await this.aiService.getEmbedding(query.search);
         searchEmbedding = embedding;
       } catch (err) {
@@ -581,11 +583,10 @@ export class QuestionService extends BaseService {
       .forEach(user => expertIdsSet.add(user._id.toString()));
 
     const allExpertIds = Array.from(expertIdsSet);
-
     if (
       EXISTING_QUEUE_COUNT < 3 ||
       (EXISTING_QUEUE_COUNT === EXISTING_HISTORY_COUNT &&
-        EXISTING_QUEUE_COUNT < allExpertIds.length)
+        EXISTING_QUEUE_COUNT <= allExpertIds.length) 
     ) {
       const answeredExperts = new Set(
         questionSubmission.history.map(h => h.updatedBy.toString()),
@@ -610,20 +611,29 @@ export class QuestionService extends BaseService {
       const filteredExperts = unAnsweredExpertIds.filter(
         id => !existingQueueIds.includes(id.toString()),
       );
-
+      
+      const lastSubmission = questionSubmission.history.at(-1);
       if (filteredExperts.length === 0) {
         await this.questionRepo.updateQuestion(
           questionId,
           {status: 'in-review'},
           session,
         );
+        const payload: Partial<IAnswer> = {
+           
+          status:"pending-with-moderator"
+           
+         };
+        const answer=lastSubmission.answer||lastSubmission.approvedAnswer
+         await this.answerRepo.updateAnswerStatus(answer.toString(),payload,session)
+
       }
 
       const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);
 
       // Add entry for first expert in the queue as status in-review (only after intial 3 allocation)
 
-      const lastSubmission = questionSubmission.history.at(-1);
+     
 
       if (
         questionSubmission.history.length >= 0 &&
@@ -631,6 +641,7 @@ export class QuestionService extends BaseService {
           lastSubmission?.status == 'reviewed') &&
         EXISTING_QUEUE_COUNT >= 3
       ) {
+        if(expertsToAdd && expertsToAdd.length>=1){
         const nextExpertId = expertsToAdd[0]?.toString();
         const nextAllocatedSubmissionData: ISubmissionHistory = {
           updatedBy: new ObjectId(nextExpertId),
@@ -676,6 +687,7 @@ export class QuestionService extends BaseService {
         session,
       );
     }
+  }
     return true;
   }
 
