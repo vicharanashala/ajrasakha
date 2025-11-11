@@ -379,7 +379,7 @@ export class QuestionRepository implements IQuestionRepository {
               path: 'embedding',
               queryVector: searchEmbedding,
               numCandidates: 500,
-              limit: 100,
+              limit,
             },
           },
           {$match: filter},
@@ -395,7 +395,7 @@ export class QuestionRepository implements IQuestionRepository {
           },
           {$sort: {score: -1}},
           {$skip: (page - 1) * limit},
-          {$limit: 100},
+          {$limit: limit},
         ];
 
         result = await this.QuestionCollection.aggregate(pipeline).toArray();

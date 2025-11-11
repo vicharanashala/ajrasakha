@@ -108,6 +108,7 @@ type QuestionsTableProps = {
   setCurrentPage: (val: number) => void;
   isLoading?: boolean;
   totalPages: number;
+  limit: number;
   userRole?: UserRole;
 };
 type DetailField = keyof NonNullable<IDetailedQuestion["details"]>;
@@ -115,7 +116,7 @@ type DetailField = keyof NonNullable<IDetailedQuestion["details"]>;
 export const QuestionsTable = ({
   items,
   onViewMore,
-  // lastElementRef,
+  limit,
   currentPage,
   setCurrentPage,
   userRole,
@@ -265,6 +266,7 @@ export const QuestionsTable = ({
                   idx={idx}
                   onViewMore={onViewMore}
                   q={q}
+                  limit={limit}
                   setUpdatedData={setUpdatedData}
                   updateQuestion={handleUpdateQuestion}
                   setEditOpen={setEditOpen}
@@ -293,6 +295,7 @@ interface QuestionRowProps {
   q: IDetailedQuestion;
   idx: number;
   currentPage: number;
+  limit: number;
   totalPages: number;
   userRole: UserRole;
   updatingQuestion: boolean;
@@ -318,6 +321,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   idx,
   currentPage,
   totalPages,
+  limit,
   userRole,
   updatingQuestion,
   updateQuestion,
@@ -330,11 +334,6 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   onViewMore,
 }) => {
   const timer = useCountdown(q.createdAt, 4, () => {});
-
-  const serialNumber = useMemo(
-    () => (currentPage - 1) * totalPages + idx + 1,
-    [currentPage, totalPages, idx]
-  );
 
   const priorityBadge = useMemo(() => {
     if (!q.priority)
@@ -387,7 +386,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
     <TableRow key={q._id} className="text-center">
       {/* Serial Number */}
       <TableCell className="align-middle text-center" title={idx.toString()}>
-        {serialNumber}
+        {(currentPage - 1) * limit + idx + 1}
       </TableCell>
 
       {/* Question Text */}
