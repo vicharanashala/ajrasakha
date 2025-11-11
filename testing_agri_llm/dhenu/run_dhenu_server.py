@@ -22,10 +22,12 @@ os.environ["CUDA_MIG_DEVICES"] = "MIG-3c258235-738f-50c8-8173-6977a3c22ca7"
 os.environ["VLLM_USE_MULTIPROCESSING"] = "false"
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+import asyncio
+import json
 from vllm import LLM, SamplingParams
 import uvicorn
 import traceback
@@ -50,7 +52,8 @@ async def lifespan(app: FastAPI):
     
     # Set GPU memory utilization
     gpu_memory_utilization = float(os.environ.get("GPU_MEMORY_UTILIZATION", "0.7"))
-    max_model_len = int(os.environ.get("MAX_MODEL_LEN", "512"))
+    # max_model_len = int(os.environ.get("MAX_MODEL_LEN", "512"))
+    max_model_len = 2048
     print(f"GPU Memory Utilization: {gpu_memory_utilization}")
     print(f"Max Model Length: {max_model_len}")
     print("=" * 60)
@@ -101,7 +104,7 @@ class ChatMessage(BaseModel):
 class ChatCompletionRequest(BaseModel):
     model: str
     messages: List[ChatMessage]
-    max_tokens: Optional[int] = 2048
+    max_tokens: Optional[int] = 512
     temperature: Optional[float] = 0.7
     top_p: Optional[float] = 1.0
     stream: Optional[bool] = False
@@ -109,7 +112,7 @@ class ChatCompletionRequest(BaseModel):
 class CompletionRequest(BaseModel):
     model: str
     prompt: str
-    max_tokens: Optional[int] = 2048
+    max_tokens: Optional[int] = 512
     temperature: Optional[float] = 0.7
     top_p: Optional[float] = 1.0
     stream: Optional[bool] = False
@@ -174,12 +177,59 @@ async def chat_completions(request: ChatCompletionRequest):
         )
         
         if request.stream:
-            # Streaming response
-            def generate():
-                outputs = llm.generate([prompt], sampling_params, use_tqdm=False)
-                generated_text = outputs[0].outputs[0].text
-                yield f"data: {JSONResponse(content={'choices': [{'delta': {'content': generated_text}, 'finish_reason': 'stop'}]})}\n\n"
-            return generate()
+            # Generate once and stream the response in chunks to mimic token streaming
+            outputs = llm.generate([prompt], sampling_params, use_tqdm=False)
+            generated_text = outputs[0].outputs[0].text
+
+            async def token_stream():
+                request_id = "chatcmpl-dhenu2-stream"
+                chunk_size = 20
+                try:
+                    for i in range(0, len(generated_text), chunk_size):
+                        delta_text = generated_text[i : i + chunk_size]
+                        if not delta_text:
+                            continue
+                        chunk = {
+                            "id": request_id,
+                            "object": "chat.completion.chunk",
+                            "choices": [
+                                {
+                                    "index": 0,
+                                    "delta": {"content": delta_text},
+                                    "finish_reason": None,
+                                }
+                            ],
+                            "model": request.model,
+                        }
+                        yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
+                        await asyncio.sleep(0)
+                    finished_chunk = {
+                        "id": request_id,
+                        "object": "chat.completion.chunk",
+                        "choices": [
+                            {
+                                "index": 0,
+                                "delta": {},
+                                "finish_reason": "stop",
+                            }
+                        ],
+                        "model": request.model,
+                    }
+                    yield f"data: {json.dumps(finished_chunk, ensure_ascii=False)}\n\n"
+                finally:
+                    yield "data: [DONE]\n\n"
+                    await asyncio.sleep(0.05)
+
+            return StreamingResponse(
+                token_stream(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-Accel-Buffering": "no",
+                    "Transfer-Encoding": "chunked",
+                },
+            )
         else:
             # Non-streaming response
             outputs = llm.generate([prompt], sampling_params)
@@ -212,7 +262,7 @@ async def chat_completions(request: ChatCompletionRequest):
             }
     except Exception as e:
         error_detail = f"{str(e)}\n\n{traceback.format_exc()}"
-        print(f"Error in chat_completions: {error_detail}")
+        # print(f"Error in chat_completions: {error_detail}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/v1/completions")
@@ -240,12 +290,59 @@ async def completions(request: CompletionRequest):
         )
         
         if request.stream:
-            # Streaming response
-            def generate():
-                outputs = llm.generate([prompt], sampling_params, use_tqdm=False)
-                generated_text = outputs[0].outputs[0].text
-                yield f"data: {JSONResponse(content={'choices': [{'text': generated_text, 'finish_reason': 'stop'}]})}\n\n"
-            return generate()
+            # Generate once and stream the response in chunks to mimic token streaming
+            outputs = llm.generate([prompt], sampling_params, use_tqdm=False)
+            generated_text = outputs[0].outputs[0].text
+
+            async def token_stream():
+                request_id = "cmpl-dhenu2-stream"
+                chunk_size = 20
+                try:
+                    for i in range(0, len(generated_text), chunk_size):
+                        delta_text = generated_text[i : i + chunk_size]
+                        if not delta_text:
+                            continue
+                        chunk = {
+                            "id": request_id,
+                            "object": "text_completion.chunk",
+                            "choices": [
+                                {
+                                    "index": 0,
+                                    "text": delta_text,
+                                    "finish_reason": None,
+                                }
+                            ],
+                            "model": request.model,
+                        }
+                        yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
+                        await asyncio.sleep(0)
+                    finished_chunk = {
+                        "id": request_id,
+                        "object": "text_completion.chunk",
+                        "choices": [
+                            {
+                                "index": 0,
+                                "text": "",
+                                "finish_reason": "stop",
+                            }
+                        ],
+                        "model": request.model,
+                    }
+                    yield f"data: {json.dumps(finished_chunk, ensure_ascii=False)}\n\n"
+                finally:
+                    yield "data: [DONE]\n\n"
+                    await asyncio.sleep(0.05)
+
+            return StreamingResponse(
+                token_stream(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-Accel-Buffering": "no",
+                    "Transfer-Encoding": "chunked",
+                },
+            )
         else:
             # Non-streaming response
             outputs = llm.generate([prompt], sampling_params)

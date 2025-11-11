@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=/home/aic_u2/Shubhankar/Pop
-ExecStart=/bin/bash -lc "source /home/aic_u2/Shubhankar/Pop/open_sourced_agri_llm/llm_env/bin/activate && python /home/aic_u2/Shubhankar/Pop/github_agri_llm/ajrasakha/testing_agri_llm/dhenu/run_dhenu_server.py"
+ExecStart=/bin/bash -lc "/home/aic_u2/Shubhankar/Pop/github_agri_llm/ajrasakha/testing_agri_llm/dhenu/run_dhenu_vllm.sh"
 Restart=always
 RestartSec=10
 StandardOutput=append:/home/aic_u2/Shubhankar/Pop/dhenu.log

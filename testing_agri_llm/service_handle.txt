@@ -1,0 +1,12 @@
+mkdir -p ~/.config/systemd/user
+cp /home/aic_u2/Shubhankar/Pop/github_agri_llm/ajrasakha/testing_agri_llm/agri_param.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable agri_param
+systemctl --user start agri_param
+
+
+
+cp /home/aic_u2/Shubhankar/Pop/github_agri_llm/ajrasakha/testing_agri_llm/dhenu.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable dhenu
+systemctl --user start dhenu
