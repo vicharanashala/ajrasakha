@@ -298,10 +298,10 @@ export default function PreferenceFilter({
                         </div>
                       </SelectItem>
 
-                      <SelectItem value="open">
+                      <SelectItem value="approved">
                         <div className="flex items-center gap-2">
                           <Circle className="w-4 h-4 text-green-500 fill-green-500/20" />
-                          <span>Open</span>
+                          <span>Approved</span>
                         </div>
                       </SelectItem>
 
@@ -312,19 +312,14 @@ export default function PreferenceFilter({
                         </div>
                       </SelectItem>
 
-                      <SelectItem value="delayed">
+                      <SelectItem value="rejected">
                         <div className="flex items-center gap-2">
                           <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                          <span>Delayed</span>
+                          <span>Rejected</span>
                         </div>
                       </SelectItem>
 
-                      <SelectItem value="closed">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-red-500" />
-                          <span>Closed</span>
-                        </div>
-                      </SelectItem>
+                     
               </SelectContent>
             </Select>
           </div>
