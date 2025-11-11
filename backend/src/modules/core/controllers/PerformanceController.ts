@@ -61,7 +61,7 @@ export class PerformanceController {
     
     const currentUserId = user._id.toString();
     const result= await this.performanceService.getCurrentUserWorkLoad(currentUserId)
-    console.log("the service result====",result)
+   // console.log("the service result====",result)
     return result
   }
  
