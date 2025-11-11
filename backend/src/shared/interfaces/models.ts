@@ -72,6 +72,7 @@ export interface IAnswer {
   embedding: number[];
   createdAt?: Date;
   updatedAt?: Date;
+  status?:string
 }
 
 // For transcripts
