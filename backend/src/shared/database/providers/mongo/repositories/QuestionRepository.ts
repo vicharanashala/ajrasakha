@@ -679,6 +679,7 @@ export class QuestionRepository implements IQuestionRepository {
               }
             : null,
           status: h.status,
+          reasonForRejection: h.reasonForRejection,
           approvedAnswer: h.approvedAnswer?.toString(),
           rejectedAnswer: h.rejectedAnswer?.toString(),
         })),
