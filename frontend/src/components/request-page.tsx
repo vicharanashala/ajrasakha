@@ -214,7 +214,7 @@ const RequestCard = ({ req }: { req: IRequest }) => {
                           Request Diff & Review
                         </CardTitle>
                         <div className="text-sm text-muted-foreground flex gap-2">
-                          <span>EntityId: {req?.entityId}</span>
+                          <span>QuestionId: {req?.entityId}</span>
                           <span>RequestId: {req?._id}</span>
                         </div>
                       </div>

@@ -340,10 +340,10 @@ export class QuestionService extends BaseService {
             session,
           );
 
-        if (isQuestionExisit)
-          throw new BadRequestError(
-            `This question already exsist in database, try adding new one!`,
-          );
+        // if (isQuestionExisit)
+        //   throw new BadRequestError(
+        //     `This question already exsist in database, try adding new one!`,
+        //   );
 
         // 1. If context is provided, create context first and get contextId
         let contextId: ObjectId | null = null;

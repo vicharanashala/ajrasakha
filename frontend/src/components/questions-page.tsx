@@ -191,6 +191,7 @@ export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
             currentPage={currentPage}
             setCurrentPage={setCurrentPage}
             userRole={currentUser?.role!}
+            limit={LIMIT}
             // hasMore={hasNextPage}
             // isLoadingMore={isFetchingNextPage}
             // lastElementRef={lastElementRef}
