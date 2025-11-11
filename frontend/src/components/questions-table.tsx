@@ -726,34 +726,36 @@ export const AddOrEditQuestionDialog = ({
                       <SelectItem value="high">High</SelectItem>
                     </SelectContent>
                   </Select>
-                  {userRole !== "expert" && mode == "edit" && (
-                    <>
-                      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                        <CheckCircle className="h-4 w-4" aria-hidden="true" />
-                        <label>Status*</label>
-                      </div>
-                      <Select
-                        value={updatedData?.status || "open"}
-                        onValueChange={(v) =>
-                          setUpdatedData((prev) =>
-                            prev
-                              ? { ...prev, status: v as QuestionStatus }
-                              : prev
-                          )
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select priority" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="open">Open</SelectItem>
-                          <SelectItem value="in-review">In review</SelectItem>
-                          <SelectItem value="delayed">Delayed</SelectItem>
-                          <SelectItem value="closed">Closed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </>
-                  )}
+                  {userRole !== "expert" &&
+                    mode == "edit" &&
+                    question?.status !== "closed" && (
+                      <>
+                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                          <CheckCircle className="h-4 w-4" aria-hidden="true" />
+                          <label>Status*</label>
+                        </div>
+                        <Select
+                          value={updatedData?.status || "open"}
+                          onValueChange={(v) =>
+                            setUpdatedData((prev) =>
+                              prev
+                                ? { ...prev, status: v as QuestionStatus }
+                                : prev
+                            )
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select priority" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="open">Open</SelectItem>
+                            <SelectItem value="in-review">In review</SelectItem>
+                            <SelectItem value="delayed">Delayed</SelectItem>
+                            <SelectItem value="closed">Closed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </>
+                    )}
                   {/* <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                   <Globe className="h-4 w-4" aria-hidden="true" />
                   <label>Source*</label>
