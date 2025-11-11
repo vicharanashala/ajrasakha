@@ -398,7 +398,7 @@ export const PerformanceMatrics = () => {
           ""
         )}
       </div>
-
+{/**
       <div className="space-y-6 p-6  ">
         <div className="flex flex-col  lg:flex-row gap-4 w-full">
           <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
@@ -428,8 +428,7 @@ export const PerformanceMatrics = () => {
             </CardContent>
           </Card>
 
-          {/* Example second card (optional) */}
-          {/* <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">...</Card> */}
+         
         </div>
         {questionData && questionData?.totalCount >= 1 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -441,6 +440,7 @@ export const PerformanceMatrics = () => {
           ""
         )}
       </div>
+    */}
       <div className="space-y-6 p-6  ">
       <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
             <CardHeader>
@@ -449,7 +449,7 @@ export const PerformanceMatrics = () => {
               </CardTitle>
             </CardHeader>
             </Card>
-      <HeatMap heatMapResults={finalizedAnswers?.heatMapResults ?? []} />
+         <HeatMap  />
       </div>
 
      
