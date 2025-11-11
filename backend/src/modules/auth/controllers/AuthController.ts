@@ -105,8 +105,32 @@ export class AuthController {
       },
     );
 
-    const result = await data.json();
+    const result:any = await data.json();
+    if (!result.idToken) throw new Error(result.error?.message || 'Login failed');
 
+    //alternative 
+  //   const decoded = await admin.auth().verifyIdToken(result.idToken);
+
+  // if (!decoded.email_verified) {
+  //   throw new Error('Please verify your email before logging in.');
+  // }
+
+  // 2️⃣ Verify email status
+  const lookup = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${appConfig.firebase.apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken: result.idToken }),
+    }
+  );
+
+  const lookupData:any = await lookup.json();
+  const userInfo = lookupData.users?.[0];
+
+  if (!userInfo?.emailVerified) {
+    throw new Error('Please verify your email before logging in.');
+  }
     return result;
   }
 }

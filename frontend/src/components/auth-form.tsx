@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Button } from "./atoms/button";
 import { Label } from "./atoms/label";
 import { Input } from "./atoms/input";
-import {toast} from "sonner";
+import { toast } from "sonner";
 import { useLoginWithGoogle } from "@/hooks/api/auth/useLoginWithGoogle";
 import { useNavigate } from "@tanstack/react-router";
 import { Check, Eye, EyeOff } from "lucide-react";
@@ -84,7 +84,7 @@ export const AuthForm = ({
 
     if (!formData.email) {
       newErrors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      } else if (!/^[^\s@]+@annam\.ai$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email";
     }
 
@@ -165,7 +165,7 @@ export const AuthForm = ({
             firstName,
             lastName,
           });
-         
+
           result = await loginWithEmail(email, password);
         } catch (e) {
           console.error("signupMutation failed:", e);
@@ -196,7 +196,26 @@ export const AuthForm = ({
       ) {
         toast.error("Incorrect email or password.");
       } else {
-        toast.error("Something went wrong. Please try again.");
+        // toast.error("Something went wrong. Please try again.");
+        let message =
+          error.message || "Something went wrong. Please try again.";
+
+        try {
+          // Look for embedded JSON in error message
+          const match = message.match(/{.*}/);
+          if (match) {
+            const parsed = JSON.parse(match[0]);
+            message = parsed.message || message;
+          }
+
+          // Clean up verbose prefixes like “Signup failed: 500 Internal Server Error - ”
+          message = message.replace(/^.*Internal Server Error - /, "").trim();
+        } catch (e) {
+          // fallback: do nothing
+        }
+
+        console.error(error);
+        toast.error(message);
       }
     } finally {
       setIsLoading(false);
@@ -238,7 +257,8 @@ export const AuthForm = ({
               {mode == "login" && (
                 <>
                   <div className="flex flex-col gap-4">
-                    <Button
+                    {/* {
+                    {<Button
                       variant="outline"
                       className="w-full h-12 border-2 border-green-100 hover:border-green-200  transition-all duration-300 group hover:bg-green/100  text-gray-700 dark:text-gray-300 hover:bg-none"
                       type="button"
@@ -275,14 +295,16 @@ export const AuthForm = ({
                               mode === "login" ? "Continue" : "Sign up"
                             } with Google`}
                       </span>
-                    </Button>
+                    </Button>}
+
+              } */}
                   </div>
 
-                  <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-green-200 dark:after:border-green-800">
+                  {/* <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-green-200 dark:after:border-green-800">
                     <span className="relative z-10 bg-white dark:bg-gray-900 px-4 text-muted-foreground font-medium">
                       Or continue with email
                     </span>
-                  </div>
+                  </div> */}
                 </>
               )}
               <div

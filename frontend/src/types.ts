@@ -275,6 +275,7 @@ export interface ISubmissionHistory {
   status: 'reviewed' | 'in-review' | 'approved' | 'rejected';
   approvedAnswer: string,
   rejectedAnswer: string
+  reasonForRejection: string;
 }
 
 export interface ISubmission {

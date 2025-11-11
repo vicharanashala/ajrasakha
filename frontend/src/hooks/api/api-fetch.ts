@@ -1,4 +1,5 @@
 import { auth } from "@/config/firebase";
+import { useAuthStore } from "@/stores/auth-store";
 import { getIdToken, type User } from "firebase/auth";
 
 export const getCurrentUser = (): Promise<User | null> => {
@@ -40,6 +41,13 @@ export const apiFetch = async <T>(
   const res = await fetch(url, { ...options, headers });
 
   if (!res.ok) {
+    if (res.status === 401) {
+      console.warn("Unauthorized request, clearing user and redirecting to login");
+      const { clearUser } = useAuthStore.getState();
+      clearUser();
+      window.location.href = "/auth";
+      return null; // Prevent further processing
+    }
     let errorMessage = `Request failed with status ${res.status}`;
 
     try {

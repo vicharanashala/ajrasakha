@@ -160,7 +160,6 @@ export class AnswerRepository implements IAnswerRepository {
       const skip = (page - 1) * limit;
       const user = await this.usersCollection.findOne({_id: new ObjectId(userId)})
       const role = user.role
-      console.log("role ",role,userId)
       if(role ==='moderator'){
         const submissions = await this.AnswerCollection.aggregate([
           {$match:{approvedBy:new ObjectId(userId)}},

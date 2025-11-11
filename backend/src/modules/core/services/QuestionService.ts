@@ -342,10 +342,10 @@ export class QuestionService extends BaseService {
             session,
           );
 
-        if (isQuestionExisit)
-          throw new BadRequestError(
-            `This question already exsist in database, try adding new one!`,
-          );
+        // if (isQuestionExisit)
+        //   throw new BadRequestError(
+        //     `This question already exsist in database, try adding new one!`,
+        //   );
 
         // 1. If context is provided, create context first and get contextId
         let contextId: ObjectId | null = null;
@@ -383,7 +383,10 @@ export class QuestionService extends BaseService {
           updatedAt: new Date(),
         };
         // 4. Save Question to DB
-        const savedQuestion = await this.questionRepo.addQuestion(newQuestion);
+        const savedQuestion = await this.questionRepo.addQuestion(
+          newQuestion,
+          session,
+        );
 
         // 5. Fetch userId based on provided preference and create queue
         // i) Find users matching the preference
@@ -417,25 +420,27 @@ export class QuestionService extends BaseService {
           updatedAt: new Date(),
         };
 
-        //send notification to the first assigned expert
-        let message = `A Question has been assigned for answering`;
-        let title = 'Answer Creation Assigned';
-        let entityId = savedQuestion._id.toString();
-        const user = intialUsersToAllocate[0]._id.toString();
-        const type = 'answer_creation';
-        await this.notificationService.saveTheNotifications(
-          message,
-          title,
-          entityId,
-          user,
-          type,
-        );
         // 6. Save QuestionSubmission to DB
         await this.questionSubmissionRepo.addSubmission(
           submissionData,
           session,
         );
 
+        //send notification to the first assigned expert
+        if (intialUsersToAllocate[0]) {
+          let message = `A Question has been assigned for answering`;
+          let title = 'Answer Creation Assigned';
+          let entityId = savedQuestion._id.toString();
+          const user = intialUsersToAllocate[0]._id.toString();
+          const type = 'answer_creation';
+          await this.notificationService.saveTheNotifications(
+            message,
+            title,
+            entityId,
+            user,
+            type,
+          );
+        }
         // 7. Return the saved question
         return newQuestion;
       });

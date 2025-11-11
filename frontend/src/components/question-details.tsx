@@ -68,6 +68,7 @@ import {
   UserPlus,
   Users,
   X,
+  XCircle,
 } from "lucide-react";
 import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
 import { useGetComments } from "@/hooks/api/comment/useGetComments";
@@ -318,7 +319,7 @@ export const QuestionDetails = ({
           </>
         )}
 
-        {currentUser.role !== "expert" && (
+        {currentUser.role !== "expert" && (context || metrics) && (
           <Button
             variant="ghost"
             size="sm"
@@ -1238,7 +1239,8 @@ export const AnswerTimeline = ({
     );
 
     return {
-      firstAnswerId: answers[0]?._id,
+      lastAnswerId: answers[0]?._id, // first one will be the last one
+      firstAnswerId: answers[answers?.length - 1]?._id, // last one will be the first one
       answer: ans,
       submission,
       createdAt: new Date(ans.createdAt || "").toLocaleString(),
@@ -1257,6 +1259,11 @@ export const AnswerTimeline = ({
                 <span className="font-medium">By:</span>{" "}
                 {item.submission.updatedBy.name} (
                 {item.submission.updatedBy.email})
+                {item.firstAnswerId === item.submission.answer._id && (
+                  <span className="ml-2 px-2 py-0.5 text-[10px] rounded-full bg-blue-100 text-blue-700 font-semibold">
+                    Author
+                  </span>
+                )}
               </div>
             )}
 
@@ -1269,6 +1276,7 @@ export const AnswerTimeline = ({
           <div className="flex-1 mb-5">
             <AnswerItem
               answer={item.answer}
+              lastAnswerId={item.lastAnswerId}
               firstAnswerId={item.firstAnswerId}
               submissionData={item.submission}
               currentUserId={currentUserId}
@@ -1289,6 +1297,7 @@ interface AnswerItemProps {
   currentUserId: string;
   submissionData?: ISubmissionHistory;
   questionId: string;
+  lastAnswerId: string;
   firstAnswerId: string;
   userRole: UserRole;
   questionStatus: QuestionStatus;
@@ -1383,7 +1392,371 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     [isFetchingNextPage, fetchNextPage, hasNextPage]
   );
 
+  const isRejected =
+    props.submissionData && props.submissionData.status === "rejected";
+
   return (
+    // <Card className="p-6 grid gap-4">
+    //   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
+    //     <div className="flex items-center gap-2">
+    //       <span className="font-medium text-foreground">
+    //         Iteration {props.answer.answerIteration}
+    //       </span>
+    //       {props.answer.isFinalAnswer && (
+    //         <Badge
+    //           variant="outline"
+    //           className="text-green-600 border-green-600"
+    //         >
+    //           Final
+    //         </Badge>
+    //       )}
+    //       {isMine && <UserCheck className="w-4 h-4 text-blue-600 ml-1" />}
+    //     </div>
+    //     <div className="flex items-center justify-center gap-2">
+    //       {props.userRole !== "expert" &&
+    //         props.questionStatus === "in-review" &&
+    //         props.lastAnswerId === props.answer?._id && (
+    //           <Dialog open={editOpen} onOpenChange={setEditOpen}>
+    //             <DialogTrigger asChild>
+    //               <button className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2 rounded">
+    //                 <CheckCircle2 className="h-4 w-4" />
+    //                 Approve Answer
+    //               </button>
+    //             </DialogTrigger>
+
+    //             <DialogContent
+    //               className="w-[90vw] max-w-6xl max-h-[85vh] flex flex-col"
+    //               style={{ maxWidth: "70vw" }}
+    //             >
+    //               <DialogHeader>
+    //                 <DialogTitle className="text-lg font-semibold">
+    //                   Approve Answer
+    //                 </DialogTitle>
+    //               </DialogHeader>
+
+    //               <div className="mt-4">
+    //                 <Textarea
+    //                   value={editableAnswer}
+    //                   placeholder="Update answer here..."
+    //                   onChange={(e) => setEditableAnswer(e.target.value)}
+    //                   className="min-h-[150px] resize-none border border-border bg-background"
+    //                 />
+    //               </div>
+    //               <div
+    //                 className="mt-4 p-4 rounded-md border bg-yellow-50 border-yellow-300 text-yellow-900 text-sm
+    //             dark:bg-yellow-900/20 dark:border-yellow-700/60 dark:text-yellow-200"
+    //               >
+    //                 ⚠️ You are about to approve a <strong> answer</strong>.
+    //                 Please review your changes carefully before saving to avoid
+    //                 mistakes.
+    //               </div>
+
+    //               <div className="mt-6 flex justify-end gap-3">
+    //                 <Button
+    //                   variant="outline"
+    //                   onClick={() => setEditOpen(false)}
+    //                 >
+    //                   Cancel
+    //                 </Button>
+    //                 <Button
+    //                   onClick={handleUpdateAnswer}
+    //                   className="bg-primary text-primary-foreground flex items-center gap-2"
+    //                   disabled={isUpdatingAnswer}
+    //                 >
+    //                   {isUpdatingAnswer ? (
+    //                     <>
+    //                       <Loader2 className="w-4 h-4 animate-spin" />
+    //                       Saving...
+    //                     </>
+    //                   ) : (
+    //                     "Save & finalize"
+    //                   )}
+    //                 </Button>
+    //               </div>
+    //             </DialogContent>
+    //           </Dialog>
+    //         )}
+    //       {props.answer?.approvalCount !== undefined &&
+    //         props.answer?.approvalCount > 0 && (
+    //           <p>Approval count: {props.answer.approvalCount}</p>
+    //         )}
+    //       <Dialog>
+    //         <DialogTrigger asChild>
+    //           <Button variant="outline" size="sm" className="w-full sm:w-auto ">
+    //             <Eye className="w-4 h-4 mr-2" />
+    //             View More
+    //           </Button>
+    //         </DialogTrigger>
+    //         <DialogContent
+    //           className="w-[90vw] max-w-6xl h-[85vh] flex flex-col"
+    //           style={{ maxWidth: "70vw" }}
+    //         >
+    //           <DialogHeader className="pb-4 border-b">
+    //             <DialogTitle className="text-xl font-semibold">
+    //               Answer Details
+    //             </DialogTitle>
+    //           </DialogHeader>
+
+    //           <ScrollArea className="flex-1 h-[85vh] ">
+    //             <div className="space-y-6 p-4">
+    //               <div className="grid gap-4 text-sm ">
+    //                 <div className="flex flex-col sm:flex-row justify-between gap-3">
+    //                   <div className="flex items-center gap-4">
+    //                     <span className="font-medium">
+    //                       Iteration:{" "}
+    //                       <span className="text-foreground font-normal">
+    //                         {props.answer.answerIteration}
+    //                       </span>
+    //                     </span>
+
+    //                     <Badge
+    //                       variant={
+    //                         props.answer.isFinalAnswer ? "default" : "secondary"
+    //                       }
+    //                       className={
+    //                         props.answer.isFinalAnswer
+    //                           ? "bg-green-100 text-green-800 hover:bg-green-100"
+    //                           : ""
+    //                       }
+    //                     >
+    //                       {props.answer.isFinalAnswer
+    //                         ? "Final Answer"
+    //                         : "Draft"}
+    //                     </Badge>
+    //                   </div>
+
+    //                   <div className="flex flex-col text-muted-foreground text-xs">
+    //                     <span>
+    //                       Submitted At:{" "}
+    //                       {new Date(
+    //                         props.answer.createdAt || ""
+    //                       ).toLocaleString()}
+    //                     </span>
+    //                   </div>
+    //                 </div>
+
+    //                 {props.submissionData?.updatedBy && (
+    //                   <div className="rounded-lg border bg-muted/50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+    //                     <div className="flex items-center gap-2">
+    //                       <p className="text-sm font-medium text-foreground">
+    //                         Submitted By:{" "}
+    //                         <span className="text-sm text-muted-foreground">
+    //                           {props.submissionData.updatedBy.name} (
+    //                           {props.submissionData.updatedBy.email})
+    //                         </span>
+    //                       </p>
+
+    //                       {props.answer.threshold > 0 && (
+    //                         <Badge
+    //                           variant="outline"
+    //                           className="text-foreground border border-muted-foreground w-fit flex items-center gap-1"
+    //                         >
+    //                           <span className="font-medium">Correctness:</span>
+    //                           <span>
+    //                             {Math.round(props.answer.threshold * 100)}%
+    //                           </span>
+    //                         </Badge>
+    //                       )}
+    //                     </div>
+    //                   </div>
+    //                 )}
+    //               </div>
+
+    //               <div>
+    //                 <p className="text-sm font-medium text-foreground mb-3">
+    //                   Answer Content
+    //                 </p>
+    //                 <div className="rounded-lg border bg-muted/30 h-[40vh]  ">
+    //                   <ScrollArea className="h-full">
+    //                     <div className="p-4">
+    //                       <p className="whitespace-pre-wrap leading-relaxed text-foreground">
+    //                         {props.answer.answer}
+    //                       </p>
+    //                     </div>
+    //                   </ScrollArea>
+    //                 </div>
+    //               </div>
+
+    //               {props.answer.sources?.length > 0 && (
+    //                 <div>
+    //                   <p className="text-sm font-medium text-foreground mb-3">
+    //                     Source URLs
+    //                   </p>
+
+    //                   <div className="space-y-2">
+    //                     {props.answer.sources.map((source, idx) => (
+    //                       <div
+    //                         key={idx}
+    //                         className="flex items-center justify-between rounded-lg border bg-muted/30 p-2 pr-3"
+    //                       >
+    //                         <div className="flex items-center gap-2 min-w-0">
+    //                           <Tooltip>
+    //                             <TooltipTrigger asChild>
+    //                               <span
+    //                                 className="text-sm truncate max-w-[260px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+    //                                 onClick={() =>
+    //                                   window.open(source.source, "_blank")
+    //                                 }
+    //                               >
+    //                                 {source.source}
+    //                               </span>
+    //                             </TooltipTrigger>
+    //                             <TooltipContent>{source.source}</TooltipContent>
+    //                           </Tooltip>
+
+    //                           {source.page && (
+    //                             <>
+    //                               <span className="text-muted-foreground">
+    //                                 •
+    //                               </span>
+    //                               <span className="text-xs text-muted-foreground">
+    //                                 page {source.page}
+    //                               </span>
+    //                             </>
+    //                           )}
+    //                         </div>
+    //                         <a
+    //                           href={source.source}
+    //                           target="_blank"
+    //                           rel="noopener noreferrer"
+    //                           className="p-1 rounded hover:bg-muted/20 dark:hover:bg-muted/50 transition-colors"
+    //                         >
+    //                           <ArrowUpRight className="w-4 h-4 text-foreground/80" />
+    //                         </a>
+    //                       </div>
+    //                     ))}
+    //                   </div>
+    //                 </div>
+    //               )}
+    //             </div>
+    //           </ScrollArea>
+    //         </DialogContent>
+    //       </Dialog>
+    //     </div>
+    //   </div>
+    //   {isRejected &&
+    //     props.submissionData &&
+    //     props.submissionData.reasonForRejection && (
+    //       <div className="rounded-lg border border-rejected bg-rejected-bg p-4">
+    //         <div className="flex items-start gap-3">
+    //           <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-700 mt-0.5 flex-shrink-0" />
+    //           <div className="flex-1 space-y-1">
+    //             <p className="text-sm font-semibold text-red-500 dark:text-red-700">
+    //               This answer was rejected
+    //             </p>
+    //             <p className="text-sm text-muted-foreground leading-relaxed">
+    //               {props.submissionData &&
+    //                 props.submissionData.reasonForRejection}
+    //             </p>
+    //           </div>
+    //         </div>
+    //       </div>
+    //     )}
+    //   <div className="rounded-lg border bg-card p-4">
+    //     <p className="whitespace-pre-wrap leading-relaxed line-clamp-4 text-card-foreground px-5">
+    //       {props.answer.answer}
+    //     </p>
+    //   </div>
+
+    //   <div className="w-full sm:w-auto">
+    //     <Accordion type="single" collapsible className="w-full">
+    //       <AccordionItem value="comments" className="border-none">
+    //         <AccordionTrigger className="flex items-center gap-2 text-sm font-medium p-3 hover:no-underline hover:bg-muted/50 rounded-lg w-full sm:w-auto justify-between shadow-md shadow-gray-400/30 dark:shadow-gray-900/50">
+    //           <div className="flex items-center gap-2">
+    //             <MessageSquare className="h-4 w-4 text-muted-foreground" />
+    //             <span>Comments</span>
+    //             {comments?.length > 0 && (
+    //               <Badge
+    //                 variant="secondary"
+    //                 className="h-5 w-5 p-0 flex items-center justify-center text-xs"
+    //               >
+    //                 {comments?.length}
+    //               </Badge>
+    //             )}
+    //           </div>
+    //         </AccordionTrigger>
+
+    //         <AccordionContent className="p-4">
+    //           <div className="space-y-4">
+    //             {isLoadingComments ? (
+    //               <div className="flex justify-center items-center py-4">
+    //                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+    //               </div>
+    //             ) : comments?.length === 0 ? (
+    //               <p className="text-sm text-muted-foreground text-center py-4">
+    //                 {isMine
+    //                   ? "You haven't received any comments on your answer yet."
+    //                   : "No comments yet. Be the first to add one!"}
+    //               </p>
+    //             ) : (
+    //               <ScrollArea className="h-[40vh]">
+    //                 <div className="space-y-3 p-2">
+    //                   {comments?.map((c, idx) => {
+    //                     const isLast = idx === comments.length - 1;
+    //                     return (
+    //                       <div
+    //                         key={c._id}
+    //                         ref={isLast ? lastCommentRef : null}
+    //                         className={`rounded-lg border bg-muted/30 p-3 ${
+    //                           idx % 2 === 0 ? "bg-secondary/80" : ""
+    //                         }`}
+    //                       >
+    //                         <div className="flex items-center justify-between mb-1">
+    //                           <span className="text-sm  text-muted-foreground">
+    //                             {c.userName || "Unknown User"}
+    //                           </span>
+    //                           <span className="text-xs text-muted-foreground">
+    //                             {formatDate(new Date(c.createdAt))}
+    //                           </span>
+    //                         </div>
+    //                         <p className="text-sm ms-2 text-foreground leading-relaxed">
+    //                           {c.text}
+    //                         </p>
+    //                       </div>
+    //                     );
+    //                   })}
+    //                   {isFetchingNextPage && (
+    //                     <div className="text-center text-sm text-muted-foreground py-2">
+    //                       Loading more...
+    //                     </div>
+    //                   )}
+    //                 </div>
+    //               </ScrollArea>
+    //             )}
+    //             {!isMine && (
+    //               <div className="space-y-3 border-t-2 pt-3">
+    //                 <Textarea
+    //                   placeholder="Add your comment here..."
+    //                   value={comment}
+    //                   onChange={(e) => setComment(e.target.value)}
+    //                   rows={3}
+    //                   className="resize-none h-[8vh] md:h-[20vh]"
+    //                 />
+    //                 <div className="flex justify-end">
+    //                   <Button
+    //                     onClick={submitComment}
+    //                     size="sm"
+    //                     className="md:p-2 flex items-center justify-center gap-1"
+    //                     disabled={!comment.trim() || isAddingComment}
+    //                   >
+    //                     {isAddingComment ? (
+    //                       <>
+    //                         <Loader2 className="w-4 h-4 animate-spin" />
+    //                         Submitting...
+    //                       </>
+    //                     ) : (
+    //                       "Submit"
+    //                     )}
+    //                   </Button>
+    //                 </div>
+    //               </div>
+    //             )}
+    //           </div>
+    //         </AccordionContent>
+    //       </AccordionItem>
+    //     </Accordion>
+    //   </div>
+    // </Card>
     <Card className="p-6 grid gap-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
         <div className="flex items-center gap-2">
@@ -1398,12 +1771,30 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
               Final
             </Badge>
           )}
+          {isRejected && (
+            <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
+              <XCircle className="w-3 h-3 mr-1" />
+              Rejected
+            </Badge>
+          )}
+          {!isRejected && props.questionStatus !== "in-review" && (
+            <Badge
+              className="
+      bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100
+      dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 dark:hover:bg-amber-900
+    "
+            >
+              <Clock className="w-3 h-3 mr-1 opacity-80" />
+              In Review
+            </Badge>
+          )}
+
           {isMine && <UserCheck className="w-4 h-4 text-blue-600 ml-1" />}
         </div>
         <div className="flex items-center justify-center gap-2">
           {props.userRole !== "expert" &&
             props.questionStatus === "in-review" &&
-            props.firstAnswerId === props.answer?._id && (
+            props.lastAnswerId === props.answer?._id && (
               <Dialog open={editOpen} onOpenChange={setEditOpen}>
                 <DialogTrigger asChild>
                   <button className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2 rounded">
@@ -1464,9 +1855,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                 </DialogContent>
               </Dialog>
             )}
-          {props.answer?.approvalCount !== undefined && (
-            <p>Approval count: {props.answer.approvalCount}</p>
-          )}
+          {props.answer?.approvalCount !== undefined &&
+            props.answer?.approvalCount > 0 && (
+              <p>Approval count: {props.answer.approvalCount}</p>
+            )}
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" className="w-full sm:w-auto ">
@@ -1496,7 +1888,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                           </span>
                         </span>
 
-                        <Badge
+                        {/* <Badge
                           variant={
                             props.answer.isFinalAnswer ? "default" : "secondary"
                           }
@@ -1509,7 +1901,26 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                           {props.answer.isFinalAnswer
                             ? "Final Answer"
                             : "Draft"}
-                        </Badge>
+                        </Badge> */}
+
+                        {isRejected && (
+                          <Badge className="bg-rejected text-red-500 dark:text-red-700">
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Rejected
+                          </Badge>
+                        )}
+                        {!isRejected &&
+                          props.questionStatus !== "in-review" && (
+                            <Badge
+                              className="
+      bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100
+      dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 dark:hover:bg-amber-900
+    "
+                            >
+                              <Clock className="w-3 h-3 mr-1 opacity-80" />
+                              In Review
+                            </Badge>
+                          )}
                       </div>
 
                       <div className="flex flex-col text-muted-foreground text-xs">
@@ -1549,14 +1960,33 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                     )}
                   </div>
 
+                  {isRejected &&
+                    props.submissionData &&
+                    props.submissionData.reasonForRejection && (
+                      <div className="rounded-lg border border-rejected bg-rejected-bg p-4">
+                        <div className="flex items-start gap-3">
+                          <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-700 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 space-y-2">
+                            <p className="text-sm font-semibold text-red-500 dark:text-red-700">
+                              Rejection Reason
+                            </p>
+                            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                              {props.submissionData &&
+                                props.submissionData.reasonForRejection}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                   <div>
                     <p className="text-sm font-medium text-foreground mb-3">
                       Answer Content
                     </p>
-                    <div className="rounded-lg border bg-muted/30 h-[40vh]  ">
+                    <div className="rounded-lg border bg-muted/30 h-[30vh]  ">
                       <ScrollArea className="h-full">
                         <div className="p-4">
-                          <p className="whitespace-pre-wrap leading-relaxed text-foreground">
+                          <p className=" text-foreground">
                             {props.answer.answer}
                           </p>
                         </div>
@@ -1622,6 +2052,25 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         </div>
       </div>
 
+      {/* {isRejected &&
+        props.submissionData &&
+        props.submissionData.reasonForRejection && (
+          <div className="rounded-lg border border-rejected bg-rejected-bg p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-700 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 space-y-1">
+                <p className="text-sm font-semibold text-red-500 dark:text-red-700">
+                  This answer was rejected
+                </p>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {props.submissionData &&
+                    props.submissionData.reasonForRejection}
+                </p>
+              </div>
+            </div>
+          </div>
+        )} */}
+
       <div className="rounded-lg border bg-card p-4">
         <p className="whitespace-pre-wrap leading-relaxed line-clamp-4 text-card-foreground px-5">
           {props.answer.answer}
@@ -1662,7 +2111,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                   <ScrollArea className="h-[40vh]">
                     <div className="space-y-3 p-2">
                       {comments?.map((c, idx) => {
-                        const isLast = idx === comments.length - 1;
+                        const isLast = idx === comments!.length - 1;
                         return (
                           <div
                             key={c._id}
