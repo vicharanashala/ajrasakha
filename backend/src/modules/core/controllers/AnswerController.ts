@@ -85,19 +85,20 @@ export class AnswerController {
   @ResponseSchema(SubmissionResponse, {isArray: true})
   @OpenAPI({summary: 'Get all FinalizedAnswers'})
   async getfinalAnswerQuestions(
-    @QueryParams() query: {userId,date},
+    @QueryParams() query: {userId,date,status},
     @CurrentUser() user: IUser,
   ): Promise<{
     finalizedSubmissions: any[],
-    currentUserAnswers: any[],
-    totalQuestionsCount: number
+    
+   
   }>  {
    
     const userId = query?.userId || "all";
     const date=query?.date || "all";
+    const status=query?.status || "all";
     const currentUserId = user._id.toString(); // Default to "all" if not passed
   
-    return this.answerService.getFinalAnswerQuestions(userId,currentUserId,date);
+    return this.answerService.getFinalAnswerQuestions(userId,currentUserId,date,status);
   }
 
   @OpenAPI({summary: 'Update an existing answer'})

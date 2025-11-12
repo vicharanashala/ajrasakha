@@ -49,8 +49,9 @@ export class QuestionRepository implements IQuestionRepository {
   private async init() {
     this.ContextCollection = await this.db.getCollection<IContext>('contexts');
 
-    this.QuestionCollection =
-      await this.db.getCollection<IQuestion>('questions');
+    this.QuestionCollection = await this.db.getCollection<IQuestion>(
+      'questions',
+    );
     this.QuestionSubmissionCollection =
       await this.db.getCollection<IQuestionSubmission>('question_submissions');
     this.UsersCollection = await this.db.getCollection<IUser>('users');
@@ -346,7 +347,12 @@ export class QuestionRepository implements IQuestionRepository {
       let totalCount = 0;
       let result = [];
 
-      if (searchEmbedding && searchEmbedding.length > 0) {
+      const isSearchTermObjectId = isValidObjectId(search);
+      if (
+        !isSearchTermObjectId &&
+        searchEmbedding &&
+        searchEmbedding.length > 0
+      ) {
         const countPipeline = [
           {
             $vectorSearch: {
@@ -361,8 +367,9 @@ export class QuestionRepository implements IQuestionRepository {
           {$count: 'count'},
         ];
 
-        const countResult =
-          await this.QuestionCollection.aggregate(countPipeline).toArray();
+        const countResult = await this.QuestionCollection.aggregate(
+          countPipeline,
+        ).toArray();
         totalCount = countResult[0]?.count ?? 0;
 
         const totalPages = Math.ceil(totalCount / limit);
@@ -379,7 +386,7 @@ export class QuestionRepository implements IQuestionRepository {
               path: 'embedding',
               queryVector: searchEmbedding,
               numCandidates: 500,
-              limit: 100,
+              limit,
             },
           },
           {$match: filter},
@@ -395,7 +402,7 @@ export class QuestionRepository implements IQuestionRepository {
           },
           {$sort: {score: -1}},
           {$skip: (page - 1) * limit},
-          {$limit: 100},
+          {$limit: limit},
         ];
 
         result = await this.QuestionCollection.aggregate(pipeline).toArray();
@@ -411,6 +418,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       if (search && search.trim() !== '') {
         filter.$or = [
+          {_id: {$regex: search, $options: 'i'}},
           {question: {$regex: search, $options: 'i'}},
           {'details.crop': {$regex: search, $options: 'i'}},
           {'details.state': {$regex: search, $options: 'i'}},
@@ -554,7 +562,7 @@ export class QuestionRepository implements IQuestionRepository {
         },
       });
 
-      pipeline.push({$sort: {priorityOrder: 1}});
+      pipeline.push({$sort: {priorityOrder: 1, createdAt: 1, _id: 1}});
 
       pipeline.push({$skip: skip});
       pipeline.push({$limit: limit});
@@ -679,6 +687,7 @@ export class QuestionRepository implements IQuestionRepository {
               }
             : null,
           status: h.status,
+          reasonForRejection: h.reasonForRejection,
           approvedAnswer: h.approvedAnswer?.toString(),
           rejectedAnswer: h.rejectedAnswer?.toString(),
         })),

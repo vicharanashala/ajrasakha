@@ -72,6 +72,7 @@ export interface IAnswer {
   embedding: number[];
   createdAt?: Date;
   updatedAt?: Date;
+  status?:string
 }
 
 // For transcripts
@@ -163,4 +164,9 @@ export interface ISubscription {
       auth: string;
     };
   };
+}
+export interface IReviewerHeatmapRow {
+  reviewerId: string;
+  reviewerName: string;
+  counts: Record<string, number>;
 }

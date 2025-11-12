@@ -108,6 +108,7 @@ type QuestionsTableProps = {
   setCurrentPage: (val: number) => void;
   isLoading?: boolean;
   totalPages: number;
+  limit: number;
   userRole?: UserRole;
 };
 type DetailField = keyof NonNullable<IDetailedQuestion["details"]>;
@@ -115,7 +116,7 @@ type DetailField = keyof NonNullable<IDetailedQuestion["details"]>;
 export const QuestionsTable = ({
   items,
   onViewMore,
-  // lastElementRef,
+  limit,
   currentPage,
   setCurrentPage,
   userRole,
@@ -265,6 +266,7 @@ export const QuestionsTable = ({
                   idx={idx}
                   onViewMore={onViewMore}
                   q={q}
+                  limit={limit}
                   setUpdatedData={setUpdatedData}
                   updateQuestion={handleUpdateQuestion}
                   setEditOpen={setEditOpen}
@@ -293,6 +295,7 @@ interface QuestionRowProps {
   q: IDetailedQuestion;
   idx: number;
   currentPage: number;
+  limit: number;
   totalPages: number;
   userRole: UserRole;
   updatingQuestion: boolean;
@@ -317,12 +320,10 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   q,
   idx,
   currentPage,
-  totalPages,
+  limit,
   userRole,
   updatingQuestion,
-  updateQuestion,
   deletingQuestion,
-  setUpdatedData,
   setEditOpen,
   setSelectedQuestion,
   setQuestionIdToDelete,
@@ -330,11 +331,6 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   onViewMore,
 }) => {
   const timer = useCountdown(q.createdAt, 4, () => {});
-
-  const serialNumber = useMemo(
-    () => (currentPage - 1) * totalPages + idx + 1,
-    [currentPage, totalPages, idx]
-  );
 
   const priorityBadge = useMemo(() => {
     if (!q.priority)
@@ -387,7 +383,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
     <TableRow key={q._id} className="text-center">
       {/* Serial Number */}
       <TableCell className="align-middle text-center" title={idx.toString()}>
-        {serialNumber}
+        {(currentPage - 1) * limit + idx + 1}
       </TableCell>
 
       {/* Question Text */}
@@ -730,34 +726,36 @@ export const AddOrEditQuestionDialog = ({
                       <SelectItem value="high">High</SelectItem>
                     </SelectContent>
                   </Select>
-                  {userRole !== "expert" && mode == "edit" && (
-                    <>
-                      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                        <CheckCircle className="h-4 w-4" aria-hidden="true" />
-                        <label>Status*</label>
-                      </div>
-                      <Select
-                        value={updatedData?.status || "open"}
-                        onValueChange={(v) =>
-                          setUpdatedData((prev) =>
-                            prev
-                              ? { ...prev, status: v as QuestionStatus }
-                              : prev
-                          )
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select priority" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="open">Open</SelectItem>
-                          <SelectItem value="in-review">In review</SelectItem>
-                          <SelectItem value="delayed">Delayed</SelectItem>
-                          <SelectItem value="closed">Closed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </>
-                  )}
+                  {userRole !== "expert" &&
+                    mode == "edit" &&
+                    question?.status !== "closed" && (
+                      <>
+                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                          <CheckCircle className="h-4 w-4" aria-hidden="true" />
+                          <label>Status*</label>
+                        </div>
+                        <Select
+                          value={updatedData?.status || "open"}
+                          onValueChange={(v) =>
+                            setUpdatedData((prev) =>
+                              prev
+                                ? { ...prev, status: v as QuestionStatus }
+                                : prev
+                            )
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select priority" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="open">Open</SelectItem>
+                            <SelectItem value="in-review">In review</SelectItem>
+                            <SelectItem value="delayed">Delayed</SelectItem>
+                            <SelectItem value="closed">Closed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </>
+                    )}
                   {/* <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                   <Globe className="h-4 w-4" aria-hidden="true" />
                   <label>Source*</label>

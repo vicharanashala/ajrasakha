@@ -181,7 +181,7 @@ export const QAInterface = () => {
     useReviewAnswer();
 
   useEffect(() => {
-    if (questions.length > 0) {
+    if (questions.length > 0 && !selectedQuestion) {
       const firstQuestionId = questions[0]?.id ? questions[0]?.id : null;
       setSelectedQuestion(firstQuestionId);
     }
@@ -968,6 +968,7 @@ export const QuestionDetailsDialog = ({
     createdAt,
     updatedAt,
     details,
+    status,
   } = question;
 
   // const created = createdAt ? new Date(createdAt).toLocaleString() : "-";
@@ -1033,7 +1034,7 @@ export const QuestionDetailsDialog = ({
                       <FileText className="w-3 h-3 text-primary" /> Status
                     </div>
                   }
-                  value="Open"
+                  value={status}
                 />
                 <Option
                   label={
@@ -1418,7 +1419,7 @@ export const ResponseTimeline = ({
                             p-2 border border-border/50 rounded-md 
                             hover:bg-muted/40 transition-colors duration-200"
                                               >
-                                                <button
+                                                {/* <button
                                                   onClick={() =>
                                                     handleOpenUrl(source.source)
                                                   }
@@ -1437,7 +1438,28 @@ export const ResponseTimeline = ({
                                                       </span>
                                                     </>
                                                   )}
-                                                </button>
+                                                </button> */}
+                                                <a
+                                                  href={source.source}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="text-blue-600 dark:text-blue-400 break-all inline-flex items-center gap-2 text-left"
+                                                >
+                                                  <span className="hover:underline">
+                                                    {source.source}
+                                                  </span>
+
+                                                  {source.page && (
+                                                    <>
+                                                      <span className="text-muted-foreground">
+                                                        •
+                                                      </span>
+                                                      <span className="text-xs text-muted-foreground">
+                                                        page {source.page}
+                                                      </span>
+                                                    </>
+                                                  )}
+                                                </a>
                                                 <button
                                                   onClick={() =>
                                                     handleCopy(
@@ -1501,23 +1523,49 @@ export const ResponseTimeline = ({
                                 onConfirm={handleAccept}
                                 trigger={
                                   <Button
+                                    disabled={isSubmittingAnswer}
                                     size="sm"
                                     className="flex items-center gap-1"
                                   >
-                                    <CheckCircle className="w-4 h-4" />
-                                    Accept
+                                    {isSubmittingAnswer &&
+                                    !rejectionReason &&
+                                    !isRejectionSubmitted &&
+                                    sources.length <= 0 ? (
+                                      <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Accepting...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <CheckCircle className="w-4 h-4" />
+                                        Accept
+                                      </>
+                                    )}
                                   </Button>
                                 }
                               />
 
                               <Button
                                 size="sm"
+                                disabled={isSubmittingAnswer}
                                 variant="destructive"
                                 className="flex items-center gap-1"
                                 onClick={() => setIsRejectDialogOpen(true)}
                               >
-                                <XCircle className="w-4 h-4" />
-                                Reject
+                                {isSubmittingAnswer &&
+                                rejectionReason &&
+                                isRejectionSubmitted &&
+                                sources.length >= 0 ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Rejecting...
+                                  </>
+                                ) : (
+                                  <>
+                                    <XCircle className="w-4 h-4" />
+                                    Reject
+                                  </>
+                                )}
                               </Button>
                             </div>
                           )}
