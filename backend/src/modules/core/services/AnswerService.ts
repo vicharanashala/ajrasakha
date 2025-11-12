@@ -74,6 +74,7 @@ export class AnswerService extends BaseService {
     answer: string,
     sources: SourceItem[],
     session?: ClientSession,
+    status?:string
   ): Promise<{insertedId: string; isFinalAnswer: boolean}> {
     const execute = async (activeSession: ClientSession) => {
       const question = await this.questionRepo.getById(
@@ -133,7 +134,6 @@ export class AnswerService extends BaseService {
       // analysisStatus = analysis.status;
 
       // if (analysisStatus === 'CONVERGED') isFinalAnswer = true;
-
       if (isFinalAnswer) {
         const text = `Question: ${question.question}\nAnswer: ${answer}`;
         const {embedding} = await this.aiService.getEmbedding(text);
@@ -148,7 +148,7 @@ export class AnswerService extends BaseService {
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
       // const embedding = [];
-      const {embedding} = await this.aiService.getEmbedding(answer);
+      const {embedding} = await this.aiService.getEmbedding(answer);  
 
       const {insertedId} = await this.answerRepo.addAnswer(
         questionId,
@@ -159,6 +159,7 @@ export class AnswerService extends BaseService {
         isFinalAnswer,
         updatedAnswerCount,
         activeSession,
+        status
       );
 
       await this.questionRepo.updateQuestion(
@@ -268,6 +269,7 @@ export class AnswerService extends BaseService {
             answer,
             sources,
             session,
+            "in-review" 
           );
 
           // Push entry in to history array in submission
@@ -303,6 +305,19 @@ export class AnswerService extends BaseService {
             updatedSubmissionData,
             session,
           );
+      
+          if (currentSubmissionHistory.length == 10||(currentApprovalCount && currentApprovalCount >= 3)) {
+
+             
+             const payload: Partial<IAnswer> = {
+           
+              status:"pending-with-moderator"
+               
+             };
+            
+             let updateDocument=await this.answerRepo.updateAnswerStatus(body.approvedAnswer,payload,session)
+
+          }
           if (currentApprovalCount && currentApprovalCount >= 3) {
             const approvedExpertId = lastAnsweredHistory.updatedBy.toString();
 
@@ -318,9 +333,16 @@ export class AnswerService extends BaseService {
               {status: 'in-review'},
               session,
             );
+           
             return {message: 'Your response recorded sucessfully, thankyou!'};
           }
         } else if (status == 'rejected') {
+          const payload: Partial<IAnswer> = {
+           
+           status:"rejected"
+            
+          };
+          let updateDocument=await this.answerRepo.updateAnswerStatus(body.rejectedAnswer,payload)
           // Prepare update payload for the rejected submission
           const rejectedHistoryUpdate: ISubmissionHistory = {
             reasonForRejection,
@@ -338,6 +360,13 @@ export class AnswerService extends BaseService {
             rejectedHistoryUpdate,
             session,
           );
+          let status
+          if (currentSubmissionHistory.length == 10) {
+             status="pending-with-moderator"
+          }
+          else{
+            status="in-review"
+          }
 
           // Add a new answer entry from the current user
           const {insertedId} = await this.addAnswer(
@@ -346,6 +375,8 @@ export class AnswerService extends BaseService {
             answer,
             sources,
             session,
+            status,
+            
           );
 
           const updatedSubmissionData = {
@@ -570,6 +601,7 @@ answer: ${updates.answer}`;
         approvedBy: new ObjectId(userId),
         embedding,
         isFinalAnswer: true,
+        status:"approved",
       };
       return this.answerRepo.updateAnswer(answerId, payload, session);
     });

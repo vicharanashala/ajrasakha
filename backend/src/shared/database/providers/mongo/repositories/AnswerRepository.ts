@@ -320,8 +320,7 @@ const submissions = await this.AnswerCollection.aggregate([
     [
       {
         $match: {
-          approvalCount:3,
-          ...statusFilter, // applies status only if status != "all"
+         status:"pending-with-moderator" 
         },
       },
 
