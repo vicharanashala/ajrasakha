@@ -1777,17 +1777,19 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
               Rejected
             </Badge>
           )}
-          {!isRejected && props.questionStatus !== "in-review" && (
-            <Badge
-              className="
+          {!isRejected &&
+            props.questionStatus !== "in-review" &&
+            props.questionStatus !== "closed" && (
+              <Badge
+                className="
       bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100
       dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 dark:hover:bg-amber-900
     "
-            >
-              <Clock className="w-3 h-3 mr-1 opacity-80" />
-              In Review
-            </Badge>
-          )}
+              >
+                <Clock className="w-3 h-3 mr-1 opacity-80" />
+                In Review
+              </Badge>
+            )}
 
           {isMine && <UserCheck className="w-4 h-4 text-blue-600 ml-1" />}
         </div>
