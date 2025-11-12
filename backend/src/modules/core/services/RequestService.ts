@@ -116,7 +116,7 @@ export class RequestService extends BaseService {
         if (request.status == 'approved' || request.status == 'rejected') {
           throw new BadRequestError('Request already closed!');
         }
-        let userId = request.requestedBy.toString();
+        let requestedUserId = request.requestedBy.toString();
         let entityId = request.entityId.toString();
         let title = `Your Flag has Been ${status}`
         let message = `Response: ${response}`
@@ -139,9 +139,10 @@ export class RequestService extends BaseService {
           userId,
           session,
         );
-        await this.notificationRepository.addNotification(userId,entityId,type,message,title,session)
-        const subscription = await this.notificationRepository.getSubscriptionByUserId(userId);
-        await notifyUser(userId, title,subscription)
+        
+        await this.notificationRepository.addNotification(requestedUserId,entityId,type,message,title,session)
+        const subscription = await this.notificationRepository.getSubscriptionByUserId(requestedUserId);
+        await notifyUser(requestedUserId, title,subscription)
         return result
       });
     } catch (error) {
