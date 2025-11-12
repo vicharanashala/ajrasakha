@@ -14,6 +14,9 @@ import {
 } from '#root/utils/pushNotification.js';
 import {sendEmailNotification} from '#root/utils/mailer.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
+import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
+import { IQuestionSubmissionRepository } from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
+import { buildEmailTemplate } from '../utils/buildEmailTemplate.js';
 
 @injectable()
 export class NotificationService extends BaseService {
@@ -21,8 +24,14 @@ export class NotificationService extends BaseService {
     @inject(GLOBAL_TYPES.NotificationRepository)
     private readonly notificationRepository: INotificationRepository,
 
+    @inject(GLOBAL_TYPES.QuestionRepository)
+    private readonly questionRepo: IQuestionRepository,
+
     @inject(GLOBAL_TYPES.UserRepository)
     private readonly userRepo: IUserRepository,
+
+    @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
+    private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -141,10 +150,38 @@ export class NotificationService extends BaseService {
       title,
       session,
     );
-    const user = await this.userRepo.findById(userId.toString(),session);
-    const subscription =
-      await this.notificationRepository.getSubscriptionByUserId(userId);
-    await sendEmailNotification(user.email.toString(), title, message);
+    // const user = await this.userRepo.findById(userId.toString(), session);
+    // const subscription =
+    //   await this.notificationRepository.getSubscriptionByUserId(userId);
+
+    const [user, subscription, question, questionSubmission] =
+      await Promise.all([
+        this.userRepo.findById(userId.toString(), session),
+        this.notificationRepository.getSubscriptionByUserId(userId),
+        this.questionRepo.getById(entityId, session),
+        this.questionSubmissionRepo.getByQuestionId(entityId, session),
+      ]);
+
+    const history = questionSubmission?.history || [];
+
+    const involvedUserIds = [
+      ...new Set(history.map(h => h.updatedBy?.toString()).filter(Boolean)),
+    ];
+
+    const allUsers = await this.userRepo
+      .getUsersByIds(involvedUserIds, session)
+
+    const html = buildEmailTemplate(
+      type,
+      user,
+      question,
+      history,
+      title,
+      message,
+      allUsers,
+    );
+
+    await sendEmailNotification(user.email.toString(), title, message, html);
     await notifyUser(userId, title, subscription);
     // });
   }

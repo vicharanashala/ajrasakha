@@ -82,7 +82,7 @@ export class UserRepository implements IUserRepository {
       {_id: new ObjectId(id)},
       {
         projection: {
-          _id: 0,
+          // _id: 0,
           firebaseUID: 0,
         },
         session,
@@ -171,7 +171,7 @@ export class UserRepository implements IUserRepository {
     return updatedUser as IUser;
   }
 
-  async getUsersByIds(ids: string[]): Promise<IUser[]> {
+  async getUsersByIds(ids: string[], session?: ClientSession): Promise<IUser[]> {
     await this.init();
     const objectIds = ids.map(id => new ObjectId(id));
     const users = await this.usersCollection
