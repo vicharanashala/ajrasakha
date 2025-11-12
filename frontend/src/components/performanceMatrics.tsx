@@ -1,9 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
-import {
-  MessageSquarePlus,
-  BarChart3,
-} from "lucide-react";
+import { MessageSquarePlus, BarChart3 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import {
   PieChart,
@@ -30,7 +27,7 @@ import type { IMyPreference } from "@/types";
 import { ScrollArea } from "./atoms/scroll-area";
 import PreferenceFilter from "./PreferenceFilter";
 import HeatMap from "./HeatMap";
-import {useGetWorkLoad} from '@/hooks/api/performance/useGetWorkLoad'
+import { useGetWorkLoad } from "@/hooks/api/performance/useGetWorkLoad";
 export const PerformanceMatrics = () => {
   type BaseStatusItem = {
     status: string;
@@ -55,7 +52,7 @@ export const PerformanceMatrics = () => {
   );
   const [selectedUser, setSelectedUser] = useState("all");
   const [date, setDate] = useState("all");
-  const [status,setStatus]=useState('all')
+  const [status, setStatus] = useState("all");
   const filter = useMemo(() => advanceFilter, [advanceFilter]);
 
   const currentPage = 1;
@@ -69,19 +66,19 @@ export const PerformanceMatrics = () => {
     status
   );
   const { data: WorkLoad } = useGetWorkLoad();
-  
+
   const finalized = finalizedAnswers?.finalizedSubmissions || [];
   const currentUserAnswers = WorkLoad?.currentUserAnswers || [];
   const totalQuestionsCount = WorkLoad?.totalQuestionsCount || 0;
   const approvedCount = currentUserAnswers.length;
-  const heatMapResults=finalizedAnswers?.heatMapResults||[]
+  const heatMapResults = finalizedAnswers?.heatMapResults || [];
   const approvalPercentage =
     totalQuestionsCount > 0
       ? ((approvedCount / totalQuestionsCount) * 100).toFixed(2)
       : 0;
   useEffect(() => {
     //refetch();
-  }, [selectedUser, date,status]);
+  }, [selectedUser, date, status]);
 
   const { data: userNameReponse, isLoading: isLoadingUsers } = useGetAllUsers();
   const { data: user, isLoading } = useGetCurrentUser();
@@ -139,23 +136,40 @@ export const PerformanceMatrics = () => {
   }
 
   function PieBox({ title, data }: { title: string; data: any[] }) {
-   
-    const getColor = (name:string) => {
+    const getColor = (name: string) => {
       if (!name) return "#8884d8";
-  
+
       const label = name.toLowerCase();
-  
+
       if (label.includes("approved")) return "#52C41A"; // green
       if (label.includes("rejected")) return "#FF4D4F"; // red
       if (label.includes("review")) return "#FAAD14"; // yellow
-  
+
       // For other pie charts — auto-generate consistent colors
       const palette = [
-        "#8884d8", "#82ca9d", "#ffc658", "#8dd1e1", "#a4de6c",
-        "#d0ed57", "#ffa07a", "#ff8042", "#a28cff", "#4cc9f0",
-        "#f72585", "#b5179e", "#7209b7", "#3a0ca3", "#4361ee",
-        "#4895ef", "#4cc9f0", "#90be6d", "#43aa8b", "#577590",
-        "#f9c74f", "#f9844a", "#e63946"
+        "#8884d8",
+        "#82ca9d",
+        "#ffc658",
+        "#8dd1e1",
+        "#a4de6c",
+        "#d0ed57",
+        "#ffa07a",
+        "#ff8042",
+        "#a28cff",
+        "#4cc9f0",
+        "#f72585",
+        "#b5179e",
+        "#7209b7",
+        "#3a0ca3",
+        "#4361ee",
+        "#4895ef",
+        "#4cc9f0",
+        "#90be6d",
+        "#43aa8b",
+        "#577590",
+        "#f9c74f",
+        "#f9844a",
+        "#e63946",
       ];
       return palette[Math.abs(label.length) % palette.length];
     };
@@ -181,9 +195,7 @@ export const PerformanceMatrics = () => {
                   labelLine={false}
                 >
                   {data.map((entry, i) => (
-                    <Cell key={i} 
-                    fill={getColor(entry.name)}
-                     />
+                    <Cell key={i} fill={getColor(entry.name)} />
                   ))}
                 </Pie>
                 <ChartTooltip />
@@ -291,9 +303,9 @@ export const PerformanceMatrics = () => {
       domain: "all",
     });
   };
-  const handleApplyAnswerFilters=()=>{
-    refetch()
-  }
+  const handleApplyAnswerFilters = () => {
+    refetch();
+  };
 
   return (
     <div>
@@ -376,34 +388,33 @@ export const PerformanceMatrics = () => {
       </div>
       {/**to get finalized Answers */}
       <div className="space-y-6 p-6  ">
-        <div className="flex flex-row  bg-red-100">
+        <div className="flex flex-row">
           <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
             <CardHeader>
-            <CardTitle className="text-xl font-semibold">
+              <CardTitle className="text-xl font-semibold">
                 Answers Overview
               </CardTitle>
-              
             </CardHeader>
             <CardContent className="flex flex-col md:justify-between md:flex-row w-max-fit">
-            <p className="text-lg mb-2 ">
-            Total Answers:{" "} 
-                <span className="font-bold text-primary">{finalized.length}</span>
+              <p className="text-lg mb-2 ">
+                Total Answers:{" "}
+                <span className="font-bold text-primary">
+                  {finalized.length}
+                </span>
               </p>
               <div className="w-max-fit">
-            <PreferenceFilter
-          selectedUser={selectedUser}
-        setSelectedUser={setSelectedUser}
-        date={date}
-        setDate={setDate}
-      status={status}
-         setStatus={setStatus}
-       users={users}
-       isLoading={isLoading}
-      handleApplyFilters={handleApplyAnswerFilters}
- 
-        />
-        </div>
-              
+                <PreferenceFilter
+                  selectedUser={selectedUser}
+                  setSelectedUser={setSelectedUser}
+                  date={date}
+                  setDate={setDate}
+                  status={status}
+                  setStatus={setStatus}
+                  users={users}
+                  isLoading={isLoading}
+                  handleApplyFilters={handleApplyAnswerFilters}
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -420,7 +431,7 @@ export const PerformanceMatrics = () => {
           ""
         )}
       </div>
-{/**
+      {/**
       <div className="space-y-6 p-6  ">
         <div className="flex flex-col  lg:flex-row gap-4 w-full">
           <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
@@ -464,17 +475,15 @@ export const PerformanceMatrics = () => {
       </div>
     */}
       <div className="space-y-6 p-6  ">
-      <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold">
-                Heat Map Of Reviewers
-              </CardTitle>
-            </CardHeader>
-            </Card>
-         <HeatMap  />
+        <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold">
+              Heat Map Of Reviewers
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <HeatMap />
       </div>
-
-     
     </div>
   );
 };
