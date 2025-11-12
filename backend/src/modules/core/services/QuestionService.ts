@@ -26,7 +26,7 @@ import {AiService} from './AiService.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
-import {dummyEmbeddings} from '../utils/questionGen.js';
+import {dummyEmbeddings, questionStatus} from '../utils/questionGen.js';
 import {IContextRepository} from '#root/shared/database/interfaces/IContextRepository.js';
 import {PreferenceDto} from '../classes/validators/UserValidators.js';
 import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
@@ -67,6 +67,62 @@ export class QuestionService extends BaseService {
     private readonly mongoDatabase: MongoDatabase,
   ) {
     super(mongoDatabase);
+  }
+
+
+
+   async createBulkQuestions(userId: string, questions: any[]): Promise<string[]> {
+    if (!Array.isArray(questions) || questions.length === 0) {
+      throw new BadRequestError('No questions provided for bulk insert');
+    }
+
+    const formatted: IQuestion[] = questions.map((q: any) => {
+      const low = normalizeKeysToLower(q || {});
+      const details = {
+        state: (low.state || '').toString(),
+        district: (low.district || '').toString(),
+        crop: (low.crop || '').toString(),
+        season: (low.season || '').toString(),
+        domain: (low.domain || '').toString(),
+      };
+      const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
+      const priorities = ['low', 'high', 'medium'];
+      const priority = priorities.includes(priorityRaw) ? (priorityRaw as any) : 'medium';
+      const questionText = (low.question || '').toString().trim();
+
+      if (!questionText) {
+        throw new BadRequestError('Each question must have a non-empty "question" field');
+      }
+      // if (!details.state || !details.district || !details.crop || !details.season || !details.domain) {
+      //   throw new BadRequestError('Each question must include all detail fields: state, district, crop, season, domain');
+      // }
+
+      const base: IQuestion = {
+        userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
+        question: questionText,
+        priority,
+        source: (low.source || 'AGRI_EXPERT') as any,
+        status: 'open',
+        totalAnswersCount: 0,
+        contextId: null,
+        details,
+        isAutoAllocate: true,
+        embedding: [],
+        metrics: null,
+        text: `Question: ${questionText}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      return base;
+    });
+
+    try {
+      const insertedIds = await this.questionRepo.insertMany(formatted);
+      return insertedIds;
+    } catch (error: any) {
+      throw new InternalServerError(`Failed to insert questions: ${error?.message || error}`);
+    }
   }
 
   async addDummyQuestions(
@@ -384,7 +440,7 @@ export class QuestionService extends BaseService {
         // 4. Save Question to DB
         const savedQuestion = await this.questionRepo.addQuestion(
           newQuestion,
-          session,
+          session,  
         );
 
         // 5. Fetch userId based on provided preference and create queue

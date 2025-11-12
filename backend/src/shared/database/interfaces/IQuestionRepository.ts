@@ -155,4 +155,11 @@ export interface IQuestionRepository {
    * Updates a  question to delyed after 4hrs if still open.
    */
   updateExpiredAfterFourHours(): Promise<void>;
+
+
+  insertMany(questions: IQuestion[]): Promise<string[]>
+
+  updateQuestionStatus(id: string, status: string, errorMessage?: string, session?: ClientSession): Promise<void>
+
+  // findById(id: string, session?: ClientSession): Promise<IQuestion | null>
 }

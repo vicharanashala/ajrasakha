@@ -15,6 +15,7 @@ import {
   NotFoundError,
   Patch,
   UploadedFile,
+  BadRequestError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -39,6 +40,7 @@ import {
 } from '../classes/validators/QuestionValidators.js';
 import {UploadFileOptions} from '../classes/validators/fileUploadOptions.js';
 import * as XLSX from 'xlsx';
+import { getBackgroundJobs, getJobById, startBackgroundProcessing } from '#root/workers/workerManager.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -154,84 +156,202 @@ export class QuestionController {
   //   }
   // }
 
-  @Post('/')
+  // @Post('/')
+  // @HttpCode(201)
+  // // @Authorized()
+  // @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  // @OpenAPI({summary: 'Add a new question'})
+  // async addQuestion(
+  //   @UploadedFile('file', {options: UploadFileOptions})
+  //   file: Express.Multer.File,
+  //   @Body()
+  //   body: AddQuestionBodyDto,
+  //   @CurrentUser() user: IUser,
+  // ): Promise<Partial<IQuestion> | {message: string}> {
+  //   const userId = user?._id.toString();
+
+  //   if (file) {
+  //     let payload: any[] = [];
+  //     let successCount = 0;
+  //     let failedCount = 0;
+
+  //     try {
+  //       const mimetype = file.mimetype;
+  //       const filename = file.originalname.toLowerCase();
+
+  //       if (mimetype === 'application/json' || filename.endsWith('.json')) {
+  //         const fileContent = file.buffer
+  //           .toString('utf-8')
+  //           .trim()
+  //           .replace(/^\uFEFF/, '');
+  //         payload = JSON.parse(fileContent);
+  //       } else if (
+  //         mimetype ===
+  //           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+  //         mimetype === 'application/vnd.ms-excel' ||
+  //         filename.endsWith('.xls') ||
+  //         filename.endsWith('.xlsx')
+  //       ) {
+  //         const workbook = XLSX.read(file.buffer, {type: 'buffer'});
+  //         const sheetName = workbook.SheetNames[0];
+  //         const worksheet = workbook.Sheets[sheetName];
+
+  //         payload = XLSX.utils.sheet_to_json(worksheet);
+  //       } else {
+  //         throw new Error(
+  //           'Unsupported file type. Please upload a JSON or Excel file.',
+  //         );
+  //       }
+
+  //       if (!Array.isArray(payload)) {
+  //         throw new Error('File content must be a JSON array');
+  //       }
+
+  //       for (const [index, question] of payload.entries()) {
+  //         try {
+  //           await this.questionService.addQuestion(userId, question);
+  //           successCount++;
+  //         } catch (err) {
+  //           failedCount++;
+  //           console.error(
+  //             `❌ Failed to insert question #${index + 1}:`,
+  //             err.message,
+  //           );
+  //         }
+  //       }
+
+  //       const message =
+  //         failedCount === 0
+  //           ? `✅ All ${successCount} questions added successfully.`
+  //           : `✅ ${successCount} questions added successfully, ❌ ${failedCount} failed.`;
+
+  //       return {message};
+  //     } catch (err) {
+  //       console.error('Error during addQuestion:', err);
+  //       throw err;
+  //     }
+  //   } else {
+  //     return this.questionService.addQuestion(userId, body);
+  //   }
+  // }
+
+   @Post('/')
   @HttpCode(201)
-  // @Authorized()
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  @OpenAPI({summary: 'Add a new question'})
+  @ResponseSchema(Object, { statusCode: 400 })
+  @OpenAPI({ summary: 'Add a new question (single or bulk upload)' })
   async addQuestion(
-    @UploadedFile('file', {options: UploadFileOptions})
+    @UploadedFile('file', { options: UploadFileOptions })
     file: Express.Multer.File,
-    @Body()
-    body: AddQuestionBodyDto,
+    @Body() body: AddQuestionBodyDto,
     @CurrentUser() user: IUser,
-  ): Promise<Partial<IQuestion> | {message: string}> {
-    const userId = user?._id.toString();
+  ): Promise<Partial<any> | { message: string }> {
+    const userId = user?._id?.toString();
 
     if (file) {
       let payload: any[] = [];
-      let successCount = 0;
-      let failedCount = 0;
-
       try {
         const mimetype = file.mimetype;
         const filename = file.originalname.toLowerCase();
 
         if (mimetype === 'application/json' || filename.endsWith('.json')) {
-          const fileContent = file.buffer
-            .toString('utf-8')
-            .trim()
-            .replace(/^\uFEFF/, '');
+          const fileContent = file.buffer.toString('utf-8').trim().replace(/^\uFEFF/, '');
           payload = JSON.parse(fileContent);
         } else if (
-          mimetype ===
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+          mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
           mimetype === 'application/vnd.ms-excel' ||
           filename.endsWith('.xls') ||
           filename.endsWith('.xlsx')
         ) {
-          const workbook = XLSX.read(file.buffer, {type: 'buffer'});
+          const workbook = XLSX.read(file.buffer, { type: 'buffer' });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
-
           payload = XLSX.utils.sheet_to_json(worksheet);
         } else {
-          throw new Error(
-            'Unsupported file type. Please upload a JSON or Excel file.',
-          );
+          throw new BadRequestError('Unsupported file type. Please upload a JSON or Excel file.');
         }
 
         if (!Array.isArray(payload)) {
-          throw new Error('File content must be a JSON array');
+          throw new BadRequestError('File content must be an array of questions');
         }
 
-        for (const [index, question] of payload.entries()) {
-          try {
-            await this.questionService.addQuestion(userId, question);
-            successCount++;
-          } catch (err) {
-            failedCount++;
-            console.error(
-              `❌ Failed to insert question #${index + 1}:`,
-              err.message,
-            );
-          }
-        }
-
-        const message =
-          failedCount === 0
-            ? `✅ All ${successCount} questions added successfully.`
-            : `✅ ${successCount} questions added successfully, ❌ ${failedCount} failed.`;
-
-        return {message};
-      } catch (err) {
-        console.error('Error during addQuestion:', err);
-        throw err;
+        const insertedIds = await this.questionService.createBulkQuestions(userId, payload);
+        setImmediate(() => startBackgroundProcessing(insertedIds));
+        return { message: `✅ ${insertedIds.length} questions uploaded. Background processing started.` };
+      } catch (err: any) {
+        throw new BadRequestError(err?.message || 'Failed to process uploaded file');
       }
     } else {
-      return this.questionService.addQuestion(userId, body);
+      const inserted =this.questionService.addQuestion(userId, body);
+      return inserted;
     }
-  }
+}
+
+
+
+// @Post('/')
+// @HttpCode(201)
+// @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+// @OpenAPI({ summary: 'Add a new question or bulk upload' })
+// async addQuestion(
+//   @UploadedFile('file', { options: UploadFileOptions })
+//   file: Express.Multer.File,
+//   @Body() body: AddQuestionBodyDto,
+//   @CurrentUser() user: IUser,
+// ): Promise<{ message: string; jobId?: string } | Partial<IQuestion>> {
+//   const userId = user?._id?.toString();
+
+//   // ✅ Single question case
+//   if (!file) {
+//     return this.questionService.addQuestion(userId, body);
+//   }
+
+//   // ✅ Bulk upload case
+//   let payload: any[] = [];
+//   try {
+//     const mimetype = file.mimetype;
+//     const filename = file.originalname.toLowerCase();
+
+//     // Parse JSON
+//     if (mimetype === 'application/json' || filename.endsWith('.json')) {
+//       const content = file.buffer.toString('utf-8').trim().replace(/^\uFEFF/, '');
+//       payload = JSON.parse(content);
+//     }
+//     // Parse Excel
+//     else if (
+//       mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+//       mimetype === 'application/vnd.ms-excel' ||
+//       filename.endsWith('.xls') ||
+//       filename.endsWith('.xlsx')
+//     ) {
+//       const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+//       const sheetName = workbook.SheetNames[0];
+//       const worksheet = workbook.Sheets[sheetName];
+//       payload = XLSX.utils.sheet_to_json(worksheet);
+//     } else {
+//       throw new Error('Unsupported file type. Please upload JSON or Excel file.');
+//     }
+
+//     if (!Array.isArray(payload) || payload.length === 0) {
+//       throw new Error('File content must be a non-empty JSON array');
+//     }
+
+//     // ✅ 1. Insert all questions into DB (fast bulk insert)
+//     const insertedIds = await this.questionService.createBulkQuestions(userId, payload);
+
+//     // ✅ 2. Trigger background worker for embedding + allocation
+//     const { startBackgroundProcessing } = await import('../../../workers/questionProcessor.worker.js');
+//     const jobId = startBackgroundProcessing(insertedIds);
+
+//     return {
+//       message: `Bulk upload started for ${insertedIds.length} questions.`,
+//       jobId,
+//     };
+//   } catch (err: any) {
+//     console.error('Error during bulk addQuestion:', err);
+//     throw new BadRequestError(err.message || 'Failed to process file');
+//   }
+// }
+
 
   @Get('/:questionId')
   @HttpCode(200)
@@ -340,5 +460,20 @@ export class QuestionController {
   ): Promise<{deletedCount: number}> {
     const {questionId} = params;
     return this.questionService.deleteQuestion(questionId);
+  }
+
+
+
+ 
+  @Get('/background-status')
+  getAllJobs() {
+    return getBackgroundJobs();
+  }
+
+  @Get('/:id')
+  getJob(@Param('id') id: string) {
+    const job = getJobById(id);
+    if (!job) return { message: 'Job not found' };
+    return job;
   }
 }

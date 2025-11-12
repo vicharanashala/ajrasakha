@@ -178,8 +178,7 @@ class HistoryItem {
 }
 
 class QuestionResponse {
-  @IsString()
-  id!: string;
+  
 
   @IsString()
   text!: string;
