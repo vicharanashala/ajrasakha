@@ -328,14 +328,35 @@ export class QuestionRepository implements IQuestionRepository {
       }
 
       let questionIdsByUser: string[] | null = null;
+      let submissions=[]
       if (user && user !== 'all') {
-        const submissions = await this.QuestionSubmissionCollection.find({
-          'history.updatedBy': new ObjectId(user),
-        })
-          .project({questionId: 1})
-          .toArray();
+        const userDetails = await this.UsersCollection.find({
+           _id:new ObjectId(user)
+        }).toArray();
+        
+        if(userDetails.length>=1)
+        {
+          if(userDetails[0].role=="expert")
+          {
+             submissions = await this.QuestionSubmissionCollection.find({
+              'history.updatedBy': new ObjectId(user),
+            })
+              .project({questionId: 1})
+              .toArray();
+              questionIdsByUser = submissions.map(s => s.questionId.toString());
+          }
+          else {
+           submissions = await this.QuestionCollection.find({
+              'userId': new ObjectId(user),
+            })
+              .project({_id: 1})
+              .toArray();
+              questionIdsByUser = submissions.map(s => s._id.toString());
+          }
+        }
+        
 
-        questionIdsByUser = submissions.map(s => s.questionId.toString());
+        
 
         if (questionIdsByUser.length === 0) {
           return {questions: [], totalPages: 0, totalCount: 0};
