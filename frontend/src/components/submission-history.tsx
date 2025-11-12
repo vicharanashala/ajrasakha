@@ -18,6 +18,7 @@ export const FullSubmissionHistory = ({
 }: {
   currentUser: IUser;
 }) => {
+ 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [selectedQuestionId, setSelectedQuestionId] = useState("");
   const {
@@ -202,7 +203,7 @@ export const FullSubmissionHistory = ({
                             d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                           />
                         </svg>
-                        Created: {submission?.createdAt}
+                        Created: {submission?.createdAt && new Date(submission.createdAt).toLocaleString()}
                       </span>
                       {submission?.createdAt !== submission?.updatedAt && (
                         <span className=" items-center gap-1 hidden md:flex">
@@ -273,7 +274,63 @@ export const FullSubmissionHistory = ({
                             Answer
                           </span>
                         </div>
-                        {submission?.reponse.isFinalAnswer && (
+                        {currentUser.role=="expert" && submission?.reponse && (
+                          <div className="flex flex-row">
+                          <span 
+                          className={`text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1
+                            ${
+                          submission.reponse.status === "rejected"
+                            ? "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200"
+                            : submission.reponse.status === "Answer Created"
+                            ? "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200"
+                            : submission.reponse.status === "pending-with-moderator"
+                            ? "bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200"
+                            : "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200"
+                        }`}
+                                            >
+                            <svg
+                              className="w-3 h-3"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                            User Activity:{submission?.reponse.status||'N/A'}
+                          </span>
+
+                          <span 
+                          className={`text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1 ml-10
+                            ${
+                          submission.reponse.answerStatus === "rejected"
+                            ? "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200"
+                            : submission.reponse.status === "approved"
+                            ? " bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 "
+                            : submission.reponse.status === "pending-with-moderator"
+                            ? "bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200"
+                            : "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200"
+                        }`}
+                                            >
+                            <svg
+                              className="w-3 h-3"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                            Answer Status:{submission?.reponse.answerStatus||'N/A'}
+                          </span>
+
+                          </div>
+                        )}
+                        {currentUser.role=="moderator" && submission?.reponse.isFinalAnswer && (
                           <span className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 rounded-full font-medium flex items-center gap-1">
                             <svg
                               className="w-3 h-3"
@@ -314,7 +371,7 @@ export const FullSubmissionHistory = ({
                               />
                             </svg>
                             <span className="hidden md:inline">Answered:</span>{" "}
-                            {submission?.reponse.createdAt}
+                            {submission?.updatedAt && new Date(submission?.updatedAt).toLocaleString()}
                           </span>
                           <span className="text-gray-500 dark:text-gray-500 hidden md:flex">
                             Answer ID: {submission?.reponse.id}
