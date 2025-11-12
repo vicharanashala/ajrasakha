@@ -485,6 +485,7 @@ export class QuestionService extends BaseService {
           text: currentQuestion.question,
           source: currentQuestion.source,
           details: currentQuestion.details,
+          status: currentQuestion.status,
           priority: currentQuestion.priority,
           createdAt: new Date(currentQuestion.createdAt).toLocaleString(),
           updatedAt: new Date(currentQuestion.updatedAt).toLocaleString(),

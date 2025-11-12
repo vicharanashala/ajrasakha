@@ -562,7 +562,7 @@ export class QuestionRepository implements IQuestionRepository {
         },
       });
 
-      pipeline.push({$sort: {priorityOrder: 1}});
+      pipeline.push({$sort: {priorityOrder: 1, createdAt: 1, _id: 1}});
 
       pipeline.push({$skip: skip});
       pipeline.push({$limit: limit});

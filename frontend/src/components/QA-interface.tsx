@@ -968,6 +968,7 @@ export const QuestionDetailsDialog = ({
     createdAt,
     updatedAt,
     details,
+    status,
   } = question;
 
   // const created = createdAt ? new Date(createdAt).toLocaleString() : "-";
@@ -1033,7 +1034,7 @@ export const QuestionDetailsDialog = ({
                       <FileText className="w-3 h-3 text-primary" /> Status
                     </div>
                   }
-                  value="Open"
+                  value={status}
                 />
                 <Option
                   label={
