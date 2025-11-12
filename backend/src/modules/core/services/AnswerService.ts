@@ -74,7 +74,7 @@ export class AnswerService extends BaseService {
     answer: string,
     sources: SourceItem[],
     session?: ClientSession,
-    status?:string
+    status?: string,
   ): Promise<{insertedId: string; isFinalAnswer: boolean}> {
     const execute = async (activeSession: ClientSession) => {
       const question = await this.questionRepo.getById(
@@ -148,7 +148,7 @@ export class AnswerService extends BaseService {
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
       // const embedding = [];
-      const {embedding} = await this.aiService.getEmbedding(answer);  
+      const {embedding} = await this.aiService.getEmbedding(answer);
 
       const {insertedId} = await this.answerRepo.addAnswer(
         questionId,
@@ -159,7 +159,7 @@ export class AnswerService extends BaseService {
         isFinalAnswer,
         updatedAnswerCount,
         activeSession,
-        status
+        status,
       );
 
       await this.questionRepo.updateQuestion(
@@ -228,6 +228,34 @@ export class AnswerService extends BaseService {
             `Failed to find question submission document, try again!`,
           );
 
+        const submissionHistory = questionSubmission?.history ?? [];
+
+        if (submissionHistory.length === 0) {
+          // Handle first-time assignment check
+          const assignedReviewer = questionSubmission?.queue?.[0]?.toString();
+
+          if (assignedReviewer && assignedReviewer !== user._id.toString()) {
+            throw new UnauthorizedError(
+              'You are not authorized to review this question. It has been reassigned to another reviewer.',
+            );
+          }
+        } else {
+          // Validate reviewer consistency for ongoing review
+          const lastHistory = submissionHistory[submissionHistory.length - 1];
+          const assignedReviewer = lastHistory.updatedBy.toString();
+          if (!assignedReviewer) {
+            throw new UnauthorizedError(
+              'Unable to verify the reviewer information for this question. Please try again later.',
+            );
+          }
+
+          if (assignedReviewer !== user._id.toString()) {
+            throw new UnauthorizedError(
+              'This question is currently being reviewed by another expert. Please select a different question to review.',
+            );
+          }
+        }
+
         const currentSubmissionHistory = questionSubmission.history || [];
         const currentQueue = questionSubmission.queue;
 
@@ -269,7 +297,7 @@ export class AnswerService extends BaseService {
             answer,
             sources,
             session,
-            "in-review" 
+            'in-review',
           );
 
           // Push entry in to history array in submission
@@ -305,18 +333,20 @@ export class AnswerService extends BaseService {
             updatedSubmissionData,
             session,
           );
-      
-          if (currentSubmissionHistory.length == 10||(currentApprovalCount && currentApprovalCount >= 3)) {
 
-             
-             const payload: Partial<IAnswer> = {
-           
-              status:"pending-with-moderator"
-               
-             };
-            
-             let updateDocument=await this.answerRepo.updateAnswerStatus(body.approvedAnswer,payload,session)
+          if (
+            currentSubmissionHistory.length == 10 ||
+            (currentApprovalCount && currentApprovalCount >= 3)
+          ) {
+            const payload: Partial<IAnswer> = {
+              status: 'pending-with-moderator',
+            };
 
+            let updateDocument = await this.answerRepo.updateAnswerStatus(
+              body.approvedAnswer,
+              payload,
+              session,
+            );
           }
           if (currentApprovalCount && currentApprovalCount >= 3) {
             const approvedExpertId = lastAnsweredHistory.updatedBy.toString();
@@ -333,16 +363,17 @@ export class AnswerService extends BaseService {
               {status: 'in-review'},
               session,
             );
-           
+
             return {message: 'Your response recorded sucessfully, thankyou!'};
           }
         } else if (status == 'rejected') {
           const payload: Partial<IAnswer> = {
-           
-           status:"rejected"
-            
+            status: 'rejected',
           };
-          let updateDocument=await this.answerRepo.updateAnswerStatus(body.rejectedAnswer,payload)
+          let updateDocument = await this.answerRepo.updateAnswerStatus(
+            body.rejectedAnswer,
+            payload,
+          );
           // Prepare update payload for the rejected submission
           const rejectedHistoryUpdate: ISubmissionHistory = {
             reasonForRejection,
@@ -360,12 +391,11 @@ export class AnswerService extends BaseService {
             rejectedHistoryUpdate,
             session,
           );
-          let status
+          let status;
           if (currentSubmissionHistory.length == 10) {
-             status="pending-with-moderator"
-          }
-          else{
-            status="in-review"
+            status = 'pending-with-moderator';
+          } else {
+            status = 'in-review';
           }
 
           // Add a new answer entry from the current user
@@ -376,7 +406,6 @@ export class AnswerService extends BaseService {
             sources,
             session,
             status,
-            
           );
 
           const updatedSubmissionData = {
@@ -523,22 +552,21 @@ export class AnswerService extends BaseService {
   }
   async getFinalAnswerQuestions(
     userId: string,
-   currentUserId:string,
-   date:string,
-   status:string
+    currentUserId: string,
+    date: string,
+    status: string,
   ): Promise<{
-    finalizedSubmissions: any[],
-   
-    
+    finalizedSubmissions: any[];
   }> {
-   
-   
-    const { finalizedSubmissions } =
-    await this.answerRepo.getAllFinalizedAnswers(userId, currentUserId, date, status);
+    const {finalizedSubmissions} = await this.answerRepo.getAllFinalizedAnswers(
+      userId,
+      currentUserId,
+      date,
+      status,
+    );
     return {
       finalizedSubmissions,
-     };
-  
+    };
   }
 
   // Currently using for approving answer
@@ -601,7 +629,7 @@ answer: ${updates.answer}`;
         approvedBy: new ObjectId(userId),
         embedding,
         isFinalAnswer: true,
-        status:"approved",
+        status: 'approved',
       };
       return this.answerRepo.updateAnswer(answerId, payload, session);
     });
