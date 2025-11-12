@@ -25,6 +25,7 @@ export interface IAnswerRepository {
     isFinalAnswer?: boolean,
     answerIteration?: number,
     session?: ClientSession,
+    status?:string
   ): Promise<{insertedId: string}>;
 
   /**
@@ -46,11 +47,19 @@ getAllFinalizedAnswers(
     userId: string,
     currentUserId:string,
     date:string,
+    status:string,
     session?: ClientSession,
   ): Promise<{
-    finalizedSubmissions: any[],
+    finalizedSubmissions: any[]
+  }> ;
+  getCurrentUserWorkLoad(
+    currentUserId:string,
+    session?: ClientSession,
+  ): Promise<{
+   
     currentUserAnswers: any[],
-    totalQuestionsCount: number
+    totalQuestionsCount: number,
+    totalInreviewQuestionsCount:number
   }> ;
   /**
    * Adds a new answer for a specific question.
@@ -140,4 +149,9 @@ getAllFinalizedAnswers(
    * @returns A promise that resolves to an array of submissions.
    */
   getGoldenFaqs(userId:string,page:number,limit:number,search?:string,session?:ClientSession):Promise<{faqs:any[] ; totalFaqs:number}>
+  updateAnswerStatus(
+    answerId: string,
+    updates: Partial<IAnswer>,
+    session?: ClientSession,
+  ): Promise<{modifiedCount: number}>;
 }

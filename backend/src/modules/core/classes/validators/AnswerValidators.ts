@@ -269,6 +269,15 @@ class AnswerResponse {
   isFinalAnswer: boolean;
 
   @JSONSchema({
+    description: 'Answer status',
+    example: 'in-review',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsIn(['in-review', 'approved', 'rejected','pending-with-moderator'])
+  status?: 'in-review' | 'approved' | 'rejected'|'pending-with-moderator' = 'in-review';
+
+  @JSONSchema({
     description: 'Answer text',
     example:
       'A closure is a function with access to variables from its outer scope.',
@@ -302,6 +311,15 @@ class ResponseDto {
   })
   @IsBoolean()
   isFinalAnswer: boolean;
+
+  @JSONSchema({
+    description: 'Answer status',
+    example: 'in-review',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsIn(['in-review', 'approved', 'rejected','pending-with-moderator'])
+  status?: 'in-review' | 'approved' | 'rejected'|'pending-with-moderator' = 'in-review';
 
   @JSONSchema({
     description: 'Answer creation timestamp',

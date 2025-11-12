@@ -1523,23 +1523,49 @@ export const ResponseTimeline = ({
                                 onConfirm={handleAccept}
                                 trigger={
                                   <Button
+                                    disabled={isSubmittingAnswer}
                                     size="sm"
                                     className="flex items-center gap-1"
                                   >
-                                    <CheckCircle className="w-4 h-4" />
-                                    Accept
+                                    {isSubmittingAnswer &&
+                                    !rejectionReason &&
+                                    !isRejectionSubmitted &&
+                                    sources.length <= 0 ? (
+                                      <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Accepting...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <CheckCircle className="w-4 h-4" />
+                                        Accept
+                                      </>
+                                    )}
                                   </Button>
                                 }
                               />
 
                               <Button
                                 size="sm"
+                                disabled={isSubmittingAnswer}
                                 variant="destructive"
                                 className="flex items-center gap-1"
                                 onClick={() => setIsRejectDialogOpen(true)}
                               >
-                                <XCircle className="w-4 h-4" />
-                                Reject
+                                {isSubmittingAnswer &&
+                                rejectionReason &&
+                                isRejectionSubmitted &&
+                                sources.length >= 0 ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Rejecting...
+                                  </>
+                                ) : (
+                                  <>
+                                    <XCircle className="w-4 h-4" />
+                                    Reject
+                                  </>
+                                )}
                               </Button>
                             </div>
                           )}

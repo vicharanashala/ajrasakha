@@ -228,11 +228,24 @@ export interface FinalizedAnswer {
   };
   status:string;
 }
+export interface HeatMapResult {
+  reviewerId: string;
+  reviewerName: string;
+  counts: {
+    [bucket: string]: number; // e.g., "0_6": 4
+  };
+}
+export interface WorkLoad{
+  currentUserAnswers: CurrentUserAnswer[];
+  totalQuestionsCount: number;
+  totalInreviewQuestionsCount:number
+}
 
 export interface FinalizedAnswersResponse {
   finalizedSubmissions: FinalizedAnswer[];
   currentUserAnswers: CurrentUserAnswer[];
   totalQuestionsCount: number;
+  heatMapResults: HeatMapResult[];
 }
 
 export interface SourceItem {
