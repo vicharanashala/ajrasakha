@@ -572,6 +572,7 @@ export class QuestionService extends BaseService {
       .forEach(user => expertIdsSet.add(user._id.toString()));
 
     const allExpertIds = Array.from(expertIdsSet);
+
     if (
       EXISTING_QUEUE_COUNT < 3 ||
       (EXISTING_QUEUE_COUNT === EXISTING_HISTORY_COUNT &&
@@ -621,17 +622,18 @@ export class QuestionService extends BaseService {
 
       const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);
 
-      console.log("expertsToAdd: ", expertsToAdd)
       // Add entry for first expert in the queue as status in-review (only after intial 3 allocation)
-
       if (
         questionSubmission.history.length >= 0 &&
-        ((lastSubmission?.answer && lastSubmission.status !== 'in-review') ||
-          lastSubmission?.status == 'reviewed') &&
-        EXISTING_QUEUE_COUNT >= 3
+        (!lastSubmission ||
+          (lastSubmission?.answer && lastSubmission.status !== 'in-review') ||
+          lastSubmission?.status == 'reviewed')
+        // &&EXISTING_QUEUE_COUNT >= 3
       ) {
-        console.log("Inside the condi")
-        if (expertsToAdd && expertsToAdd.length >= 1) {
+        const hasExperts = expertsToAdd?.length >= 1;
+
+        if (hasExperts && lastSubmission) {
+          // If there is no lastSubmission, that means the author is not responded yet
           const nextExpertId = expertsToAdd[0]?.toString();
           const nextAllocatedSubmissionData: ISubmissionHistory = {
             updatedBy: new ObjectId(nextExpertId),
@@ -659,19 +661,36 @@ export class QuestionService extends BaseService {
           );
         }
 
-        for (const expertId of expertsToAdd) {
+        if (hasExperts) {
           const IS_INCREMENT = true;
-          await this.userRepo.updateReputationScore(
-            expertId,
-            IS_INCREMENT,
-            session,
+
+          await Promise.all(
+            expertsToAdd.map(expertId =>
+              this.userRepo.updateReputationScore(
+                expertId,
+                IS_INCREMENT,
+                session,
+              ),
+            ),
           );
         }
-        const updatedQueue = [...questionSubmission.queue, ...expertsToAdd]
+
+        // for (const expertId of expertsToAdd) {
+        //   const IS_INCREMENT = true;
+
+        //   await this.userRepo.updateReputationScore(
+        //     expertId,
+        //     IS_INCREMENT,
+        //     session,
+        //   );
+        // }
+
+        const updatedQueue = [
+          ...questionSubmission.queue,
+          ...(expertsToAdd || []),
+        ]
           .slice(0, TOTAL_EXPERTS_LIMIT)
           .map(id => new ObjectId(id));
-
-          console.log("updatedQueue: ", updatedQueue)
 
         await this.questionSubmissionRepo.updateQueue(
           questionId,
@@ -699,7 +718,6 @@ export class QuestionService extends BaseService {
         // If currentStatus is false, then we need to set it to true and vice versa
 
         if (!currentStatus) {
-
           const submission = await this.questionSubmissionRepo.getByQuestionId(
             questionId,
             session,
