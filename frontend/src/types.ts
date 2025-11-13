@@ -106,6 +106,7 @@ export interface ISubmissions {
     createdAt: string;
     status:string;
     answerStatus:string;
+    reasonForRejection:string;
   };
 }
 

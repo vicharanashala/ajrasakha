@@ -209,16 +209,40 @@ export class AnswerRepository implements IAnswerRepository {
         }));
       }else{
         const submissions = await this.QuestionSubmissionCollection.aggregate([
+          {
+            $addFields: {
+              historyArray: "$history"
+            }
+          },
           // 1️⃣ Unwind history to process each phase
           { $unwind: "$history" },
         
           // 2️⃣ Filter only phases performed by the current user
+         
           {
             $match: {
               "history.updatedBy": new ObjectId(userId),
-              "history.status": { $ne: "in-review" },
+              $or: [
+                // ✅ Include all except "in-review"
+                { "history.status": { $ne: "in-review" } },
+          
+                // ✅ Include "in-review" only if it has an answer / approvedAnswer / rejectedAnswer
+                {
+                  $and: [
+                    { "history.status": "in-review" },
+                    {
+                      $or: [
+                        { "history.answer": { $exists: true, $ne: null } },
+                        { "history.approvedAnswer": { $exists: true, $ne: null } },
+                        { "history.rejectedAnswer": { $exists: true, $ne: null } },
+                      ],
+                    },
+                  ],
+                },
+              ],
             },
           },
+          
         
           // 3️⃣ Lookup question details
           {
@@ -272,32 +296,90 @@ export class AnswerRepository implements IAnswerRepository {
               question: "$question",
               history: "$history",
                 // 🟡 Newly created (updated) answer document
-              updatedAnswerDoc: {
-                $cond: [
-                  {
-                    $and: [
-                      { $ifNull: ["$history.rejectedAnswer", false] }, // previous rejection
-                      { $ifNull: ["$history.answer", false] }, // new answer exists
-                    ],
-                  },
-                  {
-                    status: "Answer Created",
-                    answer: {
-                      $arrayElemAt: [
-                        {
-                          $filter: {
-                            input: "$answerDetails",
-                            as: "a",
-                            cond: { $eq: ["$$a._id", "$history.answer"] },
-                          },
-                        },
-                        0,
+                updatedAnswerDoc: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $ifNull: ["$history.rejectedAnswer", false] }, // previous rejection exists
+                        { $ifNull: ["$history.answer", false] }, // new answer created
                       ],
                     },
-                  },
-                  null,
-                ],
-              },
+                    {
+                      status: "Answer Created",
+                      answer: {
+                        $arrayElemAt: [
+                          {
+                            $filter: {
+                              input: "$answerDetails",
+                              as: "a",
+                              cond: { $eq: ["$$a._id", "$history.answer"] },
+                            },
+                          },
+                          0,
+                        ],
+                      },
+                
+                      // 🧩 Added: reasonForRejection (from either this or previous doc)
+                      reasonForRejection: {
+                        $cond: [
+                          {
+                            // CASE 1️⃣: current document has a reasonForRejection
+                            $and: [
+                              { $ne: ["$history.reasonForRejection", null] },
+                              { $ne: ["$history.reasonForRejection", ""] },
+                            ],
+                          },
+                          "$history.reasonForRejection",
+                
+                          // CASE 2️⃣: fallback - find from previous history where answer == rejectedAnswer
+                          {
+                            $let: {
+                              vars: {
+                                matchedHistory: {
+                                  $filter: {
+                                    input: "$historyArray",
+                                    as: "h",
+                                    cond: { $eq: ["$$h.answer", "$history.rejectedAnswer"] },
+                                  },
+                                },
+                              },
+                              in: {
+                                $ifNull: [
+                                  {
+                                    $arrayElemAt: [
+                                      {
+                                        $filter: {
+                                          input: {
+                                            $map: {
+                                              input: "$$matchedHistory",
+                                              as: "mh",
+                                              in: "$$mh.reasonForRejection",
+                                            },
+                                          },
+                                          as: "r",
+                                          cond: {
+                                            $and: [
+                                              { $ne: ["$$r", null] },
+                                              { $ne: ["$$r", ""] },
+                                            ],
+                                          },
+                                        },
+                                      },
+                                      0,
+                                    ],
+                                  },
+                                  null,
+                                ],
+                              },
+                            },
+                          },
+                        ],
+                      },
+                    },
+                    null,
+                  ],
+                },
+                
         
               // 🔴 Rejected answer document
               rejectedDoc: {
@@ -305,7 +387,37 @@ export class AnswerRepository implements IAnswerRepository {
                   { $ifNull: ["$history.rejectedAnswer", false] },
                   {
                     status: "rejected",
-                    reasonForRejection: "$history.reasonForRejection",
+                    reasonForRejection: {
+                      $let: {
+                        vars: {
+                          matchedHistory: {
+                            $filter: {
+                              input: "$historyArray", // the full history array (kept before unwind)
+                              as: "h",
+                              cond: { $eq: ["$$h.answer", "$history.rejectedAnswer"] },
+                            },
+                          },
+                        },
+                        in: {
+                          $ifNull: [
+                            {
+                              $arrayElemAt: [
+                                {
+                                  $map: {
+                                    input: "$$matchedHistory",
+                                    as: "mh",
+                                    in: "$$mh.reasonForRejection",
+                                  },
+                                },
+                                0,
+                              ],
+                            },
+                            "$history.reasonForRejection",
+                          ],
+                        },
+                        
+                      },
+                    },
                     answer: {
                       $arrayElemAt: [
                         {
@@ -322,6 +434,7 @@ export class AnswerRepository implements IAnswerRepository {
                   null,
                 ],
               },
+              
         
               // 🟢 Approved answer document
               approvedDoc: {
@@ -661,7 +774,15 @@ return {
             latestAnswer: { $first: "$$ROOT" },
           },
         },
-        {$unwind: '$question'},
+        {
+          $lookup: {
+            from: "questions",
+            localField: "_id", // since _id now holds questionId
+            foreignField: "_id",
+            as: "question",
+          },
+        },
+        { $unwind: { path: "$question", preserveNullAndEmptyArrays: true } },
 
         
         {

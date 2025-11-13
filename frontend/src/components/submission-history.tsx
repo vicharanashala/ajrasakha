@@ -8,10 +8,20 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./atoms/tooltip";
-import { Info } from "lucide-react";
+import { Info ,AlertCircle} from "lucide-react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "./question-details";
 import type { IUser } from "@/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./atoms/dialog";
+import { Button } from "./atoms/button";
 
 export const FullSubmissionHistory = ({
   currentUser,
@@ -307,11 +317,12 @@ export const FullSubmissionHistory = ({
                             ${
                           submission.reponse.answerStatus === "rejected"
                             ? "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200"
-                            : submission.reponse.status === "approved"
+                            : submission.reponse.answerStatus === "approved"
                             ? " bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 "
-                            : submission.reponse.status === "pending-with-moderator"
-                            ? "bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200"
-                            : "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200"
+                            : submission.reponse.answerStatus === "pending-with-moderator"
+                            ? "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200"
+                            : submission.reponse.answerStatus === "in-review"?"bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200":
+                            "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200"
                         }`}
                                             >
                             <svg
@@ -325,7 +336,8 @@ export const FullSubmissionHistory = ({
                                 clipRule="evenodd"
                               />
                             </svg>
-                            Answer Status:{submission?.reponse.answerStatus||'N/A'}
+                            {submission?.reponse.answerStatus==="approved"?"Final Answer":
+                            `Answer Status:${submission?.reponse.answerStatus||'N/A'}`}
                           </span>
 
                           </div>
@@ -345,6 +357,30 @@ export const FullSubmissionHistory = ({
                             </svg>
                             Final Answer
                           </span>
+                        )}
+                        {currentUser.role=="expert" && submission?.reponse.reasonForRejection && (
+                        <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="w-full sm:w-auto bg-red-100 ">
+                          <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-700 mt-0.5 flex-shrink-0" />
+                          
+                          <p className="text-xs px-2 py-1 bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 rounded-full font-medium flex items-center gap-1">
+                                          Rejection Reason
+                                        </p>
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent
+                          className="w-[50vw] max-w-6xl h-[50vh] flex flex-col"
+                          style={{ maxWidth: "70vw" }}
+                        >
+                          <DialogHeader className="pb-4 border-b">
+                            <DialogTitle className="text-xl font-semibold">
+                            Rejection Reason
+                            </DialogTitle>
+                          </DialogHeader>
+                          <div>{submission.reponse.reasonForRejection}</div>
+                        </DialogContent>
+                        </Dialog>
                         )}
                       </div>
 
