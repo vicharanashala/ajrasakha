@@ -7,7 +7,8 @@ import {
   IQuestion,
   IQuestionSubmission,
   ISubmissionHistory,
-  IAnswer
+  IAnswer,
+  IQuestionPriority,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -33,6 +34,7 @@ import {PreferenceDto} from '../classes/validators/UserValidators.js';
 import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
 import {notifyUser} from '#root/utils/pushNotification.js';
 import {NotificationService} from './NotificationService.js';
+import {normalizeKeysToLower} from '#root/utils/normalizeKeysToLower.js';
 
 @injectable()
 export class QuestionService extends BaseService {
@@ -70,9 +72,10 @@ export class QuestionService extends BaseService {
     super(mongoDatabase);
   }
 
-
-
-   async createBulkQuestions(userId: string, questions: any[]): Promise<string[]> {
+  async createBulkQuestions(
+    userId: string,
+    questions: any[],
+  ): Promise<string[]> {
     if (!Array.isArray(questions) || questions.length === 0) {
       throw new BadRequestError('No questions provided for bulk insert');
     }
@@ -88,17 +91,21 @@ export class QuestionService extends BaseService {
       };
       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
       const priorities = ['low', 'high', 'medium'];
-      const priority = priorities.includes(priorityRaw) ? (priorityRaw as any) : 'medium';
+      const priority = priorities.includes(priorityRaw)
+        ? (priorityRaw as IQuestionPriority)
+        : 'medium';
       const questionText = (low.question || '').toString().trim();
 
       if (!questionText) {
-        throw new BadRequestError('Each question must have a non-empty "question" field');
+        throw new BadRequestError(
+          'Each question must have a non-empty "question" field',
+        );
       }
       const base: IQuestion = {
         userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
         question: questionText,
         priority,
-        source: (low.source || 'AGRI_EXPERT') as any,
+        source: (low.source || 'AGRI_EXPERT') as IQuestion['source'],
         status: 'open',
         totalAnswersCount: 0,
         contextId: null,
@@ -118,7 +125,9 @@ export class QuestionService extends BaseService {
       const insertedIds = await this.questionRepo.insertMany(formatted);
       return insertedIds;
     } catch (error: any) {
-      throw new InternalServerError(`Failed to insert questions: ${error?.message || error}`);
+      throw new InternalServerError(
+        `Failed to insert questions: ${error?.message || error}`,
+      );
     }
   }
 
@@ -225,85 +234,6 @@ export class QuestionService extends BaseService {
       );
     }
   }
-  // async getAllocatedQuestions(
-  //   userId: string,
-  //   query: GetDetailedQuestionsQuery,
-  // ): Promise<QuestionResponse[]> {
-  //   try {
-  //     return this._withTransaction(async (session: ClientSession) => {
-  //       // 1. Fetch the user and extract their preference details
-  //       const user = await this.userRepo.findById(userId, session);
-  //       const userPreference = user.preference || null;
-
-  //       // 2. Build a query object (userQuery) based on the user's preferences (state, crop, domain)
-  //       const userQuery: Record<string, any> = {};
-  //       if (userPreference.state && userPreference.state !== 'all') {
-  //         userQuery.state = userPreference.state;
-  //       }
-  //       if (userPreference.crop && userPreference.crop !== 'all') {
-  //         userQuery.crop = userPreference.crop;
-  //       }
-  //       if (userPreference.domain && userPreference.domain !== 'all') {
-  //         userQuery.domain = userPreference.domain;
-  //       }
-
-  //       // 3. Get unanswered questions based purely on user preference
-  //       const userPreferenceQuestions =
-  //         await this.questionRepo.getUnAnsweredQuestions(
-  //           userId,
-  //           userQuery,
-  //           session,
-  //         );
-
-  //       // 4. Define preference keys to be checked (state, crop, domain)
-  //       const keys = ['state', 'crop', 'domain'] as const;
-
-  //       // 5. Check if the given query matches the user's preference-based query
-  //       const isQueryMatchingPreference = keys.every(key => {
-  //         const prefValue = userQuery[key];
-  //         const queryValue = query[key];
-
-  //         if (prefValue && queryValue) return prefValue === queryValue;
-  //         if (!prefValue) return true;
-  //         return false;
-  //       });
-
-  //       // 6. If query matches preference and no questions exist for that preference,
-  //       //    delete matching keys from query to widen the filter
-  //       if (isQueryMatchingPreference && userPreferenceQuestions.length === 0) {
-  //         keys.forEach(key => {
-  //           const prefValue = userQuery[key];
-  //           const queryValue = query[key];
-
-  //           if (prefValue && queryValue && prefValue === queryValue) {
-  //             delete query[key];
-  //           }
-  //         });
-  //       }
-
-  //       // 7. If user still has unanswered preference-based questions,
-  //       //    return those first before applying broader filters
-  //       if (
-  //         !isQueryMatchingPreference &&
-  //         userPreferenceQuestions.length > 0 &&
-  //         Object.keys(userQuery).length > 0
-  //       ) {
-  //         console.log(
-  //           'Returning user preference questions as they are pending',
-  //         );
-  //         return userPreferenceQuestions;
-  //       }
-
-  //       // 8. If no preference-based questions or filters remain,
-  //       //    return general unanswered questions using the updated query
-  //       return this.questionRepo.getUnAnsweredQuestions(userId, query, session);
-  //     });
-  //   } catch (error) {
-  //     throw new InternalServerError(
-  //       `Failed to get unanswered questions: ${error}`,
-  //     );
-  //   }
-  // }
 
   async getDetailedQuestions(
     query: GetDetailedQuestionsQuery,
@@ -312,7 +242,7 @@ export class QuestionService extends BaseService {
 
     if (query?.search) {
       try {
-       // const embedding=[]
+        // const embedding=[]
         const {embedding} = await this.aiService.getEmbedding(query.search);
         searchEmbedding = embedding;
       } catch (err) {
@@ -350,7 +280,7 @@ export class QuestionService extends BaseService {
   ): Promise<Partial<IQuestion>> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        body = normalizeKeysToLower(body)
+        body = normalizeKeysToLower(body);
         let {
           question,
           priority,
@@ -438,7 +368,7 @@ export class QuestionService extends BaseService {
         // 4. Save Question to DB
         const savedQuestion = await this.questionRepo.addQuestion(
           newQuestion,
-          session,  
+          session,
         );
 
         // 5. Fetch userId based on provided preference and create queue
@@ -645,7 +575,7 @@ export class QuestionService extends BaseService {
     if (
       EXISTING_QUEUE_COUNT < 3 ||
       (EXISTING_QUEUE_COUNT === EXISTING_HISTORY_COUNT &&
-        EXISTING_QUEUE_COUNT <= allExpertIds.length) 
+        EXISTING_QUEUE_COUNT <= allExpertIds.length)
     ) {
       const answeredExperts = new Set(
         questionSubmission.history.map(h => h.updatedBy.toString()),
@@ -670,7 +600,7 @@ export class QuestionService extends BaseService {
       const filteredExperts = unAnsweredExpertIds.filter(
         id => !existingQueueIds.includes(id.toString()),
       );
-      
+
       const lastSubmission = questionSubmission.history.at(-1);
       if (filteredExperts.length === 0) {
         await this.questionRepo.updateQuestion(
@@ -679,20 +609,19 @@ export class QuestionService extends BaseService {
           session,
         );
         const payload: Partial<IAnswer> = {
-           
-          status:"pending-with-moderator"
-           
-         };
-        const answer=lastSubmission.answer||lastSubmission.approvedAnswer
-         await this.answerRepo.updateAnswerStatus(answer.toString(),payload,session)
-
+          status: 'pending-with-moderator',
+        };
+        const answer = lastSubmission.answer || lastSubmission.approvedAnswer;
+        await this.answerRepo.updateAnswerStatus(
+          answer.toString(),
+          payload,
+          session,
+        );
       }
 
       const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);
 
       // Add entry for first expert in the queue as status in-review (only after intial 3 allocation)
-
-     
 
       if (
         questionSubmission.history.length >= 0 &&
@@ -700,53 +629,53 @@ export class QuestionService extends BaseService {
           lastSubmission?.status == 'reviewed') &&
         EXISTING_QUEUE_COUNT >= 3
       ) {
-        if(expertsToAdd && expertsToAdd.length>=1){
-        const nextExpertId = expertsToAdd[0]?.toString();
-        const nextAllocatedSubmissionData: ISubmissionHistory = {
-          updatedBy: new ObjectId(nextExpertId),
-          status: 'in-review',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
+        if (expertsToAdd && expertsToAdd.length >= 1) {
+          const nextExpertId = expertsToAdd[0]?.toString();
+          const nextAllocatedSubmissionData: ISubmissionHistory = {
+            updatedBy: new ObjectId(nextExpertId),
+            status: 'in-review',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
 
-        await this.questionSubmissionRepo.update(
+          await this.questionSubmissionRepo.update(
+            questionId,
+            nextAllocatedSubmissionData,
+            session,
+          );
+          let message = `A new Review has been assigned to you`;
+          let title = 'New Review Assigned';
+          let entityId = questionId.toString();
+          const user = nextExpertId.toString();
+          const type = 'peer_review';
+          await this.notificationService.saveTheNotifications(
+            message,
+            title,
+            entityId,
+            user,
+            type,
+          );
+        }
+
+        for (const expertId of expertsToAdd) {
+          const IS_INCREMENT = true;
+          await this.userRepo.updateReputationScore(
+            expertId,
+            IS_INCREMENT,
+            session,
+          );
+        }
+        const updatedQueue = [...questionSubmission.queue, ...expertsToAdd]
+          .slice(0, TOTAL_EXPERTS_LIMIT)
+          .map(id => new ObjectId(id));
+
+        await this.questionSubmissionRepo.updateQueue(
           questionId,
-          nextAllocatedSubmissionData,
-          session,
-        );
-        let message = `A new Review has been assigned to you`;
-        let title = 'New Review Assigned';
-        let entityId = questionId.toString();
-        const user = nextExpertId.toString();
-        const type = 'peer_review';
-        await this.notificationService.saveTheNotifications(
-          message,
-          title,
-          entityId,
-          user,
-          type,
-        );
-      }
-
-      for (const expertId of expertsToAdd) {
-        const IS_INCREMENT = true;
-        await this.userRepo.updateReputationScore(
-          expertId,
-          IS_INCREMENT,
+          updatedQueue,
           session,
         );
       }
-      const updatedQueue = [...questionSubmission.queue, ...expertsToAdd]
-        .slice(0, TOTAL_EXPERTS_LIMIT)
-        .map(id => new ObjectId(id));
-
-      await this.questionSubmissionRepo.updateQueue(
-        questionId,
-        updatedQueue,
-        session,
-      );
     }
-  }
     return true;
   }
 
@@ -1102,15 +1031,4 @@ export class QuestionService extends BaseService {
       throw new InternalServerError(`Failed to fetch question data: ${error}`);
     }
   }
-}
-function normalizeKeysToLower(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map(normalizeKeysToLower);
-  } else if (obj && typeof obj === 'object') {
-    return Object.keys(obj).reduce((acc, key) => {
-      acc[key.toLowerCase()] = normalizeKeysToLower(obj[key]);
-      return acc;
-    }, {} as any);
-  }
-  return obj;
 }

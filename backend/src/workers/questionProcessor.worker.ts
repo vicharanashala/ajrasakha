@@ -7,7 +7,7 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {CORE_TYPES} from '#root/modules/core/types.js';
 import {ObjectId} from 'mongodb';
 import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
-import { getBackgroundJobs } from './workerManager.js';
+import {getBackgroundJobs} from './workerManager.js';
 
 interface WorkerData {
   ids: string[];
@@ -99,9 +99,8 @@ const aiService = new AiService();
       }
 
       // Get embedding from AI server
-      // const embeddingResponse = await aiService.getEmbedding(textToEmbed);
-      // const embedding = embeddingResponse?.embedding || [];
-      const embedding = [];
+      const {embedding} = await aiService.getEmbedding(textToEmbed);
+      // const embedding = [];
 
       await questionRepo['QuestionCollection'].updateOne(
         {_id: new (await import('mongodb')).ObjectId(qId)},
@@ -169,5 +168,4 @@ const aiService = new AiService();
   );
   parentPort?.postMessage({success: true, processed});
   process.exit(0);
-  
 })();
