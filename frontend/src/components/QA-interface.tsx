@@ -1529,8 +1529,7 @@ export const ResponseTimeline = ({
                                   >
                                     {isSubmittingAnswer &&
                                     !rejectionReason &&
-                                    !isRejectionSubmitted &&
-                                    sources.length <= 0 ? (
+                                    !isRejectionSubmitted ? (
                                       <>
                                         <Loader2 className="w-4 h-4 animate-spin" />
                                         Accepting...
@@ -1554,8 +1553,7 @@ export const ResponseTimeline = ({
                               >
                                 {isSubmittingAnswer &&
                                 rejectionReason &&
-                                isRejectionSubmitted &&
-                                sources.length >= 0 ? (
+                                isRejectionSubmitted ? (
                                   <>
                                     <Loader2 className="w-4 h-4 animate-spin" />
                                     Rejecting...

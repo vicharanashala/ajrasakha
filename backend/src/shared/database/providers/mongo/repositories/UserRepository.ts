@@ -82,7 +82,7 @@ export class UserRepository implements IUserRepository {
       {_id: new ObjectId(id)},
       {
         projection: {
-          _id: 0,
+          // _id: 0,
           firebaseUID: 0,
         },
         session,
