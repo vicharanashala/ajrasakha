@@ -42,7 +42,7 @@ export interface Notification {
   createdAt: string;
   updatedAt: string;
 }
-import { useNavigateToQuestion } from "@/hooks/api/question/useNavigateToQuestion";
+import { useNavigateToQuestion, useNavigateToRequest } from "@/hooks/api/question/useNavigateToQuestion";
 
 export default function Notification() {
   const { data: user, isLoading } = useGetCurrentUser();
@@ -65,7 +65,7 @@ export default function Notification() {
   // } = useGetQuestionFullDataById(selectedQuestionId);
   const navigate = useNavigate();
 const { goToQuestion } = useNavigateToQuestion();
-
+const {goToRequest} = useNavigateToRequest()
   const {
     data: notificationPages,
     fetchNextPage,
@@ -136,6 +136,8 @@ const { goToQuestion } = useNavigateToQuestion();
 
     if (type === "answer_creation" || type === "peer_review") {
       goToQuestion(enitity_id)
+    }else if (type === "flag") {
+      goToRequest(_id); // ← assuming enitity_id = requestId
     }
   };
   const handlePreferenceChange = async (value: string) => {

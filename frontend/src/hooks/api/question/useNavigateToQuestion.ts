@@ -8,7 +8,7 @@ export const useNavigateToQuestion = () => {
     (questionId: string) => {
       navigate({
         to: "/home",
-        search: { question: questionId },
+        search: (prev) => ({ ...prev, question: questionId }),
         replace: true,
       });
     },
@@ -16,4 +16,21 @@ export const useNavigateToQuestion = () => {
   );
 
   return { goToQuestion };
+};
+
+export const useNavigateToRequest = () => {
+  const navigate = useNavigate();
+
+  const goToRequest = useCallback(
+    (requestId: string) => {
+      navigate({
+        to: "/home",
+        search: (prev) => ({ ...prev, request: requestId }),
+        replace: true,
+      });
+    },
+    [navigate]
+  );
+
+  return { goToRequest };
 };

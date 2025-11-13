@@ -6,6 +6,7 @@ import {z} from 'zod'
 export const Route = createFileRoute("/home/")({
   validateSearch: z.object({
     question: z.string().optional(),   
+    request: z.string().optional(),
   }),
   component: RouteComponent,
 });
