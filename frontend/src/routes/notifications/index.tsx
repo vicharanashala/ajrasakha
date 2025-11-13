@@ -42,7 +42,11 @@ export interface Notification {
   createdAt: string;
   updatedAt: string;
 }
-import { useNavigateToQuestion, useNavigateToRequest } from "@/hooks/api/question/useNavigateToQuestion";
+import {
+  useNavigateToComment,
+  useNavigateToQuestion,
+  useNavigateToRequest,
+} from "@/hooks/api/question/useNavigateToQuestion";
 
 export default function Notification() {
   const { data: user, isLoading } = useGetCurrentUser();
@@ -54,18 +58,11 @@ export default function Notification() {
   const { mutateAsync: markAllAsRead } = useMarkAllAsReadNotification();
   const { mutateAsync: autoDeletePreference } = useAutoDeletePreference();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [deletePreference, setDeletePreference] = useState("never");
-  // const [selectedQuestionId, setSelectedQuestionId] = useState("");
-
-  // const {
-  //   data: questionDetails,
-  //   refetch: refechSelectedQuestion,
-  //   isLoading: isLoadingSelectedQuestion,
-  // } = useGetQuestionFullDataById(selectedQuestionId);
   const navigate = useNavigate();
-const { goToQuestion } = useNavigateToQuestion();
-const {goToRequest} = useNavigateToRequest()
+  const { goToQuestion } = useNavigateToQuestion();
+  const { goToRequest } = useNavigateToRequest();
+  const { goToComment } = useNavigateToComment();
   const {
     data: notificationPages,
     fetchNextPage,
@@ -82,22 +79,6 @@ const {goToRequest} = useNavigateToRequest()
       setNotifications(allNotifications);
     }
   }, [notificationPages]);
-
-  const handleMarkAsRead = async (id: string) => {
-    try {
-      await markAsRead(id);
-      // const selectedNotification = notifications.find(
-      //   (notification) => notification._id === id
-      // );
-
-      // if (selectedNotification?.type === "Flag_Response") {
-      //   setSelectedQuestionId(selectedNotification.enitity_id);
-      // }
-      // toast.success("Notification marked as read!")
-    } catch (error) {
-      console.log("Error: ", error);
-    }
-  };
 
   const handleDelete = async (notificationId: string) => {
     try {
@@ -116,28 +97,25 @@ const {goToRequest} = useNavigateToRequest()
     }
   };
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) setSelectedIds(notifications.map((n) => n._id));
-    else setSelectedIds([]);
+  const handleBack = () => {
+    navigate({
+      to: "/home",
+      search: (prev) => prev,
+      replace: true,
+    });
   };
-
- const handleBack = () => {
-  navigate({
-    to: "/home",
-    search: (prev) => prev, 
-    replace: true,
-  });
-};
-
 
   const handleNotificationClick = async (notification: Notification) => {
     const { type, enitity_id, _id } = notification;
     await markAsRead(_id);
 
     if (type === "answer_creation" || type === "peer_review") {
-      goToQuestion(enitity_id)
-    }else if (type === "flag") {
+      goToQuestion(enitity_id);
+    } else if (type === "flag") {
       goToRequest(_id); // ← assuming enitity_id = requestId
+    } else if (type === "comment" || type === "flag_response") {
+      // For comments, navigate to all_questions tab with comment param
+      goToComment(enitity_id); // enitity_id should be the questionId
     }
   };
   const handlePreferenceChange = async (value: string) => {

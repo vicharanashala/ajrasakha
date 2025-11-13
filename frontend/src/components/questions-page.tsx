@@ -14,7 +14,13 @@ import {
 } from "./advanced-question-filter";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 
-export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
+export const QuestionsPage = ({
+  currentUser,
+  autoOpenQuestionId,
+}: {
+  currentUser?: IUser;
+  autoOpenQuestionId?: string | null;
+}) => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
   const [source, setSource] = useState<QuestionSourceFilter>("all");
@@ -25,13 +31,14 @@ export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
   // const observerRef = useRef<IntersectionObserver | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedQuestionId, setSelectedQuestionId] = useState("");
+  // const [selectedQuestionId, setSelectedQuestionId] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [domain, setDomain] = useState("all");
   const [user, setUser] = useState("all");
-
-  const debouncedSearch = useDebounce(search); 
-
+  const [selectedQuestionId, setSelectedQuestionId] = useState(
+    autoOpenQuestionId || ""
+  );
+  const debouncedSearch = useDebounce(search);
 
   const LIMIT = 12;
   const filter = useMemo(
@@ -76,6 +83,18 @@ export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
     refetch: refechSelectedQuestion,
     isLoading: isLoadingSelectedQuestion,
   } = useGetQuestionFullDataById(selectedQuestionId);
+  useEffect(() => {
+    if (autoOpenQuestionId && autoOpenQuestionId !== selectedQuestionId) {
+      setSelectedQuestionId(autoOpenQuestionId);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [autoOpenQuestionId, selectedQuestionId]);
+
+  useEffect(() => {
+    if (selectedQuestionId && !autoOpenQuestionId) {
+      setSelectedQuestionId("");
+    }
+  }, [filter, debouncedSearch]);
   // const questions = data?.pages.flatMap((page) => page ?? []) ?? [];
 
   // const lastElementRef = useCallback(

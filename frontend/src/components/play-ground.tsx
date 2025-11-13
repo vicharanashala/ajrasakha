@@ -24,18 +24,22 @@ export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser();
   const userId = user?._id?.toString();
   const navigate = useNavigate();
-  const { selectedQuestionId, setSelectedQuestionId,selectedRequestId,setSelectedRequestId } = useSelectedQuestion();
-  console.log("req id ",selectedRequestId)
+  const {
+    selectedQuestionId,
+    setSelectedQuestionId,
+    selectedRequestId,
+    setSelectedRequestId,
+    selectedCommentId,
+    setSelectedCommentId,
+  } = useSelectedQuestion();
   const [activeTab, setActiveTab] = useState<string>("performance");
 
-  // Calculate and set active tab based on URL params and user role
   useEffect(() => {
     if (!user) return;
-    
+
     let calculatedTab = "performance";
-    
+
     if (user.role !== "expert") {
-      // For non-experts, prioritize request_queue if there's a request ID
       if (selectedRequestId) {
         calculatedTab = "request_queue";
       } else {
@@ -47,44 +51,37 @@ export const PlaygroundPage = () => {
         calculatedTab = "request_queue";
       } else if (selectedQuestionId) {
         calculatedTab = "questions";
+      } else if (selectedCommentId) {
+        calculatedTab = "all_questions";
       } else {
         calculatedTab = "questions";
       }
     }
-    
+
     setActiveTab(calculatedTab);
-  }, [user, selectedQuestionId, selectedRequestId]);
-  // const defaultTab  = user?.role !== 'expert' ? "performance" : selectedQuestionId ? "questions" :"questions"
+  }, [user, selectedQuestionId, selectedRequestId, selectedCommentId]);
   const defaultTab = (() => {
     if (!user) return "performance";
     if (user.role !== "expert") return "performance";
     if (selectedRequestId) return "request_queue"; // ← Auto-open Request Queue
     if (selectedQuestionId) return "questions";
+    if (selectedCommentId) return "all_questions";
     return "questions";
   })();
-  // const handleTabChange = (value: string) => {
-  //   if (value !== "questions") {
-  //     setSelectedQuestionId(null);
-  //     navigate({ search: (prev) => ({ ...prev, question: undefined }) });
-  //   }
-  //   if (value !== "request_queue") {
-  //     setSelectedRequestId(null);
-  //     navigate({ search: (prev) => ({ ...prev, request: undefined }) });
-  //   }
-  // };
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (value !== "questions") {
+      setSelectedQuestionId(null);
+    }
 
+    if (value !== "request_queue") {
+      setSelectedRequestId(null);
+    }
 
-
-const handleTabChange = (value: string) => {
-  setActiveTab(value);
-  if (value !== "questions") {
-    setSelectedQuestionId(null);
-  }
-
-  if (value !== "request_queue") {
-    setSelectedRequestId(null);
-  }
-};
+    if (value !== "all_questions") {
+      setSelectedCommentId(null);
+    }
+  };
   useEffect(() => {
     initializeNotifications();
   }, [userId]);
@@ -131,11 +128,6 @@ const handleTabChange = (value: string) => {
 
       <Tabs
         key={user?.role}
-        // defaultValue={
-        //   user && user.role !== "expert" ? "performance" : "questions"
-        // }
-        // defaultValue={defaultTab}
-        // value={defaultTab}
         value={activeTab}
         onValueChange={handleTabChange}
         className="h-full w-full"
@@ -224,11 +216,12 @@ const handleTabChange = (value: string) => {
                   className="relative p-1 rounded-md hover:bg-accent transition-colors"
                 >
                   <BellIcon className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
-                  {user?.notifications !==undefined && user.notifications > 0 && (
-                    <span className="absolute -top-[4px] -right-[12px] flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-white shadow-sm leading-none">
-                      {user.notifications > 99 ? "99+" : user.notifications}
-                    </span>
-                  )}
+                  {user?.notifications !== undefined &&
+                    user.notifications > 0 && (
+                      <span className="absolute -top-[4px] -right-[12px] flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-white shadow-sm leading-none">
+                        {user.notifications > 99 ? "99+" : user.notifications}
+                      </span>
+                    )}
                 </button>
               </div>
 
@@ -254,21 +247,27 @@ const handleTabChange = (value: string) => {
               )}
               {user && user.role == "expert" && (
                 <TabsContent value="questions" className="mt-0 border-0 p-0 ">
-                  <QAInterface autoSelectQuestionId={selectedQuestionId} onManualSelect={setSelectedQuestionId} />
+                  <QAInterface
+                    autoSelectQuestionId={selectedQuestionId}
+                    onManualSelect={setSelectedQuestionId}
+                  />
                 </TabsContent>
               )}
               <TabsContent
                 value="all_questions"
                 className="mt-0 border-0 md:px-8 px-2 "
               >
-                <QuestionsPage currentUser={user!} />
+                <QuestionsPage
+                  currentUser={user!}
+                  autoOpenQuestionId={selectedCommentId || selectedQuestionId}
+                />
               </TabsContent>
               {user && user.role !== "expert" && (
                 <TabsContent
                   value="request_queue"
                   className="mt-0 border-0 md:px-8 px-2 w-full "
                 >
-                  <RequestsPage/>
+                  <RequestsPage />
                 </TabsContent>
               )}
               <TabsContent value="upload" className="mt-0 border-0 p-0 ">

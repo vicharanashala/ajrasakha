@@ -34,3 +34,23 @@ export const useNavigateToRequest = () => {
 
   return { goToRequest };
 };
+
+export const useNavigateToComment = () => {
+  const navigate = useNavigate();
+
+  const goToComment = useCallback(
+    (questionId: string) => {
+      navigate({
+        to: "/home",
+        search: (prev) => ({
+          ...prev,
+          comment: questionId,
+        }),
+        replace: true,
+      });
+    },
+    [navigate]
+  );
+
+  return { goToComment };
+};
