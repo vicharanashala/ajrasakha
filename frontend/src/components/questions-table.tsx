@@ -875,108 +875,109 @@ export const AddOrEditQuestionDialog = ({
 
         <DialogFooter className="flex justify-end gap-2">
           {/* <X className="mr-2 h-4 w-4" aria-hidden="true" />  */}
-
-          <input
-            type="file"
-            id="upload-json"
-            accept=".json,.xls, .xlsx, application/json, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            className="hidden"
-            onChange={(e) => {
-              let input = e.target;
-              const selected = e.target.files?.[0];
-              if (selected) setFile(selected);
-              setError(null);
-              const allowedTypes = [
-                "application/json",
-                "application/vnd.ms-excel",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-              ];
-
-              if (!selected || !allowedTypes.includes(selected.type)) {
-                setError("Only JSON And EXCEL files are allowed.");
-                setFile(null);
-                setTimeout(() => {
-                  setError(null);
-                }, 2000);
-                input.value = "";
-                return;
-              }
-              const maxSize = 5 * 1024 * 1024;
-              if (selected.size > maxSize) {
-                setError("File size must be less than 5MB.");
-                setFile(null);
-                setTimeout(() => {
-                  setError(null);
-                }, 2000);
-                input.value = "";
-                return;
-              }
-              setFile(selected);
-              input.value = "";
-            }}
-          />
-
-          <label htmlFor="upload-json">
-            <Button
-              asChild
-              variant="default"
-              className="bg-dark hover:bg-dark  cursor-pointer flex items-center gap-2"
-            >
-              <span className="flex items-center gap-2">
-                {file ? (
-                  <>
-                    {/* <Attachment className="h-4 w-4" /> Show attachment icon */}
-                    <PaperclipIcon className="h-4 w-4" />
-                    <span
-                      className="truncate text-sm text-muted-foreground"
-                      title={file.name}
-                    >
-                      {truncate(file.name, 20)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        setFile(null); // Remove file
-                      }}
-                      className="ml-2 text-dark "
-                    >
-                      <X className="h-4 w-4 text-dark dark:text-white" />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-4 w-4" /> Upload FILE
-                  </>
-                )}
-              </span>
-            </Button>
-          </label>
-
-          {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
-
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            <X className="mr-2 h-4 w-4" aria-hidden="true" />
-            Cancel
-          </Button>
-
           {mode === "add" ? (
-            <Button
-              variant="default"
-              onClick={() => {
-                if (file) {
-                  const formData = new FormData();
-                  formData.append("file", file);
-                  onSave?.("add", undefined, undefined, undefined, formData);
-                } else {
-                  onSave?.("add");
-                }
-              }}
-            >
-              <Save className="mr-2 h-4 w-4" aria-hidden="true" />
-              {isLoadingAction ? "Adding..." : "Add Question"}
-            </Button>
+            <>
+              <input
+                type="file"
+                id="upload-json"
+                accept=".json,.xls, .xlsx, application/json, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                className="hidden"
+                onChange={(e) => {
+                  let input = e.target;
+                  const selected = e.target.files?.[0];
+                  if (selected) setFile(selected);
+                  setError(null);
+                  const allowedTypes = [
+                    "application/json",
+                    "application/vnd.ms-excel",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                  ];
+
+                  if (!selected || !allowedTypes.includes(selected.type)) {
+                    setError("Only JSON And EXCEL files are allowed.");
+                    setFile(null);
+                    setTimeout(() => {
+                      setError(null);
+                    }, 2000);
+                    input.value = "";
+                    return;
+                  }
+                  const maxSize = 5 * 1024 * 1024;
+                  if (selected.size > maxSize) {
+                    setError("File size must be less than 5MB.");
+                    setFile(null);
+                    setTimeout(() => {
+                      setError(null);
+                    }, 2000);
+                    input.value = "";
+                    return;
+                  }
+                  setFile(selected);
+                  input.value = "";
+                }}
+              />
+
+              <label htmlFor="upload-json">
+                <Button
+                  asChild
+                  variant="default"
+                  className="bg-dark hover:bg-dark  cursor-pointer flex items-center gap-2"
+                >
+                  <span className="flex items-center gap-2">
+                    {file ? (
+                      <>
+                        {/* <Attachment className="h-4 w-4" /> Show attachment icon */}
+                        <PaperclipIcon className="h-4 w-4" />
+                        <span
+                          className="truncate text-sm text-muted-foreground"
+                          title={file.name}
+                        >
+                          {truncate(file.name, 20)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setFile(null); // Remove file
+                          }}
+                          className="ml-2 text-dark "
+                        >
+                          <X className="h-4 w-4 text-dark dark:text-white" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4" /> Upload FILE
+                      </>
+                    )}
+                  </span>
+                </Button>
+              </label>
+
+              {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+
+              <Button variant="outline" onClick={() => setOpen(false)}>
+                <X className="mr-2 h-4 w-4" aria-hidden="true" />
+                Cancel
+              </Button>
+
+              <Button
+                variant="default"
+                onClick={() => {
+                  if (file) {
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    onSave?.("add", undefined, undefined, undefined, formData);
+                  } else {
+                    onSave?.("add");
+                  }
+                }}
+              >
+                <Save className="mr-2 h-4 w-4" aria-hidden="true" />
+                {isLoadingAction ? "Adding..." : "Add Question"}
+              </Button>
+            </>
           ) : userRole === "expert" ? (
             <Button
               variant="destructive"
