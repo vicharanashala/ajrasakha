@@ -8,7 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./atoms/tooltip";
-import { Info ,AlertCircle} from "lucide-react";
+import { Info, AlertCircle } from "lucide-react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "./question-details";
 import type { IUser } from "@/types";
@@ -28,7 +28,6 @@ export const FullSubmissionHistory = ({
 }: {
   currentUser: IUser;
 }) => {
- 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [selectedQuestionId, setSelectedQuestionId] = useState("");
   const {
@@ -213,7 +212,9 @@ export const FullSubmissionHistory = ({
                             d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                           />
                         </svg>
-                        Created: {submission?.createdAt && new Date(submission.createdAt).toLocaleString()}
+                        Created:{" "}
+                        {submission?.createdAt &&
+                          new Date(submission.createdAt).toLocaleString()}
                       </span>
                       {submission?.createdAt !== submission?.updatedAt && (
                         <span className=" items-center gap-1 hidden md:flex">
@@ -284,104 +285,115 @@ export const FullSubmissionHistory = ({
                             Answer
                           </span>
                         </div>
-                        {currentUser.role=="expert" && submission?.reponse && (
-                          <div className="flex flex-row">
-                          <span 
-                          className={`text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1
+                        {currentUser.role == "expert" &&
+                          submission?.reponse && (
+                            <div className="flex flex-row">
+                              <span
+                                className={`text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1
                             ${
-                          submission.reponse.status === "rejected"
-                            ? "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200"
-                            : submission.reponse.status === "Answer Created"
-                            ? "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200"
-                            : submission.reponse.status === "pending-with-moderator"
-                            ? "bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200"
-                            : "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200"
-                        }`}
-                                            >
-                            <svg
-                              className="w-3 h-3"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            User Activity:{submission?.reponse.status||'N/A'}
-                          </span>
+                              submission.reponse.status === "rejected"
+                                ? "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200"
+                                : submission.reponse.status === "Answer Created"
+                                ? "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200"
+                                : submission.reponse.status ===
+                                  "pending-with-moderator"
+                                ? "bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200"
+                                : "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200"
+                            }`}
+                              >
+                                <svg
+                                  className="w-3 h-3"
+                                  fill="currentColor"
+                                  viewBox="0 0 20 20"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                                User Activity:
+                                {submission?.reponse.status || "N/A"}
+                              </span>
 
-                          <span 
-                          className={`text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1 ml-10
+                              <span
+                                className={`text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1 ml-10
                             ${
-                          submission.reponse.answerStatus === "rejected"
-                            ? "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200"
-                            : submission.reponse.answerStatus === "approved"
-                            ? " bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 "
-                            : submission.reponse.answerStatus === "pending-with-moderator"
-                            ? "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200"
-                            : submission.reponse.answerStatus === "in-review"?"bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200":
-                            "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200"
-                        }`}
-                                            >
-                            <svg
-                              className="w-3 h-3"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            {submission?.reponse.answerStatus==="approved"?"Final Answer":
-                            `Answer Status:${submission?.reponse.answerStatus||'N/A'}`}
-                          </span>
-
-                          </div>
-                        )}
-                        {currentUser.role=="moderator" && submission?.reponse.isFinalAnswer && (
-                          <span className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 rounded-full font-medium flex items-center gap-1">
-                            <svg
-                              className="w-3 h-3"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            Final Answer
-                          </span>
-                        )}
-                        {currentUser.role=="expert" && submission?.reponse.reasonForRejection && (
-                        <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="w-full sm:w-auto bg-red-100 ">
-                          <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-700 mt-0.5 flex-shrink-0" />
-                          
-                          <p className="text-xs px-2 py-1 bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 rounded-full font-medium flex items-center gap-1">
+                              submission.reponse.answerStatus === "rejected"
+                                ? "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200"
+                                : submission.reponse.answerStatus === "approved"
+                                ? " bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 "
+                                : submission.reponse.answerStatus ===
+                                  "pending-with-moderator"
+                                ? "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200"
+                                : submission.reponse.answerStatus ===
+                                  "in-review"
+                                ? "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200"
+                                : "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200"
+                            }`}
+                              >
+                                <svg
+                                  className="w-3 h-3"
+                                  fill="currentColor"
+                                  viewBox="0 0 20 20"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                                {submission?.reponse.answerStatus === "approved"
+                                  ? "Final Answer"
+                                  : `Answer Status:${
+                                      submission?.reponse.answerStatus || "N/A"
+                                    }`}
+                              </span>
+                              {currentUser.role == "expert" &&
+                                submission?.reponse.reasonForRejection && (
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex items-center ml-10 gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium text-red-600 border border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-950/30 transition-colors"
+                                      >
+                                        <AlertCircle className="w-3 h-3" />
+                                        View Rejection
+                                      </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="w-[50vw] max-w-6xl h-[50vh] flex flex-col">
+                                      <DialogHeader className="pb-4 border-b">
+                                        <DialogTitle className="text-lg font-semibold">
                                           Rejection Reason
-                                        </p>
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent
-                          className="w-[50vw] max-w-6xl h-[50vh] flex flex-col"
-                          style={{ maxWidth: "70vw" }}
-                        >
-                          <DialogHeader className="pb-4 border-b">
-                            <DialogTitle className="text-xl font-semibold">
-                            Rejection Reason
-                            </DialogTitle>
-                          </DialogHeader>
-                          <div>{submission.reponse.reasonForRejection}</div>
-                        </DialogContent>
-                        </Dialog>
-                        )}
+                                        </DialogTitle>
+                                      </DialogHeader>
+                                      <div className="p-2 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line">
+                                        {submission.reponse.reasonForRejection}
+                                      </div>
+                                    </DialogContent>
+                                  </Dialog>
+                                )}
+                            </div>
+                          )}
+
+                        {currentUser.role == "moderator" &&
+                          submission?.reponse.isFinalAnswer && (
+                            <span className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 rounded-full font-medium flex items-center gap-1">
+                              <svg
+                                className="w-3 h-3"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                              Final Answer
+                            </span>
+                          )}
                       </div>
 
                       <div className="p-4">
@@ -407,7 +419,8 @@ export const FullSubmissionHistory = ({
                               />
                             </svg>
                             <span className="hidden md:inline">Answered:</span>{" "}
-                            {submission?.updatedAt && new Date(submission?.updatedAt).toLocaleString()}
+                            {submission?.updatedAt &&
+                              new Date(submission?.updatedAt).toLocaleString()}
                           </span>
                           <span className="text-gray-500 dark:text-gray-500 hidden md:flex">
                             Answer ID: {submission?.reponse.id}
