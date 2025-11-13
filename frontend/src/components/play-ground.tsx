@@ -18,12 +18,14 @@ import { useNavigate } from "@tanstack/react-router";
 import { initializeNotifications } from "@/services/pushService";
 import { useEffect } from "react";
 import { PerformanceMatrics } from "./performanceMatrics";
+import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser();
   const userId = user?._id?.toString();
   const navigate = useNavigate();
-
+  const { selectedQuestionId, setSelectedQuestionId } = useSelectedQuestion();
+  const defaultTab  = user?.role !== 'expert' ? "performance" : selectedQuestionId ? "questions" :"questions"
   useEffect(() => {
     initializeNotifications();
   }, [userId]);
@@ -70,9 +72,10 @@ export const PlaygroundPage = () => {
 
       <Tabs
         key={user?.role}
-        defaultValue={
-          user && user.role !== "expert" ? "performance" : "questions"
-        }
+        // defaultValue={
+        //   user && user.role !== "expert" ? "performance" : "questions"
+        // }
+        defaultValue={defaultTab}
         className="h-full w-full"
       >
         <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -189,7 +192,7 @@ export const PlaygroundPage = () => {
               )}
               {user && user.role == "expert" && (
                 <TabsContent value="questions" className="mt-0 border-0 p-0 ">
-                  <QAInterface />
+                  <QAInterface autoSelectQuestionId={selectedQuestionId} onManualSelect={setSelectedQuestionId} />
                 </TabsContent>
               )}
               <TabsContent

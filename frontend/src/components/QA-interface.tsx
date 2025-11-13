@@ -97,7 +97,7 @@ export type QuestionFilter =
   | "oldest"
   | "leastResponses"
   | "mostResponses";
-export const QAInterface = () => {
+export const QAInterface = ({autoSelectQuestionId,onManualSelect}:{autoSelectQuestionId:string | null;onManualSelect: (id: string | null) => void;}) => {
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
   const [newAnswer, setNewAnswer] = useState<string>("");
   const [isFinalAnswer, setIsFinalAnswer] = useState<boolean>(false);
@@ -180,12 +180,35 @@ export const QAInterface = () => {
   const { mutateAsync: respondQuestion, isPending: isResponding } =
     useReviewAnswer();
 
-  useEffect(() => {
-    if (questions.length > 0 && !selectedQuestion) {
-      const firstQuestionId = questions[0]?.id ? questions[0]?.id : null;
-      setSelectedQuestion(firstQuestionId);
+
+
+const hasInitialized = useRef(false);
+
+useEffect(() => {
+  if (!questions.length || hasInitialized.current) return;
+
+  // Prioritize URL param on initial load only
+  if (autoSelectQuestionId) {
+    const exists = questions.some((q) => q!.id === autoSelectQuestionId);
+    if (exists) {
+      setSelectedQuestion(autoSelectQuestionId);
+      hasInitialized.current = true;
+      return;
     }
-  }, [questions]);
+  }
+
+  // Select first question on initial load only
+  if (!selectedQuestion) {
+    setSelectedQuestion(questions[0]!.id);
+    hasInitialized.current = true;
+  }
+}, [questions, autoSelectQuestionId, selectedQuestion]);
+
+useEffect(() => {
+  setNewAnswer("");
+  setSources([]);
+  setIsFinalAnswer(false);
+}, [selectedQuestion]);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -335,6 +358,14 @@ export const QAInterface = () => {
       console.log("Failed to submit: ", error);
     }
   };
+
+  const handleQuestionClick = (id: string) => {
+  setSelectedQuestion(id);
+  if (autoSelectQuestionId && id !== autoSelectQuestionId) {
+    onManualSelect(null);
+  }
+};
+
   return (
     <div className="container mx-auto px-4 md:px-6 bg-transparent py-4 ">
       <div className="flex flex-col space-y-6">
@@ -467,15 +498,17 @@ export const QAInterface = () => {
               >
                 <RadioGroup
                   value={selectedQuestion}
-                  onValueChange={(value) => {
-                    setSelectedQuestion(value);
-                    setIsFinalAnswer(false);
-                  }}
+                  // onValueChange={(value) => {
+                  //   setSelectedQuestion(value);
+                  //   setIsFinalAnswer(false);
+                  // }}
+                  onValueChange={handleQuestionClick}
                   className="space-y-4"
                 >
                   {questions?.map((question, index) => (
                     <div
-                      key={index}
+                      // key={index}
+                      key={question?.id}
                       className={`relative group rounded-xl border transition-all duration-200 overflow-hidden bg-transparent ${
                         selectedQuestion === question?.id
                           ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"

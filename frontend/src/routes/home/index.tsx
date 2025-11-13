@@ -2,8 +2,11 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { PlaygroundPage } from "@/components/play-ground";
 import { useAuthStore } from "@/stores/auth-store";
 import { useEffect } from "react";
-
+import {z} from 'zod'
 export const Route = createFileRoute("/home/")({
+  validateSearch: z.object({
+    question: z.string().optional(),   
+  }),
   component: RouteComponent,
 });
 

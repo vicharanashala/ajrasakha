@@ -42,6 +42,7 @@ export interface Notification {
   createdAt: string;
   updatedAt: string;
 }
+import { useNavigateToQuestion } from "@/hooks/api/question/useNavigateToQuestion";
 
 export default function Notification() {
   const { data: user, isLoading } = useGetCurrentUser();
@@ -63,6 +64,7 @@ export default function Notification() {
   //   isLoading: isLoadingSelectedQuestion,
   // } = useGetQuestionFullDataById(selectedQuestionId);
   const navigate = useNavigate();
+const { goToQuestion } = useNavigateToQuestion();
 
   const {
     data: notificationPages,
@@ -119,9 +121,22 @@ export default function Notification() {
     else setSelectedIds([]);
   };
 
-  const handleBack = () => {
-    // window.history.back();
-    navigate({ to: "/home" });
+ const handleBack = () => {
+  navigate({
+    to: "/home",
+    search: (prev) => prev, 
+    replace: true,
+  });
+};
+
+
+  const handleNotificationClick = async (notification: Notification) => {
+    const { type, enitity_id, _id } = notification;
+    await markAsRead(_id);
+
+    if (type === "answer_creation" || type === "peer_review") {
+      goToQuestion(enitity_id)
+    }
   };
   const handlePreferenceChange = async (value: string) => {
     setDeletePreference(value);
@@ -257,7 +272,8 @@ export default function Notification() {
                 ) : (
                   notifications.map((notification) => (
                     <div
-                      onClick={() => handleMarkAsRead(notification._id)}
+                      // onClick={() => handleMarkAsRead(notification._id)}
+                      onClick={() => handleNotificationClick(notification)}
                       key={notification._id}
                       className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border transition-all duration-150
                       ${
