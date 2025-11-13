@@ -14,7 +14,6 @@ export const useGetQuestionFullDataById = (questionId: string | null) => {
       if (!questionId) throw new Error("Question ID is required");
       return await questionService.getQuestionFullDataById(questionId);
     },
-
     enabled: !!questionId,
   });
 
