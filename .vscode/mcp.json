@@ -1,0 +1,25 @@
+{
+  "servers": {
+    "ajrasakha-golden": {
+      "type": "http",
+      "url": "http://localhost:9001/mcp"
+    },
+    "ajrasakha-pop": {
+      "type": "http",
+      "url": "http://localhost:9002/mcp"
+    },
+    "ajrasakha-market": {
+      "type": "http",
+      "url": "http://localhost:9003/mcp"
+    },
+    "ajrasakha-weather": {
+      "type": "http",
+      "url": "http://localhost:9004/mcp"
+
+    },
+    "ajrasakha-faq": {
+      "type": "http",
+      "url": "http://localhost:9005/mcp"
+    }
+  }
+}
