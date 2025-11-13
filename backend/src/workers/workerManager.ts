@@ -21,8 +21,10 @@ const jobs: Record<string, JobStatus> = {};
 
 function chunkArray<T>(arr: T[], chunkSize: number): T[][] {
   const chunks: T[][] = [];
-  for (let i = 0; i < arr.length; i += chunkSize) {
-    chunks.push(arr.slice(i, i + chunkSize));
+  for (let i = arr.length; i > 0; i -= chunkSize) {
+    const start = Math.max(i - chunkSize, 0);
+    const end = i;
+    chunks.push(arr.slice(start, end)); // push last slice first
   }
   return chunks;
 }
