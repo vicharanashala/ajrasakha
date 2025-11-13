@@ -94,10 +94,6 @@ export class QuestionService extends BaseService {
       if (!questionText) {
         throw new BadRequestError('Each question must have a non-empty "question" field');
       }
-      // if (!details.state || !details.district || !details.crop || !details.season || !details.domain) {
-      //   throw new BadRequestError('Each question must include all detail fields: state, district, crop, season, domain');
-      // }
-
       const base: IQuestion = {
         userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
         question: questionText,

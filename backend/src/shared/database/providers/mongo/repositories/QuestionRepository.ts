@@ -906,10 +906,6 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
 
-  // async findById(id: string, session?: ClientSession): Promise<IQuestion | null> {
-  //   await this.init();
-  //   return await this.QuestionCollection.findOne({ _id: new ObjectId(id) }, { session });
-  // }
 }
 
 
