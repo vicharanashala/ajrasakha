@@ -330,7 +330,16 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   handleDelete,
   onViewMore,
 }) => {
-  const timer = useCountdown(q.createdAt, 4, () => {});
+  const DURATION_HOURS = 4;
+  const timer = useCountdown(q.createdAt, DURATION_HOURS, () => {});
+
+  const totalSeconds = DURATION_HOURS * 60 * 60;
+
+  const [h, m, s] = timer.split(":").map(Number);
+  const remainingSeconds = h * 3600 + m * 60 + s;
+
+  // if less than (totalSeconds - 20), means 20 seconds passed since start
+  const isClickable = remainingSeconds <= totalSeconds - 168;
 
   const priorityBadge = useMemo(() => {
     if (!q.priority)
@@ -389,12 +398,33 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
       {/* Question Text */}
       <TableCell className="text-start ps-3 w-[35%]" title={q.question}>
         <div className="flex flex-col gap-1">
-          <span
-            className="cursor-pointer hover:underline"
-            onClick={() => onViewMore(q._id?.toString() || "")}
-          >
-            {truncate(q.question, 60)}
-          </span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className={`cursor-pointer ${
+                    isClickable
+                      ? "hover:underline"
+                      : "opacity-50 cursor-not-allowed"
+                  }`}
+                  onClick={() => {
+                    if (!isClickable) return;
+                    onViewMore(q._id?.toString() || "");
+                  }}
+                >
+                  {truncate(q.question, 60)}
+                </span>
+              </TooltipTrigger>
+              {!isClickable && (
+                <TooltipContent side="top">
+                  <p>
+                    The question is currently being processed. Expert allocation
+                    is underway and may take up to 2–3 minutes to complete.
+                  </p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
           {q.status !== "delayed" && (
             <TimerDisplay timer={timer} status={q.status} />
           )}
@@ -435,7 +465,12 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
         <div className="flex justify-center">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline" className="p-1">
+              <Button
+                size="sm"
+                variant="outline"
+                className="p-1"
+                disabled={!isClickable}
+              >
                 <MoreVertical className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
