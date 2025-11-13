@@ -995,6 +995,7 @@ export const AddOrEditQuestionDialog = ({
                     const formData = new FormData();
                     formData.append("file", file);
                     onSave?.("add", undefined, undefined, undefined, formData);
+                    setFile(null)
                   } else {
                     onSave?.("add");
                   }
