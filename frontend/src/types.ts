@@ -98,11 +98,15 @@ export interface ISubmissions {
   createdAt: string;
   updatedAt: string;
   totalAnwersCount: number;
+  questionStatus:string,
   reponse: {
     answer: string;
     id: string;
     isFinalAnswer: boolean;
     createdAt: string;
+    status:string;
+    answerStatus:string;
+    reasonForRejection:string;
   };
 }
 
