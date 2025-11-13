@@ -275,17 +275,13 @@ const { goToQuestion } = useNavigateToQuestion();
                       // onClick={() => handleMarkAsRead(notification._id)}
                       onClick={() => handleNotificationClick(notification)}
                       key={notification._id}
-                      className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border transition-all duration-150
-                      ${
-                        !notification.is_read
-                          ? "bg-accent/50 border-accent-foreground/20"
-                          : "bg-card"
-                      }
-                      ${
-                        selectedIds.includes(notification._id)
-                          ? "ring-2 ring-green-500 ring-opacity-30"
-                          : ""
-                      }`}
+                      className={`relative flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-4 rounded-lg border bg-card/70 
+  transition-all duration-200 hover:bg-black/10 dark:hover:bg-white/10 hover:shadow-md cursor-pointer 
+  ${
+    notification.is_read
+      ? "border-l-4 border-l-transparent"
+      : "border-l-4 border-l-blue-500"
+  }`}
                     >
                       <div className="flex items-start sm:items-center gap-2"></div>
 
@@ -314,9 +310,9 @@ const { goToQuestion } = useNavigateToQuestion();
                             <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">
                               {formatDate(new Date(notification.createdAt))}
                             </span>
-                            {!notification.is_read && (
+                            {/* {!notification.is_read && (
                               <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                            )}
+                            )} */}
 
                             <XCircle
                               className="w-4 h-4 flex items-center gap-2 cursor-pointer text-red-500 hover:text-red-700 transition-colors duration-200"
