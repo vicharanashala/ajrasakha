@@ -621,6 +621,7 @@ export class QuestionService extends BaseService {
 
       const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);
 
+      console.log("expertsToAdd: ", expertsToAdd)
       // Add entry for first expert in the queue as status in-review (only after intial 3 allocation)
 
       if (
@@ -629,6 +630,7 @@ export class QuestionService extends BaseService {
           lastSubmission?.status == 'reviewed') &&
         EXISTING_QUEUE_COUNT >= 3
       ) {
+        console.log("Inside the condi")
         if (expertsToAdd && expertsToAdd.length >= 1) {
           const nextExpertId = expertsToAdd[0]?.toString();
           const nextAllocatedSubmissionData: ISubmissionHistory = {
@@ -669,6 +671,8 @@ export class QuestionService extends BaseService {
           .slice(0, TOTAL_EXPERTS_LIMIT)
           .map(id => new ObjectId(id));
 
+          console.log("updatedQueue: ", updatedQueue)
+
         await this.questionSubmissionRepo.updateQueue(
           questionId,
           updatedQueue,
@@ -695,6 +699,7 @@ export class QuestionService extends BaseService {
         // If currentStatus is false, then we need to set it to true and vice versa
 
         if (!currentStatus) {
+
           const submission = await this.questionSubmissionRepo.getByQuestionId(
             questionId,
             session,

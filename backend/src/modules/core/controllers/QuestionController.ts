@@ -158,6 +158,7 @@ export class QuestionController {
         setImmediate(() => startBackgroundProcessing(insertedIds));
         return {
           message: `✅ ${insertedIds.length} questions have been uploaded successfully. The expert allocation process has been initiated.`,
+          insertedIds
         };
       } catch (err: any) {
         throw new BadRequestError(

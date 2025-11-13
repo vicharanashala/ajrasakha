@@ -109,6 +109,7 @@ type QuestionsTableProps = {
   isLoading?: boolean;
   totalPages: number;
   limit: number;
+  uploadedQuestionsCount: number;
   userRole?: UserRole;
 };
 type DetailField = keyof NonNullable<IDetailedQuestion["details"]>;
@@ -122,6 +123,7 @@ export const QuestionsTable = ({
   userRole,
   isLoading,
   totalPages,
+  uploadedQuestionsCount,
 }: QuestionsTableProps) => {
   const [editOpen, setEditOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
@@ -266,6 +268,7 @@ export const QuestionsTable = ({
                   idx={idx}
                   onViewMore={onViewMore}
                   q={q}
+                  uploadedQuestionsCount={uploadedQuestionsCount}
                   limit={limit}
                   setUpdatedData={setUpdatedData}
                   updateQuestion={handleUpdateQuestion}
@@ -296,6 +299,7 @@ interface QuestionRowProps {
   idx: number;
   currentPage: number;
   limit: number;
+  uploadedQuestionsCount: number;
   totalPages: number;
   userRole: UserRole;
   updatingQuestion: boolean;
@@ -323,6 +327,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   limit,
   userRole,
   updatingQuestion,
+  uploadedQuestionsCount,
   deletingQuestion,
   setEditOpen,
   setSelectedQuestion,
@@ -339,7 +344,8 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   const remainingSeconds = h * 3600 + m * 60 + s;
 
   // if less than (totalSeconds - 20), means 20 seconds passed since start
-  const isClickable = remainingSeconds <= totalSeconds - 168;
+  const isClickable =
+    remainingSeconds <= totalSeconds - 168 && uploadedQuestionsCount <= 0;
 
   const priorityBadge = useMemo(() => {
     if (!q.priority)
@@ -1012,6 +1018,7 @@ type QuestionsFiltersProps = {
   crops: string[];
   onReset: () => void;
   setSearch: (val: string) => void;
+  setUploadedQuestionsCount: (val: number) => void;
   refetch: () => void;
   totalQuestions: number;
   userRole: UserRole;
@@ -1020,6 +1027,7 @@ type QuestionsFiltersProps = {
 export const QuestionsFilters = ({
   search,
   setSearch,
+  setUploadedQuestionsCount,
   crops,
   states,
   onChange,
@@ -1047,7 +1055,7 @@ export const QuestionsFilters = ({
   );
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
-    useAddQuestion();
+    useAddQuestion((count) => setUploadedQuestionsCount(count));
 
   const handleAddQuestion = async (
     mode: "add" | "edit",

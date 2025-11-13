@@ -30,8 +30,9 @@ export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
   const [domain, setDomain] = useState("all");
   const [user, setUser] = useState("all");
 
-  const debouncedSearch = useDebounce(search); 
+  const [uploadedQuestionsCount, setUploadedQuestionsCount] = useState(0); // to track the bulk uploaded file size to run timer
 
+  const debouncedSearch = useDebounce(search);
 
   const LIMIT = 12;
   const filter = useMemo(
@@ -170,6 +171,7 @@ export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
           <QuestionsFilters
             search={search}
             setSearch={setSearch}
+            setUploadedQuestionsCount={setUploadedQuestionsCount}
             states={STATES}
             onChange={onChangeFilters}
             onReset={onReset}
@@ -197,6 +199,7 @@ export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
             // lastElementRef={lastElementRef}
             totalPages={questionData?.totalPages || 0}
             isLoading={isLoading || isRefreshing}
+            uploadedQuestionsCount={uploadedQuestionsCount}
           />
         </>
       )}
