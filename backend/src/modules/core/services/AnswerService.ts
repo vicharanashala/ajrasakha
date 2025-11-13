@@ -6,6 +6,7 @@ import {inject, injectable} from 'inversify';
 import {ClientSession, ObjectId} from 'mongodb';
 import {
   IAnswer,
+  INotificationType,
   IQuestionMetrics,
   ISubmissionHistory,
   SourceItem,
@@ -476,7 +477,7 @@ export class AnswerService extends BaseService {
             let title = 'New Review Assigned';
             let entityId = questionId.toString();
             const user = nextExpertId.toString();
-            const type = 'peer_review';
+            const type:INotificationType ='peer_review' 
 
             await this.notificationService.saveTheNotifications(
               message,

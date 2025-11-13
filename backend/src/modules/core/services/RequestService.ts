@@ -2,6 +2,7 @@ import {injectable, inject} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {
   BaseService,
+  INotificationType,
   IQuestion,
   IRequest,
   IRequestResponse,
@@ -52,7 +53,7 @@ export class RequestService extends BaseService {
     try {
       return await this._withTransaction(async session => {
         const request= this.requestRepository.createRequest(data, userId, session);
-        let type = data.details.requestType.toString()
+        let type:INotificationType = 'flag';
         const moderators = await this.userRepo.findModerators()
         let message =`A new Question Flag raised QuestionId ${data.entityId}`
         let title= "New Flag Raised"

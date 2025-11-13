@@ -7,7 +7,8 @@ import {
   IQuestion,
   IQuestionSubmission,
   ISubmissionHistory,
-  IAnswer
+  IAnswer,
+  INotificationType
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -432,7 +433,7 @@ export class QuestionService extends BaseService {
           let title = 'Answer Creation Assigned';
           let entityId = savedQuestion._id.toString();
           const user = intialUsersToAllocate[0]._id.toString();
-          const type = 'answer_creation';
+          const type:INotificationType = 'answer_creation';
           await this.notificationService.saveTheNotifications(
             message,
             title,
@@ -665,7 +666,7 @@ export class QuestionService extends BaseService {
         let title = 'New Review Assigned';
         let entityId = questionId.toString();
         const user = nextExpertId.toString();
-        const type = 'peer_review';
+        const type:INotificationType = 'peer_review';
         await this.notificationService.saveTheNotifications(
           message,
           title,
@@ -827,7 +828,7 @@ export class QuestionService extends BaseService {
           let title = 'Answer Creation Assigned';
           let entityId = questionId.toString();
           const user = firstPerson.toString();
-          const type = 'peer_review';
+          const type:INotificationType = 'peer_review';
           await this.notificationService.saveTheNotifications(
             message,
             title,
@@ -858,7 +859,7 @@ export class QuestionService extends BaseService {
           let title = 'New Review Assigned';
           let entityId = questionId.toString();
           const user = expertId.toString();
-          const type = 'peer_review';
+          const type:INotificationType = 'peer_review';
           await this.notificationService.saveTheNotifications(
             message,
             title,
