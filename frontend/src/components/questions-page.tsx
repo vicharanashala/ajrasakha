@@ -173,7 +173,16 @@ export const QuestionsPage = ({
   const handleViewMore = (questoinId: string) => {
     setSelectedQuestionId(questoinId);
   };
-
+  const goBack = () => {
+    const url = new URL(window.location.href)
+    if(url.searchParams.has('comment')){
+      url.searchParams.delete('comment')
+      window.history.replaceState({}, "", url.toString());
+      setSelectedQuestionId('')
+      return
+    }
+    setSelectedQuestionId('')
+  }
   return (
     <main className="mx-auto w-full p-4 md:p-6 space-y-6 ">
       {selectedQuestionId && questionDetails ? (
@@ -183,7 +192,8 @@ export const QuestionsPage = ({
             currentUserId={questionDetails.currentUserId}
             refetchAnswers={refechSelectedQuestion}
             isRefetching={isLoadingSelectedQuestion}
-            goBack={() => setSelectedQuestionId("")}
+            // goBack={() => setSelectedQuestionId("")}
+            goBack={goBack}
             currentUser={currentUser!}
           />
         </>
