@@ -250,6 +250,43 @@ export class UserRepository implements IUserRepository {
 
     // 3. Score users
     const scoredUsers = allUsers
+      // .map(user => {
+      //   const pref: PreferenceDto = user.preference || {};
+
+      //   const isAllSelected =
+      //     pref.crop === 'all' && pref.state === 'all' && pref.domain === 'all';
+
+      //   let score = 0;
+      //   if (pref.crop && pref.crop !== 'all' && pref.crop === details.crop)
+      //     score++;
+      //   if (pref.state && pref.state !== 'all' && pref.state === details.state)
+      //     score++;
+      //   if (
+      //     pref.domain &&
+      //     pref.domain !== 'all' &&
+      //     pref.domain === details.domain
+      //   )
+      //     score++;
+
+      //   // Include only if score > 0 or allSelected
+      //   // if (score > 0 || isAllSelected) {
+      //   const workloadScore =
+      //     typeof user.reputation_score === 'number' ? user.reputation_score : 0;
+
+      //   // console.log(
+      //   //   'email: ',
+      //   //   user.email,
+      //   //   'score; ',
+      //   //   score,
+      //   //   'isAllSelected: ',
+      //   //   isAllSelected,
+      //   //   'Workload score: ',
+      //   //   workloadScore,
+      //   // );
+      //   return {user, score, isAllSelected, workloadScore};
+      //   // }
+      //   // return null;
+      // })
       .map(user => {
         const pref: PreferenceDto = user.preference || {};
 
@@ -257,35 +294,25 @@ export class UserRepository implements IUserRepository {
           pref.crop === 'all' && pref.state === 'all' && pref.domain === 'all';
 
         let score = 0;
-        if (pref.crop && pref.crop !== 'all' && pref.crop === details.crop)
-          score++;
-        if (pref.state && pref.state !== 'all' && pref.state === details.state)
-          score++;
-        if (
-          pref.domain &&
-          pref.domain !== 'all' &&
-          pref.domain === details.domain
-        )
-          score++;
 
-        // Include only if score > 0 or allSelected
-        // if (score > 0 || isAllSelected) {
+        // Preference Weighting
+        if (pref.state && pref.state !== 'all' && pref.state === details.state)
+          score += 3; // Highest priority
+
+        if (pref.domain && pref.domain !== 'all' && pref.domain === details.domain)
+          score += 2; // Medium priority
+
+        if (
+          pref.crop &&
+          pref.crop !== 'all' &&
+          pref.crop === details.crop
+        )
+          score += 1; // Lower priority
+
         const workloadScore =
           typeof user.reputation_score === 'number' ? user.reputation_score : 0;
 
-        // console.log(
-        //   'email: ',
-        //   user.email,
-        //   'score; ',
-        //   score,
-        //   'isAllSelected: ',
-        //   isAllSelected,
-        //   'Workload score: ',
-        //   workloadScore,
-        // );
         return {user, score, isAllSelected, workloadScore};
-        // }
-        // return null;
       })
       .filter(Boolean) as {
       user: IUser;

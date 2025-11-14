@@ -28,6 +28,7 @@ import {
   Check,
   Copy,
   Target,
+  FileSearch,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { RadioGroup, RadioGroupItem } from "./atoms/radio-group";
@@ -606,10 +607,16 @@ export const QAInterface = () => {
                   <div className="p-2 rounded-lg bg-primary/10">
                     <FileText className="w-5 h-5 text-primary" />
                   </div>
-                  <CardTitle className="text-lg font-semibold">
-                    Response
-                  </CardTitle>
+
+                  <div className="flex items-center justify-between w-full">
+                    <CardTitle className="text-lg font-semibold">
+                      Response
+                    </CardTitle>
+
+                    <QuestionDetailsDialog question={selectedQuestionData} />
+                  </div>
                 </CardHeader>
+
                 <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-hidden scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-200 dark:scrollbar-track-gray-800">
                   {isSelectedQuestionLoading ? (
                     <div className="h-full flex flex-col items-center justify-center">
@@ -625,9 +632,9 @@ export const QAInterface = () => {
                           <Label className="text-sm font-medium text-muted-foreground">
                             Current Query:
                           </Label>
-                          <QuestionDetailsDialog
+                          {/* <QuestionDetailsDialog
                             question={selectedQuestionData}
-                          />
+                          /> */}
                         </div>
 
                         <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words">
@@ -704,166 +711,11 @@ export const QAInterface = () => {
                             }
                           />
 
-                          {/* <Button
-                            onClick={handleSubmit}
-                            disabled={!newAnswer.trim() || isSubmittingAnswer}
-                            className="flex items-center gap-2"
-                          >
-                            {isSubmittingAnswer ? (
-                              <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                <span>Submitting…</span>
-                              </>
-                            ) : (
-                              <>
-                                <Send className="w-4 h-4" />
-                                <span>Submit</span>
-                              </>
-                            )}
-                          </Button> */}
                           <Button variant="secondary" onClick={handleReset}>
                             <span className="sr-only">Reset answer</span>
                             <RotateCcw className="h-4 w-4" />
                           </Button>
                         </div>
-
-                        {/* <Dialog>
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className="bg-transparent flex items-center"
-                            >
-                              <Eye className="w-4 h-4 md:mr-2" />
-
-                              <span className="hidden md:inline">
-                                View Other Responses
-                              </span>
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent
-                            className="max-w-6xl max-h-[80vh] overflow-y-auto "
-                            style={{ maxWidth: "70vw" }}
-                          >
-                            <div className="mt-4">
-                              {selectedQuestionData.currentAnswers &&
-                              selectedQuestionData.currentAnswers.length > 0 ? (
-                                <div className="space-y-6">
-                                  {selectedQuestionData.currentAnswers
-                                    ?.slice()
-                                    .sort(
-                                      (a, b) =>
-                                        (b.isFinalAnswer ? 1 : 0) -
-                                        (a.isFinalAnswer ? 1 : 0)
-                                    )
-                                    .map((currentAnswer, index) => (
-                                      <div
-                                        key={currentAnswer.id}
-                                        className={`relative overflow-hidden rounded-xl border transition-all duration-300 hover:shadow-lg ${
-                                          currentAnswer.isFinalAnswer
-                                            ? "bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/20 border-green-200 dark:border-green-800 shadow-green-100/50 dark:shadow-green-900/20"
-                                            : ""
-                                        }`}
-                                      >
-                                        <div
-                                          className={`absolute left-0 top-0 h-full w-1 ${
-                                            currentAnswer.isFinalAnswer
-                                              ? "bg-gradient-to-b from-green-500 to-emerald-600"
-                                              : "bg-gradient-to-b from-primary to-primary/60"
-                                          }`}
-                                        />
-
-                                        {currentAnswer.isFinalAnswer && (
-                                          <div className="absolute top-0 right-0 w-20 h-20 overflow-hidden">
-                                            <div className="absolute top-0 right-0 w-8 h-8 bg-green-200/30 dark:bg-green-700/20 rounded-bl-full" />
-                                            <div className="absolute top-2 right-2 w-4 h-4 bg-green-300/40 dark:bg-green-600/30 rounded-full" />
-                                          </div>
-                                        )}
-
-                                        <div className="relative p-6">
-                                          <div className="flex items-center justify-between mb-4">
-                                            <div className="flex items-center gap-3">
-                                              <div
-                                                className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                                  currentAnswer.isFinalAnswer
-                                                    ? "bg-green-100 dark:bg-green-900/50"
-                                                    : "bg-gray-100 dark:bg-gray-800"
-                                                }`}
-                                              >
-                                                {currentAnswer.isFinalAnswer ? (
-                                                  <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                                                ) : (
-                                                  <div className="p-2 rounded-lg bg-primary/10">
-                                                    <MessageCircle className="w-4 h-4 text-primary" />
-                                                  </div>
-                                                )}
-                                              </div>
-
-                                              <div className="flex flex-col">
-                                                <span className="text-sm font-semibold text-foreground">
-                                                  Response {index + 1}
-                                                </span>
-                                                <span className="text-xs text-muted-foreground">
-                                                  {new Date(
-                                                    currentAnswer.createdAt
-                                                  ).toLocaleString("en-US", {
-                                                    month: "short",
-                                                    day: "numeric",
-                                                    hour: "2-digit",
-                                                    minute: "2-digit",
-                                                  })}
-                                                </span>
-                                              </div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                              {currentAnswer.isFinalAnswer && (
-                                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 rounded-full border border-green-200 dark:border-green-800">
-                                                  <svg
-                                                    className="w-3 h-3"
-                                                    fill="currentColor"
-                                                    viewBox="0 0 20 20"
-                                                  >
-                                                    <path
-                                                      fillRule="evenodd"
-                                                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                                      clipRule="evenodd"
-                                                    />
-                                                  </svg>
-                                                  <span className="text-xs font-semibold">
-                                                    Final Answer
-                                                  </span>
-                                                </div>
-                                              )}
-                                            </div>
-                                          </div>
-
-                                          <div className="space-y-4">
-                                            <div
-                                              className={`prose prose-sm max-w-none ${
-                                                currentAnswer.isFinalAnswer
-                                                  ? "prose-green dark:prose-invert"
-                                                  : "dark:prose-invert"
-                                              }`}
-                                            >
-                                              <p className="text-base leading-relaxed text-foreground/90 mb-0">
-                                                {currentAnswer.answer}
-                                              </p>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
-                                </div>
-                              ) : (
-                                <div className="text-center py-12">
-                                  <p className="text-muted-foreground italic">
-                                    No responses provided yet, Draft your first
-                                    Response!
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          </DialogContent>
-                        </Dialog> */}
                       </div>
                     </>
                   ) : (
@@ -978,16 +830,15 @@ export const QuestionDetailsDialog = ({
     <Dialog>
       <DialogTrigger asChild>
         <Button
-          variant="ghost"
-          size="icon"
-          className="shrink-0"
+          variant="outline"
+          className="flex items-center gap-2 rounded-xl border-primary/30 hover:border-primary hover:bg-primary/5 transition-all"
           aria-label={buttonLabel}
           title={buttonLabel}
         >
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Eye className="h-5 w-5 text-primary" />
-          </div>
-          <span className="sr-only">{buttonLabel}</span>
+          <FileSearch className="h-5 w-5 text-primary" />
+          <span className="text-sm font-semibold">
+            View Metadata
+          </span>
         </Button>
       </DialogTrigger>
 
@@ -1271,11 +1122,14 @@ export const ResponseTimeline = ({
     >
       <Card className="border flex-1 flex flex-col h-full bg-transparent">
         <CardHeader className="border-b flex flex-row items-center justify-between pb-4">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-primary" />
             <h3 className="text-lg font-semibold">Response History</h3>
           </div>
+
+          <QuestionDetailsDialog question={selectedQuestionData} />
         </CardHeader>
+
         <CardContent className="p-6 flex-1 flex flex-col overflow-hidden">
           <ScrollArea className="flex-1">
             <div className="space-y-6 pr-4">
