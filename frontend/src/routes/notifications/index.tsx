@@ -105,17 +105,43 @@ export default function Notification() {
     });
   };
 
-  const handleNotificationClick = async (notification: Notification) => {
+  // const handleNotificationClick = async (notification: Notification) => {
+  //   const { type, enitity_id, _id } = notification;
+  //   await markAsRead(_id);
+
+  //   if (type === "answer_creation" || type === "peer_review") {
+  //     goToQuestion(enitity_id);
+  //   } else if (type === "flag") {
+  //     goToRequest(_id); // ← assuming enitity_id = requestId
+  //   } else if (type === "comment" || type === "flag_response") {
+  //     // For comments, navigate to all_questions tab with comment param
+  //     goToComment(enitity_id); // enitity_id should be the questionId
+  //   }
+  // };
+
+
+    const handleNotificationClick = async (notification: Notification) => {
     const { type, enitity_id, _id } = notification;
+
+    // Mark as read first
     await markAsRead(_id);
 
+    // 🔥 Only these two need to open the QA interface
     if (type === "answer_creation" || type === "peer_review") {
-      goToQuestion(enitity_id);
-    } else if (type === "flag") {
-      goToRequest(_id); // ← assuming enitity_id = requestId
-    } else if (type === "comment" || type === "flag_response") {
-      // For comments, navigate to all_questions tab with comment param
-      goToComment(enitity_id); // enitity_id should be the questionId
+      goToQuestion(enitity_id); // will set ?question=questionId
+      return;
+    }
+
+    // For flags
+    if (type === "flag") {
+      goToRequest(enitity_id);
+      return;
+    }
+
+    // For new comments or flag responses
+    if (type === "comment" || type === "flag_response") {
+      goToComment(enitity_id); // enitity_id is questionId
+      return;
     }
   };
   const handlePreferenceChange = async (value: string) => {

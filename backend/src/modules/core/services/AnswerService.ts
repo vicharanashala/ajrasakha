@@ -148,8 +148,8 @@ export class AnswerService extends BaseService {
 
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
-      // const embedding = [];
-      const {embedding} = await this.aiService.getEmbedding(answer);
+      const embedding = [];
+      // const {embedding} = await this.aiService.getEmbedding(answer);
 
       const {insertedId} = await this.answerRepo.addAnswer(
         questionId,
@@ -611,10 +611,10 @@ export class AnswerService extends BaseService {
 
 answer: ${updates.answer}`;
 
-      const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
-        text,
-      );
-      // const questionEmbedding = [];
+      // const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
+      //   text,
+      // );
+      const questionEmbedding = [];
 
       await this.questionRepo.updateQuestion(
         questionId,
@@ -623,8 +623,8 @@ answer: ${updates.answer}`;
         true,
       );
 
-      const {embedding} = await this.aiService.getEmbedding(text);
-      // const embedding = [];
+      // const {embedding} = await this.aiService.getEmbedding(text);
+      const embedding = [];
       const payload: Partial<IAnswer> = {
         ...updates,
         approvedBy: new ObjectId(userId),

@@ -155,4 +155,11 @@ export interface IQuestionRepository {
    * Updates a  question to delyed after 4hrs if still open.
    */
   updateExpiredAfterFourHours(): Promise<void>;
+
+
+  getAllocatedQuestionPage(
+  userId: string,
+  questionId: string,
+  session?: ClientSession
+): Promise<number>
 }
