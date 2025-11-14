@@ -201,13 +201,6 @@ export const QAInterface = ({
     }
   }, [isLoading, questions, autoSelectQuestionId]);
 
-  //for reseting the state
-  useEffect(() => {
-    setNewAnswer("");
-    setSources([]);
-    setIsFinalAnswer(false);
-  }, [selectedQuestion]);
-
   const hasInitialized = useRef(false);
   const questionsRef = useRef(questions);
   const questionItemRefs = useRef<Record<string, HTMLDivElement>>({});
@@ -229,13 +222,15 @@ export const QAInterface = ({
 
   //to scroll to questions
   useEffect(() => {
+    setNewAnswer("");
+    setSources([]);
+    setIsFinalAnswer(false);
     if (!selectedQuestion || !scrollRef.current) return;
 
     // Small delay to ensure the DOM is updated and question is rendered
     const scrollTimer = setTimeout(() => {
       const questionElement = questionItemRefs.current[selectedQuestion];
       if (questionElement && scrollRef.current) {
-        console.log("Scrolling to question:", selectedQuestion);
         questionElement.scrollIntoView({
           behavior: "smooth",
           block: "center",
@@ -278,34 +273,22 @@ export const QAInterface = ({
       try {
         const targetPage = exactQuestionPage;
         const currentlyLoadedPages = questionPages?.pages.length || 0;
-        console.log("target page ", exactQuestionPage);
-        console.log("loaded page ", currentlyLoadedPages);
         if (targetPage > currentlyLoadedPages) {
           // Load pages until we reach the target page
           let pagesToLoad = targetPage - currentlyLoadedPages;
-          console.log("pages to load", pagesToLoad);
-
           for (let i = 0; i < pagesToLoad; i++) {
             if (hasNextPage && !isFetchingNextPage) {
-              console.log("render");
               await fetchNextPage();
             } else {
               break;
             }
           }
-
-          // After loading, check again if question exists
-          // setTimeout(() => {
-          //   const updatedQuestions = questionPages?.pages.flat() || [];
-          //   const found = updatedQuestions.some(q => q?.id === autoSelectQuestionId);
-          //   console.log("found ",found)
-          //   console.log("updated  ",updatedQuestions)
-          //   if (found) {
-          //     setSelectedQuestion(autoSelectQuestionId);
-          //     onManualSelect?.(autoSelectQuestionId);
-          //   }
-          //   setIsLoadingTargetQuestion(false);
-          // }, 2000);
+        } else {
+          if (questions.length > 0) {
+            setSelectedQuestion(questions[0]!.id);
+            onManualSelect?.(null); // Clear the auto-select since question doesn't exist
+          }
+          setIsLoadingTargetQuestion(false);
         }
       } catch (error) {
         console.error("Error loading target question:", error);
@@ -445,6 +428,7 @@ export const QAInterface = ({
 
     try {
       await respondQuestion(payload);
+      onManualSelect?.(null);
       setSelectedQuestion(null);
       setNewAnswer("");
       setSources([]);
