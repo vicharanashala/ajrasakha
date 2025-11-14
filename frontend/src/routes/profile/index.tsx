@@ -18,7 +18,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import type { IUser } from "@/types";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
-import {toast} from "sonner";
+import { toast } from "sonner";
 import {
   Edit2,
   ArrowLeft,
@@ -32,7 +32,22 @@ import {
   ShieldCheck,
   Settings,
   AlertTriangle,
+  KeyRound,
+  Check,
+  EyeOff,
+  Eye,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/atoms/dialog";
+import { AlertDialogHeader } from "@/components/atoms/alert-dialog";
+import { updateUserPassword, verifyCurrentPassword } from "@/lib/firebase";
+import { calculatePasswordStrength } from "@/components/auth-form";
 
 export const Route = createFileRoute("/profile/")({
   component: ProfilePage,
@@ -131,6 +146,27 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
       domain: user?.preference?.domain ?? "",
     },
   });
+
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+
+  const [passwordErrors, setPasswordErrors] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+    general: "",
+  });
+
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
   const [isEditMode, setIsEditMode] = useState(false);
   const { user: userFromStore } = useAuthStore();
 
@@ -189,6 +225,106 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
       formData.lastName?.[0] ?? ""
     }`.toUpperCase();
   };
+
+  type PasswordFields = "currentPassword" | "newPassword" | "confirmPassword";
+
+  const handlePasswordChange = (field: PasswordFields, value: string) => {
+    setPasswordForm((prev) => ({ ...prev, [field]: value }));
+
+    setPasswordErrors((prev) => ({ ...prev, [field]: "" }));
+  };
+
+  const handleUpdatePassword = async () => {
+    const newErrors = {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+      general: "",
+    };
+
+    // Trim inputs
+    const currentPassword = passwordForm.currentPassword.trim();
+    const newPassword = passwordForm.newPassword.trim();
+    const confirmPassword = passwordForm.confirmPassword.trim();
+
+    // RegEx for strong password
+    const strongPasswordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^(){}[\]_+=-]).{8,}$/;
+
+    // -------- VALIDATION --------
+    if (!currentPassword) {
+      newErrors.currentPassword = "Current password is required.";
+    }
+
+    if (!newPassword) {
+      newErrors.newPassword = "New password is required.";
+    } else {
+      // if (!strongPasswordRegex.test(newPassword)) {
+      //   newErrors.newPassword =
+      //     "Password must be at least 8 characters, include uppercase, lowercase, number, and a special character.";
+      // }
+
+      if (currentPassword.length < 6) {
+        newErrors.newPassword = "Password must be at least 6 characters";
+      }
+
+      if (newPassword === currentPassword) {
+        newErrors.newPassword =
+          "New password cannot be the same as the current password.";
+      }
+    }
+
+    if (confirmPassword !== newPassword) {
+      newErrors.confirmPassword = "Passwords do not match.";
+    }
+
+    if (
+      newErrors.currentPassword ||
+      newErrors.newPassword ||
+      newErrors.confirmPassword
+    ) {
+      setPasswordErrors(newErrors);
+      return; // stop here
+    }
+
+    setIsChangingPassword(true);
+    // -------- REAUTHENTICATION --------
+    const reauth = await verifyCurrentPassword(user.email, currentPassword);
+
+    if (!reauth.success) {
+      setPasswordErrors((prev) => ({
+        ...prev,
+        currentPassword: "Incorrect current password.",
+      }));
+      setIsChangingPassword(false);
+      return; //  STOP — do not update password
+    }
+
+    // -------- UPDATE PASSWORD --------
+    const update = await updateUserPassword(newPassword);
+
+    if (!update.success) {
+      setPasswordErrors((prev) => ({
+        ...prev,
+        general: "Failed to update password. Try again.",
+      }));
+      setIsChangingPassword(false);
+      return;
+    }
+
+    // Success
+    toast.success("Password updated successfully!");
+    setPasswordErrors({
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+      general: "",
+    });
+    setIsChangingPassword(false);
+    setChangePasswordOpen(false);
+  };
+
+  const passwordStrength = calculatePasswordStrength(passwordForm.newPassword);
 
   return (
     <div className="space-y-8">
@@ -298,10 +434,298 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
               placeholder="Enter email"
             />
           </div>
+
+          <div className="flex gap-4 items-end w-full">
+            <div className="space-y-2 flex-3">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                disabled
+                value="****************"
+              />
+            </div>
+
+            <Dialog
+              open={changePasswordOpen}
+              onOpenChange={setChangePasswordOpen}
+            >
+              <DialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 gap-2"
+                >
+                  <KeyRound size={18} />
+                  Change Password
+                </Button>
+              </DialogTrigger>
+
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Change Password</DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-4 py-2">
+                  {/* Current Password */}
+                  <div className="space-y-2">
+                    <Label>Current Password</Label>
+
+                    <div className="relative">
+                      <Input
+                        type={showCurrentPassword ? "text" : "password"}
+                        placeholder="Enter current password"
+                        value={passwordForm.currentPassword}
+                        onChange={(e) =>
+                          handlePasswordChange(
+                            "currentPassword",
+                            e.target.value
+                          )
+                        }
+                        className="pr-10"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword((prev) => !prev)}
+                        className="absolute inset-y-0 right-3 flex items-center text-gray-500"
+                      >
+                        {showCurrentPassword ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
+
+                    {passwordErrors.currentPassword && (
+                      <p className="text-red-500 text-sm">
+                        {passwordErrors.currentPassword}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* New Password */}
+                  <div className="space-y-2">
+                    <Label>New Password</Label>
+
+                    <div className="relative">
+                      <Input
+                        type={showNewPassword ? "text" : "password"}
+                        placeholder="Enter new password"
+                        value={passwordForm.newPassword}
+                        onChange={(e) =>
+                          handlePasswordChange("newPassword", e.target.value)
+                        }
+                      />
+
+                      {/* Eye Button */}
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      >
+                        {showNewPassword ? (
+                          <EyeOff size={18} />
+                        ) : (
+                          <Eye size={18} />
+                        )}
+                      </button>
+                    </div>
+
+                    {passwordErrors.newPassword && (
+                      <p className="text-red-500 text-sm">
+                        {passwordErrors.newPassword}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Confirm Password */}
+                  <div className="space-y-2">
+                    <Label>Confirm Password</Label>
+
+                    <div className="relative">
+                      <Input
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="Confirm password"
+                        value={passwordForm.confirmPassword}
+                        onChange={(e) =>
+                          handlePasswordChange(
+                            "confirmPassword",
+                            e.target.value
+                          )
+                        }
+                      />
+
+                      {/* Eye Button */}
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff size={18} />
+                        ) : (
+                          <Eye size={18} />
+                        )}
+                      </button>
+                    </div>
+
+                    {passwordErrors.confirmPassword && (
+                      <p className="text-red-500 text-sm">
+                        {passwordErrors.confirmPassword}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* General Error */}
+                  {passwordErrors.general && (
+                    <p className="text-red-500 text-sm">
+                      {passwordErrors.general}
+                    </p>
+                  )}
+                  {passwordForm.newPassword.length > 0 && (
+                    <div className="space-y-3 p-4 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-800 animate-in fade-in-0 slide-in-from-bottom-2 duration-500">
+                      {/* Label + Strength Text */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                          Password Strength
+                        </span>
+                        <span
+                          className={`text-xs font-bold 
+            ${passwordStrength.value <= 25 ? "text-red-500" : ""}
+            ${
+              passwordStrength.value > 25 && passwordStrength.value <= 50
+                ? "text-yellow-500"
+                : ""
+            }
+            ${
+              passwordStrength.value > 50 && passwordStrength.value <= 75
+                ? "text-blue-500"
+                : ""
+            }
+            ${passwordStrength.value > 75 ? "text-green-500" : ""}
+          `}
+                        >
+                          {passwordStrength.label}
+                        </span>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full transition-all duration-500 ease-out ${passwordStrength.color}`}
+                          style={{ width: `${passwordStrength.value}%` }}
+                        />
+                      </div>
+
+                      {/* Requirements List */}
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {/* 8 Characters */}
+                        <div className="flex items-center gap-2">
+                          <Check
+                            className={`h-3 w-3 transition-colors duration-300
+              ${
+                passwordForm.newPassword.length >= 8
+                  ? "text-green-500"
+                  : "text-gray-400"
+              }
+            `}
+                          />
+                          <span
+                            className={
+                              passwordForm.newPassword.length >= 8
+                                ? "text-green-700 dark:text-green-400"
+                                : "text-gray-500"
+                            }
+                          >
+                            8+ characters
+                          </span>
+                        </div>
+
+                        {/* Uppercase */}
+                        <div className="flex items-center gap-2">
+                          <Check
+                            className={`h-3 w-3 transition-colors duration-300
+              ${
+                /[A-Z]/.test(passwordForm.newPassword)
+                  ? "text-green-500"
+                  : "text-gray-400"
+              }
+            `}
+                          />
+                          <span
+                            className={
+                              /[A-Z]/.test(passwordForm.newPassword)
+                                ? "text-green-700 dark:text-green-400"
+                                : "text-gray-500"
+                            }
+                          >
+                            Uppercase
+                          </span>
+                        </div>
+
+                        {/* Numbers */}
+                        <div className="flex items-center gap-2">
+                          <Check
+                            className={`h-3 w-3 transition-colors duration-300
+              ${
+                /\d/.test(passwordForm.newPassword)
+                  ? "text-green-500"
+                  : "text-gray-400"
+              }
+            `}
+                          />
+                          <span
+                            className={
+                              /\d/.test(passwordForm.newPassword)
+                                ? "text-green-700 dark:text-green-400"
+                                : "text-gray-500"
+                            }
+                          >
+                            Numbers
+                          </span>
+                        </div>
+
+                        {/* Special Characters */}
+                        <div className="flex items-center gap-2">
+                          <Check
+                            className={`h-3 w-3 transition-colors duration-300
+              ${
+                /[!@#$%^&*(),.?":{}|<>]/.test(passwordForm.newPassword)
+                  ? "text-green-500"
+                  : "text-gray-400"
+              }
+            `}
+                          />
+                          <span
+                            className={
+                              /[!@#$%^&*(),.?":{}|<>]/.test(
+                                passwordForm.newPassword
+                              )
+                                ? "text-green-700 dark:text-green-400"
+                                : "text-gray-500"
+                            }
+                          >
+                            Special chars
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <DialogFooter>
+                  <Button type="button" onClick={handleUpdatePassword}>
+                    {isChangingPassword ? "Updating..." : "Update Password"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </div>
 
-      {/* Preferences */}
       <div className="space-y-6 rounded-lg border bg-card p-6">
         <div>
           <h3 className="text-base font-semibold flex items-center gap-2">

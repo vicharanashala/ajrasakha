@@ -22,7 +22,7 @@ retriever_qa = get_retriever(
     client=client, collection_name=COLLECTION_QA, similarity_top_k=4
 )
 retriever_pop = get_retriever(
-    client=client, collection_name=COLLECTION_POP, similarity_top_k=10
+    client=client, collection_name=COLLECTION_POP, similarity_top_k=5
 )
 
 

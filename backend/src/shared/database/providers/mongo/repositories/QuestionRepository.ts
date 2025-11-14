@@ -965,4 +965,29 @@ export class QuestionRepository implements IQuestionRepository {
   return Math.floor(index / limit) + 1;
 }
 
+  async insertMany(questions: IQuestion[]): Promise<string[]> {
+    await this.init();
+    if (!Array.isArray(questions) || questions.length === 0) return [];
+    try {
+      const result = await this.QuestionCollection.insertMany(questions);
+      if (!result.acknowledged) {
+        throw new InternalServerError('Failed to insert questions');
+      }
+      const ids = Object.values(result.insertedIds).map((id: any) => id.toString());
+      return ids;
+    } catch (error: any) {
+      throw new InternalServerError(error?.message || 'Failed to insertMany questions');
+    }
+  }
+
+  async updateQuestionStatus(id: string, status: string, errorMessage?: string, session?: ClientSession): Promise<void> {
+    await this.init();
+    const update: any = { status, updatedAt: new Date() };
+    if (errorMessage) update.errorMessage = errorMessage;
+    await this.QuestionCollection.updateOne({ _id: new ObjectId(id) }, { $set: update }, { session });
+  }
+
+
 }
+
+

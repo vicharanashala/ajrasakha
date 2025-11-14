@@ -1,9 +1,9 @@
 from urllib.parse import quote_plus
 import httpx
 from typing import List
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile, Request
 from fastapi.responses import JSONResponse, StreamingResponse
-from helpers import ollama_generate
+from helpers import ollama_generate, tool_calling_forward
 from models import (
     ChatCompletionRequest,
     ContextQuestionAnswerPair,
@@ -14,58 +14,29 @@ from models import (
     ThinkingResponseChunk,
     ContentResponseChunk,
 )
-from llama_index.llms.ollama import Ollama
 from llama_index.core import Settings
 from constants import (
     API_KEY,
-    CITATION_QA_TEMPLATE,
-    CITATION_REFINE_TEMPLATE,
-    DB_SELECTOR_PROMPT,
     SARVAM_URL,
-    TRANSLATION_PROMPT,
 )
-from ollama import AsyncClient
-import pymongo
-from llama_index.core.selectors import LLMSingleSelector
 import logging
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 import csv
 from pathlib import Path
 import csv
 from pathlib import Path
-from functions import (
-    process_nodes_for_citations,
-    process_nodes_qa,
-    process_nodes_pop,
-    process_nodes_graph,
-    render_citations,
-    render_graph_mermaid,
-    render_metadata_table,
-    render_pop_markdown,
-    render_qa_markdown,
-    render_graph_markdown,
-    render_references_html,
-)
 from constants import (
-    COLLECTION_POP,
-    COLLECTION_QA,
-    EMBEDDING_MODEL,
-    LLM_MODEL_MAIN,
     LLM_MODEL_FALL_BACK,
-    MONGODB_URI,
 )
-from functions import get_retriever, get_graph_retriever
-from llama_index.core.tools import ToolMetadata
-from llama_index.core.response_synthesizers import (
-    ResponseMode,
-    get_response_synthesizer,
-)
-from helpers import citations_refine
-from llama_index.core.query_engine import CitationQueryEngine, BaseQueryEngine
 from numpy import dot
 from numpy.linalg import norm
 import requests, tempfile
 from pydub import AudioSegment
+from pydantic import BaseModel, Field
+from typing import List, Optional
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from constants import EMBEDDING_MODEL
 
 logger = logging.getLogger("myapp")
 
@@ -80,225 +51,195 @@ if not LOG_FILE.exists():
         writer.writerow(["question", "answer", "context", "retrieval_time_sec"])
 
 app = FastAPI(title="AjraSakha")
-llm = Ollama(
-    model=LLM_MODEL_MAIN, base_url="http://100.100.108.13:11434", request_timeout=120
-)
-Settings.llm = llm
-Settings.embed_model = HuggingFaceEmbedding(
-    model_name=EMBEDDING_MODEL, cache_folder="./hf_cache", trust_remote_code=True
-)
+
 
 OLLAMA_API_URL = "http://100.100.108.13:11434/api/chat"
-ollama_client = AsyncClient(host="http://100.100.108.13:11434")
-
-client: pymongo.MongoClient = pymongo.MongoClient(MONGODB_URI)
-
-retriever_qa = get_retriever(
-    client=client, collection_name=COLLECTION_QA, similarity_top_k=4
-)
-retriever_pop = get_retriever(
-    client=client, collection_name=COLLECTION_POP, similarity_top_k=10
-)
-retriever_graph = get_graph_retriever()
-
-tools = [
-    ToolMetadata(
-        name="qa_tool",
-        description="Answer direct Q&A over curated agricultural documents.",
-    ),
-    ToolMetadata(
-        name="pop_tool",
-        description="Answer questions based Package of Practices or pop",
-    ),
-    ToolMetadata(
-        name="graph_tool",
-        description="Answer long complicated, analytical and causal/relationship queries.",
-    ),
-    ToolMetadata(
-        name="irrelevant",
-        description="Use this if the query is a off-topic question, or question asking for summary.",
-    ),
-]
-
-selector = LLMSingleSelector.from_defaults(
-    prompt_template_str=DB_SELECTOR_PROMPT, llm=llm
-)
-
-
-async def generate_response(request: ChatCompletionRequest):
-
-    if request.model == "ajrasakha":
-        multi_language = False
-        LLM_MODEL_MAIN = "deepseek-r1:70b"
-    else:
-        multi_language = True
-        translated_question = ""
-        LLM_MODEL_MAIN = "gpt-oss:120b"
-
-    messages = request.messages
-    question = messages[-1].content
-    best_match = None
-    best_answer = None
-    best_score = 0.95
-
-    context = [{"role": msg.role, "content": msg.content} for msg in messages[1:-1]]
-
-    if multi_language:
-
-        yield ThinkingResponseChunk("Translating to English....\n")
-        async for chunk in ollama_generate(
-            context=context,
-            prompt=question,
-            model=LLM_MODEL_MAIN,
-            retrieved_data=None,
-            SYSTEM_PROMPT=TRANSLATION_PROMPT,
-        ):
-            if isinstance(chunk, ContentResponseChunk):
-                translated_question += chunk.text
-            else:
-                yield chunk
-
-    question_to_process = translated_question if multi_language else question
-    user_embedding = Settings.embed_model.get_text_embedding(
-        question_to_process.lower()
-    )
-    yield ThinkingResponseChunk("\nVerifying Question and Selecting Source....\n")
-    selector_result = await selector.aselect(tools, query=question_to_process)
-    selection = selector_result.selections[0]
-    retriever = None
-    match selection.index:
-        case 0:
-            retriever = retriever_qa
-            node_processor = process_nodes_qa
-            renderer = render_qa_markdown
-            yield ThinkingResponseChunk("Using Golden QA Vector Store for retrieval.\n")
-        case 1:
-            retriever = retriever_pop
-            node_processor = process_nodes_pop
-            renderer = render_pop_markdown
-            yield ThinkingResponseChunk("Using PoP Vector Store for retrieval.\n")
-        case 2:
-            retriever = retriever_graph
-            node_processor = process_nodes_graph
-            renderer = render_graph_markdown
-            yield ThinkingResponseChunk("Using Knowledge Graph for retrieval.\n")
-        case 3:
-            retriever = None
-            node_processor = None
-            renderer = None
-
-    if retriever:
-        nodes = await retriever.aretrieve(question_to_process)
-        processed_nodes = await node_processor(nodes)
-        display_nodes = await renderer(processed_nodes, should_truncate=True)
-        context_nodes = await renderer(processed_nodes, should_truncate=False)
-        yield ThinkingResponseChunk(display_nodes)
-        new_nodes = await process_nodes_for_citations(nodes)
-
-    # If QA Source is Selected
-    if selection.index == 0:
-        for qa_pair in processed_nodes:
-            # Check similarity with given question using embedding.
-            ref_embedding = Settings.embed_model.get_text_embedding(
-                qa_pair.question.lower()
-            )
-            score = dot(user_embedding, ref_embedding) / (
-                norm(user_embedding) * norm(ref_embedding)
-            )
-            if score > best_score:
-                best_score = score
-                best_match = qa_pair.question
-                best_answer = qa_pair.answer
-
-        if selection.index == 0 and best_match != None:
-            yield ContentResponseChunk(best_answer)
-        else:
-            async for chunk in citations_refine(
-                question, context, new_nodes, LLM_MODEL_MAIN
-            ):
-                yield chunk
-
-            yield ContentResponseChunk("\n ### References: \n")
-            yield ContentResponseChunk(await render_metadata_table(new_nodes))
-            yield ContentResponseChunk("\n")
-            yield ContentResponseChunk(
-                render_references_html(await render_citations(new_nodes))
-            )
-
-    # If PoP Source is Selected
-    elif selection.index == 1:
-        async for chunk in citations_refine(
-            question, context, nodes=new_nodes, model=LLM_MODEL_MAIN
-        ):
-            yield chunk
-
-        yield ContentResponseChunk("\n ### References: \n")
-        yield ContentResponseChunk(
-            await render_metadata_table(new_nodes, table_type="pop")
-        )
-        yield ContentResponseChunk("\n")
-        yield ContentResponseChunk(
-            render_references_html(await render_citations(new_nodes))
-        )
-
-    # If Knowledge Graph Source is Selected
-    elif selection.index == 2:
-        if retriever:
-            retrieved_context = context_nodes
-        else:
-            retrieved_context = None
-
-        async for chunk in ollama_generate(
-            context=context,
-            prompt=question,
-            model=LLM_MODEL_MAIN,
-            retrieved_data=retrieved_context,
-        ):
-            yield chunk
-        yield ContentResponseChunk("\n" + render_graph_mermaid(processed_nodes))
-
-    # No Source selected
-    else:
-        if retriever:
-            retrieved_context = context_nodes
-        else:
-            retrieved_context = None
-
-        async for chunk in ollama_generate(
-            context=context,
-            prompt=question,
-            model=LLM_MODEL_MAIN,
-            retrieved_data=retrieved_context,
-        ):
-            yield chunk
-
-    yield ContentResponseChunk("", final_chunk=True)
-
-
 def get_audio_duration(path: str) -> float:
     audio = AudioSegment.from_file(path)
     return len(audio) / 1000.0  # duration in seconds
 
+from markdownify import markdownify as md
 
-@app.post("/questions/", response_model=List[QuestionAnswerResponse])
-async def get_questions(request: ContextRequest):
-    # retrieve context nodes
-    nodes = await retriever_qa.aretrieve(request.context)
+def html_to_markdown(html_string: str) -> str:
+    """
+    Converts an HTML string to Markdown format.
 
-    # process into ContextQuestionAnswerPair list
-    processed_nodes_qa: List[ContextQuestionAnswerPair] = await process_nodes_qa(nodes)
+    Args:
+        html_string (str): Input HTML content.
 
-    # filter only needed fields
-    response = [
-        QuestionAnswerResponse(
-            question=item.question,
-            answer=item.answer,
-            agri_specialist=item.meta_data.agri_specialist,
-        )
-        for item in processed_nodes_qa
-    ]
+    Returns:
+        str: Converted Markdown text.
+    """
+    if not html_string or not isinstance(html_string, str):
+        return ""
 
-    return response
+    # Convert using markdownify
+    markdown_text = md(html_string, heading_style="ATX")
+    return markdown_text.strip()
+
+
+
+def extract_database_config(data: dict) -> dict:
+    """
+    Extracts which datasets ('golden', 'pop', 'llm') are enabled 
+    based on the function names inside the 'tools' list of the given JSON.
+
+    Args:
+        data (dict): The input JSON parsed as a Python dictionary.
+
+    Returns:
+        dict: A dictionary in the format:
+              {
+                  "database_config": {
+                      "golden_enabled": bool,
+                      "pops_enabled": bool,
+                      "llm_enabled": bool
+                  }
+              }
+    """
+    # Initialize all as False
+    config = {
+        "golden_enabled": False,
+        "pops_enabled": False,
+        "llm_enabled": True
+    }
+
+    # Safely get the list of tools
+    tools = data.get("tools", [])
+
+    # Check each function name for keywords
+    for tool in tools:
+        func = tool.get("function", {})
+        name = func.get("name", "").lower()
+
+        if "golden" in name:
+            config["golden_enabled"] = True
+        if "pop" in name:
+            config["pops_enabled"] = True
+        if "llm" in name:
+            config["llm_enabled"] = True
+
+    return config
+
+def query_agrichat(question: str, device_id: str = "abcd", database_config: dict = None) -> dict:
+
+    url = "https://agrichat.serveo.net/api/query"
+
+    payload = {
+        "question": question,
+        "device_id": device_id
+    }
+
+    # Only include database_config if it’s explicitly provided
+    if database_config:
+        payload["database_config"] = database_config
+
+    try:
+        response = requests.post(url, json=payload, timeout=20)
+        response.raise_for_status()  # Raise HTTPError for bad responses (4xx, 5xx)
+        return response.json()       # Return parsed JSON response
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error contacting AgriChat API: {e}")
+        return {"error": str(e)}
+
+    except ValueError:
+        print("Error: Response is not valid JSON.")
+        return {"error": "Invalid JSON response"}
+
+def extract_response_details(response: dict) -> dict:
+    # Safely navigate to messages
+    messages = (
+        response.get("session", {})
+        .get("messages", [])
+    )
+
+    if not messages:
+        return {
+            "thinking": None,
+            "answer": None,
+            "sources": []
+        }
+
+    # Take the first (or most recent) message
+    message = messages[0]
+
+    thinking = message.get("thinking")
+    answer = message.get("final_answer") or message.get("answer")
+
+    # Extract simplified sources
+    sources = []
+    for item in message.get("research_data", []):
+        sources.append({
+            "source": item.get("source"),
+            "content_preview": item.get("content_preview"),
+            "metadata": item.get("metadata", {})
+        })
+
+    return {
+        "thinking": thinking,
+        "answer": answer,
+        "sources": sources
+    }
+
+def sources_to_markdown_table(sources: list) -> str:
+    if not sources:
+        return "_No sources available._"
+
+    # Define table headers
+    headers = ["Source", "Content Preview", "Metadata"]
+    md_table = f"| {' | '.join(headers)} |\n"
+    md_table += f"| {' | '.join(['---'] * len(headers))} |\n"
+
+    # Add rows
+    for s in sources:
+        source = s.get("source", "N/A")
+        content = s.get("content_preview", "").replace("\n", " ").strip()
+        metadata = s.get("metadata", {})
+
+        # Convert metadata dict to key=value pairs
+        meta_str = ", ".join(f"**{k}**: {v}" for k, v in metadata.items()) or "—"
+
+        # Escape pipe characters to not break the table
+        source = source.replace("|", "\\|")
+        content = content.replace("|", "\\|")
+        meta_str = meta_str.replace("|", "\\|")
+
+        md_table += f"| {source} | {content} | {meta_str} |\n"
+
+    return md_table.strip()
+
+
+async def agrichat_resp(request: Request):
+    raw_body = await request.body()
+    # Decode to string for readability
+    raw_text = raw_body.decode("utf-8")
+    # print("Raw input text:", raw_text)
+
+    # If you still want to validate it using Pydantic later:
+    data = await request.json()
+    question = data.get("messages", [{}])[-1].get("content", "")
+    device_id = data.get("device_id", "abcd")
+
+    # Extract database config
+    db_config = extract_database_config(data)
+    print("Extracted database config:", db_config)
+
+    agrichat_response = query_agrichat(
+        question=question,
+        device_id=device_id,
+        database_config=db_config.get("database_config", None)
+    )
+
+    details = extract_response_details(agrichat_response)
+
+    yield ThinkingResponseChunk(details.get("thinking") or "thinking...")
+    if details.get("answer"):
+        yield ContentResponseChunk(html_to_markdown(details.get("answer")))
+        yield ContentResponseChunk("\n"+ sources_to_markdown_table(details.get("sources")), final_chunk=True)
+    else:
+        yield ContentResponseChunk("Sorry, I couldn't retrieve an answer.", final_chunk=True)
+
 
 
 @app.post("/score")
@@ -309,50 +250,38 @@ def get_similarity_score(request: SimilarityScoreRequest):
     return {"similarity_score": score}
 
 
-@app.post("/api/chat/")
-async def chat_completions(request: ChatCompletionRequest):
-    title_prompt_present = False
+@app.post("/api/chat")
+async def chat_completions(request: Request):
+    raw_body = await request.body()
+    # Decode to string for readability
+    raw_text = raw_body.decode("utf-8")
+    # print("Raw input text:", raw_text)
 
-    for message in request.messages:
-        if (
-            "Provide a concise, 5-word-or-less title for the conversation, using title case conventions. Only return the title itself."
-            in message.content
-        ):
-            title_prompt_present = True
-            break
+    # If you still want to validate it using Pydantic later:
+    data = await request.json()
 
-    if not request.messages:
-        return {"error": "No messages provided"}
 
-    if request.stream:
-        if not title_prompt_present:
-            return StreamingResponse(
-                generate_response(request), media_type="application/x-ndjson"
-            )
-        else:
-            return StreamingResponse(
-                ollama_generate(
-                    context=[
-                        {"role": m.role, "content": m.content}
-                        for m in request.messages[:-1]
-                    ],
-                    prompt=request.messages[-1].content,
-                    model=LLM_MODEL_FALL_BACK,
-                    retrieved_data=None,
-                ),
-                media_type="application/x-ndjson",
-            )
-    else:
-        async with httpx.AsyncClient(timeout=None) as client:
-            payload = {
-                "model": request.model,
-                "messages": [
-                    {"role": m.role, "content": m.content} for m in request.messages
-                ],
-                "stream": False,
-            }
-            resp = await client.post(OLLAMA_API_URL, json=payload)
-            return resp.json()
+    # Extract database config
+    db_config = extract_database_config(data)
+    print("Extracted database config:", db_config)
+
+    agrichat_response = query_agrichat(
+        question=data.get("messages", [{}])[-1].get("content", ""),
+        database_config=db_config.get("database_config", None)
+    )
+
+
+
+    # chat_request = ChatCompletionRequest(**data)
+    # # print("Parsed messages:", chat_request.messages)
+
+
+    return StreamingResponse(
+        agrichat_resp(request=request),
+        media_type="application/x-ndjson",
+    )
+
+
 
 
 @app.post("/v1/audio/transcriptions")
@@ -386,3 +315,160 @@ async def transcribe_audio(
             },
         }
     )
+
+
+
+# -------------------------------
+# Load Hugging Face Embedding model once
+# -------------------------------
+# You can replace this model name with any HF embedding model
+embedder = HuggingFaceEmbedding(model_name=EMBEDDING_MODEL)
+
+
+# -------------------------------
+# Request & Response Models
+# -------------------------------
+
+class EvaluateRequest(BaseModel):
+    question_id: str = Field(..., description="Unique ID for the question")
+    question_text: str = Field(..., description="The question being answered")
+    answers: List[str] = Field(..., description="List of text answers for the question")
+    params: Optional[dict] = Field(
+        default=None,
+        description="(Optional) Custom thresholds for convergence logic"
+    )
+
+
+class EvaluateResponse(BaseModel):
+    question_id: str
+    num_answers: int
+    mean_similarity: float
+    std_similarity: float
+    recent_similarity: float
+    collusion_score: float
+    status: str
+    message: str
+
+
+# -------------------------------
+# Core Evaluation Function
+# -------------------------------
+
+def evaluate_convergence(answers, params=None):
+    if not answers or len(answers) < 2:
+        return {
+            "mean_similarity": 0.0,
+            "std_similarity": 0.0,
+            "recent_similarity": 0.0,
+            "collusion_score": 0.0,
+            "status": "⏳ CONTINUE",
+            "message": "Not enough answers yet."
+        }
+
+    # Default thresholds
+    cfg = {
+        "T_recent": 0.82,
+        "T_std": 0.1,
+        "T_collusion": 0.97,
+        "min_required": 5,
+        "max_answers": 12,
+        "k_recent": 4
+    }
+    if params:
+        cfg.update(params)
+
+    # Compute embeddings via LlamaIndex Hugging Face model
+    embeddings = np.array([embedder.get_text_embedding(a) for a in answers])
+    sims = cosine_similarity(embeddings)
+    upper = np.triu_indices(len(answers), 1)
+    mean_sim = float(np.mean(sims[upper]))
+    std_sim = float(np.std(sims[upper]))
+
+    # Recent answers (compare last k with others)
+    k = min(cfg["k_recent"], len(answers) - 1)
+    recent_embeddings = embeddings[-k:]
+    recent_sims = cosine_similarity(recent_embeddings, embeddings[:-k])
+    recent_similarity = float(np.mean(recent_sims))
+
+    # Collusion score (max similarity excluding self-similarity)
+    collusion_score = float(np.max(sims - np.eye(len(answers))))
+
+    # Decision logic
+    if (len(answers) >= cfg["min_required"] and
+        recent_similarity >= cfg["T_recent"] and
+        std_sim <= cfg["T_std"] and
+        collusion_score < cfg["T_collusion"]):
+        status = "CONVERGED"
+        message = "Answers are semantically similar and stable."
+    elif (collusion_score > cfg["T_collusion"] or
+          len(answers) >= cfg["max_answers"]):
+        status = "FLAGGED_FOR_REVIEW"
+        message = "Suspicious similarity or no further improvement detected."
+    else:
+        status = "CONTINUE"
+        message = "More responses required to reach convergence."
+
+    return {
+        "mean_similarity": mean_sim,
+        "std_similarity": std_sim,
+        "recent_similarity": recent_similarity,
+        "collusion_score": collusion_score,
+        "status": status,
+        "message": message
+    }
+
+
+# -------------------------------
+# API Endpoint
+# -------------------------------
+
+@app.post("/evaluate", response_model=EvaluateResponse)
+def evaluate_answers(req: EvaluateRequest):
+    """
+    Evaluate whether a set of expert answers has converged.
+
+    **Logic Summary:**
+    - Uses Hugging Face embeddings via LlamaIndex to compute pairwise cosine similarities.
+    - Checks for convergence (mean↑, std↓, stable recent answers).
+    - Detects potential collusion (near-identical answers).
+    - Flags or continues based on thresholds.
+
+    **Returns:**  
+    Convergence metrics and a status (`CONVERGED`, `CONTINUE`, `FLAGGED_FOR_REVIEW`).
+    """
+    result = evaluate_convergence(req.answers, req.params)
+    return EvaluateResponse(
+        question_id=req.question_id,
+        num_answers=len(req.answers),
+        **result
+    )
+
+
+class SingleEmbedRequest(BaseModel):
+    text: str = Field(..., description="The text string to embed")
+
+class SingleEmbedResponse(BaseModel):
+    embedding: List[float] = Field(..., description="Embedding vector for the input text")
+
+
+@app.post("/embed", response_model=SingleEmbedResponse)
+def generate_single_embedding(req: SingleEmbedRequest):
+    """
+    Generate an embedding for a single text using the Hugging Face model via LlamaIndex.
+
+    **Example Input:**
+    ```json
+    {
+      "text": "What is sustainable farming?"
+    }
+    ```
+
+    **Example Output:**
+    ```json
+    {
+      "embedding": [0.0123, -0.0542, ...]
+    }
+    ```
+    """
+    embedding = embedder.get_text_embedding(req.text)
+    return SingleEmbedResponse(embedding=embedding)

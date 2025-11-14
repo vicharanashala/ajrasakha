@@ -38,6 +38,9 @@ export const QuestionsPage = ({
   const [selectedQuestionId, setSelectedQuestionId] = useState(
     autoOpenQuestionId || ""
   );
+
+  const [uploadedQuestionsCount, setUploadedQuestionsCount] = useState(0); // to track the bulk uploaded file size to run timer
+
   const debouncedSearch = useDebounce(search);
 
   const LIMIT = 12;
@@ -189,6 +192,7 @@ export const QuestionsPage = ({
           <QuestionsFilters
             search={search}
             setSearch={setSearch}
+            setUploadedQuestionsCount={setUploadedQuestionsCount}
             states={STATES}
             onChange={onChangeFilters}
             onReset={onReset}
@@ -216,6 +220,7 @@ export const QuestionsPage = ({
             // lastElementRef={lastElementRef}
             totalPages={questionData?.totalPages || 0}
             isLoading={isLoading || isRefreshing}
+            uploadedQuestionsCount={uploadedQuestionsCount}
           />
         </>
       )}

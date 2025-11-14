@@ -157,7 +157,12 @@ export interface IQuestionRepository {
   updateExpiredAfterFourHours(): Promise<void>;
 
 
-  getAllocatedQuestionPage(
+  insertMany(questions: IQuestion[]): Promise<string[]>
+
+  updateQuestionStatus(id: string, status: string, errorMessage?: string, session?: ClientSession): Promise<void>
+
+  // findById(id: string, session?: ClientSession): Promise<IQuestion | null>
+    getAllocatedQuestionPage(
   userId: string,
   questionId: string,
   session?: ClientSession

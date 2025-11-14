@@ -125,6 +125,7 @@
     "socks-proxy-agent": "^8.0.5",
     "typedi": "^0.10.0",
     "web-push": "^3.6.7",
-    "winston": "^3.17.0"
+    "winston": "^3.17.0",
+    "xlsx": "^0.18.5"
   }
 }

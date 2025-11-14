@@ -109,6 +109,7 @@ type QuestionsTableProps = {
   isLoading?: boolean;
   totalPages: number;
   limit: number;
+  uploadedQuestionsCount: number;
   userRole?: UserRole;
 };
 type DetailField = keyof NonNullable<IDetailedQuestion["details"]>;
@@ -122,6 +123,7 @@ export const QuestionsTable = ({
   userRole,
   isLoading,
   totalPages,
+  uploadedQuestionsCount,
 }: QuestionsTableProps) => {
   const [editOpen, setEditOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
@@ -266,6 +268,7 @@ export const QuestionsTable = ({
                   idx={idx}
                   onViewMore={onViewMore}
                   q={q}
+                  uploadedQuestionsCount={uploadedQuestionsCount}
                   limit={limit}
                   setUpdatedData={setUpdatedData}
                   updateQuestion={handleUpdateQuestion}
@@ -296,6 +299,7 @@ interface QuestionRowProps {
   idx: number;
   currentPage: number;
   limit: number;
+  uploadedQuestionsCount: number;
   totalPages: number;
   userRole: UserRole;
   updatingQuestion: boolean;
@@ -323,6 +327,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   limit,
   userRole,
   updatingQuestion,
+  uploadedQuestionsCount,
   deletingQuestion,
   setEditOpen,
   setSelectedQuestion,
@@ -330,7 +335,31 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   handleDelete,
   onViewMore,
 }) => {
-  const timer = useCountdown(q.createdAt, 4, () => {});
+  const uploadedCountRef = useRef(uploadedQuestionsCount);
+
+  const DURATION_HOURS = 4;
+  const timer = useCountdown(q.createdAt, DURATION_HOURS, () => {});
+
+  const totalSeconds = DURATION_HOURS * 60 * 60;
+
+  // Parse timer string ("hh:mm:ss") to seconds
+  const [h, m, s] = timer.split(":").map(Number);
+  const remainingSeconds = h * 3600 + m * 60 + s;
+
+  //  Calculate delay based on uploaded questions
+  // 200 questions → 3 minutes = 180 seconds
+  const delayPerQuestion = 180 / 200; // 0.9 seconds per question
+  let delaySeconds = uploadedCountRef.current * delayPerQuestion;
+
+  if (userRole === "expert") {
+    delaySeconds = 200;
+  }
+
+  // For tooltip
+  const delayMinutes = delaySeconds / 60;
+
+  //  Check if enough time has passed
+  const isClickable = remainingSeconds <= totalSeconds - delaySeconds;
 
   const priorityBadge = useMemo(() => {
     if (!q.priority)
@@ -389,12 +418,39 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
       {/* Question Text */}
       <TableCell className="text-start ps-3 w-[35%]" title={q.question}>
         <div className="flex flex-col gap-1">
-          <span
-            className="cursor-pointer hover:underline"
-            onClick={() => onViewMore(q._id?.toString() || "")}
-          >
-            {truncate(q.question, 60)}
-          </span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className={`cursor-pointer ${
+                    isClickable
+                      ? "hover:underline"
+                      : "opacity-50 cursor-not-allowed"
+                  }`}
+                  onClick={() => {
+                    if (!isClickable) return;
+                    onViewMore(q._id?.toString() || "");
+                  }}
+                >
+                  {truncate(q.question, 60)}
+                </span>
+              </TooltipTrigger>
+              {!isClickable && (
+                <TooltipContent side="top">
+                  <p>
+                    The question is currently being processed. Expert allocation
+                    is underway and may take{" "}
+                    {delayMinutes < 1
+                      ? "less than 1 minute"
+                      : `up to ${Math.ceil(delayMinutes)} ${
+                          Math.ceil(delayMinutes) === 1 ? "minute" : "minutes"
+                        }`}{" "}
+                    to complete.
+                  </p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
           {q.status !== "delayed" && (
             <TimerDisplay timer={timer} status={q.status} />
           )}
@@ -435,7 +491,12 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
         <div className="flex justify-center">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline" className="p-1">
+              <Button
+                size="sm"
+                variant="outline"
+                className="p-1"
+                disabled={!isClickable}
+              >
                 <MoreVertical className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -840,102 +901,110 @@ export const AddOrEditQuestionDialog = ({
 
         <DialogFooter className="flex justify-end gap-2">
           {/* <X className="mr-2 h-4 w-4" aria-hidden="true" />  */}
-
-          <input
-            type="file"
-            id="upload-json"
-            accept=".json"
-            className="hidden"
-            onChange={(e) => {
-              let input = e.target;
-              const selected = e.target.files?.[0];
-              // if (selected) setFile(selected);
-              setError(null);
-              if (selected?.type !== "application/json") {
-                setError("Only JSON files are allowed.");
-                setFile(null);
-                setTimeout(() => {
-                  setError(null);
-                }, 2000);
-                input.value = "";
-                return;
-              }
-              const maxSize = 5 * 1024 * 1024;
-              if (selected.size > maxSize) {
-                setError("File size must be less than 5MB.");
-                setFile(null);
-                setTimeout(() => {
-                  setError(null);
-                }, 2000);
-                input.value = "";
-                return;
-              }
-              setFile(selected);
-              input.value = "";
-            }}
-          />
-
-          <label htmlFor="upload-json">
-            <Button
-              asChild
-              variant="default"
-              className="bg-dark hover:bg-dark  cursor-pointer flex items-center gap-2"
-            >
-              <span className="flex items-center gap-2">
-                {file ? (
-                  <>
-                    {/* <Attachment className="h-4 w-4" /> Show attachment icon */}
-                    <PaperclipIcon className="h-4 w-4" />
-                    <span
-                      className="truncate text-sm text-muted-foreground"
-                      title={file.name}
-                    >
-                      {truncate(file.name, 20)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        setFile(null); // Remove file
-                      }}
-                      className="ml-2 text-dark "
-                    >
-                      <X className="h-4 w-4 text-dark dark:text-white" />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-4 w-4" /> Upload JSON
-                  </>
-                )}
-              </span>
-            </Button>
-          </label>
-
-          {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
-
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            <X className="mr-2 h-4 w-4" aria-hidden="true" />
-            Cancel
-          </Button>
-
           {mode === "add" ? (
-            <Button
-              variant="default"
-              onClick={() => {
-                if (file) {
-                  const formData = new FormData();
-                  formData.append("file", file);
-                  onSave?.("add", undefined, undefined, undefined, formData);
-                } else {
-                  onSave?.("add");
-                }
-              }}
-            >
-              <Save className="mr-2 h-4 w-4" aria-hidden="true" />
-              {isLoadingAction ? "Adding..." : "Add Question"}
-            </Button>
+            <>
+              <input
+                type="file"
+                id="upload-json"
+                accept=".json,.xls, .xlsx, application/json, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                className="hidden"
+                onChange={(e) => {
+                  let input = e.target;
+                  const selected = e.target.files?.[0];
+                  if (selected) setFile(selected);
+                  setError(null);
+                  const allowedTypes = [
+                    "application/json",
+                    "application/vnd.ms-excel",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                  ];
+
+                  if (!selected || !allowedTypes.includes(selected.type)) {
+                    setError("Only JSON And EXCEL files are allowed.");
+                    setFile(null);
+                    setTimeout(() => {
+                      setError(null);
+                    }, 2000);
+                    input.value = "";
+                    return;
+                  }
+                  const maxSize = 5 * 1024 * 1024;
+                  if (selected.size > maxSize) {
+                    setError("File size must be less than 5MB.");
+                    setFile(null);
+                    setTimeout(() => {
+                      setError(null);
+                    }, 2000);
+                    input.value = "";
+                    return;
+                  }
+                  setFile(selected);
+                  input.value = "";
+                }}
+              />
+
+              <label htmlFor="upload-json">
+                <Button
+                  asChild
+                  variant="default"
+                  className="bg-dark hover:bg-dark  cursor-pointer flex items-center gap-2"
+                >
+                  <span className="flex items-center gap-2">
+                    {file ? (
+                      <>
+                        {/* <Attachment className="h-4 w-4" /> Show attachment icon */}
+                        <PaperclipIcon className="h-4 w-4" />
+                        <span
+                          className="truncate text-sm text-muted-foreground"
+                          title={file.name}
+                        >
+                          {truncate(file.name, 20)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setFile(null); // Remove file
+                          }}
+                          className="ml-2 text-dark "
+                        >
+                          <X className="h-4 w-4 text-dark dark:text-white" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4" /> Upload FILE
+                      </>
+                    )}
+                  </span>
+                </Button>
+              </label>
+
+              {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+
+              <Button variant="outline" onClick={() => setOpen(false)}>
+                <X className="mr-2 h-4 w-4" aria-hidden="true" />
+                Cancel
+              </Button>
+
+              <Button
+                variant="default"
+                onClick={() => {
+                  if (file) {
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    onSave?.("add", undefined, undefined, undefined, formData);
+                    setFile(null)
+                  } else {
+                    onSave?.("add");
+                  }
+                }}
+              >
+                <Save className="mr-2 h-4 w-4" aria-hidden="true" />
+                {isLoadingAction ? "Adding..." : "Add Question"}
+              </Button>
+            </>
           ) : userRole === "expert" ? (
             <Button
               variant="destructive"
@@ -970,6 +1039,7 @@ type QuestionsFiltersProps = {
   crops: string[];
   onReset: () => void;
   setSearch: (val: string) => void;
+  setUploadedQuestionsCount: (val: number) => void;
   refetch: () => void;
   totalQuestions: number;
   userRole: UserRole;
@@ -978,6 +1048,7 @@ type QuestionsFiltersProps = {
 export const QuestionsFilters = ({
   search,
   setSearch,
+  setUploadedQuestionsCount,
   crops,
   states,
   onChange,
@@ -1005,7 +1076,7 @@ export const QuestionsFilters = ({
   );
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
-    useAddQuestion();
+    useAddQuestion((count) => setUploadedQuestionsCount(count));
 
   const handleAddQuestion = async (
     mode: "add" | "edit",
