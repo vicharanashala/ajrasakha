@@ -300,8 +300,9 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
           </div>
         </div>
       </div>
-
       {/* Preferences */}
+          {user.role !== "moderator"&&(
+      
       <div className="space-y-6 rounded-lg border bg-card p-6">
         <div>
           <h3 className="text-base font-semibold flex items-center gap-2">
@@ -385,6 +386,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Save/Cancel Section */}
       {isEditMode && (
