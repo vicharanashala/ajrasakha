@@ -335,17 +335,31 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   handleDelete,
   onViewMore,
 }) => {
+  const uploadedCountRef = useRef(uploadedQuestionsCount);
+
   const DURATION_HOURS = 4;
   const timer = useCountdown(q.createdAt, DURATION_HOURS, () => {});
 
   const totalSeconds = DURATION_HOURS * 60 * 60;
 
+  // Parse timer string ("hh:mm:ss") to seconds
   const [h, m, s] = timer.split(":").map(Number);
   const remainingSeconds = h * 3600 + m * 60 + s;
 
-  // if less than (totalSeconds - 20), means 20 seconds passed since start
-  const isClickable =
-    remainingSeconds <= totalSeconds - 168 && uploadedQuestionsCount <= 0;
+  //  Calculate delay based on uploaded questions
+  // 200 questions → 3 minutes = 180 seconds
+  const delayPerQuestion = 180 / 200; // 0.9 seconds per question
+  let delaySeconds = uploadedCountRef.current * delayPerQuestion;
+
+  if (userRole === "expert") {
+    delaySeconds = 200;
+  }
+
+  // For tooltip
+  const delayMinutes = delaySeconds / 60;
+
+  //  Check if enough time has passed
+  const isClickable = remainingSeconds <= totalSeconds - delaySeconds;
 
   const priorityBadge = useMemo(() => {
     if (!q.priority)
@@ -425,7 +439,13 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
                 <TooltipContent side="top">
                   <p>
                     The question is currently being processed. Expert allocation
-                    is underway and may take up to 2–3 minutes to complete.
+                    is underway and may take{" "}
+                    {delayMinutes < 1
+                      ? "less than 1 minute"
+                      : `up to ${Math.ceil(delayMinutes)} ${
+                          Math.ceil(delayMinutes) === 1 ? "minute" : "minutes"
+                        }`}{" "}
+                    to complete.
                   </p>
                 </TooltipContent>
               )}
@@ -975,6 +995,7 @@ export const AddOrEditQuestionDialog = ({
                     const formData = new FormData();
                     formData.append("file", file);
                     onSave?.("add", undefined, undefined, undefined, formData);
+                    setFile(null)
                   } else {
                     onSave?.("add");
                   }
