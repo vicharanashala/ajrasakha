@@ -267,7 +267,7 @@ export const PlaygroundPage = () => {
                   value="request_queue"
                   className="mt-0 border-0 md:px-8 px-2 w-full "
                 >
-                  <RequestsPage />
+                  <RequestsPage autoSelectId={selectedRequestId} />
                 </TabsContent>
               )}
               <TabsContent value="upload" className="mt-0 border-0 p-0 ">

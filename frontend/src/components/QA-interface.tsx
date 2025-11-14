@@ -196,7 +196,7 @@ export const QAInterface = ({
   useEffect(() => {
     if (autoSelectQuestionId) return;
 
-    if (!isLoading && questions.length > 0) {
+    if (!isLoading && questions.length > 0 && !selectedQuestion) {
       setSelectedQuestion(questions[0]!.id);
     }
   }, [isLoading, questions, autoSelectQuestionId]);
