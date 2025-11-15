@@ -372,7 +372,7 @@ export const buildEmailTemplate = (
       ${timelineHTML}
 
       <div style="text-align: center;">
-        ${button('Open Dashboard', appConfig.origins + '/home')}
+        ${button('Open Dashboard', appConfig.origins + `/home?question=${question._id.toString()}`)}
       </div>
     `;
   } else if (type === 'new_comment') {
@@ -421,7 +421,7 @@ export const buildEmailTemplate = (
       </div>
 
       <div style="text-align: center;">
-        ${button('Open Dashboard', appConfig.origins + '/home')}
+        ${button('Open Dashboard', appConfig.origins + `/home?comment=${question._id.toString()}`)}
       </div>
     `;
   } else {

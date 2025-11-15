@@ -423,6 +423,7 @@ export class QuestionService extends BaseService {
             entityId,
             user,
             type,
+            session
           );
         }
         // 7. Return the saved question
