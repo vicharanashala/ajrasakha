@@ -119,9 +119,14 @@ const aiService = new AiService();
         user => new ObjectId(user._id.toString()),
       );
 
-      for (const user of intialUsersToAllocate) {
+      // for (const user of intialUsersToAllocate) {
+      //   const IS_INCREMENT = true;
+      //   const userId = user._id.toString();
+      //   await userRepo.updateReputationScore(userId, IS_INCREMENT);
+      // }
+      if(intialUsersToAllocate){
         const IS_INCREMENT = true;
-        const userId = user._id.toString();
+        const userId = intialUsersToAllocate[0]._id.toString();
         await userRepo.updateReputationScore(userId, IS_INCREMENT);
       }
       // 6. Create an empty QuestionSubmission entry for the newly created question
