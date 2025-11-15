@@ -34,7 +34,10 @@ import { RadioGroup, RadioGroupItem } from "./atoms/radio-group";
 import { Label } from "./atoms/label";
 import { Textarea } from "./atoms/textarea";
 import { Button } from "./atoms/button";
-import { useGetAllocatedQuestions } from "@/hooks/api/question/useGetAllocatedQuestions";
+import {
+  useGetAllocatedQuestionPage,
+  useGetAllocatedQuestions,
+} from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
 import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
 import { toast } from "sonner";
@@ -97,7 +100,13 @@ export type QuestionFilter =
   | "oldest"
   | "leastResponses"
   | "mostResponses";
-export const QAInterface = () => {
+export const QAInterface = ({
+  autoSelectQuestionId,
+  onManualSelect,
+}: {
+  autoSelectQuestionId: string | null;
+  onManualSelect: (id: string | null) => void;
+}) => {
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
   const [newAnswer, setNewAnswer] = useState<string>("");
   const [isFinalAnswer, setIsFinalAnswer] = useState<boolean>(false);
@@ -166,6 +175,8 @@ export const QAInterface = () => {
     isFetchingNextPage,
     refetch,
   } = useGetAllocatedQuestions(LIMIT, filter, preferences);
+  const { data: exactQuestionPage, isLoading: isLoading } =
+    useGetAllocatedQuestionPage(autoSelectQuestionId!);
 
   // const questions = questionPages?.pages.flat() || [];
   const questions = useMemo(() => {
@@ -180,13 +191,128 @@ export const QAInterface = () => {
   const { mutateAsync: respondQuestion, isPending: isResponding } =
     useReviewAnswer();
 
+  const [isLoadingTargetQuestion, setIsLoadingTargetQuestion] = useState(false);
+  //for selecting the first question
   useEffect(() => {
-    if (questions.length > 0 && !selectedQuestion) {
-      const firstQuestionId = questions[0]?.id ? questions[0]?.id : null;
-      setSelectedQuestion(firstQuestionId);
+    if (autoSelectQuestionId) return;
+
+    if (!isLoading && questions.length > 0 && !selectedQuestion) {
+      setSelectedQuestion(questions[0]!.id);
     }
+  }, [isLoading, questions, autoSelectQuestionId]);
+
+  const hasInitialized = useRef(false);
+  const questionsRef = useRef(questions);
+  const questionItemRefs = useRef<Record<string, HTMLDivElement>>({});
+
+  // Function to set ref for each question item
+  const setQuestionRef = (
+    questionId: string,
+    element: HTMLDivElement | null
+  ) => {
+    if (element) {
+      questionItemRefs.current[questionId] = element;
+    } else {
+      delete questionItemRefs.current[questionId];
+    }
+  };
+  useEffect(() => {
+    questionsRef.current = questions;
   }, [questions]);
 
+  //to scroll to questions
+  useEffect(() => {
+    setNewAnswer("");
+    setSources([]);
+    setIsFinalAnswer(false);
+    if (!selectedQuestion || !scrollRef.current) return;
+
+    // Small delay to ensure the DOM is updated and question is rendered
+    const scrollTimer = setTimeout(() => {
+      const questionElement = questionItemRefs.current[selectedQuestion];
+      if (questionElement && scrollRef.current) {
+        questionElement.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+          inline: "nearest",
+        });
+      } else {
+        console.log(
+          "Question element not found for scrolling:",
+          selectedQuestion
+        );
+      }
+    }, 200);
+
+    return () => clearTimeout(scrollTimer);
+  }, [selectedQuestion]);
+
+  //To auto select from notifications
+  useEffect(() => {
+    if (!autoSelectQuestionId || !exactQuestionPage || isQuestionsLoading)
+      return;
+
+    const findAndSelectQuestion = async () => {
+      setIsLoadingTargetQuestion(true);
+
+      // Check if question is in currently loaded pages
+      const allLoadedQuestions = questionPages?.pages.flat() || [];
+      const questionExists = allLoadedQuestions.some(
+        (q) => q?.id === autoSelectQuestionId
+      );
+
+      if (questionExists) {
+        // Question is already loaded - select it
+        setSelectedQuestion(autoSelectQuestionId);
+        onManualSelect?.(autoSelectQuestionId);
+        setIsLoadingTargetQuestion(false);
+        return;
+      }
+
+      // Question is not in loaded pages - we need to load more pages
+      try {
+        const targetPage = exactQuestionPage;
+        const currentlyLoadedPages = questionPages?.pages.length || 0;
+        if (targetPage > currentlyLoadedPages) {
+          // Load pages until we reach the target page
+          let pagesToLoad = targetPage - currentlyLoadedPages;
+          for (let i = 0; i < pagesToLoad; i++) {
+            if (hasNextPage && !isFetchingNextPage) {
+              await fetchNextPage();
+            } else {
+              break;
+            }
+          }
+        } else {
+          if (questions.length > 0) {
+            setSelectedQuestion(questions[0]!.id);
+            onManualSelect?.(null); // Clear the auto-select since question doesn't exist
+          }
+          setIsLoadingTargetQuestion(false);
+        }
+      } catch (error) {
+        console.error("Error loading target question:", error);
+        setIsLoadingTargetQuestion(false);
+      }
+    };
+
+    findAndSelectQuestion();
+  }, [
+    exactQuestionPage,
+    autoSelectQuestionId,
+    questionPages,
+    isQuestionsLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  ]);
+
+  // Reset initialization when filters change
+  useEffect(() => {
+    hasInitialized.current = false;
+  }, [filter, preferences]);
+
+  //for pagination
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
@@ -203,31 +329,6 @@ export const QAInterface = () => {
     container.addEventListener("scroll", handleScroll);
     return () => container.removeEventListener("scroll", handleScroll);
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
-
-  // const handleSubmit = async () => {
-  //   if (!selectedQuestion) return;
-  //   if (!sources.length) {
-  //     toast.error("Atleast one source is required!");
-  //     return;
-  //   }
-  //   try {
-  //     const result = await submitAnswer({
-  //       questionId: selectedQuestion,
-  //       answer: newAnswer,
-  //       sources,
-  //     });
-  //     if (result) setIsFinalAnswer(result.isFinalAnswer);
-  //     toast.success("Response submitted successfully!");
-  //     setNewAnswer("");
-  //     setSources([]);
-  //   } catch (error) {
-  //     console.error("Error submitting answer:", error);
-  //   } finally {
-  //     setTimeout(() => {
-  //       setIsFinalAnswer(false);
-  //     }, 5000);
-  //   }
-  // };
 
   const handleFilterChange = (value: QuestionFilter) => {
     setFilter(value);
@@ -327,6 +428,7 @@ export const QAInterface = () => {
 
     try {
       await respondQuestion(payload);
+      onManualSelect?.(null);
       setSelectedQuestion(null);
       setNewAnswer("");
       setSources([]);
@@ -335,6 +437,14 @@ export const QAInterface = () => {
       console.log("Failed to submit: ", error);
     }
   };
+
+  const handleQuestionClick = (id: string) => {
+    setSelectedQuestion(id);
+    if (autoSelectQuestionId && id !== autoSelectQuestionId) {
+      onManualSelect(null);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 md:px-6 bg-transparent py-4 ">
       <div className="flex flex-col space-y-6">
@@ -467,15 +577,18 @@ export const QAInterface = () => {
               >
                 <RadioGroup
                   value={selectedQuestion}
-                  onValueChange={(value) => {
-                    setSelectedQuestion(value);
-                    setIsFinalAnswer(false);
-                  }}
+                  // onValueChange={(value) => {
+                  //   setSelectedQuestion(value);
+                  //   setIsFinalAnswer(false);
+                  // }}
+                  onValueChange={handleQuestionClick}
                   className="space-y-4"
                 >
                   {questions?.map((question, index) => (
                     <div
-                      key={index}
+                      // key={index}
+                      key={question?.id}
+                      ref={(el) => setQuestionRef(question?.id || "", el)} //comment if scroll is not needed
                       className={`relative group rounded-xl border transition-all duration-200 overflow-hidden bg-transparent ${
                         selectedQuestion === question?.id
                           ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"

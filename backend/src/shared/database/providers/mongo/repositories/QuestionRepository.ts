@@ -883,6 +883,88 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+
+  async getAllocatedQuestionPage(
+  userId: string,
+  questionId: string,
+  session?: ClientSession
+): Promise<number> {
+  await this.init();
+
+  const userObjectId = new ObjectId(userId);
+  const questionObjectId = new ObjectId(questionId);
+
+  // 1. Fetch submissions to know what questions are assigned to this user
+  const submissions = await this.QuestionSubmissionCollection.aggregate([
+    {
+      $addFields: {
+        lastHistory: { $arrayElemAt: ["$history", -1] },
+        historyCount: { $size: { $ifNull: ["$history", []] } },
+        firstInQueue: { $arrayElemAt: ["$queue", 0] },
+      },
+    },
+    {
+      $match: {
+        $or: [
+          {
+            "lastHistory.updatedBy": userObjectId,
+            "lastHistory.status": "in-review",
+            $or: [
+              { "lastHistory.answer": { $exists: false } },
+              { "lastHistory.answer": null },
+              { "lastHistory.answer": "" },
+            ],
+          },
+          {
+            historyCount: 0,
+            firstInQueue: userObjectId,
+          },
+        ],
+      },
+    },
+  ]).toArray();
+
+  const questionIdsToAttempt = submissions.map(
+    (sub) => new ObjectId(sub.questionId)
+  );
+
+  // 2. Same match filter as your main query
+  const filter: any = {
+    status: { $in: ["open", "delayed"] },
+    _id: { $in: questionIdsToAttempt },
+  };
+
+  // 3. Recreate the same sorting pipeline
+  const sortedQuestions = await this.QuestionCollection.aggregate([
+    { $match: filter },
+    {
+      $addFields: {
+        priorityOrder: {
+          $switch: {
+            branches: [
+              { case: { $eq: ["$priority", "high"] }, then: 1 },
+              { case: { $eq: ["$priority", "medium"] }, then: 2 },
+              { case: { $eq: ["$priority", "low"] }, then: 3 },
+            ],
+            default: 4,
+          },
+        },
+      },
+    },
+    { $sort: { priorityOrder: 1, createdAt: 1, _id: 1 } },
+    { $project: { _id: 1 } },
+  ]).toArray();
+
+  const index = sortedQuestions.findIndex(
+    (q) => q._id.toString() === questionId
+  );
+
+  if (index === -1) return 1;
+
+  const limit = 10;
+  return Math.floor(index / limit) + 1;
+}
+
   async insertMany(questions: IQuestion[]): Promise<string[]> {
     await this.init();
     if (!Array.isArray(questions) || questions.length === 0) return [];

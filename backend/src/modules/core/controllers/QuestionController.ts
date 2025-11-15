@@ -82,6 +82,20 @@ export class QuestionController {
     return this.questionService.getAllocatedQuestions(userId, query);
   }
 
+  @Get('/allocated/page')
+@Authorized()
+  @OpenAPI({summary: 'Get particular question'})
+async getAllocatedQuestionPage(
+  @QueryParams() query: { questionId: string },
+  @CurrentUser() user: IUser
+) {
+  return this.questionService.getAllocatedQuestionPage(
+    user._id.toString(),
+    query.questionId
+  );
+}
+
+
   @Get('/detailed')
   @HttpCode(200)
   @Authorized()
