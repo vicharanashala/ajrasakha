@@ -93,6 +93,8 @@ import {
   TooltipTrigger,
 } from "./atoms/tooltip";
 
+import {STATES,CROPS,DOMAINS,SEASONS} from './MetaData'
+
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
@@ -113,6 +115,13 @@ type QuestionsTableProps = {
   userRole?: UserRole;
 };
 type DetailField = keyof NonNullable<IDetailedQuestion["details"]>;
+const OPTIONS: Partial<Record<DetailField, string[]>> = {
+  state: STATES,
+           
+  crop: CROPS,
+  season:SEASONS ,
+  domain: DOMAINS,
+};
 
 export const QuestionsTable = ({
   items,
@@ -846,14 +855,16 @@ export const AddOrEditQuestionDialog = ({
                       "season",
                       "domain",
                     ] as DetailField[]
-                  ).map((field) => (
+                  ).map((field) => {
+                    return(
+                    
                     <div key={field} className="flex flex-col gap-2">
                       <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                         <label>
                           {field.charAt(0).toUpperCase() + field.slice(1)}*
                         </label>
                       </div>
-                      <Input
+                     {/* <Input
                         type="text"
                         value={updatedData?.details?.[field] || ""}
                         onChange={(e) =>
@@ -869,9 +880,61 @@ export const AddOrEditQuestionDialog = ({
                               : prev
                           )
                         }
-                      />
+                      />*/}
+                {OPTIONS[field] ? (
+                  <Select
+                      value={updatedData?.details?.[field]?.trim()
+                        ? updatedData.details[field]
+                        : undefined}
+                      onValueChange={(val) =>
+                        setUpdatedData((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                details: {
+                                  ...prev.details,
+                                  [field]: val,
+                                },
+                              }
+                            : prev
+                        )
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={`Select ${field}`} />
+                      </SelectTrigger>
+
+                      <SelectContent>
+                        {OPTIONS[field]?.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                        ) : (
+                          <Input
+                            type="text"
+                            value={updatedData?.details?.district || ""}
+                            onChange={(e) =>
+                              setUpdatedData((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        district: e.target.value,
+                                      },
+                                    }
+                                  : prev
+                              )
+                            }
+                          />
+                        )}
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 {userRole === "expert" && mode === "edit" && (
@@ -1143,9 +1206,10 @@ export const QuestionsFilters = ({
       }
 
       const { state, district, crop, season, domain } = payload.details;
+      console.log("the payload deatils=====",payload)
 
       if (!state?.trim()) {
-        toast.error("Please enter the State field.");
+         toast.error("Please Select the State field.");
         return;
       }
 
@@ -1155,17 +1219,17 @@ export const QuestionsFilters = ({
       }
 
       if (!crop?.trim()) {
-        toast.error("Please enter the Crop field.");
+        toast.error("Please Select the Crop field.");
         return;
       }
 
       if (!season?.trim()) {
-        toast.error("Please enter the Season field.");
+        toast.error("Please Select the Season field.");
         return;
       }
 
       if (!domain?.trim()) {
-        toast.error("Please enter the Domain field.");
+        toast.error("Please Select the Domain field.");
         return;
       }
 

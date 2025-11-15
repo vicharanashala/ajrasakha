@@ -593,19 +593,19 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                         </span>
                         <span
                           className={`text-xs font-bold 
-            ${passwordStrength.value <= 25 ? "text-red-500" : ""}
-            ${
-              passwordStrength.value > 25 && passwordStrength.value <= 50
-                ? "text-yellow-500"
-                : ""
-            }
-            ${
-              passwordStrength.value > 50 && passwordStrength.value <= 75
-                ? "text-blue-500"
-                : ""
-            }
-            ${passwordStrength.value > 75 ? "text-green-500" : ""}
-          `}
+                                      ${passwordStrength.value <= 25 ? "text-red-500" : ""}
+                                      ${
+                                        passwordStrength.value > 25 && passwordStrength.value <= 50
+                                          ? "text-yellow-500"
+                                          : ""
+                                      }
+                                      ${
+                                        passwordStrength.value > 50 && passwordStrength.value <= 75
+                                          ? "text-blue-500"
+                                          : ""
+                                      }
+                                      ${passwordStrength.value > 75 ? "text-green-500" : ""}
+                                    `}
                         >
                           {passwordStrength.label}
                         </span>
@@ -625,12 +625,12 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                         <div className="flex items-center gap-2">
                           <Check
                             className={`h-3 w-3 transition-colors duration-300
-              ${
-                passwordForm.newPassword.length >= 8
-                  ? "text-green-500"
-                  : "text-gray-400"
-              }
-            `}
+                                        ${
+                                          passwordForm.newPassword.length >= 8
+                                            ? "text-green-500"
+                                            : "text-gray-400"
+                                        }
+                                      `}
                           />
                           <span
                             className={
@@ -647,12 +647,12 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                         <div className="flex items-center gap-2">
                           <Check
                             className={`h-3 w-3 transition-colors duration-300
-              ${
-                /[A-Z]/.test(passwordForm.newPassword)
-                  ? "text-green-500"
-                  : "text-gray-400"
-              }
-            `}
+                                        ${
+                                          /[A-Z]/.test(passwordForm.newPassword)
+                                            ? "text-green-500"
+                                            : "text-gray-400"
+                                        }
+                                      `}
                           />
                           <span
                             className={
@@ -669,12 +669,12 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                         <div className="flex items-center gap-2">
                           <Check
                             className={`h-3 w-3 transition-colors duration-300
-              ${
-                /\d/.test(passwordForm.newPassword)
-                  ? "text-green-500"
-                  : "text-gray-400"
-              }
-            `}
+                                        ${
+                                          /\d/.test(passwordForm.newPassword)
+                                            ? "text-green-500"
+                                            : "text-gray-400"
+                                        }
+                                      `}
                           />
                           <span
                             className={
@@ -691,12 +691,12 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                         <div className="flex items-center gap-2">
                           <Check
                             className={`h-3 w-3 transition-colors duration-300
-              ${
-                /[!@#$%^&*(),.?":{}|<>]/.test(passwordForm.newPassword)
-                  ? "text-green-500"
-                  : "text-gray-400"
-              }
-            `}
+                                        ${
+                                          /[!@#$%^&*(),.?":{}|<>]/.test(passwordForm.newPassword)
+                                            ? "text-green-500"
+                                            : "text-gray-400"
+                                        }
+                                      `}
                           />
                           <span
                             className={
@@ -725,90 +725,93 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
           </div>
         </div>
       </div>
-
-      <div className="space-y-6 rounded-lg border bg-card p-6">
-        <div>
-          <h3 className="text-base font-semibold flex items-center gap-2">
-            <Briefcase className="h-4 w-4 text-muted-foreground" /> Preferences
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Configure your preferences to receive personalized questions for
-            better responses.
-          </p>
-          {user.role === "admin" && (
-            <p className="text-sm text-yellow-600 mt-2 flex items-center gap-1">
-              <AlertTriangle className="w-4 h-4" />
-              Admin cannot set preferences at this moment.
+      {/* Preferences */}
+      {user.role !== "moderator" && (
+        <div className="space-y-6 rounded-lg border bg-card p-6">
+          <div>
+            <h3 className="text-base font-semibold flex items-center gap-2">
+              <Briefcase className="h-4 w-4 text-muted-foreground" />{" "}
+              Preferences
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Configure your preferences to receive personalized questions for
+              better responses.
             </p>
-          )}
-        </div>
-        <Separator />
+            {user.role === "admin" && (
+              <p className="text-sm text-yellow-600 mt-2 flex items-center gap-1">
+                <AlertTriangle className="w-4 h-4" />
+                Admin cannot set preferences at this moment.
+              </p>
+            )}
+          </div>
+          <Separator />
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="state">State</Label>
-            <Select
-              value={formData.preference?.state}
-              disabled={!isEditMode || user.role == "admin"}
-              onValueChange={(val) => handleChange("preference.state", val)}
-            >
-              <SelectTrigger id="state">
-                <SelectValue placeholder="Select state" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All States</SelectItem>
-                {STATES.map((state) => (
-                  <SelectItem key={state} value={state}>
-                    <MapPin className="h-4 w-4 mr-2 inline" /> {state}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="state">State</Label>
+              <Select
+                value={formData.preference?.state}
+                disabled={!isEditMode || user.role == "admin"}
+                onValueChange={(val) => handleChange("preference.state", val)}
+              >
+                <SelectTrigger id="state">
+                  <SelectValue placeholder="Select state" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All States</SelectItem>
+                  {STATES.map((state) => (
+                    <SelectItem key={state} value={state}>
+                      <MapPin className="h-4 w-4 mr-2 inline" /> {state}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="crop">Crop Type</Label>
+              <Select
+                value={formData.preference?.crop}
+                disabled={!isEditMode || user.role == "admin"}
+                onValueChange={(val) => handleChange("preference.crop", val)}
+              >
+                <SelectTrigger id="crop">
+                  <SelectValue placeholder="Select crop" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Crops</SelectItem>
+                  {CROPS.map((crop) => (
+                    <SelectItem key={crop} value={crop}>
+                      {/* <Leaf className="h-4 w-4 mr-2 inline" />  */}
+                      {crop}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="crop">Crop Type</Label>
-            <Select
-              value={formData.preference?.crop}
-              disabled={!isEditMode || user.role == "admin"}
-              onValueChange={(val) => handleChange("preference.crop", val)}
-            >
-              <SelectTrigger id="crop">
-                <SelectValue placeholder="Select crop" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Crops</SelectItem>
-                {CROPS.map((crop) => (
-                  <SelectItem key={crop} value={crop}>
-                    {/* <Leaf className="h-4 w-4 mr-2 inline" />  */}
-                    {crop}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="domain">Domain</Label>
+            <div className="flex items-center gap-2">
+              <Network className="h-4 w-4 text-muted-foreground" />
+              <Input
+                id="domain"
+                disabled={!isEditMode || user.role == "admin"}
+                value={
+                  formData.preference?.domain == "all"
+                    ? "All"
+                    : formData.preference?.domain
+                }
+                onChange={(e) =>
+                  handleChange("preference.domain", e.target.value)
+                }
+                placeholder="Enter domain (e.g., Nutrient Management)"
+              />
+            </div>
           </div>
         </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="domain">Domain</Label>
-          <div className="flex items-center gap-2">
-            <Network className="h-4 w-4 text-muted-foreground" />
-            <Input
-              id="domain"
-              disabled={!isEditMode || user.role == "admin"}
-              value={
-                formData.preference?.domain == "all"
-                  ? "All"
-                  : formData.preference?.domain
-              }
-              onChange={(e) =>
-                handleChange("preference.domain", e.target.value)
-              }
-              placeholder="Enter domain (e.g., Nutrient Management)"
-            />
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Save/Cancel Section */}
       {isEditMode && (
