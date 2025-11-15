@@ -1,14 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
-import {
-  MessageSquarePlus,
-  BarChart3,
-  Bell,
-  Loader2,
-  UserIcon,
-  Info,
-  Calendar,
-} from "lucide-react";
+import { MessageSquarePlus, BarChart3 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import {
   PieChart,
@@ -17,7 +9,6 @@ import {
   Cell,
   ResponsiveContainer,
 } from "recharts";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 import {
   CROPS,
   STATES,
@@ -31,19 +22,12 @@ import {
 import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetailedQuestions";
 import { useGetFinalizedAnswers } from "@/hooks/api/answer/useGetFinalizedAnswers";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
-import { Label } from "@/components/atoms/label";
-
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/atoms/select";
 
 import type { IMyPreference } from "@/types";
 import { ScrollArea } from "./atoms/scroll-area";
-
+import PreferenceFilter from "./PreferenceFilter";
+import HeatMap from "./HeatMap";
+import { useGetWorkLoad } from "@/hooks/api/performance/useGetWorkLoad";
 export const PerformanceMatrics = () => {
   type BaseStatusItem = {
     status: string;
@@ -68,6 +52,7 @@ export const PerformanceMatrics = () => {
   );
   const [selectedUser, setSelectedUser] = useState("all");
   const [date, setDate] = useState("all");
+  const [status, setStatus] = useState("all");
   const filter = useMemo(() => advanceFilter, [advanceFilter]);
 
   const currentPage = 1;
@@ -77,19 +62,23 @@ export const PerformanceMatrics = () => {
     useGetAllDetailedQuestions(currentPage, LIMIT, filter, search);
   const { data: finalizedAnswers, refetch } = useGetFinalizedAnswers(
     selectedUser,
-    date
+    date,
+    status
   );
+  const { data: WorkLoad } = useGetWorkLoad();
+
   const finalized = finalizedAnswers?.finalizedSubmissions || [];
-  const currentUserAnswers = finalizedAnswers?.currentUserAnswers || [];
-  const totalQuestionsCount = finalizedAnswers?.totalQuestionsCount || 0;
+  const currentUserAnswers = WorkLoad?.currentUserAnswers || [];
+  const totalQuestionsCount = WorkLoad?.totalQuestionsCount || 0;
   const approvedCount = currentUserAnswers.length;
+  const heatMapResults = finalizedAnswers?.heatMapResults || [];
   const approvalPercentage =
     totalQuestionsCount > 0
       ? ((approvedCount / totalQuestionsCount) * 100).toFixed(2)
       : 0;
   useEffect(() => {
-    refetch();
-  }, [selectedUser, date]);
+    //refetch();
+  }, [selectedUser, date, status]);
 
   const { data: userNameReponse, isLoading: isLoadingUsers } = useGetAllUsers();
   const { data: user, isLoading } = useGetCurrentUser();
@@ -147,6 +136,43 @@ export const PerformanceMatrics = () => {
   }
 
   function PieBox({ title, data }: { title: string; data: any[] }) {
+    const getColor = (name: string) => {
+      if (!name) return "#8884d8";
+
+      const label = name.toLowerCase();
+
+      if (label.includes("approved")) return "#52C41A"; // green
+      if (label.includes("rejected")) return "#FF4D4F"; // red
+      if (label.includes("review")) return "#FAAD14"; // yellow
+
+      // For other pie charts — auto-generate consistent colors
+      const palette = [
+        "#8884d8",
+        "#82ca9d",
+        "#ffc658",
+        "#8dd1e1",
+        "#a4de6c",
+        "#d0ed57",
+        "#ffa07a",
+        "#ff8042",
+        "#a28cff",
+        "#4cc9f0",
+        "#f72585",
+        "#b5179e",
+        "#7209b7",
+        "#3a0ca3",
+        "#4361ee",
+        "#4895ef",
+        "#4cc9f0",
+        "#90be6d",
+        "#43aa8b",
+        "#577590",
+        "#f9c74f",
+        "#f9844a",
+        "#e63946",
+      ];
+      return palette[Math.abs(label.length) % palette.length];
+    };
     return (
       <Card className="shadow-sm min-w-0">
         <CardHeader>
@@ -168,8 +194,8 @@ export const PerformanceMatrics = () => {
                   label={{ position: "inside", fill: "#fff" }}
                   labelLine={false}
                 >
-                  {data.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  {data.map((entry, i) => (
+                    <Cell key={i} fill={getColor(entry.name)} />
                   ))}
                 </Pie>
                 <ChartTooltip />
@@ -183,7 +209,7 @@ export const PerformanceMatrics = () => {
                 <div key={i} className="flex items-center gap-2 text-sm">
                   <span
                     className="w-3 h-3 rounded-sm"
-                    style={{ background: COLORS[i % COLORS.length] }}
+                    style={{ background: getColor(item.name) }}
                   />
                   <span className="truncate">{item.name}</span>
                   <span className="ml-auto font-medium">{item.value}</span>
@@ -215,7 +241,7 @@ export const PerformanceMatrics = () => {
   const quickActions = [
     {
       title: "Current Workload",
-      value: `${totalQuestionsCount - currentUserAnswers.length}` || 0,
+      value: `${WorkLoad?.totalInreviewQuestionsCount}` || 0,
       description: "Pending assignments",
       icon: <MessageSquarePlus />,
       //path: `${getBasePath()}/review-queue`,
@@ -276,6 +302,9 @@ export const PerformanceMatrics = () => {
       user: "all",
       domain: "all",
     });
+  };
+  const handleApplyAnswerFilters = () => {
+    refetch();
   };
 
   return (
@@ -359,87 +388,32 @@ export const PerformanceMatrics = () => {
       </div>
       {/**to get finalized Answers */}
       <div className="space-y-6 p-6  ">
-        <div className="flex flex-col  lg:flex-row gap-4 w-full">
+        <div className="flex flex-row">
           <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
             <CardHeader>
               <CardTitle className="text-xl font-semibold">
-                {" "}
-                Total Answers: {finalized.length}
+                Answers Overview
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col md:justify-between md:flex-row w-max-fit">
+              <p className="text-lg mb-2 ">
+                Total Answers:{" "}
+                <span className="font-bold text-primary">
+                  {finalized.length}
+                </span>
+              </p>
               <div className="w-max-fit">
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2 text-sm font-semibold">
-                    <UserIcon className="h-4 w-4 text-primary" />
-                    User
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          className="text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          <Info className="h-4 w-4" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-xs text-sm">
-                        <p>
-                          This option allows filtering questions that have been
-                          submitted at least once by the selected user.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </Label>
-
-                  <Select
-                    value={selectedUser}
-                    onValueChange={(v) => setSelectedUser(v)}
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger className="bg-background">
-                      <SelectValue />
-                    </SelectTrigger>
-
-                    <SelectContent>
-                      {isLoading ? (
-                        <div className="flex items-center justify-center p-3">
-                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                          <span className="ml-2 text-sm text-muted-foreground">
-                            Loading users...
-                          </span>
-                        </div>
-                      ) : (
-                        <>
-                          <SelectItem value="all">All Users</SelectItem>
-                          {users?.map((u) => (
-                            <SelectItem key={u._id} value={u._id || u.email}>
-                              {u.userName}
-                            </SelectItem>
-                          ))}
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Calendar className="h-4 w-4 text-primary" />
-                  Date Range
-                </Label>
-                <Select value={date} onValueChange={(v) => setDate(v)}>
-                  <SelectTrigger className="bg-background">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Time</SelectItem>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="week">This Week</SelectItem>
-                    <SelectItem value="month">This Month</SelectItem>
-                    <SelectItem value="quarter">Last 3 Months</SelectItem>
-                    <SelectItem value="year">This Year</SelectItem>
-                  </SelectContent>
-                </Select>
+                <PreferenceFilter
+                  selectedUser={selectedUser}
+                  setSelectedUser={setSelectedUser}
+                  date={date}
+                  setDate={setDate}
+                  status={status}
+                  setStatus={setStatus}
+                  users={users}
+                  isLoading={isLoading}
+                  handleApplyFilters={handleApplyAnswerFilters}
+                />
               </div>
             </CardContent>
           </Card>
@@ -457,13 +431,13 @@ export const PerformanceMatrics = () => {
           ""
         )}
       </div>
-
+      {/**
       <div className="space-y-6 p-6  ">
         <div className="flex flex-col  lg:flex-row gap-4 w-full">
           <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
             <CardHeader>
               <CardTitle className="text-xl font-semibold">
-                Dashboard Overview
+                Questions Overview
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col md:justify-between md:flex-row w-max-fit">
@@ -487,8 +461,7 @@ export const PerformanceMatrics = () => {
             </CardContent>
           </Card>
 
-          {/* Example second card (optional) */}
-          {/* <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">...</Card> */}
+         
         </div>
         {questionData && questionData?.totalCount >= 1 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -499,6 +472,17 @@ export const PerformanceMatrics = () => {
         ) : (
           ""
         )}
+      </div>
+    */}
+      <div className="space-y-6 p-6  ">
+        <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold">
+              Heat Map Of Reviewers
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <HeatMap />
       </div>
     </div>
   );

@@ -26,17 +26,43 @@ export const audioUploadOptions: multer.Options = {
 };
 
 
-export const jsonUploadOptions: multer.Options = {
+// export const jsonUploadOptions: multer.Options = {
+//   storage: multer.memoryStorage(),
+//   limits: { fileSize: 5 * 1024 * 1024 }, // max 5 MB for JSON
+//   fileFilter: (_req, file, cb) => {
+//     if (
+//       file.mimetype === "application/json" ||
+//       file.originalname.toLowerCase().endsWith(".json")
+//     ) {
+//       cb(null, true);
+//     } else {
+//       cb(new BadRequestError("Only JSON files are allowed"));
+//     }
+//   }
+// }
+
+
+export const UploadFileOptions: multer.Options = {
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // max 5 MB for JSON
+  limits: { fileSize: 5 * 1024 * 1024 }, // max 5 MB
   fileFilter: (_req, file, cb) => {
-    if (
-      file.mimetype === "application/json" ||
-      file.originalname.toLowerCase().endsWith(".json")
-    ) {
+    const allowedMimeTypes = [
+      'application/json',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+
+    const allowedExtensions = ['.json', '.xls', '.xlsx'];
+    const filename = file.originalname.toLowerCase();
+
+    const isAllowed =
+      allowedMimeTypes.includes(file.mimetype) ||
+      allowedExtensions.some(ext => filename.endsWith(ext));
+
+    if (isAllowed) {
       cb(null, true);
     } else {
-      cb(new BadRequestError("Only JSON files are allowed"));
+      cb(new BadRequestError('Only JSON or Excel (.xls, .xlsx) files are allowed'));
     }
-  }
-}
+  },
+};

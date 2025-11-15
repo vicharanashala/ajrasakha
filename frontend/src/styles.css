@@ -70,6 +70,8 @@ body {
   --shadow-2xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.43);
   --tracking-normal: 0.025em;
   --spacing: 0.25rem;
+  --tooltip-bg: #ffffff;
+  --tooltip-text: #111827;
 }
 
 .dark {
@@ -122,6 +124,8 @@ body {
   --shadow-xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.17),
     0px 8px 10px -1px hsl(0 0% 0% / 0.17);
   --shadow-2xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.43);
+  --tooltip-bg: #1f2937;
+  --tooltip-text: #f9fafb;
 }
 
 @theme inline {

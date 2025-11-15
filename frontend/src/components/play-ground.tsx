@@ -16,14 +16,72 @@ import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { RequestsPage } from "./request-page";
 import { useNavigate } from "@tanstack/react-router";
 import { initializeNotifications } from "@/services/pushService";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { PerformanceMatrics } from "./performanceMatrics";
+import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser();
   const userId = user?._id?.toString();
   const navigate = useNavigate();
+  const {
+    selectedQuestionId,
+    setSelectedQuestionId,
+    selectedRequestId,
+    setSelectedRequestId,
+    selectedCommentId,
+    setSelectedCommentId,
+  } = useSelectedQuestion();
+  const [activeTab, setActiveTab] = useState<string>("performance");
 
+  useEffect(() => {
+    if (!user) return;
+
+    let calculatedTab = "performance";
+
+    if (user.role !== "expert") {
+      if (selectedRequestId) {
+        calculatedTab = "request_queue";
+      } else {
+        calculatedTab = "performance";
+      }
+    } else {
+      // For experts
+      if (selectedRequestId) {
+        calculatedTab = "request_queue";
+      } else if (selectedQuestionId) {
+        calculatedTab = "questions";
+      } else if (selectedCommentId) {
+        calculatedTab = "all_questions";
+      } else {
+        calculatedTab = "questions";
+      }
+    }
+
+    setActiveTab(calculatedTab);
+  }, [user, selectedQuestionId, selectedRequestId, selectedCommentId]);
+  const defaultTab = (() => {
+    if (!user) return "performance";
+    if (user.role !== "expert") return "performance";
+    if (selectedRequestId) return "request_queue"; // ← Auto-open Request Queue
+    if (selectedQuestionId) return "questions";
+    if (selectedCommentId) return "all_questions";
+    return "questions";
+  })();
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (value !== "questions") {
+      setSelectedQuestionId(null);
+    }
+
+    if (value !== "request_queue") {
+      setSelectedRequestId(null);
+    }
+
+    if (value !== "all_questions") {
+      setSelectedCommentId(null);
+    }
+  };
   useEffect(() => {
     initializeNotifications();
   }, [userId]);
@@ -70,9 +128,8 @@ export const PlaygroundPage = () => {
 
       <Tabs
         key={user?.role}
-        defaultValue={
-          user && user.role !== "expert" ? "performance" : "questions"
-        }
+        value={activeTab}
+        onValueChange={handleTabChange}
         className="h-full w-full"
       >
         <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -159,11 +216,12 @@ export const PlaygroundPage = () => {
                   className="relative p-1 rounded-md hover:bg-accent transition-colors"
                 >
                   <BellIcon className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
-                  {user?.notifications !==undefined && user.notifications > 0 && (
-                    <span className="absolute -top-[4px] -right-[12px] flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-white shadow-sm leading-none">
-                      {user.notifications > 99 ? "99+" : user.notifications}
-                    </span>
-                  )}
+                  {user?.notifications !== undefined &&
+                    user.notifications > 0 && (
+                      <span className="absolute -top-[4px] -right-[12px] flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-white shadow-sm leading-none">
+                        {user.notifications > 99 ? "99+" : user.notifications}
+                      </span>
+                    )}
                 </button>
               </div>
 
@@ -189,21 +247,27 @@ export const PlaygroundPage = () => {
               )}
               {user && user.role == "expert" && (
                 <TabsContent value="questions" className="mt-0 border-0 p-0 ">
-                  <QAInterface />
+                  <QAInterface
+                    autoSelectQuestionId={selectedQuestionId}
+                    onManualSelect={setSelectedQuestionId}
+                  />
                 </TabsContent>
               )}
               <TabsContent
                 value="all_questions"
                 className="mt-0 border-0 md:px-8 px-2 "
               >
-                <QuestionsPage currentUser={user!} />
+                <QuestionsPage
+                  currentUser={user!}
+                  autoOpenQuestionId={selectedCommentId || selectedQuestionId}
+                />
               </TabsContent>
               {user && user.role !== "expert" && (
                 <TabsContent
                   value="request_queue"
                   className="mt-0 border-0 md:px-8 px-2 w-full "
                 >
-                  <RequestsPage />
+                  <RequestsPage autoSelectId={selectedRequestId} />
                 </TabsContent>
               )}
               <TabsContent value="upload" className="mt-0 border-0 p-0 ">

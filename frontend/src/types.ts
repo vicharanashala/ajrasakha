@@ -98,11 +98,15 @@ export interface ISubmissions {
   createdAt: string;
   updatedAt: string;
   totalAnwersCount: number;
+  questionStatus:string,
   reponse: {
     answer: string;
     id: string;
     isFinalAnswer: boolean;
     createdAt: string;
+    status:string;
+    answerStatus:string;
+    reasonForRejection:string;
   };
 }
 
@@ -225,11 +229,24 @@ export interface FinalizedAnswer {
   };
   status:string;
 }
+export interface HeatMapResult {
+  reviewerId: string;
+  reviewerName: string;
+  counts: {
+    [bucket: string]: number; // e.g., "0_6": 4
+  };
+}
+export interface WorkLoad{
+  currentUserAnswers: CurrentUserAnswer[];
+  totalQuestionsCount: number;
+  totalInreviewQuestionsCount:number
+}
 
 export interface FinalizedAnswersResponse {
   finalizedSubmissions: FinalizedAnswer[];
   currentUserAnswers: CurrentUserAnswer[];
   totalQuestionsCount: number;
+  heatMapResults: HeatMapResult[];
 }
 
 export interface SourceItem {

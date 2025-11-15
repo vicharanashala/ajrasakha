@@ -49,6 +49,8 @@ import {
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 import type { IMyPreference } from "@/types";
+import { CROPS, STATES,DOMAINS } from "@/components/MetaData";
+export { STATES,CROPS,DOMAINS }
 
 export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed";
 export type QuestionDateRangeFilter =
@@ -58,7 +60,8 @@ export type QuestionDateRangeFilter =
   | "month"
   | "quarter"
   | "year";
-export const STATES = [
+
+/*export const STATES = [
   "Andhra Pradesh",
   "Arunachal Pradesh",
   "Assam",
@@ -96,7 +99,7 @@ export const DOMAINS = [
   "Fisheries",
   "Agri-Tech",
   "Soil Science",
-];
+];*/
 export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT";
 export type QuestionPriorityFilter = "all" | "high" | "low" | "medium";
 export type AdvanceFilterValues = {

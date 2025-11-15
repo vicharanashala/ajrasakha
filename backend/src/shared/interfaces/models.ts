@@ -7,7 +7,7 @@ export interface IPreference {
   crop: string;
   domain: string;
 }
-export type NotificationRetentionType = '3d' | '1w' | '2w' | '1m' |'never'
+export type NotificationRetentionType = '3d' | '1w' | '2w' | '1m' | 'never';
 export interface IUser {
   _id?: string | ObjectId;
   firebaseUID: string;
@@ -18,7 +18,7 @@ export interface IUser {
   reputation_score: number;
   notifications?: number;
   role: UserRole;
-  notificationRetention?:NotificationRetentionType
+  notificationRetention?: NotificationRetentionType;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -72,6 +72,7 @@ export interface IAnswer {
   embedding: number[];
   createdAt?: Date;
   updatedAt?: Date;
+  status?: string;
 }
 
 // For transcripts
@@ -139,14 +140,19 @@ export type IRequest = RequestDetails & {
   updatedAt?: string | Date;
 };
 
-export type INotificationType = 'flag' | 'answer_creation' | 'peer_review';
+export type INotificationType =
+  | 'flag'
+  | 'answer_creation'
+  | 'peer_review'
+  | 'comment'
+  | 'flag_response';
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;
   enitity_id?: string | ObjectId;
   title: string;
-  // type:INotificationType;
-  type: string;
+  type: INotificationType;
+  // type: string;
   message: string;
   is_read: boolean;
   createdAt?: string | Date;
@@ -163,4 +169,9 @@ export interface ISubscription {
       auth: string;
     };
   };
+}
+export interface IReviewerHeatmapRow {
+  reviewerId: string;
+  reviewerName: string;
+  counts: Record<string, number>;
 }

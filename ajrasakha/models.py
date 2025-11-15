@@ -35,12 +35,15 @@ class Message(BaseModel):
     role: str
     content: str
     thinking: Optional[str] = None  # For "think" mode responses
+    tool_calls: Optional[List] = None  # List of tool names to use
 
 
 class ChatCompletionRequest(BaseModel):
     model: Optional[str] = "mock-gpt-model"
     messages: List[Message]
     stream: Optional[bool] = False
+    think: Optional[bool] = False
+    tools: Optional[List] = None
 
 
 class StreamingMessageChunk(BaseModel):
@@ -89,13 +92,14 @@ class ContextPOP(BaseModel):
 
 
 class ThinkingResponseChunk:
-    def __init__(self, message: str, model: str = "ajrasakha"):
+    def __init__(self, message: str, model: str = "ajrasakha", tools_calls: List = None):
         self.model = model
         self.message = message
+        self.tools_calls = tools_calls if tools_calls else []
 
         self.chunk = StreamingMessageChunk(
             model=model,
-            message=Message(role="assistant", content="", thinking=self.message),
+            message=Message(role="assistant", content="", thinking=self.message, tools_calls=self.tools_calls),
             done=False,
         )
 
@@ -108,11 +112,11 @@ class ThinkingResponseChunk:
 
 class ContentResponseChunk:
     def __init__(
-        self, message: str, final_chunk: bool = False, model: str = "ajrasakha"
+        self, message: str, final_chunk: bool = False, model: str = "ajrasakha", tool_calls: List = None
     ):
         self.chunk = StreamingMessageChunk(
             model=model,
-            message=Message(role="assistant", content=message, thinking=""),
+            message=Message(role="assistant", content=message, thinking="", tool_calls=tool_calls),
             done=final_chunk,
         )
 

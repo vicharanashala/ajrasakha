@@ -17,6 +17,7 @@ import {RequestController} from './controllers/RequestController.js';
 import { REQUEST_VALIDATORS } from './classes/validators/RequestValidators.js';
 import { NotificationController } from './controllers/NotificationController.js';
 import { NOTIFICATION_VALIDATORS } from './classes/validators/NotificationValidators.js';
+import {PerformanceController} from './controllers/PerformanceController.js'
 
 // Export names that loadAppModules expects
 export const coreModuleControllers: Function[] = [
@@ -27,6 +28,7 @@ export const coreModuleControllers: Function[] = [
   RequestController,
   UserController,
   NotificationController,
+  PerformanceController
 ];
 
 // Export container modules for loadAppModules
@@ -59,11 +61,13 @@ export * from './controllers/AnswerController.js';
 export * from './controllers/ContextController.js';
 export * from './controllers/CommentController.js';
 export * from './controllers/NotificationController.js'
+export * from './controllers/PerformanceController.js'
 
 export * from './services/QuestionService.js';
 export * from './services/AnswerService.js';
 export * from './services/ContextService.js';
 export * from './services/CommentService.js';
 export * from './services/NotificationService.js'
+export * from './services/PerformanceService.js'
 
 export * from './types.js';

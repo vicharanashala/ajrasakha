@@ -14,7 +14,13 @@ import {
 } from "./advanced-question-filter";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 
-export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
+export const QuestionsPage = ({
+  currentUser,
+  autoOpenQuestionId,
+}: {
+  currentUser?: IUser;
+  autoOpenQuestionId?: string | null;
+}) => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
   const [source, setSource] = useState<QuestionSourceFilter>("all");
@@ -25,13 +31,17 @@ export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
   // const observerRef = useRef<IntersectionObserver | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedQuestionId, setSelectedQuestionId] = useState("");
+  // const [selectedQuestionId, setSelectedQuestionId] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [domain, setDomain] = useState("all");
   const [user, setUser] = useState("all");
+  const [selectedQuestionId, setSelectedQuestionId] = useState(
+    autoOpenQuestionId || ""
+  );
 
-  const debouncedSearch = useDebounce(search); 
+  const [uploadedQuestionsCount, setUploadedQuestionsCount] = useState(0); // to track the bulk uploaded file size to run timer
 
+  const debouncedSearch = useDebounce(search);
 
   const LIMIT = 12;
   const filter = useMemo(
@@ -76,6 +86,18 @@ export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
     refetch: refechSelectedQuestion,
     isLoading: isLoadingSelectedQuestion,
   } = useGetQuestionFullDataById(selectedQuestionId);
+  useEffect(() => {
+    if (autoOpenQuestionId && autoOpenQuestionId !== selectedQuestionId) {
+      setSelectedQuestionId(autoOpenQuestionId);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [autoOpenQuestionId, selectedQuestionId]);
+
+  useEffect(() => {
+    if (selectedQuestionId && !autoOpenQuestionId) {
+      setSelectedQuestionId("");
+    }
+  }, [filter, debouncedSearch]);
   // const questions = data?.pages.flatMap((page) => page ?? []) ?? [];
 
   // const lastElementRef = useCallback(
@@ -151,7 +173,16 @@ export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
   const handleViewMore = (questoinId: string) => {
     setSelectedQuestionId(questoinId);
   };
-
+  const goBack = () => {
+    const url = new URL(window.location.href)
+    if(url.searchParams.has('comment')){
+      url.searchParams.delete('comment')
+      window.history.replaceState({}, "", url.toString());
+      setSelectedQuestionId('')
+      return
+    }
+    setSelectedQuestionId('')
+  }
   return (
     <main className="mx-auto w-full p-4 md:p-6 space-y-6 ">
       {selectedQuestionId && questionDetails ? (
@@ -161,7 +192,8 @@ export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
             currentUserId={questionDetails.currentUserId}
             refetchAnswers={refechSelectedQuestion}
             isRefetching={isLoadingSelectedQuestion}
-            goBack={() => setSelectedQuestionId("")}
+            // goBack={() => setSelectedQuestionId("")}
+            goBack={goBack}
             currentUser={currentUser!}
           />
         </>
@@ -170,6 +202,7 @@ export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
           <QuestionsFilters
             search={search}
             setSearch={setSearch}
+            setUploadedQuestionsCount={setUploadedQuestionsCount}
             states={STATES}
             onChange={onChangeFilters}
             onReset={onReset}
@@ -197,6 +230,7 @@ export const QuestionsPage = ({ currentUser }: { currentUser?: IUser }) => {
             // lastElementRef={lastElementRef}
             totalPages={questionData?.totalPages || 0}
             isLoading={isLoading || isRefreshing}
+            uploadedQuestionsCount={uploadedQuestionsCount}
           />
         </>
       )}

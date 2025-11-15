@@ -2,6 +2,7 @@ import {injectable, inject} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {
   BaseService,
+  INotificationType,
   IQuestion,
   IRequest,
   IRequestResponse,
@@ -21,8 +22,8 @@ import {
 } from 'routing-controllers';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
-import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
-import { notifyUser } from '#root/utils/pushNotification.js';
+import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
+import {notifyUser} from '#root/utils/pushNotification.js';
 
 @injectable()
 export class RequestService extends BaseService {
@@ -51,15 +52,26 @@ export class RequestService extends BaseService {
   ): Promise<IRequest> {
     try {
       return await this._withTransaction(async session => {
-        const request= this.requestRepository.createRequest(data, userId, session);
-        let type = data.details.requestType.toString()
-        const moderators = await this.userRepo.findModerators()
-        let message =`A new Question Flag raised QuestionId ${data.entityId}`
-        let title= "New Flag Raised"
-        for(let mod of moderators){
-          const notification = await this.notificationRepository.addNotification(mod._id.toString(),data.entityId.toString(),type,message,title)
+        const request = this.requestRepository.createRequest(
+          data,
+          userId,
+          session,
+        );
+        let type: INotificationType = 'flag';
+        const moderators = await this.userRepo.findModerators();
+        let message = `A new Question Flag raised QuestionId ${data.entityId}`;
+        let title = 'New Flag Raised';
+        for (let mod of moderators) {
+          const notification =
+            await this.notificationRepository.addNotification(
+              mod._id.toString(),
+              data.entityId.toString(),
+              type,
+              message,
+              title,
+            );
         }
-        return request
+        return request;
       });
     } catch (error) {
       throw new InternalServerError(`Failed to create this request ${error}`);
@@ -118,9 +130,9 @@ export class RequestService extends BaseService {
         }
         let requestedUserId = request.requestedBy.toString();
         let entityId = request.entityId.toString();
-        let title = `Your Flag has Been ${status}`
-        let message = `Response: ${response}`
-        let type = 'Flag_Response'
+        let title = `Your Flag has Been ${status}`;
+        let message = `Response: ${response}`;
+        let type: INotificationType = 'flag_response';
         if (status == 'approved') {
           const entityId = request.entityId.toString();
           if (request.requestType == 'question_flag') {
@@ -132,18 +144,28 @@ export class RequestService extends BaseService {
             );
           }
         }
-        const result=await this.requestRepository.updateStatus(
+        const result = await this.requestRepository.updateStatus(
           requestId,
           status,
           response,
           userId,
           session,
         );
-        
-        await this.notificationRepository.addNotification(requestedUserId,entityId,type,message,title,session)
-        const subscription = await this.notificationRepository.getSubscriptionByUserId(requestedUserId);
-        await notifyUser(requestedUserId, title,subscription)
-        return result
+
+        await this.notificationRepository.addNotification(
+          requestedUserId,
+          entityId,
+          type,
+          message,
+          title,
+          session,
+        );
+        const subscription =
+          await this.notificationRepository.getSubscriptionByUserId(
+            requestedUserId,
+          );
+        await notifyUser(requestedUserId, title, subscription);
+        return result;
       });
     } catch (error) {
       throw error;

@@ -1,3 +1,62 @@
-hf_cache/
-.vscode/
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environment
+.venv/
+venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Model cache
+hf_cache/
+.cache/
+*.model
+
+# Environment files (ignore actual secrets, keep example)
+.env
+.env.local
+# DO NOT ignore .env.example - it's a template for users
+
+# Data files
+data/*.csv
+data/*.json
+data/*.xlsx
+*.csv
+
+# MongoDB
+*.lock
+
+# Logs
+*.log
+logs/
+
+# Testing
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+docs/
+requirements.txt
+
