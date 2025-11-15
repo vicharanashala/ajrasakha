@@ -24,6 +24,7 @@ import { NotificationService } from './services/NotificationService.js';
 import { NotificationRepository } from '#root/shared/database/providers/mongo/repositories/NotificationRepository.js';
 import {PerformanceController} from './controllers/PerformanceController.js'
 import {PerformanceService} from './services/PerformanceService.js'
+import { ReviewRepository } from '#root/shared/database/providers/mongo/repositories/ReviewRepository.js';
 
 export const coreContainerModule = new ContainerModule(options => {
   // Controllers
@@ -77,4 +78,5 @@ export const coreContainerModule = new ContainerModule(options => {
     .to(RequestRepository)
     .inSingletonScope();
   options.bind(CORE_TYPES.NotificationRepository).to(NotificationRepository).inSingletonScope()
+  options.bind(CORE_TYPES.ReviewRepository).to(ReviewRepository).inSingletonScope()
 });

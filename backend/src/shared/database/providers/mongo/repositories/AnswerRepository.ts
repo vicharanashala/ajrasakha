@@ -61,11 +61,11 @@ export class AnswerRepository implements IAnswerRepository {
         isFinalAnswer,
         answerIteration,
         approvalCount: 0,
+        status,
         embedding,
         sources,
         createdAt: new Date(),
         updatedAt: new Date(),
-        status
       };
 
       const result = await this.AnswerCollection.insertOne(doc, {session});

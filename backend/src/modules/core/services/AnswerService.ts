@@ -7,7 +7,10 @@ import {ClientSession, ObjectId} from 'mongodb';
 import {
   IAnswer,
   IQuestionMetrics,
+  IReview,
   ISubmissionHistory,
+  ReviewAction,
+  ReviewType,
   SourceItem,
 } from '#root/shared/interfaces/models.js';
 import {
@@ -34,6 +37,7 @@ import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.
 import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
 import {notifyUser} from '#root/utils/pushNotification.js';
 import {NotificationService} from './NotificationService.js';
+import {IReviewRepository} from '#root/shared/database/interfaces/IReviewRepository.js';
 
 @injectable()
 export class AnswerService extends BaseService {
@@ -43,6 +47,9 @@ export class AnswerService extends BaseService {
 
     @inject(GLOBAL_TYPES.AnswerRepository)
     private readonly answerRepo: IAnswerRepository,
+
+    @inject(GLOBAL_TYPES.AnswerRepository)
+    private readonly reviewRepo: IReviewRepository,
 
     @inject(GLOBAL_TYPES.QuestionRepository)
     private readonly questionRepo: IQuestionRepository,
@@ -211,6 +218,9 @@ export class AnswerService extends BaseService {
           rejectedAnswer,
           reasonForRejection,
           sources,
+          parameters,
+          modifiedAnswer,
+          reasonForModification,
         } = body;
 
         const question = await this.questionRepo.getById(questionId, session);
@@ -289,6 +299,44 @@ export class AnswerService extends BaseService {
           );
         }
 
+        let reviewId: ObjectId | null = null;
+
+        // If status exists, user is performing a review (not author response)
+        if (status) {
+          // Determine the correct reason based on status
+          const reason = (() => {
+            switch (status) {
+              case 'rejected':
+                return reasonForRejection ?? '';
+              case 'modified':
+                return reasonForModification ?? '';
+              case 'accepted':
+              default:
+                return '';
+            }
+          })();
+
+          // Create the review record
+          const {insertedId} = await this.reviewRepo.createReview(
+            'answer',
+            status as ReviewAction,
+            questionId,
+            userId,
+            lastAnsweredHistory?.answer?.toString(),
+            reason,
+            parameters,
+            session,
+          );
+
+          if (!insertedId) {
+            throw new InternalServerError(
+              'Failed to create review entry, please try again!',
+            );
+          }
+
+          reviewId = new ObjectId(insertedId);
+        }
+
         if (!status) {
           // Answer submission from first assigned expert
           const {insertedId} = await this.addAnswer(
@@ -317,6 +365,7 @@ export class AnswerService extends BaseService {
         } else if (status == 'accepted') {
           const review_answer_id = lastAnsweredHistory.answer.toString();
           const updatedSubmissionData = {
+            reviewId,
             approvedAnswer: new ObjectId(review_answer_id),
             status: 'reviewed',
           } as ISubmissionHistory;
@@ -370,7 +419,7 @@ export class AnswerService extends BaseService {
           const payload: Partial<IAnswer> = {
             status: 'rejected',
           };
-          let updateDocument = await this.answerRepo.updateAnswerStatus(
+          await this.answerRepo.updateAnswerStatus(
             body.rejectedAnswer,
             payload,
           );
@@ -411,6 +460,7 @@ export class AnswerService extends BaseService {
           const updatedSubmissionData = {
             rejectedAnswer: new ObjectId(lastAnsweredHistory.answer.toString()),
             status: 'reviewed',
+            reviewId,
             answer: new ObjectId(insertedId),
           } as ISubmissionHistory;
 
@@ -421,25 +471,7 @@ export class AnswerService extends BaseService {
             updatedSubmissionData,
             session,
           );
-
-          // Calculate current queue and history lengths
-          // const queueLength = questionSubmission.queue.length;
-          // const updatedHistoryLength = questionSubmission.history.length + 1; // +1 includes the newly added answer
-
-          // // If all queued experts have now responded and the total is at least 10,
-          // // move the question to 'in-review' status
-          // const isAllResponsesCompleted =
-          //   updatedHistoryLength >= 10 &&
-          //   questionSubmission.queue[queueLength - 1].toString() == userId;
-
-          // if (isAllResponsesCompleted) {
-          //   await this.questionRepo.updateQuestion(
-          //     questionId,
-          //     {status: 'in-review'},
-          //     session,
-          //   );
-          //   return {message: 'Your response recorded sucessfully, thankyou!'};
-          // }
+        } else if (status == 'modified') {
         }
 
         // Allocate next user in the history from queue if necessary

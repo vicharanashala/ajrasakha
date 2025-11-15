@@ -29,6 +29,7 @@ import {
   Copy,
   Target,
   FileSearch,
+  ArrowRight,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { RadioGroup, RadioGroupItem } from "./atoms/radio-group";
@@ -42,6 +43,7 @@ import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -75,6 +77,7 @@ import type {
   HistoryItem,
   IMyPreference,
   IQuestion,
+  ReviewChecklist,
   SourceItem,
 } from "@/types";
 import { ScrollArea } from "./atoms/scroll-area";
@@ -92,12 +95,14 @@ import {
   type IReviewAnswerPayload,
 } from "@/hooks/api/answer/useReviewAnswer";
 import { formatDate } from "@/utils/formatDate";
+import { Switch } from "./atoms/switch";
 
 export type QuestionFilter =
   | "newest"
   | "oldest"
   | "leastResponses"
   | "mostResponses";
+
 export const QAInterface = () => {
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
   const [newAnswer, setNewAnswer] = useState<string>("");
@@ -294,48 +299,118 @@ export const QAInterface = () => {
   };
 
   const handleSubmitResponse = async (
-    status?: "accepted" | "rejected",
-    currentReviewingAnswer?: string,
+    status?: "accepted" | "rejected" | "modified",
+    currentReviewingAnswerId?: string,
     rejectionReason?: string
   ) => {
     if (!selectedQuestion || isResponding) return;
 
-    let payload = { questionId: selectedQuestion } as IReviewAnswerPayload;
+    const payload = {
+      questionId: selectedQuestion,
+    } as IReviewAnswerPayload;
 
+    const requiresSources =
+      !status || status === "rejected" || status === "modified";
+
+    // Validate sources only where needed
+    if (requiresSources && sources.length === 0) {
+      toast.error("At least one source is required!");
+      return;
+    }
+
+    // Handle first-time response
     if (!status) {
-      // responding first time
-      if (!sources.length) {
-        toast.error("Atleast one source is required!");
-        return;
-      }
-
-      payload.sources = sources;
       payload.answer = newAnswer;
-    } else if (status == "accepted") {
+      payload.sources = sources;
+    }
+
+    // Accepted
+    if (status === "accepted") {
       payload.status = "accepted";
-      payload.approvedAnswer = currentReviewingAnswer;
-    } else if (status == "rejected") {
-      if (!sources.length) {
-        toast.error("Atleast one source is required!");
-        return;
-      }
-      payload.rejectedAnswer = currentReviewingAnswer;
+      payload.approvedAnswer = currentReviewingAnswerId;
+    }
+
+    // Rejected
+    if (status === "rejected") {
+      payload.status = "rejected";
+      payload.rejectedAnswer = currentReviewingAnswerId;
       payload.reasonForRejection = rejectionReason;
       payload.answer = newAnswer;
       payload.sources = sources;
-      payload.status = "rejected";
+    }
+
+    // Modified
+    if (status === "modified") {
+      payload.status = "modified";
+      payload.modifiedAnswer = currentReviewingAnswerId;
+      payload.reasonForModification = rejectionReason; // Currently both modification and rejection reason storing in a single state
+      payload.answer = newAnswer;
+      payload.sources = sources;
     }
 
     try {
       await respondQuestion(payload);
+
+      // Reset UI
       setSelectedQuestion(null);
       setNewAnswer("");
       setSources([]);
-      toast.success("Your response submitted, thankyou!");
+
+      toast.success("Your response has been submitted. Thank you!");
     } catch (error) {
-      console.log("Failed to submit: ", error);
+      console.error("Failed to submit:", error);
     }
   };
+
+  // const handleSubmitResponse = async (
+  //   status?: "accepted" | "rejected" | "modified",
+  //   currentReviewingAnswerId?: string,
+  //   rejectionReason?: string
+  // ) => {
+  //   if (!selectedQuestion || isResponding) return;
+
+  //   let payload = { questionId: selectedQuestion } as IReviewAnswerPayload;
+
+  //   if (!status) {
+  //     // responding first time
+  //     if (!sources.length) {
+  //       toast.error("Atleast one source is required!");
+  //       return;
+  //     }
+
+  //     payload.sources = sources;
+  //     payload.answer = newAnswer;
+  //   } else if (status == "accepted") {
+  //     payload.status = "accepted";
+  //     payload.approvedAnswer = currentReviewingAnswerId;
+  //   } else if (status == "rejected") {
+  //     if (!sources.length) {
+  //       toast.error("Atleast one source is required!");
+  //       return;
+  //     }
+  //     payload.rejectedAnswer = currentReviewingAnswerId;
+  //     payload.reasonForRejection = rejectionReason;
+  //     payload.answer = newAnswer;
+  //     payload.sources = sources;
+  //     payload.status = "rejected";
+  //   } else if (status == "modified") {
+  //     payload.modifiedAnswer = currentReviewingAnswerId;
+  //     payload.reasonForModification = rejectionReason; // storing both modification and rejction reason in a single state
+  //     payload.answer = newAnswer;
+  //     payload.sources = sources;
+  //     payload.status = "modified";
+  //   }
+
+  //   try {
+  //     await respondQuestion(payload);
+  //     setSelectedQuestion(null);
+  //     setNewAnswer("");
+  //     setSources([]);
+  //     toast.success("Your response submitted, thankyou!");
+  //   } catch (error) {
+  //     console.log("Failed to submit: ", error);
+  //   }
+  // };
   return (
     <div className="container mx-auto px-4 md:px-6 bg-transparent py-4 ">
       <div className="flex flex-col space-y-6">
@@ -366,39 +441,6 @@ export const QAInterface = () => {
                 </div>
               </TooltipProvider>
 
-              {/* <div className="flex items-center gap-3 flex-wrap">
-                <Select value={filter} onValueChange={handleFilterChange}>
-                  <SelectTrigger className="flex items-center w-fit justify-center  md:w-[200px] p-2 ">
-                    <Filter className="w-5 h-5 md:hidden mx-auto" />
-                    <span className="hidden md:block">
-                      <SelectValue placeholder="Sort by" />
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">Newest First</SelectItem>
-                    <SelectItem value="oldest">Oldest First</SelectItem>
-                    <SelectItem value="leastResponses">
-                      Least Responses
-                    </SelectItem>
-                    <SelectItem value="mostResponses">
-                      Most Responses
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <AdvanceFilterDialog
-                  advanceFilter={advanceFilter}
-                  setAdvanceFilterValues={setAdvanceFilterValues}
-                  handleDialogChange={handleDialogChange}
-                  handleApplyFilters={handleApplyFilters}
-                  normalizedStates={STATES}
-                  crops={CROPS}
-                  activeFiltersCount={activeFiltersCount}
-                  onReset={onReset}
-                  isForQA={true}
-                />
-
-                </div> */}
               <Button
                 variant="outline"
                 size="sm"
@@ -471,6 +513,8 @@ export const QAInterface = () => {
                   onValueChange={(value) => {
                     setSelectedQuestion(value);
                     setIsFinalAnswer(false);
+                    setNewAnswer("");
+                    setSources([]);
                   }}
                   className="space-y-4"
                 >
@@ -836,9 +880,7 @@ export const QuestionDetailsDialog = ({
           title={buttonLabel}
         >
           <FileSearch className="h-5 w-5 text-primary" />
-          <span className="text-sm font-semibold">
-            View Metadata
-          </span>
+          <span className="text-sm font-semibold">View Metadata</span>
         </Button>
       </DialogTrigger>
 
@@ -979,6 +1021,80 @@ const Option = ({ label, value }: { label: ReactNode; value?: string }) => {
   );
 };
 
+interface ReviewChecklistProps {
+  value: ReviewChecklist;
+  onChange: (values: ReviewChecklist) => void;
+}
+
+const ReviewChecklist = ({ value, onChange }: ReviewChecklistProps) => {
+  const handleToggle = (key: keyof ReviewChecklist) => {
+    onChange({
+      ...value,
+      [key]: !value[key],
+    });
+  };
+
+  const items = [
+    {
+      key: "contextRelevance",
+      label: "Context & Relevance",
+      desc: "Checks whether the response directly addresses the question, stays on topic, and provides contextually appropriate information.",
+    },
+    {
+      key: "technicalAccuracy",
+      label: "Technical Accuracy",
+      desc: "Ensures the explanation, data, and facts are correct and technically sound without misinformation.",
+    },
+    {
+      key: "practicalUtility",
+      label: "Practical Utility",
+      desc: "Verifies whether the answer provides actionable, useful, and implementable guidance for real-world scenarios.",
+    },
+    {
+      key: "valueInsight",
+      label: "Value Addition / Insight",
+      desc: "Evaluates whether the response goes beyond basics by offering insights, examples, or additional meaningful knowledge.",
+    },
+    {
+      key: "credibilityTrust",
+      label: "Credibility & Trust",
+      desc: "Checks for reliability, neutrality, proper reasoning, and whether the tone conveys trustworthiness and unbiased information.",
+    },
+    {
+      key: "readabilityCommunication",
+      label: "Readability & Communication",
+      desc: "Ensures the answer is easy to read, well-structured, grammatically clear, and effectively communicates the intended message.",
+    },
+  ] as const;
+
+  return (
+    <TooltipProvider>
+      <div className="space-y-4">
+        {items.map((item) => (
+          <div key={item.key} className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger className="cursor-pointer">
+                  <Info className="w-4 h-4 text-primary" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs p-3 text-sm">
+                  {item.desc}
+                </TooltipContent>
+              </Tooltip>
+              <Label className="text-sm font-medium">{item.label}</Label>
+            </div>
+
+            <Switch
+              checked={value[item.key]}
+              onCheckedChange={() => handleToggle(item.key)}
+            />
+          </div>
+        ))}
+      </div>
+    </TooltipProvider>
+  );
+};
+
 interface ResponseTimelineProps {
   isSelectedQuestionLoading: boolean;
   selectedQuestionData: IQuestion;
@@ -989,7 +1105,7 @@ interface ResponseTimelineProps {
   isFinalAnswer: boolean;
   isSubmittingAnswer: boolean;
   handleSubmit: (
-    status?: "accepted" | "rejected",
+    status?: "accepted" | "rejected" | "modified",
     currentReviewingAnswer?: string,
     rejectionReason?: string
   ) => void;
@@ -1013,11 +1129,21 @@ export const ResponseTimeline = ({
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejectionSubmitted, setIsRejectionSubmitted] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [isModifyDialogOpen, setIsModifyDialogOpen] = useState(false);
   const [urlOpen, setUrlOpen] = useState(false);
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [isRejecConfirmationOpen, setIsRejecConfirmationOpen] = useState(false);
   const [isAccepConfirmationOpen, setIsAccepConfirmationOpen] = useState(false);
+
+  const [checklist, setChecklist] = useState<ReviewChecklist>({
+    contextRelevance: false,
+    technicalAccuracy: false,
+    practicalUtility: false,
+    valueInsight: false,
+    credibilityTrust: false,
+    readabilityCommunication: false,
+  });
 
   const history = selectedQuestionData?.history || [];
 
@@ -1035,8 +1161,14 @@ export const ResponseTimeline = ({
       : null;
 
   useEffect(() => {
-    if (currentReviewingAnswer && currentReviewingAnswer.answer)
+    if (
+      currentReviewingAnswer &&
+      currentReviewingAnswer.answer &&
+      currentReviewingAnswer.sources
+    ) {
       setNewAnswer(currentReviewingAnswer.answer);
+      setSources(currentReviewingAnswer.sources);
+    }
   }, [currentReviewingAnswer]);
 
   const handleCopy = async (url: string, index: number) => {
@@ -1049,26 +1181,59 @@ export const ResponseTimeline = ({
     }
   };
 
-  const handleReject = () => {
-    if (rejectionReason.trim() === "") {
-      toast.error("No reason provided for rejection");
-      return;
-    }
-    if (rejectionReason.length < 8) {
-      toast.error("Rejection reason must be atleast 8 letters");
+  // const handleRejectOrModify = (type: "reject" | "modify") => {
+  //   if (rejectionReason.trim() === "") {
+  //     toast.error("No reason provided for rejection");
+  //     return;
+  //   }
+  //   if (rejectionReason.length < 8) {
+  //     toast.error("Rejection reason must be atleast 8 letters");
+  //     return;
+  //   }
+
+  //   if (!currentReviewingAnswer) {
+  //     toast.error(
+  //       "Unable to locate the current review answer. Please refresh and try again."
+  //     );
+  //     return;
+  //   }
+
+  //   const reviewAnswerId = currentReviewingAnswer._id?.toString();
+
+  //   handleSubmit("rejected", reviewAnswerId, rejectionReason);
+  // };
+
+  const handleRejectOrModify = (type: "reject" | "modify") => {
+    const actionLabel = type === "reject" ? "rejection" : "modification";
+
+    if (!rejectionReason.trim()) {
+      toast.error(`Please provide a reason for the ${actionLabel}.`);
       return;
     }
 
-    if (!currentReviewingAnswer) {
+    if (rejectionReason.trim().length < 8) {
       toast.error(
-        "Unable to locate the current review answer. Please refresh and try again."
+        `${
+          actionLabel.charAt(0).toUpperCase() + actionLabel.slice(1)
+        } reason must be at least 8 characters.`
       );
       return;
     }
 
-    const reviewAnswerId = currentReviewingAnswer._id?.toString();
+    if (!currentReviewingAnswer || !currentReviewingAnswer._id) {
+      toast.error(
+        "Unable to locate the current reviewing answer. Please refresh and try again."
+      );
+      return;
+    }
 
-    handleSubmit("rejected", reviewAnswerId, rejectionReason);
+    const reviewAnswerId = currentReviewingAnswer._id.toString();
+
+    handleSubmit(
+      type === "reject" ? "rejected" : "modified",
+      reviewAnswerId,
+      rejectionReason
+    );
   };
 
   const handleAccept = () => {
@@ -1273,26 +1438,6 @@ export const ResponseTimeline = ({
                             p-2 border border-border/50 rounded-md 
                             hover:bg-muted/40 transition-colors duration-200"
                                               >
-                                                {/* <button
-                                                  onClick={() =>
-                                                    handleOpenUrl(source.source)
-                                                  }
-                                                  className="text-blue-600 dark:text-blue-400  break-all inline-flex items-center gap-2 text-left"
-                                                >
-                                                  <span className="hover:underline">
-                                                    {source.source}
-                                                  </span>
-                                                  {source.page && (
-                                                    <>
-                                                      <span className="text-muted-foreground">
-                                                        •
-                                                      </span>
-                                                      <span className="text-xs text-muted-foreground">
-                                                        page {source.page}
-                                                      </span>
-                                                    </>
-                                                  )}
-                                                </button> */}
                                                 <a
                                                   href={source.source}
                                                   target="_blank"
@@ -1366,7 +1511,7 @@ export const ResponseTimeline = ({
                           !item.rejectedAnswer &&
                           item.status == "in-review" && (
                             <div className="flex items-center gap-2 mt-3">
-                              <ConfirmationModal
+                              {/* <ConfirmationModal
                                 title="Confirm Acceptance"
                                 description="Are you sure you want to accept this request? This action cannot be undone."
                                 confirmText="Accept"
@@ -1396,14 +1541,24 @@ export const ResponseTimeline = ({
                                     )}
                                   </Button>
                                 }
+                              /> */}
+
+                              <AcceptReviewDialog
+                                checklist={checklist}
+                                onChecklistChange={setChecklist}
+                                isSubmitting={isSubmittingAnswer}
+                                onConfirm={handleAccept}
                               />
 
                               <Button
                                 size="sm"
                                 disabled={isSubmittingAnswer}
-                                variant="destructive"
-                                className="flex items-center gap-1"
                                 onClick={() => setIsRejectDialogOpen(true)}
+                                className={`
+                                  flex items-center gap-1 rounded-md px-3 py-2 transition-all bg-red-500 text-white 
+                                  dark:bg-red-900/40  hover:bg-red-400 dark:hover:bg-red-900/60
+                                  disabled:opacity-50 disabled:cursor-not-allowed
+                                `}
                               >
                                 {isSubmittingAnswer &&
                                 rejectionReason &&
@@ -1419,6 +1574,27 @@ export const ResponseTimeline = ({
                                   </>
                                 )}
                               </Button>
+
+                              <Button
+                                size="sm"
+                                disabled={isSubmittingAnswer}
+                                className="flex items-center gap-1 
+             bg-blue-700 hover:bg-blue-600 text-white 
+             dark:bg-blue-900 dark:hover:bg-blue-800"
+                                onClick={() => setIsModifyDialogOpen(true)}
+                              >
+                                {isSubmittingAnswer && !isRejectionSubmitted ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Modifying...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Pencil className="w-4 h-4" />
+                                    Modify
+                                  </>
+                                )}
+                              </Button>
                             </div>
                           )}
                       </div>
@@ -1431,7 +1607,7 @@ export const ResponseTimeline = ({
         </CardContent>
       </Card>
 
-      <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+      {/* <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
         <DialogContent
           className="max-w-4xl min-h-[70vh] max-h-[90vh] overflow-y-auto "
           style={{ minWidth: "100vh" }}
@@ -1447,26 +1623,37 @@ export const ResponseTimeline = ({
 
           {!isRejectionSubmitted && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <div>
-                <Label
-                  htmlFor="rejection-reason"
-                  className="text-base font-semibold"
-                >
-                  Reason for Rejection
-                </Label>
+              <div className="space-y-6">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  Review Parameters
+                </h2>
 
-                <Textarea
-                  id="rejection-reason"
-                  placeholder="Please provide a reason for rejecting this response..."
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  className="mt-2 min-h-[50vh] max-h-[60vh] w-full resize-none overflow-y-auto 
-        break-words whitespace-pre-wrap overflow-x-hidden transition-all duration-200 focus:ring-2"
-                  style={{
-                    wordWrap: "break-word",
-                    overflowWrap: "break-word",
-                  }}
-                />
+                <div className="p-4 rounded-xl border bg-card shadow-sm">
+                  <ReviewChecklist value={checklist} onChange={setChecklist} />
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="rejection-reason"
+                    className="text-base font-semibold"
+                  >
+                    Reason for Rejection
+                  </Label>
+
+                  <Textarea
+                    id="rejection-reason"
+                    placeholder="Please provide a reason for rejecting this response..."
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    className="min-h-[20vh] max-h-[55vh] w-full resize-none overflow-y-auto
+      break-words whitespace-pre-wrap overflow-x-hidden
+      rounded-xl border bg-card p-4 focus:ring-2 transition-all"
+                    style={{
+                      wordWrap: "break-word",
+                      overflowWrap: "break-word",
+                    }}
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
@@ -1623,7 +1810,410 @@ export const ResponseTimeline = ({
             </div>
           )}
         </DialogContent>
-      </Dialog>
+      </Dialog> */}
+
+      <ReviewResponseDialog
+        isOpen={isRejectDialogOpen}
+        onOpenChange={setIsRejectDialogOpen}
+        type="reject"
+        title="Reject Response"
+        icon={<XCircle className="w-5 h-5 text-red-500 dark:text-red-700" />}
+        reasonLabel="Reason for Rejection"
+        submitReasonText="Submit Reason"
+        checklist={checklist}
+        onChecklistChange={setChecklist}
+        rejectionReason={rejectionReason}
+        setRejectionReason={setRejectionReason}
+        isStageSubmitted={isRejectionSubmitted}
+        setIsStageSubmitted={setIsRejectionSubmitted}
+        newAnswer={newAnswer}
+        setNewAnswer={setNewAnswer}
+        selectedQuestionData={selectedQuestionData}
+        isSubmitting={isSubmittingAnswer}
+        handleSubmit={handleRejectOrModify}
+        handleReset={handleReset}
+        sources={sources}
+        setSources={setSources}
+        confirmOpen={isRejecConfirmationOpen}
+        setConfirmOpen={setIsRejecConfirmationOpen}
+      />
+
+      <ReviewResponseDialog
+        isOpen={isModifyDialogOpen}
+        onOpenChange={setIsModifyDialogOpen}
+        title="Modify Response"
+        type="modify"
+        icon={<Pencil className="w-5 h-5 text-blue-500 dark:text-blue-400" />}
+        reasonLabel="Reason for Modification"
+        submitReasonText="Proceed"
+        checklist={checklist}
+        onChecklistChange={setChecklist}
+        rejectionReason={rejectionReason}
+        setRejectionReason={setRejectionReason}
+        isStageSubmitted={isRejectionSubmitted}
+        setIsStageSubmitted={setIsRejectionSubmitted}
+        newAnswer={newAnswer}
+        setNewAnswer={setNewAnswer}
+        selectedQuestionData={selectedQuestionData}
+        isSubmitting={isSubmittingAnswer}
+        handleSubmit={handleRejectOrModify}
+        handleReset={handleReset}
+        sources={sources}
+        setSources={setSources}
+        confirmOpen={isRejecConfirmationOpen}
+        setConfirmOpen={setIsRejecConfirmationOpen}
+      />
     </div>
+  );
+};
+
+interface ReviewResponseDialogProps {
+  isOpen: boolean;
+  onOpenChange: (value: boolean) => void;
+  type: "reject" | "modify";
+  title: string;
+  icon?: React.ReactNode;
+  reasonLabel?: string;
+  submitReasonText?: string;
+  checklist: ReviewChecklist;
+  onChecklistChange: (value: ReviewChecklist) => void;
+  rejectionReason: string;
+  setRejectionReason: (val: string) => void;
+  isStageSubmitted: boolean;
+  setIsStageSubmitted: (val: boolean) => void;
+  newAnswer: string;
+  setNewAnswer: (val: string) => void;
+  selectedQuestionData: any;
+  isSubmitting: boolean;
+  handleSubmit: (type: "reject" | "modify") => void;
+  handleReset: () => void;
+  isFinalAnswer?: boolean;
+  sources: SourceItem[];
+  setSources: (value: SourceItem[]) => void;
+  confirmOpen: boolean;
+  setConfirmOpen: (value: boolean) => void;
+}
+
+const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
+  const {
+    isOpen,
+    onOpenChange,
+    type,
+    title,
+    icon,
+    reasonLabel = "Reason",
+    submitReasonText = "Continue",
+    checklist,
+    onChecklistChange,
+    rejectionReason,
+    setRejectionReason,
+    isStageSubmitted,
+    setIsStageSubmitted,
+    newAnswer,
+    setNewAnswer,
+    selectedQuestionData,
+    isSubmitting,
+    handleSubmit,
+    handleReset,
+    isFinalAnswer,
+    sources,
+    setSources,
+    confirmOpen,
+    setConfirmOpen,
+  } = props;
+  const [tempRejectAnswer, setTempRejectAnswer] = useState("");
+  const [tempSources, setTempSources] = useState<SourceItem[]>([]);
+
+  useEffect(() => {
+    if (isOpen)
+      if (type === "modify") {
+        setTempRejectAnswer(newAnswer);
+        setTempSources(sources);
+      } else {
+        setTempRejectAnswer("");
+        setTempSources([]);
+      }
+  }, [isOpen, type, newAnswer]);
+
+  return (
+    <Dialog
+      open={isOpen}
+      onOpenChange={(state) => {
+        onOpenChange(state);
+        if (!state) {
+          setRejectionReason("");
+          setIsStageSubmitted(false);
+        }
+      }}
+    >
+      <DialogContent
+        className="max-w-4xl min-h-[70vh] max-h-[90vh] overflow-y-auto"
+        style={{ minWidth: "100vh" }}
+      >
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="p-2 rounded-lg">{icon}</div>
+            {title}
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* ------- STEP 1 ------- */}
+        {!isStageSubmitted && (
+          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            {/* Checklist */}
+            <div className="space-y-6">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                Review Parameters
+              </h2>
+
+              <div className="p-4 rounded-xl border bg-card shadow-sm">
+                <ReviewChecklist
+                  value={checklist}
+                  onChange={onChecklistChange}
+                />
+              </div>
+
+              {/* Reason Box */}
+              <div className="space-y-2">
+                <Label htmlFor="reason" className="text-base font-semibold">
+                  {reasonLabel}
+                </Label>
+
+                <Textarea
+                  id="reason"
+                  placeholder={
+                    type === "modify"
+                      ? "Describe the reason to proceed with modification…"
+                      : "Please explain why this response should be rejected…"
+                  }
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  className="min-h-[20vh] max-h-[55vh] w-full border bg-card p-4 rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  onOpenChange(false);
+                  setRejectionReason("");
+                  setIsStageSubmitted(false);
+                }}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                variant={type === "modify" ? "default" : "destructive"}
+                onClick={() => setIsStageSubmitted(true)}
+                disabled={!rejectionReason.trim()}
+                className="group flex items-center justify-center gap-2 transition-all duration-200 hover:opacity-90 hover:scale-[1.02]"
+              >
+                {submitReasonText}
+                <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {isStageSubmitted && rejectionReason && (
+          <div className="h-fit flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-400">
+            <Card className="border flex-1 flex flex-col">
+              <CardContent className="p-6 space-y-4 flex-1 overflow-y-auto">
+                {/* Title */}
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-semibold">
+                    Submit {type == "modify" ? "Updated " : "New "}
+                    Response
+                  </h3>
+                </div>
+
+                <div className="flex flex-col">
+                  <Label className="text-sm text-muted-foreground mb-1">
+                    Current Query:
+                  </Label>
+                  <p className="text-sm p-3 rounded-md border bg-muted/50">
+                    {selectedQuestionData.text}
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="new-answer" className="text-sm font-medium">
+                    {type == "modify" && "Draft"} Response
+                  </Label>
+                  <Textarea
+                    id="new-answer"
+                    placeholder="Enter your Response..."
+                    value={tempRejectAnswer}
+                    onChange={(e) => {
+                      setTempRejectAnswer(e.target.value);
+                      setNewAnswer(e.target.value);
+                    }}
+                    className="mt-1 min-h-[100px] p-3 rounded-md"
+                  />
+                  {/* Sources */}
+                  <div className="border rounded-xl p-6 shadow-sm mt-3 bg-muted/20">
+                    <SourceUrlManager
+                      sources={tempSources}
+                      onSourcesChange={(updated) => {
+                        setTempSources(updated);
+                        setSources(updated);
+                      }}
+                    />
+                  </div>
+
+                  {isFinalAnswer && (
+                    <p className="mt-2 flex items-center gap-2 text-green-600 text-sm font-medium">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Final answer selected!
+                    </p>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-between pt-4">
+                  <div className="flex items-center space-x-3">
+                    <ConfirmationModal
+                      title={`Confirm ${
+                        type == "modify" ? "Modification" : "Rejection"
+                      }`}
+                      description="Please review your answer carefully before proceeding. The submitted response will be evaluated by the next reviewer in the workflow."
+                      confirmText="Submit"
+                      cancelText="Cancel"
+                      isLoading={isSubmitting}
+                      open={confirmOpen}
+                      onOpenChange={setConfirmOpen}
+                      onConfirm={() => handleSubmit(type)}
+                      trigger={
+                        <Button
+                          disabled={!newAnswer.trim() || isSubmitting}
+                          className="flex items-center gap-2"
+                        >
+                          {isSubmitting ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Submitting…
+                            </>
+                          ) : (
+                            <>
+                              <Send className="w-4 h-4" />
+                              Submit
+                            </>
+                          )}
+                        </Button>
+                      }
+                    />
+
+                    <Button variant="secondary" onClick={handleReset}>
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    onClick={() => setIsStageSubmitted(false)}
+                    disabled={!isStageSubmitted}
+                    className="flex items-center gap-2 text-muted-foreground"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Edit Reason
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const AcceptReviewDialog = ({
+  checklist,
+  onChecklistChange,
+  isSubmitting,
+  onConfirm,
+}: {
+  checklist: ReviewChecklist;
+  onChecklistChange: (value: ReviewChecklist) => void;
+  isSubmitting: boolean;
+  onConfirm: () => void;
+}) => {
+  const [open, setOpen] = useState(false);
+
+  const handleConfirm = () => {
+    onConfirm();
+    setOpen(false);
+  };
+
+  return (
+    <>
+      <Button
+        disabled={isSubmitting}
+        size="sm"
+        className="flex items-center gap-1 
+             bg-green-500 hover:bg-green-400 text-white
+             dark:bg-green-900 dark:hover:bg-green-800"
+        onClick={() => setOpen(true)}
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Accepting...
+          </>
+        ) : (
+          <>
+            <CheckCircle className="w-4 h-4" />
+            Accept
+          </>
+        )}
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">
+              Confirm Acceptance
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Please verify all review parameters before accepting this
+              response. This action cannot be undone.
+            </p>
+          </DialogHeader>
+
+          <div className="mt-4 p-4 rounded-lg border bg-card space-y-4">
+            <ReviewChecklist value={checklist} onChange={onChecklistChange} />
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              onClick={handleConfirm}
+              disabled={isSubmitting}
+              className="flex items-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Accepting...
+                </>
+              ) : (
+                "Confirm Accept"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

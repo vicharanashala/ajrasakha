@@ -7,7 +7,7 @@ export interface IPreference {
   crop: string;
   domain: string;
 }
-export type NotificationRetentionType = '3d' | '1w' | '2w' | '1m' |'never'
+export type NotificationRetentionType = '3d' | '1w' | '2w' | '1m' | 'never';
 export interface IUser {
   _id?: string | ObjectId;
   firebaseUID: string;
@@ -18,7 +18,7 @@ export interface IUser {
   reputation_score: number;
   notifications?: number;
   role: UserRole;
-  notificationRetention?:NotificationRetentionType
+  notificationRetention?: NotificationRetentionType;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -67,12 +67,37 @@ export interface IAnswer {
   approvalCount: number;
   isFinalAnswer: boolean;
   approvedBy?: string | ObjectId;
+  status?: string;
   answer: string;
   sources: SourceItem[];
   embedding: number[];
   createdAt?: Date;
   updatedAt?: Date;
-  status?:string
+}
+
+export interface IReviewParmeters {
+  contextRelevance: boolean;
+  technicalAccuracy: boolean;
+  practicalUtility: boolean;
+  valueInsight: boolean;
+  credibilityTrust: boolean;
+  readabilityCommunication: boolean;
+}
+
+export type ReviewType = 'question' | 'answer';
+export type ReviewAction = 'accepted' | 'rejected' | 'modified';
+
+export interface IReview {
+  _id?: string | ObjectId;
+  reviewType: ReviewType;
+  action: ReviewAction;
+  questionId: string | ObjectId;
+  answerId?: string | ObjectId;
+  reviewerId: string | ObjectId;
+  reason?: string;
+  parameters?: IReviewParmeters;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 // For transcripts
@@ -85,11 +110,19 @@ export interface IContext {
 export interface ISubmissionHistory {
   updatedBy: string | ObjectId;
   answer?: string | ObjectId;
-  status: 'reviewed' | 'in-review' | 'approved' | 'rejected'; // pending is for initial state of new assigned executive , in-review is state after expert answer, reviewed state is when an expert reviewed (accept/reject) other answer
-  reasonForRejection?: string;
+  reviewId?: string | ObjectId;
+  status: 'reviewed' | 'in-review' | 'approved' | 'rejected'; // approved status if  an answer got 3 approvals
+
   rejectedBy?: string | ObjectId;
-  approvedAnswer?: string | ObjectId;
   rejectedAnswer?: string | ObjectId;
+  reasonForRejection?: string;
+
+  modifiedBy?: string | ObjectId;
+  modifiedAnswer?: string | ObjectId;
+  reasonForModification?: string;
+
+  approvedAnswer?: string | ObjectId;
+
   createdAt: Date;
   updatedAt: Date;
 }

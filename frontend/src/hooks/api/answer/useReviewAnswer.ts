@@ -1,16 +1,19 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AnswerService } from "../../services/answerService";
 import { toast } from "sonner";
-import type { SourceItem, SubmitAnswerResponse } from "@/types";
+import type { ReviewChecklist, SourceItem, SubmitAnswerResponse } from "@/types";
 
 export interface IReviewAnswerPayload {
   questionId: string;
-  status: "accepted" | "rejected";
+  status: "accepted" | "rejected" | "modified";
   answer?: string;
   sources?: SourceItem[];
   reasonForRejection?: string;
   approvedAnswer?: string;
   rejectedAnswer?: string;
+  modifiedAnswer?: string;
+  reasonForModification?: string;
+  parameters: ReviewChecklist
 }
 const questionService = new AnswerService();
 export const useReviewAnswer = () => {
@@ -24,6 +27,7 @@ export const useReviewAnswer = () => {
       reasonForRejection,
       approvedAnswer,
       rejectedAnswer,
+      parameters
     }) => {
       try {
         return await questionService.reviewAnswer({
@@ -34,6 +38,7 @@ export const useReviewAnswer = () => {
           reasonForRejection,
           approvedAnswer,
           rejectedAnswer,
+          parameters
         });
       } catch (error) {
         throw error instanceof Error ? error : new Error("Unknown error");
