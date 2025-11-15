@@ -94,6 +94,7 @@ import { Input } from "./atoms/input";
 import { formatDate } from "@/utils/formatDate";
 import { useCountdown } from "@/hooks/ui/useCountdown";
 import { TimerDisplay } from "./timer-display";
+import { CommentsSection } from "./comments-section";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -778,6 +779,14 @@ const AllocationTimeline = ({
       return `${userName} approved ${approvedUserName}'s answer.`;
     }
 
+    if (submission?.modifiedAnswer) {
+      const approvedEntry = history.find(
+        (h) => h.answer?._id === submission.approvedAnswer
+      );
+      const approvedUserName = approvedEntry?.updatedBy?.name || "someone";
+      return `${userName} modified ${approvedUserName}'s answer.`;
+    }
+
     if (submission.rejectedAnswer) {
       const rejectedEntry = history.find(
         (h) => h.answer?._id === submission.rejectedAnswer
@@ -859,6 +868,9 @@ const AllocationTimeline = ({
       if (activityText.includes("rejected")) {
         return "rejected";
       }
+      if (activityText.includes("modified")) {
+        return "modified";
+      }
       return "submitted";
     }
 
@@ -913,6 +925,16 @@ const AllocationTimeline = ({
             "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-700",
           iconBg: "bg-red-200 dark:bg-red-800/40",
           legendDot: "bg-red-500",
+        };
+      case "modified":
+        return {
+          container:
+            "bg-orange-100 dark:bg-orange-900/30 border-orange-300 dark:border-orange-700 shadow-orange-100/50",
+          icon: "text-orange-700 dark:text-orange-400",
+          badge:
+            "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700",
+          iconBg: "bg-orange-200 dark:bg-orange-800/40",
+          legendDot: "bg-orange-500",
         };
       case "waiting":
         return {
@@ -1152,6 +1174,8 @@ const AllocationTimeline = ({
                           ? "Answer Created"
                           : status === "approved"
                           ? "Approved"
+                          : status === "modified"
+                          ? "Modified"
                           : status === "rejected"
                           ? "Rejected"
                           : status === "waiting"
@@ -1317,12 +1341,12 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     isLoading: isLoadingComments,
   } = useGetComments(LIMIT, props.questionId, props.answer._id);
 
-  const comments =
-    commentsData?.pages.flatMap((comment) => comment ?? []) ?? [];
+  // const comments =
+  //   commentsData?.pages.flatMap((comment) => comment ?? []) ?? [];
   const [editableAnswer, setEditableAnswer] = useState(props.answer.answer);
   const [editOpen, setEditOpen] = useState(false);
-  const { mutateAsync: addComment, isPending: isAddingComment } =
-    useAddComment();
+  // const { mutateAsync: addComment, isPending: isAddingComment } =
+  //   useAddComment();
   const { mutateAsync: updateAnswer, isPending: isUpdatingAnswer } =
     useUpdateAnswer();
 
@@ -1330,21 +1354,37 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     refetchComments;
   });
 
-  const submitComment = async () => {
-    if (!comment.trim()) return;
+  // const submitComment = async () => {
+  //   if (!comment.trim()) return;
 
-    try {
-      await addComment({
-        questionId: props.questionId,
-        answerId: props.answer._id!,
-        text: comment.trim(),
-      });
-      setComment("");
-      toast.success("Comment submitted! Thank you for your input.");
-    } catch (err) {
-      console.error("Failed to submit comment:", err);
-    }
-  };
+  //   try {
+  //     await addComment({
+  //       questionId: props.questionId,
+  //       answerId: props.answer._id!,
+  //       text: comment.trim(),
+  //     });
+  //     setComment("");
+  //     toast.success("Comment submitted! Thank you for your input.");
+  //   } catch (err) {
+  //     console.error("Failed to submit comment:", err);
+  //   }
+  // };
+
+  // const lastCommentRef = useCallback(
+  //   (node: HTMLDivElement | null) => {
+  //     if (isFetchingNextPage) return;
+  //     if (observer.current) observer.current.disconnect();
+
+  //     observer.current = new IntersectionObserver((entries) => {
+  //       if (entries[0].isIntersecting && hasNextPage) {
+  //         fetchNextPage();
+  //       }
+  //     });
+
+  //     if (node) observer.current.observe(node);
+  //   },
+  //   [isFetchingNextPage, fetchNextPage, hasNextPage]
+  // );
 
   const handleUpdateAnswer = async () => {
     try {
@@ -1375,22 +1415,6 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
       setEditOpen(false);
     }
   };
-
-  const lastCommentRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      if (isFetchingNextPage) return;
-      if (observer.current) observer.current.disconnect();
-
-      observer.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasNextPage) {
-          fetchNextPage();
-        }
-      });
-
-      if (node) observer.current.observe(node);
-    },
-    [isFetchingNextPage, fetchNextPage, hasNextPage]
-  );
 
   const isRejected =
     props.submissionData && props.submissionData.status === "rejected";
@@ -2078,8 +2102,12 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
           {props.answer.answer}
         </p>
       </div>
-
-      <div className="w-full sm:w-auto">
+      <CommentsSection
+        questionId={props.questionId}
+        answerId={props.answer._id!}
+        isMine={props.answer.authorId === props.currentUserId}
+      />
+      {/* <div className="w-full sm:w-auto">
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="comments" className="border-none">
             <AccordionTrigger className="flex items-center gap-2 text-sm font-medium p-3 hover:no-underline hover:bg-muted/50 rounded-lg w-full sm:w-auto justify-between shadow-md shadow-gray-400/30 dark:shadow-gray-900/50">
@@ -2176,10 +2204,11 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
             </AccordionContent>
           </AccordionItem>
         </Accordion>
-      </div>
+      </div> */}
     </Card>
   );
 });
+
 
 interface SubmitAnswerDialogProps {
   questionId: string;

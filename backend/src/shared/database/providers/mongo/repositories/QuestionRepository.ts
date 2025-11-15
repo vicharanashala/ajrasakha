@@ -690,6 +690,8 @@ export class QuestionRepository implements IQuestionRepository {
           reasonForRejection: h.reasonForRejection,
           approvedAnswer: h.approvedAnswer?.toString(),
           rejectedAnswer: h.rejectedAnswer?.toString(),
+          modifiedAnswer: h.modifiedAnswer?.toString(),
+          reasonForLastModification: h.reasonForLastModification?.toString(),
         })),
         createdAt: submission?.createdAt,
         updatedAt: submission?.updatedAt,
@@ -891,21 +893,30 @@ export class QuestionRepository implements IQuestionRepository {
       if (!result.acknowledged) {
         throw new InternalServerError('Failed to insert questions');
       }
-      const ids = Object.values(result.insertedIds).map((id: any) => id.toString());
+      const ids = Object.values(result.insertedIds).map((id: any) =>
+        id.toString(),
+      );
       return ids;
     } catch (error: any) {
-      throw new InternalServerError(error?.message || 'Failed to insertMany questions');
+      throw new InternalServerError(
+        error?.message || 'Failed to insertMany questions',
+      );
     }
   }
 
-  async updateQuestionStatus(id: string, status: string, errorMessage?: string, session?: ClientSession): Promise<void> {
+  async updateQuestionStatus(
+    id: string,
+    status: string,
+    errorMessage?: string,
+    session?: ClientSession,
+  ): Promise<void> {
     await this.init();
-    const update: any = { status, updatedAt: new Date() };
+    const update: any = {status, updatedAt: new Date()};
     if (errorMessage) update.errorMessage = errorMessage;
-    await this.QuestionCollection.updateOne({ _id: new ObjectId(id) }, { $set: update }, { session });
+    await this.QuestionCollection.updateOne(
+      {_id: new ObjectId(id)},
+      {$set: update},
+      {session},
+    );
   }
-
-
 }
-
-

@@ -78,5 +78,6 @@ export const coreContainerModule = new ContainerModule(options => {
     .to(RequestRepository)
     .inSingletonScope();
   options.bind(CORE_TYPES.NotificationRepository).to(NotificationRepository).inSingletonScope()
+  
   options.bind(CORE_TYPES.ReviewRepository).to(ReviewRepository).inSingletonScope()
 });

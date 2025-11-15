@@ -19,7 +19,7 @@ export const ExpandableText = ({
       <p>{isExpanded ? text : `${text.substring(0, maxLength)}...`}</p>
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="text-xs text-primary hover:underline flex items-center gap-1"
+        className="text-sm text-primary hover:underline flex items-center gap-1"
       >
         {isExpanded ? (
           <>

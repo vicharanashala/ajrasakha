@@ -20,7 +20,7 @@ export const useGetComments = (
     },
     initialPageParam: 1,
     getNextPageParam: (lastPage, allPages) => {
-      if (lastPage && lastPage.length < limit) return undefined;
+      if (lastPage && lastPage.comments.length < limit) return undefined;
       return allPages.length + 1;
     },
     // enabled: Boolean(questionId && answerId),

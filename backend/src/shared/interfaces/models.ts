@@ -117,9 +117,9 @@ export interface ISubmissionHistory {
   rejectedAnswer?: string | ObjectId;
   reasonForRejection?: string;
 
-  modifiedBy?: string | ObjectId;
+  lastModifiedBy?: string | ObjectId;
   modifiedAnswer?: string | ObjectId;
-  reasonForModification?: string;
+  reasonForLastModification?: string;
 
   approvedAnswer?: string | ObjectId;
 

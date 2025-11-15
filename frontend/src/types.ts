@@ -35,12 +35,41 @@ export interface IUser {
   updatedAt?: Date;
   reputation_score?: number;
 }
-export type QuestionPriority = "low" | "medium" | "high";
-export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT";
+
+export interface IReviewParmeters {
+  contextRelevance: boolean;
+  technicalAccuracy: boolean;
+  practicalUtility: boolean;
+  valueInsight: boolean;
+  credibilityTrust: boolean;
+  readabilityCommunication: boolean;
+}
+
+export type ReviewType = "question" | "answer";
+export type ReviewAction = "accepted" | "rejected" | "modified";
+
+export interface IReview {
+  _id?: string;
+  reviewType: ReviewType;
+  action: ReviewAction;
+  questionId: string;
+  answerId?: string;
+  reviewerId: string;
+  reason?: string;
+  parameters?: IReviewParmeters;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
 
 export interface HistoryItem {
   updatedBy: {
-    // who submission is this
+    // who's submission is this
+    _id: string;
+    userName: string;
+    email: string;
+  };
+  lastModifiedBy?: {
+    // who modified last
     _id: string;
     userName: string;
     email: string;
@@ -52,6 +81,7 @@ export interface HistoryItem {
     approvalCount: string;
     sources: SourceItem[];
   };
+  review?: Partial<IReview>;
   // in-review => if a question assigned to an expert for reiview, or state of a answer before approval or rejection
   // reviewed => if an expert reviewed (accpeted/rejected) the previous answer
   // approved => After three consecutive approvals fo an answer
@@ -63,10 +93,17 @@ export interface HistoryItem {
   approvedAnswer?: string;
   // If an expert is rejecting, it store the rejected answer id
   rejectedAnswer?: string;
+  // The reason if an expert is modifying an answer
+  reasonForLastModification?: string;
+  // If an expert is modifying, it store the modified answer id
+  modifiedAnswer?: string;
   // timestamp
   createdAt: Date;
   updatedAt: Date;
 }
+
+export type QuestionPriority = "low" | "medium" | "high";
+export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT";
 
 export interface IQuestion {
   id: string;
@@ -251,15 +288,6 @@ export interface FinalizedAnswersResponse {
   heatMapResults: HeatMapResult[];
 }
 
-export interface ReviewChecklist {
-  contextRelevance: boolean;
-  technicalAccuracy: boolean;
-  practicalUtility: boolean;
-  valueInsight: boolean;
-  credibilityTrust: boolean;
-  readabilityCommunication: boolean;
-}
-
 export interface SourceItem {
   source: string;
   page?: number;
@@ -288,9 +316,14 @@ export interface ISubmissionHistory {
   updatedBy: IUserRef | null;
   answer: IAnswer | null;
   status: "reviewed" | "in-review" | "approved" | "rejected";
+  
   approvedAnswer: string;
+
   rejectedAnswer: string;
   reasonForRejection: string;
+
+  modifiedAnswer: string;
+  reasonForLastModification: string;
 }
 
 export interface ISubmission {

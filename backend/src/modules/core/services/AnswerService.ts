@@ -48,7 +48,7 @@ export class AnswerService extends BaseService {
     @inject(GLOBAL_TYPES.AnswerRepository)
     private readonly answerRepo: IAnswerRepository,
 
-    @inject(GLOBAL_TYPES.AnswerRepository)
+    @inject(GLOBAL_TYPES.ReviewRepository)
     private readonly reviewRepo: IReviewRepository,
 
     @inject(GLOBAL_TYPES.QuestionRepository)
@@ -57,7 +57,7 @@ export class AnswerService extends BaseService {
     @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
     private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
 
-    @inject(GLOBAL_TYPES.UserRepository)
+    @inject(GLOBAL_TYPES.UserRepository) 
     private readonly userRepo: IUserRepository,
 
     @inject(GLOBAL_TYPES.QuestionService)
@@ -416,6 +416,7 @@ export class AnswerService extends BaseService {
             return {message: 'Your response recorded sucessfully, thankyou!'};
           }
         } else if (status == 'rejected') {
+          //1. update the status of the answer as rejected
           const payload: Partial<IAnswer> = {
             status: 'rejected',
           };
@@ -423,7 +424,8 @@ export class AnswerService extends BaseService {
             body.rejectedAnswer,
             payload,
           );
-          // Prepare update payload for the rejected submission
+
+          //2. Prepare update payload for the rejected submission
           const rejectedHistoryUpdate: ISubmissionHistory = {
             reasonForRejection,
             rejectedBy: new ObjectId(userId),
@@ -440,13 +442,13 @@ export class AnswerService extends BaseService {
             rejectedHistoryUpdate,
             session,
           );
-          let status;
+
+          //3. Add new answer with proper status
+          let status = 'in-review';
+
           if (currentSubmissionHistory.length == 10) {
             status = 'pending-with-moderator';
-          } else {
-            status = 'in-review';
           }
-
           // Add a new answer entry from the current user
           const {insertedId} = await this.addAnswer(
             questionId,
@@ -457,6 +459,7 @@ export class AnswerService extends BaseService {
             status,
           );
 
+          // 4. update the exisiting review doc
           const updatedSubmissionData = {
             rejectedAnswer: new ObjectId(lastAnsweredHistory.answer.toString()),
             status: 'reviewed',
@@ -472,6 +475,58 @@ export class AnswerService extends BaseService {
             session,
           );
         } else if (status == 'modified') {
+          //1. Prepare update payload for the modified submission
+          const modifiedHistoryUpdate: ISubmissionHistory = {
+            reasonForLastModification: reasonForModification,
+            lastModifiedBy: new ObjectId(userId),
+          } as ISubmissionHistory;
+
+          // Identify the expert whose answer is being modified
+          const modifiedExpertId = lastAnsweredHistory.updatedBy.toString();
+
+          // Update the rejected expert’s submission history
+          await this.questionSubmissionRepo.updateHistoryByUserId(
+            questionId,
+            modifiedExpertId,
+            modifiedHistoryUpdate,
+            session,
+          );
+
+          //2. Modify the reviewed answer with proper status
+          let status = 'in-review';
+
+          if (currentSubmissionHistory.length == 10) {
+            status = 'pending-with-moderator';
+          }
+
+          const review_answer_id = lastAnsweredHistory.answer.toString();
+          const updatedAnswer: Partial<IAnswer> = {
+            answer,
+            sources,
+            status,
+          };
+
+          await this.answerRepo.updateAnswer(
+            review_answer_id,
+            updatedAnswer,
+            session,
+          );
+
+          //3. Update the current reviewer entry in submission history
+
+          const updatedSubmissionData = {
+            modifiedAnswer: new ObjectId(review_answer_id),
+            status: 'reviewed',
+            reviewId,
+          } as ISubmissionHistory;
+
+          // Mark this user as reivewied review by changing the status
+          await this.questionSubmissionRepo.updateHistoryByUserId(
+            questionId,
+            userId,
+            updatedSubmissionData,
+            session,
+          );
         }
 
         // Allocate next user in the history from queue if necessary

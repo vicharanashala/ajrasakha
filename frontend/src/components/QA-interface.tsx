@@ -30,6 +30,9 @@ import {
   Target,
   FileSearch,
   ArrowRight,
+  CheckCheck,
+  X,
+  History,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { RadioGroup, RadioGroupItem } from "./atoms/radio-group";
@@ -77,7 +80,7 @@ import type {
   HistoryItem,
   IMyPreference,
   IQuestion,
-  ReviewChecklist,
+  IReviewParmeters,
   SourceItem,
 } from "@/types";
 import { ScrollArea } from "./atoms/scroll-area";
@@ -96,6 +99,9 @@ import {
 } from "@/hooks/api/answer/useReviewAnswer";
 import { formatDate } from "@/utils/formatDate";
 import { Switch } from "./atoms/switch";
+import { Badge } from "./atoms/badge";
+import { Separator } from "./atoms/separator";
+import { CommentsSection } from "./comments-section";
 
 export type QuestionFilter =
   | "newest"
@@ -300,6 +306,7 @@ export const QAInterface = () => {
 
   const handleSubmitResponse = async (
     status?: "accepted" | "rejected" | "modified",
+    parameters?: IReviewParmeters,
     currentReviewingAnswerId?: string,
     rejectionReason?: string
   ) => {
@@ -307,6 +314,7 @@ export const QAInterface = () => {
 
     const payload = {
       questionId: selectedQuestion,
+      parameters,
     } as IReviewAnswerPayload;
 
     const requiresSources =
@@ -1022,12 +1030,12 @@ const Option = ({ label, value }: { label: ReactNode; value?: string }) => {
 };
 
 interface ReviewChecklistProps {
-  value: ReviewChecklist;
-  onChange: (values: ReviewChecklist) => void;
+  value: IReviewParmeters;
+  onChange: (values: IReviewParmeters) => void;
 }
 
 const ReviewChecklist = ({ value, onChange }: ReviewChecklistProps) => {
-  const handleToggle = (key: keyof ReviewChecklist) => {
+  const handleToggle = (key: keyof IReviewParmeters) => {
     onChange({
       ...value,
       [key]: !value[key],
@@ -1105,7 +1113,8 @@ interface ResponseTimelineProps {
   isFinalAnswer: boolean;
   isSubmittingAnswer: boolean;
   handleSubmit: (
-    status?: "accepted" | "rejected" | "modified",
+    status: "accepted" | "rejected" | "modified",
+    parameters: IReviewParmeters,
     currentReviewingAnswer?: string,
     rejectionReason?: string
   ) => void;
@@ -1136,7 +1145,7 @@ export const ResponseTimeline = ({
   const [isRejecConfirmationOpen, setIsRejecConfirmationOpen] = useState(false);
   const [isAccepConfirmationOpen, setIsAccepConfirmationOpen] = useState(false);
 
-  const [checklist, setChecklist] = useState<ReviewChecklist>({
+  const [checklist, setChecklist] = useState<IReviewParmeters>({
     contextRelevance: false,
     technicalAccuracy: false,
     practicalUtility: false,
@@ -1144,6 +1153,8 @@ export const ResponseTimeline = ({
     credibilityTrust: false,
     readabilityCommunication: false,
   });
+
+  const questionId = selectedQuestionData.id || "";
 
   const history = selectedQuestionData?.history || [];
 
@@ -1231,6 +1242,7 @@ export const ResponseTimeline = ({
 
     handleSubmit(
       type === "reject" ? "rejected" : "modified",
+      checklist,
       reviewAnswerId,
       rejectionReason
     );
@@ -1246,7 +1258,7 @@ export const ResponseTimeline = ({
 
     const reviewAnswerId = currentReviewingAnswer._id?.toString();
 
-    handleSubmit("accepted", reviewAnswerId);
+    handleSubmit("accepted", checklist, reviewAnswerId);
   };
 
   const handleOpenUrl = (url: string) => {
@@ -1288,321 +1300,319 @@ export const ResponseTimeline = ({
       <Card className="border flex-1 flex flex-col h-full bg-transparent">
         <CardHeader className="border-b flex flex-row items-center justify-between pb-4">
           <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-primary" />
+            <History className="w-5 h-5 text-primary" />
+
             <h3 className="text-lg font-semibold">Response History</h3>
           </div>
 
           <QuestionDetailsDialog question={selectedQuestionData} />
         </CardHeader>
 
-        <CardContent className="p-6 flex-1 flex flex-col overflow-hidden">
-          <ScrollArea className="flex-1">
+        <CardContent className="p-6 py-4 flex-1 flex flex-col overflow-hidden">
+          {/* <ScrollArea className="flex-1">
             <div className="space-y-6 pr-4">
               {selectedQuestionData?.history.map((item, index) => {
                 const isFirst = index === 0;
                 return (
-                  <div key={item.updatedBy._id} className="relative">
-                    {!isFirst && (
-                      <div className="absolute left-4 top-10 bottom-0 w-0.5 bg-border" />
-                    )}
+                        <div key={item.updatedBy._id} className="relative">
+                          {!isFirst && (
+                            <div className="absolute left-4 top-10 bottom-0 w-0.5 bg-border" />
+                          )}
 
-                    <div className="flex gap-4">
-                      <div
-                        className={`relative flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                          item.rejectedAnswer
-                            ? "bg-red-100 dark:bg-red-900/30"
-                            : item.approvedAnswer
-                            ? "bg-green-100 dark:bg-green-900/30"
-                            : !item.answer
-                            ? "bg-primary/10"
-                            : item?.status === "approved"
-                            ? "bg-green-100 dark:bg-green-900/30"
-                            : item?.status === "rejected"
-                            ? "bg-red-100 dark:bg-red-900/30"
-                            : "bg-primary/10"
-                        }`}
-                      >
-                        {(item.status == "in-review" || // if the answer is ther andn status is in-review means (first res)and if the status the reviewed that means he reviewed/ rejected previous answer and given new answer
-                          item.status == "reviewed") &&
-                        item.answer ? (
-                          <Target className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                        ) : item.approvedAnswer ? (
-                          <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                        ) : item.rejectedAnswer ? (
-                          <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
-                        ) : !item.answer ? (
-                          <Clock className="w-4 h-4 text-primary" />
-                        ) : item.status === "approved" ? (
-                          <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                        ) : item.status === "rejected" ? (
-                          <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
-                        ) : (
-                          <Clock className="w-4 h-4 text-primary" />
-                        )}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-4 mb-2">
-                          <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-medium text-sm">
-                              {item.updatedBy.userName}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {formatDate(item.createdAt)}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-4">
-                            {item.status == "approved" && item.answer && (
-                              <p className="text-sm">
-                                <span className="text-foreground">
-                                  Approvals:{" "}
-                                </span>
-                                {item.answer.approvalCount || "0"}
-                              </p>
-                            )}
-                            {item.status && (
-                              <span
-                                className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${
-                                  (item.status == "in-review" || // if the answer is ther andn status is in-review means (first res)and if the status the reviewed that means he reviewed/ rejected previous answer and given new answer
-                                    item.status == "reviewed") &&
-                                  item.answer
-                                    ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300"
-                                    : item.status === "approved"
-                                    ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
-                                    : item.status === "rejected"
-                                    ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
-                                    : "bg-primary/10 text-primary"
-                                }`}
-                              >
-                                {(item.status == "in-review" || // if the answer is ther andn status is in-review means (first res)and if the status the reviewed that means he reviewed/ rejected previous answer and given new answer
-                                  item.status == "reviewed") &&
-                                item.answer
-                                  ? "Answer created"
-                                  : item.status
-                                  ? item.status.charAt(0).toUpperCase() +
-                                    item.status.slice(1)
-                                  : ""}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {item.approvedAnswer && (
-                          <div className="text-sm p-3 rounded-md border bg-green-50 dark:bg-green-900/10 border-green-300 dark:border-green-700 text-green-800 dark:text-green-300">
-                            Accepted.
-                          </div>
-                        )}
-
-                        {item.status == "in-review" && !item.answer && (
-                          <div className="text-sm p-3 rounded-md border bg-muted/30 text-muted-foreground">
-                            Awaiting your response.
-                          </div>
-                        )}
-
-                        {item.answer && (
-                          <>
-                            <div className="text-sm p-3 rounded-md border bg-card break-words">
-                              <ExpandableText
-                                text={item.answer.answer}
-                                maxLength={150}
-                              />
+                          <div className="flex gap-4">
+                            <div
+                              className={`relative flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                                item.rejectedAnswer
+                                  ? "bg-red-100 dark:bg-red-900/30"
+                                  : item.modifiedAnswer
+                                  ? "bg-amber-100 dark:bg-amber-900/30"
+                                  : item.approvedAnswer
+                                  ? "bg-green-100 dark:bg-green-900/30"
+                                  : !item.answer
+                                  ? "bg-primary/10"
+                                  : item?.status === "approved"
+                                  ? "bg-green-100 dark:bg-green-900/30"
+                                  : item?.status === "rejected"
+                                  ? "bg-red-100 dark:bg-red-900/30"
+                                  : "bg-primary/10"
+                              }`}
+                            >
+                              {(item.status == "in-review" || // if the answer is ther andn status is in-review means (first res)and if the status the reviewed that means he reviewed/ rejected previous answer and given new answer
+                                item.status == "reviewed") &&
+                              item.answer ? (
+                                <Target className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                              ) : item.approvedAnswer ? (
+                                <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                              ) : item.rejectedAnswer ? (
+                                <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                              ) : item.modifiedAnswer ? (
+                                <Pencil className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                              ) : !item.answer ? (
+                                <Clock className="w-4 h-4 text-primary" />
+                              ) : item.status === "approved" ? (
+                                <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                              ) : item.status === "rejected" ? (
+                                <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                              ) : (
+                                <Clock className="w-4 h-4 text-primary" />
+                              )}
                             </div>
 
-                            <Accordion
-                              type="single"
-                              collapsible
-                              className="text-xs"
-                            >
-                              <AccordionItem value="history-details">
-                                <AccordionTrigger className="text-foreground font-medium text-sm underline">
-                                  View Details
-                                </AccordionTrigger>
-                                <AccordionContent className="space-y-2 text-muted-foreground mt-1">
-                                  {item.answer.sources &&
-                                    item.answer.sources.length > 0 && (
-                                      <div>
-                                        <p className="font-medium text-foreground mb-2">
-                                          Sources:
-                                        </p>
-                                        <ul className="list-disc ml-2 mt-1 space-y-1">
-                                          {item.answer.sources.map(
-                                            (
-                                              source: SourceItem,
-                                              index: number
-                                            ) => (
-                                              <li
-                                                key={index}
-                                                className="flex items-center justify-between gap-2 text-sm 
-                            p-2 border border-border/50 rounded-md 
-                            hover:bg-muted/40 transition-colors duration-200"
-                                              >
-                                                <a
-                                                  href={source.source}
-                                                  target="_blank"
-                                                  rel="noopener noreferrer"
-                                                  className="text-blue-600 dark:text-blue-400 break-all inline-flex items-center gap-2 text-left"
-                                                >
-                                                  <span className="hover:underline">
-                                                    {source.source}
-                                                  </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-4 mb-2">
+                                <div className="flex items-center gap-2">
+                                  <User className="w-4 h-4 text-muted-foreground" />
+                                  <span className="font-medium text-sm">
+                                    {item.updatedBy.userName}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatDate(item.createdAt)}
+                                  </span>
+                                </div>
 
-                                                  {source.page && (
-                                                    <>
-                                                      <span className="text-muted-foreground">
-                                                        •
-                                                      </span>
-                                                      <span className="text-xs text-muted-foreground">
-                                                        page {source.page}
-                                                      </span>
-                                                    </>
-                                                  )}
-                                                </a>
-                                                <button
-                                                  onClick={() =>
-                                                    handleCopy(
-                                                      source.source,
-                                                      index
-                                                    )
-                                                  }
-                                                  className="ml-2 text-muted-foreground hover:text-foreground transition-colors"
-                                                  title="Copy URL"
-                                                >
-                                                  {copiedIndex === index ? (
-                                                    <Check className="w-4 h-4 text-green-500" />
-                                                  ) : (
-                                                    <Copy className="w-4 h-4" />
-                                                  )}
-                                                </button>
-                                              </li>
-                                            )
-                                          )}
-                                        </ul>
+                                <div className="flex items-center gap-4">
+                                  {item.status == "approved" && item.answer && (
+                                    <p className="text-sm">
+                                      <span className="text-foreground">
+                                        Approvals:{" "}
+                                      </span>
+                                      {item.answer.approvalCount || "0"}
+                                    </p>
+                                  )}
+                                  {item.status && (
+                                    <span
+                                      className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${
+                                        (item.status == "in-review" || // if the answer is ther andn status is in-review means (first res)and if the status the reviewed that means he reviewed/ rejected previous answer and given new answer
+                                          item.status == "reviewed") &&
+                                        item.answer
+                                          ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300"
+                                          : item.status === "approved"
+                                          ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
+                                          : item.status === "rejected"
+                                          ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
+                                          : "bg-primary/10 text-primary"
+                                      }`}
+                                    >
+                                      {(item.status == "in-review" || // if the answer is ther andn status is in-review means (first res)and if the status the reviewed that means he reviewed/ rejected previous answer and given new answer
+                                        item.status == "reviewed") &&
+                                      item.answer
+                                        ? "Answer created"
+                                        : item.status
+                                        ? item.status.charAt(0).toUpperCase() +
+                                          item.status.slice(1)
+                                        : ""}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
 
-                                        {item.status === "rejected" &&
-                                          item.reasonForRejection && (
-                                            <div className="mt-4 p-2 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                                              <p className="text-xs font-medium text-red-800 dark:text-red-300">
-                                                Rejection Reason:
+                              {item.approvedAnswer && (
+                                <div className="text-sm p-3 rounded-md border bg-green-50 dark:bg-green-900/10 border-green-300 dark:border-green-700 text-green-800 dark:text-green-300">
+                                  Accepted.
+                                </div>
+                              )}
+
+                              {item.modifiedAnswer && (
+                                <div className="text-sm p-3 rounded-md border bg-yellow-50 dark:bg-yellow-900/10 border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300">
+                                  Modified.
+                                </div>
+                              )}
+
+                              {item.status == "in-review" && !item.answer && (
+                                <div className="text-sm p-3 rounded-md border bg-muted/30 text-muted-foreground">
+                                  Awaiting your response.
+                                </div>
+                              )}
+
+                              {item.answer && (
+                                <>
+                                  <div className="text-sm p-3 rounded-md border bg-card break-words">
+                                    <ExpandableText
+                                      text={item.answer.answer}
+                                      maxLength={150}
+                                    />
+                                  </div>
+
+                                  <Accordion
+                                    type="single"
+                                    collapsible
+                                    className="text-xs"
+                                  >
+                                    <AccordionItem value="history-details">
+                                      <AccordionTrigger className="text-foreground font-medium text-sm underline">
+                                        View Details
+                                      </AccordionTrigger>
+                                      <AccordionContent className="space-y-2 text-muted-foreground mt-1">
+                                        {item.answer.sources &&
+                                          item.answer.sources.length > 0 && (
+                                            <div>
+                                              <p className="font-medium text-foreground mb-2">
+                                                Sources:
                                               </p>
-                                              <div className="text-xs text-red-700 dark:text-red-400 mt-1">
-                                                <ExpandableText
-                                                  text={item.reasonForRejection}
-                                                  maxLength={100}
-                                                />
-                                              </div>
+                                              <ul className="list-disc ml-2 mt-1 space-y-1">
+                                                {item.answer.sources.map(
+                                                  (
+                                                    source: SourceItem,
+                                                    index: number
+                                                  ) => (
+                                                    <li
+                                                      key={index}
+                                                      className="flex items-center justify-between gap-2 text-sm
+                                  p-2 border border-border/50 rounded-md
+                                  hover:bg-muted/40 transition-colors duration-200"
+                                                    >
+                                                      <a
+                                                        href={source.source}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-blue-600 dark:text-blue-400 break-all inline-flex items-center gap-2 text-left"
+                                                      >
+                                                        <span className="hover:underline">
+                                                          {source.source}
+                                                        </span>
+
+                                                        {source.page && (
+                                                          <>
+                                                            <span className="text-muted-foreground">
+                                                              •
+                                                            </span>
+                                                            <span className="text-xs text-muted-foreground">
+                                                              page {source.page}
+                                                            </span>
+                                                          </>
+                                                        )}
+                                                      </a>
+                                                      <button
+                                                        onClick={() =>
+                                                          handleCopy(
+                                                            source.source,
+                                                            index
+                                                          )
+                                                        }
+                                                        className="ml-2 text-muted-foreground hover:text-foreground transition-colors"
+                                                        title="Copy URL"
+                                                      >
+                                                        {copiedIndex === index ? (
+                                                          <Check className="w-4 h-4 text-green-500" />
+                                                        ) : (
+                                                          <Copy className="w-4 h-4" />
+                                                        )}
+                                                      </button>
+                                                    </li>
+                                                  )
+                                                )}
+                                              </ul>
+
+                                              {item.status === "rejected" &&
+                                                item.reasonForRejection && (
+                                                  <div className="mt-4 p-2 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                                                    <p className="text-xs font-medium text-red-800 dark:text-red-300">
+                                                      Rejection Reason:
+                                                    </p>
+                                                    <div className="text-xs text-red-700 dark:text-red-400 mt-1">
+                                                      <ExpandableText
+                                                        text={item.reasonForRejection}
+                                                        maxLength={100}
+                                                      />
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              <UrlPreviewDialog
+                                                open={urlOpen}
+                                                onOpenChange={setUrlOpen}
+                                                selectedUrl={selectedUrl}
+                                              />
                                             </div>
                                           )}
-                                        <UrlPreviewDialog
-                                          open={urlOpen}
-                                          onOpenChange={setUrlOpen}
-                                          selectedUrl={selectedUrl}
-                                        />
-                                      </div>
-                                    )}
-                                </AccordionContent>
-                              </AccordionItem>
-                            </Accordion>
-                          </>
-                        )}
-                        {!item.answer &&
-                          !item.approvedAnswer &&
-                          !item.rejectedAnswer &&
-                          item.status == "in-review" && (
-                            <div className="flex items-center gap-2 mt-3">
-                              {/* <ConfirmationModal
-                                title="Confirm Acceptance"
-                                description="Are you sure you want to accept this request? This action cannot be undone."
-                                confirmText="Accept"
-                                cancelText="Cancel"
-                                isLoading={isSubmittingAnswer}
-                                open={isAccepConfirmationOpen}
-                                onOpenChange={setIsAccepConfirmationOpen}
-                                onConfirm={handleAccept}
-                                trigger={
-                                  <Button
-                                    disabled={isSubmittingAnswer}
-                                    size="sm"
-                                    className="flex items-center gap-1"
-                                  >
-                                    {isSubmittingAnswer &&
-                                    !rejectionReason &&
-                                    !isRejectionSubmitted ? (
-                                      <>
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                        Accepting...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <CheckCircle className="w-4 h-4" />
-                                        Accept
-                                      </>
-                                    )}
-                                  </Button>
-                                }
-                              /> */}
+                                      </AccordionContent>
+                                    </AccordionItem>
+                                  </Accordion>
+                                </>
+                              )}
+                              {!item.answer &&
+                                !item.approvedAnswer &&
+                                !item.rejectedAnswer &&
+                                item.status == "in-review" && (
+                                  <div className="flex items-center gap-2 mt-3">
+                                   
 
-                              <AcceptReviewDialog
-                                checklist={checklist}
-                                onChecklistChange={setChecklist}
-                                isSubmitting={isSubmittingAnswer}
-                                onConfirm={handleAccept}
-                              />
+                                    <AcceptReviewDialog
+                                      checklist={checklist}
+                                      onChecklistChange={setChecklist}
+                                      isSubmitting={isSubmittingAnswer}
+                                      onConfirm={handleAccept}
+                                    />
 
-                              <Button
-                                size="sm"
-                                disabled={isSubmittingAnswer}
-                                onClick={() => setIsRejectDialogOpen(true)}
-                                className={`
-                                  flex items-center gap-1 rounded-md px-3 py-2 transition-all bg-red-500 text-white 
-                                  dark:bg-red-900/40  hover:bg-red-400 dark:hover:bg-red-900/60
-                                  disabled:opacity-50 disabled:cursor-not-allowed
-                                `}
-                              >
-                                {isSubmittingAnswer &&
-                                rejectionReason &&
-                                isRejectionSubmitted ? (
-                                  <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Rejecting...
-                                  </>
-                                ) : (
-                                  <>
-                                    <XCircle className="w-4 h-4" />
-                                    Reject
-                                  </>
+                                    <Button
+                                      size="sm"
+                                      disabled={isSubmittingAnswer}
+                                      onClick={() => setIsRejectDialogOpen(true)}
+                                      className={`
+                                        flex items-center gap-1 rounded-md px-3 py-2 transition-all bg-red-500 text-white
+                                        dark:bg-red-900/40  hover:bg-red-400 dark:hover:bg-red-900/60
+                                        disabled:opacity-50 disabled:cursor-not-allowed
+                                      `}
+                                    >
+                                      {isSubmittingAnswer &&
+                                      rejectionReason &&
+                                      isRejectionSubmitted ? (
+                                        <>
+                                          <Loader2 className="w-4 h-4 animate-spin" />
+                                          Rejecting...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <XCircle className="w-4 h-4" />
+                                          Reject
+                                        </>
+                                      )}
+                                    </Button>
+
+                                    <Button
+                                      size="sm"
+                                      disabled={isSubmittingAnswer}
+                                      className="flex items-center gap-1
+                   bg-blue-700 hover:bg-blue-600 text-white
+                   dark:bg-blue-900 dark:hover:bg-blue-800"
+                                      onClick={() => setIsModifyDialogOpen(true)}
+                                    >
+                                      {isSubmittingAnswer &&
+                                      rejectionReason &&
+                                      isRejectionSubmitted ? (
+                                        <>
+                                          <Loader2 className="w-4 h-4 animate-spin" />
+                                          Modifying...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Pencil className="w-4 h-4" />
+                                          Modify
+                                        </>
+                                      )}
+                                    </Button>
+                                  </div>
                                 )}
-                              </Button>
-
-                              <Button
-                                size="sm"
-                                disabled={isSubmittingAnswer}
-                                className="flex items-center gap-1 
-             bg-blue-700 hover:bg-blue-600 text-white 
-             dark:bg-blue-900 dark:hover:bg-blue-800"
-                                onClick={() => setIsModifyDialogOpen(true)}
-                              >
-                                {isSubmittingAnswer && !isRejectionSubmitted ? (
-                                  <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Modifying...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Pencil className="w-4 h-4" />
-                                    Modify
-                                  </>
-                                )}
-                              </Button>
                             </div>
-                          )}
-                      </div>
-                    </div>
-                  </div>
+                          </div>
+                        </div>
+                  
                 );
               })}
             </div>
+          </ScrollArea> */}
+          <ScrollArea className="flex-1 pe-4">
+            <ReviewHistoryTimeline
+              history={history}
+              isSubmittingAnswer={isSubmittingAnswer}
+              rejectionReason={rejectionReason}
+              isRejectionSubmitted={isRejectionSubmitted}
+              checklist={checklist}
+              setChecklist={setChecklist}
+              setIsRejectDialogOpen={setIsRejectDialogOpen}
+              setIsModifyDialogOpen={setIsModifyDialogOpen}
+              handleAccept={handleAccept}
+              questionId={questionId}
+            />
           </ScrollArea>
         </CardContent>
       </Card>
@@ -1867,6 +1877,461 @@ export const ResponseTimeline = ({
   );
 };
 
+interface ReviewHistoryTimelineProps {
+  history: HistoryItem[];
+  isSubmittingAnswer: boolean;
+  rejectionReason: string;
+  isRejectionSubmitted: boolean;
+  checklist: any;
+  setChecklist: (checklist: any) => void;
+  setIsRejectDialogOpen: (open: boolean) => void;
+  setIsModifyDialogOpen: (open: boolean) => void;
+  handleAccept: () => void;
+  questionId: string;
+}
+const parameterLabels: Record<keyof IReviewParmeters, string> = {
+  contextRelevance: "Context Relevance",
+  technicalAccuracy: "Technical Accuracy",
+  practicalUtility: "Practical Utility",
+  valueInsight: "Value Insight",
+  credibilityTrust: "Credibility & Trust",
+  readabilityCommunication: "Readability",
+};
+export const ReviewHistoryTimeline = ({
+  history,
+  isSubmittingAnswer,
+  rejectionReason,
+  isRejectionSubmitted,
+  checklist,
+  setChecklist,
+  setIsRejectDialogOpen,
+  setIsModifyDialogOpen,
+  handleAccept,
+  questionId,
+}: ReviewHistoryTimelineProps) => {
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  const handleCopy = async (url: string, index: number) => {
+    await navigator.clipboard.writeText(url);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  const getStatusBadgeClasses = (item: HistoryItem) => {
+    if (
+      (item.status === "in-review" || item.status === "reviewed") &&
+      item.answer
+    ) {
+      return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300 border-yellow-700";
+    }
+    if (item.status === "approved") {
+      return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 border-green-700";
+    }
+    if (item.status === "rejected") {
+      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-red-700";
+    }
+    return "bg-primary/10 text-primary hover:bg-primary/10 border-primary";
+  };
+
+  const getStatusIcon = (item: HistoryItem) => {
+    if (
+      (item.status === "in-review" || item.status === "reviewed") &&
+      item.answer
+    ) {
+      return <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />;
+    }
+    if (item.approvedAnswer) {
+      return (
+        <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+      );
+    }
+    if (item.rejectedAnswer) {
+      return <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />;
+    }
+    if (item.modifiedAnswer) {
+      return <Pencil className="w-5 h-5 text-amber-600 dark:text-amber-400" />;
+    }
+    if (!item.answer) {
+      return <Clock className="w-5 h-5 text-primary" />;
+    }
+    if (item.status === "approved") {
+      return (
+        <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+      );
+    }
+    if (item.status === "rejected") {
+      return <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />;
+    }
+    return <Clock className="w-5 h-5 text-primary" />;
+  };
+
+  const getStatusText = (item: HistoryItem) => {
+    if (
+      (item.status === "in-review" || item.status === "reviewed") &&
+      item.answer
+    ) {
+      return "Answer Created";
+    }
+    return item.status
+      ? item.status.charAt(0).toUpperCase() + item.status.slice(1)
+      : "";
+  };
+
+  const getAvatarClasses = (item: HistoryItem) => {
+    if (item.rejectedAnswer)
+      return "bg-red-100 dark:bg-red-900/30 ring-2 ring-red-200 dark:ring-red-800";
+    if (item.modifiedAnswer)
+      return "bg-amber-100 dark:bg-amber-900/30 ring-2 ring-amber-200 dark:ring-amber-800";
+    if (item.approvedAnswer)
+      return "bg-green-100 dark:bg-green-900/30 ring-2 ring-green-200 dark:ring-green-800";
+    if (!item.answer) return "bg-primary/10 ring-2 ring-primary/20";
+    if (item.status === "approved")
+      return "bg-green-100 dark:bg-green-900/30 ring-2 ring-green-200 dark:ring-green-800";
+    if (item.status === "rejected")
+      return "bg-red-100 dark:bg-red-900/30 ring-2 ring-red-200 dark:ring-red-800";
+    return "bg-primary/10 ring-2 ring-primary/20";
+  };
+
+  return (
+    <div className="space-y-6">
+      {history.map((item, index) => {
+        const isFirst = index === 0;
+        const isLast = index == history.length - 1;
+        const isMine = item.status === "in-review" && !item.answer;
+
+        return (
+          <div key={item.updatedBy._id + index} className="relative">
+            {!isFirst && (
+              <div className="absolute left-5 -top-1 bottom-0 h-6 w-0.5 bg-border/50 -translate-y-5" />
+            )}
+
+            <Card className="p-3 py-6 hover:shadow-md transition-shadow duration-200 border border-border/50">
+              <div className="flex gap-3">
+                <div
+                  className={`relative -top-1 flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all`}
+                >
+                  {getStatusIcon(item)}
+                </div>
+
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <div className="flex items-center gap-2 min-w-0 text-sm">
+                      {/* USER ICON */}
+                      <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+
+                      {/* NAME (TRUNCATE) */}
+                      <span className="font-medium truncate max-w-[120px]">
+                        {item.updatedBy.userName}
+                      </span>
+
+                      {/* DATE */}
+                      <span className="text-xs text-muted-foreground flex-shrink-0 ml-auto">
+                        {formatDate(item.createdAt)}
+                      </span>
+
+                      {/* AUTHOR BADGE */}
+                      {isLast && (
+                        <span className="px-2 py-0.5 text-[10px] rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100 font-semibold flex-shrink-0">
+                          Author
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {item.status === "approved" && item.answer && (
+                        <Badge
+                          variant="secondary"
+                          className="gap-0.5 text-xs py-0.5"
+                        >
+                          <CheckCheck className="w-3 h-3" />
+                          <span>{item.answer.approvalCount || "0"}</span>
+                        </Badge>
+                      )}
+                      {item.status && (
+                        <Badge
+                          className={`${getStatusBadgeClasses(
+                            item
+                          )} text-xs font-medium py-0.5`}
+                        >
+                          {getStatusText(item)}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {(item.review?.parameters || item.review?.reason) && (
+                    <div className="mt-10">
+                      {/* REVIEW PARAMETERS */}
+                      {item.review?.parameters && (
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {Object.entries(item.review.parameters).map(
+                            ([key, value]) => (
+                              <Badge
+                                key={key}
+                                variant="outline"
+                                className={`text-sm py-1 px-2.5 flex items-center rounded-md 
+                                            ${
+                                              value
+                                                ? "bg-green-50 dark:bg-green-900/20"
+                                                : "bg-red-50 dark:bg-red-900/20"
+                                            }`}
+                              >
+                                {value ? (
+                                  <Check className="w-3 h-3 mr-1 text-green-600 dark:text-green-400" />
+                                ) : (
+                                  <X className="w-3 h-3 mr-1 text-red-600 dark:text-red-400" />
+                                )}
+
+                                {
+                                  parameterLabels[
+                                    key as keyof typeof parameterLabels
+                                  ]
+                                }
+                              </Badge>
+                            )
+                          )}
+                        </div>
+                      )}
+
+                      {/* REVIEW NOTE (MODIFY / REJECT) */}
+                      {item.review?.reason && (
+                        <div className="p-3 rounded-md bg-muted/30 border border-border/50 text-sm mt-2">
+                          <p className="font-semibold text-muted-foreground mb-1">
+                            {item.review.action === "modified"
+                              ? "Modification Note:"
+                              : "Rejection Note:"}
+                          </p>
+
+                          <p className="text-foreground ">
+                            {/* {item.review.reason} */}
+                            <ExpandableText
+                              text={item.review.reason}
+                              maxLength={150}
+                            />
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-1">
+                    {item.approvedAnswer && (
+                      <span className="text-sm px-2 py-2 w-full rounded border bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 ">
+                        Answer Accepted
+                      </span>
+                    )}
+                    {item.modifiedAnswer && (
+                      <span className="text-sm px-2 py-2 w-full rounded border bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 ">
+                        Answer Modified
+                      </span>
+                    )}
+                    {item.status === "in-review" && !item.answer && (
+                      <span className="text-sm px-2 py-4 w-full rounded border bg-muted/40 text-muted-foreground font-medium flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Awaiting response
+                      </span>
+                    )}
+                  </div>
+
+                  {item.answer && (
+                    <div className="space-y-2 pt-1">
+                      {item.answer && (
+                        <div className="space-y-2 pt-1">
+                          {/* ANSWER BOX */}
+                          <div className="space-y-1 ">
+                            {/* LABEL */}
+                            <Label className="text-sm font-medium text-muted-foreground px-1">
+                              Answer:
+                            </Label>
+
+                            {/* ANSWER BOX */}
+                            <div className="p-5 rounded-md border bg-card/50 text-sm relative">
+                              <ExpandableText
+                                text={item.answer.answer}
+                                maxLength={150}
+                              />
+
+                              {(item.answer.sources?.length > 0 ||
+                                item.reasonForRejection) && (
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <button className="absolute bottom-2 right-2 text-xs px-2 py-1 border rounded-md hover:bg-muted/50 flex items-center gap-1">
+                                      <Info className="w-3 h-3" />
+                                      View Details
+                                    </button>
+                                  </DialogTrigger>
+
+                                  <DialogContent className="max-w-md min-h-[20vh] max-h-[80vh] overflow-y-auto">
+                                    <DialogHeader>
+                                      <DialogTitle className="text-lg font-semibold">
+                                        Answer Details
+                                      </DialogTitle>
+                                    </DialogHeader>
+
+                                    <div className="space-y-5 text-sm">
+                                      {/* SOURCES */}
+                                      {item.answer.sources?.length > 0 && (
+                                        <div className="space-y-2">
+                                          <p className="text-sm font-semibold text-muted-foreground">
+                                            Sources (
+                                            {item.answer.sources.length})
+                                          </p>
+
+                                          <div className="space-y-2">
+                                            {item.answer.sources.map(
+                                              (source: any, idx: number) => (
+                                                <div
+                                                  key={idx}
+                                                  className="flex items-center justify-between gap-2 p-3 border rounded-md hover:bg-muted/40 transition-colors text-sm"
+                                                >
+                                                  <a
+                                                    href={source.source}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-blue-600 dark:text-blue-400 break-all inline-flex items-center gap-1 hover:underline text-sm"
+                                                  >
+                                                    <span className="line-clamp-2">
+                                                      {source.source}
+                                                    </span>
+
+                                                    {source.page && (
+                                                      <>
+                                                        <span className="text-muted-foreground flex-shrink-0">
+                                                          •
+                                                        </span>
+                                                        <span className="text-muted-foreground flex-shrink-0">
+                                                          p{source.page}
+                                                        </span>
+                                                      </>
+                                                    )}
+                                                  </a>
+
+                                                  <button
+                                                    onClick={() =>
+                                                      handleCopy(
+                                                        source.source,
+                                                        idx
+                                                      )
+                                                    }
+                                                    className="text-muted-foreground hover:text-foreground transition-colors p-1 flex-shrink-0"
+                                                    title="Copy URL"
+                                                  >
+                                                    {copiedIndex === idx ? (
+                                                      <Check className="w-4 h-4 text-green-500" />
+                                                    ) : (
+                                                      <Copy className="w-4 h-4" />
+                                                    )}
+                                                  </button>
+                                                </div>
+                                              )
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* REJECTION REASON */}
+                                      {item.status === "rejected" &&
+                                        item.reasonForRejection && (
+                                          <div className="p-3 rounded-md bg-red-50 dark:bg-red-900/20 border text-sm">
+                                            <p className="text-sm font-semibold text-red-700 dark:text-red-400 mb-1">
+                                              Rejection Reason:
+                                            </p>
+
+                                            <div className="text-red-600 dark:text-red-300 text-sm">
+                                              <ExpandableText
+                                                text={item.reasonForRejection}
+                                                maxLength={120}
+                                              />
+                                            </div>
+                                          </div>
+                                        )}
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {item.answer && (
+                        <div className="pb-6">
+                          <Separator className="my-2" />
+                          <CommentsSection
+                            questionId={questionId}
+                            answerId={item.answer._id.toString()}
+                            isMine={isMine}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!item.answer &&
+                    !item.approvedAnswer &&
+                    !item.rejectedAnswer &&
+                    item.status === "in-review" && (
+                      <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                        <AcceptReviewDialog
+                          checklist={checklist}
+                          onChecklistChange={setChecklist}
+                          isSubmitting={isSubmittingAnswer}
+                          onConfirm={handleAccept}
+                        />
+
+                        <Button
+                          size="sm"
+                          disabled={isSubmittingAnswer}
+                          onClick={() => setIsRejectDialogOpen(true)}
+                          variant="destructive"
+                          className="gap-1 h-8 px-3 text-xs"
+                        >
+                          {isSubmittingAnswer &&
+                          rejectionReason &&
+                          isRejectionSubmitted ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Rejecting...
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="w-3 h-3" />
+                              Reject
+                            </>
+                          )}
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          disabled={isSubmittingAnswer}
+                          className="gap-1 h-8 px-3 text-xs bg-blue-600 dark:bg-blue-900 text-white hover:bg-blue-600"
+                          onClick={() => setIsModifyDialogOpen(true)}
+                        >
+                          {isSubmittingAnswer &&
+                          rejectionReason &&
+                          isRejectionSubmitted ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Modifying...
+                            </>
+                          ) : (
+                            <>
+                              <Pencil className="w-3 h-3" />
+                              Modify
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                </div>
+              </div>
+            </Card>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 interface ReviewResponseDialogProps {
   isOpen: boolean;
   onOpenChange: (value: boolean) => void;
@@ -1875,8 +2340,8 @@ interface ReviewResponseDialogProps {
   icon?: React.ReactNode;
   reasonLabel?: string;
   submitReasonText?: string;
-  checklist: ReviewChecklist;
-  onChecklistChange: (value: ReviewChecklist) => void;
+  checklist: IReviewParmeters;
+  onChecklistChange: (value: IReviewParmeters) => void;
   rejectionReason: string;
   setRejectionReason: (val: string) => void;
   isStageSubmitted: boolean;
@@ -1933,7 +2398,7 @@ const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
         setTempRejectAnswer("");
         setTempSources([]);
       }
-  }, [isOpen, type, newAnswer]);
+  }, [isOpen, type]);
 
   return (
     <Dialog
@@ -2137,8 +2602,8 @@ const AcceptReviewDialog = ({
   isSubmitting,
   onConfirm,
 }: {
-  checklist: ReviewChecklist;
-  onChecklistChange: (value: ReviewChecklist) => void;
+  checklist: IReviewParmeters;
+  onChecklistChange: (value: IReviewParmeters) => void;
   isSubmitting: boolean;
   onConfirm: () => void;
 }) => {
@@ -2155,8 +2620,8 @@ const AcceptReviewDialog = ({
         disabled={isSubmitting}
         size="sm"
         className="flex items-center gap-1 
-             bg-green-500 hover:bg-green-400 text-white
-             dark:bg-green-900 dark:hover:bg-green-800"
+             bg-green-500  text-white
+             dark:bg-green-900 hover:bg-green-500"
         onClick={() => setOpen(true)}
       >
         {isSubmitting ? (
