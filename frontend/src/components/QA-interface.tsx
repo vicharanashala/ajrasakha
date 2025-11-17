@@ -204,6 +204,11 @@ export const QAInterface = ({
   const hasInitialized = useRef(false);
   const questionsRef = useRef(questions);
   const questionItemRefs = useRef<Record<string, HTMLDivElement>>({});
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  const [drafts, setDrafts] = useState<
+    Record<string, { answer: string; sources: any[] }>
+  >({});
 
   // Function to set ref for each question item
   const setQuestionRef = (
@@ -216,67 +221,69 @@ export const QAInterface = ({
       delete questionItemRefs.current[questionId];
     }
   };
+
   useEffect(() => {
     questionsRef.current = questions;
   }, [questions]);
-          const [drafts, setDrafts] = useState<Record<string, { answer: string; sources: any[] }> >({});
-              
-              const [isLoaded, setIsLoaded] = useState(false);
-              useEffect(() => {
-                const saved = localStorage.getItem("questionDrafts");
-                if (saved) {
-                  setDrafts(JSON.parse(saved));
-                }
-              
-                const savedSelected = localStorage.getItem("selectedQuestion");
-                if (savedSelected) setSelectedQuestion(savedSelected);
-              
-                setIsLoaded(true);
-              }, [])
-              useEffect(() => {
-                if (!isLoaded) return; // wait until drafts + selected are loaded
-              
-                const savedSelected = localStorage.getItem("selectedQuestion");
-              
-                if (savedSelected && questions.some(q => q?.id === savedSelected)) {
-                  setSelectedQuestion(savedSelected);
-                } else {
-                  const firstId = questions[0]?.id ?? null;
-                  setSelectedQuestion(firstId);
-                }
-              }, [questions, isLoaded]);
-              useEffect(() => {
-                if (!selectedQuestion) return;
-              
-                localStorage.setItem("selectedQuestion", selectedQuestion);
-              
-                const draft = drafts[selectedQuestion];
-              
-                if (draft) {
-                  setNewAnswer(draft.answer);
-                  setSources(draft.sources);
-                } else {
-                  setNewAnswer("");
-                  setSources([]);
-                }
-              }, [selectedQuestion, drafts]);
-              useEffect(() => {
-                if (!selectedQuestion) return;
-                if (newAnswer.trim() === "" && sources.length === 0) return;
-              
-                setDrafts(prev => ({
-                  ...prev,
-                  [selectedQuestion]: {
-                    answer: newAnswer,
-                    sources
-                  }
-                }));
-              }, [newAnswer, sources]);
-              useEffect(() => {
-                if (!isLoaded) return; 
-                localStorage.setItem("questionDrafts", JSON.stringify(drafts));
-              }, [drafts, isLoaded]);
-                
+
+  useEffect(() => {
+    const saved = localStorage.getItem("questionDrafts");
+    if (saved) {
+      setDrafts(JSON.parse(saved));
+    }
+
+    const savedSelected = localStorage.getItem("selectedQuestion");
+    if (savedSelected) setSelectedQuestion(savedSelected);
+
+    setIsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoaded) return; // wait until drafts + selected are loaded
+
+    const savedSelected = localStorage.getItem("selectedQuestion");
+
+    if (savedSelected && questions.some((q) => q?.id === savedSelected)) {
+      setSelectedQuestion(savedSelected);
+    } else {
+      const firstId = questions[0]?.id ?? null;
+      setSelectedQuestion(firstId);
+    }
+  }, [questions, isLoaded]);
+
+  useEffect(() => {
+    if (!selectedQuestion) return;
+
+    localStorage.setItem("selectedQuestion", selectedQuestion);
+
+    const draft = drafts[selectedQuestion];
+
+    if (draft) {
+      setNewAnswer(draft.answer);
+      setSources(draft.sources);
+    } else {
+      setNewAnswer("");
+      setSources([]);
+    }
+  }, [selectedQuestion, drafts]);
+
+  useEffect(() => {
+    if (!selectedQuestion) return;
+    if (newAnswer.trim() === "" && sources.length === 0) return;
+
+    setDrafts((prev) => ({
+      ...prev,
+      [selectedQuestion]: {
+        answer: newAnswer,
+        sources,
+      },
+    }));
+  }, [newAnswer, sources]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    localStorage.setItem("questionDrafts", JSON.stringify(drafts));
+  }, [drafts, isLoaded]);
 
   //to scroll to questions
   useEffect(() => {
@@ -487,7 +494,7 @@ export const QAInterface = ({
     try {
       await respondQuestion(payload);
       onManualSelect?.(null);
-      setDrafts(prev => {
+      setDrafts((prev) => {
         const updated = { ...prev };
         delete updated[selectedQuestion];
         return updated;
