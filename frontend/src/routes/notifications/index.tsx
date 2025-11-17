@@ -72,6 +72,11 @@ export default function Notification() {
   } = useGetNotifications();
 
   useEffect(() => {
+  if (user?.notificationRetention) {
+    setDeletePreference(user.notificationRetention);
+  }
+}, [user]);
+  useEffect(() => {
     if (notificationPages?.pages) {
       const allNotifications = notificationPages?.pages.flatMap(
         (page) => page?.notifications ?? []

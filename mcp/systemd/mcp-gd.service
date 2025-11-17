@@ -1,0 +1,24 @@
+[Unit]
+Description=MCP Server - Golden Dataset (GD)
+After=network.target mongod.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/Kshitij/sysd/ajrasakha/mcp
+Environment="PATH=/home/ubuntu/Kshitij/sysd/ajrasakha/mcp/venv/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/home/ubuntu/Kshitij/sysd/ajrasakha/mcp/.env
+ExecStart=/home/ubuntu/Kshitij/sysd/ajrasakha/mcp/venv/bin/python gd.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mcp-gd
+
+# Resource limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
