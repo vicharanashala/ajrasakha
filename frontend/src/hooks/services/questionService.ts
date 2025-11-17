@@ -180,4 +180,11 @@ export class QuestionService {
       }
     );
   }
+
+
+  async getAllocatedQuestionPage(questionId: string) {
+    return apiFetch<number>(
+      `${this._baseUrl}/allocated/page?questionId=${questionId}`
+    );
+  }
 }

@@ -1,4 +1,4 @@
-import {IAnswer, IQuestion, IUser, SourceItem} from '#root/shared/interfaces/models.js';
+import {IAnswer, IQuestion, IUser, SourceItem,IQuestionSubmission} from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
@@ -12,6 +12,7 @@ export class AnswerRepository implements IAnswerRepository {
   private AnswerCollection: Collection<IAnswer>;
   private QuestionCollection: Collection<IQuestion>;
   private usersCollection!: Collection<IUser>;
+  private QuestionSubmissionCollection: Collection<IQuestionSubmission>;
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
@@ -24,6 +25,9 @@ export class AnswerRepository implements IAnswerRepository {
       'questions',
     );
     this.usersCollection = await this.db.getCollection<IUser>('users');
+    this.QuestionSubmissionCollection =
+      await this.db.getCollection<IQuestionSubmission>('question_submissions');
+    await this.db.getCollection<IQuestionSubmission>('question_submissions');
   }
 
   async addAnswer(
@@ -35,6 +39,7 @@ export class AnswerRepository implements IAnswerRepository {
     isFinalAnswer: boolean = false,
     answerIteration: number = 1,
     session?: ClientSession,
+    status?:string
   ): Promise<{insertedId: string}> {
     try {
       await this.init();
@@ -60,6 +65,7 @@ export class AnswerRepository implements IAnswerRepository {
         sources,
         createdAt: new Date(),
         updatedAt: new Date(),
+        status
       };
 
       const result = await this.AnswerCollection.insertOne(doc, {session});
@@ -176,18 +182,20 @@ export class AnswerRepository implements IAnswerRepository {
               createdAt: {$first: '$question.createdAt'},
               updatedAt: {$first: '$question.updatedAt'},
               totalAnswersCount: {$sum: 1},
+              questionStatus:{$first: '$question.status'},
               responses: {
                 $push: {
                   answer: '$answer',
                   id: {$toString: '$_id'},
                   isFinalAnswer: '$isFinalAnswer',
                   createdAt: '$createdAt',
+                  answerStatus:'$status'
                 },
               },
             },
           },
           { $match: { _id: { $ne: null } } },
-          {$sort: {createdAt: -1}},
+          {$sort: {updatedAt: -1}},
           {$skip: skip},
           {$limit: limit},
         ]).toArray()
@@ -200,37 +208,370 @@ export class AnswerRepository implements IAnswerRepository {
           reponse: sub.responses[0] || [],
         }));
       }else{
-        const submissions = await this.AnswerCollection.aggregate([
-          {$match: {authorId: new ObjectId(userId)}},
+        const submissions = await this.QuestionSubmissionCollection.aggregate([
           {
-            $lookup: {
-              from: 'questions',
-              localField: 'questionId',
-              foreignField: '_id',
-              as: 'question',
+            $addFields: {
+              historyArray: "$history"
+            }
+          },
+          // 1️⃣ Unwind history to process each phase
+          { $unwind: "$history" },
+        
+          // 2️⃣ Filter only phases performed by the current user
+         
+          {
+            $match: {
+              "history.updatedBy": new ObjectId(userId),
+              $or: [
+                // ✅ Include all except "in-review"
+                { "history.status": { $ne: "in-review" } },
+          
+                // ✅ Include "in-review" only if it has an answer / approvedAnswer / rejectedAnswer
+                {
+                  $and: [
+                    { "history.status": "in-review" },
+                    {
+                      $or: [
+                        { "history.answer": { $exists: true, $ne: null } },
+                        { "history.approvedAnswer": { $exists: true, $ne: null } },
+                        { "history.rejectedAnswer": { $exists: true, $ne: null } },
+                      ],
+                    },
+                  ],
+                },
+              ],
             },
           },
-          {$unwind: '$question'},
+          
+        
+          // 3️⃣ Lookup question details
           {
-            $group: {
-              _id: '$question._id',
-              text: {$first: '$question.question'},
-              createdAt: {$first: '$question.createdAt'},
-              updatedAt: {$first: '$question.updatedAt'},
-              totalAnswersCount: {$sum: 1},
-              responses: {
-                $push: {
-                  answer: '$answer',
-                  id: {$toString: '$_id'},
-                  isFinalAnswer: '$isFinalAnswer',
-                  createdAt: '$createdAt',
+            $lookup: {
+              from: "questions",
+              localField: "questionId",
+              foreignField: "_id",
+              as: "question",
+            },
+          },
+          { $unwind: { path: "$question", preserveNullAndEmptyArrays: true } },
+        
+          // 4️⃣ Lookup all related answers (answer, approvedAnswer, rejectedAnswer)
+          {
+            $lookup: {
+              from: "answers",
+              let: {
+                answerId: "$history.answer",
+                approvedAnswerId: "$history.approvedAnswer",
+                rejectedAnswerId: "$history.rejectedAnswer",
+              },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $or: [
+                        { $eq: ["$_id", "$$answerId"] },
+                        { $eq: ["$_id", "$$approvedAnswerId"] },
+                        { $eq: ["$_id", "$$rejectedAnswerId"] },
+                      ],
+                    },
+                  },
+                },
+                {
+                  $project: {
+                    _id: 1,
+                    answer: 1,
+                    sources: 1,
+                    createdAt: 1,
+                    status:1
+                  },
+                },
+              ],
+              as: "answerDetails",
+            },
+          },
+        
+          // 5️⃣ Construct docs for each possible status
+          {
+            $project: {
+              question: "$question",
+              history: "$history",
+                // 🟡 Newly created (updated) answer document
+                updatedAnswerDoc: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $ifNull: ["$history.rejectedAnswer", false] }, // previous rejection exists
+                        { $ifNull: ["$history.answer", false] }, // new answer created
+                      ],
+                    },
+                    {
+                      status: "Answer Created",
+                      answer: {
+                        $arrayElemAt: [
+                          {
+                            $filter: {
+                              input: "$answerDetails",
+                              as: "a",
+                              cond: { $eq: ["$$a._id", "$history.answer"] },
+                            },
+                          },
+                          0,
+                        ],
+                      },
+                
+                      // 🧩 Added: reasonForRejection (from either this or previous doc)
+                      reasonForRejection: {
+                        $cond: [
+                          {
+                            // CASE 1️⃣: current document has a reasonForRejection
+                            $and: [
+                              { $ne: ["$history.reasonForRejection", null] },
+                              { $ne: ["$history.reasonForRejection", ""] },
+                            ],
+                          },
+                          "$history.reasonForRejection",
+                
+                          // CASE 2️⃣: fallback - find from previous history where answer == rejectedAnswer
+                          {
+                            $let: {
+                              vars: {
+                                matchedHistory: {
+                                  $filter: {
+                                    input: "$historyArray",
+                                    as: "h",
+                                    cond: { $eq: ["$$h.answer", "$history.rejectedAnswer"] },
+                                  },
+                                },
+                              },
+                              in: {
+                                $ifNull: [
+                                  {
+                                    $arrayElemAt: [
+                                      {
+                                        $filter: {
+                                          input: {
+                                            $map: {
+                                              input: "$$matchedHistory",
+                                              as: "mh",
+                                              in: "$$mh.reasonForRejection",
+                                            },
+                                          },
+                                          as: "r",
+                                          cond: {
+                                            $and: [
+                                              { $ne: ["$$r", null] },
+                                              { $ne: ["$$r", ""] },
+                                            ],
+                                          },
+                                        },
+                                      },
+                                      0,
+                                    ],
+                                  },
+                                  null,
+                                ],
+                              },
+                            },
+                          },
+                        ],
+                      },
+                    },
+                    null,
+                  ],
+                },
+                
+        
+              // 🔴 Rejected answer document
+              rejectedDoc: {
+                $cond: [
+                  { $ifNull: ["$history.rejectedAnswer", false] },
+                  {
+                    status: "rejected",
+                    reasonForRejection: {
+                      $let: {
+                        vars: {
+                          matchedHistory: {
+                            $filter: {
+                              input: "$historyArray", // the full history array (kept before unwind)
+                              as: "h",
+                              cond: { $eq: ["$$h.answer", "$history.rejectedAnswer"] },
+                            },
+                          },
+                        },
+                        in: {
+                          $ifNull: [
+                            {
+                              $arrayElemAt: [
+                                {
+                                  $map: {
+                                    input: "$$matchedHistory",
+                                    as: "mh",
+                                    in: "$$mh.reasonForRejection",
+                                  },
+                                },
+                                0,
+                              ],
+                            },
+                            "$history.reasonForRejection",
+                          ],
+                        },
+                        
+                      },
+                    },
+                    answer: {
+                      $arrayElemAt: [
+                        {
+                          $filter: {
+                            input: "$answerDetails",
+                            as: "a",
+                            cond: { $eq: ["$$a._id", "$history.rejectedAnswer"] },
+                          },
+                        },
+                        0,
+                      ],
+                    },
+                  },
+                  null,
+                ],
+              },
+              
+        
+              // 🟢 Approved answer document
+              approvedDoc: {
+                $cond: [
+                  { $ifNull: ["$history.approvedAnswer", false] },
+                  {
+                    status: "approved",
+                    answer: {
+                      $arrayElemAt: [
+                        {
+                          $filter: {
+                            input: "$answerDetails",
+                            as: "a",
+                            cond: { $eq: ["$$a._id", "$history.approvedAnswer"] },
+                          },
+                        },
+                        0,
+                      ],
+                    },
+                  },
+                  null,
+                ],
+              },
+        
+            
+             
+        
+              // 🧩 For initial "answer created" or "reviewed"
+              createdOrReviewedDoc: {
+                $cond: [
+                  {
+                    $and: [
+                      { $not: [{ $ifNull: ["$history.rejectedAnswer", false] }] },
+                      { $not: [{ $ifNull: ["$history.approvedAnswer", false] }] },
+                    ],
+                  },
+                  {
+                    status: {
+                      $cond: [
+                        {
+                          $eq: [
+                            { $arrayElemAt: ["$queue", 0] },
+                            new ObjectId(userId),
+                          ],
+                        },
+                        "Answer Created",
+                        "$history.status",
+                      ],
+                    },
+                    answer: {
+                      $arrayElemAt: [
+                        {
+                          $filter: {
+                            input: "$answerDetails",
+                            as: "a",
+                            cond: { $eq: ["$$a._id", "$history.answer"] },
+                          },
+                        },
+                        0,
+                      ],
+                    },
+                  },
+                  null,
+                ],
+              },
+            },
+          },
+        
+          // 6️⃣ Combine all existing documents into one array
+          {
+            $project: {
+              docs: {
+                $setUnion: [
+                  { $cond: [{ $not: ["$approvedDoc"] }, [], ["$approvedDoc"]] },
+                  { $cond: [{ $not: ["$rejectedDoc"] }, [], ["$rejectedDoc"]] },
+                  { $cond: [{ $not: ["$updatedAnswerDoc"] }, [], ["$updatedAnswerDoc"]] },
+                  { $cond: [{ $not: ["$createdOrReviewedDoc"] }, [], ["$createdOrReviewedDoc"]] },
+                ],
+              },
+              question: 1,
+              history: 1,
+            },
+          },
+        
+          // 7️⃣ Unwind the combined docs array
+          { $unwind: "$docs" },
+        
+          // 8️⃣ Final projection
+          {
+            $project: {
+              _id: "$question._id",
+              text: "$question.question",
+              createdAt: "$question.createdAt",
+              updatedAt: "$history.updatedAt",
+              questionStatus:"$question.status",
+              responses: [
+                {
+                  id: { $toString: "$docs.answer._id" },
+                  answer: "$docs.answer.answer",
+                  sources: "$docs.answer.sources",
+                  status: "$docs.status",
+                  reasonForRejection: "$docs.reasonForRejection",
+                  createdAt: "$docs.answer.createdAt",
+                  updatedAt: "$history.updatedAt",
+                  answerStatus: "$docs.answer.status",
+                  
+                },
+              ],
+            },
+          },
+          {
+            $addFields: {
+              answerUpdatedAt: {
+                $ifNull: [
+                  { $arrayElemAt: ["$responses.updatedAt", 0] },
+                  "$updatedAt" // fallback to history.updatedAt
+                ],
+              },
+              statusPriority: {
+                $switch: {
+                  branches: [
+                    { case: { $eq: [{ $arrayElemAt: ["$responses.status", 0] }, "Answer Created"] }, then: 1 },
+                    { case: { $eq: [{ $arrayElemAt: ["$responses.status", 0] }, "approved"] }, then: 2 },
+                    { case: { $eq: [{ $arrayElemAt: ["$responses.status", 0] }, "reviewed"] }, then: 3 },
+                    { case: { $eq: [{ $arrayElemAt: ["$responses.status", 0] }, "rejected"] }, then: 4 },
+                    { case: { $eq: [{ $arrayElemAt: ["$responses.status", 0] }, "answer created"] }, then: 5 },
+                  ],
+                  default: 6,
                 },
               },
             },
           },
-          {$sort: {createdAt: -1}},
-          {$skip: skip},
-          {$limit: limit},
+        
+          // 9️⃣ Sort & paginate
+          { $sort: { updatedAt: -1,statusPriority: 1 } },
+          { $skip: skip },
+          { $limit: limit },
         ]).toArray();
         return submissions.map(sub => ({
           id: sub._id.toString(),
@@ -238,6 +579,7 @@ export class AnswerRepository implements IAnswerRepository {
           createdAt: sub.createdAt.toISOString(),
           updatedAt: sub.updatedAt.toISOString(),
           totalAnwersCount: sub.totalAnswersCount,
+          questionStatus:sub.questionStatus,
           reponse: sub.responses[0],
         }));
       }
@@ -251,11 +593,11 @@ export class AnswerRepository implements IAnswerRepository {
     userId: string,
     currentUserId: string,
     date: string,
+    status:string,
     session?: ClientSession,
   ): Promise<{
     finalizedSubmissions: any[];
-    currentUserAnswers: any[];
-    totalQuestionsCount: number;
+    
   }> {
     try {
       await this.init();
@@ -274,109 +616,178 @@ export class AnswerRepository implements IAnswerRepository {
           userObjectId = new ObjectId(userId);
         }
       }
-      let dateMatch = {};
-      if (date && date !== 'all') {
-        const now = new Date();
-        let startDate: Date | undefined;
-        switch (date) {
-          case 'today':
-            startDate = new Date(now.setHours(0, 0, 0, 0));
-            break;
-          case 'week':
-            startDate = new Date(now.setDate(now.getDate() - 7));
-            break;
-          case 'month':
-            startDate = new Date(now.setMonth(now.getMonth() - 1));
-            break;
-          case 'quarter':
-            startDate = new Date(now.setMonth(now.getMonth() - 3));
-            break;
-          case 'year':
-            startDate = new Date(now.setFullYear(now.getFullYear() - 1));
-            break;
-        }
-        if (startDate) {
-          dateMatch = {'question.createdAt': {$gte: startDate}};
-        }
-      }
+      let dateMatch: any = {};
+    
 
-      const submissions = await this.AnswerCollection.aggregate([
-        // Filter answers by userId if provided (from answers collection)
+if (date && date !== "all") {
+  if (date.includes(":")) {
+    const [start, end] = date.split(":");
+    dateMatch.createdAt = {
+      $gte: new Date(start),
+      $lte: new Date(end + "T23:59:59.999Z"),
+    };
+  }
+}
+//console.log("the date match===",dateMatch)
+    
 
-        // Join question details
+      // Build status filter dynamically
+let statusFilter: any = {};
+if (status !== "all") {
+  statusFilter["status"] = status;
+}
+
+const submissions = await this.AnswerCollection.aggregate([
+  // Join question details
+  {
+    $lookup: {
+      from: "questions",
+      localField: "questionId",
+      foreignField: "_id",
+      as: "question",
+    },
+  },
+  { $unwind: "$question" },
+
+  // ✅ Date filter (works for both cases)
+  ...(Object.keys(dateMatch).length > 0 ? [{ $match: dateMatch }] : []),
+
+  // ✅ If user selected a specific user → restrict questions to that user
+  ...(userId !== "all"
+    ?status=="in-review"? 
+    [
+      {
+        $match: {
+         status:"pending-with-moderator" 
+        },
+      },
+
+      // Sort latest answers first so we can pick the final/latest one
+      { $sort: { createdAt: -1 } },
+
+      // ✅ Group → get only the latest answer for each question
+      {
+        $group: {
+          _id: "$questionId",
+          latestAnswer: { $first: "$$ROOT" },
+        },
+      },
+      { $replaceRoot: { newRoot: "$latestAnswer" } }, // flatten result
+    ]
+    : [
         {
-          $lookup: {
-            from: 'questions',
-            localField: 'questionId',
-            foreignField: '_id',
-            as: 'question',
+          $match: {
+            "approvedBy": userObjectId,
+            ...statusFilter, // applies status only if status != "all"
           },
         },
 
-        // Convert question[] → question object
-        {$unwind: '$question'},
+        // Sort latest answers first so we can pick the final/latest one
+        { $sort: { createdAt: -1 } },
 
-        // Optional date filter (works on answer createdAt)
-        ...(Object.keys(dateMatch).length > 0
-          ? [{$match: {createdAt: dateMatch}}]
-          : []),
-        ...(userId !== 'all'
-          ? [
-              {
-                $match: {
-                  'question.userId': userObjectId,
-                  'question.status': {
-                    $in: ['in-review', 'closed', 'open', 'delayed'],
-                  },
-                  approvalCount: {$in: [0, 3]},
-                },
-              },
-              // ✅ sort so most recent answers come first
-              {
-                $sort: {createdAt: -1},
-              },
-              // ✅ group answers by questionId and pick the latest one
-              {
-                $group: {
-                  _id: '$questionId',
-                  latestAnswer: {$first: '$$ROOT'},
-                },
-              },
-              {
-                $replaceRoot: {newRoot: '$latestAnswer'},
-              },
-            ]
-          : []),
+        // ✅ Group → get only the latest answer for each question
+        {
+          $group: {
+            _id: "$questionId",
+            latestAnswer: { $first: "$$ROOT" },
+          },
+        },
+        { $replaceRoot: { newRoot: "$latestAnswer" } }, // flatten result
+      ]
+    : status !== "all"
+    ? [
+        // ✅ If status chosen while user = all → just filter status
+        {
+          $match: {
+            ...statusFilter,
+          },
+        },
+      ]
+    : []),
 
-        // Sort newest first
-        {$sort: {createdAt: -1}},
-      ]).toArray();
+  // ✅ Sort final results newest first (applies to both cases)
+  { $sort: { createdAt: -1 } },
+]).toArray()
+const finalizedSubmissions = submissions.map(sub => ({
+        id: sub._id.toString(),
 
-      const currentUserAnswers = await this.AnswerCollection.aggregate([
+        // Answer fields
+        answer: sub.answer,
+        isFinalAnswer: sub.isFinalAnswer,
+        approvalCount: sub.approvalCount,
+        authorId: sub.authorId?.toString() || null,
+        questionId: sub.questionId?.toString() || null,
+        sources: sub.sources || [],
+
+        createdAt: sub.createdAt?.toISOString(),
+        updatedAt: sub.updatedAt?.toISOString(),
+       details: sub.question?.details,
+        status: sub.status,
+        // Question fields (nested)
+        question: {
+          id: sub.question?._id?.toString(),
+          text: sub.question?.question,
+          status: sub.question?.status,
+         // details: sub.question?.details,
+          priority: sub.question?.priority,
+          source: sub.question?.source,
+          totalAnswersCount: sub.question?.totalAnswersCount || 0,
+          createdAt: sub.question?.createdAt?.toISOString(),
+          updatedAt: sub.question?.updatedAt?.toISOString(),
+        },
+      }));
+return {
+        finalizedSubmissions,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch submissions: ${error}`);
+    }
+  }
+  async getCurrentUserWorkLoad(
+   currentUserId: string,
+    session?: ClientSession,
+  ): Promise<{
+    
+    currentUserAnswers: any[];
+    totalQuestionsCount: number;
+    totalInreviewQuestionsCount:number
+  }> {
+    try {
+      await this.init();
+      
+   const currentUserAnswers = await this.AnswerCollection.aggregate([
         {
           $match: {
             isFinalAnswer: true,
+            approvedBy:new ObjectId(currentUserId)
+
+          },
+        },
+
+        // Sort latest answers first so we can pick the final/latest one
+        { $sort: { createdAt: -1 } },
+
+        // ✅ Group → get only the latest answer for each question
+        {
+          $group: {
+            _id: "$questionId",
+            latestAnswer: { $first: "$$ROOT" },
           },
         },
         {
           $lookup: {
-            from: 'questions',
-            localField: 'questionId',
-            foreignField: '_id',
-            as: 'question',
+            from: "questions",
+            localField: "_id", // since _id now holds questionId
+            foreignField: "_id",
+            as: "question",
           },
         },
-        {$unwind: '$question'},
+        { $unwind: { path: "$question", preserveNullAndEmptyArrays: true } },
 
-        {
-          $match: {
-            'question.userId': new ObjectId(currentUserId),
-          },
-        },
-
+        
         {
           $group: {
-            _id: {$toString: '$question._id'}, // ✅ Convert to string here
+            _id: {$toString: '$question._id'}, 
             text: {$first: '$question.question'},
             createdAt: {$first: '$question.createdAt'},
             updatedAt: {$first: '$question.updatedAt'},
@@ -396,85 +807,17 @@ export class AnswerRepository implements IAnswerRepository {
 
         {$sort: {createdAt: -1}},
       ]).toArray();
-      const totalQuestionsCount = (
-        await this.AnswerCollection.aggregate([
-          {
-            $match: {
-              approvalCount: 3,
-            },
-          },
-          {
-            $lookup: {
-              from: 'questions',
-              localField: 'questionId',
-              foreignField: '_id',
-              as: 'question',
-            },
-          },
-          {$unwind: '$question'},
-
-          {
-            $match: {
-              'question.userId': new ObjectId(currentUserId),
-            },
-          },
-
-          {
-            $group: {
-              _id: {$toString: '$question._id'}, // ✅ Convert to string here
-              text: {$first: '$question.question'},
-              createdAt: {$first: '$question.createdAt'},
-              updatedAt: {$first: '$question.updatedAt'},
-              totalAnswersCount: {$sum: 1},
-              details: {$first: '$question.details'},
-              responses: {
-                $push: {
-                  answer: '$answer',
-                  id: {$toString: '$_id'},
-                  isFinalAnswer: '$isFinalAnswer',
-                  createdAt: '$createdAt',
-                },
-              },
-            },
-          },
-
-          {$sort: {createdAt: -1}},
-        ]).toArray()
-      ).length;
-
-      const finalizedSubmissions = submissions.map(sub => ({
-        id: sub._id.toString(),
-
-        // Answer fields
-        answer: sub.answer,
-        isFinalAnswer: sub.isFinalAnswer,
-        approvalCount: sub.approvalCount,
-        authorId: sub.authorId?.toString() || null,
-        questionId: sub.questionId?.toString() || null,
-        sources: sub.sources || [],
-
-        createdAt: sub.createdAt?.toISOString(),
-        updatedAt: sub.updatedAt?.toISOString(),
-        details: sub.question?.details,
-        status: sub.question?.status,
-        // Question fields (nested)
-        question: {
-          id: sub.question?._id?.toString(),
-          text: sub.question?.question,
-          status: sub.question?.status,
-          details: sub.question?.details,
-          priority: sub.question?.priority,
-          source: sub.question?.source,
-          totalAnswersCount: sub.question?.totalAnswersCount || 0,
-          createdAt: sub.question?.createdAt?.toISOString(),
-          updatedAt: sub.question?.updatedAt?.toISOString(),
-        },
-      }));
-
+      const totalInreviewQuestionsCount = await this.QuestionCollection.countDocuments({
+       
+        status: { $in: ["in-review"] }
+      });
+      const totalQuestionsCount = await this.QuestionCollection.countDocuments({});
+      //console.log("the total questions====",totalQuestionsCount)
       return {
-        finalizedSubmissions,
+       
         currentUserAnswers,
         totalQuestionsCount,
+        totalInreviewQuestionsCount
       };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch submissions: ${error}`);
@@ -673,6 +1016,35 @@ export class AnswerRepository implements IAnswerRepository {
       console.error(error)
       throw new InternalServerError(
         `Error while deleting answer, More/ ${error}`,
+      );
+    }
+  }
+
+  async updateAnswerStatus(
+    answerId: string,
+    updates: Partial<IAnswer>,
+    session?: ClientSession,
+  ): Promise<{modifiedCount: number}> {
+    try {
+      await this.init();
+
+      if (!answerId || !isValidObjectId(answerId)) {
+        throw new BadRequestError('Invalid or missing answerId');
+      }
+      if (!updates || Object.keys(updates).length === 0) {
+        throw new BadRequestError('Updates object cannot be empty');
+      }
+
+      const result = await this.AnswerCollection.updateOne(
+        {_id: new ObjectId(answerId)},
+        {$set: {...updates, updatedAt: new Date()}},
+        {session},
+      );
+
+      return {modifiedCount: result.modifiedCount};
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while updating answer, More/ ${error}`,
       );
     }
   }

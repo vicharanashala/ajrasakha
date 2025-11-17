@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -39,12 +39,13 @@ import {
   Clock,
   History,
   GitCompare,
+  Star,
 } from "lucide-react";
 import { useGetRequestDiff } from "@/hooks/api/request/useGetRequestDiff";
 import { Skeleton } from "./atoms/skeleton";
 import { ScrollArea } from "./atoms/scroll-area";
 import { useUpdateRequestStatus } from "@/hooks/api/request/useUpdateRequestStatus";
-import {toast} from "sonner";
+import { toast } from "sonner";
 import { Separator } from "./atoms/separator";
 import {
   Dialog,
@@ -77,8 +78,13 @@ const initials = (name: string) => {
     .slice(0, 2)
     .toUpperCase();
 };
+interface RequestCardProps {
+  req: IRequest;
+  isHighlighted?: boolean;
+  id?: string;
+}
 
-const RequestCard = ({ req }: { req: IRequest }) => {
+const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
   const [diffOpen, setDiffOpen] = useState(false);
   const [newStatus, setNewStatus] = useState<RequestStatus>("pending");
   const [response, setResponse] = useState<string>("");
@@ -95,7 +101,7 @@ const RequestCard = ({ req }: { req: IRequest }) => {
     requestType: req.requestType,
     diff: requestDiff!,
   };
-
+  useEffect(() => {}, [isHighlighted, req._id]);
   const handleSubmit = async () => {
     try {
       if (!newStatus || newStatus === req.status) {
@@ -162,7 +168,23 @@ const RequestCard = ({ req }: { req: IRequest }) => {
   };
 
   return (
-    <Card className="bg-card">
+    <Card
+      // className="bg-card"
+      className={`bg-card relative transition-all duration-200 ${
+        isHighlighted
+          ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
+          : "border-border hover:border-primary/40 hover:shadow-sm"
+      }`}
+      id={id}
+    >
+      {isHighlighted && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-l-lg"></div>
+      )}
+
+      {/* Background gradient for highlighted card */}
+      {isHighlighted && (
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none rounded-lg"></div>
+      )}
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <Avatar className="size-10">
@@ -434,13 +456,21 @@ const RequestCard = ({ req }: { req: IRequest }) => {
   );
 };
 
-export const RequestsPage = () => {
+export const RequestsPage = ({
+  autoSelectId,
+}: {
+  autoSelectId: string | null;
+}) => {
   const [status, setStatus] = useState<"all" | RequestStatus>("all");
   const [reqType, setReqType] = useState<"all" | "question_flag" | "others">(
     "all"
   );
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
+    null
+  );
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const LIMIT = 10;
 
   const { data: requestData, isLoading } = useGetAllRequests(
@@ -450,6 +480,47 @@ export const RequestsPage = () => {
     reqType,
     sortOrder
   );
+
+  useEffect(() => {
+    if (!autoSelectId || !requestData?.requests) {
+      return;
+    }
+
+    const matchingRequest = requestData.requests.find(
+      (req) => req.entityId === autoSelectId
+    );
+
+    if (matchingRequest) {
+      setSelectedRequestId(String(matchingRequest._id));
+
+      // Scroll after component re-renders
+      setTimeout(() => {
+        const element = document.getElementById(
+          `request-${matchingRequest._id}`
+        );
+        if (element) {
+          element.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }
+      }, 100);
+    } else {
+      setSelectedRequestId(null);
+    }
+  }, [autoSelectId, requestData?.requests]); // Only depend on these
+
+  // Reset selection when filters change (but NOT when autoSelectId changes)
+  useEffect(() => {
+    if (
+      status !== "all" ||
+      reqType !== "all" ||
+      sortOrder !== "newest" ||
+      currentPage !== 1
+    ) {
+      setSelectedRequestId(null);
+    }
+  }, [status, reqType, sortOrder, currentPage]);
   return (
     <main className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
       <section className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
@@ -457,6 +528,11 @@ export const RequestsPage = () => {
           <div className="flex items-center gap-2">
             <Sliders className="w-5 h-5 text-primary" />
             <h1 className="text-xl font-semibold text-pretty">Request Queue</h1>
+            {selectedRequestId && (
+              <Badge variant="secondary" className="ml-2">
+                Highlighted
+              </Badge>
+            )}
           </div>
 
           <div className="flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto">
@@ -534,7 +610,12 @@ export const RequestsPage = () => {
           </div>
         ) : (
           requestData.requests.map((req) => (
-            <RequestCard key={String(req._id)} req={req} />
+            <RequestCard
+              key={`${req._id}-${selectedRequestId === String(req._id)}`}
+              req={req}
+              isHighlighted={selectedRequestId === String(req._id)}
+              id={`request-${req._id}`}
+            />
           ))
         )}
       </section>

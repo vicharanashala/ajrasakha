@@ -72,6 +72,13 @@ export class MongoDatabase implements IDatabase<Db> {
     return this.database;
   }
 
+  public async init(): Promise<Db> {
+  if (!this.database) {
+    await this.connect();
+  }
+  return this.database;
+}
+
   /**
    * Checks if the database is connected.
    * @returns {boolean} True if the database is connected, false otherwise.

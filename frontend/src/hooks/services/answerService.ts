@@ -72,8 +72,8 @@ export class AnswerService {
       `${this._baseUrl}/submissions?page=${pageParam}&limit=${limit}`
     );
   }
-  async getFinalizedAnswers(userId:string,date:string): Promise<FinalizedAnswersResponse | null> {
-    return apiFetch<FinalizedAnswersResponse>(`${this._baseUrl}/finalizedAnswers?userId=${userId}&date=${date}`);
+  async getFinalizedAnswers(userId:string,date:string,status:string): Promise<FinalizedAnswersResponse | null> {
+    return apiFetch<FinalizedAnswersResponse>(`${this._baseUrl}/finalizedAnswers?userId=${userId}&date=${date}&status=${status}`);
   }
 
 }

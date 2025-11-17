@@ -8,6 +8,9 @@ import {
   signOut,
   createUserWithEmailAndPassword,
   updateProfile,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
 } from "firebase/auth";
 import { firebaseConfig } from "@/config/firebase";
 import { useAuthStore } from "@/stores/auth-store";
@@ -48,6 +51,33 @@ export const createUserWithEmail = async (
 export const logout = () => {
   signOut(auth);
   useAuthStore.getState().clearUser();
+};
+
+export const verifyCurrentPassword = async (
+  email: string,
+  currentPassword: string
+) => {
+  if (!auth.currentUser) throw new Error("User not logged in");
+
+  const credential = EmailAuthProvider.credential(email, currentPassword);
+
+  try {
+    await reauthenticateWithCredential(auth.currentUser, credential);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error };
+  }
+};
+
+export const updateUserPassword = async (newPassword: string) => {
+  if (!auth.currentUser) throw new Error("User not logged in");
+
+  try {
+    await updatePassword(auth.currentUser, newPassword);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error };
+  }
 };
 
 export const analytics = getAnalytics(app);

@@ -42,6 +42,11 @@ export interface Notification {
   createdAt: string;
   updatedAt: string;
 }
+import {
+  useNavigateToComment,
+  useNavigateToQuestion,
+  useNavigateToRequest,
+} from "@/hooks/api/question/useNavigateToQuestion";
 
 export default function Notification() {
   const { data: user, isLoading } = useGetCurrentUser();
@@ -53,17 +58,11 @@ export default function Notification() {
   const { mutateAsync: markAllAsRead } = useMarkAllAsReadNotification();
   const { mutateAsync: autoDeletePreference } = useAutoDeletePreference();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [deletePreference, setDeletePreference] = useState("never");
-  // const [selectedQuestionId, setSelectedQuestionId] = useState("");
-
-  // const {
-  //   data: questionDetails,
-  //   refetch: refechSelectedQuestion,
-  //   isLoading: isLoadingSelectedQuestion,
-  // } = useGetQuestionFullDataById(selectedQuestionId);
   const navigate = useNavigate();
-
+  const { goToQuestion } = useNavigateToQuestion();
+  const { goToRequest } = useNavigateToRequest();
+  const { goToComment } = useNavigateToComment();
   const {
     data: notificationPages,
     fetchNextPage,
@@ -80,22 +79,6 @@ export default function Notification() {
       setNotifications(allNotifications);
     }
   }, [notificationPages]);
-
-  const handleMarkAsRead = async (id: string) => {
-    try {
-      await markAsRead(id);
-      // const selectedNotification = notifications.find(
-      //   (notification) => notification._id === id
-      // );
-
-      // if (selectedNotification?.type === "Flag_Response") {
-      //   setSelectedQuestionId(selectedNotification.enitity_id);
-      // }
-      // toast.success("Notification marked as read!")
-    } catch (error) {
-      console.log("Error: ", error);
-    }
-  };
 
   const handleDelete = async (notificationId: string) => {
     try {
@@ -114,14 +97,52 @@ export default function Notification() {
     }
   };
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) setSelectedIds(notifications.map((n) => n._id));
-    else setSelectedIds([]);
+  const handleBack = () => {
+    navigate({
+      to: "/home",
+      search: (prev) => prev,
+      replace: true,
+    });
   };
 
-  const handleBack = () => {
-    // window.history.back();
-    navigate({ to: "/home" });
+  // const handleNotificationClick = async (notification: Notification) => {
+  //   const { type, enitity_id, _id } = notification;
+  //   await markAsRead(_id);
+
+  //   if (type === "answer_creation" || type === "peer_review") {
+  //     goToQuestion(enitity_id);
+  //   } else if (type === "flag") {
+  //     goToRequest(_id); // ← assuming enitity_id = requestId
+  //   } else if (type === "comment" || type === "flag_response") {
+  //     // For comments, navigate to all_questions tab with comment param
+  //     goToComment(enitity_id); // enitity_id should be the questionId
+  //   }
+  // };
+
+
+    const handleNotificationClick = async (notification: Notification) => {
+    const { type, enitity_id, _id } = notification;
+
+    // Mark as read first
+    await markAsRead(_id);
+
+    // 🔥 Only these two need to open the QA interface
+    if (type === "answer_creation" || type === "peer_review") {
+      goToQuestion(enitity_id); // will set ?question=questionId
+      return;
+    }
+
+    // For flags
+    if (type === "flag") {
+      goToRequest(enitity_id);
+      return;
+    }
+
+    // For new comments or flag responses
+    if (type === "comment" || type === "flag_response") {
+      goToComment(enitity_id); // enitity_id is questionId
+      return;
+    }
   };
   const handlePreferenceChange = async (value: string) => {
     setDeletePreference(value);
@@ -257,19 +278,16 @@ export default function Notification() {
                 ) : (
                   notifications.map((notification) => (
                     <div
-                      onClick={() => handleMarkAsRead(notification._id)}
+                      // onClick={() => handleMarkAsRead(notification._id)}
+                      onClick={() => handleNotificationClick(notification)}
                       key={notification._id}
-                      className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border transition-all duration-150
-                      ${
-                        !notification.is_read
-                          ? "bg-accent/50 border-accent-foreground/20"
-                          : "bg-card"
-                      }
-                      ${
-                        selectedIds.includes(notification._id)
-                          ? "ring-2 ring-green-500 ring-opacity-30"
-                          : ""
-                      }`}
+                      className={`relative flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-4 rounded-lg border bg-card/70 
+  transition-all duration-200 hover:bg-black/10 dark:hover:bg-white/10 hover:shadow-md cursor-pointer 
+  ${
+    notification.is_read
+      ? "border-l-4 border-l-transparent"
+      : "border-l-4 border-l-blue-500"
+  }`}
                     >
                       <div className="flex items-start sm:items-center gap-2"></div>
 
@@ -298,9 +316,9 @@ export default function Notification() {
                             <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">
                               {formatDate(new Date(notification.createdAt))}
                             </span>
-                            {!notification.is_read && (
+                            {/* {!notification.is_read && (
                               <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                            )}
+                            )} */}
 
                             <XCircle
                               className="w-4 h-4 flex items-center gap-2 cursor-pointer text-red-500 hover:text-red-700 transition-colors duration-200"

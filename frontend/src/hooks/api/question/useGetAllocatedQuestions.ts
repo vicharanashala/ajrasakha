@@ -1,10 +1,9 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { QuestionService } from "../../services/questionService";
 import type { QuestionFilter } from "@/components/QA-interface";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
 
 const questionService = new QuestionService();
-
 export const useGetAllocatedQuestions = (
   limit: number,
   filter: QuestionFilter,
@@ -25,5 +24,13 @@ export const useGetAllocatedQuestions = (
       if (lastPage && lastPage.length < limit) return undefined;
       return allPages.length + 1;
     },
+  });
+};
+
+export const useGetAllocatedQuestionPage = (questionId?: string) => {
+  return useQuery({
+    queryKey: ["allocated-question-page", questionId],
+    queryFn: () => questionService.getAllocatedQuestionPage(questionId!),
+    enabled: !!questionId,
   });
 };
