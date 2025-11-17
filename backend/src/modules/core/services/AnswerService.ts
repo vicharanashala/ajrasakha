@@ -365,6 +365,8 @@ export class AnswerService extends BaseService {
           );
         } else if (status == 'accepted') {
           const review_answer_id = lastAnsweredHistory.answer.toString();
+          const authorId =lastAnsweredHistory.updatedBy.toString()
+          await this.userRepo.updatePenaltyAndIncentive(authorId,'incentive',session)
           const updatedSubmissionData = {
             reviewId,
             approvedAnswer: new ObjectId(review_answer_id),
@@ -383,7 +385,6 @@ export class AnswerService extends BaseService {
             updatedSubmissionData,
             session,
           );
-
           if (
             currentSubmissionHistory.length == 10 ||
             (currentApprovalCount && currentApprovalCount >= 3)
@@ -421,6 +422,10 @@ export class AnswerService extends BaseService {
           const payload: Partial<IAnswer> = {
             status: 'rejected',
           };
+          // const answerDetails = await this.answerRepo.getById(body.rejectedAnswer.toString())
+          const authorId =lastAnsweredHistory.updatedBy.toString()
+          console.log("ans details ", authorId)
+          await this.userRepo.updatePenaltyAndIncentive(authorId,'penalty',session)
           await this.answerRepo.updateAnswerStatus(
             body.rejectedAnswer,
             payload,
@@ -705,10 +710,10 @@ export class AnswerService extends BaseService {
 
 answer: ${updates.answer}`;
 
-      const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
-        text,
-      );
-      // const questionEmbedding = [];
+      // const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
+      //   text,
+      // );
+      const questionEmbedding = [];
 
       await this.questionRepo.updateQuestion(
         questionId,
@@ -717,8 +722,8 @@ answer: ${updates.answer}`;
         true,
       );
 
-      const {embedding} = await this.aiService.getEmbedding(text);
-      // const embedding = [];
+      // const {embedding} = await this.aiService.getEmbedding(text);
+      const embedding = [];
       const payload: Partial<IAnswer> = {
         ...updates,
         approvedBy: new ObjectId(userId),
