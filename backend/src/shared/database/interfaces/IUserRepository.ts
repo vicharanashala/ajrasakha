@@ -134,5 +134,5 @@ export interface IUserRepository {
    * @param incrementValue - value to increment or decrement
    * @returns void.
    */
-updatePenalty(userId:string,field:'incentive' | 'penalty',incrementValue:number,session:ClientSession):Promise<void>
+updatePenaltyAndIncentive(userId:string,field:'incentive' | 'penalty',session:ClientSession):Promise<void>
 }

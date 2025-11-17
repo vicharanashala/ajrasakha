@@ -103,9 +103,8 @@ export class UserService extends BaseService {
   }
 
   async updatePenaltyAndIncentive(userId:string,type:'penalty' | 'incentive'):Promise<void>{
-    const incrementValue = type ==='penalty' ? -1 : 1;
     await this._withTransaction(async (session:ClientSession) => {
-      await this.userRepo.updatePenalty(userId,type,incrementValue,session)
+      await this.userRepo.updatePenaltyAndIncentive(userId,type,session)
     })
   }
 

@@ -366,14 +366,14 @@ export class UserRepository implements IUserRepository {
     }
   }
 
-  async updatePenalty(userId:string,field:'incentive' | 'penalty',incrementValue:number,session:ClientSession):Promise<void>{
+  async updatePenaltyAndIncentive(userId:string,field:'incentive' | 'penalty',session:ClientSession):Promise<void>{
     await this.init()
     try {
       const user = await this.usersCollection.findOne({_id:new ObjectId(userId)})
       if(!user){
         throw new NotFoundError("User not found")
       }
-      await this.usersCollection.findOneAndUpdate({_id:new ObjectId(userId)},{$inc:{[field]:incrementValue}},{session})
+      await this.usersCollection.findOneAndUpdate({_id:new ObjectId(userId)},{$inc:{[field]:1}},{upsert:true,session})
     } catch (error) {
       throw new InternalServerError(`Failed to update incentive`);
     }
