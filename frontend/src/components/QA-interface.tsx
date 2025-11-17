@@ -287,8 +287,6 @@ export const QAInterface = ({
 
   //to scroll to questions
   useEffect(() => {
-    setNewAnswer("");
-    setSources([]);
     setIsFinalAnswer(false);
     if (!selectedQuestion || !scrollRef.current) return;
 

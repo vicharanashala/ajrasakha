@@ -2,7 +2,7 @@ import {
   ObjectIdToString,
   StringToObjectId,
 } from '#shared/constants/transformerConstants.js';
-import {IPreference, IUser} from '#shared/interfaces/models.js';
+import {IPreference, IUser, NotificationRetentionType} from '#shared/interfaces/models.js';
 import {Expose, Transform} from 'class-transformer';
 import {ObjectId} from 'mongodb';
 
@@ -39,6 +39,9 @@ class User implements IUser {
   @Expose()
   role: 'admin' | 'moderator' | 'expert';
 
+  @Expose()
+  notificationRetention?: NotificationRetentionType;
+
   constructor(data: Partial<IUser>) {
     this._id = data?._id ? new ObjectId(data?._id) : null;
     this.firebaseUID = data?.firebaseUID;
@@ -52,6 +55,7 @@ class User implements IUser {
       domain: data?.preference?.domain || 'all',
     };
     this.reputation_score = data?.reputation_score || 0;
+    this.notificationRetention=data.notificationRetention;
     this.createdAt = data?.createdAt || new Date();
     this.updatedAt = data?.updatedAt || new Date();
   }

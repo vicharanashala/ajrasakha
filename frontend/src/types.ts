@@ -21,6 +21,7 @@ export interface IMyPreference {
   crop: string;
   domain: string;
 }
+export type NotificationRetentionType = '3d' | '1w' | '2w' | '1m' | 'never';
 export interface IUser {
   _id?: string;
   firebaseUID?: string;
@@ -34,6 +35,7 @@ export interface IUser {
   createdAt?: Date;
   updatedAt?: Date;
   reputation_score?:number
+  notificationRetention?: NotificationRetentionType;
 }
 export type QuestionPriority = "low" | "medium" | "high";
 export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT";
