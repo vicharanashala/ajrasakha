@@ -2068,7 +2068,7 @@ interface ReviewHistoryTimelineProps {
   handleAccept: () => void;
   questionId: string;
 }
-const parameterLabels: Record<keyof IReviewParmeters, string> = {
+export const parameterLabels: Record<keyof IReviewParmeters, string> = {
   contextRelevance: "Context Relevance",
   technicalAccuracy: "Technical Accuracy",
   practicalUtility: "Practical Utility",
@@ -2096,7 +2096,7 @@ export const ReviewHistoryTimeline = ({
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  const getStatusBadgeClasses = (item: HistoryItem) => {
+  const getStatusBadgeClasses = (item: Partial<HistoryItem>) => {
     if (
       (item.status === "in-review" || item.status === "reviewed") &&
       item.answer
@@ -2128,8 +2128,11 @@ export const ReviewHistoryTimeline = ({
       return <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />;
     }
     if (item.modifiedAnswer) {
-      return <Pencil className="w-5 h-5 text-amber-600 dark:text-amber-400" />;
+      return (
+        <Pencil className="w-5 h-5 text-orange-700 dark:text-orange-400" />
+      );
     }
+
     if (!item.answer) {
       return <Clock className="w-5 h-5 text-primary" />;
     }
@@ -2226,7 +2229,7 @@ export const ReviewHistoryTimeline = ({
                           <span>{item.answer.approvalCount || "0"}</span>
                         </Badge>
                       )}
-                      {item.status && (
+                      {/* {item.status && (
                         <Badge
                           className={`${getStatusBadgeClasses(
                             item
@@ -2234,6 +2237,27 @@ export const ReviewHistoryTimeline = ({
                         >
                           {getStatusText(item)}
                         </Badge>
+                      )} */}
+                      {item.status && (
+                        <div className="flex items-center gap-2">
+                          {getStatusText(item) === "Answer Created" && (
+                            <Badge
+                              className={`
+         ${getStatusBadgeClasses({ status: "reviewed" })}
+        `}
+                            >
+                              Reviewed
+                            </Badge>
+                          )}
+
+                          <Badge
+                            className={`${getStatusBadgeClasses(
+                              item
+                            )} text-xs font-medium py-0.5`}
+                          >
+                            {getStatusText(item)}
+                          </Badge>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -2243,32 +2267,35 @@ export const ReviewHistoryTimeline = ({
                       {/* REVIEW PARAMETERS */}
                       {item.review?.parameters && (
                         <div className="flex flex-wrap gap-2 mt-1">
-                          {Object.entries(item.review.parameters).map(
-                            ([key, value]) => (
-                              <Badge
-                                key={key}
-                                variant="outline"
-                                className={`text-sm py-1 px-2.5 flex items-center rounded-md 
-                                            ${
-                                              value
-                                                ? "bg-green-50 dark:bg-green-900/20"
-                                                : "bg-red-50 dark:bg-red-900/20"
-                                            }`}
-                              >
-                                {value ? (
-                                  <Check className="w-3 h-3 mr-1 text-green-600 dark:text-green-400" />
-                                ) : (
-                                  <X className="w-3 h-3 mr-1 text-red-600 dark:text-red-400" />
-                                )}
+                          <div className="flex flex-wrap gap-2">
+                            {Object.entries(item.review.parameters ?? {}).map(
+                              ([key, value]) => (
+                                <Badge
+                                  key={key}
+                                  variant="outline"
+                                  className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-full border 
+                                              ${
+                                                value
+                                                  ? "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700"
+                                                  : "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700"
+                                              }
+                                            `}
+                                >
+                                  {value ? (
+                                    <Check className="w-3 h-3" />
+                                  ) : (
+                                    <X className="w-3 h-3" />
+                                  )}
 
-                                {
-                                  parameterLabels[
-                                    key as keyof typeof parameterLabels
-                                  ]
-                                }
-                              </Badge>
-                            )
-                          )}
+                                  {
+                                    parameterLabels[
+                                      key as keyof typeof parameterLabels
+                                    ]
+                                  }
+                                </Badge>
+                              )
+                            )}
+                          </div>
                         </div>
                       )}
 
@@ -2285,7 +2312,7 @@ export const ReviewHistoryTimeline = ({
                             {/* {item.review.reason} */}
                             <ExpandableText
                               text={item.review.reason}
-                              maxLength={150}
+                              maxLength={0}
                             />
                           </p>
                         </div>
@@ -2299,10 +2326,18 @@ export const ReviewHistoryTimeline = ({
                       </span>
                     )}
                     {item.modifiedAnswer && (
-                      <span className="text-sm px-2 py-2 w-full rounded border bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 ">
+                      <span
+                        className="
+    text-sm px-2 py-2 w-full rounded border
+    bg-orange-100 dark:bg-orange-900/30
+    border-orange-300 dark:border-orange-700
+    text-orange-700 dark:text-orange-400
+  "
+                      >
                         Answer Modified
                       </span>
                     )}
+
                     {item.status === "in-review" && !item.answer && (
                       <span className="text-sm px-2 py-4 w-full rounded border bg-muted/40 text-muted-foreground font-medium flex items-center gap-1">
                         <Clock className="w-3 h-3" />
@@ -2319,7 +2354,8 @@ export const ReviewHistoryTimeline = ({
                           <div className="space-y-1 ">
                             {/* LABEL */}
                             <Label className="text-sm font-medium text-muted-foreground px-1">
-                              Answer:
+                              {item.status == "reviewed" && "New "} Answer:{" "}
+                              {item.rejectedAnswer}
                             </Label>
 
                             {/* ANSWER BOX */}

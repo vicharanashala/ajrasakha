@@ -10,6 +10,30 @@ export const ExpandableText = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
+  if (maxLength === 0) {
+    return (
+      <div className="space-y-2">
+        <p>{isExpanded ? text : ""}</p>
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="text-sm text-primary hover:underline flex items-center gap-1"
+        >
+          {isExpanded ? (
+            <>
+              <ChevronUp className="w-3 h-3" />
+              View Less
+            </>
+          ) : (
+            <>
+              <ChevronDown className="w-3 h-3" />
+              View More
+            </>
+          )}
+        </button>
+      </div>
+    );
+  }
+
   if (text.length <= maxLength) {
     return <span>{text}</span>;
   }
