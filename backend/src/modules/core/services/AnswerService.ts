@@ -365,9 +365,8 @@ export class AnswerService extends BaseService {
           );
         } else if (status == 'accepted') {
           const review_answer_id = lastAnsweredHistory.answer.toString();
-          const answerDetails = await this.answerRepo.getById(review_answer_id)
-          console.log("ans details ", answerDetails)
-          await this.userRepo.updatePenaltyAndIncentive(answerDetails.authorId.toString(),'incentive',session)
+          const authorId =lastAnsweredHistory.updatedBy.toString()
+          await this.userRepo.updatePenaltyAndIncentive(authorId,'incentive',session)
           const updatedSubmissionData = {
             reviewId,
             approvedAnswer: new ObjectId(review_answer_id),
@@ -423,9 +422,10 @@ export class AnswerService extends BaseService {
           const payload: Partial<IAnswer> = {
             status: 'rejected',
           };
-          const answerDetails = await this.answerRepo.getById(body.rejectedAnswer.toString())
-          console.log("ans details ", answerDetails)
-          await this.userRepo.updatePenaltyAndIncentive(answerDetails.authorId.toString(),'penalty',session)
+          // const answerDetails = await this.answerRepo.getById(body.rejectedAnswer.toString())
+          const authorId =lastAnsweredHistory.updatedBy.toString()
+          console.log("ans details ", authorId)
+          await this.userRepo.updatePenaltyAndIncentive(authorId,'penalty',session)
           await this.answerRepo.updateAnswerStatus(
             body.rejectedAnswer,
             payload,
