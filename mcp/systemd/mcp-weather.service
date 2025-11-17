@@ -10,6 +10,7 @@ Group=ubuntu
 WorkingDirectory=/home/ubuntu/Kshitij/sysd/ajrasakha/mcp
 Environment="PATH=/home/ubuntu/Kshitij/sysd/ajrasakha/mcp/venv/bin:/usr/local/bin:/usr/bin:/bin"
 EnvironmentFile=/home/ubuntu/Kshitij/sysd/ajrasakha/mcp/.env
+EnvironmentFile=/home/ubuntu/Kshitij/sysd/ajrasakha/mcp/.env.weather
 ExecStart=/home/ubuntu/Kshitij/sysd/ajrasakha/mcp/venv/bin/python weather.py
 Restart=always
 RestartSec=10
