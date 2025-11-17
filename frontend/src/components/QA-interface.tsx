@@ -2123,7 +2123,7 @@ export const ReviewHistoryTimeline = ({
     }
     if (item.modifiedAnswer) {
       return (
-        <Pencil className="w-5 h-5 text-orange-700 dark:text-orange-400" />
+        <Pencil className="w-5 h-5 text-orange-600 dark:text-orange-400" />
       );
     }
 
