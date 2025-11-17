@@ -290,30 +290,32 @@ export class UserRepository implements IUserRepository {
       .map(user => {
         const pref: PreferenceDto = user.preference || {};
 
+        const prefState = (pref.state || '').toLowerCase().trim();
+        const prefDomain = (pref.domain || '').toLowerCase().trim();
+        const prefCrop = (pref.crop || '').toLowerCase().trim();
+
+        const detState = (details.state || '').toLowerCase().trim();
+        const detDomain = (details.domain || '').toLowerCase().trim();
+        const detCrop = (details.crop || '').toLowerCase().trim();
+
         const isAllSelected =
-          pref.crop === 'all' && pref.state === 'all' && pref.domain === 'all';
+          prefCrop === 'all' && prefState === 'all' && prefDomain === 'all';
 
         let score = 0;
 
         // Preference Weighting
-        if (pref.state && pref.state !== 'all' && pref.state === details.state)
-          score += 3; // Highest priority
+        if (prefState !== 'all' && prefState === detState) score += 3;
 
-        if (pref.domain && pref.domain !== 'all' && pref.domain === details.domain)
-          score += 2; // Medium priority
+        if (prefDomain !== 'all' && prefDomain === detDomain) score += 2;
 
-        if (
-          pref.crop &&
-          pref.crop !== 'all' &&
-          pref.crop === details.crop
-        )
-          score += 1; // Lower priority
+        if (prefCrop !== 'all' && prefCrop === detCrop) score += 1;
 
         const workloadScore =
           typeof user.reputation_score === 'number' ? user.reputation_score : 0;
 
         return {user, score, isAllSelected, workloadScore};
       })
+
       .filter(Boolean) as {
       user: IUser;
       score: number;
