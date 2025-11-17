@@ -125,4 +125,14 @@ export interface IUserRepository {
    * @returns void.
    */
   updateAutoDeleteNotificationPreference(preference:NotificationRetentionType,userId:string,session?:ClientSession):Promise<void>
+
+
+   /**
+   * Finds all users.
+   * @param userId -  user IDs to find.
+   * @param field - field to update
+   * @param incrementValue - value to increment or decrement
+   * @returns void.
+   */
+updatePenalty(userId:string,field:'incentive' | 'penalty',incrementValue:number,session:ClientSession):Promise<void>
 }

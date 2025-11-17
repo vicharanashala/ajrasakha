@@ -19,6 +19,8 @@ export interface IUser {
   notifications?: number;
   role: UserRole;
   notificationRetention?: NotificationRetentionType;
+  incentive?:number;
+  penalty?:number;
   createdAt?: Date;
   updatedAt?: Date;
 }
