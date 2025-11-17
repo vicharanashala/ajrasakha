@@ -54,13 +54,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "./atoms/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./atoms/select";
+
 import {
   Tooltip,
   TooltipContent,
@@ -237,69 +231,67 @@ export const QAInterface = ({
     questionsRef.current = questions;
   }, [questions]);
 
-  useEffect(() => {
-    const saved = localStorage.getItem("questionDrafts");
-    if (saved) {
-      setDrafts(JSON.parse(saved));
-    }
+  // useEffect(() => {
+  //   const saved = localStorage.getItem("questionDrafts");
+  //   if (saved) {
+  //     setDrafts(JSON.parse(saved));
+  //   }
 
-    const savedSelected = localStorage.getItem("selectedQuestion");
-    if (savedSelected) setSelectedQuestion(savedSelected);
+  //   const savedSelected = localStorage.getItem("selectedQuestion");
+  //   if (savedSelected) setSelectedQuestion(savedSelected);
 
-    setIsLoaded(true);
-  }, []);
+  //   setIsLoaded(true);
+  // }, []);
 
-  useEffect(() => {
-    if (!isLoaded) return; // wait until drafts + selected are loaded
+  // useEffect(() => {
+  //   if (!isLoaded) return; // wait until drafts + selected are loaded
 
-    const savedSelected = localStorage.getItem("selectedQuestion");
+  //   const savedSelected = localStorage.getItem("selectedQuestion");
 
-    if (savedSelected && questions.some((q) => q?.id === savedSelected)) {
-      setSelectedQuestion(savedSelected);
-    } else {
-      const firstId = questions[0]?.id ?? null;
-      setSelectedQuestion(firstId);
-    }
-  }, [questions, isLoaded]);
+  //   if (savedSelected && questions.some((q) => q?.id === savedSelected)) {
+  //     setSelectedQuestion(savedSelected);
+  //   } else {
+  //     const firstId = questions[0]?.id ?? null;
+  //     setSelectedQuestion(firstId);
+  //   }
+  // }, [questions, isLoaded]);
 
-  useEffect(() => {
-    if (!selectedQuestion) return;
+  // useEffect(() => {
+  //   if (!selectedQuestion) return;
 
-    localStorage.setItem("selectedQuestion", selectedQuestion);
+  //   localStorage.setItem("selectedQuestion", selectedQuestion);
 
-    const draft = drafts[selectedQuestion];
+  //   const draft = drafts[selectedQuestion];
 
-    if (draft) {
-      setNewAnswer(draft.answer);
-      setSources(draft.sources);
-    } else {
-      setNewAnswer("");
-      setSources([]);
-    }
-  }, [selectedQuestion, drafts]);
+  //   if (draft) {
+  //     setNewAnswer(draft.answer);
+  //     setSources(draft.sources);
+  //   } else {
+  //     setNewAnswer("");
+  //     setSources([]);
+  //   }
+  // }, [selectedQuestion, drafts]);
 
-  useEffect(() => {
-    if (!selectedQuestion) return;
-    if (newAnswer.trim() === "" && sources.length === 0) return;
+  // useEffect(() => {
+  //   if (!selectedQuestion) return;
+  //   if (newAnswer.trim() === "" && sources.length === 0) return;
 
-    setDrafts((prev) => ({
-      ...prev,
-      [selectedQuestion]: {
-        answer: newAnswer,
-        sources,
-      },
-    }));
-  }, [newAnswer, sources]);
+  //   setDrafts((prev) => ({
+  //     ...prev,
+  //     [selectedQuestion]: {
+  //       answer: newAnswer,
+  //       sources,
+  //     },
+  //   }));
+  // }, [newAnswer, sources]);
 
-  useEffect(() => {
-    if (!isLoaded) return;
-    localStorage.setItem("questionDrafts", JSON.stringify(drafts));
-  }, [drafts, isLoaded]);
+  // useEffect(() => {
+  //   if (!isLoaded) return;
+  //   localStorage.setItem("questionDrafts", JSON.stringify(drafts));
+  // }, [drafts, isLoaded]);
 
   //to scroll to questions
   useEffect(() => {
-    setNewAnswer("");
-    setSources([]);
     setIsFinalAnswer(false);
     if (!selectedQuestion || !scrollRef.current) return;
 
@@ -597,12 +589,15 @@ export const QAInterface = ({
     }
   };
 
+  // if(isLoadingTargetQuestion){
+  //   return <Spinner/>
+  // }
   return (
-    <div className="container mx-auto px-4 md:px-6 bg-transparent py-4 ">
+    <div className=" mx-auto px-4 md:px-6 bg-transparent py-4 ">
       <div className="flex flex-col space-y-6">
         <div
           className={`grid grid-cols-1 ${
-            questions.length && "lg:grid-cols-2"
+            questions.length && !isLoadingTargetQuestion && "lg:grid-cols-2"
           } gap-6`}
         >
           <Card className="w-full md:max-h-[120vh]  max-h-[80vh] min-h-[75vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent">
@@ -637,7 +632,7 @@ export const QAInterface = ({
                 <span className="sr-only">Refresh</span>
               </Button>
             </CardHeader>
-            {isQuestionsLoading ? (
+            {isQuestionsLoading || isLoadingTargetQuestion ? (
               <div className="h-full flex flex-col items-center justify-center text-center space-y-4 px-6">
                 <div className="w-16 h-16 rounded-full flex items-center justify-center mb-2">
                   <svg
@@ -657,10 +652,16 @@ export const QAInterface = ({
 
                 <div className="space-y-2">
                   <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                    Loading Questions...
+                    {isLoadingTargetQuestion
+                      ? "Retrieving Selected Question"
+                      : "Loading Questions"}
                   </h3>
+
                   <p className="text-sm text-muted-foreground max-w-sm">
-                    Please wait while we fetch the questions for you.
+                    Please wait while we
+                    {isLoadingTargetQuestion
+                      ? " locate the question you selected."
+                      : " load the list of available questions."}
                   </p>
                 </div>
               </div>
@@ -2129,7 +2130,7 @@ export const ReviewHistoryTimeline = ({
     }
     if (item.modifiedAnswer) {
       return (
-        <Pencil className="w-5 h-5 text-orange-700 dark:text-orange-400" />
+        <Pencil className="w-5 h-5 text-orange-600 dark:text-orange-400" />
       );
     }
 
@@ -2240,6 +2241,15 @@ export const ReviewHistoryTimeline = ({
                       )} */}
                       {item.status && (
                         <div className="flex items-center gap-2">
+                          
+
+                          <Badge
+                            className={`${getStatusBadgeClasses(
+                              item
+                            )} text-xs font-medium py-0.5`}
+                          >
+                            {getStatusText(item)}
+                          </Badge>
                           {getStatusText(item) === "Answer Created" && (
                             <Badge
                               className={`
@@ -2249,14 +2259,6 @@ export const ReviewHistoryTimeline = ({
                               Reviewed
                             </Badge>
                           )}
-
-                          <Badge
-                            className={`${getStatusBadgeClasses(
-                              item
-                            )} text-xs font-medium py-0.5`}
-                          >
-                            {getStatusText(item)}
-                          </Badge>
                         </div>
                       )}
                     </div>
@@ -2328,11 +2330,11 @@ export const ReviewHistoryTimeline = ({
                     {item.modifiedAnswer && (
                       <span
                         className="
-    text-sm px-2 py-2 w-full rounded border
-    bg-orange-100 dark:bg-orange-900/30
-    border-orange-300 dark:border-orange-700
-    text-orange-700 dark:text-orange-400
-  "
+                          text-sm px-2 py-2 w-full rounded border
+                          bg-orange-100 dark:bg-orange-900/30
+                          border-orange-300 dark:border-orange-700
+                          text-orange-700 dark:text-orange-400
+                        "
                       >
                         Answer Modified
                       </span>
@@ -2362,7 +2364,7 @@ export const ReviewHistoryTimeline = ({
                             <div className="p-5 rounded-md border bg-card/50 text-sm relative">
                               <ExpandableText
                                 text={item.answer.answer}
-                                maxLength={150}
+                                maxLength={350}
                               />
 
                               {(item.answer.sources?.length > 0 ||

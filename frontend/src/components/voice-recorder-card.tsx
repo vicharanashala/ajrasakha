@@ -289,10 +289,10 @@ export const VoiceRecorderCard = () => {
   };
 
   return (
-    <div className="min-h-[75%] bg-background p-4">
-      <div className="max-w-7xl mx-auto">
+    <div className=" bg-background p-4">
+      <div className=" mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="min-h-[80%] md:min-h-[75%] md:max-h-[75%]">
+          <Card className="min-h-[80%] md:h-auto">
             <CardHeader className="pb-4">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -444,7 +444,7 @@ export const VoiceRecorderCard = () => {
             </CardContent>
           </Card>
 
-          <Card className="min-h-[80%]  md:min-h-[75%] md:max-h-[75%]">
+          <Card className="min-h-[80%]  md:h-auto">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <Tooltip>

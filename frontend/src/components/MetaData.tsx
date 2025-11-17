@@ -50,4 +50,23 @@ export const STATES = [
   "West Bengal",
 ].sort();
 
-export const SEASONS = ["Kharif", "Rabi", "Zaid"];
+export const SEASONS = [
+  "Kharif",
+  "Rabi",
+  "Zaid",
+
+  // Additional Indian sub-seasons
+  "Pre-Kharif",
+  "Post-Kharif",
+  "Pre-Rabi",
+  "Zaid Rabi",
+
+  // General/global seasons
+  "Spring",
+  "Summer",
+  "Autumn",
+  "Winter",
+  "Monsoon",
+  "Dry Season",
+  "Wet Season"
+];
