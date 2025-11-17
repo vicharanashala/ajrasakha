@@ -58,7 +58,7 @@ export class AnswerService extends BaseService {
     @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
     private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
 
-    @inject(GLOBAL_TYPES.UserRepository) 
+    @inject(GLOBAL_TYPES.UserRepository)
     private readonly userRepo: IUserRepository,
 
     @inject(GLOBAL_TYPES.QuestionService)
@@ -144,7 +144,8 @@ export class AnswerService extends BaseService {
       // if (analysisStatus === 'CONVERGED') isFinalAnswer = true;
       if (isFinalAnswer) {
         const text = `Question: ${question.question}\nAnswer: ${answer}`;
-        const {embedding} = await this.aiService.getEmbedding(text);
+        // const {embedding} = await this.aiService.getEmbedding(text);
+        const embedding = [];
         await this.questionRepo.updateQuestion(
           questionId,
           {text, embedding},
@@ -365,8 +366,8 @@ export class AnswerService extends BaseService {
           );
         } else if (status == 'accepted') {
           const review_answer_id = lastAnsweredHistory.answer.toString();
-          const authorId =lastAnsweredHistory.updatedBy.toString()
-          await this.userRepo.updatePenaltyAndIncentive(authorId,'incentive',session)
+          // const authorId =lastAnsweredHistory.updatedBy.toString()
+          // await this.userRepo.updatePenaltyAndIncentive(authorId,'incentive',session)
           const updatedSubmissionData = {
             reviewId,
             approvedAnswer: new ObjectId(review_answer_id),
@@ -414,7 +415,12 @@ export class AnswerService extends BaseService {
               {status: 'in-review'},
               session,
             );
-
+            const IS_INCREMENT = false;
+            await this.userRepo.updateReputationScore(
+              userId,
+              IS_INCREMENT,
+              session,
+            );
             return {message: 'Your response recorded sucessfully, thankyou!'};
           }
         } else if (status == 'rejected') {
@@ -423,9 +429,13 @@ export class AnswerService extends BaseService {
             status: 'rejected',
           };
           // const answerDetails = await this.answerRepo.getById(body.rejectedAnswer.toString())
-          const authorId =lastAnsweredHistory.updatedBy.toString()
-          console.log("ans details ", authorId)
-          await this.userRepo.updatePenaltyAndIncentive(authorId,'penalty',session)
+          const authorId = lastAnsweredHistory.updatedBy.toString();
+          console.log('ans details ', authorId);
+          await this.userRepo.updatePenaltyAndIncentive(
+            authorId,
+            'penalty',
+            session,
+          );
           await this.answerRepo.updateAnswerStatus(
             body.rejectedAnswer,
             payload,
@@ -566,17 +576,17 @@ export class AnswerService extends BaseService {
             );
             // here i need to increment the workload of next expert
             const IS_INCREMENT = true;
-        await this.userRepo.updateReputationScore(
-          nextExpertId.toString(),
-          IS_INCREMENT,
-          session,
-        );
+            await this.userRepo.updateReputationScore(
+              nextExpertId.toString(),
+              IS_INCREMENT,
+              session,
+            );
 
             let message = `A new Review has been assigned to you`;
             let title = 'New Review Assigned';
             let entityId = questionId.toString();
             const user = nextExpertId.toString();
-            const type:INotificationType ='peer_review' 
+            const type: INotificationType = 'peer_review';
 
             await this.notificationService.saveTheNotifications(
               message,
@@ -607,7 +617,6 @@ export class AnswerService extends BaseService {
             session,
           );
         }
-
         // Decrement the reputation score of user since the user reviewed
         const IS_INCREMENT = false;
         await this.userRepo.updateReputationScore(
@@ -714,7 +723,12 @@ answer: ${updates.answer}`;
       //   text,
       // );
       const questionEmbedding = [];
-
+      const authorId = answer.authorId.toString();
+      await this.userRepo.updatePenaltyAndIncentive(
+        authorId,
+        'incentive',
+        session,
+      );
       await this.questionRepo.updateQuestion(
         questionId,
         {text, embedding: questionEmbedding, status: 'closed'},
