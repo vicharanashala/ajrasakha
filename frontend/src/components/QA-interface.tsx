@@ -99,7 +99,6 @@ import { Switch } from "./atoms/switch";
 import { Badge } from "./atoms/badge";
 import { Separator } from "./atoms/separator";
 import { CommentsSection } from "./comments-section";
-import Spinner from "./atoms/spinner";
 
 export type QuestionFilter =
   | "newest"
@@ -594,7 +593,7 @@ export const QAInterface = ({
   //   return <Spinner/>
   // }
   return (
-    <div className="container mx-auto px-4 md:px-6 bg-transparent py-4 ">
+    <div className=" mx-auto px-4 md:px-6 bg-transparent py-4 ">
       <div className="flex flex-col space-y-6">
         <div
           className={`grid grid-cols-1 ${
