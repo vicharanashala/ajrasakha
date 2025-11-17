@@ -144,8 +144,8 @@ export class AnswerService extends BaseService {
       // if (analysisStatus === 'CONVERGED') isFinalAnswer = true;
       if (isFinalAnswer) {
         const text = `Question: ${question.question}\nAnswer: ${answer}`;
-        // const {embedding} = await this.aiService.getEmbedding(text);
-        const embedding = [];
+        const {embedding} = await this.aiService.getEmbedding(text);
+        // const embedding = [];
         await this.questionRepo.updateQuestion(
           questionId,
           {text, embedding},
@@ -156,8 +156,8 @@ export class AnswerService extends BaseService {
 
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
-      const embedding = [];
-      // const {embedding} = await this.aiService.getEmbedding(answer);
+      // const embedding = [];
+      const {embedding} = await this.aiService.getEmbedding(answer);
 
       const {insertedId} = await this.answerRepo.addAnswer(
         questionId,
@@ -719,10 +719,10 @@ export class AnswerService extends BaseService {
 
 answer: ${updates.answer}`;
 
-      // const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
-      //   text,
-      // );
-      const questionEmbedding = [];
+      const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
+        text,
+      );
+      // const questionEmbedding = [];
       const authorId = answer.authorId.toString();
       await this.userRepo.updatePenaltyAndIncentive(
         authorId,
@@ -736,8 +736,8 @@ answer: ${updates.answer}`;
         true,
       );
 
-      // const {embedding} = await this.aiService.getEmbedding(text);
-      const embedding = [];
+      const {embedding} = await this.aiService.getEmbedding(text);
+      // const embedding = [];
       const payload: Partial<IAnswer> = {
         ...updates,
         approvedBy: new ObjectId(userId),

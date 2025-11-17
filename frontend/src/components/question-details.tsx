@@ -1828,7 +1828,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
             props.lastAnswerId === props.answer?._id && (
               <Dialog open={editOpen} onOpenChange={setEditOpen}>
                 <DialogTrigger asChild>
-                  <button className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2 rounded">
+                  <button className="bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded">
                     <CheckCircle2 className="h-4 w-4" />
                     Approve Answer
                   </button>
