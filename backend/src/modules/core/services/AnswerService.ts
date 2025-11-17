@@ -6,6 +6,7 @@ import {inject, injectable} from 'inversify';
 import {ClientSession, ObjectId} from 'mongodb';
 import {
   IAnswer,
+  INotificationType,
   IQuestionMetrics,
   IReview,
   ISubmissionHistory,
@@ -558,12 +559,19 @@ export class AnswerService extends BaseService {
               nextAllocatedSubmissionData,
               session,
             );
+            // here i need to increment the workload of next expert
+            const IS_INCREMENT = true;
+        await this.userRepo.updateReputationScore(
+          nextExpertId.toString(),
+          IS_INCREMENT,
+          session,
+        );
 
             let message = `A new Review has been assigned to you`;
             let title = 'New Review Assigned';
             let entityId = questionId.toString();
             const user = nextExpertId.toString();
-            const type = 'peer_review';
+            const type:INotificationType ='peer_review' 
 
             await this.notificationService.saveTheNotifications(
               message,

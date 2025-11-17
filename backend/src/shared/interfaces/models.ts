@@ -98,6 +98,7 @@ export interface IReview {
   parameters?: IReviewParmeters;
   createdAt?: Date;
   updatedAt?: Date;
+  status?: string;
 }
 
 // For transcripts
@@ -173,14 +174,19 @@ export type IRequest = RequestDetails & {
   updatedAt?: string | Date;
 };
 
-export type INotificationType = 'flag' | 'answer_creation' | 'peer_review';
+export type INotificationType =
+  | 'flag'
+  | 'answer_creation'
+  | 'peer_review'
+  | 'comment'
+  | 'flag_response';
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;
   enitity_id?: string | ObjectId;
   title: string;
-  // type:INotificationType;
-  type: string;
+  type: INotificationType;
+  // type: string;
   message: string;
   is_read: boolean;
   createdAt?: string | Date;

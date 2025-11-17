@@ -8,6 +8,7 @@ import {
   IQuestionSubmission,
   ISubmissionHistory,
   IAnswer,
+  INotificationType,
   IQuestionPriority,
 } from '#root/shared/interfaces/models.js';
 import {
@@ -384,9 +385,18 @@ export class QuestionService extends BaseService {
         const queue = intialUsersToAllocate // Limit to first 3 experts
           .map(user => new ObjectId(user._id.toString()));
 
-        for (const user of intialUsersToAllocate) {
+        // for (const user of intialUsersToAllocate) {
+        //   const IS_INCREMENT = true;
+        //   const userId = user._id.toString();
+        //   await this.userRepo.updateReputationScore(
+        //     userId,
+        //     IS_INCREMENT,
+        //     session,
+        //   );
+        // }
+        if (intialUsersToAllocate) {
           const IS_INCREMENT = true;
-          const userId = user._id.toString();
+          const userId = intialUsersToAllocate[0]._id.toString();
           await this.userRepo.updateReputationScore(
             userId,
             IS_INCREMENT,
@@ -415,7 +425,7 @@ export class QuestionService extends BaseService {
           let title = 'Answer Creation Assigned';
           let entityId = savedQuestion._id.toString();
           const user = intialUsersToAllocate[0]._id.toString();
-          const type = 'answer_creation';
+          const type:INotificationType = 'answer_creation';
           await this.notificationService.saveTheNotifications(
             message,
             title,
@@ -631,7 +641,15 @@ export class QuestionService extends BaseService {
         // &&EXISTING_QUEUE_COUNT >= 3
       ) {
         const hasExperts = expertsToAdd?.length >= 1;
-
+        if (!lastSubmission) {
+          const IS_INCREMENT = true;
+          const ExpertId = expertsToAdd[0]?.toString();
+          await this.userRepo.updateReputationScore(
+            ExpertId,
+            IS_INCREMENT,
+            session,
+          );
+        }
         if (hasExperts && lastSubmission) {
           // If there is no lastSubmission, that means the author is not responded yet
           const nextExpertId = expertsToAdd[0]?.toString();
@@ -647,11 +665,17 @@ export class QuestionService extends BaseService {
             nextAllocatedSubmissionData,
             session,
           );
+          const IS_INCREMENT = true;
+          await this.userRepo.updateReputationScore(
+            nextExpertId.toString(),
+            IS_INCREMENT,
+            session,
+          );
           let message = `A new Review has been assigned to you`;
           let title = 'New Review Assigned';
           let entityId = questionId.toString();
           const user = nextExpertId.toString();
-          const type = 'peer_review';
+          const type:INotificationType = 'peer_review';
           await this.notificationService.saveTheNotifications(
             message,
             title,
@@ -661,19 +685,19 @@ export class QuestionService extends BaseService {
           );
         }
 
-        if (hasExperts) {
-          const IS_INCREMENT = true;
+        // if (hasExperts) {
+        //   const IS_INCREMENT = true;
 
-          await Promise.all(
-            expertsToAdd.map(expertId =>
-              this.userRepo.updateReputationScore(
-                expertId,
-                IS_INCREMENT,
-                session,
-              ),
-            ),
-          );
-        }
+        //   await Promise.all(
+        //     expertsToAdd.map(expertId =>
+        //       this.userRepo.updateReputationScore(
+        //         expertId,
+        //         IS_INCREMENT,
+        //         session,
+        //       ),
+        //     ),
+        //   );
+        // }
 
         // for (const expertId of expertsToAdd) {
         //   const IS_INCREMENT = true;
@@ -815,24 +839,30 @@ export class QuestionService extends BaseService {
             `Cannot allocate more than 10 experts. Currently allocated: ${totalAllocatedExperts}`,
           );
 
-        for (let expert of experts) {
-          const IS_INCREMENT = true;
-          await this.userRepo.updateReputationScore(
-            expert,
-            IS_INCREMENT,
-            session,
-          );
-        }
+        // for (let expert of experts) {
+        //   const IS_INCREMENT = true;
+        //   await this.userRepo.updateReputationScore(
+        //     expert,
+        //     IS_INCREMENT,
+        //     session,
+        //   );
+        // }
 
         //if manuall alloacation is first person
 
         if (questionSubmission.queue.length === 0) {
           const firstPerson = experts[0];
+          const IS_INCREMENT = true;
+          await this.userRepo.updateReputationScore(
+            firstPerson.toString(),
+            IS_INCREMENT,
+            session,
+          );
           let message = `A Question has been assigned for answering`;
           let title = 'Answer Creation Assigned';
           let entityId = questionId.toString();
           const user = firstPerson.toString();
-          const type = 'peer_review';
+          const type:INotificationType = 'peer_review';
           await this.notificationService.saveTheNotifications(
             message,
             title,
@@ -863,7 +893,7 @@ export class QuestionService extends BaseService {
           let title = 'New Review Assigned';
           let entityId = questionId.toString();
           const user = expertId.toString();
-          const type = 'peer_review';
+          const type:INotificationType = 'peer_review';
           await this.notificationService.saveTheNotifications(
             message,
             title,
@@ -1054,4 +1084,12 @@ export class QuestionService extends BaseService {
       throw new InternalServerError(`Failed to fetch question data: ${error}`);
     }
   }
+
+
+  async getAllocatedQuestionPage(userId: string, questionId: string) {
+  return this._withTransaction(async (session) => {
+    return this.questionRepo.getAllocatedQuestionPage(userId, questionId, session);
+  });
+}
+
 }

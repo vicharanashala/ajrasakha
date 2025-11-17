@@ -129,6 +129,7 @@ export const QuestionDetails = ({
   currentUser,
   goBack,
 }: QuestionDetailProps) => {
+  console.log("here ",question)
   const answers = useMemo(
     () => flattenAnswers(question?.submission),
     [question.submission]

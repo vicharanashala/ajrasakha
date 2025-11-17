@@ -162,4 +162,9 @@ export interface IQuestionRepository {
   updateQuestionStatus(id: string, status: string, errorMessage?: string, session?: ClientSession): Promise<void>
 
   // findById(id: string, session?: ClientSession): Promise<IQuestion | null>
+    getAllocatedQuestionPage(
+  userId: string,
+  questionId: string,
+  session?: ClientSession
+): Promise<number>
 }

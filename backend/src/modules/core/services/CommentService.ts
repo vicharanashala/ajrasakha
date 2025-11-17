@@ -1,5 +1,5 @@
 import {ICommentRepository} from '#root/shared/database/interfaces/ICommentRepository.js';
-import {BaseService, IComment, MongoDatabase} from '#root/shared/index.js';
+import {BaseService, IComment, INotificationType, MongoDatabase} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
 import {ClientSession} from 'mongodb';
@@ -79,14 +79,8 @@ export class CommentService extends BaseService {
         let message = `A new Comment has been added to your Answer`;
         let title = 'New Comment added';
         let entityId = questionId.toString();
-        const type = 'new_comment';
-        await this.notificationService.saveTheNotifications(
-          message,
-          title,
-          entityId,
-          authourId,
-          type,
-        );
+        const type:INotificationType = 'comment';
+        await this.notificationService.saveTheNotifications(message,title,entityId,authourId,type)
       });
       return true;
     } catch (err: any) {
