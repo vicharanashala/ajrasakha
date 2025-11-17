@@ -102,4 +102,10 @@ export class UserService extends BaseService {
     })
   }
 
+  async updatePenaltyAndIncentive(userId:string,type:'penalty' | 'incentive'):Promise<void>{
+    await this._withTransaction(async (session:ClientSession) => {
+      await this.userRepo.updatePenaltyAndIncentive(userId,type,session)
+    })
+  }
+
 }

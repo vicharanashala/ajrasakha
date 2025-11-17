@@ -250,43 +250,72 @@ export class UserRepository implements IUserRepository {
 
     // 3. Score users
     const scoredUsers = allUsers
+      // .map(user => {
+      //   const pref: PreferenceDto = user.preference || {};
+
+      //   const isAllSelected =
+      //     pref.crop === 'all' && pref.state === 'all' && pref.domain === 'all';
+
+      //   let score = 0;
+      //   if (pref.crop && pref.crop !== 'all' && pref.crop === details.crop)
+      //     score++;
+      //   if (pref.state && pref.state !== 'all' && pref.state === details.state)
+      //     score++;
+      //   if (
+      //     pref.domain &&
+      //     pref.domain !== 'all' &&
+      //     pref.domain === details.domain
+      //   )
+      //     score++;
+
+      //   // Include only if score > 0 or allSelected
+      //   // if (score > 0 || isAllSelected) {
+      //   const workloadScore =
+      //     typeof user.reputation_score === 'number' ? user.reputation_score : 0;
+
+      //   // console.log(
+      //   //   'email: ',
+      //   //   user.email,
+      //   //   'score; ',
+      //   //   score,
+      //   //   'isAllSelected: ',
+      //   //   isAllSelected,
+      //   //   'Workload score: ',
+      //   //   workloadScore,
+      //   // );
+      //   return {user, score, isAllSelected, workloadScore};
+      //   // }
+      //   // return null;
+      // })
       .map(user => {
         const pref: PreferenceDto = user.preference || {};
 
+        const prefState = (pref.state || '').toLowerCase().trim();
+        const prefDomain = (pref.domain || '').toLowerCase().trim();
+        const prefCrop = (pref.crop || '').toLowerCase().trim();
+
+        const detState = (details.state || '').toLowerCase().trim();
+        const detDomain = (details.domain || '').toLowerCase().trim();
+        const detCrop = (details.crop || '').toLowerCase().trim();
+
         const isAllSelected =
-          pref.crop === 'all' && pref.state === 'all' && pref.domain === 'all';
+          prefCrop === 'all' && prefState === 'all' && prefDomain === 'all';
 
         let score = 0;
-        if (pref.crop && pref.crop !== 'all' && pref.crop === details.crop)
-          score++;
-        if (pref.state && pref.state !== 'all' && pref.state === details.state)
-          score++;
-        if (
-          pref.domain &&
-          pref.domain !== 'all' &&
-          pref.domain === details.domain
-        )
-          score++;
 
-        // Include only if score > 0 or allSelected
-        // if (score > 0 || isAllSelected) {
+        // Preference Weighting
+        if (prefState !== 'all' && prefState === detState) score += 3;
+
+        if (prefDomain !== 'all' && prefDomain === detDomain) score += 2;
+
+        if (prefCrop !== 'all' && prefCrop === detCrop) score += 1;
+
         const workloadScore =
           typeof user.reputation_score === 'number' ? user.reputation_score : 0;
 
-        // console.log(
-        //   'email: ',
-        //   user.email,
-        //   'score; ',
-        //   score,
-        //   'isAllSelected: ',
-        //   isAllSelected,
-        //   'Workload score: ',
-        //   workloadScore,
-        // );
         return {user, score, isAllSelected, workloadScore};
-        // }
-        // return null;
       })
+
       .filter(Boolean) as {
       user: IUser;
       score: number;
@@ -336,6 +365,19 @@ export class UserRepository implements IUserRepository {
     } catch (error) {
       console.log(error);
       throw new InternalServerError(`Failed to update notification Preference`);
+    }
+  }
+
+  async updatePenaltyAndIncentive(userId:string,field:'incentive' | 'penalty',session:ClientSession):Promise<void>{
+    await this.init()
+    try {
+      const user = await this.usersCollection.findOne({_id:new ObjectId(userId)})
+      if(!user){
+        throw new NotFoundError("User not found")
+      }
+      await this.usersCollection.findOneAndUpdate({_id:new ObjectId(userId)},{$inc:{[field]:1}},{upsert:true,session})
+    } catch (error) {
+      throw new InternalServerError(`Failed to update incentive`);
     }
   }
 }

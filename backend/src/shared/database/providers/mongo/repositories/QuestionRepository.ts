@@ -4,6 +4,7 @@ import {
   IContext,
   IQuestion,
   IQuestionSubmission,
+  IReview,
   IUser,
 } from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
@@ -40,6 +41,7 @@ export class QuestionRepository implements IQuestionRepository {
   private AnswersCollection: Collection<IAnswer>;
   private UsersCollection!: Collection<IUser>;
   private ContextCollection: Collection<IContext>;
+  private ReviewCollection: Collection<IReview>;
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
@@ -56,6 +58,7 @@ export class QuestionRepository implements IQuestionRepository {
       await this.db.getCollection<IQuestionSubmission>('question_submissions');
     this.UsersCollection = await this.db.getCollection<IUser>('users');
     this.AnswersCollection = await this.db.getCollection<IAnswer>('answers');
+    this.ReviewCollection = await this.db.getCollection<IReview>('reviews');
   }
 
   private async ensureIndexes() {
@@ -633,7 +636,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       const usersMap = new Map(users.map(u => [u._id?.toString(), u]));
 
-      // 6 Fetch all related answers
+      // 6 Fetch all related answers and reviews
       const answers = await this.AnswersCollection.find({
         _id: {$in: allAnswerIds},
       }).toArray();
@@ -642,6 +645,54 @@ export class QuestionRepository implements IQuestionRepository {
       const isAlreadySubmitted = allUpdatedByIds
         .map(id => id.toString())
         .includes(userId);
+
+      // Fetch associated reviews and reviewer details
+      const reviews = await this.ReviewCollection.find({
+        questionId: submission.questionId,
+        answerId: {$in: allAnswerIds},
+      })
+        .sort({createdAt: -1})
+        .toArray();
+
+      const reviewerIds: ObjectId[] = reviews
+        .map(r => r.reviewerId.toString())
+        .filter(Boolean)
+        .map(id => new ObjectId(id));
+
+      const reviewerUsers = await this.UsersCollection.find({
+        _id: {$in: reviewerIds},
+      }).toArray();
+
+      const reviewerMap = new Map(
+        reviewerUsers.map(u => [u._id.toString(), u]),
+      );
+
+      const normalizedReviews = reviews.map(r => {
+        const reviewer = reviewerMap.get(r.reviewerId?.toString());
+
+        return {
+          ...r,
+          _id: r._id?.toString(),
+          questionId: r.questionId?.toString(),
+          answerId: r.answerId?.toString(),
+          reviewerId: r.reviewerId?.toString(),
+
+          reviewer: reviewer
+            ? {
+                _id: reviewer._id.toString(),
+                firstName: reviewer.firstName + reviewer.lastName,
+                email: reviewer.email,
+              }
+            : null,
+        };
+      });
+
+      const reviewsByAnswer = new Map();
+      normalizedReviews.forEach(r => {
+        const aId = r.answerId;
+        if (!reviewsByAnswer.has(aId)) reviewsByAnswer.set(aId, []);
+        reviewsByAnswer.get(aId).push(r);
+      });
 
       // 7 Populate submissions manually
       const populatedSubmission = {
@@ -684,12 +735,17 @@ export class QuestionRepository implements IQuestionRepository {
                   ?.approvalCount,
                 createdAt: answersMap.get(h.answer?.toString())?.createdAt,
                 updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
+
+                // Attch review details
+                reviews: reviewsByAnswer.get(h.answer?.toString()) || [],
               }
             : null,
           status: h.status,
           reasonForRejection: h.reasonForRejection,
           approvedAnswer: h.approvedAnswer?.toString(),
           rejectedAnswer: h.rejectedAnswer?.toString(),
+          modifiedAnswer: h.modifiedAnswer?.toString(),
+          reasonForLastModification: h.reasonForLastModification?.toString(),
         })),
         createdAt: submission?.createdAt,
         updatedAt: submission?.updatedAt,
@@ -883,87 +939,86 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
-
   async getAllocatedQuestionPage(
-  userId: string,
-  questionId: string,
-  session?: ClientSession
-): Promise<number> {
-  await this.init();
+    userId: string,
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<number> {
+    await this.init();
 
-  const userObjectId = new ObjectId(userId);
-  const questionObjectId = new ObjectId(questionId);
+    const userObjectId = new ObjectId(userId);
+    const questionObjectId = new ObjectId(questionId);
 
-  // 1. Fetch submissions to know what questions are assigned to this user
-  const submissions = await this.QuestionSubmissionCollection.aggregate([
-    {
-      $addFields: {
-        lastHistory: { $arrayElemAt: ["$history", -1] },
-        historyCount: { $size: { $ifNull: ["$history", []] } },
-        firstInQueue: { $arrayElemAt: ["$queue", 0] },
+    // 1. Fetch submissions to know what questions are assigned to this user
+    const submissions = await this.QuestionSubmissionCollection.aggregate([
+      {
+        $addFields: {
+          lastHistory: {$arrayElemAt: ['$history', -1]},
+          historyCount: {$size: {$ifNull: ['$history', []]}},
+          firstInQueue: {$arrayElemAt: ['$queue', 0]},
+        },
       },
-    },
-    {
-      $match: {
-        $or: [
-          {
-            "lastHistory.updatedBy": userObjectId,
-            "lastHistory.status": "in-review",
-            $or: [
-              { "lastHistory.answer": { $exists: false } },
-              { "lastHistory.answer": null },
-              { "lastHistory.answer": "" },
-            ],
-          },
-          {
-            historyCount: 0,
-            firstInQueue: userObjectId,
-          },
-        ],
+      {
+        $match: {
+          $or: [
+            {
+              'lastHistory.updatedBy': userObjectId,
+              'lastHistory.status': 'in-review',
+              $or: [
+                {'lastHistory.answer': {$exists: false}},
+                {'lastHistory.answer': null},
+                {'lastHistory.answer': ''},
+              ],
+            },
+            {
+              historyCount: 0,
+              firstInQueue: userObjectId,
+            },
+          ],
+        },
       },
-    },
-  ]).toArray();
+    ]).toArray();
 
-  const questionIdsToAttempt = submissions.map(
-    (sub) => new ObjectId(sub.questionId)
-  );
+    const questionIdsToAttempt = submissions.map(
+      sub => new ObjectId(sub.questionId),
+    );
 
-  // 2. Same match filter as your main query
-  const filter: any = {
-    status: { $in: ["open", "delayed"] },
-    _id: { $in: questionIdsToAttempt },
-  };
+    // 2. Same match filter as your main query
+    const filter: any = {
+      status: {$in: ['open', 'delayed']},
+      _id: {$in: questionIdsToAttempt},
+    };
 
-  // 3. Recreate the same sorting pipeline
-  const sortedQuestions = await this.QuestionCollection.aggregate([
-    { $match: filter },
-    {
-      $addFields: {
-        priorityOrder: {
-          $switch: {
-            branches: [
-              { case: { $eq: ["$priority", "high"] }, then: 1 },
-              { case: { $eq: ["$priority", "medium"] }, then: 2 },
-              { case: { $eq: ["$priority", "low"] }, then: 3 },
-            ],
-            default: 4,
+    // 3. Recreate the same sorting pipeline
+    const sortedQuestions = await this.QuestionCollection.aggregate([
+      {$match: filter},
+      {
+        $addFields: {
+          priorityOrder: {
+            $switch: {
+              branches: [
+                {case: {$eq: ['$priority', 'high']}, then: 1},
+                {case: {$eq: ['$priority', 'medium']}, then: 2},
+                {case: {$eq: ['$priority', 'low']}, then: 3},
+              ],
+              default: 4,
+            },
           },
         },
       },
-    },
-    { $sort: { priorityOrder: 1, createdAt: 1, _id: 1 } },
-    { $project: { _id: 1 } },
-  ]).toArray();
+      {$sort: {priorityOrder: 1, createdAt: 1, _id: 1}},
+      {$project: {_id: 1}},
+    ]).toArray();
 
-  const index = sortedQuestions.findIndex(
-    (q) => q._id.toString() === questionId
-  );
+    const index = sortedQuestions.findIndex(
+      q => q._id.toString() === questionId,
+    );
 
-  if (index === -1) return 1;
+    if (index === -1) return 1;
 
-  const limit = 10;
-  return Math.floor(index / limit) + 1;
-}
+    const limit = 10;
+    return Math.floor(index / limit) + 1;
+  }
 
   async insertMany(questions: IQuestion[]): Promise<string[]> {
     await this.init();
@@ -973,21 +1028,30 @@ export class QuestionRepository implements IQuestionRepository {
       if (!result.acknowledged) {
         throw new InternalServerError('Failed to insert questions');
       }
-      const ids = Object.values(result.insertedIds).map((id: any) => id.toString());
+      const ids = Object.values(result.insertedIds).map((id: any) =>
+        id.toString(),
+      );
       return ids;
     } catch (error: any) {
-      throw new InternalServerError(error?.message || 'Failed to insertMany questions');
+      throw new InternalServerError(
+        error?.message || 'Failed to insertMany questions',
+      );
     }
   }
 
-  async updateQuestionStatus(id: string, status: string, errorMessage?: string, session?: ClientSession): Promise<void> {
+  async updateQuestionStatus(
+    id: string,
+    status: string,
+    errorMessage?: string,
+    session?: ClientSession,
+  ): Promise<void> {
     await this.init();
-    const update: any = { status, updatedAt: new Date() };
+    const update: any = {status, updatedAt: new Date()};
     if (errorMessage) update.errorMessage = errorMessage;
-    await this.QuestionCollection.updateOne({ _id: new ObjectId(id) }, { $set: update }, { session });
+    await this.QuestionCollection.updateOne(
+      {_id: new ObjectId(id)},
+      {$set: update},
+      {session},
+    );
   }
-
-
 }
-
-

@@ -39,7 +39,7 @@ export class CommentController {
   async getComments(
     @Params() params: GetCommentsParams,
     @QueryParams() query: GetCommentsQuery,
-  ): Promise<IComment[]> {
+  ): Promise<{comments: IComment[]; total: number}> {
     const page = query.page ? Number(query.page) : 1;
     const limit = query.limit ? Number(query.limit) : 10;
 

@@ -2,7 +2,8 @@ import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQ
 import {
   IQuestionSubmission,
   ISubmissionHistory,
-  IReviewerHeatmapRow
+  IReviewerHeatmapRow,
+  IReview,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -301,6 +302,14 @@ export class QuestionSubmissionRepository
           },
           {
             $lookup: {
+              from: 'users',
+              localField: 'history.lastModifiedBy',
+              foreignField: '_id',
+              as: 'lastModifiedByUser',
+            },
+          },
+          {
+            $lookup: {
               from: 'answers',
               localField: 'history.answer',
               foreignField: '_id',
@@ -308,13 +317,25 @@ export class QuestionSubmissionRepository
             },
           },
           {
+            $lookup: {
+              from: 'reviews',
+              localField: 'history.reviewId',
+              foreignField: '_id',
+              as: 'reviewData',
+            },
+          },
+          {
             $project: {
               _id: 0,
               updatedBy: {$arrayElemAt: ['$updatedByUser', 0]},
               answer: {$arrayElemAt: ['$answerData', 0]},
+              review: {$arrayElemAt: ['$reviewData', 0]},
+              lastModifiedBy: {$arrayElemAt: ['$lastModifiedByUser', 0]},
               'history.status': 1,
               'history.reasonForRejection': 1,
               'history.approvedAnswer': 1,
+              'history.modifiedAnswer': 1,
+              'history.reasonForLastModification': 1,
               'history.createdAt': 1,
               'history.updatedAt': 1,
             },
@@ -327,6 +348,8 @@ export class QuestionSubmissionRepository
         const h = item.history;
         const updatedBy = item.updatedBy;
         const answer = item.answer;
+        const review = item.review as IReview;
+        const lastModifiedBy = item.lastModifiedBy;
 
         return {
           updatedBy: updatedBy
@@ -334,6 +357,14 @@ export class QuestionSubmissionRepository
                 _id: updatedBy._id.toString(),
                 userName: `${updatedBy.firstName} ${updatedBy.lastName}`,
                 email: updatedBy.email,
+              }
+            : {_id: '', userName: '', email: ''},
+
+          lastModifiedBy: lastModifiedBy
+            ? {
+                _id: lastModifiedBy._id.toString(),
+                userName: `${lastModifiedBy.firstName} ${lastModifiedBy.lastName}`,
+                email: lastModifiedBy.email,
               }
             : {_id: '', userName: '', email: ''},
 
@@ -346,11 +377,27 @@ export class QuestionSubmissionRepository
               }
             : undefined,
 
+          review: review
+            ? {
+                _id: review._id.toString(),
+                reviewType: review.reviewType,
+                action: review.action,
+                reason: review.reason,
+                parameters: review.parameters,
+                createdAt: review.createdAt,
+                updatedAt: review.updatedAt,
+              }
+            : undefined,
+
           status: h.status,
           reasonForRejection: h.reasonForRejection,
           approvedAnswer: h.approvedAnswer
             ? h.approvedAnswer.toString()
             : undefined,
+          modifiedAnswer: h.modifiedAnswer
+            ? h.modifiedAnswer.toString()
+            : undefined,
+          reasonForLastModification: h.reasonForLastModification,
           createdAt: h.createdAt,
           updatedAt: h.updatedAt,
         };
@@ -381,114 +428,111 @@ export class QuestionSubmissionRepository
   async heatMapResultsForReviewer(): Promise<IReviewerHeatmapRow[] | null> {
     try {
       await this.init();
-  
+
       const pipeline = [
-        { $unwind: "$history" },
-      
+        {$unwind: '$history'},
+
         {
           $match: {
-            "history.status": { $in: ["reviewed", "rejected"] }
-          }
+            'history.status': {$in: ['reviewed', 'rejected']},
+          },
         },
-      
+
         {
           $addFields: {
             turnaroundHours: {
               $divide: [
-                { $subtract: ["$history.updatedAt", "$createdAt"] },
-                1000 * 60 * 60
-              ]
-            }
-          }
+                {$subtract: ['$history.updatedAt', '$createdAt']},
+                1000 * 60 * 60,
+              ],
+            },
+          },
         },
-      
+
         // ✅ ONE-HOUR BUCKET INTERVALS
         {
           $addFields: {
             timeRange: {
               $switch: {
                 branches: [
-                  { case: { $lt: ["$turnaroundHours", 1] }, then: "0_1" },
-                  { case: { $lt: ["$turnaroundHours", 2] }, then: "1_2" },
-                  { case: { $lt: ["$turnaroundHours", 3] }, then: "2_3" },
-                  { case: { $lt: ["$turnaroundHours", 4] }, then: "3_4" },
-                  { case: { $lt: ["$turnaroundHours", 5] }, then: "4_5" },
-                  { case: { $lt: ["$turnaroundHours", 6] }, then: "5_6" },
-                  { case: { $lt: ["$turnaroundHours", 7] }, then: "6_7" },
-                  { case: { $lt: ["$turnaroundHours", 8] }, then: "7_8" },
-                  { case: { $lt: ["$turnaroundHours", 9] }, then: "8_9" },
-                  { case: { $lt: ["$turnaroundHours", 10] }, then: "9_10" },
-                  { case: { $lt: ["$turnaroundHours", 11] }, then: "10_11" },
-                  { case: { $lt: ["$turnaroundHours", 12] }, then: "11_12" }
+                  {case: {$lt: ['$turnaroundHours', 1]}, then: '0_1'},
+                  {case: {$lt: ['$turnaroundHours', 2]}, then: '1_2'},
+                  {case: {$lt: ['$turnaroundHours', 3]}, then: '2_3'},
+                  {case: {$lt: ['$turnaroundHours', 4]}, then: '3_4'},
+                  {case: {$lt: ['$turnaroundHours', 5]}, then: '4_5'},
+                  {case: {$lt: ['$turnaroundHours', 6]}, then: '5_6'},
+                  {case: {$lt: ['$turnaroundHours', 7]}, then: '6_7'},
+                  {case: {$lt: ['$turnaroundHours', 8]}, then: '7_8'},
+                  {case: {$lt: ['$turnaroundHours', 9]}, then: '8_9'},
+                  {case: {$lt: ['$turnaroundHours', 10]}, then: '9_10'},
+                  {case: {$lt: ['$turnaroundHours', 11]}, then: '10_11'},
+                  {case: {$lt: ['$turnaroundHours', 12]}, then: '11_12'},
                 ],
-                default: "12_plus"
-              }
-            }
-          }
+                default: '12_plus',
+              },
+            },
+          },
         },
-        
-      
+
         {
           $group: {
-            _id: { reviewerId: "$history.updatedBy", timeRange: "$timeRange" },
-            count: { $sum: 1 }
-          }
+            _id: {reviewerId: '$history.updatedBy', timeRange: '$timeRange'},
+            count: {$sum: 1},
+          },
         },
         {
           $group: {
-            _id: "$_id.reviewerId",
-            counts: { $push: { k: "$_id.timeRange", v: "$count" } }
-          }
+            _id: '$_id.reviewerId',
+            counts: {$push: {k: '$_id.timeRange', v: '$count'}},
+          },
         },
         {
           $project: {
-            reviewerId: "$_id",
-            counts: { $arrayToObject: "$counts" }
-          }
+            reviewerId: '$_id',
+            counts: {$arrayToObject: '$counts'},
+          },
         },
         {
           $lookup: {
-            from: "users",
-            localField: "reviewerId",
-            foreignField: "_id",
-            as: "reviewer"
-          }
+            from: 'users',
+            localField: 'reviewerId',
+            foreignField: '_id',
+            as: 'reviewer',
+          },
         },
-        { $unwind: "$reviewer" },
+        {$unwind: '$reviewer'},
         {
           $project: {
             _id: 0,
-            reviewerId: { $toString: "$reviewerId" },
+            reviewerId: {$toString: '$reviewerId'},
             reviewerName: {
               $trim: {
                 input: {
                   $concat: [
-                    { $ifNull: ["$reviewer.firstName", ""] },
+                    {$ifNull: ['$reviewer.firstName', '']},
                     {
                       $cond: [
-                        { $ifNull: ["$reviewer.lastName", false] },
-                        { $concat: [" ", "$reviewer.lastName"] },
-                        ""
-                      ]
-                    }
-                  ]
-                }
-              }
+                        {$ifNull: ['$reviewer.lastName', false]},
+                        {$concat: [' ', '$reviewer.lastName']},
+                        '',
+                      ],
+                    },
+                  ],
+                },
+              },
             },
-            counts: 1
-          }
-        }
+            counts: 1,
+          },
+        },
       ];
-      
-  
-      const result = await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
+
+      const result = await this.QuestionSubmissionCollection.aggregate(
+        pipeline,
+      ).toArray();
       return result.length ? (result as IReviewerHeatmapRow[]) : null;
-  
     } catch (err) {
-      console.error("Error generating reviewer heatmap:", err);
+      console.error('Error generating reviewer heatmap:', err);
       return null;
     }
   }
-  
-  
 }

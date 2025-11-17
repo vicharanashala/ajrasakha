@@ -1,4 +1,9 @@
-import type {  ISubmissions, SubmitAnswerResponse,FinalizedAnswersResponse, SourceItem } from "@/types";
+import type {
+  ISubmissions,
+  SubmitAnswerResponse,
+  FinalizedAnswersResponse,
+  SourceItem,
+} from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { IReviewAnswerPayload } from "../api/answer/useReviewAnswer";
 
@@ -30,7 +35,10 @@ export class AnswerService {
     reasonForRejection,
     approvedAnswer,
     rejectedAnswer,
-  }:IReviewAnswerPayload): Promise<SubmitAnswerResponse | null> {
+    modifiedAnswer,
+    reasonForModification,
+    parameters,
+  }: IReviewAnswerPayload): Promise<SubmitAnswerResponse | null> {
     try {
       return await apiFetch<SubmitAnswerResponse>(`${this._baseUrl}/review`, {
         method: "POST",
@@ -42,6 +50,9 @@ export class AnswerService {
           reasonForRejection,
           approvedAnswer,
           rejectedAnswer,
+          modifiedAnswer,
+          reasonForModification,
+          parameters,
         }),
       });
     } catch (error) {
@@ -72,8 +83,13 @@ export class AnswerService {
       `${this._baseUrl}/submissions?page=${pageParam}&limit=${limit}`
     );
   }
-  async getFinalizedAnswers(userId:string,date:string,status:string): Promise<FinalizedAnswersResponse | null> {
-    return apiFetch<FinalizedAnswersResponse>(`${this._baseUrl}/finalizedAnswers?userId=${userId}&date=${date}&status=${status}`);
+  async getFinalizedAnswers(
+    userId: string,
+    date: string,
+    status: string
+  ): Promise<FinalizedAnswersResponse | null> {
+    return apiFetch<FinalizedAnswersResponse>(
+      `${this._baseUrl}/finalizedAnswers?userId=${userId}&date=${date}&status=${status}`
+    );
   }
-
 }

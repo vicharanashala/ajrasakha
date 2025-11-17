@@ -26,4 +26,5 @@ export const CORE_TYPES = {
   ContextRepository: Symbol.for('ContextRepository'),
   RequestRepository: Symbol.for('RequestRepository'),
   NotificationRepository:Symbol.for('NotificationRepository'),
+  ReviewRepository:Symbol.for('ReviewRepository'),
 };
