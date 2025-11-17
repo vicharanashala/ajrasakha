@@ -55,6 +55,7 @@ export interface IReview {
   questionId: string;
   answerId?: string;
   reviewerId: string;
+  reviewer?: IUser;
   reason?: string;
   parameters?: IReviewParmeters;
   createdAt?: Date;
@@ -301,6 +302,7 @@ export interface IAnswer {
   isFinalAnswer: boolean;
   approvalCount: number;
   sources: SourceItem[];
+  reviews?: IReview[]
   answer: string;
   threshold: number;
   createdAt?: Date;
