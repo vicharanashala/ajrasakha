@@ -94,7 +94,7 @@ import {
   type IReviewAnswerPayload,
 } from "@/hooks/api/answer/useReviewAnswer";
 import { formatDate } from "@/utils/formatDate";
-import Spinner from "./atoms/spinner";
+// import Spinner from "./atoms/spinner";
 
 export type QuestionFilter =
   | "newest"
@@ -518,7 +518,7 @@ export const QAInterface = ({
   //   return <Spinner/>
   // }
   return (
-    <div className="container mx-auto px-4 md:px-6 bg-transparent py-4 ">
+    <div className=" mx-auto px-4 md:px-6 bg-transparent py-4 ">
       <div className="flex flex-col space-y-6">
         <div
           className={`grid grid-cols-1 ${
