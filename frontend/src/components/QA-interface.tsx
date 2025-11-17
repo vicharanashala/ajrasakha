@@ -54,13 +54,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "./atoms/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./atoms/select";
+
 import {
   Tooltip,
   TooltipContent,
@@ -2240,6 +2234,15 @@ export const ReviewHistoryTimeline = ({
                       )} */}
                       {item.status && (
                         <div className="flex items-center gap-2">
+                          
+
+                          <Badge
+                            className={`${getStatusBadgeClasses(
+                              item
+                            )} text-xs font-medium py-0.5`}
+                          >
+                            {getStatusText(item)}
+                          </Badge>
                           {getStatusText(item) === "Answer Created" && (
                             <Badge
                               className={`
@@ -2249,14 +2252,6 @@ export const ReviewHistoryTimeline = ({
                               Reviewed
                             </Badge>
                           )}
-
-                          <Badge
-                            className={`${getStatusBadgeClasses(
-                              item
-                            )} text-xs font-medium py-0.5`}
-                          >
-                            {getStatusText(item)}
-                          </Badge>
                         </div>
                       )}
                     </div>
@@ -2328,11 +2323,11 @@ export const ReviewHistoryTimeline = ({
                     {item.modifiedAnswer && (
                       <span
                         className="
-    text-sm px-2 py-2 w-full rounded border
-    bg-orange-100 dark:bg-orange-900/30
-    border-orange-300 dark:border-orange-700
-    text-orange-700 dark:text-orange-400
-  "
+                          text-sm px-2 py-2 w-full rounded border
+                          bg-orange-100 dark:bg-orange-900/30
+                          border-orange-300 dark:border-orange-700
+                          text-orange-700 dark:text-orange-400
+                        "
                       >
                         Answer Modified
                       </span>
@@ -2362,7 +2357,7 @@ export const ReviewHistoryTimeline = ({
                             <div className="p-5 rounded-md border bg-card/50 text-sm relative">
                               <ExpandableText
                                 text={item.answer.answer}
-                                maxLength={150}
+                                maxLength={350}
                               />
 
                               {(item.answer.sources?.length > 0 ||
