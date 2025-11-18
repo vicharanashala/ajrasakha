@@ -155,7 +155,7 @@ export const QuestionDetails = ({
 
   return (
     <main className="mx-auto p-6 pt-0 grid gap-6">
-      <header className="grid gap-2">
+      {/* <header className="grid gap-2">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-pretty">
             {question.question}
@@ -227,12 +227,93 @@ export const QuestionDetails = ({
           Created: {formatDate(new Date(question.createdAt))} • Updated:{" "}
           {formatDate(new Date(question.updatedAt))}
         </div>
+      </header> */}
+
+      <header className="grid gap-3 w-full">
+        {/* Title + Timer + Exit */}
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+          {/* Question Title */}
+          <h1 className="text-xl sm:text-2xl font-semibold text-pretty break-words flex-1">
+            {question.question}
+          </h1>
+
+          {/* Right Side */}
+          <div className="flex sm:flex-row flex-col sm:items-center items-end gap-3 sm:gap-6">
+            <TimerDisplay timer={timer} status={question.status} size="lg" />
+
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                variant="outline"
+                className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
+                onClick={() => goBack()}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                  className="w-4 h-4"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M17 8l4 4m0 0l-4 4m4-4H3"
+                  />
+                </svg>
+                <span className="leading-none">Exit</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Status + Priority + Total answers */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            className={
+              question.status === "in-review"
+                ? "bg-green-500/10 text-green-600 border-green-500/30"
+                : question.status === "open"
+                ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                : question.status === "closed"
+                ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
+                : "bg-muted text-foreground"
+            }
+          >
+            {question.status.replace("_", " ")}
+          </Badge>
+
+          <Badge
+            className={
+              question.priority === "high"
+                ? "bg-red-500/10 text-red-600 border-red-500/30"
+                : question.priority === "medium"
+                ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+                : question.priority === "low"
+                ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                : "bg-muted text-foreground"
+            }
+          >
+            {question.priority ? question.priority.toUpperCase() : "NIL"}
+          </Badge>
+
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            Total answers: {question.totalAnswersCount}
+          </span>
+        </div>
+
+        {/* Created / Updated */}
+        <div className="text-xs text-muted-foreground flex flex-wrap gap-1">
+          <span>Created: {formatDate(new Date(question.createdAt))}</span>
+          <span>•</span>
+          <span>Updated: {formatDate(new Date(question.updatedAt))}</span>
+        </div>
       </header>
 
-      <Card className="p-4 grid gap-3">
+      {/* <Card className="p-4 grid gap-3">
         <p className="text-sm font-medium">Details</p>
 
-        {/* Basic Info */}
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-primary" />
@@ -301,7 +382,6 @@ export const QuestionDetails = ({
               </div>
             )}
 
-            {/* Metrics */}
             {metrics && (
               <div className="grid gap-1 text-sm">
                 <div className="flex items-center gap-2 mt-2">
@@ -330,6 +410,142 @@ export const QuestionDetails = ({
             variant="ghost"
             size="sm"
             className="mt-2 flex items-center gap-1 justify-start text-primary"
+            onClick={() => setShowMoreDetails((prev) => !prev)}
+          >
+            {showMoreDetails ? (
+              <>
+                <ChevronUp className="w-4 h-4" /> View Less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-4 h-4" /> View More
+              </>
+            )}
+          </Button>
+        )}
+      </Card> */}
+
+      <Card className="p-4 grid gap-4">
+        <p className="text-sm font-medium">Details</p>
+
+        {/* Basic Info */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+          <div className="flex items-start gap-2">
+            <MapPin className="w-4 h-4 text-primary shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-muted-foreground">State</span>
+              <span className="truncate">{question.details?.state || "-"}</span>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <Landmark className="w-4 h-4 text-primary shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-muted-foreground">District</span>
+              <span className="truncate">
+                {question.details?.district || "-"}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <Sprout className="w-4 h-4 text-primary shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-muted-foreground">Crop</span>
+              <span className="truncate">{question.details?.crop || "-"}</span>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <Calendar className="w-4 h-4 text-primary shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-muted-foreground">Season</span>
+              <span className="truncate">
+                {question.details?.season || "-"}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2 sm:col-span-2">
+            <Layers className="w-4 h-4 text-primary shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-muted-foreground">Domain</span>
+              <span className="truncate">
+                {question.details?.domain || "-"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="flex items-start gap-2 text-sm">
+          <Link2 className="w-4 h-4 text-primary shrink-0" />
+          <div className="flex flex-col">
+            <span className="text-muted-foreground">Source</span>
+            <span className="truncate">{question.source || "-"}</span>
+          </div>
+        </div>
+
+        {showMoreDetails && (
+          <>
+            <Separator className="my-2" />
+
+            {context && (
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary" />
+                  <span className="text-muted-foreground">Context</span>
+                </div>
+
+                <p className="text-muted-foreground ml-6">
+                  {showFullContext || context.length <= 180
+                    ? context
+                    : `${context.slice(0, 180)}... `}
+                  {context.length > 180 && (
+                    <button
+                      onClick={() => setShowFullContext((prev) => !prev)}
+                      className="text-primary text-xs font-medium"
+                    >
+                      {showFullContext ? "Show less" : "Read more"}
+                    </button>
+                  )}
+                </p>
+              </div>
+            )}
+
+            {metrics && (
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-center gap-2 mt-1">
+                  <Gauge className="w-4 h-4 text-primary" />
+                  <span className="text-muted-foreground font-medium">
+                    Metrics
+                  </span>
+                </div>
+
+                <div className="ml-6 grid grid-cols-1 sm:grid-cols-2 gap-1 text-muted-foreground">
+                  <span>Mean Similarity:</span>
+                  <span>{metrics.mean_similarity.toFixed(2)}</span>
+
+                  <span>Std Deviation:</span>
+                  <span>{metrics.std_similarity.toFixed(2)}</span>
+
+                  <span>Recent Similarity:</span>
+                  <span>{metrics.recent_similarity.toFixed(2)}</span>
+
+                  <span>Collusion Score:</span>
+                  <span>{metrics.collusion_score.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {currentUser.role !== "expert" && (context || metrics) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-2 flex items-center gap-1 text-primary"
             onClick={() => setShowMoreDetails((prev) => !prev)}
           >
             {showMoreDetails ? (
@@ -1025,7 +1241,7 @@ const AllocationTimeline = ({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 transition-all duration-500 ease-in-out">
+        <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6   transition-all duration-500 ease-in-out">
           {displayedQueue?.map((user, index) => {
             const status = getStatus(index);
             const styles = getStatusStyles(status);
@@ -1039,9 +1255,9 @@ const AllocationTimeline = ({
                 className="relative flex flex-col items-center justify-center my-4 group"
               >
                 {!isLast && (
-                  <div className="absolute top-1/2 right-0 flex items-center transform translate-x-full -translate-y-1/2">
+                  <div className="absolute top-50 right-36 md:top-1/2 md:right-0 flex items-center transform translate-x-full -translate-y-1/2">
                     <svg
-                      className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 ${
+                      className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 hidden md:block ${
                         isCurrentUserWaiting ? "animate-bounce" : ""
                       }`}
                       xmlns="http://www.w3.org/2000/svg"
@@ -1054,6 +1270,23 @@ const AllocationTimeline = ({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         d="M5 12h14m0 0l-4-4m4 4l-4 4"
+                      />
+                    </svg>
+
+                    <svg
+                      className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 block md:hidden ${
+                        isCurrentUserWaiting ? "animate-bounce" : ""
+                      }`}
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 5v14m0 0l4-4m-4 4l-4-4"
                       />
                     </svg>
                   </div>
@@ -1098,7 +1331,7 @@ const AllocationTimeline = ({
                 </div>
 
                 <div
-                  className="relative w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44"
+                  className="relative w-42 h-42 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44"
                   style={{ perspective: "1000px" }}
                   onMouseEnter={() => handleMouseEnter(user._id)}
                   onMouseLeave={handleMouseLeave}
@@ -1356,7 +1589,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     useUpdateAnswer();
 
   useImperativeHandle(ref, () => {
-    refetchComments; 
+    refetchComments;
   });
 
   // const submitComment = async () => {
@@ -2078,7 +2311,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                   )}
 
                   {/* Review Timeline */}
-                  
+
                   {props.answer.reviews && props.answer.reviews.length > 0 && (
                     <div className="mt-6">
                       <p className="text-sm font-medium text-foreground mb-3">
@@ -2091,7 +2324,6 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                             key={review._id}
                             className="rounded-lg border bg-muted/30 p-4 space-y-3"
                           >
-                            
                             {/* Header */}
                             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                               <div className="flex items-center gap-2">
