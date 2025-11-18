@@ -4,7 +4,6 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/atoms/tabs";
-import { HoverCard } from "@/components/atoms/hover-card";
 import { UserProfileActions } from "@/components/atoms/user-profile-actions";
 import { ThemeToggleCompact } from "./atoms/ThemeToggle";
 import { QAInterface } from "./QA-interface";
@@ -19,6 +18,8 @@ import { initializeNotifications } from "@/services/pushService";
 import { useEffect, useState } from "react";
 import { PerformanceMatrics } from "./performanceMatrics";
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
+import { MobileSidebar } from "./mobile-sidebar";
+import { HoverCard } from "./atoms/hover-card";
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser();
@@ -132,7 +133,7 @@ export const PlaygroundPage = () => {
         onValueChange={handleTabChange}
         className="h-full w-full"
       >
-        <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        {/* <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className=" mx-auto flex items-center justify-between gap-4 px-4 py-3">
             <div className="flex items-center gap-3 shrink-0">
               <img
@@ -200,15 +201,6 @@ export const PlaygroundPage = () => {
               </TabsList>
             </div>
 
-            {/* <div className="flex items-center gap-3 shrink-0">
-              <BellIcon className="w-5 h-5" onClick={() => navigate({ to: "/notifications" })} />
-                {user?.notifications! > 0 && (
-                <Badge variant="destructive" className="ml-2">{user?.notifications}</Badge>
-              )}
-              <ThemeToggleCompact />
-              <UserProfileActions />
-            </div> */}
-
             <div className="flex items-center gap-4 relative shrink-0">
               <div className="relative flex items-center justify-center">
                 <button
@@ -225,11 +217,102 @@ export const PlaygroundPage = () => {
                 </button>
               </div>
 
-              {/* Theme Toggle */}
               <ThemeToggleCompact />
 
-              {/* User Profile Actions */}
               <UserProfileActions />
+            </div>
+          </div>
+        </header> */}
+
+        <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="mx-auto flex items-center justify-between gap-4 px-4 py-3">
+            {/* Logo */}
+            <div className="flex items-center gap-3 shrink-0">
+              <img
+                src="/annam-logo.png"
+                alt="Annam Logo"
+                className="h-10 w-auto md:h-14"
+              />
+            </div>
+
+            <div className="flex-1 flex justify-center min-w-0">
+              <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
+                {user && user.role !== "expert" && (
+                  <TabsTrigger
+                    value="performance"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <HoverCard openDelay={150}>
+                      <span>Performance</span>
+                    </HoverCard>
+                  </TabsTrigger>
+                )}
+
+                {user && user.role == "expert" && (
+                  <TabsTrigger
+                    value="questions"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <span>Questions</span>
+                  </TabsTrigger>
+                )}
+                <TabsTrigger
+                  value="all_questions"
+                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                >
+                  <span>All Questions</span>
+                </TabsTrigger>
+
+                {user && user.role !== "expert" && (
+                  <TabsTrigger
+                    value="request_queue"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <span>Request Queue</span>
+                  </TabsTrigger>
+                )}
+                <TabsTrigger
+                  value="upload"
+                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                >
+                  <HoverCard openDelay={150}>
+                    <span>Agents Interface</span>
+                  </HoverCard>
+                </TabsTrigger>
+
+                {user && (
+                  <TabsTrigger
+                    value="history"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <HoverCard openDelay={150}>
+                      <span>History</span>
+                    </HoverCard>
+                  </TabsTrigger>
+                )}
+              </TabsList>
+            </div>
+
+            {/* RIGHT SIDE ICONS */}
+            <div className="flex items-center gap-3 shrink-0">
+              {/* Notifications */}
+              <button
+                onClick={() => navigate({ to: "/notifications" })}
+                className="relative p-1 rounded-md hover:bg-accent transition-colors"
+              >
+                <BellIcon className="w-5 h-5 text-muted-foreground hover:text-foreground transition" />
+                {user?.notifications! > 0 && (
+                  <span className="absolute -top-[4px] -right-[12px] flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-white">
+                    {user?.notifications! > 99 ? "99+" : user?.notifications}
+                  </span>
+                )}
+              </button>
+
+              <ThemeToggleCompact />
+
+              <UserProfileActions />
+
+              <MobileSidebar user={user!} setTab={setActiveTab} />
             </div>
           </div>
         </header>
@@ -238,10 +321,7 @@ export const PlaygroundPage = () => {
           <div className="grid h-full items-stretch gap-6 ">
             <div className="md:order-1 w-full ">
               {user && user.role !== "expert" && (
-                <TabsContent
-                  value="performance"
-                  className="mt-0 border-0 p-0 "
-                >
+                <TabsContent value="performance" className="mt-0 border-0 p-0 ">
                   <PerformanceMatrics />
                 </TabsContent>
               )}
