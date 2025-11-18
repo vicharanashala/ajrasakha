@@ -76,6 +76,7 @@ export default function Notification() {
       setDeletePreference(user.notificationRetention);
     }
   }, [user]);
+  
   useEffect(() => {
     if (notificationPages?.pages) {
       const allNotifications = notificationPages?.pages.flatMap(
