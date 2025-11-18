@@ -317,9 +317,9 @@ export const PlaygroundPage = () => {
           </div>
         </header>
 
-        <div className=" h-full py-6">
-          <div className="grid h-full items-stretch gap-6 ">
-            <div className="md:order-1 w-full ">
+        <div className=" h-full py-6 min-w-0">
+          <div className="grid h-full items-stretch gap-6 min-w-0">
+            <div className="md:order-1 w-full min-w-0">
               {user && user.role !== "expert" && (
                 <TabsContent value="performance" className="mt-0 border-0 p-0 ">
                   <PerformanceMatrics />
@@ -335,7 +335,7 @@ export const PlaygroundPage = () => {
               )}
               <TabsContent
                 value="all_questions"
-                className="mt-0 border-0 md:px-8 px-2 "
+                className="mt-0 border-0 md:px-8 "
               >
                 <QuestionsPage
                   currentUser={user!}
