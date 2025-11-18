@@ -65,6 +65,17 @@ class NotificationDeletePreferenceDTO{
   preference?: NotificationRetentionType;
 }
 
-export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO];
+class UpdatePenaltyAndIncentive{
+  @IsEnum(['penalty','incentive'],{
+    message:"type must be either penalty or incentive"
+  })
+  type:'penalty' | 'incentive'
 
-export {PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO};
+  @IsString()
+  userId: string;
+
+}
+
+export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive];
+
+export {PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive};

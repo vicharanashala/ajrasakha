@@ -8,7 +8,10 @@ import {
   IAnswer,
   INotificationType,
   IQuestionMetrics,
+  IReview,
   ISubmissionHistory,
+  ReviewAction,
+  ReviewType,
   SourceItem,
 } from '#root/shared/interfaces/models.js';
 import {
@@ -35,6 +38,7 @@ import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.
 import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
 import {notifyUser} from '#root/utils/pushNotification.js';
 import {NotificationService} from './NotificationService.js';
+import {IReviewRepository} from '#root/shared/database/interfaces/IReviewRepository.js';
 
 @injectable()
 export class AnswerService extends BaseService {
@@ -44,6 +48,9 @@ export class AnswerService extends BaseService {
 
     @inject(GLOBAL_TYPES.AnswerRepository)
     private readonly answerRepo: IAnswerRepository,
+
+    @inject(GLOBAL_TYPES.ReviewRepository)
+    private readonly reviewRepo: IReviewRepository,
 
     @inject(GLOBAL_TYPES.QuestionRepository)
     private readonly questionRepo: IQuestionRepository,
@@ -138,6 +145,7 @@ export class AnswerService extends BaseService {
       if (isFinalAnswer) {
         const text = `Question: ${question.question}\nAnswer: ${answer}`;
         const {embedding} = await this.aiService.getEmbedding(text);
+        // const embedding = [];
         await this.questionRepo.updateQuestion(
           questionId,
           {text, embedding},
@@ -212,6 +220,9 @@ export class AnswerService extends BaseService {
           rejectedAnswer,
           reasonForRejection,
           sources,
+          parameters,
+          modifiedAnswer,
+          reasonForModification,
         } = body;
 
         const question = await this.questionRepo.getById(questionId, session);
@@ -290,6 +301,44 @@ export class AnswerService extends BaseService {
           );
         }
 
+        let reviewId: ObjectId | null = null;
+
+        // If status exists, user is performing a review (not author response)
+        if (status) {
+          // Determine the correct reason based on status
+          const reason = (() => {
+            switch (status) {
+              case 'rejected':
+                return reasonForRejection ?? '';
+              case 'modified':
+                return reasonForModification ?? '';
+              case 'accepted':
+              default:
+                return '';
+            }
+          })();
+
+          // Create the review record
+          const {insertedId} = await this.reviewRepo.createReview(
+            'answer',
+            status as ReviewAction,
+            questionId,
+            userId,
+            lastAnsweredHistory?.answer?.toString(),
+            reason,
+            parameters,
+            session,
+          );
+
+          if (!insertedId) {
+            throw new InternalServerError(
+              'Failed to create review entry, please try again!',
+            );
+          }
+
+          reviewId = new ObjectId(insertedId);
+        }
+
         if (!status) {
           // Answer submission from first assigned expert
           const {insertedId} = await this.addAnswer(
@@ -317,7 +366,10 @@ export class AnswerService extends BaseService {
           );
         } else if (status == 'accepted') {
           const review_answer_id = lastAnsweredHistory.answer.toString();
+          // const authorId =lastAnsweredHistory.updatedBy.toString()
+          // await this.userRepo.updatePenaltyAndIncentive(authorId,'incentive',session)
           const updatedSubmissionData = {
+            reviewId,
             approvedAnswer: new ObjectId(review_answer_id),
             status: 'reviewed',
           } as ISubmissionHistory;
@@ -334,7 +386,6 @@ export class AnswerService extends BaseService {
             updatedSubmissionData,
             session,
           );
-
           if (
             currentSubmissionHistory.length == 10 ||
             (currentApprovalCount && currentApprovalCount >= 3)
@@ -364,18 +415,33 @@ export class AnswerService extends BaseService {
               {status: 'in-review'},
               session,
             );
-
+            const IS_INCREMENT = false;
+            await this.userRepo.updateReputationScore(
+              userId,
+              IS_INCREMENT,
+              session,
+            );
             return {message: 'Your response recorded sucessfully, thankyou!'};
           }
         } else if (status == 'rejected') {
+          //1. update the status of the answer as rejected
           const payload: Partial<IAnswer> = {
             status: 'rejected',
           };
-          let updateDocument = await this.answerRepo.updateAnswerStatus(
+          // const answerDetails = await this.answerRepo.getById(body.rejectedAnswer.toString())
+          const authorId = lastAnsweredHistory.updatedBy.toString();
+          console.log('ans details ', authorId);
+          await this.userRepo.updatePenaltyAndIncentive(
+            authorId,
+            'penalty',
+            session,
+          );
+          await this.answerRepo.updateAnswerStatus(
             body.rejectedAnswer,
             payload,
           );
-          // Prepare update payload for the rejected submission
+
+          //2. Prepare update payload for the rejected submission
           const rejectedHistoryUpdate: ISubmissionHistory = {
             reasonForRejection,
             rejectedBy: new ObjectId(userId),
@@ -392,13 +458,13 @@ export class AnswerService extends BaseService {
             rejectedHistoryUpdate,
             session,
           );
-          let status;
+
+          //3. Add new answer with proper status
+          let status = 'in-review';
+
           if (currentSubmissionHistory.length == 10) {
             status = 'pending-with-moderator';
-          } else {
-            status = 'in-review';
           }
-
           // Add a new answer entry from the current user
           const {insertedId} = await this.addAnswer(
             questionId,
@@ -409,9 +475,11 @@ export class AnswerService extends BaseService {
             status,
           );
 
+          // 4. update the exisiting review doc
           const updatedSubmissionData = {
             rejectedAnswer: new ObjectId(lastAnsweredHistory.answer.toString()),
             status: 'reviewed',
+            reviewId,
             answer: new ObjectId(insertedId),
           } as ISubmissionHistory;
 
@@ -422,25 +490,59 @@ export class AnswerService extends BaseService {
             updatedSubmissionData,
             session,
           );
+        } else if (status == 'modified') {
+          //1. Prepare update payload for the modified submission
+          const modifiedHistoryUpdate: ISubmissionHistory = {
+            reasonForLastModification: reasonForModification,
+            lastModifiedBy: new ObjectId(userId),
+          } as ISubmissionHistory;
 
-          // Calculate current queue and history lengths
-          // const queueLength = questionSubmission.queue.length;
-          // const updatedHistoryLength = questionSubmission.history.length + 1; // +1 includes the newly added answer
+          // Identify the expert whose answer is being modified
+          const modifiedExpertId = lastAnsweredHistory.updatedBy.toString();
 
-          // // If all queued experts have now responded and the total is at least 10,
-          // // move the question to 'in-review' status
-          // const isAllResponsesCompleted =
-          //   updatedHistoryLength >= 10 &&
-          //   questionSubmission.queue[queueLength - 1].toString() == userId;
+          // Update the rejected expert’s submission history
+          await this.questionSubmissionRepo.updateHistoryByUserId(
+            questionId,
+            modifiedExpertId,
+            modifiedHistoryUpdate,
+            session,
+          );
 
-          // if (isAllResponsesCompleted) {
-          //   await this.questionRepo.updateQuestion(
-          //     questionId,
-          //     {status: 'in-review'},
-          //     session,
-          //   );
-          //   return {message: 'Your response recorded sucessfully, thankyou!'};
-          // }
+          //2. Modify the reviewed answer with proper status
+          let status = 'in-review';
+
+          if (currentSubmissionHistory.length == 10) {
+            status = 'pending-with-moderator';
+          }
+
+          const review_answer_id = lastAnsweredHistory.answer.toString();
+          const updatedAnswer: Partial<IAnswer> = {
+            answer,
+            sources,
+            status,
+          };
+
+          await this.answerRepo.updateAnswer(
+            review_answer_id,
+            updatedAnswer,
+            session,
+          );
+
+          //3. Update the current reviewer entry in submission history
+
+          const updatedSubmissionData = {
+            modifiedAnswer: new ObjectId(review_answer_id),
+            status: 'reviewed',
+            reviewId,
+          } as ISubmissionHistory;
+
+          // Mark this user as reivewied review by changing the status
+          await this.questionSubmissionRepo.updateHistoryByUserId(
+            questionId,
+            userId,
+            updatedSubmissionData,
+            session,
+          );
         }
 
         // Allocate next user in the history from queue if necessary
@@ -474,17 +576,17 @@ export class AnswerService extends BaseService {
             );
             // here i need to increment the workload of next expert
             const IS_INCREMENT = true;
-        await this.userRepo.updateReputationScore(
-          nextExpertId.toString(),
-          IS_INCREMENT,
-          session,
-        );
+            await this.userRepo.updateReputationScore(
+              nextExpertId.toString(),
+              IS_INCREMENT,
+              session,
+            );
 
             let message = `A new Review has been assigned to you`;
             let title = 'New Review Assigned';
             let entityId = questionId.toString();
             const user = nextExpertId.toString();
-            const type:INotificationType ='peer_review' 
+            const type: INotificationType = 'peer_review';
 
             await this.notificationService.saveTheNotifications(
               message,
@@ -515,7 +617,6 @@ export class AnswerService extends BaseService {
             session,
           );
         }
-
         // Decrement the reputation score of user since the user reviewed
         const IS_INCREMENT = false;
         await this.userRepo.updateReputationScore(
@@ -622,7 +723,12 @@ answer: ${updates.answer}`;
         text,
       );
       // const questionEmbedding = [];
-
+      const authorId = answer.authorId.toString();
+      await this.userRepo.updatePenaltyAndIncentive(
+        authorId,
+        'incentive',
+        session,
+      );
       await this.questionRepo.updateQuestion(
         questionId,
         {text, embedding: questionEmbedding, status: 'closed'},

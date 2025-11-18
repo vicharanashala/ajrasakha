@@ -102,6 +102,32 @@ class AddAnswerBody {
 //   sources: string[];
 // }
 
+export class ReviewParametersDto {
+  @IsBoolean()
+  @IsNotEmpty()
+  contextRelevance!: boolean;
+
+  @IsBoolean()
+  @IsNotEmpty()
+  technicalAccuracy!: boolean;
+
+  @IsBoolean()
+  @IsNotEmpty()
+  practicalUtility!: boolean;
+
+  @IsBoolean()
+  @IsNotEmpty()
+  valueInsight!: boolean;
+
+  @IsBoolean()
+  @IsNotEmpty()
+  credibilityTrust!: boolean;
+
+  @IsBoolean()
+  @IsNotEmpty()
+  readabilityCommunication!: boolean;
+}
+
 class ReviewAnswerBody {
   @JSONSchema({
     description: 'ID of the question being answered',
@@ -113,13 +139,13 @@ class ReviewAnswerBody {
   questionId!: string;
 
   @JSONSchema({
-    description: 'Status of the review (accepted, rejected, or undefined)',
+    description: 'Status of the review (accepted, rejected, or modified)',
     example: 'accepted',
-    enum: ['accepted', 'rejected'],
+    enum: ['accepted', 'rejected', 'modified'],
   })
   @ValidateIf(o => o.status !== undefined)
-  @IsIn(['accepted', 'rejected'])
-  status?: 'accepted' | 'rejected';
+  @IsIn(['accepted', 'rejected', 'modified'])
+  status?: 'accepted' | 'rejected' | 'modified';
 
   @ValidateIf(o => o.status === 'rejected' || o.status === undefined)
   @IsNotEmpty()
@@ -173,7 +199,34 @@ class ReviewAnswerBody {
     example: 'Insufficient factual accuracy and poor structure.',
   })
   reasonForRejection?: string;
+
+  @ValidateIf(o => o.status === 'modified')
+  @IsNotEmpty()
+  @IsString()
+  @JSONSchema({
+    description:
+      'ID of the answer that is being modified (required only when status = modified)',
+    example: '67b1f3d8c45a9e12f3a9d02b',
+  })
+  modifiedAnswer?: string;
+
+  @ValidateIf(o => o.status === 'modified')
+  @IsNotEmpty()
+  @IsString()
+  @JSONSchema({
+    description:
+      'Reason explaining why this answer requires modification (required only when status = modified)',
+    example:
+      'The answer contains outdated information and needs to be updated for accuracy.',
+  })
+  reasonForModification?: string;
+
+  @ValidateIf(o => o.status !== undefined)
+  @ValidateNested()
+  @Type(() => ReviewParametersDto)
+  parameters!: ReviewParametersDto;
 }
+
 // class ReviewAnswerBody {
 //   @JSONSchema({
 //     description: 'ID of the question being answered',
@@ -274,8 +327,9 @@ class AnswerResponse {
     type: 'string',
   })
   @IsOptional()
-  @IsIn(['in-review', 'approved', 'rejected','pending-with-moderator'])
-  status?: 'in-review' | 'approved' | 'rejected'|'pending-with-moderator' = 'in-review';
+  @IsIn(['in-review', 'approved', 'rejected', 'pending-with-moderator'])
+  status?: 'in-review' | 'approved' | 'rejected' | 'pending-with-moderator' =
+    'in-review';
 
   @JSONSchema({
     description: 'Answer text',
@@ -318,8 +372,9 @@ class ResponseDto {
     type: 'string',
   })
   @IsOptional()
-  @IsIn(['in-review', 'approved', 'rejected','pending-with-moderator'])
-  status?: 'in-review' | 'approved' | 'rejected'|'pending-with-moderator' = 'in-review';
+  @IsIn(['in-review', 'approved', 'rejected', 'pending-with-moderator'])
+  status?: 'in-review' | 'approved' | 'rejected' | 'pending-with-moderator' =
+    'in-review';
 
   @JSONSchema({
     description: 'Answer creation timestamp',

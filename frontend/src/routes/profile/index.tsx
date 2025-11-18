@@ -797,7 +797,8 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
               <Network className="h-4 w-4 text-muted-foreground" />
               <Input
                 id="domain"
-                disabled={!isEditMode || user.role == "admin"}
+                disabled // Need to add drop down here
+                // disabled={!isEditMode || user.role == "admin"}
                 value={
                   formData.preference?.domain == "all"
                     ? "All"

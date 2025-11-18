@@ -17,7 +17,7 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {IUser, NotificationRetentionType} from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {UserService} from '../services/UserService.js';
-import {NotificationDeletePreferenceDTO, UsersNameResponseDto} from '../classes/validators/UserValidators.js';
+import {NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, UsersNameResponseDto} from '../classes/validators/UserValidators.js';
 
 @OpenAPI({
   tags: ['users'],
@@ -86,5 +86,18 @@ export class UserController {
     const {preference} = body
     await this.userService.updateAutoDeleteNotificationPreference(preference,userId)
     return { message: 'Notification preference updated successfully' };
+  }
+
+  @Patch('/point')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Update user information'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async updateIncentiveAndPenalty(
+    @Body() body:UpdatePenaltyAndIncentive,
+  ): Promise<{message:string}> {
+    const {type,userId} = body
+    await this.userService.updatePenaltyAndIncentive(userId,type)
+    return { message: `${type} updated successfully` };
   }
 }

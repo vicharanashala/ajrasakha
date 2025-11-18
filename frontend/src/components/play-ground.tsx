@@ -133,7 +133,7 @@ export const PlaygroundPage = () => {
         className="h-full w-full"
       >
         <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="container mx-auto flex items-center justify-between gap-4 px-4 py-3">
+          <div className=" mx-auto flex items-center justify-between gap-4 px-4 py-3">
             <div className="flex items-center gap-3 shrink-0">
               <img
                 src="/annam-logo.png"
@@ -234,13 +234,13 @@ export const PlaygroundPage = () => {
           </div>
         </header>
 
-        <div className="container h-full py-6">
+        <div className=" h-full py-6">
           <div className="grid h-full items-stretch gap-6 ">
             <div className="md:order-1 w-full ">
               {user && user.role !== "expert" && (
                 <TabsContent
                   value="performance"
-                  className="mt-0 border-0 p-0 max-w-[98%]"
+                  className="mt-0 border-0 p-0 "
                 >
                   <PerformanceMatrics />
                 </TabsContent>
@@ -272,7 +272,7 @@ export const PlaygroundPage = () => {
               )}
               <TabsContent value="upload" className="mt-0 border-0 p-0 ">
                 <div className="max-h-[70vh] overflow-hidden bg-background p-4 ps-0">
-                  <div className="container mx-auto py-8 pt-0">
+                  <div className=" mx-auto py-8 pt-0">
                     <VoiceRecorderCard />
                   </div>
                 </div>

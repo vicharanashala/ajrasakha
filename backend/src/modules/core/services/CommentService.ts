@@ -6,7 +6,7 @@ import {ClientSession} from 'mongodb';
 import {CORE_TYPES} from '../types.js';
 import {InternalServerError, NotFoundError} from 'routing-controllers';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
-import { NotificationService } from './NotificationService.js';
+import {NotificationService} from './NotificationService.js';
 
 export class CommentService extends BaseService {
   constructor(
@@ -17,7 +17,7 @@ export class CommentService extends BaseService {
     private readonly answerRepo: IAnswerRepository,
 
     @inject(GLOBAL_TYPES.NotificationService)
-    private readonly notificationService : NotificationService,
+    private readonly notificationService: NotificationService,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -30,7 +30,7 @@ export class CommentService extends BaseService {
     answerId: string,
     page: number,
     limit: number,
-  ): Promise<IComment[]> {
+  ): Promise<{comments: IComment[]; total: number}> {
     try {
       const comments = await this._withTransaction(
         async (session: ClientSession) => {
@@ -70,7 +70,7 @@ export class CommentService extends BaseService {
           session,
         );
         // need to find the userId from answerId and call
-        
+
         if (!comment) {
           throw new InternalServerError('Failed to add comment, Try again!');
         }

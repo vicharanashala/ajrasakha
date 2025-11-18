@@ -1,0 +1,24 @@
+[Unit]
+Description=MCP Server - Package of Practices (POP)
+After=network.target mongod.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/Kshitij/sysd/ajrasakha/mcp
+Environment="PATH=/home/ubuntu/Kshitij/sysd/ajrasakha/mcp/venv/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/home/ubuntu/Kshitij/sysd/ajrasakha/mcp/.env
+ExecStart=/home/ubuntu/Kshitij/sysd/ajrasakha/mcp/venv/bin/python pop.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mcp-pop
+
+# Resource limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

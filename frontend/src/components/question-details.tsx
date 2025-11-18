@@ -43,6 +43,8 @@ import {
   AlertCircle,
   ArrowUpRight,
   Calendar,
+  Check,
+  CheckCircle,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -57,6 +59,7 @@ import {
   Loader2,
   MapPin,
   MessageSquare,
+  Pencil,
   PlusCircle,
   RefreshCcw,
   RefreshCw,
@@ -94,6 +97,8 @@ import { Input } from "./atoms/input";
 import { formatDate } from "@/utils/formatDate";
 import { useCountdown } from "@/hooks/ui/useCountdown";
 import { TimerDisplay } from "./timer-display";
+import { CommentsSection } from "./comments-section";
+import { parameterLabels } from "./QA-interface";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -128,7 +133,7 @@ export const QuestionDetails = ({
   currentUser,
   goBack,
 }: QuestionDetailProps) => {
-  console.log("here ",question)
+  console.log("here ", question);
   const answers = useMemo(
     () => flattenAnswers(question?.submission),
     [question.submission]
@@ -779,6 +784,14 @@ const AllocationTimeline = ({
       return `${userName} approved ${approvedUserName}'s answer.`;
     }
 
+    if (submission?.modifiedAnswer) {
+      const approvedEntry = history.find(
+        (h) => h.answer?._id === submission.approvedAnswer
+      );
+      const approvedUserName = approvedEntry?.updatedBy?.name || "someone";
+      return `${userName} modified ${approvedUserName}'s answer.`;
+    }
+
     if (submission.rejectedAnswer) {
       const rejectedEntry = history.find(
         (h) => h.answer?._id === submission.rejectedAnswer
@@ -860,6 +873,9 @@ const AllocationTimeline = ({
       if (activityText.includes("rejected")) {
         return "rejected";
       }
+      if (activityText.includes("modified")) {
+        return "modified";
+      }
       return "submitted";
     }
 
@@ -914,6 +930,16 @@ const AllocationTimeline = ({
             "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-700",
           iconBg: "bg-red-200 dark:bg-red-800/40",
           legendDot: "bg-red-500",
+        };
+      case "modified":
+        return {
+          container:
+            "bg-orange-100 dark:bg-orange-900/30 border-orange-300 dark:border-orange-700 shadow-orange-100/50",
+          icon: "text-orange-700 dark:text-orange-400",
+          badge:
+            "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700",
+          iconBg: "bg-orange-200 dark:bg-orange-800/40",
+          legendDot: "bg-orange-500",
         };
       case "waiting":
         return {
@@ -1153,6 +1179,8 @@ const AllocationTimeline = ({
                           ? "Answer Created"
                           : status === "approved"
                           ? "Approved"
+                          : status === "modified"
+                          ? "Modified"
                           : status === "rejected"
                           ? "Rejected"
                           : status === "waiting"
@@ -1318,12 +1346,12 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     isLoading: isLoadingComments,
   } = useGetComments(LIMIT, props.questionId, props.answer._id);
 
-  const comments =
-    commentsData?.pages.flatMap((comment) => comment ?? []) ?? [];
+  // const comments =
+  //   commentsData?.pages.flatMap((comment) => comment ?? []) ?? [];
   const [editableAnswer, setEditableAnswer] = useState(props.answer.answer);
   const [editOpen, setEditOpen] = useState(false);
-  const { mutateAsync: addComment, isPending: isAddingComment } =
-    useAddComment();
+  // const { mutateAsync: addComment, isPending: isAddingComment } =
+  //   useAddComment();
   const { mutateAsync: updateAnswer, isPending: isUpdatingAnswer } =
     useUpdateAnswer();
 
@@ -1331,21 +1359,37 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     refetchComments;
   });
 
-  const submitComment = async () => {
-    if (!comment.trim()) return;
+  // const submitComment = async () => {
+  //   if (!comment.trim()) return;
 
-    try {
-      await addComment({
-        questionId: props.questionId,
-        answerId: props.answer._id!,
-        text: comment.trim(),
-      });
-      setComment("");
-      toast.success("Comment submitted! Thank you for your input.");
-    } catch (err) {
-      console.error("Failed to submit comment:", err);
-    }
-  };
+  //   try {
+  //     await addComment({
+  //       questionId: props.questionId,
+  //       answerId: props.answer._id!,
+  //       text: comment.trim(),
+  //     });
+  //     setComment("");
+  //     toast.success("Comment submitted! Thank you for your input.");
+  //   } catch (err) {
+  //     console.error("Failed to submit comment:", err);
+  //   }
+  // };
+
+  // const lastCommentRef = useCallback(
+  //   (node: HTMLDivElement | null) => {
+  //     if (isFetchingNextPage) return;
+  //     if (observer.current) observer.current.disconnect();
+
+  //     observer.current = new IntersectionObserver((entries) => {
+  //       if (entries[0].isIntersecting && hasNextPage) {
+  //         fetchNextPage();
+  //       }
+  //     });
+
+  //     if (node) observer.current.observe(node);
+  //   },
+  //   [isFetchingNextPage, fetchNextPage, hasNextPage]
+  // );
 
   const handleUpdateAnswer = async () => {
     try {
@@ -1376,22 +1420,6 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
       setEditOpen(false);
     }
   };
-
-  const lastCommentRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      if (isFetchingNextPage) return;
-      if (observer.current) observer.current.disconnect();
-
-      observer.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasNextPage) {
-          fetchNextPage();
-        }
-      });
-
-      if (node) observer.current.observe(node);
-    },
-    [isFetchingNextPage, fetchNextPage, hasNextPage]
-  );
 
   const isRejected =
     props.submissionData && props.submissionData.status === "rejected";
@@ -1800,7 +1828,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
             props.lastAnswerId === props.answer?._id && (
               <Dialog open={editOpen} onOpenChange={setEditOpen}>
                 <DialogTrigger asChild>
-                  <button className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2 rounded">
+                  <button className="bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded">
                     <CheckCircle2 className="h-4 w-4" />
                     Approve Answer
                   </button>
@@ -2048,6 +2076,132 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       </div>
                     </div>
                   )}
+
+                  {/* Review Timeline */}
+                  
+                  {props.answer.reviews && props.answer.reviews.length > 0 && (
+                    <div className="mt-6">
+                      <p className="text-sm font-medium text-foreground mb-3">
+                        Review Timeline
+                      </p>
+
+                      <div className="space-y-4">
+                        {props.answer.reviews.map((review) => (
+                          <div
+                            key={review._id}
+                            className="rounded-lg border bg-muted/30 p-4 space-y-3"
+                          >
+                            
+                            {/* Header */}
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">
+                                  Reviewer:
+                                </span>
+                                <span className="text-sm text-muted-foreground">
+                                  {review.reviewer?.firstName} (
+                                  {review.reviewer?.email})
+                                </span>
+                              </div>
+
+                              <div className="text-xs text-muted-foreground">
+                                {formatDate(review.createdAt!)}
+                              </div>
+                            </div>
+
+                            {/* Action */}
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className={`
+    ${
+      review.action === "accepted"
+        ? "border-green-600 text-green-600"
+        : review.action === "rejected"
+        ? "border-red-600 text-red-600"
+        : "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700"
+    }
+  `}
+                              >
+                                <span className="flex items-center gap-1">
+                                  {review.action === "accepted" && (
+                                    <>
+                                      <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
+                                      <span>Accepted</span>
+                                    </>
+                                  )}
+
+                                  {review.action === "rejected" && (
+                                    <>
+                                      <XCircle className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                      <span>Rejected</span>
+                                    </>
+                                  )}
+
+                                  {review.action === "modified" && (
+                                    <>
+                                      <Pencil className="w-3 h-3 text-orange-700 dark:text-orange-400" />
+                                      <span>Modified</span>
+                                    </>
+                                  )}
+                                </span>
+                              </Badge>
+                            </div>
+
+                            {/* Parameters */}
+                            <div className="space-y-1">
+                              <p className="text-xs mb-2 font-medium text-foreground">
+                                Parameters
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-wrap gap-2">
+                                  {Object.entries(review.parameters ?? {}).map(
+                                    ([key, value]) => (
+                                      <Badge
+                                        key={key}
+                                        variant="outline"
+                                        className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-full border 
+                                                    ${
+                                                      value
+                                                        ? "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700"
+                                                        : "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700"
+                                                    }
+                                                  `}
+                                      >
+                                        {value ? (
+                                          <Check className="w-3 h-3" />
+                                        ) : (
+                                          <X className="w-3 h-3" />
+                                        )}
+
+                                        {
+                                          parameterLabels[
+                                            key as keyof typeof parameterLabels
+                                          ]
+                                        }
+                                      </Badge>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Reason */}
+                            {review.reason && review.reason.trim() !== "" && (
+                              <div className="space-y-1">
+                                <p className="text-xs font-medium text-foreground">
+                                  Reason
+                                </p>
+                                <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                  {review.reason}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
             </DialogContent>
@@ -2079,8 +2233,12 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
           {props.answer.answer}
         </p>
       </div>
-
-      <div className="w-full sm:w-auto">
+      <CommentsSection
+        questionId={props.questionId}
+        answerId={props.answer._id!}
+        isMine={props.answer.authorId === props.currentUserId}
+      />
+      {/* <div className="w-full sm:w-auto">
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="comments" className="border-none">
             <AccordionTrigger className="flex items-center gap-2 text-sm font-medium p-3 hover:no-underline hover:bg-muted/50 rounded-lg w-full sm:w-auto justify-between shadow-md shadow-gray-400/30 dark:shadow-gray-900/50">
@@ -2177,7 +2335,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
             </AccordionContent>
           </AccordionItem>
         </Accordion>
-      </div>
+      </div> */}
     </Card>
   );
 });

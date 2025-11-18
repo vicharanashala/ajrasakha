@@ -17,18 +17,95 @@ export class CommentRepository implements ICommentRepository {
   private async init() {
     this.CommentsCollection = await this.db.getCollection<IComment>('comments');
   }
+  // async getComments(
+  //   questionId: string,
+  //   answerId: string,
+  //   page: number,
+  //   limit: number,
+  //   session?: ClientSession,
+  // ): Promise<IComment[]> {
+  //   await this.init();
+  //   const skip = (page - 1) * limit;
+
+  //   try {
+  //     const comments = await this.CommentsCollection.aggregate(
+  //       [
+  //         {
+  //           $match: {
+  //             questionId: new ObjectId(questionId),
+  //             answerId: new ObjectId(answerId),
+  //           },
+  //         },
+  //         {
+  //           $lookup: {
+  //             from: 'users',
+  //             localField: 'userId',
+  //             foreignField: '_id',
+  //             as: 'userInfo',
+  //           },
+  //         },
+  //         {
+  //           $unwind: {
+  //             path: '$userInfo',
+  //             preserveNullAndEmptyArrays: true, // keeps comments even if user missing
+  //           },
+  //         },
+  //         {
+  //           $project: {
+  //             _id: {$toString: '$_id'},
+  //             questionId: {$toString: '$questionId'},
+  //             answerId: {$toString: '$answerId'},
+  //             userId: {$toString: '$userId'},
+  //             text: 1,
+  //             createdAt: 1,
+  //             updatedAt: 1,
+  //             userName: {
+  //               $trim: {
+  //                 input: {
+  //                   $ifNull: [
+  //                     {
+  //                       $concat: [
+  //                         {$ifNull: ['$userInfo.firstName', '']},
+  //                         ' ',
+  //                         {$ifNull: ['$userInfo.lastName', '']},
+  //                       ],
+  //                     },
+  //                     'Unknown User',
+  //                   ],
+  //                 },
+  //               },
+  //             },
+  //           },
+  //         },
+  //         {$sort: {createdAt: -1}},
+  //         {$skip: skip},
+  //         {$limit: limit},
+  //       ],
+  //       {session},
+  //     ).toArray();
+
+  //     return comments as IComment[];
+  //   } catch (err: any) {
+  //     console.error(
+  //       `Error fetching comments for question ${questionId} and answer ${answerId}:`,
+  //       err,
+  //     );
+  //     throw new InternalServerError('Failed to fetch comments');
+  //   }
+  // }
+
   async getComments(
     questionId: string,
     answerId: string,
     page: number,
     limit: number,
     session?: ClientSession,
-  ): Promise<IComment[]> {
+  ): Promise<{comments: IComment[]; total: number}> {
     await this.init();
     const skip = (page - 1) * limit;
 
     try {
-      const comments = await this.CommentsCollection.aggregate(
+      const result = await this.CommentsCollection.aggregate(
         [
           {
             $match: {
@@ -36,60 +113,69 @@ export class CommentRepository implements ICommentRepository {
               answerId: new ObjectId(answerId),
             },
           },
+
           {
-            $lookup: {
-              from: 'users',
-              localField: 'userId',
-              foreignField: '_id',
-              as: 'userInfo',
-            },
-          },
-          {
-            $unwind: {
-              path: '$userInfo',
-              preserveNullAndEmptyArrays: true, // keeps comments even if user missing
-            },
-          },
-          {
-            $project: {
-              _id: {$toString: '$_id'},
-              questionId: {$toString: '$questionId'},
-              answerId: {$toString: '$answerId'},
-              userId: {$toString: '$userId'},
-              text: 1,
-              createdAt: 1,
-              updatedAt: 1,
-              userName: {
-                $trim: {
-                  input: {
-                    $ifNull: [
-                      {
-                        $concat: [
-                          {$ifNull: ['$userInfo.firstName', '']},
-                          ' ',
-                          {$ifNull: ['$userInfo.lastName', '']},
-                        ],
-                      },
-                      'Unknown User',
-                    ],
+            $facet: {
+              data: [
+                {
+                  $lookup: {
+                    from: 'users',
+                    localField: 'userId',
+                    foreignField: '_id',
+                    as: 'userInfo',
                   },
                 },
-              },
+                {
+                  $unwind: {
+                    path: '$userInfo',
+                    preserveNullAndEmptyArrays: true,
+                  },
+                },
+                {
+                  $project: {
+                    _id: {$toString: '$_id'},
+                    questionId: {$toString: '$questionId'},
+                    answerId: {$toString: '$answerId'},
+                    userId: {$toString: '$userId'},
+                    text: 1,
+                    createdAt: 1,
+                    updatedAt: 1,
+                    userName: {
+                      $trim: {
+                        input: {
+                          $ifNull: [
+                            {
+                              $concat: [
+                                {$ifNull: ['$userInfo.firstName', '']},
+                                ' ',
+                                {$ifNull: ['$userInfo.lastName', '']},
+                              ],
+                            },
+                            'Unknown User',
+                          ],
+                        },
+                      },
+                    },
+                  },
+                },
+                {$sort: {createdAt: -1}},
+                {$skip: skip},
+                {$limit: limit},
+              ],
+
+              totalCount: [{$count: 'count'}],
             },
           },
-          {$sort: {createdAt: -1}},
-          {$skip: skip},
-          {$limit: limit},
         ],
         {session},
       ).toArray();
 
-      return comments as IComment[];
-    } catch (err: any) {
-      console.error(
-        `Error fetching comments for question ${questionId} and answer ${answerId}:`,
-        err,
-      );
+      const comments = result[0].data;
+      const total = result[0].totalCount[0]?.count || 0;
+
+      return {comments, total};
+    } catch (err) {
+      console.error(`Error fetching comments:`, err);
       throw new InternalServerError('Failed to fetch comments');
     }
   }

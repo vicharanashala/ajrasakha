@@ -16,8 +16,8 @@ const TYPES = {
   CommentService: Symbol.for('CommentService'),
   RequestService: Symbol.for('RequestService'),
   SarvamService: Symbol.for('SarvamService'),
-  NotificationService:Symbol.for('NotificationService'),
-  PerformanceService:Symbol.for('PerformanceService'),
+  NotificationService: Symbol.for('NotificationService'),
+  PerformanceService: Symbol.for('PerformanceService'),
 
   // Repositories
   RequestRepository: Symbol.for('RequestRepository'),
@@ -26,7 +26,8 @@ const TYPES = {
   AnswerRepository: Symbol.for('AnswerRepository'),
   ContextRepository: Symbol.for('ContextRepository'),
   UserRepository: Symbol.for('userRepository'),
-  NotificationRepository:Symbol.for('NotificationRepository'),
+  NotificationRepository: Symbol.for('NotificationRepository'),
+  ReviewRepository: Symbol.for('ReviewRepository'),
 
   // Constants
   uri: Symbol.for('dbURI'),

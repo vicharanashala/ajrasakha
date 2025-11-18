@@ -21,6 +21,7 @@ export interface IMyPreference {
   crop: string;
   domain: string;
 }
+export type NotificationRetentionType = '3d' | '1w' | '2w' | '1m' | 'never';
 export interface IUser {
   _id?: string;
   firebaseUID?: string;
@@ -30,27 +31,62 @@ export interface IUser {
   password?: string;
   preference?: IMyPreference;
   role: UserRole;
-  notifications?:number;
+  notifications?: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+  reputation_score?: number;
+}
+
+export interface IReviewParmeters {
+  contextRelevance: boolean;
+  technicalAccuracy: boolean;
+  practicalUtility: boolean;
+  valueInsight: boolean;
+  credibilityTrust: boolean;
+  readabilityCommunication: boolean;
+}
+
+export type ReviewType = "question" | "answer";
+export type ReviewAction = "accepted" | "rejected" | "modified";
+
+export interface IReview {
+  _id?: string;
+  reviewType: ReviewType;
+  action: ReviewAction;
+  questionId: string;
+  answerId?: string;
+  reviewerId: string;
+  reviewer?: IUser;
+  reason?: string;
+  parameters?: IReviewParmeters;
   createdAt?: Date;
   updatedAt?: Date;
   reputation_score?:number
+  notificationRetention?: NotificationRetentionType;
 }
-export type QuestionPriority = "low" | "medium" | "high";
-export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT";
 
 export interface HistoryItem {
-  updatedBy: { // who submission is this
+  updatedBy: {
+    // who's submission is this
     _id: string;
     userName: string;
     email: string;
   };
-  answer?: { //answer
+  lastModifiedBy?: {
+    // who modified last
+    _id: string;
+    userName: string;
+    email: string;
+  };
+  answer?: {
+    //answer
     _id: string;
     answer: string;
     approvalCount: string;
     sources: SourceItem[];
   };
-  // in-review => if a question assigned to an expert for reiview, or state of a answer before approval or rejection 
+  review?: Partial<IReview>;
+  // in-review => if a question assigned to an expert for reiview, or state of a answer before approval or rejection
   // reviewed => if an expert reviewed (accpeted/rejected) the previous answer
   // approved => After three consecutive approvals fo an answer
   // rejected => If any expert rejects an answer, so that history status would be rejected and rejected person doc status would be reviewed
@@ -61,10 +97,17 @@ export interface HistoryItem {
   approvedAnswer?: string;
   // If an expert is rejecting, it store the rejected answer id
   rejectedAnswer?: string;
+  // The reason if an expert is modifying an answer
+  reasonForLastModification?: string;
+  // If an expert is modifying, it store the modified answer id
+  modifiedAnswer?: string;
   // timestamp
   createdAt: Date;
   updatedAt: Date;
 }
+
+export type QuestionPriority = "low" | "medium" | "high";
+export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT";
 
 export interface IQuestion {
   id: string;
@@ -98,15 +141,15 @@ export interface ISubmissions {
   createdAt: string;
   updatedAt: string;
   totalAnwersCount: number;
-  questionStatus:string,
+  questionStatus: string;
   reponse: {
     answer: string;
     id: string;
     isFinalAnswer: boolean;
     createdAt: string;
-    status:string;
-    answerStatus:string;
-    reasonForRejection:string;
+    status: string;
+    answerStatus: string;
+    reasonForRejection: string;
   };
 }
 
@@ -184,7 +227,7 @@ export interface SubmissionResponse {
   updatedAt: string;
   totalAnwersCount: number;
   reponse: ResponseDto | null;
-  status:string;
+  status: string;
   details: {
     state: string;
     district: string;
@@ -227,7 +270,7 @@ export interface FinalizedAnswer {
     season: string;
     domain: string;
   };
-  status:string;
+  status: string;
 }
 export interface HeatMapResult {
   reviewerId: string;
@@ -236,10 +279,10 @@ export interface HeatMapResult {
     [bucket: string]: number; // e.g., "0_6": 4
   };
 }
-export interface WorkLoad{
+export interface WorkLoad {
   currentUserAnswers: CurrentUserAnswer[];
   totalQuestionsCount: number;
-  totalInreviewQuestionsCount:number
+  totalInreviewQuestionsCount: number;
 }
 
 export interface FinalizedAnswersResponse {
@@ -262,6 +305,7 @@ export interface IAnswer {
   isFinalAnswer: boolean;
   approvalCount: number;
   sources: SourceItem[];
+  reviews?: IReview[]
   answer: string;
   threshold: number;
   createdAt?: Date;
@@ -276,10 +320,15 @@ export interface IUserRef {
 export interface ISubmissionHistory {
   updatedBy: IUserRef | null;
   answer: IAnswer | null;
-  status: 'reviewed' | 'in-review' | 'approved' | 'rejected';
-  approvedAnswer: string,
-  rejectedAnswer: string
+  status: "reviewed" | "in-review" | "approved" | "rejected";
+  
+  approvedAnswer: string;
+
+  rejectedAnswer: string;
   reasonForRejection: string;
+
+  modifiedAnswer: string;
+  reasonForLastModification: string;
 }
 
 export interface ISubmission {
@@ -390,15 +439,15 @@ export type IRequest = RequestDetails & {
   updatedAt: string | Date;
 };
 
-export type INotificationType = "flag" | "answer_creation" | "peer_review"
-export interface INotification{
-   _id: string 
-  userId:string
-  enitity_id:string 
-  title:string
-  type:INotificationType;
-  message:string;
-  is_read:boolean;
-  createdAt: string 
-  updatedAt: string 
+export type INotificationType = "flag" | "answer_creation" | "peer_review";
+export interface INotification {
+  _id: string;
+  userId: string;
+  enitity_id: string;
+  title: string;
+  type: INotificationType;
+  message: string;
+  is_read: boolean;
+  createdAt: string;
+  updatedAt: string;
 }

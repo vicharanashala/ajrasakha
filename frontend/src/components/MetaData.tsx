@@ -1,6 +1,23 @@
 export const CROPS = ["Paddy Dhan"];
 export const DOMAINS = [
-  "Agriculture Mechanization", "Bio-Pesticides and Bio-Fertilizers", "Crop Insurance", "Cultural Practices", "Fertilizer Use and Availability", "Field Preparation", "Nutrient Management", "Organic Farming", "Plant Protection", "Post Harvest Preservation", "Seeds", "Soil Health Card", "Soil Testing", "Sowing Time and Weather", "Storage", "Varieties", "Water Management", "Weed Management"
+  "Agriculture Mechanization",
+  "Bio-Pesticides and Bio-Fertilizers",
+  "Crop Insurance",
+  "Cultural Practices",
+  "Fertilizer Use and Availability",
+  "Field Preparation",
+  "Nutrient Management",
+  "Organic Farming",
+  "Plant Protection",
+  "Post Harvest Preservation",
+  "Seeds",
+  "Soil Health Card",
+  "Soil Testing",
+  "Sowing Time and Weather",
+  "Storage",
+  "Varieties",
+  "Water Management",
+  "Weed Management",
 ];
 export const STATES = [
   "Andhra Pradesh",
@@ -33,4 +50,23 @@ export const STATES = [
   "West Bengal",
 ].sort();
 
-export const SEASONS=["Kharif", "Rabi", "Zaid"]
+export const SEASONS = [
+  "Kharif",
+  "Rabi",
+  "Zaid",
+
+  // Additional Indian sub-seasons
+  "Pre-Kharif",
+  "Post-Kharif",
+  "Pre-Rabi",
+  "Zaid Rabi",
+
+  // General/global seasons
+  "Spring",
+  "Summer",
+  "Autumn",
+  "Winter",
+  "Monsoon",
+  "Dry Season",
+  "Wet Season"
+];
