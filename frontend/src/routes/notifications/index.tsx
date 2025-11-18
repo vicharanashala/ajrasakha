@@ -72,10 +72,10 @@ export default function Notification() {
   } = useGetNotifications();
 
   useEffect(() => {
-  if (user?.notificationRetention) {
-    setDeletePreference(user.notificationRetention);
-  }
-}, [user]);
+    if (user?.notificationRetention) {
+      setDeletePreference(user.notificationRetention);
+    }
+  }, [user]);
   useEffect(() => {
     if (notificationPages?.pages) {
       const allNotifications = notificationPages?.pages.flatMap(
@@ -124,8 +124,7 @@ export default function Notification() {
   //   }
   // };
 
-
-    const handleNotificationClick = async (notification: Notification) => {
+  const handleNotificationClick = async (notification: Notification) => {
     const { type, enitity_id, _id } = notification;
 
     // Mark as read first
@@ -201,7 +200,7 @@ export default function Notification() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col ">
-      <div className="container mx-auto flex-1 py-4 sm:py-6 px-3 sm:px-0 px-6 py-8 max-w-[60%]">
+      <div className="container mx-auto flex-1 py-4 sm:py-6 px-3 sm:px-0 px-6 py-8 md:max-w-[70%] max-w-[100%]">
         <div
           className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer w-fit"
           onClick={handleBack}
@@ -216,14 +215,15 @@ export default function Notification() {
 
         <div className="flex flex-col h-full gap-4 sm:gap-6">
           <div className="w-full">
-            <div className="flex flex-wrap items-center justify-between mb-4 sm:mb-6 p-3 sm:p-4 bg-card rounded-lg border">
-              <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-6 p-4 bg-card rounded-lg border">
+              {/* Left Section */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 cursor-default">
                         <Clock className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm font-medium text-muted-foreground hidden sm:inline">
+                        <span className="text-sm font-medium text-muted-foreground">
                           Auto-delete after:
                         </span>
                       </div>
@@ -242,7 +242,7 @@ export default function Notification() {
                   onValueChange={handlePreferenceChange}
                   value={deletePreference}
                 >
-                  <SelectTrigger className="w-[130px] sm:w-[150px]">
+                  <SelectTrigger className="w-full sm:w-[160px]">
                     <SelectValue placeholder="Select duration" />
                   </SelectTrigger>
                   <SelectContent>
@@ -254,13 +254,15 @@ export default function Notification() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center gap-2 mt-2 sm:mt-0">
+
+              {/* Right Section */}
+              <div className="flex justify-end">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleMarkAllAsRead}
                   disabled={unreadCount === 0}
-                  className="flex items-center gap-2 text-xs sm:text-sm"
+                  className="flex items-center gap-2 w-full sm:w-auto text-sm"
                 >
                   <CheckCircle className="w-4 h-4" />
                   Mark all as read
