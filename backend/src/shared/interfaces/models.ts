@@ -21,6 +21,7 @@ export interface IUser {
   notificationRetention?: NotificationRetentionType;
   incentive?:number;
   penalty?:number;
+  isBlocked?:boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }

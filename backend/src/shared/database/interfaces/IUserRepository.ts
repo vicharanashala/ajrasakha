@@ -135,4 +135,12 @@ export interface IUserRepository {
    * @returns void.
    */
 updatePenaltyAndIncentive(userId:string,field:'incentive' | 'penalty',session:ClientSession):Promise<void>
+/**
+   * Finds all users.
+   * @param page -  page count.
+   * @param limit - documents to display in one page
+   * @param search - serach query
+   * @returns A promise that resolve to an array of all users.
+   */
+findAllExperts(page:number,limit:number,search:string,session:ClientSession):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>
 }

@@ -10,6 +10,7 @@ import {
   CurrentUser,
   NotFoundError,
   Patch,
+  QueryParams,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -100,4 +101,16 @@ export class UserController {
     await this.userService.updatePenaltyAndIncentive(userId,type)
     return { message: `${type} updated successfully` };
   }
+
+  @Get('/list')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Get all user names'})
+  async getAllUsers(
+    @QueryParams() query: {page?: number; limit?: number,search?:string}
+  ) {
+    const{page=1,limit=10,search=''} = query
+    return await this.userService.findAllExperts(Number(page),Number(limit),search)
+  }
+
 }

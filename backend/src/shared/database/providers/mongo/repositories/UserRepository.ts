@@ -380,4 +380,28 @@ export class UserRepository implements IUserRepository {
       throw new InternalServerError(`Failed to update incentive`);
     }
   }
+
+  async findAllExperts(page:number,limit:number,search:string,session:ClientSession):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>{
+    await this.init()
+    try {
+      const skip = (page - 1) * limit
+      let query:any = {}
+      if(search){
+        query.$or = [
+          {firstName:{$regex:search,$options:'i'}},
+          {lastName:{$regex:search, $options:'i'}}
+        ] 
+      }
+      const users = await this.usersCollection.find(query).skip(skip).limit(limit).toArray()
+      const totalExperts = await this.usersCollection.countDocuments(query)
+      const totalPages =Math.ceil(totalExperts/limit)
+      const mappedExperts = users.map((u) => ({
+          ...u,
+          _id:u._id.toString()
+      }))
+      return {experts:mappedExperts,totalExperts,totalPages}
+    } catch (error) {
+      throw new InternalServerError(`Failed to get experts`);
+    }
+  }
 }

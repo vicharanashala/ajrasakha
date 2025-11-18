@@ -108,4 +108,10 @@ export class UserService extends BaseService {
     })
   }
 
+  async findAllExperts(page:number,limit:number,search:string):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>{
+    return await this._withTransaction(async (session:ClientSession) => {
+      return await this.userRepo.findAllExperts(page,limit,search,session)
+    })
+  }
+
 }

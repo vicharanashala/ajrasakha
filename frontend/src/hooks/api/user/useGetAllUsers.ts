@@ -29,3 +29,16 @@ export const useGetAllUsers = () => {
 
   return { data, isLoading, error };
 };
+
+export const useGetAllExperts = (page:number,limit:number,search:string) => {
+  const { data, isLoading, error } = useQuery<{experts:IUser[]; totalExperts:number; totalPages:number} |null>(
+    {
+      queryKey: ["users",page,limit,search],
+      queryFn: async () => {
+        return await userService.useGetAllExperts(page,limit,search);
+      },
+    }
+  );
+
+  return { data, isLoading, error };
+};

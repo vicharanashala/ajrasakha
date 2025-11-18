@@ -28,4 +28,8 @@ export class UserService {
       method:"PATCH"
     })
   }
+
+  async useGetAllExperts(page:number,limit:number,search:string):Promise<{experts:IUser[]; totalExperts:number; totalPages:number} | null>{
+    return apiFetch<{experts:IUser[]; totalExperts:number; totalPages:number}>(`${this._baseUrl}/list?page=${page}&limit=${limit}&search=${search}`);
+  }
 }

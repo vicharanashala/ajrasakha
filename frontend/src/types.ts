@@ -35,6 +35,9 @@ export interface IUser {
   createdAt?: Date;
   updatedAt?: Date;
   reputation_score?: number;
+  incentive?:number;
+  isBlocked?:boolean;
+  penalty?:number
 }
 
 export interface IReviewParmeters {
