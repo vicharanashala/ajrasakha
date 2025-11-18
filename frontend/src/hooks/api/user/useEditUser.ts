@@ -20,3 +20,21 @@ export const useEditUser = () => {
     },
   });
 };
+
+
+
+export const useBlockUser = (userId:string,action:string) => {
+  const queryClient =useQueryClient();
+  return useMutation({
+    mutationKey:['block_users'],
+    mutationFn: async (): Promise<void | null> => {
+     return await userService.isBlockUser(userId,action)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({queryKey:['users']})
+    },
+    onError:() => {
+      toast.error(`Failed to ${action} Expert`)
+    }
+  })
+}

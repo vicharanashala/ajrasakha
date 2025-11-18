@@ -368,7 +368,7 @@ export class UserRepository implements IUserRepository {
     }
   }
 
-  async updatePenaltyAndIncentive(userId:string,field:'incentive' | 'penalty',session:ClientSession):Promise<void>{
+  async updatePenaltyAndIncentive(userId:string,field:'incentive' | 'penalty',session?:ClientSession):Promise<void>{
     await this.init()
     try {
       const user = await this.usersCollection.findOne({_id:new ObjectId(userId)})
@@ -381,7 +381,7 @@ export class UserRepository implements IUserRepository {
     }
   }
 
-  async findAllExperts(page:number,limit:number,search:string,session:ClientSession):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>{
+  async findAllExperts(page:number,limit:number,search:string,session?:ClientSession):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>{
     await this.init()
     try {
       const skip = (page - 1) * limit
@@ -402,6 +402,16 @@ export class UserRepository implements IUserRepository {
       return {experts:mappedExperts,totalExperts,totalPages}
     } catch (error) {
       throw new InternalServerError(`Failed to get experts`);
+    }
+  }
+
+  async updateIsBlocked(userId:string,action:string,session?:ClientSession):Promise<void>{
+    await this.init()
+    try {
+      const isBlocked = action ==='block'
+      await this.usersCollection.updateOne({_id:new ObjectId(userId)},{$set:{isBlocked}},{upsert:true,session})
+    } catch (error) {
+      throw new InternalServerError(`Failed to update IsBlock`);
     }
   }
 }

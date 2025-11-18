@@ -73,9 +73,16 @@ class UpdatePenaltyAndIncentive{
 
   @IsString()
   userId: string;
-
 }
 
-export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive];
+class BlockUnblockBody{
+  @IsString()
+  action:string
 
-export {PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive};
+  @IsOptional()
+  userId:string
+}
+
+export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive,BlockUnblockBody];
+
+export {PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive,BlockUnblockBody};

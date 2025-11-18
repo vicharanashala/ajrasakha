@@ -32,4 +32,11 @@ export class UserService {
   async useGetAllExperts(page:number,limit:number,search:string):Promise<{experts:IUser[]; totalExperts:number; totalPages:number} | null>{
     return apiFetch<{experts:IUser[]; totalExperts:number; totalPages:number}>(`${this._baseUrl}/list?page=${page}&limit=${limit}&search=${search}`);
   }
+
+  async isBlockUser(userId:string,action:string):Promise<void | null>{
+    return apiFetch<void>(`${this._baseUrl}/expert`,{
+      body:JSON.stringify({ userId,action }),
+      method:"PATCH"
+    })
+  }
 }

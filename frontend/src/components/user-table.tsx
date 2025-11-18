@@ -23,6 +23,8 @@ import {
 import { ConfirmationModal } from "./confirmation-modal";
 import { formatDate } from "@/utils/formatDate";
 import { useState } from "react";
+import { useBlockUser } from "@/hooks/api/user/useBlockUser";
+import { toast } from "sonner";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -52,9 +54,12 @@ export const UsersTable = ({
 }: QuestionsTableProps) => {
   const [userIdToBlock, setUserIdToBlock] = useState<string>("");
   const [isCurrentlyBlocked, setIsCurrentlyBlocked] = useState<boolean>(false);
+  const {mutate:blockExpert} = useBlockUser()
   const handleBlock = async () => {
-    const action =isCurrentlyBlocked ? "Unblocking " : "Blocking"
-    alert("blocked" + userIdToBlock + "state " + action);
+    console.log("reacej block")
+    const action =isCurrentlyBlocked ? "unblock " : "block"
+    // alert("blocked" + userIdToBlock + "state " + action);
+    await blockExpert({userId:userIdToBlock,action:action})
   };
 
   return (
@@ -146,6 +151,7 @@ const QuestionRow: React.FC<UserRowProps> = ({
   setIsCurrentlyBlocked,
   onViewMore,
 }) => {
+  
   const isBlocked = q.isBlocked || false;
   return (
     <TableRow key={String(q._id)} className="text-center">

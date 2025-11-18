@@ -134,7 +134,7 @@ export interface IUserRepository {
    * @param incrementValue - value to increment or decrement
    * @returns void.
    */
-updatePenaltyAndIncentive(userId:string,field:'incentive' | 'penalty',session:ClientSession):Promise<void>
+updatePenaltyAndIncentive(userId:string,field:'incentive' | 'penalty',session?:ClientSession):Promise<void>
 /**
    * Finds all users.
    * @param page -  page count.
@@ -142,5 +142,12 @@ updatePenaltyAndIncentive(userId:string,field:'incentive' | 'penalty',session:Cl
    * @param search - serach query
    * @returns A promise that resolve to an array of all users.
    */
-findAllExperts(page:number,limit:number,search:string,session:ClientSession):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>
+findAllExperts(page:number,limit:number,search:string,session?:ClientSession):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>
+  /**
+   * Finds all users.
+   * @param userId - userid of expert to block.
+   * @param action - either block or unblock
+   * @returns void
+   */
+updateIsBlocked(userId:string,action:string,session?:ClientSession):Promise<void>
 }

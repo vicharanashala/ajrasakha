@@ -18,7 +18,7 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {IUser, NotificationRetentionType} from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {UserService} from '../services/UserService.js';
-import {NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, UsersNameResponseDto} from '../classes/validators/UserValidators.js';
+import {BlockUnblockBody, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, UsersNameResponseDto} from '../classes/validators/UserValidators.js';
 
 @OpenAPI({
   tags: ['users'],
@@ -105,7 +105,7 @@ export class UserController {
   @Get('/list')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get all user names'})
+  @OpenAPI({summary: 'Get all users'})
   async getAllUsers(
     @QueryParams() query: {page?: number; limit?: number,search?:string}
   ) {
@@ -113,4 +113,17 @@ export class UserController {
     return await this.userService.findAllExperts(Number(page),Number(limit),search)
   }
 
+  @Patch('/expert')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Update user information'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async BlockAndUnblockExpert(
+    @Body() body:BlockUnblockBody,
+  ): Promise<{message:string}> {
+    const {action,userId} = body
+     console.log("reached block ",action)
+    await this.userService.blockUnblockExperts(userId,action)
+    return { message: `${action} Expert successfully` };
+  }
 }

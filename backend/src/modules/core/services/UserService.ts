@@ -114,4 +114,10 @@ export class UserService extends BaseService {
     })
   }
 
+  async blockUnblockExperts(userId:string,action:string){
+    return await this._withTransaction(async (session:ClientSession) => {
+      return await this.userRepo.updateIsBlocked(userId,action,session)
+    })
+  }
+
 }
