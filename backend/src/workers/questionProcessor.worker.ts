@@ -164,7 +164,8 @@ const aiService = new AiService();
         `❌ Error processing question ${qId}:`,
         error?.message || error,
       );
-      await questionRepo.updateQuestionStatus(qId, 'failed', error?.message);
+      await questionRepo.deleteQuestion(qId)
+      // await questionRepo.updateQuestionStatus(qId, 'failed', error?.message);
     }
   }
 
