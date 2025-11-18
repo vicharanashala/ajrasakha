@@ -235,7 +235,7 @@ export const PlaygroundPage = () => {
               />
             </div>
 
-            <div className="flex-1 flex justify-center min-w-0">
+            <div className="flex-1 md:flex justify-center min-w-0 hidden ">
               <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
                 {user && user.role !== "expert" && (
                   <TabsTrigger
@@ -351,7 +351,7 @@ export const PlaygroundPage = () => {
                 </TabsContent>
               )}
               <TabsContent value="upload" className="mt-0 border-0 p-0 ">
-                <div className="max-h-[70vh] overflow-hidden bg-background p-4 ps-0">
+                <div className=" overflow-hidden bg-background p-4 ps-0">
                   <div className=" mx-auto py-8 pt-0">
                     <VoiceRecorderCard />
                   </div>
