@@ -231,7 +231,7 @@ export class UserRepository implements IUserRepository {
 
     // 1. Fetch all experts
     const allUsersRaw = await this.usersCollection
-      .find({role: 'expert'}, {session})
+      .find({role: 'expert',isBlocked:false}, {session})
       .toArray();
 
     // 2. Remove duplicates based on email
