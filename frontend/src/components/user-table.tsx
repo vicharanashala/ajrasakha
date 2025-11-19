@@ -53,12 +53,11 @@ export const UsersTable = ({
 }: QuestionsTableProps) => {
   const [userIdToBlock, setUserIdToBlock] = useState<string>("");
   const [isCurrentlyBlocked, setIsCurrentlyBlocked] = useState<boolean>(false);
-  const {mutate:blockExpert} = useBlockUser()
+  const { mutate: blockExpert } = useBlockUser();
   const handleBlock = async () => {
-    console.log("reacej block")
-    const action =isCurrentlyBlocked ? "unblock " : "block"
-    // alert("blocked" + userIdToBlock + "state " + action);
-    await blockExpert({userId:userIdToBlock,action:action})
+    console.log("reacej block");
+    const action = isCurrentlyBlocked ? "unblock " : "block";
+    blockExpert({ userId: userIdToBlock, action: action });
   };
 
   return (
@@ -68,7 +67,9 @@ export const UsersTable = ({
           <TableHeader className="bg-card sticky top-0 z-10">
             <TableRow>
               <TableHead className="text-center w-12">Sl.No</TableHead>
-              <TableHead className="w-[35%] text-center w-52">Full Name</TableHead>
+              <TableHead className="w-[35%] text-center w-52">
+                Full Name
+              </TableHead>
               <TableHead className="text-center w-52">Email</TableHead>
               <TableHead className="text-center w-32">State</TableHead>
               <TableHead className="text-center w-24">Workload</TableHead>
@@ -139,229 +140,112 @@ const QuestionRow: React.FC<UserRowProps> = ({
   setIsCurrentlyBlocked,
   onViewMore,
 }) => {
-  
   const isBlocked = q.isBlocked || false;
   return (
-//     <TableRow key={String(q._id)} className="text-center">
-//       {/* Serial Number */}
-//       <TableCell className="align-middle" title={idx.toString()}>
-//         {(currentPage - 1) * limit + idx + 1}
-//       </TableCell>
+    <TableRow key={String(q._id)} className="text-center">
+      {/* Serial Number */}
+      <TableCell className="align-middle w-12" title={idx.toString()}>
+        {(currentPage - 1) * limit + idx + 1}
+      </TableCell>
 
-//       {/* User name*/}
-//       <TableCell className="align-middle" title={q.firstName}>
-//         {/* <div className="flex flex-col gap-1"> */}
-//         {truncate(q.firstName, 10)}
-//         {/* </div> */}
-//       </TableCell>
+      {/* User name */}
+      <TableCell className="align-middle w-36" title={q.firstName}>
+        {truncate(q.firstName + " " + q.lastName, 60)}
+      </TableCell>
 
-//       {/* Email */}
-//       <TableCell className="align-middle">{truncate(q.email, 70)}</TableCell>
+      {/* Email */}
+      <TableCell className="align-middle w-64">
+        {truncate(q.email, 60)}
+      </TableCell>
 
-//       <TableCell className="align-middle">
-//         {truncate(q.preference?.state!, 10)}
-//       </TableCell>
+      {/* State */}
+      <TableCell className="align-middle w-32">
+        {truncate(q.preference?.state!, 10)}
+      </TableCell>
 
-//       {/* Workload */}
-//       <TableCell className="align-middle">
-//         {truncate(q.reputation_score + "", 10)}
-//       </TableCell>
+      {/* Workload */}
+      <TableCell className="align-middle w-32">
+        <Badge variant="outline">{q.reputation_score + ""}</Badge>
+      </TableCell>
 
-//       {/* Incentive */}
-//       <TableCell className="align-middle">
-//         <Badge variant="outline">{q.incentive || 0}</Badge>
-//       </TableCell>
+      {/* Incentive */}
+      <TableCell className="align-middle w-32">
+        <Badge variant="outline">{q.incentive || 0}</Badge>
+      </TableCell>
 
-//       {/* Penalty */}
-//       <TableCell className="align-middle">{q.penalty || 0}</TableCell>
+      {/* Penalty */}
+      <TableCell className="align-middle w-32">
+        {/* {q.penalty || 0} */}
+        <Badge variant="outline">{q.penalty || 0}</Badge>
+      </TableCell>
 
-     
+      {/* Created At */}
+      <TableCell className="align-middle w-32">
+        {formatDate(new Date(q.createdAt!), false)}
+      </TableCell>
 
-//       <TableCell className="align-middle">
-//         {formatDate(new Date(q.createdAt!), false)}
-//       </TableCell>
+      {/* Blocked Status */}
+      <TableCell className="align-middle w-32">
+        <div className="flex justify-center items-center">
+          {q.isBlocked ? (
+            <Lock className="text-red-500 w-5 h-5" />
+          ) : (
+            <Unlock className="text-green-500 w-5 h-5" />
+          )}
+        </div>
+      </TableCell>
 
-//       {/* <TableCell className="align-middle">
-//         {" "}
-//         {truncate(q.isBlocked ? 'True' : 'False', 10)}
-//       </TableCell> */}
+      {/* Actions */}
+      <TableCell className="align-middle w-32">
+        <div className="flex justify-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="p-1">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
 
-// <TableCell className="align-middle">
-//   <div className="flex justify-center items-center">
-//     {q.isBlocked ? (
-//       <Lock className="text-red-500 w-5 h-5" />
-//     ) : (
-//       <Unlock className="text-green-500 w-5 h-5" />
-//     )}
-//   </div>
-// </TableCell>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem
+                onClick={() => onViewMore(q._id?.toString() || "")}
+                className="hover:bg-primary/10"
+              >
+                <Eye className="w-4 h-4 mr-2 text-primary" />
+                View
+              </DropdownMenuItem>
 
+              <DropdownMenuSeparator />
 
-
-//       {/* Actions */}
-//       <TableCell className="align-middle">
-//         <div className="flex justify-center">
-//           <DropdownMenu>
-//             <DropdownMenuTrigger asChild>
-//               <Button size="sm" variant="outline" className="p-1">
-//                 <MoreVertical className="w-4 h-4" />
-//               </Button>
-//             </DropdownMenuTrigger>
-
-//             <DropdownMenuContent align="end" className="w-44">
-//               <DropdownMenuItem
-//                 onClick={() => onViewMore(q._id?.toString() || "")}
-//                 className="hover:bg-primary/10"
-//               >
-//                 <Eye className="w-4 h-4 mr-2 text-primary" />
-//                 View
-//               </DropdownMenuItem>
-
-//               <DropdownMenuSeparator />
-
-//               <DropdownMenuSeparator />
-
-//               <DropdownMenuItem
-//                 onSelect={(e) => {
-//                   e.preventDefault();
-//                   setQuestionIdToBlock(q._id!);
-//                   setIsCurrentlyBlocked(isBlocked!);
-//                 }}
-//               >
-//                 <ConfirmationModal
-//                   title={isBlocked ? "Unblock the User?" : "Block the User?"}
-//                   description={
-//                     isBlocked
-//                       ? "Are you sure you want to unblock this user?"
-//                       : "Are you sure you want to block this user?"
-//                   }
-//                   confirmText={isBlocked ? "Unblock" : "Block"}
-//                   cancelText="Cancel"
-//                   //   isLoading={}
-//                   type={isBlocked ? "default" : "delete"}
-//                   onConfirm={handleBlock}
-//                   trigger={
-//                     <button className="flex justify-center items-center gap-2">
-//                       <Trash className="w-4 h-4 mr-2 text-red-500" />
-//                      {isBlocked ? "Unblock" : "Block"}
-//                     </button>
-//                   }
-//                 />
-//               </DropdownMenuItem>
-//             </DropdownMenuContent>
-//           </DropdownMenu>
-//         </div>
-//       </TableCell>
-//     </TableRow>
-
-<TableRow key={String(q._id)} className="text-center">
-
-  {/* Serial Number */}
-  <TableCell className="align-middle w-12" title={idx.toString()}>
-    {(currentPage - 1) * limit + idx + 1}
-  </TableCell>
-
-  {/* User name */}
-  <TableCell className="align-middle w-36" title={q.firstName}>
-    {truncate(q.firstName + ' ' + q.lastName, 60)}
-  </TableCell>
-
-  {/* Email */}
-  <TableCell className="align-middle w-64">
-    {truncate(q.email, 60)}
-  </TableCell>
-
-  {/* State */}
-  <TableCell className="align-middle w-32">
-    {truncate(q.preference?.state!, 10)}
-  </TableCell>
-
-  {/* Workload */}
-  <TableCell className="align-middle w-32">
-     <Badge variant="outline">{q.reputation_score + ""}</Badge>
-  </TableCell>
-
-  {/* Incentive */}
-  <TableCell className="align-middle w-32">
-    
-    <Badge variant="outline">{q.incentive || 0}</Badge>
-  </TableCell>
-
-  {/* Penalty */}
-  <TableCell className="align-middle w-32">
-    {/* {q.penalty || 0} */}
-     <Badge variant="outline">{q.penalty || 0}</Badge>
-  </TableCell>
-
-  {/* Created At */}
-  <TableCell className="align-middle w-32">
-    {formatDate(new Date(q.createdAt!), false)}
-  </TableCell>
-
-  {/* Blocked Status */}
-  <TableCell className="align-middle w-32">
-    <div className="flex justify-center items-center">
-      {q.isBlocked ? (
-        <Lock className="text-red-500 w-5 h-5" />
-      ) : (
-        <Unlock className="text-green-500 w-5 h-5" />
-      )}
-    </div>
-  </TableCell>
-
-  {/* Actions */}
-  <TableCell className="align-middle w-32">
-    <div className="flex justify-center">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button size="sm" variant="outline" className="p-1">
-            <MoreVertical className="w-4 h-4" />
-          </Button>
-        </DropdownMenuTrigger>
-
-        <DropdownMenuContent align="end" className="w-44">
-          <DropdownMenuItem
-            onClick={() => onViewMore(q._id?.toString() || "")}
-            className="hover:bg-primary/10"
-          >
-            <Eye className="w-4 h-4 mr-2 text-primary" />
-            View
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
-              setQuestionIdToBlock(q._id!);
-              setIsCurrentlyBlocked(isBlocked!);
-            }}
-          >
-            <ConfirmationModal
-              title={isBlocked ? "Unblock the User?" : "Block the User?"}
-              description={
-                isBlocked
-                  ? "Are you sure you want to unblock this user?"
-                  : "Are you sure you want to block this user?"
-              }
-              confirmText={isBlocked ? "Unblock" : "Block"}
-              cancelText="Cancel"
-              type={isBlocked ? "default" : "delete"}
-              onConfirm={handleBlock}
-              trigger={
-                <button className="flex justify-center items-center gap-2">
-                  <Trash className="w-4 h-4 mr-2 text-red-500" />
-                  {isBlocked ? "Unblock" : "Block"}
-                </button>
-              }
-            />
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  </TableCell>
-  
-</TableRow>
-
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setQuestionIdToBlock(q._id!);
+                  setIsCurrentlyBlocked(isBlocked!);
+                }}
+              >
+                <ConfirmationModal
+                  title={isBlocked ? "Unblock the User?" : "Block the User?"}
+                  description={
+                    isBlocked
+                      ? "Are you sure you want to unblock this user?"
+                      : "Are you sure you want to block this user?"
+                  }
+                  confirmText={isBlocked ? "Unblock" : "Block"}
+                  cancelText="Cancel"
+                  type={isBlocked ? "default" : "delete"}
+                  onConfirm={handleBlock}
+                  trigger={
+                    <button className="flex justify-center items-center gap-2">
+                      <Trash className="w-4 h-4 mr-2 text-red-500" />
+                      {isBlocked ? "Unblock" : "Block"}
+                    </button>
+                  }
+                />
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 };

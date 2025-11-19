@@ -142,7 +142,7 @@ updatePenaltyAndIncentive(userId:string,field:'incentive' | 'penalty',session?:C
    * @param search - serach query
    * @returns A promise that resolve to an array of all users.
    */
-findAllExperts(page:number,limit:number,search:string,sortOption:string,session?:ClientSession):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>
+findAllExperts(page:number,limit:number,search:string,sortOption:string,filter:string,session?:ClientSession):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>
   /**
    * Finds all users.
    * @param userId - userid of expert to block.

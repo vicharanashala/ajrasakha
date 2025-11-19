@@ -381,10 +381,9 @@ export class UserRepository implements IUserRepository {
     }
   }
 
-  async findAllExperts(page:number,limit:number,search:string,sortOption:string,session?:ClientSession):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>{
+  async findAllExperts(page:number,limit:number,search:string,sortOption:string,filter:string,session?:ClientSession):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>{
     await this.init()
     try {
-      console.log("fil ",sortOption)
       const skip = (page - 1) * limit
       let query:any = {}
       let sort:any ={}
@@ -393,6 +392,9 @@ export class UserRepository implements IUserRepository {
           {firstName:{$regex:search,$options:'i'}},
           {lastName:{$regex:search, $options:'i'}}
         ] 
+      }
+      if(filter && filter!=='ALL'){
+        query['preference.state']=filter
       }
       switch(sortOption){
         case 'reputation_score':
@@ -410,8 +412,8 @@ export class UserRepository implements IUserRepository {
         default:
           sort= {'firstName':1}
       }
-      const users = await this.usersCollection.find(query).sort(sort).skip(skip).limit(limit).toArray()
-      const totalExperts = await this.usersCollection.countDocuments(query)
+      const users = await this.usersCollection.find(query,{session}).sort(sort).skip(skip).limit(limit).toArray()
+      const totalExperts = await this.usersCollection.countDocuments(query,{session})
       const totalPages =Math.ceil(totalExperts/limit)
       const mappedExperts = users.map((u) => ({
           ...u,

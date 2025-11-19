@@ -108,9 +108,9 @@ export class UserService extends BaseService {
     })
   }
 
-  async findAllExperts(page:number,limit:number,search:string,sort:string):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>{
+  async findAllExperts(page:number,limit:number,search:string,sort:string,filter:string):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>{
     return await this._withTransaction(async (session:ClientSession) => {
-      return await this.userRepo.findAllExperts(page,limit,search,sort,session)
+      return await this.userRepo.findAllExperts(page,limit,search,sort,filter,session)
     })
   }
 

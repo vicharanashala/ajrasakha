@@ -107,10 +107,10 @@ export class UserController {
   @Authorized()
   @OpenAPI({summary: 'Get all users'})
   async getAllUsers(
-    @QueryParams() query: {page?: number; limit?: number,search?:string,sort:string}
+    @QueryParams() query: {page?: number; limit?: number,search?:string,sort:string,filter:string}
   ) {
-    const{page=1,limit=10,search='',sort=''} = query
-    return await this.userService.findAllExperts(Number(page),Number(limit),search,sort)
+    const{page=1,limit=10,search='',sort='',filter=''} = query
+    return await this.userService.findAllExperts(Number(page),Number(limit),search,sort,filter)
   }
 
   @Patch('/expert')

@@ -30,15 +30,29 @@ export const useGetAllUsers = () => {
   return { data, isLoading, error };
 };
 
-export const useGetAllExperts = (page:number,limit:number,search:string,sort:string) => {
-  const { data, isLoading, error } = useQuery<{experts:IUser[]; totalExperts:number; totalPages:number} |null>(
-    {
-      queryKey: ["users",page,limit,search,sort],
-      queryFn: async () => {
-        return await userService.useGetAllExperts(page,limit,search,sort);
-      },
-    }
-  );
+export const useGetAllExperts = (
+  page: number,
+  limit: number,
+  search: string,
+  sort: string,
+  filter: string
+) => {
+  const { data, isLoading, error } = useQuery<{
+    experts: IUser[];
+    totalExperts: number;
+    totalPages: number;
+  } | null>({
+    queryKey: ["users", page, limit, search, sort, filter],
+    queryFn: async () => {
+      return await userService.useGetAllExperts(
+        page,
+        limit,
+        search,
+        sort,
+        filter
+      );
+    },
+  });
 
   return { data, isLoading, error };
 };

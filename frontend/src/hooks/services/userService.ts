@@ -29,8 +29,8 @@ export class UserService {
     })
   }
 
-  async useGetAllExperts(page:number,limit:number,search:string,sort:string):Promise<{experts:IUser[]; totalExperts:number; totalPages:number} | null>{
-    return apiFetch<{experts:IUser[]; totalExperts:number; totalPages:number}>(`${this._baseUrl}/list?page=${page}&limit=${limit}&search=${search}&sort=${sort}`);
+  async useGetAllExperts(page:number,limit:number,search:string,sort:string,filter:string):Promise<{experts:IUser[]; totalExperts:number; totalPages:number} | null>{
+    return apiFetch<{experts:IUser[]; totalExperts:number; totalPages:number}>(`${this._baseUrl}/list?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}`);
   }
 
   async isBlockUser(userId:string,action:string):Promise<void | null>{
