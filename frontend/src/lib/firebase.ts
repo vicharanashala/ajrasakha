@@ -24,7 +24,7 @@ const userService = new UserService()
 export const loginWithEmail = async (email: string, password: string) => {
   const user = await userService.Getuser(email)
   if(user?.isBlocked){
-    throw new Error("User is Blocked Please contact Moderator")
+    throw new Error("User Is Blocked Please Contact Moderator")
   }
   if(!user?.isBlocked){
   const result = await signInWithEmailAndPassword(auth, email, password);

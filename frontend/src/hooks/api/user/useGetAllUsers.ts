@@ -11,6 +11,7 @@ interface BasicUser {
   email: string;
   role: IUser["role"];
   preference: IMyPreference;
+  isBlocked:boolean
 }
 export interface IUsersNameResponse {
   myPreference: IMyPreference;

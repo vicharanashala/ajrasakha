@@ -88,6 +88,7 @@ export class UserService extends BaseService {
             email: u.email,
             preference: u.preference,
             userName: `${u.firstName} ${u.lastName ? u.lastName : ''}`.trim(),
+            isBlocked:u.isBlocked
           })),
         };
       });

@@ -1,5 +1,6 @@
 import {
   IsArray,
+  isBoolean,
   IsEnum,
   IsObject,
   IsOptional,
@@ -41,6 +42,8 @@ class UserDto {
   @ValidateNested()
   @Type(() => PreferenceDto)
   preference: PreferenceDto;
+
+  isBlocked:boolean
 }
 
 // Main Response DTO

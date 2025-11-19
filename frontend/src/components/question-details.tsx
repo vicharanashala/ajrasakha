@@ -881,7 +881,12 @@ const AllocationQueueHeader = ({
                         filteredExperts.map((expert) => (
                           <div
                             key={expert._id}
-                            className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                            className={`flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors ${
+                              expert.isBlocked
+                                ? "blur-[0px] cursor-not-allowed"
+                                : "hover:bg-muted/50"
+                            }
+  `}
                           >
                             <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
                               <User className="w-5 h-5 text-primary" />
@@ -893,8 +898,10 @@ const AllocationQueueHeader = ({
                               onCheckedChange={() =>
                                 handleSelectExpert(expert._id)
                               }
+                              disabled={expert.isBlocked}
                               className="mt-1"
                             />
+                            {/* {expert.isBlocked ? 'Blocked' : ''} */}
 
                             <Label
                               htmlFor={`expert-${expert._id}`}
@@ -916,6 +923,11 @@ const AllocationQueueHeader = ({
                                     {expert?.email?.slice(0, 48)}
                                     {expert?.email?.length > 48 ? "..." : ""}
                                   </div>
+                                  {expert.isBlocked && (
+                                    <span className="mt-1 text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full w-fit">
+                                      Blocked
+                                    </span>
+                                  )}
                                 </div>
 
                                 <div className="text-sm text-muted-foreground flex-shrink-0 ml-2 hidden md:block">

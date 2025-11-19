@@ -213,7 +213,11 @@ export const AuthForm = ({
         }
 
         console.error(error);
+        if(message==='User Is Blocked Please Contact Moderator'){
+          toast.warning(error.message)
+        }else{
         toast.error(message);
+        }
       }
     } finally {
       setIsLoading(false);
