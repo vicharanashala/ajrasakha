@@ -2228,9 +2228,9 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       <div className="flex flex-col text-muted-foreground text-xs">
                         <span>
                           Submitted At:{" "}
-                          {new Date(
-                            props.answer.createdAt || ""
-                          ).toLocaleString()}
+                          {formatDate(
+                            props.answer.createdAt!
+                          )}
                         </span>
                       </div>
                     </div>
