@@ -1,5 +1,14 @@
 import type { IUser } from "@/types";
-import { BarChart3, Clock, History, List, Menu, MessageSquare, Upload } from "lucide-react";
+import {
+  BarChart3,
+  Clock,
+  History,
+  List,
+  Menu,
+  MessageSquare,
+  Upload,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "./atoms/sheet";
 
@@ -48,12 +57,14 @@ export const MobileSidebar = ({
   setTab: (value: string) => void;
 }) => {
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState(user?.role!=="expert" ? "performance" : "questions");
+  const [activeTab, setActiveTab] = useState(
+    user?.role !== "expert" ? "performance" : "questions"
+  );
   const handleClick = (value: string) => {
     setTab(value);
     setActiveTab(value);
 
-    setOpen(false); 
+    setOpen(false);
   };
 
   const menuItems = [
@@ -65,7 +76,10 @@ export const MobileSidebar = ({
       : []),
     { id: "all_questions", label: "All Questions", icon: List },
     ...(user && user.role !== "expert"
-      ? [{ id: "request_queue", label: "Request Queue", icon: Clock }]
+      ? [
+          { id: "user_management", label: "Expert Management", icon: Users },
+          { id: "request_queue", label: "Request Queue", icon: Clock },
+        ]
       : []),
     { id: "upload", label: "Agents Interface", icon: Upload },
     ...(user ? [{ id: "history", label: "History", icon: History }] : []),

@@ -20,6 +20,7 @@ import { PerformanceMatrics } from "./performanceMatrics";
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 import { MobileSidebar } from "./mobile-sidebar";
 import { HoverCard } from "./atoms/hover-card";
+import { UserManagement } from "./user-management";
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser();
@@ -265,6 +266,17 @@ export const PlaygroundPage = () => {
 
                 {user && user.role !== "expert" && (
                   <TabsTrigger
+                    value="user_management"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <HoverCard openDelay={150}>
+                      <span>Expert Management</span>
+                    </HoverCard>
+                  </TabsTrigger>
+                )}
+
+                {user && user.role !== "expert" && (
+                  <TabsTrigger
                     value="request_queue"
                     className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
                   >
@@ -342,6 +354,15 @@ export const PlaygroundPage = () => {
                   autoOpenQuestionId={selectedCommentId || selectedQuestionId}
                 />
               </TabsContent>
+
+              {user && user.role !== "expert" && (
+                <TabsContent
+                  value="user_management"
+                  className="mt-0 border-0 p-0 "
+                >
+                  <UserManagement />
+                </TabsContent>
+              )}
               {user && user.role !== "expert" && (
                 <TabsContent
                   value="request_queue"

@@ -72,7 +72,9 @@ export const UsersTable = ({
               </TableHead>
               <TableHead className="text-center w-52">Email</TableHead>
               <TableHead className="text-center w-32">State</TableHead>
-              <TableHead className="text-center w-24">Workload</TableHead>
+              <TableHead className="text-center w-24">
+                Reputation Score
+              </TableHead>
               <TableHead className="text-center w-24">Incentive</TableHead>
               <TableHead className="text-center w-24">Penalty</TableHead>
               <TableHead className="text-center w-24">Joined At</TableHead>
@@ -160,7 +162,9 @@ const QuestionRow: React.FC<UserRowProps> = ({
 
       {/* State */}
       <TableCell className="align-middle w-32">
-        {truncate(q.preference?.state!, 10)}
+        {q.preference?.state && q.preference?.state == "all"
+          ? "Not Specified"
+          : truncate(q.preference?.state!, 20)}
       </TableCell>
 
       {/* Workload */}
@@ -206,15 +210,15 @@ const QuestionRow: React.FC<UserRowProps> = ({
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem
+              {/* <DropdownMenuItem
                 onClick={() => onViewMore(q._id?.toString() || "")}
                 className="hover:bg-primary/10"
               >
                 <Eye className="w-4 h-4 mr-2 text-primary" />
                 View
-              </DropdownMenuItem>
+              </DropdownMenuItem> */}
 
-              <DropdownMenuSeparator />
+              {/* <DropdownMenuSeparator /> */}
 
               <DropdownMenuItem
                 onSelect={(e) => {
@@ -227,8 +231,8 @@ const QuestionRow: React.FC<UserRowProps> = ({
                   title={isBlocked ? "Unblock the User?" : "Block the User?"}
                   description={
                     isBlocked
-                      ? "Are you sure you want to unblock this user?"
-                      : "Are you sure you want to block this user?"
+                      ? "This will restore the expert’s access to the review system and allow them to participate in reviews again. Are you sure you want to unblock this user?"
+                      : "Blocking this expert will restrict their access to the review system until they are unblocked. Once blocked, they will no longer be able to review, submit answers, or perform any actions within the platform. They will also be excluded from all current and future allocations. Are you sure you want to proceed?"
                   }
                   confirmText={isBlocked ? "Unblock" : "Block"}
                   cancelText="Cancel"
