@@ -278,13 +278,13 @@ const QuestionRow: React.FC<UserRowProps> = ({
 
   {/* Workload */}
   <TableCell className="align-middle w-32">
-    {/* {truncate(q.reputation_score + "", 10)} */}
-     <Badge variant="outline">{q.incentive || 0}</Badge>
+     <Badge variant="outline">{q.reputation_score + ""}</Badge>
   </TableCell>
 
   {/* Incentive */}
   <TableCell className="align-middle w-32">
-    <Badge variant="outline">{q.reputation_score + ""}</Badge>
+    
+    <Badge variant="outline">{q.incentive || 0}</Badge>
   </TableCell>
 
   {/* Penalty */}

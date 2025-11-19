@@ -381,18 +381,36 @@ export class UserRepository implements IUserRepository {
     }
   }
 
-  async findAllExperts(page:number,limit:number,search:string,session?:ClientSession):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>{
+  async findAllExperts(page:number,limit:number,search:string,sortOption:string,session?:ClientSession):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>{
     await this.init()
     try {
+      console.log("fil ",sortOption)
       const skip = (page - 1) * limit
       let query:any = {}
+      let sort:any ={}
       if(search){
         query.$or = [
           {firstName:{$regex:search,$options:'i'}},
           {lastName:{$regex:search, $options:'i'}}
         ] 
       }
-      const users = await this.usersCollection.find(query).skip(skip).limit(limit).toArray()
+      switch(sortOption){
+        case 'reputation_score':
+          sort= {'reputation_score':-1}
+          break
+        case 'incentive':
+          sort= {'incentive':-1}
+          break
+        case 'penalty':
+          sort= {'penalty':-1}
+          break
+        case 'createdAt':
+          sort= {'createdAt':-1}
+          break
+        default:
+          sort= {'firstName':1}
+      }
+      const users = await this.usersCollection.find(query).sort(sort).skip(skip).limit(limit).toArray()
       const totalExperts = await this.usersCollection.countDocuments(query)
       const totalPages =Math.ceil(totalExperts/limit)
       const mappedExperts = users.map((u) => ({

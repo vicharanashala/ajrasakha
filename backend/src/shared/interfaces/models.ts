@@ -15,7 +15,7 @@ export interface IUser {
   firstName: string;
   lastName?: string;
   preference?: IPreference | null;
-  reputation_score: number;
+  reputation_score?: number;
   notifications?: number;
   role: UserRole;
   notificationRetention?: NotificationRetentionType;
