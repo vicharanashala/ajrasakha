@@ -120,4 +120,10 @@ export class UserService extends BaseService {
     })
   }
 
+  async getUserByEmail(email:string):Promise<IUser | null>{
+    return await this._withTransaction(async (session:ClientSession) => {
+      return await this.userRepo.findByEmail(email,session)
+    })
+  }
+
 }

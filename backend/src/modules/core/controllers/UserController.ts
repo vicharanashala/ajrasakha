@@ -125,4 +125,14 @@ export class UserController {
     await this.userService.blockUnblockExperts(userId,action)
     return { message: `${action} Expert successfully` };
   }
+
+  @Get('/details/:email')
+  @HttpCode(200)
+  @OpenAPI({summary: 'Get all user names'})
+  async getUserDetails(
+    @Params() params:{email:string}
+  ): Promise<IUser | null> {
+    const {email} =params
+    return await this.userService.getUserByEmail(email) 
+  }
 }

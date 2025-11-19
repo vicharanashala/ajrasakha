@@ -15,7 +15,10 @@ export const apiFetch = async <T>(
   options: RequestInit = {}
 ): Promise<T | null> => {
   const firebaseUser = await getCurrentUser();
-  if (!firebaseUser) return null;
+  // if (!firebaseUser) return null;
+  if(!firebaseUser){
+     return fetch(url, options).then((r) => r.json()) as Promise<T>;
+  }
 
   let token: string;
   try {

@@ -175,10 +175,10 @@ export const AuthForm = ({
       }
 
       setUser({
-        uid: result.user.uid,
-        email: result.user.email || "",
-        name: result.user.displayName || firstName,
-        avatar: result.user.photoURL || "",
+        uid: result!.user.uid,
+        email: result!.user.email || "",
+        name: result!.user.displayName || firstName,
+        avatar: result!.user.photoURL || "",
       });
 
       navigate({ to: "/home" });

@@ -39,4 +39,8 @@ export class UserService {
       method:"PATCH"
     })
   }
+
+   async Getuser(email:string):Promise<IUser| null>{
+    return apiFetch<IUser | null>(`${this._baseUrl}/details/${email}`);
+  }
 }

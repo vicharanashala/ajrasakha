@@ -69,31 +69,6 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       console.log("deleted firebase user ")
       throw new UnauthorizedError("User not found in database")
     }
-    // if (!user) {
-    //   // get user data from Firebase
-    //   console.log("creating new userr for firebase UID ",firebaseUID)
-    //   console.trace()
-    //   try {
-    //     const firebaseUser = await this.auth.getUser(firebaseUID);
-    //     if (!firebaseUser) {
-    //       throw new InternalServerError('Firebase user not found');
-    //     }
-    //     // Map Firebase user data to our application user model
-    //     const userData: GoogleSignUpBody = {
-    //       email: firebaseUser.email,
-    //       firstName: firebaseUser.displayName?.split(' ')[0] || '',
-    //       lastName: firebaseUser.displayName?.split(' ')[1] || '',
-    //     };
-    //     const createdUser = await this.googleSignup(userData, token);
-    //     if (!createdUser) {
-    //       throw new InternalServerError('Failed to create the user');
-    //     }
-    //   } catch (error) {
-    //     throw new InternalServerError(
-    //       `Failed to retrieve user from Firebase: ${error.message}`,
-    //     );
-    //   }
-    // }
     user._id = user._id.toString();
     return user;
   }
