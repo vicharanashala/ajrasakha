@@ -5,18 +5,14 @@ import { useDebounce } from "@/hooks/ui/useDebounce";
 import {
   Award,
   CalendarClock,
-  CalendarDays,
   Filter,
   Gavel,
-  Globe,
   Loader2,
   MapPin,
   MessageSquare,
   Search,
-  Star,
   TrendingDown,
   TrendingUp,
-  UserRound,
   Users,
   Wallet,
   X,
@@ -35,15 +31,11 @@ import {
 
 export const UserManagement = ({
   currentUser,
-  autoOpenQuestionId,
 }: {
   currentUser?: IUser;
-  autoOpenQuestionId?: string | null;
 }) => {
   const [search, setSearch] = useState("");
-  const [selectedQuestionId, setSelectedQuestionId] = useState(
-    autoOpenQuestionId || ""
-  );
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [filter, setFilter] = useState("");
   const debouncedSearch = useDebounce(search);
   const [selectedSort, setSelectedSort] = useState("");
@@ -58,8 +50,8 @@ export const UserManagement = ({
     filter
   );
   useEffect(() => {
-    if (selectedQuestionId && !autoOpenQuestionId) {
-      setSelectedQuestionId("");
+    if (selectedUserId) {
+      setSelectedUserId("");
     }
   }, [debouncedSearch]);
 
@@ -70,15 +62,12 @@ export const UserManagement = ({
 
   const onReset = () => {};
 
-  const handleViewMore = (questoinId: string) => {
-    setSelectedQuestionId(questoinId);
+  const handleViewMore = (userId: string) => {
+    setSelectedUserId(userId);
   };
 
   return (
     <main className="mx-auto w-full p-4 md:p-6 space-y-6 ">
-      {isLoading ? (
-        <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
-      ) : (
         <>
           <div className="flex flex-wrap items-start justify-between gap-4 w-full bg-card py-4 px-2 rounded">
             {/* LEFT — Search */}
@@ -128,14 +117,14 @@ export const UserManagement = ({
 
                     <SelectItem value="incentive">
                       <div className="flex items-center gap-2">
-                        <Wallet className="w-4 h-4 text-green-600" />
+                        <TrendingUp className="w-4 h-4 text-green-600" />
                         <span>Incentive</span>
                       </div>
                     </SelectItem>
 
                     <SelectItem value="penalty">
                       <div className="flex items-center gap-2">
-                        <Gavel className="w-4 h-4 text-red-600" />
+                        <TrendingDown className="w-4 h-4 text-red-600" />
                         <span>Penalty</span>
                       </div>
                     </SelectItem>
@@ -165,7 +154,7 @@ export const UserManagement = ({
                   <SelectContent>
                     <SelectItem value="ALL">
                       <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-primary" />
+                        <MapPin className="w-4 h-4 text-primary" />
                         <span>All</span>
                       </div>
                     </SelectItem>
@@ -195,7 +184,6 @@ export const UserManagement = ({
             isLoading={isLoading}
           />
         </>
-      )}
     </main>
   );
 };

@@ -17,7 +17,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./atoms/dropdown-menu";
 import { ConfirmationModal } from "./confirmation-modal";
@@ -30,9 +29,9 @@ const truncate = (s: string, n = 80) => {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 };
 
-type QuestionsTableProps = {
+type UserTableProps = {
   items?: IUser[] | null;
-  onViewMore: (questionId: string) => void;
+  onViewMore: (userId: string) => void;
   currentPage: number;
   setCurrentPage: (val: number) => void;
   isLoading?: boolean;
@@ -50,7 +49,7 @@ export const UsersTable = ({
   userRole,
   isLoading,
   totalPages,
-}: QuestionsTableProps) => {
+}: UserTableProps) => {
   const [userIdToBlock, setUserIdToBlock] = useState<string>("");
   const [isCurrentlyBlocked, setIsCurrentlyBlocked] = useState<boolean>(false);
   const { mutate: blockExpert } = useBlockUser();
@@ -90,20 +89,31 @@ export const UsersTable = ({
                   <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
                 </TableCell>
               </TableRow>
-            ) : (
-              items?.map((q, idx) => (
-                <QuestionRow
+            ) : items?.length===0 ? (
+              <TableRow>
+                  <TableCell
+                    colSpan={10}
+                    rowSpan={10}
+                    className="text-center py-10 text-muted-foreground"
+                  >
+                    No users found
+                  </TableCell>
+                </TableRow>
+            ):
+            (
+              items?.map((u, idx) => (
+                <UserRow
                   currentPage={currentPage}
                   handleBlock={handleBlock}
                   idx={idx}
                   onViewMore={onViewMore}
-                  q={q}
+                  u={u}
                   limit={limit}
                   totalPages={totalPages}
-                  setQuestionIdToBlock={setUserIdToBlock}
+                  setUserIdToBlock={setUserIdToBlock}
                   setIsCurrentlyBlocked={setIsCurrentlyBlocked}
                   userRole={userRole!}
-                  key={String(q._id)}
+                  key={String(u._id)}
                 />
               ))
             )}
@@ -120,78 +130,77 @@ export const UsersTable = ({
 };
 
 interface UserRowProps {
-  q: IUser;
+  u: IUser;
   idx: number;
   currentPage: number;
   limit: number;
   totalPages: number;
   userRole: UserRole;
-  setQuestionIdToBlock: (id: string) => void;
+  setUserIdToBlock: (id: string) => void;
   setIsCurrentlyBlocked: (value: boolean) => void;
   handleBlock: () => Promise<void>;
   onViewMore: (id: string) => void;
 }
 
-const QuestionRow: React.FC<UserRowProps> = ({
-  q,
+const UserRow: React.FC<UserRowProps> = ({
+  u,
   idx,
   currentPage,
   limit,
   handleBlock,
-  setQuestionIdToBlock,
+  setUserIdToBlock,
   setIsCurrentlyBlocked,
-  onViewMore,
 }) => {
-  const isBlocked = q.isBlocked || false;
+  const isBlocked = u.isBlocked || false;
   return (
-    <TableRow key={String(q._id)} className="text-center">
+    <TableRow key={String(u._id)} className="text-center">
       {/* Serial Number */}
       <TableCell className="align-middle w-12" title={idx.toString()}>
         {(currentPage - 1) * limit + idx + 1}
       </TableCell>
 
       {/* User name */}
-      <TableCell className="align-middle w-36" title={q.firstName}>
-        {truncate(q.firstName + " " + q.lastName, 60)}
+      <TableCell className="align-middle w-36" title={u.firstName}>
+        {truncate(u.firstName + " " + u.lastName, 60)}
       </TableCell>
 
       {/* Email */}
       <TableCell className="align-middle w-64">
-        {truncate(q.email, 60)}
+        {truncate(u.email, 60)}
       </TableCell>
 
       {/* State */}
       <TableCell className="align-middle w-32">
-        {q.preference?.state && q.preference?.state == "all"
+        {u.preference?.state && u.preference?.state == "all"
           ? "Not Specified"
-          : truncate(q.preference?.state!, 20)}
+          : truncate(u.preference?.state!, 20)}
       </TableCell>
 
       {/* Workload */}
       <TableCell className="align-middle w-32">
-        <Badge variant="outline">{q.reputation_score + ""}</Badge>
+        <Badge variant="outline">{u.reputation_score + ""}</Badge>
       </TableCell>
 
       {/* Incentive */}
       <TableCell className="align-middle w-32">
-        <Badge variant="outline">{q.incentive || 0}</Badge>
+        <Badge variant="outline">{u.incentive || 0}</Badge>
       </TableCell>
 
       {/* Penalty */}
       <TableCell className="align-middle w-32">
-        {/* {q.penalty || 0} */}
-        <Badge variant="outline">{q.penalty || 0}</Badge>
+        {/* {u.penalty || 0} */}
+        <Badge variant="outline">{u.penalty || 0}</Badge>
       </TableCell>
 
       {/* Created At */}
       <TableCell className="align-middle w-32">
-        {formatDate(new Date(q.createdAt!), false)}
+        {formatDate(new Date(u.createdAt!), false)}
       </TableCell>
 
       {/* Blocked Status */}
       <TableCell className="align-middle w-32">
         <div className="flex justify-center items-center">
-          {q.isBlocked ? (
+          {u.isBlocked ? (
             <Lock className="text-red-500 w-5 h-5" />
           ) : (
             <Unlock className="text-green-500 w-5 h-5" />
@@ -211,7 +220,7 @@ const QuestionRow: React.FC<UserRowProps> = ({
 
             <DropdownMenuContent align="end" className="w-44">
               {/* <DropdownMenuItem
-                onClick={() => onViewMore(q._id?.toString() || "")}
+                onClick={() => onViewMore(u._id?.toString() || "")}
                 className="hover:bg-primary/10"
               >
                 <Eye className="w-4 h-4 mr-2 text-primary" />
@@ -223,7 +232,7 @@ const QuestionRow: React.FC<UserRowProps> = ({
               <DropdownMenuItem
                 onSelect={(e) => {
                   e.preventDefault();
-                  setQuestionIdToBlock(q._id!);
+                  setUserIdToBlock(u._id!);
                   setIsCurrentlyBlocked(isBlocked!);
                 }}
               >
