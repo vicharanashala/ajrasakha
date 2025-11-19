@@ -521,6 +521,7 @@ export const RequestsPage = ({
       setSelectedRequestId(null);
     }
   }, [status, reqType, sortOrder, currentPage]);
+
   return (
     <main className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
       <section className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
