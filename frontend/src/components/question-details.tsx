@@ -570,7 +570,7 @@ export const QuestionDetails = ({
         question={question}
       />
       {/* )} */}
-      <div className="flex items-center justify-between md:mt-12 hidden md:block">
+      <div className="md:flex items-center justify-between md:mt-12 hidden ">
         <h2 className="text-lg font-semibold flex justify-center gap-2 items-center ">
           <div className="p-2 rounded-lg bg-primary/10">
             <FileText className="w-5 h-5 text-primary" />
@@ -605,28 +605,27 @@ export const QuestionDetails = ({
           </Button>
         </div>
       </div>
-<p
-  className="
+      <p
+        className="
     text-sm md:hidden p-3 rounded w-full 
     flex items-center justify-center gap-3 text-center flex-wrap
     bg-yellow-50 border border-yellow-300 text-yellow-700
     dark:bg-yellow-900/30 dark:border-yellow-800 dark:text-yellow-300
   "
->
-  <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+      >
+        <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
 
-  <span className="font-medium">
-    Allocation timeline is only accessible on laptop/desktop
-  </span>
+        <span className="font-medium">
+          Allocation timeline is only accessible on laptop/desktop
+        </span>
 
-  <span className="opacity-80">(or switch to desktop view)</span>
-</p>
-
-
+        <span className="opacity-80">(or switch to desktop view)</span>
+      </p>
 
       {answers.length === 0 ? (
-        
-        <p className="text-sm text-muted-foreground  hidden md:block">No answers yet.</p>
+        <p className="text-sm text-muted-foreground  hidden md:block">
+          No answers yet.
+        </p>
       ) : (
         <div className="hidden md:block">
           {/* <SubmissionTimeline /> */}
@@ -940,7 +939,11 @@ const AllocationQueueHeader = ({
                   </ScrollArea>
 
                   <DialogFooter className="flex gap-2 justify-end pt-4">
-                    <Button variant="outline" onClick={handleCancel} className="hidden md:block">
+                    <Button
+                      variant="outline"
+                      onClick={handleCancel}
+                      className="hidden md:block"
+                    >
                       Cancel
                     </Button>
                     <Button onClick={handleSubmit} disabled={allocatingExperts}>
