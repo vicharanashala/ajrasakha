@@ -93,7 +93,7 @@ import {
   TooltipTrigger,
 } from "./atoms/tooltip";
 
-import {STATES,CROPS,DOMAINS,SEASONS} from './MetaData'
+import { STATES, CROPS, DOMAINS, SEASONS } from "./MetaData";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -109,6 +109,7 @@ type QuestionsTableProps = {
   currentPage: number;
   setCurrentPage: (val: number) => void;
   isLoading?: boolean;
+  isBulkUpload: boolean;
   totalPages: number;
   limit: number;
   uploadedQuestionsCount: number;
@@ -117,9 +118,9 @@ type QuestionsTableProps = {
 type DetailField = keyof NonNullable<IDetailedQuestion["details"]>;
 const OPTIONS: Partial<Record<DetailField, string[]>> = {
   state: STATES,
-           
+
   crop: CROPS,
-  season:SEASONS ,
+  season: SEASONS,
   domain: DOMAINS,
 };
 
@@ -133,6 +134,7 @@ export const QuestionsTable = ({
   isLoading,
   totalPages,
   uploadedQuestionsCount,
+  isBulkUpload,
 }: QuestionsTableProps) => {
   const [editOpen, setEditOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
@@ -278,6 +280,7 @@ export const QuestionsTable = ({
                   onViewMore={onViewMore}
                   q={q}
                   uploadedQuestionsCount={uploadedQuestionsCount}
+                  isBulkUpload={isBulkUpload}
                   limit={limit}
                   setUpdatedData={setUpdatedData}
                   updateQuestion={handleUpdateQuestion}
@@ -309,6 +312,7 @@ interface QuestionRowProps {
   currentPage: number;
   limit: number;
   uploadedQuestionsCount: number;
+  isBulkUpload: boolean;
   totalPages: number;
   userRole: UserRole;
   updatingQuestion: boolean;
@@ -337,6 +341,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   userRole,
   updatingQuestion,
   uploadedQuestionsCount,
+  isBulkUpload,
   deletingQuestion,
   setEditOpen,
   setSelectedQuestion,
@@ -368,7 +373,8 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   const delayMinutes = delaySeconds / 60;
 
   //  Check if enough time has passed
-  const isClickable = remainingSeconds <= totalSeconds - delaySeconds;
+  const isClickable =
+    remainingSeconds <= totalSeconds - delaySeconds && !isBulkUpload;
 
   const priorityBadge = useMemo(() => {
     if (!q.priority)
@@ -856,15 +862,14 @@ export const AddOrEditQuestionDialog = ({
                       "domain",
                     ] as DetailField[]
                   ).map((field) => {
-                    return(
-                    
-                    <div key={field} className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                        <label>
-                          {field.charAt(0).toUpperCase() + field.slice(1)}*
-                        </label>
-                      </div>
-                     {/* <Input
+                    return (
+                      <div key={field} className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                          <label>
+                            {field.charAt(0).toUpperCase() + field.slice(1)}*
+                          </label>
+                        </div>
+                        {/* <Input
                         type="text"
                         value={updatedData?.details?.[field] || ""}
                         onChange={(e) =>
@@ -881,38 +886,39 @@ export const AddOrEditQuestionDialog = ({
                           )
                         }
                       />*/}
-                {OPTIONS[field] ? (
-                  <Select
-                      value={updatedData?.details?.[field]?.trim()
-                        ? updatedData.details[field]
-                        : undefined}
-                      onValueChange={(val) =>
-                        setUpdatedData((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                details: {
-                                  ...prev.details,
-                                  [field]: val,
-                                },
-                              }
-                            : prev
-                        )
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder={`Select ${field}`} />
-                      </SelectTrigger>
+                        {OPTIONS[field] ? (
+                          <Select
+                            value={
+                              updatedData?.details?.[field]?.trim()
+                                ? updatedData.details[field]
+                                : undefined
+                            }
+                            onValueChange={(val) =>
+                              setUpdatedData((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        [field]: val,
+                                      },
+                                    }
+                                  : prev
+                              )
+                            }
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder={`Select ${field}`} />
+                            </SelectTrigger>
 
-                      <SelectContent>
-                        {OPTIONS[field]?.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
+                            <SelectContent>
+                              {OPTIONS[field]?.map((option) => (
+                                <SelectItem key={option} value={option}>
+                                  {option}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         ) : (
                           <Input
                             type="text"
@@ -932,8 +938,8 @@ export const AddOrEditQuestionDialog = ({
                             }
                           />
                         )}
-                    </div>
-                    )
+                      </div>
+                    );
                   })}
                 </div>
 
@@ -1058,7 +1064,7 @@ export const AddOrEditQuestionDialog = ({
                     const formData = new FormData();
                     formData.append("file", file);
                     onSave?.("add", undefined, undefined, undefined, formData);
-                    setFile(null)
+                    setFile(null);
                   } else {
                     onSave?.("add");
                   }
@@ -1103,6 +1109,8 @@ type QuestionsFiltersProps = {
   onReset: () => void;
   setSearch: (val: string) => void;
   setUploadedQuestionsCount: (val: number) => void;
+  setIsBulkUpload: (val: boolean) => void;
+
   refetch: () => void;
   totalQuestions: number;
   userRole: UserRole;
@@ -1112,6 +1120,7 @@ export const QuestionsFilters = ({
   search,
   setSearch,
   setUploadedQuestionsCount,
+  setIsBulkUpload,
   crops,
   states,
   onChange,
@@ -1139,7 +1148,10 @@ export const QuestionsFilters = ({
   );
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
-    useAddQuestion((count) => setUploadedQuestionsCount(count));
+    useAddQuestion((count, isBulkUpload) => {
+      setUploadedQuestionsCount(count);
+      setIsBulkUpload(isBulkUpload);
+    });
 
   const handleAddQuestion = async (
     mode: "add" | "edit",
@@ -1206,10 +1218,10 @@ export const QuestionsFilters = ({
       }
 
       const { state, district, crop, season, domain } = payload.details;
-      console.log("the payload deatils=====",payload)
+      console.log("the payload deatils=====", payload);
 
       if (!state?.trim()) {
-         toast.error("Please Select the State field.");
+        toast.error("Please Select the State field.");
         return;
       }
 

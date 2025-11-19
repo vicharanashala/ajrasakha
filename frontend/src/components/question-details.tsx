@@ -1356,7 +1356,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     useUpdateAnswer();
 
   useImperativeHandle(ref, () => {
-    refetchComments;
+    refetchComments; 
   });
 
   // const submitComment = async () => {

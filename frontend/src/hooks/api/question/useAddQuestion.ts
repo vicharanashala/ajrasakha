@@ -5,7 +5,9 @@ import type { IDetailedQuestion } from "@/types";
 
 const questionService = new QuestionService();
 
-export const useAddQuestion = (onUploaded?: (count: number) => void) => {
+export const useAddQuestion = (
+  onUploaded?: (count: number, isBulkUpload: boolean) => void
+) => {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -22,7 +24,13 @@ export const useAddQuestion = (onUploaded?: (count: number) => void) => {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
       if (data?.insertedIds?.length) {
-        onUploaded?.(data.insertedIds.length);
+        const count = data?.insertedIds?.length ?? 0;
+        const isBulk = Boolean(data?.isBulkUpload);
+
+        // Call callback with both values
+        if (count > 0) {
+          onUploaded?.(count, isBulk);
+        }
       }
       if (data?.message) {
         toast.success(data.message);

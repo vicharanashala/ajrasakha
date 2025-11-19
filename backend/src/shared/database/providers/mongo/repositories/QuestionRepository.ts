@@ -530,7 +530,7 @@ export class QuestionRepository implements IQuestionRepository {
       ]).toArray();
 
       const questionIdsToAttempt = submissions.map(
-        sub => new ObjectId(sub.questionId),
+        sub => new ObjectId(sub?.questionId),
       );
 
       const filter: any = {
@@ -648,7 +648,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       // Fetch associated reviews and reviewer details
       const reviews = await this.ReviewCollection.find({
-        questionId: submission.questionId,
+        questionId,
         answerId: {$in: allAnswerIds},
       })
         .sort({createdAt: -1})
@@ -777,6 +777,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       return result;
     } catch (error) {
+      console.log('Error: ', error);
       throw new InternalServerError(
         `Failed to fetch full question data: ${error}`,
       );

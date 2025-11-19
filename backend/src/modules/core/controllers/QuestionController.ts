@@ -172,7 +172,8 @@ async getAllocatedQuestionPage(
         setImmediate(() => startBackgroundProcessing(insertedIds));
         return {
           message: `✅ ${insertedIds.length} questions have been uploaded successfully. The expert allocation process has been initiated.`,
-          insertedIds
+          insertedIds,
+          isBulkUpload: !!file
         };
       } catch (err: any) {
         throw new BadRequestError(
