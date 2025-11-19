@@ -474,7 +474,7 @@ export const PerformanceMatrics = () => {
         )}
       </div>
     */}
-      <div className="space-y-6 p-6  ">
+      <div className="space-y-6 p-6  hidden md:block">
         <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
           <CardHeader>
             <CardTitle className="text-xl font-semibold">

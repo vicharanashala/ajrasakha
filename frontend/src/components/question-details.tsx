@@ -41,6 +41,7 @@ import {
 } from "./atoms/accordion";
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowUpRight,
   Calendar,
   Check,
@@ -569,7 +570,7 @@ export const QuestionDetails = ({
         question={question}
       />
       {/* )} */}
-      <div className="flex items-center justify-between md:mt-12">
+      <div className="flex items-center justify-between md:mt-12 hidden md:block">
         <h2 className="text-lg font-semibold flex justify-center gap-2 items-center ">
           <div className="p-2 rounded-lg bg-primary/10">
             <FileText className="w-5 h-5 text-primary" />
@@ -604,11 +605,30 @@ export const QuestionDetails = ({
           </Button>
         </div>
       </div>
+<p
+  className="
+    text-sm md:hidden p-3 rounded w-full 
+    flex items-center justify-center gap-3 text-center flex-wrap
+    bg-yellow-50 border border-yellow-300 text-yellow-700
+    dark:bg-yellow-900/30 dark:border-yellow-800 dark:text-yellow-300
+  "
+>
+  <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+
+  <span className="font-medium">
+    Allocation timeline is only accessible on laptop/desktop
+  </span>
+
+  <span className="opacity-80">(or switch to desktop view)</span>
+</p>
+
+
 
       {answers.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No answers yet.</p>
+        
+        <p className="text-sm text-muted-foreground  hidden md:block">No answers yet.</p>
       ) : (
-        <div>
+        <div className="hidden md:block">
           {/* <SubmissionTimeline /> */}
           <AnswerTimeline
             answerVisibleCount={answerVisibleCount}
@@ -729,7 +749,8 @@ const AllocationQueueHeader = ({
 
   return (
     <div className="flex flex-col gap-4 pb-6 border-b border-border">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        {/* LEFT SECTION */}
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-primary/10">
             <Users className="w-6 h-6 text-primary" />
@@ -745,9 +766,11 @@ const AllocationQueueHeader = ({
           </div>
         </div>
 
+        {/* RIGHT SECTION */}
         {currentUser.role !== "expert" && (
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
+            {/* Auto-Allocate Block */}
+            <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
               <Switch
                 id="auto-allocate"
                 checked={autoAllocate}
@@ -772,14 +795,10 @@ const AllocationQueueHeader = ({
                     <div className="space-y-1.5 text-sm">
                       <p>
                         <strong>ON:</strong> Questions are automatically
-                        assigned to available experts. If there are not enough
-                        experts currently allocated, the system will
-                        auto-allocate more.
+                        assigned to available experts…
                       </p>
                       <p>
-                        <strong>OFF:</strong> You need to manually add experts
-                        using the option on the right side. After assigning,
-                        make sure to submit to confirm the allocation.
+                        <strong>OFF:</strong> You must manually add experts…
                       </p>
                     </div>
                   </TooltipContent>
@@ -787,19 +806,29 @@ const AllocationQueueHeader = ({
               </TooltipProvider>
             </div>
 
+            {/* Select Experts Button */}
             {!autoAllocate && (
               <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="default" className="gap-2">
+                  <Button variant="default" className="gap-2 w-full sm:w-auto">
                     <UserPlus className="w-4 h-4" />
                     Select Experts
                   </Button>
                 </DialogTrigger>
+
                 <DialogContent
-                  className="max-w-6xl max-h-[80vh] min-h-[60vh]"
-                  style={{ maxWidth: "70vw" }}
+                  className="
+                          w-[95vw]                 
+                          sm:max-w-xl              
+                          md:max-w-4xl             
+                          lg:max-w-6xl             
+                          max-h-[85vh]             
+                          min-h-[60vh]             
+                          overflow-hidden           
+                          p-4                       
+                        "
                 >
-                  <DialogHeader>
+                  <DialogHeader className="space-y-4">
                     <DialogTitle className="flex items-center gap-3 text-lg font-semibold">
                       <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
                         <UserPlus className="w-5 h-5 text-primary" />
@@ -807,7 +836,7 @@ const AllocationQueueHeader = ({
                       Select Experts Manually
                     </DialogTitle>
 
-                    <div className="mt-3 relative">
+                    <div className="mt-1 relative">
                       <Input
                         type="text"
                         placeholder="Search experts by name, email..."
@@ -827,7 +856,13 @@ const AllocationQueueHeader = ({
                     </div>
                   </DialogHeader>
 
-                  <ScrollArea className="max-h-96 pr-2">
+                  <ScrollArea
+                    className="
+                              max-h-[50vh]      
+                              md:max-h-[60vh]
+                              pr-2
+                            "
+                  >
                     <div className="space-y-3">
                       {isUsersLoading && (
                         <div className="flex justify-center items-center py-10 text-muted-foreground">
@@ -891,7 +926,7 @@ const AllocationQueueHeader = ({
                                   </div>
                                 </div>
 
-                                <div className="text-sm text-muted-foreground flex-shrink-0 ml-2">
+                                <div className="text-sm text-muted-foreground flex-shrink-0 ml-2 hidden md:block">
                                   {expert.preference?.domain &&
                                   expert.preference.domain !== "all"
                                     ? expert.preference.domain
@@ -904,8 +939,8 @@ const AllocationQueueHeader = ({
                     </div>
                   </ScrollArea>
 
-                  <DialogFooter className="flex gap-2 justify-end">
-                    <Button variant="outline" onClick={handleCancel}>
+                  <DialogFooter className="flex gap-2 justify-end pt-4">
+                    <Button variant="outline" onClick={handleCancel} className="hidden md:block">
                       Cancel
                     </Button>
                     <Button onClick={handleSubmit} disabled={allocatingExperts}>

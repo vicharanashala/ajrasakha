@@ -535,7 +535,12 @@ export const RequestsPage = ({
             )}
           </div>
 
-          <div className="flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto">
+          <div
+            className={`flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto ${
+              !requestData?.requests ||
+              (requestData.requests.length === 0 && "hidden")
+            }`}
+          >
             <div className="flex-1 min-w-[180px]">
               <label className="text-sm font-medium mb-1 flex items-center gap-1">
                 <Circle className="w-4 h-4 text-primary" />

@@ -48,7 +48,7 @@ export const MobileSidebar = ({
   setTab: (value: string) => void;
 }) => {
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("questions");
+  const [activeTab, setActiveTab] = useState(user?.role!=="expert" ? "performance" : "questions");
   const handleClick = (value: string) => {
     setTab(value);
     setActiveTab(value);
