@@ -15,8 +15,6 @@ import { useMarkAsReadNotification } from "@/hooks/api/notification/useUpdateNot
 import { useMarkAllAsReadNotification } from "@/hooks/api/notification/useMarkAllAsRead";
 import { toast } from "sonner";
 import { formatDate } from "@/utils/formatDate";
-import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
-import { QuestionDetails } from "@/components/question-details";
 import {
   Select,
   SelectContent,
@@ -68,7 +66,6 @@ export default function Notification() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    refetch,
   } = useGetNotifications();
 
   useEffect(() => {

@@ -61,14 +61,14 @@ export const PlaygroundPage = () => {
 
     setActiveTab(calculatedTab);
   }, [user, selectedQuestionId, selectedRequestId, selectedCommentId]);
-  const defaultTab = (() => {
-    if (!user) return "performance";
-    if (user.role !== "expert") return "performance";
-    if (selectedRequestId) return "request_queue"; // ← Auto-open Request Queue
-    if (selectedQuestionId) return "questions";
-    if (selectedCommentId) return "all_questions";
-    return "questions";
-  })();
+  // const defaultTab = (() => {
+  //   if (!user) return "performance";
+  //   if (user.role !== "expert") return "performance";
+  //   if (selectedRequestId) return "request_queue"; // ← Auto-open Request Queue
+  //   if (selectedQuestionId) return "questions";
+  //   if (selectedCommentId) return "all_questions";
+  //   return "questions";
+  // })();
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     if (value !== "questions") {

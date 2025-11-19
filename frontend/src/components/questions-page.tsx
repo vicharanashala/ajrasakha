@@ -3,7 +3,7 @@ import { QuestionsFilters, QuestionsTable } from "./questions-table";
 import { useEffect, useMemo, useState } from "react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "./question-details";
-import type { IUser, UserRole } from "@/types";
+import type { IUser } from "@/types";
 import {
   CROPS,
   STATES,

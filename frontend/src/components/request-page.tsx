@@ -39,7 +39,6 @@ import {
   Clock,
   History,
   GitCompare,
-  Star,
 } from "lucide-react";
 import { useGetRequestDiff } from "@/hooks/api/request/useGetRequestDiff";
 import { Skeleton } from "./atoms/skeleton";
@@ -470,7 +469,7 @@ export const RequestsPage = ({
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
     null
   );
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  // const [isInitialLoad, setIsInitialLoad] = useState(true);
   const LIMIT = 10;
 
   const { data: requestData, isLoading } = useGetAllRequests(

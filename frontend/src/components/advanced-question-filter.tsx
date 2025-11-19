@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import {
   Dialog,
   DialogTrigger,
@@ -61,45 +61,6 @@ export type QuestionDateRangeFilter =
   | "quarter"
   | "year";
 
-/*export const STATES = [
-  "Andhra Pradesh",
-  "Arunachal Pradesh",
-  "Assam",
-  "Bihar",
-  "Chhattisgarh",
-  "Goa",
-  "Gujarat",
-  "Haryana",
-  "Himachal Pradesh",
-  "Jharkhand",
-  "Karnataka",
-  "Kerala",
-  "Madhya Pradesh",
-  "Maharashtra",
-  "Manipur",
-  "Meghalaya",
-  "Mizoram",
-  "Nagaland",
-  "Odisha",
-  "Punjab",
-  "Rajasthan",
-  "Sikkim",
-  "Tamil Nadu",
-  "Telangana",
-  "Tripura",
-  "Uttar Pradesh",
-  "Uttarakhand",
-  "West Bengal",
-].sort();
-export const CROPS = ["Rice", "Wheat", "Cotton", "Sugarcane", "Vegetables"];
-export const DOMAINS = [
-  "Agriculture",
-  "Horticulture",
-  "Livestock",
-  "Fisheries",
-  "Agri-Tech",
-  "Soil Science",
-];*/
 export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT";
 export type QuestionPriorityFilter = "all" | "high" | "low" | "medium";
 export type AdvanceFilterValues = {

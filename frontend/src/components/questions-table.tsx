@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
 import {
@@ -13,21 +13,17 @@ import { Input } from "./atoms/input";
 
 import {
   AlertCircle,
-  AlertTriangle,
   Check,
   CheckCircle,
-  Clock,
   Edit,
   Eye,
   File,
   Flag,
   FlagTriangleRight,
-  Globe,
   Info,
   Loader2,
   MessageSquareText,
   MoreVertical,
-  Paperclip,
   PaperclipIcon,
   PencilLine,
   Plus,
@@ -158,7 +154,7 @@ export const QuestionsTable = ({
     entityId?: string,
     flagReason?: string,
     status?: QuestionStatus,
-    formData?: FormData
+    // formData?: FormData
   ) => {
     try {
       if (!entityId) {
@@ -631,11 +627,11 @@ const MobileQuestionCard: React.FC<QuestionRowProps> = ({
   uploadedQuestionsCount,
   isBulkUpload,
   userRole,
-  updatingQuestion,
+  // updatingQuestion,
   deletingQuestion,
   setEditOpen,
   setSelectedQuestion,
-  setQuestionIdToDelete,
+  // setQuestionIdToDelete,
   handleDelete,
   onViewMore,
 }) => {

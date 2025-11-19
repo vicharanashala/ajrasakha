@@ -25,7 +25,6 @@ import {
   User,
   Briefcase,
   MapPin,
-  Leaf,
   Network,
   Save,
   XCircle,
@@ -45,7 +44,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/atoms/dialog";
-import { AlertDialogHeader } from "@/components/atoms/alert-dialog";
 import { updateUserPassword, verifyCurrentPassword } from "@/lib/firebase";
 import { calculatePasswordStrength } from "@/components/auth-form";
 
@@ -248,8 +246,8 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
     const confirmPassword = passwordForm.confirmPassword.trim();
 
     // RegEx for strong password
-    const strongPasswordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^(){}[\]_+=-]).{8,}$/;
+    // const strongPasswordRegex =
+    //   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^(){}[\]_+=-]).{8,}$/;
 
     // -------- VALIDATION --------
     if (!currentPassword) {

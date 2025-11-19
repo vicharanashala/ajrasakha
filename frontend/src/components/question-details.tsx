@@ -33,12 +33,7 @@ import {
   DialogTrigger,
 } from "./atoms/dialog";
 import { ScrollArea } from "./atoms/scroll-area";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "./atoms/accordion";
+
 import {
   AlertCircle,
   AlertTriangle,
@@ -59,7 +54,6 @@ import {
   Link2,
   Loader2,
   MapPin,
-  MessageSquare,
   Pencil,
   PlusCircle,
   RefreshCcw,
@@ -76,7 +70,6 @@ import {
 } from "lucide-react";
 import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
 import { useGetComments } from "@/hooks/api/comment/useGetComments";
-import { useAddComment } from "@/hooks/api/comment/useAddComment";
 import { SourceUrlManager } from "./source-url-manager";
 import { Timeline } from "primereact/timeline";
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
@@ -991,7 +984,7 @@ const AllocationTimeline = ({
   const { mutateAsync: removeAllocation, isPending: removingAllocation } =
     useRemoveAllocation();
 
-  let timer: NodeJS.Timeout;
+  // let timer: NodeJS.Timeout;
 
   const handleMouseEnter = (id: string) => {
     const timeout = setTimeout(() => {
@@ -1104,9 +1097,9 @@ const AllocationTimeline = ({
       .map((entry) => entry.updatedBy?.email)
   );
 
-  const unSubmittedExpertsCount = queue?.filter(
-    (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email)
-  ).length;
+  // const unSubmittedExpertsCount = queue?.filter(
+  //   (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email)
+  // ).length;
 
   const nextWaitingIndex = queue?.findIndex(
     (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email)
@@ -1605,16 +1598,16 @@ interface AnswerItemProps {
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const isMine = props.answer.authorId === props.currentUserId;
-  const [comment, setComment] = useState("");
-  const observer = useRef<IntersectionObserver>(null);
+  // const [comment, setComment] = useState("");
+  // const observer = useRef<IntersectionObserver>(null);
   const LIMIT = 1;
   const {
-    data: commentsData,
+    // data: commentsData,
     refetch: refetchComments,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading: isLoadingComments,
+    // fetchNextPage,
+    // hasNextPage,
+    // isFetchingNextPage,
+    // isLoading: isLoadingComments,
   } = useGetComments(LIMIT, props.questionId, props.answer._id);
 
   // const comments =
