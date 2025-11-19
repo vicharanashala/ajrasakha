@@ -57,8 +57,8 @@ function DateFilterModal({  date,
 
   const [dateRange, setDateRange] = useState([
     {
-      startDate: date !== "all" ? parseDate(date)[0] : null,
-      endDate: date !== "all" ? parseDate(date)[1] : null,
+      startDate: date !== "all" ? parseDate(date)[0] : undefined,
+      endDate: date !== "all" ? parseDate(date)[1] : undefined,
       key: "selection",
     },
   ]);
@@ -90,7 +90,7 @@ function DateFilterModal({  date,
 
   const handleReset = () => {
     setDate("all");
-    setDateRange([{ startDate: null, endDate: null, key: "selection" }]);
+    setDateRange([{ startDate: undefined, endDate: undefined, key: "selection" }]);
   };
 
   const label =
