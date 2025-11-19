@@ -2,11 +2,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   CheckCircle,
-  Eye,
   RefreshCw,
   RotateCcw,
   MessageCircle,
-  Filter,
   Info,
   Loader2,
   Send,
@@ -44,7 +42,6 @@ import {
   useGetAllocatedQuestions,
 } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
-import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -63,9 +60,6 @@ import {
 } from "./atoms/tooltip";
 import { SourceUrlManager } from "./source-url-manager";
 import {
-  AdvanceFilterDialog,
-  CROPS,
-  STATES,
   type AdvanceFilterValues,
   type QuestionDateRangeFilter,
   type QuestionFilterStatus,
@@ -75,20 +69,12 @@ import {
 import type {} from "./questions-page";
 import type {
   HistoryItem,
-  IMyPreference,
   IQuestion,
   IReviewParmeters,
   SourceItem,
 } from "@/types";
 import { ScrollArea } from "./atoms/scroll-area";
 import { ExpandableText } from "./expandable-text";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "./atoms/accordion";
-import { UrlPreviewDialog } from "./url-preview-dialog";
 import { ConfirmationModal } from "./confirmation-modal";
 import {
   useReviewAnswer,
@@ -129,22 +115,22 @@ export const QAInterface = ({
   const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
 
-  const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
-    {
-      status: "all",
-      source: "all",
-      state: "all",
-      answersCount: [0, 100],
-      dateRange: "all",
-      crop: "all",
-      priority: "all",
-      domain: "all",
-      user: "all",
-    }
-  );
-  const handleDialogChange = (key: string, value: any) => {
-    setAdvanceFilterValues((prev) => ({ ...prev, [key]: value }));
-  };
+  // const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
+  //   {
+  //     status: "all",
+  //     source: "all",
+  //     state: "all",
+  //     answersCount: [0, 100],
+  //     dateRange: "all",
+  //     crop: "all",
+  //     priority: "all",
+  //     domain: "all",
+  //     user: "all",
+  //   }
+  // );
+  // const handleDialogChange = (key: string, value: any) => {
+  //   setAdvanceFilterValues((prev) => ({ ...prev, [key]: value }));
+  // };
   const scrollRef = useRef<HTMLDivElement>(null);
   const preferences = useMemo(
     () => ({
@@ -209,7 +195,7 @@ export const QAInterface = ({
   const hasInitialized = useRef(false);
   const questionsRef = useRef(questions);
   const questionItemRefs = useRef<Record<string, HTMLDivElement>>({});
-  const [isLoaded, setIsLoaded] = useState(false);
+  // const [isLoaded, setIsLoaded] = useState(false);
 
   const [drafts, setDrafts] = useState<
     Record<string, { answer: string; sources: any[] }>
@@ -398,30 +384,30 @@ export const QAInterface = ({
     return () => container.removeEventListener("scroll", handleScroll);
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  const handleFilterChange = (value: QuestionFilter) => {
-    setFilter(value);
-  };
+  // const handleFilterChange = (value: QuestionFilter) => {
+  //   setFilter(value);
+  // };
 
   const handleReset = () => {
     setNewAnswer("");
     setSources([]);
   };
 
-  const activeFiltersCount = Object.values(advanceFilter).filter(
-    (v) => v !== "all" && !(Array.isArray(v) && v[0] === 0 && v[1] === 100)
-  ).length;
+  // const activeFiltersCount = Object.values(advanceFilter).filter(
+  //   (v) => v !== "all" && !(Array.isArray(v) && v[0] === 0 && v[1] === 100)
+  // ).length;
 
-  const onReset = () => {
-    setStatus("all");
-    setSource("all");
-    setState("");
-    setCrop("");
-    setAnswersCount([0, 100]);
-    setDateRange("all");
-    setPriority("all");
-    setDomain("all");
-    setUser("all");
-  };
+  // const onReset = () => {
+  //   setStatus("all");
+  //   setSource("all");
+  //   setState("");
+  //   setCrop("");
+  //   setAnswersCount([0, 100]);
+  //   setDateRange("all");
+  //   setPriority("all");
+  //   setDomain("all");
+  //   setUser("all");
+  // };
 
   const onChangeFilters = (next: {
     status?: QuestionFilterStatus;
@@ -445,21 +431,21 @@ export const QAInterface = ({
     if (next.user !== undefined) setUser(next.user);
   };
 
-  const handleApplyFilters = (myPreference?: IMyPreference) => {
-    onChangeFilters({
-      status: advanceFilter.status,
-      source: advanceFilter.source,
-      state: myPreference?.state || advanceFilter.state,
-      crop: myPreference?.crop || advanceFilter.crop,
-      answersCount: advanceFilter.answersCount,
-      dateRange: advanceFilter.dateRange,
-      priority: advanceFilter.priority,
-      domain: myPreference?.domain || advanceFilter.domain,
-      user: advanceFilter.user,
-    });
+  // const handleApplyFilters = (myPreference?: IMyPreference) => {
+  //   onChangeFilters({
+  //     status: advanceFilter.status,
+  //     source: advanceFilter.source,
+  //     state: myPreference?.state || advanceFilter.state,
+  //     crop: myPreference?.crop || advanceFilter.crop,
+  //     answersCount: advanceFilter.answersCount,
+  //     dateRange: advanceFilter.dateRange,
+  //     priority: advanceFilter.priority,
+  //     domain: myPreference?.domain || advanceFilter.domain,
+  //     user: advanceFilter.user,
+  //   });
 
-    refetch();
-  };
+  //   refetch();
+  // };
 
   const handleSubmitResponse = async (
     status?: "accepted" | "rejected" | "modified",
@@ -704,7 +690,7 @@ export const QAInterface = ({
                   onValueChange={handleQuestionClick}
                   className="space-y-4"
                 >
-                  {questions?.map((question, index) => (
+                  {questions?.map((question) => (
                     <div
                       // key={index}
                       key={question?.id}
@@ -1309,21 +1295,21 @@ export const ResponseTimeline = ({
   setNewAnswer,
   sources,
   setSources,
-  isFinalAnswer,
+  // isFinalAnswer,
   isSubmittingAnswer,
   handleSubmit,
   handleReset,
-  SourceUrlManager,
+  // SourceUrlManager,
 }: ResponseTimelineProps) => {
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejectionSubmitted, setIsRejectionSubmitted] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [isModifyDialogOpen, setIsModifyDialogOpen] = useState(false);
-  const [urlOpen, setUrlOpen] = useState(false);
-  const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  // const [urlOpen, setUrlOpen] = useState(false);
+  // const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
+  // const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [isRejecConfirmationOpen, setIsRejecConfirmationOpen] = useState(false);
-  const [isAccepConfirmationOpen, setIsAccepConfirmationOpen] = useState(false);
+  // const [isAccepConfirmationOpen, setIsAccepConfirmationOpen] = useState(false);
 
   const [checklist, setChecklist] = useState<IReviewParmeters>({
     contextRelevance: false,
@@ -1362,15 +1348,15 @@ export const ResponseTimeline = ({
     }
   }, [currentReviewingAnswer]);
 
-  const handleCopy = async (url: string, index: number) => {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopiedIndex(index);
-      setTimeout(() => setCopiedIndex(null), 1500);
-    } catch (err) {
-      console.error("Failed to copy: ", err);
-    }
-  };
+  // const handleCopy = async (url: string, index: number) => {
+  //   try {
+  //     await navigator.clipboard.writeText(url);
+  //     setCopiedIndex(index);
+  //     setTimeout(() => setCopiedIndex(null), 1500);
+  //   } catch (err) {
+  //     console.error("Failed to copy: ", err);
+  //   }
+  // };
 
   // const handleRejectOrModify = (type: "reject" | "modify") => {
   //   if (rejectionReason.trim() === "") {
@@ -1441,10 +1427,10 @@ export const ResponseTimeline = ({
     handleSubmit("accepted", checklist, reviewAnswerId);
   };
 
-  const handleOpenUrl = (url: string) => {
-    setSelectedUrl(url);
-    setUrlOpen(true);
-  };
+  // const handleOpenUrl = (url: string) => {
+  //   setSelectedUrl(url);
+  //   setUrlOpen(true);
+  // };
 
   if (isSelectedQuestionLoading) {
     return (
@@ -2160,20 +2146,20 @@ export const ReviewHistoryTimeline = ({
       : "";
   };
 
-  const getAvatarClasses = (item: HistoryItem) => {
-    if (item.rejectedAnswer)
-      return "bg-red-100 dark:bg-red-900/30 ring-2 ring-red-200 dark:ring-red-800";
-    if (item.modifiedAnswer)
-      return "bg-amber-100 dark:bg-amber-900/30 ring-2 ring-amber-200 dark:ring-amber-800";
-    if (item.approvedAnswer)
-      return "bg-green-100 dark:bg-green-900/30 ring-2 ring-green-200 dark:ring-green-800";
-    if (!item.answer) return "bg-primary/10 ring-2 ring-primary/20";
-    if (item.status === "approved")
-      return "bg-green-100 dark:bg-green-900/30 ring-2 ring-green-200 dark:ring-green-800";
-    if (item.status === "rejected")
-      return "bg-red-100 dark:bg-red-900/30 ring-2 ring-red-200 dark:ring-red-800";
-    return "bg-primary/10 ring-2 ring-primary/20";
-  };
+  // const getAvatarClasses = (item: HistoryItem) => {
+  //   if (item.rejectedAnswer)
+  //     return "bg-red-100 dark:bg-red-900/30 ring-2 ring-red-200 dark:ring-red-800";
+  //   if (item.modifiedAnswer)
+  //     return "bg-amber-100 dark:bg-amber-900/30 ring-2 ring-amber-200 dark:ring-amber-800";
+  //   if (item.approvedAnswer)
+  //     return "bg-green-100 dark:bg-green-900/30 ring-2 ring-green-200 dark:ring-green-800";
+  //   if (!item.answer) return "bg-primary/10 ring-2 ring-primary/20";
+  //   if (item.status === "approved")
+  //     return "bg-green-100 dark:bg-green-900/30 ring-2 ring-green-200 dark:ring-green-800";
+  //   if (item.status === "rejected")
+  //     return "bg-red-100 dark:bg-red-900/30 ring-2 ring-red-200 dark:ring-red-800";
+  //   return "bg-primary/10 ring-2 ring-primary/20";
+  // };
 
   return (
     <div className="space-y-6">
@@ -2241,8 +2227,6 @@ export const ReviewHistoryTimeline = ({
                       )} */}
                       {item.status && (
                         <div className="flex items-center gap-2">
-                          
-
                           <Badge
                             className={`${getStatusBadgeClasses(
                               item

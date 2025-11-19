@@ -21,7 +21,7 @@ export interface IMyPreference {
   crop: string;
   domain: string;
 }
-export type NotificationRetentionType = '3d' | '1w' | '2w' | '1m' | 'never';
+export type NotificationRetentionType = "3d" | "1w" | "2w" | "1m" | "never";
 export interface IUser {
   _id?: string;
   firebaseUID?: string;
@@ -38,6 +38,7 @@ export interface IUser {
   incentive?:number;
   isBlocked?:boolean;
   penalty?:number
+  notificationRetention?: string;
 }
 
 export interface IReviewParmeters {
@@ -64,7 +65,7 @@ export interface IReview {
   parameters?: IReviewParmeters;
   createdAt?: Date;
   updatedAt?: Date;
-  reputation_score?:number
+  reputation_score?: number;
   notificationRetention?: NotificationRetentionType;
 }
 
@@ -308,7 +309,7 @@ export interface IAnswer {
   isFinalAnswer: boolean;
   approvalCount: number;
   sources: SourceItem[];
-  reviews?: IReview[]
+  reviews?: IReview[];
   answer: string;
   threshold: number;
   createdAt?: Date;
@@ -324,7 +325,7 @@ export interface ISubmissionHistory {
   updatedBy: IUserRef | null;
   answer: IAnswer | null;
   status: "reviewed" | "in-review" | "approved" | "rejected";
-  
+
   approvedAnswer: string;
 
   rejectedAnswer: string;

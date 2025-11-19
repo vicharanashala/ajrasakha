@@ -39,7 +39,6 @@ import {
   Clock,
   History,
   GitCompare,
-  Star,
 } from "lucide-react";
 import { useGetRequestDiff } from "@/hooks/api/request/useGetRequestDiff";
 import { Skeleton } from "./atoms/skeleton";
@@ -470,7 +469,7 @@ export const RequestsPage = ({
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
     null
   );
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  // const [isInitialLoad, setIsInitialLoad] = useState(true);
   const LIMIT = 10;
 
   const { data: requestData, isLoading } = useGetAllRequests(
@@ -521,6 +520,7 @@ export const RequestsPage = ({
       setSelectedRequestId(null);
     }
   }, [status, reqType, sortOrder, currentPage]);
+
   return (
     <main className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
       <section className="mx-auto w-full p-4 pt-2 md:p-6 md:pt-0">
@@ -535,7 +535,12 @@ export const RequestsPage = ({
             )}
           </div>
 
-          <div className="flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto">
+          <div
+            className={`flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto ${
+              !requestData?.requests ||
+              (requestData.requests.length === 0 && "hidden")
+            }`}
+          >
             <div className="flex-1 min-w-[180px]">
               <label className="text-sm font-medium mb-1 flex items-center gap-1">
                 <Circle className="w-4 h-4 text-primary" />

@@ -1,4 +1,4 @@
-import { useState ,useEffect} from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogTrigger,
@@ -6,7 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogClose
+  DialogClose,
 } from "@/components/atoms/dialog";
 import { Button } from "@/components/atoms/button";
 import { Label } from "@/components/atoms/label";
@@ -29,7 +29,6 @@ import {
   AlertTriangle,
   Circle,
   Clock,
-  CheckCircle2,
   Eye,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
@@ -37,17 +36,20 @@ import { DateRange } from "react-date-range";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
 
-
-function DateFilterModal({  date,
-  setDate}: {  date: string;
-    setDate: (value: string) => void;}) {
+function DateFilterModal({
+  date,
+  setDate,
+}: {
+  date: string;
+  setDate: (value: string) => void;
+}) {
   const today = new Date();
 
-  type RangeType = {
-    startDate: Date | null;
-    endDate: Date | null;
-    key: string;
-  };
+  // type RangeType = {
+  //   startDate: Date | null;
+  //   endDate: Date | null;
+  //   key: string;
+  // };
 
   const [showModal, setShowModal] = useState(false);
   const parseDate = (str: string) => {
@@ -66,12 +68,11 @@ function DateFilterModal({  date,
   const onDateChange = (ranges: any) => {
     setDateRange([ranges.selection]);
   };
-  const format = (date: Date) => {
-    const fixed = new Date(date);
-    fixed.setHours(12, 0, 0, 0); // ✅ force midday to avoid timezone shifting
-    return fixed.toISOString().split("T")[0];
-  };
-  
+  // const format = (date: Date) => {
+  //   const fixed = new Date(date);
+  //   fixed.setHours(12, 0, 0, 0); // ✅ force midday to avoid timezone shifting
+  //   return fixed.toISOString().split("T")[0];
+  // };
 
   const handleApply = () => {
     const { startDate, endDate } = dateRange[0];
@@ -120,20 +121,16 @@ function DateFilterModal({  date,
             />
 
             <div className="flex justify-between mt-4">
-            <Button
-              variant="outline"
-              onClick={handleReset} >
-              <RefreshCcw className="h-4 w-4 mr-2" />
-              Reset
-            </Button>
-              
+              <Button variant="outline" onClick={handleReset}>
+                <RefreshCcw className="h-4 w-4 mr-2" />
+                Reset
+              </Button>
 
               <div className="flex gap-3">
-              <Button variant="secondary"  onClick={() => setShowModal(false)}>Cancel</Button>
-              <Button onClick={handleApply}>
-                  Apply 
+                <Button variant="secondary" onClick={() => setShowModal(false)}>
+                  Cancel
                 </Button>
-                
+                <Button onClick={handleApply}>Apply</Button>
               </div>
             </div>
           </div>
@@ -142,13 +139,6 @@ function DateFilterModal({  date,
     </div>
   );
 }
-
-
-
-
-
-
-
 
 interface PreferenceFilterProps {
   selectedUser: string;
@@ -175,31 +165,30 @@ export default function PreferenceFilter({
   setStatus,
   users,
   isLoading,
-  handleApplyFilters
+  handleApplyFilters,
 }: PreferenceFilterProps) {
-
   const [open, setOpen] = useState(false);
   const [shouldApply, setShouldApply] = useState(false);
-  
+
   useEffect(() => {
     if (shouldApply) {
       handleApplyFilters();
       setShouldApply(false);
     }
-  }, [ selectedUser, date, status, shouldApply]);
+  }, [selectedUser, date, status, shouldApply]);
 
-  const handleReset = () => {
-    setSelectedUser("all");
-    setDate("all");
-    setStatus("all");
-    setOpen(false);
-    setShouldApply(true);
-  };
+  // const handleReset = () => {
+  //   setSelectedUser("all");
+  //   setDate("all");
+  //   setStatus("all");
+  //   setOpen(false);
+  //   setShouldApply(true);
+  // };
 
-  const handleApply = () => {
-    setShouldApply(true);
-    setOpen(false);
-  };
+  // const handleApply = () => {
+  //   setShouldApply(true);
+  //   setOpen(false);
+  // };
 
   const activeFiltersCount =
     (selectedUser !== "all" ? 1 : 0) +
@@ -208,142 +197,142 @@ export default function PreferenceFilter({
 
   return (
     <>
-   
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          className="flex-1 min-w-[150px] flex items-center justify-center gap-2"
-        >
-          <Filter className="h-5 w-5 text-primary" />
-          Preferences
-          {activeFiltersCount > 0 && (
-            <Badge
-              variant="destructive"
-              className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-            >
-              {activeFiltersCount}
-            </Badge>
-          )}
-        </Button>
-      </DialogTrigger>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button
+            variant="outline"
+            className="flex-1 min-w-[150px] flex items-center justify-center gap-2"
+          >
+            <Filter className="h-5 w-5 text-primary" />
+            Preferences
+            {activeFiltersCount > 0 && (
+              <Badge
+                variant="destructive"
+                className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+              >
+                {activeFiltersCount}
+              </Badge>
+            )}
+          </Button>
+        </DialogTrigger>
 
-      {/* ✅ Centered + Blurred Background */}
-      <DialogContent className="sm:max-w-md w-full backdrop-blur-md">
-        <DialogHeader>
-          
-          <DialogTitle className="text-xl flex items-center gap-2">
+        {/* ✅ Centered + Blurred Background */}
+        <DialogContent className="sm:max-w-md w-full backdrop-blur-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
               <Filter className="h-5 w-5 text-primary" />
               Advanced Filters
             </DialogTitle>
             <p className="text-sm text-muted-foreground">
               Refine your search with multiple filter options
             </p>
-          <Separator/>
-        </DialogHeader>
+            <Separator />
+          </DialogHeader>
 
-        <div className="space-y-6 py-2">
+          <div className="space-y-6 py-2">
+            {/* USER */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-sm font-semibold">
+                <UserIcon className="h-4 w-4 text-primary" />
+                User
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs text-sm">
+                    <p>
+                      This option allows filtering questions that have been
+                      submitted at least once by the selected user.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </Label>
+              <Select
+                value={selectedUser}
+                onValueChange={setSelectedUser}
+                disabled={isLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  {users?.map((u) => (
+                    <SelectItem key={u._id} value={u._id}>
+                      {u.userName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Separator />
 
-          {/* USER */}
-          <div className="space-y-2">
-          <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <UserIcon className="h-4 w-4 text-primary" />
-                  User
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        <Info className="h-4 w-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-xs text-sm">
-                      <p>
-                        This option allows filtering questions that have been
-                        submitted at least once by the selected user.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </Label>
-            <Select value={selectedUser} onValueChange={setSelectedUser} disabled={isLoading}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Users</SelectItem>
-                {users?.map(u => (
-                  <SelectItem key={u._id} value={u._id}>
-                    {u.userName}
+            {/* STATUS */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-sm font-semibold">
+                <FileText className="h-4 w-4 text-primary" />
+                Question Status
+              </Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    <div className="flex items-center gap-2">
+                      <Eye className="w-4 h-4 text-primary" />
+                      <span>All Statuses</span>
+                    </div>
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+
+                  <SelectItem value="approved">
+                    <div className="flex items-center gap-2">
+                      <Circle className="w-4 h-4 text-green-500 fill-green-500/20" />
+                      <span>Approved</span>
+                    </div>
+                  </SelectItem>
+
+                  <SelectItem value="in-review">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-blue-500" />
+                      <span>In Review</span>
+                    </div>
+                  </SelectItem>
+
+                  <SelectItem value="rejected">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                      <span>Rejected</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Separator />
+            {/* DATE */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-sm font-semibold">
+                <Calendar className="h-4 w-4 text-primary" />
+                Date Range
+              </Label>
+
+              <DateFilterModal date={date} setDate={setDate} />
+            </div>
+            <Separator />
           </div>
-          <Separator/>
 
-         
-
-          {/* STATUS */}
-          <div className="space-y-2">
-          <Label className="flex items-center gap-2 text-sm font-semibold">
-                    <FileText className="h-4 w-4 text-primary" />
-                    Question Status
-                  </Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-              <SelectItem value="all">
-                        <div className="flex items-center gap-2">
-                          <Eye className="w-4 h-4 text-primary" />
-                          <span>All Statuses</span>
-                        </div>
-                      </SelectItem>
-
-                      <SelectItem value="approved">
-                        <div className="flex items-center gap-2">
-                          <Circle className="w-4 h-4 text-green-500 fill-green-500/20" />
-                          <span>Approved</span>
-                        </div>
-                      </SelectItem>
-
-                      <SelectItem value="in-review">
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-blue-500" />
-                          <span>In Review</span>
-                        </div>
-                      </SelectItem>
-
-                      <SelectItem value="rejected">
-                        <div className="flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                          <span>Rejected</span>
-                        </div>
-                      </SelectItem>
-
-                     
-              </SelectContent>
-            </Select>
-          </div>
-          <Separator/>
-           {/* DATE */}
-           <div className="space-y-2">
-          <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Calendar className="h-4 w-4 text-primary" />
-                  Date Range
-                </Label>
-                
-                <DateFilterModal date={date} setDate={setDate} />
-          </div>
-          <Separator/>
-        </div>
-
-        <DialogFooter className="flex justify-between sm:justify-between">
+          <DialogFooter className="flex justify-between sm:justify-between">
             <Button
               variant="outline"
               onClick={() => {
                 setDate("all");
                 setSelectedUser("all");
-                setStatus('all');
-               
+                setStatus("all");
               }}
             >
               <RefreshCcw className="h-4 w-4 mr-2" />
@@ -360,9 +349,8 @@ export default function PreferenceFilter({
               </DialogClose>
             </div>
           </DialogFooter>
-
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
