@@ -7,7 +7,7 @@ import {
 import {IAuthService} from '#auth/interfaces/IAuthService.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {injectable, inject} from 'inversify';
-import {InternalServerError, UnauthorizedError} from 'routing-controllers';
+import {BadRequestError, InternalServerError, UnauthorizedError} from 'routing-controllers';
 import admin from 'firebase-admin';
 import {IUser} from '#root/shared/interfaces/models.js';
 import {BaseService} from '#root/shared/classes/BaseService.js';
@@ -116,9 +116,19 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
         disabled: false,
       });
     } catch (error) {
-      throw new InternalServerError(
-        `Failed to create user in Firebase: ${error.message}`,
-      );
+      let message = "Failed to create user";
+
+      if (error.code === "auth/email-already-exists") {
+        message = "An account with this email already exists, Please try login!";
+      } 
+      else if (error.code === "auth/invalid-password") {
+        message = "The password does not meet Firebase requirements.";
+      }
+      else if (error.code === "auth/invalid-email") {
+        message = "Invalid email format.";
+      }
+
+      throw new BadRequestError(message);
     }
 
     // Prepare user object for storage in our database
