@@ -648,7 +648,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       // Fetch associated reviews and reviewer details
       const reviews = await this.ReviewCollection.find({
-        questionId,
+        questionId: new ObjectId(questionId),
         answerId: {$in: allAnswerIds},
       })
         .sort({createdAt: -1})
@@ -693,8 +693,6 @@ export class QuestionRepository implements IQuestionRepository {
         if (!reviewsByAnswer.has(aId)) reviewsByAnswer.set(aId, []);
         reviewsByAnswer.get(aId).push(r);
       });
-
-      console.log()
 
       // 7 Populate submissions manually
       const populatedSubmission = {
@@ -748,7 +746,7 @@ export class QuestionRepository implements IQuestionRepository {
           rejectedAnswer: h.rejectedAnswer?.toString(),
           modifiedAnswer: h.modifiedAnswer?.toString(),
           reasonForLastModification: h.reasonForLastModification?.toString(),
-          reviewId: h.reviewId?.toString()
+          reviewId: h.reviewId?.toString(),
         })),
         createdAt: submission?.createdAt,
         updatedAt: submission?.updatedAt,
