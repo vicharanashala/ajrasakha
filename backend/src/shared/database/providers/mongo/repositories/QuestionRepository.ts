@@ -694,6 +694,8 @@ export class QuestionRepository implements IQuestionRepository {
         reviewsByAnswer.get(aId).push(r);
       });
 
+      console.log()
+
       // 7 Populate submissions manually
       const populatedSubmission = {
         _id: submission?._id?.toString(),
@@ -746,6 +748,7 @@ export class QuestionRepository implements IQuestionRepository {
           rejectedAnswer: h.rejectedAnswer?.toString(),
           modifiedAnswer: h.modifiedAnswer?.toString(),
           reasonForLastModification: h.reasonForLastModification?.toString(),
+          reviewId: h.reviewId?.toString()
         })),
         createdAt: submission?.createdAt,
         updatedAt: submission?.updatedAt,
