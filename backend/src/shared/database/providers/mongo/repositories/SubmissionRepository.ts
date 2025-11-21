@@ -344,6 +344,8 @@ export class QuestionSubmissionRepository
         {session},
       ).toArray();
 
+      console.log('historyData: ', historyData);
+
       const populatedHistory: HistoryItem[] = historyData.map(item => {
         const h = item.history;
         const updatedBy = item.updatedBy;

@@ -31,6 +31,9 @@ import {
   CheckCheck,
   X,
   History,
+  Cross,
+  CroissantIcon,
+  CrossIcon,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { RadioGroup, RadioGroupItem } from "./atoms/radio-group";
@@ -573,6 +576,7 @@ export const QAInterface = ({
     if (autoSelectQuestionId && id !== autoSelectQuestionId) {
       onManualSelect(null);
     }
+    handleReset();
   };
 
   // if(isLoadingTargetQuestion){
@@ -1742,42 +1746,43 @@ export const ReviewHistoryTimeline = ({
                   {(item.review?.parameters || item.review?.reason) && (
                     <div className="mt-10">
                       {/* REVIEW PARAMETERS */}
-                      {item.review?.parameters && (
-                        <div className="flex flex-wrap gap-2 mt-1">
-                          <div className="flex flex-wrap gap-2">
-                            {Object.entries(item.review.parameters ?? {})
-                              .filter(([_, value]) => value === true)
-                              .map(([key, value]) => (
-                                <Badge
-                                  key={key}
-                                  variant="outline"
-                                  className="flex items-center gap-1.5 px-3 py-1 text-xs rounded-full border 
-                bg-green-100 text-green-800 border-green-300
-                dark:bg-green-900/30 dark:text-green-300 dark:border-green-700"
-                                >
-                                  <Check className="w-3 h-3" />
+                      {item.review?.parameters &&
+                        item.review?.action !== "accepted" && (
+                          <div className="flex flex-wrap gap-2 mt-1 mb-3">
+                            <div className="flex flex-wrap gap-2">
+                              {Object.entries(item.review.parameters ?? {})
+                                .filter(([_, value]) => value === false)
+                                .map(([key]) => (
+                                  <Badge
+                                    key={key}
+                                    variant="outline"
+                                    className="flex items-center gap-1.5 px-3 py-1 text-xs rounded-full border 
+                                      bg-red-100 text-red-800 border-red-300
+                                      dark:bg-red-900/30 dark:text-red-300 dark:border-red-700"
+                                  >
+                                    <X className="w-3 h-3" />
 
-                                  {
-                                    parameterLabels[
-                                      key as keyof typeof parameterLabels
-                                    ]
-                                  }
-                                </Badge>
-                              ))}
+                                    {
+                                      parameterLabels[
+                                        key as keyof typeof parameterLabels
+                                      ]
+                                    }
+                                  </Badge>
+                                ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
                       {/* REVIEW NOTE (MODIFY / REJECT) */}
                       {item.review?.reason && (
                         <div className="p-3 rounded-md bg-muted/30 border border-border/50 text-sm mt-2">
-                          <p className="font-semibold text-muted-foreground mb-1">
+                          <span className="dark:text-gray-200">
                             {item.review.action === "modified"
-                              ? "Modification Note:"
-                              : "Rejection Note:"}
-                          </p>
+                              ? "Modification Note: "
+                              : "Rejection Note: "}
+                          </span>
 
-                          <p className="text-foreground ">
+                          <p className="text-foreground">
                             {/* {item.review.reason} */}
                             <ExpandableText
                               text={item.review.reason}
@@ -1822,7 +1827,7 @@ export const ReviewHistoryTimeline = ({
                           {/* ANSWER BOX */}
                           <div className="space-y-1 ">
                             {/* LABEL */}
-                            <Label className="text-sm font-medium text-muted-foreground px-1">
+                            <Label className="text-sm font-medium text-muted-foreground px-1 dark:text-gray-200">
                               {item.status == "reviewed" && "New "} Answer:{" "}
                               {item.rejectedAnswer}
                             </Label>
@@ -1844,7 +1849,7 @@ export const ReviewHistoryTimeline = ({
                                     </button>
                                   </DialogTrigger>
 
-                                  <DialogContent className="max-w-md min-h-[20vh] max-h-[80vh] overflow-y-auto">
+                                  <DialogContent className="max-w-md min-h-[25vh] max-h-[80vh] overflow-y-auto">
                                     <DialogHeader>
                                       <DialogTitle className="text-lg font-semibold">
                                         Answer Details
@@ -2072,17 +2077,79 @@ const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
   } = props;
   const [tempRejectAnswer, setTempRejectAnswer] = useState("");
   const [tempSources, setTempSources] = useState<SourceItem[]>([]);
+  const [suggestion, setSuggestion] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen)
       if (type === "modify") {
         setTempRejectAnswer(newAnswer);
         setTempSources(sources);
+        onChecklistChange({
+          ...checklist,
+          valueInsight: true,
+        });
       } else {
+        onChecklistChange({
+          contextRelevance: false,
+          credibilityTrust: false,
+          practicalUtility: false,
+          readabilityCommunication: false,
+          technicalAccuracy: false,
+          valueInsight: false,
+        });
         setTempRejectAnswer("");
         setTempSources([]);
       }
   }, [isOpen, type]);
+
+  useEffect(() => {
+    const msg = getReviewSuggestion(checklist);
+    setSuggestion(msg);
+  }, [checklist]);
+
+  const getReviewSuggestion = (checklist: IReviewParmeters) => {
+    const {
+      contextRelevance,
+      credibilityTrust,
+      practicalUtility,
+      readabilityCommunication,
+      technicalAccuracy,
+      valueInsight,
+    } = checklist;
+
+    const disabledCount = [
+      contextRelevance,
+      credibilityTrust,
+      practicalUtility,
+      readabilityCommunication,
+      technicalAccuracy,
+    ].filter((v) => !v).length;
+
+    if (!valueInsight && type === "modify") {
+      return "To proceed with modifications, please enable Value & Insight.";
+    }
+
+    if (valueInsight && type === "reject") {
+      return "To reject this answer, please disable Value & Insight.";
+    }
+
+    if (disabledCount <= 0) {
+      return "All review parameters look good. You can safely accept this answer.";
+    }
+
+    return null;
+  };
+
+  const handleResetParameters = () => {
+    onChecklistChange({
+      contextRelevance: false,
+      credibilityTrust: false,
+      practicalUtility: false,
+      readabilityCommunication: false,
+      technicalAccuracy: false,
+      valueInsight: type == "modify" ? true : false,
+    });
+  };
 
   return (
     <Dialog
@@ -2111,9 +2178,21 @@ const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
             {/* Checklist */}
             <div className="space-y-6">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                Review Parameters
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  Review Parameters
+                </h2>
+
+                <Button
+                  variant="outline"
+                  onClick={handleResetParameters}
+                  disabled={isSubmitting}
+                  className="flex items-center gap-1"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Reset
+                </Button>
+              </div>
 
               <div className="p-4 rounded-xl border bg-card shadow-sm">
                 <ReviewChecklist
@@ -2141,7 +2220,11 @@ const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
                 />
               </div>
             </div>
-
+            {suggestion && (
+              <div className="mt-2 p-3 rounded-md bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-sm border border-yellow-300 dark:border-yellow-700">
+                {suggestion}
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <Button
                 variant="outline"
@@ -2157,7 +2240,7 @@ const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
               <Button
                 variant={type === "modify" ? "default" : "destructive"}
                 onClick={() => setIsStageSubmitted(true)}
-                disabled={!rejectionReason.trim()}
+                disabled={!rejectionReason.trim() || !!suggestion}
                 className="group flex items-center justify-center gap-2 transition-all duration-200 hover:opacity-90 hover:scale-[1.02]"
               >
                 {submitReasonText}
