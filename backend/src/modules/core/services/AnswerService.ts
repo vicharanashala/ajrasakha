@@ -151,7 +151,7 @@ export class AnswerService extends BaseService {
           {text, embedding},
           activeSession,
           true,
-        ); 
+        );
       }
 
       const updatedAnswerCount = question.totalAnswersCount + 1;
@@ -375,7 +375,6 @@ export class AnswerService extends BaseService {
           data: Partial<ISubmissionHistory>,
         ): Partial<ISubmissionHistory> => ({
           updatedAt: new Date(),
-          createdAt: new Date(),
           ...data,
         });
 
@@ -398,6 +397,7 @@ export class AnswerService extends BaseService {
             updatedBy: new ObjectId(userId),
             answer: new ObjectId(answerId),
             status: intialStatus as ISubmissionHistory['status'],
+            createdAt: new Date()
           });
 
           await this.questionSubmissionRepo.update(
