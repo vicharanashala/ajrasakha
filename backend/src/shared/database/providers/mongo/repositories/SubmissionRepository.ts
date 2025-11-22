@@ -344,7 +344,6 @@ export class QuestionSubmissionRepository
         {session},
       ).toArray();
 
-
       const populatedHistory: HistoryItem[] = historyData.map(item => {
         const h = item.history;
         const updatedBy = item.updatedBy;
@@ -375,6 +374,7 @@ export class QuestionSubmissionRepository
                 answer: answer.answer,
                 approvalCount: answer.approvalCount?.toString() ?? '0',
                 sources: answer.sources ?? [],
+                remarks: answer.remarks ?? '',
               }
             : undefined,
 

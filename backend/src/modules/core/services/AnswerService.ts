@@ -83,6 +83,7 @@ export class AnswerService extends BaseService {
     sources: SourceItem[],
     session?: ClientSession,
     status?: string,
+    remarks?: string,
   ): Promise<{insertedId: string; isFinalAnswer: boolean}> {
     const execute = async (activeSession: ClientSession) => {
       const question = await this.questionRepo.getById(
@@ -156,8 +157,8 @@ export class AnswerService extends BaseService {
 
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
-      const embedding = [];
-      // const {embedding} = await this.aiService.getEmbedding(answer);
+      // const embedding = [];
+      const {embedding} = await this.aiService.getEmbedding(answer);
 
       const {insertedId} = await this.answerRepo.addAnswer(
         questionId,
@@ -169,6 +170,7 @@ export class AnswerService extends BaseService {
         updatedAnswerCount,
         activeSession,
         status,
+        remarks
       );
 
       await this.questionRepo.updateQuestion(
@@ -236,6 +238,7 @@ export class AnswerService extends BaseService {
           parameters,
           modifiedAnswer,
           reasonForModification,
+          remarks,
         } = body;
 
         // -----------------------------------------------------------
@@ -391,13 +394,14 @@ export class AnswerService extends BaseService {
             sources,
             session,
             intialStatus,
+            remarks
           );
 
           const history = buildHistoryEntry({
             updatedBy: new ObjectId(userId),
             answer: new ObjectId(answerId),
             status: intialStatus as ISubmissionHistory['status'],
-            createdAt: new Date()
+            createdAt: new Date(),
           });
 
           await this.questionSubmissionRepo.update(
@@ -517,6 +521,7 @@ export class AnswerService extends BaseService {
             sources,
             session,
             newStatus,
+            remarks
           );
 
           // 4. Update reviewer history

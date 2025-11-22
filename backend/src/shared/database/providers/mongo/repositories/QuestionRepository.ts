@@ -733,6 +733,7 @@ export class QuestionRepository implements IQuestionRepository {
                 sources: answersMap.get(h.answer?.toString())?.sources,
                 approvalCount: answersMap.get(h.answer?.toString())
                   ?.approvalCount,
+                remarks: answersMap.get(h.answer?.toString()).remarks,
                 createdAt: answersMap.get(h.answer?.toString())?.createdAt,
                 updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
 

@@ -69,6 +69,7 @@ export interface IAnswer {
   answerIteration: number;
   approvalCount: number;
   isFinalAnswer: boolean;
+  remarks?: string;
   approvedBy?: string | ObjectId;
   status?: string;
   answer: string;

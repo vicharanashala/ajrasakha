@@ -117,6 +117,7 @@ export const QAInterface = ({
   const [user, setUser] = useState("all");
   const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
+  const [remarks, setRemarks] = useState("");
 
   // const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
   //   {
@@ -394,6 +395,7 @@ export const QAInterface = ({
   const handleReset = () => {
     setNewAnswer("");
     setSources([]);
+    setRemarks("");
   };
 
   // const activeFiltersCount = Object.values(advanceFilter).filter(
@@ -476,6 +478,7 @@ export const QAInterface = ({
     if (!status) {
       payload.answer = newAnswer;
       payload.sources = sources;
+      payload.remarks = remarks;
     }
 
     // Accepted
@@ -491,6 +494,7 @@ export const QAInterface = ({
       payload.reasonForRejection = rejectionReason;
       payload.answer = newAnswer;
       payload.sources = sources;
+      payload.remarks = remarks;
     }
 
     // Modified
@@ -513,8 +517,7 @@ export const QAInterface = ({
         return updated;
       });
       setSelectedQuestion(null);
-      setNewAnswer("");
-      setSources([]);
+      handleReset();
 
       toast.success("Your response has been submitted. Thank you!");
     } catch (error) {
@@ -876,8 +879,25 @@ export const QAInterface = ({
                           placeholder="Enter your answer here..."
                           value={newAnswer}
                           onChange={(e) => setNewAnswer(e.target.value)}
-                          className="mt-1 md:max-h-[190px] max-h-[170px] min-h-[150px] resize-y border border-gray-200 dark:border-gray-600 text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent"
+                          className="mt-1 md:max-h-[240px] max-h-[170px] min-h-[210px] resize-y border border-gray-200 dark:border-gray-600 text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent"
                         />
+
+                        {/* Remarks */}
+                        <div className="mt-3">
+                          <Label
+                            htmlFor="remarks"
+                            className="text-sm font-medium"
+                          >
+                            Remarks
+                          </Label>
+                          <Textarea
+                            id="remarks"
+                            placeholder="Enter remarks..."
+                            value={remarks}
+                            onChange={(e) => setRemarks(e.target.value)}
+                            className="mt-1 md:max-h-[190px] max-h-[170px] min-h-[80px] resize-y border border-gray-200 dark:border-gray-600 text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent"
+                          />
+                        </div>
 
                         <div className="bg-card border border-border rounded-xl p-6 shadow-sm mt-3 md:mt-6">
                           <SourceUrlManager
@@ -1017,6 +1037,8 @@ export const QAInterface = ({
                 setNewAnswer={setNewAnswer}
                 setSources={setSources}
                 sources={sources}
+                remarks={remarks}
+                setRemarks={setRemarks}
               />
             )}
         </div>
@@ -1290,6 +1312,8 @@ interface ResponseTimelineProps {
   ) => void;
   handleReset: () => void;
   SourceUrlManager: React.ComponentType<any>;
+  remarks: string;
+  setRemarks: (value: string) => void;
 }
 
 export const ResponseTimeline = ({
@@ -1303,6 +1327,8 @@ export const ResponseTimeline = ({
   isSubmittingAnswer,
   handleSubmit,
   handleReset,
+  remarks,
+  setRemarks,
 }: // SourceUrlManager,
 ResponseTimelineProps) => {
   const [rejectionReason, setRejectionReason] = useState("");
@@ -1520,6 +1546,8 @@ ResponseTimelineProps) => {
         setSources={setSources}
         confirmOpen={isRejecConfirmationOpen}
         setConfirmOpen={setIsRejecConfirmationOpen}
+        remarks={remarks}
+        setRemarks={setRemarks}
       />
 
       <ReviewResponseDialog
@@ -1546,6 +1574,8 @@ ResponseTimelineProps) => {
         setSources={setSources}
         confirmOpen={isRejecConfirmationOpen}
         setConfirmOpen={setIsRejecConfirmationOpen}
+        remarks={remarks}
+        setRemarks={setRemarks}
       />
     </div>
   );
@@ -1917,6 +1947,21 @@ export const ReviewHistoryTimeline = ({
                                         </div>
                                       )}
 
+                                      {item.answer.remarks && (
+                                        <div className="p-3 rounded-md bg-muted/20 border text-sm">
+                                          <p className="text-sm font-semibold text-muted-foreground mb-1">
+                                            Remarks:
+                                          </p>
+
+                                          <div className="text-foreground text-sm">
+                                            <ExpandableText
+                                              text={item.answer.remarks}
+                                              maxLength={220}
+                                            />
+                                          </div>
+                                        </div>
+                                      )}
+
                                       {/* REJECTION REASON */}
                                       {item.status === "rejected" &&
                                         item.reasonForRejection && (
@@ -2046,6 +2091,8 @@ interface ReviewResponseDialogProps {
   setSources: (value: SourceItem[]) => void;
   confirmOpen: boolean;
   setConfirmOpen: (value: boolean) => void;
+  remarks: string;
+  setRemarks: (value: string) => void;
 }
 
 const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
@@ -2074,6 +2121,8 @@ const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
     setSources,
     confirmOpen,
     setConfirmOpen,
+    remarks,
+    setRemarks,
   } = props;
   const [tempRejectAnswer, setTempRejectAnswer] = useState("");
   const [tempSources, setTempSources] = useState<SourceItem[]>([]);
@@ -2204,7 +2253,7 @@ const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
               {/* Reason Box */}
               <div className="space-y-2">
                 <Label htmlFor="reason" className="text-base font-semibold">
-                  {reasonLabel}
+                  {reasonLabel} *
                 </Label>
 
                 <Textarea
@@ -2272,9 +2321,9 @@ const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
                   </p>
                 </div>
 
-                <div>
+                {/* <div>
                   <Label htmlFor="new-answer" className="text-sm font-medium">
-                    {type == "modify" && "Draft"} Response
+                    {type == "modify" && "Draft"} Response *
                   </Label>
                   <Textarea
                     id="new-answer"
@@ -2286,6 +2335,55 @@ const ReviewResponseDialog = (props: ReviewResponseDialogProps) => {
                     }}
                     className="mt-1 min-h-[100px] p-3 rounded-md"
                   />
+                  <div className="border rounded-xl p-6 shadow-sm mt-3 bg-muted/20">
+                    <SourceUrlManager
+                      sources={tempSources}
+                      onSourcesChange={(updated) => {
+                        setTempSources(updated);
+                        setSources(updated);
+                      }}
+                    />
+                  </div>
+
+                  {isFinalAnswer && (
+                    <p className="mt-2 flex items-center gap-2 text-green-600 text-sm font-medium">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Final answer selected!
+                    </p>
+                  )}
+                </div> */}
+
+                <div>
+                  <Label htmlFor="new-answer" className="text-sm font-medium">
+                    {type == "modify" && "Draft"} Response *
+                  </Label>
+
+                  <Textarea
+                    id="new-answer"
+                    placeholder="Enter your Response..."
+                    value={tempRejectAnswer}
+                    onChange={(e) => {
+                      setTempRejectAnswer(e.target.value);
+                      setNewAnswer(e.target.value);
+                    }}
+                    className="mt-1 min-h-[100px] p-3 rounded-md"
+                  />
+
+                  {type == "reject" && (
+                    <div className="mt-3">
+                      <Label htmlFor="remarks" className="text-sm font-medium">
+                        Remarks
+                      </Label>
+                      <Textarea
+                        id="remarks"
+                        placeholder="Enter remarks..."
+                        value={remarks}
+                        onChange={(e) => setRemarks(e.target.value)}
+                        className="mt-1 md:max-h-[190px] max-h-[170px] min-h-[80px] resize-y border border-gray-200 dark:border-gray-600 text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent"
+                      />
+                    </div>
+                  )}
+
                   {/* Sources */}
                   <div className="border rounded-xl p-6 shadow-sm mt-3 bg-muted/20">
                     <SourceUrlManager

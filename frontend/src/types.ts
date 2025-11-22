@@ -35,9 +35,9 @@ export interface IUser {
   createdAt?: Date;
   updatedAt?: Date;
   reputation_score?: number;
-  incentive?:number;
-  isBlocked?:boolean;
-  penalty?:number
+  incentive?: number;
+  isBlocked?: boolean;
+  penalty?: number;
   notificationRetention?: string;
 }
 
@@ -88,6 +88,7 @@ export interface HistoryItem {
     answer: string;
     approvalCount: string;
     sources: SourceItem[];
+    remarks: string,
   };
   review?: Partial<IReview>;
   // in-review => if a question assigned to an expert for reiview, or state of a answer before approval or rejection
@@ -308,6 +309,7 @@ export interface IAnswer {
   answerIteration: number;
   isFinalAnswer: boolean;
   approvalCount: number;
+  remarks: string;
   sources: SourceItem[];
   reviews?: IReview[];
   answer: string;
