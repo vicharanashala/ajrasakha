@@ -1,4 +1,5 @@
 from typing import List
+import asyncio
 from fastmcp import FastMCP
 import pymongo
 from llama_index.core import Settings
@@ -104,7 +105,7 @@ async def upload_question_to_reviewer_system(question: str, state_name: str, cro
     headers = {"Content-Type": "application/json"}
 
     try:
-        response = requests.post(url, json=payload, headers=headers)
+        response = await asyncio.to_thread(requests.post, url, json=payload, headers=headers)
         
         if response.status_code == 201:
             return {"status": "Uploaded Successfully"}
