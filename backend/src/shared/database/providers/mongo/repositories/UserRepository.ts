@@ -385,7 +385,7 @@ export class UserRepository implements IUserRepository {
     await this.init()
     try {
       const skip = (page - 1) * limit
-      let query:any = {}
+      let query:any = {role: "expert"}
       let sort:any ={}
       if(search){
         query.$or = [
