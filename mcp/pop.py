@@ -101,11 +101,11 @@ async def upload_question_to_reviewer_system(question: str, state_name: str, cro
     }
     
     # Send the POST request
-    url = "http://34.131.207.81:4000/api/questions"
+    url = "https://desk.vicharanashala.ai/api/questions"
     headers = {"Content-Type": "application/json"}
 
     try:
-        response = await asyncio.to_thread(requests.post, url, json=payload, headers=headers)
+        response = await asyncio.to_thread(requests.post, url, json=payload, headers=headers, timeout=10)
         
         if response.status_code == 201:
             return {"status": "Uploaded Successfully"}
