@@ -104,6 +104,7 @@ async def upload_question_to_reviewer_system(question: str, state_name: str, cro
     url = "https://desk.vicharanashala.ai/api/questions"
     headers = {"Content-Type": "application/json"}
 
+    print(f"DEBUG: Sending to URL: {url}", flush=True)
     try:
         response = await asyncio.to_thread(requests.post, url, json=payload, headers=headers, timeout=10)
         
