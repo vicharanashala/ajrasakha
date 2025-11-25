@@ -119,7 +119,7 @@ export const QAInterface = ({
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
   const [remarks, setRemarks] = useState("");
 
-  const [isLoaded,setIsLoaded] =useState(false)
+  const [isLoaded, setIsLoaded] = useState(false);
   // const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
   //   {
   //     status: "all",
@@ -189,14 +189,14 @@ export const QAInterface = ({
 
   const [isLoadingTargetQuestion, setIsLoadingTargetQuestion] = useState(false);
   //for selecting the first question
-  
+
   const hasInitialized = useRef(false);
   const questionsRef = useRef(questions);
   const questionItemRefs = useRef<Record<string, HTMLDivElement>>({});
   // const [isLoaded, setIsLoaded] = useState(false);
 
   const [drafts, setDrafts] = useState<
-    Record<string, { answer: string; sources: any[] }>
+    Record<string, { answer: string; sources: any[]; remarks: string }>
   >({});
 
   // Function to set ref for each question item
@@ -227,39 +227,19 @@ export const QAInterface = ({
     setIsLoaded(true);
   }, []);
 
-  // useEffect(() => {
-  //   if (!isLoaded) return; // wait until drafts + selected are loaded
+  useEffect(() => {
+    if (!isLoaded) return; // wait until drafts + selected are loaded
+    if (autoSelectQuestionId) return;
 
-  //   const savedSelected = localStorage.getItem("selectedQuestion");
+    const savedSelected = localStorage.getItem("selectedQuestion");
 
-  //   if (savedSelected && questions.some((q) => q?.id === savedSelected)) {
-  //     setSelectedQuestion(savedSelected);
-  //   } else {
-  //     const firstId = questions[0]?.id ?? null;
-  //     setSelectedQuestion(firstId);
-  //   }
-  // }, [questions, isLoaded]);
-  // useEffect(() => {
-  //   if (autoSelectQuestionId) return;
-
-  //   if (!isLoading && questions.length > 0 && !selectedQuestion) {
-  //     setSelectedQuestion(questions[0]!.id);
-  //   }
-  // }, [isLoading, questions, autoSelectQuestionId]);
-
-useEffect(() => {
-if (!isLoaded) return; // wait until drafts + selected are loaded
-if (autoSelectQuestionId) return;
- 
-const savedSelected = localStorage.getItem("selectedQuestion");
- 
-if (savedSelected && questions.some((q) => q?.id === savedSelected)) {
-setSelectedQuestion(savedSelected);
-} else {
-const firstId = questions[0]?.id ?? null;
-setSelectedQuestion(firstId);
-}
-}, [isLoading, questions, autoSelectQuestionId]);
+    if (savedSelected && questions.some((q) => q?.id === savedSelected)) {
+      setSelectedQuestion(savedSelected);
+    } else {
+      const firstId = questions[0]?.id ?? null;
+      setSelectedQuestion(firstId);
+    }
+  }, [isLoading, questions, autoSelectQuestionId]);
 
   useEffect(() => {
     if (!selectedQuestion) return;
@@ -267,28 +247,43 @@ setSelectedQuestion(firstId);
     localStorage.setItem("selectedQuestion", selectedQuestion);
 
     const draft = drafts[selectedQuestion];
-    
+
     if (draft) {
       setNewAnswer(draft.answer);
       setSources(draft.sources);
+      setRemarks(draft.remarks);
     } else {
       setNewAnswer("");
       setSources([]);
     }
-  }, [selectedQuestion, drafts]);
+  }, [selectedQuestion]);
 
   useEffect(() => {
     if (!selectedQuestion) return;
-    if (newAnswer.trim() === "" && sources.length === 0) return;
 
-    setDrafts((prev) => ({
-      ...prev,
-      [selectedQuestion]: {
-        answer: newAnswer,
-        sources,
-      },
-    }));
-  }, [newAnswer, sources]);
+    setDrafts((prev) => {
+      const existing = prev[selectedQuestion];
+
+      // Prevent unnecessary update loops
+      if (
+        existing &&
+        existing.answer === newAnswer &&
+        JSON.stringify(existing.sources) === JSON.stringify(sources) &&
+        existing.remarks === remarks
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [selectedQuestion]: {
+          answer: newAnswer,
+          sources,
+          remarks,
+        },
+      };
+    });
+  }, [newAnswer, sources, remarks, selectedQuestion]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -413,60 +408,6 @@ setSelectedQuestion(firstId);
     setRemarks("");
   };
 
-  // const activeFiltersCount = Object.values(advanceFilter).filter(
-  //   (v) => v !== "all" && !(Array.isArray(v) && v[0] === 0 && v[1] === 100)
-  // ).length;
-
-  // const onReset = () => {
-  //   setStatus("all");
-  //   setSource("all");
-  //   setState("");
-  //   setCrop("");
-  //   setAnswersCount([0, 100]);
-  //   setDateRange("all");
-  //   setPriority("all");
-  //   setDomain("all");
-  //   setUser("all");
-  // };
-
-  const onChangeFilters = (next: {
-    status?: QuestionFilterStatus;
-    source?: QuestionSourceFilter;
-    priority?: QuestionPriorityFilter;
-    state?: string;
-    crop?: string;
-    domain?: string;
-    user?: string;
-    answersCount?: [number, number];
-    dateRange?: QuestionDateRangeFilter;
-  }) => {
-    if (next.status !== undefined) setStatus(next.status);
-    if (next.source !== undefined) setSource(next.source);
-    if (next.state !== undefined) setState(next.state);
-    if (next.crop !== undefined) setCrop(next.crop);
-    if (next.answersCount !== undefined) setAnswersCount(next.answersCount);
-    if (next.dateRange !== undefined) setDateRange(next.dateRange);
-    if (next.priority !== undefined) setPriority(next.priority);
-    if (next.domain !== undefined) setDomain(next.domain);
-    if (next.user !== undefined) setUser(next.user);
-  };
-
-  // const handleApplyFilters = (myPreference?: IMyPreference) => {
-  //   onChangeFilters({
-  //     status: advanceFilter.status,
-  //     source: advanceFilter.source,
-  //     state: myPreference?.state || advanceFilter.state,
-  //     crop: myPreference?.crop || advanceFilter.crop,
-  //     answersCount: advanceFilter.answersCount,
-  //     dateRange: advanceFilter.dateRange,
-  //     priority: advanceFilter.priority,
-  //     domain: myPreference?.domain || advanceFilter.domain,
-  //     user: advanceFilter.user,
-  //   });
-
-  //   refetch();
-  // };
-
   const handleSubmitResponse = async (
     status?: "accepted" | "rejected" | "modified",
     parameters?: IReviewParmeters,
@@ -539,7 +480,6 @@ setSelectedQuestion(firstId);
       console.error("Failed to submit:", error);
     }
   };
-
 
   const handleQuestionClick = (id: string) => {
     setSelectedQuestion(id);
@@ -2466,9 +2406,10 @@ const AcceptReviewDialog = ({
       practicalUtility: true,
       readabilityCommunication: true,
       technicalAccuracy: true,
-      valueInsight: false,
+      valueInsight: true,
     });
   }, []);
+
   const handleReset = () => {
     const defaultChecklist: IReviewParmeters = {
       contextRelevance: true,
@@ -2476,8 +2417,9 @@ const AcceptReviewDialog = ({
       practicalUtility: true,
       readabilityCommunication: true,
       technicalAccuracy: true,
-      valueInsight: false,
+      valueInsight: true,
     };
+
     onChecklistChange(defaultChecklist);
     setSuggestion(null);
   };
@@ -2499,11 +2441,13 @@ const AcceptReviewDialog = ({
       practicalUtility,
       readabilityCommunication,
       technicalAccuracy,
+      valueInsight,
     ].filter((v) => !v).length;
 
-    if (valueInsight) {
-      return "Consider modifying the answer instead accepting it.";
-    }
+    if (!disabledCount) return null;
+    // if (valueInsight) {
+    //   return "Consider modifying the answer instead accepting it.";
+    // }
 
     if (disabledCount >= 1 && disabledCount <= 3) {
       return "Some criteria are unmet. Please modify/reject the answer instead accepting.";
