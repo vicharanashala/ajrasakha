@@ -91,6 +91,17 @@ async def upload_question_to_reviewer_system(question: str, state_name: str, cro
     priority = "high"
     context = ""  # Empty string as context for now
     
+    # Ensure all required fields are non-empty
+    required_fields = ["state", "district", "crop", "season", "domain"]
+    for field in required_fields:
+        if not details.get(field):
+            if field == "district":
+                details[field] = "Not specified"
+            elif field == "season":
+                details[field] = "General"
+            else:
+                details[field] = "Not specified"
+
     # Construct the payload according to the schema
     payload = {
         "question": question,
