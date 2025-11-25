@@ -648,7 +648,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       // Fetch associated reviews and reviewer details
       const reviews = await this.ReviewCollection.find({
-        questionId,
+        questionId: new ObjectId(questionId),
         answerId: {$in: allAnswerIds},
       })
         .sort({createdAt: -1})
@@ -733,6 +733,7 @@ export class QuestionRepository implements IQuestionRepository {
                 sources: answersMap.get(h.answer?.toString())?.sources,
                 approvalCount: answersMap.get(h.answer?.toString())
                   ?.approvalCount,
+                remarks: answersMap.get(h.answer?.toString()).remarks,
                 createdAt: answersMap.get(h.answer?.toString())?.createdAt,
                 updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
 
@@ -746,6 +747,7 @@ export class QuestionRepository implements IQuestionRepository {
           rejectedAnswer: h.rejectedAnswer?.toString(),
           modifiedAnswer: h.modifiedAnswer?.toString(),
           reasonForLastModification: h.reasonForLastModification?.toString(),
+          reviewId: h.reviewId?.toString(),
         })),
         createdAt: submission?.createdAt,
         updatedAt: submission?.updatedAt,

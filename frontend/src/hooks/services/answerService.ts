@@ -38,6 +38,7 @@ export class AnswerService {
     modifiedAnswer,
     reasonForModification,
     parameters,
+    remarks
   }: IReviewAnswerPayload): Promise<SubmitAnswerResponse | null> {
     try {
       return await apiFetch<SubmitAnswerResponse>(`${this._baseUrl}/review`, {
@@ -53,6 +54,7 @@ export class AnswerService {
           modifiedAnswer,
           reasonForModification,
           parameters,
+          remarks
         }),
       });
     } catch (error) {

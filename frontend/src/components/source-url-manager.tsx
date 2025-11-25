@@ -62,7 +62,7 @@ export const SourceUrlManager = ({
   return (
     <div className={`grid gap-3 ${className}`}>
       <label className="text-sm font-medium text-foreground">
-        Source References
+        Source References *
       </label>
 
       <div className="space-y-3">

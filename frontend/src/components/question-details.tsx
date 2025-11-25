@@ -93,6 +93,7 @@ import { useCountdown } from "@/hooks/ui/useCountdown";
 import { TimerDisplay } from "./timer-display";
 import { CommentsSection } from "./comments-section";
 import { parameterLabels } from "./QA-interface";
+import { ExpandableText } from "./expandable-text";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -2296,6 +2297,23 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                         </div>
                       </ScrollArea>
                     </div>
+                  </div>
+
+                  <div>
+                    {props.answer.remarks && (
+                      <div className="p-3 rounded-md bg-muted/20 border text-sm">
+                        <p className="text-sm font-semibold text-muted-foreground mb-1">
+                          Remarks:
+                        </p>
+
+                        <div className="text-foreground text-sm">
+                          <ExpandableText
+                            text={props.answer.remarks}
+                            maxLength={120}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {props.answer.sources?.length > 0 && (

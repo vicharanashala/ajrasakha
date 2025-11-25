@@ -209,6 +209,15 @@ class ReviewAnswerBody {
     example: '67b1f3d8c45a9e12f3a9d02b',
   })
   modifiedAnswer?: string;
+  
+  @ValidateIf(o => o.status === 'rejected' || o.status === undefined)
+  @IsNotEmpty()
+  @IsString()
+  @JSONSchema({
+    description: 'Remarks are required when status is rejected or not provided',
+    example: 'Reason or additional comments...',
+  })
+  remarks?: string;
 
   @ValidateIf(o => o.status === 'modified')
   @IsNotEmpty()

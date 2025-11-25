@@ -453,10 +453,10 @@ export class QuestionService extends BaseService {
             `Failed to find question with id: ${questionId}`,
           );
 
-        const currentAnswers = await this.answerRepo.getByQuestionId(
-          questionId,
-          session,
-        );
+        // const currentAnswers = await this.answerRepo.getByQuestionId(
+        //   questionId,
+        //   session,
+        // );
 
         const questionSubmissions =
           await this.questionSubmissionRepo.getByQuestionId(
@@ -486,12 +486,12 @@ export class QuestionService extends BaseService {
           updatedAt: new Date(currentQuestion.updatedAt).toLocaleString(),
           totalAnswersCount: currentQuestion.totalAnswersCount,
           history: submissionHistory,
-          currentAnswers: currentAnswers.map(currentAnswer => ({
-            id: currentAnswer._id.toString(),
-            answer: currentAnswer.answer,
-            isFinalAnswer: currentAnswer.isFinalAnswer,
-            createdAt: currentAnswer.createdAt,
-          })),
+          // currentAnswers: currentAnswers.map(currentAnswer => ({
+          //   id: currentAnswer._id.toString(),
+          //   answer: currentAnswer.answer,
+          //   isFinalAnswer: currentAnswer.isFinalAnswer,
+          //   createdAt: currentAnswer.createdAt,
+          // })),
         };
       });
     } catch (error) {

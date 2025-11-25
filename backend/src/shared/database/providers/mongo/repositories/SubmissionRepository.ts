@@ -374,6 +374,7 @@ export class QuestionSubmissionRepository
                 answer: answer.answer,
                 approvalCount: answer.approvalCount?.toString() ?? '0',
                 sources: answer.sources ?? [],
+                remarks: answer.remarks ?? '',
               }
             : undefined,
 
