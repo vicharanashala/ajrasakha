@@ -119,6 +119,7 @@ export const QAInterface = ({
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
   const [remarks, setRemarks] = useState("");
 
+  const [isLoaded,setIsLoaded] =useState(false)
   // const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
   //   {
   //     status: "all",
@@ -188,14 +189,7 @@ export const QAInterface = ({
 
   const [isLoadingTargetQuestion, setIsLoadingTargetQuestion] = useState(false);
   //for selecting the first question
-  useEffect(() => {
-    if (autoSelectQuestionId) return;
-
-    if (!isLoading && questions.length > 0 && !selectedQuestion) {
-      setSelectedQuestion(questions[0]!.id);
-    }
-  }, [isLoading, questions, autoSelectQuestionId]);
-
+  
   const hasInitialized = useRef(false);
   const questionsRef = useRef(questions);
   const questionItemRefs = useRef<Record<string, HTMLDivElement>>({});
@@ -221,17 +215,17 @@ export const QAInterface = ({
     questionsRef.current = questions;
   }, [questions]);
 
-  // useEffect(() => {
-  //   const saved = localStorage.getItem("questionDrafts");
-  //   if (saved) {
-  //     setDrafts(JSON.parse(saved));
-  //   }
+  useEffect(() => {
+    const saved = localStorage.getItem("questionDrafts");
+    if (saved) {
+      setDrafts(JSON.parse(saved));
+    }
 
-  //   const savedSelected = localStorage.getItem("selectedQuestion");
-  //   if (savedSelected) setSelectedQuestion(savedSelected);
+    const savedSelected = localStorage.getItem("selectedQuestion");
+    if (savedSelected) setSelectedQuestion(savedSelected);
 
-  //   setIsLoaded(true);
-  // }, []);
+    setIsLoaded(true);
+  }, []);
 
   // useEffect(() => {
   //   if (!isLoaded) return; // wait until drafts + selected are loaded
@@ -245,40 +239,61 @@ export const QAInterface = ({
   //     setSelectedQuestion(firstId);
   //   }
   // }, [questions, isLoaded]);
-
   // useEffect(() => {
-  //   if (!selectedQuestion) return;
+  //   if (autoSelectQuestionId) return;
 
-  //   localStorage.setItem("selectedQuestion", selectedQuestion);
-
-  //   const draft = drafts[selectedQuestion];
-
-  //   if (draft) {
-  //     setNewAnswer(draft.answer);
-  //     setSources(draft.sources);
-  //   } else {
-  //     setNewAnswer("");
-  //     setSources([]);
+  //   if (!isLoading && questions.length > 0 && !selectedQuestion) {
+  //     setSelectedQuestion(questions[0]!.id);
   //   }
-  // }, [selectedQuestion, drafts]);
+  // }, [isLoading, questions, autoSelectQuestionId]);
 
-  // useEffect(() => {
-  //   if (!selectedQuestion) return;
-  //   if (newAnswer.trim() === "" && sources.length === 0) return;
+useEffect(() => {
+if (!isLoaded) return; // wait until drafts + selected are loaded
+if (autoSelectQuestionId) return;
+ 
+const savedSelected = localStorage.getItem("selectedQuestion");
+ 
+if (savedSelected && questions.some((q) => q?.id === savedSelected)) {
+setSelectedQuestion(savedSelected);
+} else {
+const firstId = questions[0]?.id ?? null;
+setSelectedQuestion(firstId);
+}
+}, [isLoading, questions, autoSelectQuestionId]);
 
-  //   setDrafts((prev) => ({
-  //     ...prev,
-  //     [selectedQuestion]: {
-  //       answer: newAnswer,
-  //       sources,
-  //     },
-  //   }));
-  // }, [newAnswer, sources]);
+  useEffect(() => {
+    if (!selectedQuestion) return;
 
-  // useEffect(() => {
-  //   if (!isLoaded) return;
-  //   localStorage.setItem("questionDrafts", JSON.stringify(drafts));
-  // }, [drafts, isLoaded]);
+    localStorage.setItem("selectedQuestion", selectedQuestion);
+
+    const draft = drafts[selectedQuestion];
+    
+    if (draft) {
+      setNewAnswer(draft.answer);
+      setSources(draft.sources);
+    } else {
+      setNewAnswer("");
+      setSources([]);
+    }
+  }, [selectedQuestion, drafts]);
+
+  useEffect(() => {
+    if (!selectedQuestion) return;
+    if (newAnswer.trim() === "" && sources.length === 0) return;
+
+    setDrafts((prev) => ({
+      ...prev,
+      [selectedQuestion]: {
+        answer: newAnswer,
+        sources,
+      },
+    }));
+  }, [newAnswer, sources]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    localStorage.setItem("questionDrafts", JSON.stringify(drafts));
+  }, [drafts, isLoaded]);
 
   //to scroll to questions
   useEffect(() => {
@@ -525,55 +540,7 @@ export const QAInterface = ({
     }
   };
 
-  // const handleSubmitResponse = async (
-  //   status?: "accepted" | "rejected" | "modified",
-  //   currentReviewingAnswerId?: string,
-  //   rejectionReason?: string
-  // ) => {
-  //   if (!selectedQuestion || isResponding) return;
 
-  //   let payload = { questionId: selectedQuestion } as IReviewAnswerPayload;
-
-  //   if (!status) {
-  //     // responding first time
-  //     if (!sources.length) {
-  //       toast.error("Atleast one source is required!");
-  //       return;
-  //     }
-
-  //     payload.sources = sources;
-  //     payload.answer = newAnswer;
-  //   } else if (status == "accepted") {
-  //     payload.status = "accepted";
-  //     payload.approvedAnswer = currentReviewingAnswerId;
-  //   } else if (status == "rejected") {
-  //     if (!sources.length) {
-  //       toast.error("Atleast one source is required!");
-  //       return;
-  //     }
-  //     payload.rejectedAnswer = currentReviewingAnswerId;
-  //     payload.reasonForRejection = rejectionReason;
-  //     payload.answer = newAnswer;
-  //     payload.sources = sources;
-  //     payload.status = "rejected";
-  //   } else if (status == "modified") {
-  //     payload.modifiedAnswer = currentReviewingAnswerId;
-  //     payload.reasonForModification = rejectionReason; // storing both modification and rejction reason in a single state
-  //     payload.answer = newAnswer;
-  //     payload.sources = sources;
-  //     payload.status = "modified";
-  //   }
-
-  //   try {
-  //     await respondQuestion(payload);
-  //     setSelectedQuestion(null);
-  //     setNewAnswer("");
-  //     setSources([]);
-  //     toast.success("Your response submitted, thankyou!");
-  //   } catch (error) {
-  //     console.log("Failed to submit: ", error);
-  //   }
-  // };
   const handleQuestionClick = (id: string) => {
     setSelectedQuestion(id);
     if (autoSelectQuestionId && id !== autoSelectQuestionId) {
