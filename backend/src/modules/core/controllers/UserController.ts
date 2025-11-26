@@ -11,14 +11,23 @@ import {
   NotFoundError,
   Patch,
   QueryParams,
+  Post,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
-import {IUser, NotificationRetentionType} from '#root/shared/interfaces/models.js';
+import {
+  IUser,
+  NotificationRetentionType,
+} from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {UserService} from '../services/UserService.js';
-import {BlockUnblockBody, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, UsersNameResponseDto} from '../classes/validators/UserValidators.js';
+import {
+  BlockUnblockBody,
+  NotificationDeletePreferenceDTO,
+  UpdatePenaltyAndIncentive,
+  UsersNameResponseDto,
+} from '../classes/validators/UserValidators.js';
 
 @OpenAPI({
   tags: ['users'],
@@ -82,11 +91,14 @@ export class UserController {
   async updateAutoDeleteNotificationPreference(
     @Body() body: NotificationDeletePreferenceDTO,
     @CurrentUser() currentUser: IUser,
-  ): Promise<{message:string}> {
+  ): Promise<{message: string}> {
     const userId = currentUser._id.toString();
-    const {preference} = body
-    await this.userService.updateAutoDeleteNotificationPreference(preference,userId)
-    return { message: 'Notification preference updated successfully' };
+    const {preference} = body;
+    await this.userService.updateAutoDeleteNotificationPreference(
+      preference,
+      userId,
+    );
+    return {message: 'Notification preference updated successfully'};
   }
 
   @Patch('/point')
@@ -95,11 +107,11 @@ export class UserController {
   @OpenAPI({summary: 'Update user information'})
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async updateIncentiveAndPenalty(
-    @Body() body:UpdatePenaltyAndIncentive,
-  ): Promise<{message:string}> {
-    const {type,userId} = body
-    await this.userService.updatePenaltyAndIncentive(userId,type)
-    return { message: `${type} updated successfully` };
+    @Body() body: UpdatePenaltyAndIncentive,
+  ): Promise<{message: string}> {
+    const {type, userId} = body;
+    await this.userService.updatePenaltyAndIncentive(userId, type);
+    return {message: `${type} updated successfully`};
   }
 
   @Get('/list')
@@ -107,10 +119,23 @@ export class UserController {
   @Authorized()
   @OpenAPI({summary: 'Get all users'})
   async getAllUsers(
-    @QueryParams() query: {page?: number; limit?: number,search?:string,sort:string,filter:string}
+    @QueryParams()
+    query: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      sort: string;
+      filter: string;
+    },
   ) {
-    const{page=1,limit=10,search='',sort='',filter=''} = query
-    return await this.userService.findAllExperts(Number(page),Number(limit),search,sort,filter)
+    const {page = 1, limit = 10, search = '', sort = '', filter = ''} = query;
+    return await this.userService.findAllExperts(
+      Number(page),
+      Number(limit),
+      search,
+      sort,
+      filter,
+    );
   }
 
   @Patch('/expert')
@@ -119,20 +144,34 @@ export class UserController {
   @OpenAPI({summary: 'Update user information'})
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async BlockAndUnblockExpert(
-    @Body() body:BlockUnblockBody,
-  ): Promise<{message:string}> {
-    const {action,userId} = body
-    await this.userService.blockUnblockExperts(userId,action)
-    return { message: `${action} Expert successfully` };
+    @Body() body: BlockUnblockBody,
+  ): Promise<{message: string}> {
+    const {action, userId} = body;
+    await this.userService.blockUnblockExperts(userId, action);
+    return {message: `${action} Expert successfully`};
   }
 
   @Get('/details/:email')
   @HttpCode(200)
   @OpenAPI({summary: 'Get all user names'})
   async getUserDetails(
-    @Params() params:{email:string}
+    @Params() params: {email: string},
   ): Promise<IUser | null> {
-    const {email} =params
-    return await this.userService.getUserByEmail(email) 
+    const {email} = params;
+    return await this.userService.getUserByEmail(email);
+  }
+
+  @Post('/fix-reputation')
+  @HttpCode(200)
+  // @Authorized() 
+  @OpenAPI({summary: 'Recalculate and update reputation score of all experts'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async fixReputationScores(@CurrentUser() user: IUser) {
+    // const {_id: userId} = user;
+
+    return await this.userService.recalculateReputationScores(
+      // userId.toString(),
+      ""
+    );
   }
 }

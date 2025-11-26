@@ -2,7 +2,11 @@ import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '#root/modules/core/classes/validators/QuestionValidators.js';
-import {IQuestion, IUser} from '#root/shared/interfaces/models.js';
+import {
+  IQuestion,
+  IUser,
+  QuestionStatus,
+} from '#root/shared/interfaces/models.js';
 import {ClientSession} from 'mongodb';
 
 /**
@@ -98,7 +102,7 @@ export interface IQuestionRepository {
    * @returns A promise that resolves to an array of detailed questions.
    */
   findDetailedQuestions(
-  query: GetDetailedQuestionsQuery & { searchEmbedding: number[] | null }
+    query: GetDetailedQuestionsQuery & {searchEmbedding: number[] | null},
   ): Promise<{questions: IQuestion[]; totalPages: number; totalCount: number}>;
 
   /**
@@ -156,15 +160,29 @@ export interface IQuestionRepository {
    */
   updateExpiredAfterFourHours(): Promise<void>;
 
+  insertMany(questions: IQuestion[]): Promise<string[]>;
 
-  insertMany(questions: IQuestion[]): Promise<string[]>
-
-  updateQuestionStatus(id: string, status: string, errorMessage?: string, session?: ClientSession): Promise<void>
+  updateQuestionStatus(
+    id: string,
+    status: string,
+    errorMessage?: string,
+    session?: ClientSession,
+  ): Promise<void>;
 
   // findById(id: string, session?: ClientSession): Promise<IQuestion | null>
-    getAllocatedQuestionPage(
-  userId: string,
-  questionId: string,
-  session?: ClientSession
-): Promise<number>
+  getAllocatedQuestionPage(
+    userId: string,
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<number>;
+
+  /**
+   * Updates a specific question.
+   * @param status - question status [].
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to question documents
+   */
+
+  getQuestionsByStatus(status: QuestionStatus[], session?: ClientSession): Promise<IQuestion[]>;
 }
+ 

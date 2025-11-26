@@ -95,11 +95,11 @@ export class UserRepository implements IUserRepository {
     //     $set: {
     //       reputation_score: 0,
     //       incentive: 0,
-    //       penalty: 0, 
-    //       isBlocked: false, 
+    //       penalty: 0,
+    //       isBlocked: false,
     //       notificationRetention: "never",
     //       preference: {crop: 'all', domain: 'all', state: 'all'},
-    //       updatedAt: new Date(), 
+    //       updatedAt: new Date(),
     //     },
     //   },
     // );
@@ -235,7 +235,13 @@ export class UserRepository implements IUserRepository {
 
     // 1. Fetch all experts
     const allUsersRaw = await this.usersCollection
-      .find({role: 'expert', isBlocked: false}, {session})
+      .find(
+        {
+          role: 'expert',
+          isBlocked: {$ne: true},
+        },
+        {session},
+      )
       .toArray();
 
     // 2. Remove duplicates based on email
@@ -468,6 +474,25 @@ export class UserRepository implements IUserRepository {
       );
     } catch (error) {
       throw new InternalServerError(`Failed to update IsBlock`);
+    }
+  }
+
+  async updateById(
+    userId: string,
+    updateData: Partial<IUser>,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    try {
+      await this.usersCollection.updateOne(
+        {_id: new ObjectId(userId)},
+        {$set: updateData},
+        {session},
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to update user by id /MORE: ${error}`,
+      );
     }
   }
 }

@@ -1,4 +1,4 @@
-import { HistoryItem } from '#root/modules/core/classes/validators/QuestionValidators.js';
+import {HistoryItem} from '#root/modules/core/classes/validators/QuestionValidators.js';
 import {
   IQuestionSubmission,
   IReviewerHeatmapRow,
@@ -108,8 +108,15 @@ export interface IQuestionSubmissionRepository {
     questionId: string,
     session?: ClientSession,
   ): Promise<void>;
-  
+
   heatMapResultsForReviewer(): Promise<IReviewerHeatmapRow[] | null>;
-  
-  
+
+  /**
+   * @param questionIds
+   * @param session Optional MongoDB session for transaction
+   */
+  getByQuestionIds(
+    questionIds: string[],
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]>;
 }
