@@ -888,6 +888,12 @@ export class QuestionService extends BaseService {
             status: 'in-review',
             updatedAt: new Date(),
           };
+          const IS_INCREMENT = true;
+          await this.userRepo.updateReputationScore(
+            expertId.toString(),
+            IS_INCREMENT,
+            session,
+          );
           //need to add here
           let message = `A new Review has been assigned to you`;
           let title = 'New Review Assigned';
@@ -952,17 +958,37 @@ export class QuestionService extends BaseService {
 
         //3. Get the current expert queue from the question submission
         const submissionQueue = questionSubmission.queue || [];
-
+        const submissionHistory=questionSubmission.history || [];
         //4. Extract the expert ID based on the provided index
         const expertId = submissionQueue[index]?.toString();
-
         //5. Decrease the expert's reputation score (since being removed)
-        const IS_INCREMENT = false;
-        await this.userRepo.updateReputationScore(
-          expertId,
-          IS_INCREMENT,
-          session,
-        );
+        if(submissionHistory.length===0)
+        {
+          if(submissionQueue[0].toString()===expertId)
+          {
+            const IS_INCREMENT = false;
+            await this.userRepo.updateReputationScore(
+              expertId,
+              IS_INCREMENT,
+              session,
+            );
+          }
+        }
+        else{
+          const matchUser=submissionHistory.find(u => 
+            u.updatedBy?.toString() === expertId)
+            if(matchUser)
+            {
+              const IS_INCREMENT = false;
+              await this.userRepo.updateReputationScore(
+                expertId,
+                IS_INCREMENT,
+                session,
+              );
+
+            }
+        }
+        
 
         //6. Remove the expert from the queue by index
         const updated =
@@ -1036,11 +1062,9 @@ export class QuestionService extends BaseService {
           // Check if the last entry is still under review and no answer provided yet
           const isUnderReviewWithoutAnswer =
             lastHistoryEntry.status === 'in-review' && !lastHistoryEntry.answer;
-
           if (isUnderReviewWithoutAnswer) {
             const IS_INCREMENT = false;
             const expertId = lastHistoryEntry.updatedBy?.toString();
-
             if (!expertId) {
               throw new BadRequestError(
                 `Expert ID missing in the last history entry for question ID: ${questionId}`,
@@ -1053,6 +1077,15 @@ export class QuestionService extends BaseService {
               session,
             );
           }
+        }
+        else{
+          const IS_INCREMENT = false;
+          const expertId = questionSubmission?.queue[0]?.toString() 
+          await this.userRepo.updateReputationScore(
+            expertId,
+            IS_INCREMENT,
+            session,
+          );
         }
 
         await this.questionSubmissionRepo.deleteByQuestionId(
