@@ -542,7 +542,6 @@ export class QuestionService extends BaseService {
     BATCH_EXPECTED_TO_ADD: number = 6,
   ): Promise<boolean> {
     const TOTAL_EXPERTS_LIMIT = 10;
-
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
 
@@ -641,7 +640,7 @@ export class QuestionService extends BaseService {
         // &&EXISTING_QUEUE_COUNT >= 3
       ) {
         const hasExperts = expertsToAdd?.length >= 1;
-        if (!lastSubmission) {
+        if (!lastSubmission && questionSubmission.queue.length==0) {
           const IS_INCREMENT = true;
           const ExpertId = expertsToAdd[0]?.toString();
           await this.userRepo.updateReputationScore(
@@ -962,6 +961,7 @@ export class QuestionService extends BaseService {
         //4. Extract the expert ID based on the provided index
         const expertId = submissionQueue[index]?.toString();
         //5. Decrease the expert's reputation score (since being removed)
+        const nextUserId=submissionQueue[index+1]?.toString()
         if(submissionHistory.length===0)
         {
           if(submissionQueue[0].toString()===expertId)
@@ -972,7 +972,17 @@ export class QuestionService extends BaseService {
               IS_INCREMENT,
               session,
             );
+            if(nextUserId)
+          {
+            const IS_INCREMENT = true;
+            await this.userRepo.updateReputationScore(
+              nextUserId,
+              IS_INCREMENT,
+              session,
+            );
           }
+          }
+          
         }
         else{
           const matchUser=submissionHistory.find(u => 
@@ -985,6 +995,15 @@ export class QuestionService extends BaseService {
                 IS_INCREMENT,
                 session,
               );
+              if(nextUserId)
+             {
+            const IS_INCREMENT = true;
+            await this.userRepo.updateReputationScore(
+              nextUserId,
+              IS_INCREMENT,
+              session,
+            );
+          }
 
             }
         }
@@ -997,9 +1016,21 @@ export class QuestionService extends BaseService {
             Number(index),
             session,
           );
+          console.log("the updated user====",updated)
+        /*  if(updated)
+          {
+            const IS_INCREMENT = true;
+          const userId =updated.queue[0];
+          await this.userRepo.updateReputationScore(
+            userId.toString(),
+            IS_INCREMENT,
+            session,
+          );
+          }*/
 
         //7. Handle auto reallocation logic if autoAllocate is enabled
         if (index >= 0 && question.isAutoAllocate) {
+          console.log("the if coming======")
           // Get updated queue and history lengths
           const UPDATED_QUEUE_LENGTH = updated?.queue.length || 0;
           const UPDATED_HISTORY_LENGTH = updated?.history.length || 0;
