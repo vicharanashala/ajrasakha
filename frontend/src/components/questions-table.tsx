@@ -153,7 +153,7 @@ export const QuestionsTable = ({
     mode: "add" | "edit",
     entityId?: string,
     flagReason?: string,
-    status?: QuestionStatus,
+    status?: QuestionStatus
     // formData?: FormData
   ) => {
     try {
@@ -1385,6 +1385,8 @@ export const QuestionsFilters = ({
       priority: "all",
       domain: "all",
       user: "all",
+      endTime: undefined,
+      startTime: undefined,
     }
   );
   const [addOpen, setAddOpen] = useState(false);
@@ -1515,11 +1517,16 @@ export const QuestionsFilters = ({
       priority: advanceFilter.priority,
       domain: myPreference?.domain || advanceFilter.domain,
       user: advanceFilter.user,
+      endTime: advanceFilter.endTime,
+      startTime: advanceFilter.startTime,
     });
   };
 
   const activeFiltersCount = Object.values(advanceFilter).filter(
-    (v) => v !== "all" && !(Array.isArray(v) && v[0] === 0 && v[1] === 100)
+    (v) =>
+      v !== undefined &&
+      v !== "all" &&
+      !(Array.isArray(v) && v[0] === 0 && v[1] === 100)
   ).length;
 
   return (
