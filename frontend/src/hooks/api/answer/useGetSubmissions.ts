@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { AnswerService } from "../../services/answerService";
+import { formatDateLocal } from "@/utils/formatDate";
 
 const answerService = new AnswerService();
 
@@ -20,7 +21,7 @@ const answerService = new AnswerService();
 export const useGetSubmissions = (page: number, limit: number, dateRange: any) => {
   return useQuery({
     queryKey: ["submissions", page, dateRange.start, dateRange.end],
-    queryFn: () => answerService.getSubmissions(page, limit,{start:dateRange.start.toISOString(),end:dateRange.end.toISOString()})
+    queryFn: () => answerService.getSubmissions(page, limit,{start:formatDateLocal(dateRange.start),end:formatDateLocal(dateRange.end)})
   });
 };
 

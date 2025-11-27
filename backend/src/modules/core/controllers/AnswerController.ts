@@ -79,9 +79,10 @@ export class AnswerController {
     const userId = user._id.toString();
     let dateRange;
     if(query.start || query.end){
-    dateRange = {from:new Date(query.start as string),to: new Date(query.end as string)}
+    let end = new Date(query.end as string);
+    end.setHours(23,59,59,999)
+    dateRange = {from:new Date(query.start as string),to:end}
     }
-    console.log('date range ',dateRange)
     return this.answerService.getSubmissions(userId, page, limit,dateRange);
   }
   @Get('/finalizedAnswers')

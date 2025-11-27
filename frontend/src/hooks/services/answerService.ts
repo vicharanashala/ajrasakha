@@ -81,8 +81,8 @@ export class AnswerService {
     pageParam: number,
     limit: number,
     dateRange:any
-  ): Promise<ISubmissions[] | null> {
-    return apiFetch<ISubmissions[] | null>(
+  ): Promise<any> {
+    return apiFetch<any>(
       `${this._baseUrl}/submissions?page=${pageParam}&limit=${limit}&start=${dateRange.start}&end=${dateRange.end}`
     );
   }

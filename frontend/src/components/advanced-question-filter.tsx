@@ -57,6 +57,7 @@ import { format } from "date-fns";
 export { STATES, CROPS, DOMAINS };
 import type { DateRange } from "react-day-picker";
 import { Calendar } from "./atoms/calendar";
+import { DateRangeFilter } from "./DateRangeFilter";
 
 export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed";
 export type QuestionDateRangeFilter =
@@ -89,100 +90,100 @@ export type AdvanceFilterValues = {
 };
 
 // Define the props for your new component
-interface DateRangeFilterProps {
-  // advanceFilter prop now includes startTime and endTime
-  advanceFilter: {
-    startTime: Date | undefined;
-    endTime: Date | undefined;
-  };
-  // The handler to update the parent state
-  handleDialogChange: (key: string, value: any) => void;
-  className?: string;
-}
+// interface DateRangeFilterProps {
+//   // advanceFilter prop now includes startTime and endTime
+//   advanceFilter: {
+//     startTime: Date | undefined;
+//     endTime: Date | undefined;
+//   };
+//   // The handler to update the parent state
+//   handleDialogChange: (key: string, value: any) => void;
+//   className?: string;
+// }
 
-export const DateRangeFilter = ({
-  advanceFilter,
-  handleDialogChange,
-  className,
-}: DateRangeFilterProps) => {
-  const [isCalendarVisible, setIsCalendarVisible] = React.useState(false);
-  // Convert the flat startTime/endTime into the DateRange object for the Calendar
-  const dateRange: DateRange = {
-    from: advanceFilter.startTime,
-    to: advanceFilter.endTime,
-  };
+// export const DateRangeFilter = ({
+//   advanceFilter,
+//   handleDialogChange,
+//   className,
+// }: DateRangeFilterProps) => {
+//   const [isCalendarVisible, setIsCalendarVisible] = React.useState(false);
+//   // Convert the flat startTime/endTime into the DateRange object for the Calendar
+//   const dateRange: DateRange = {
+//     from: advanceFilter.startTime,
+//     to: advanceFilter.endTime,
+//   };
 
-  const handleDateSelect = (range: DateRange | undefined) => {
-    console.log("Date range: ", range);
-    handleDialogChange("startTime", range?.from);
-    handleDialogChange("endTime", range?.to);
+//   const handleDateSelect = (range: DateRange | undefined) => {
+//     console.log("Date range: ", range);
+//     handleDialogChange("startTime", range?.from);
+//     handleDialogChange("endTime", range?.to);
 
-    // Close the calendar once both dates are selected
-    if (range?.from && range?.to) {
-      setIsCalendarVisible(false);
-    }
-  };
+//     // Close the calendar once both dates are selected
+//     if (range?.from && range?.to) {
+//       setIsCalendarVisible(false);
+//     }
+//   };
 
-  const isRangeSelected = dateRange.from && dateRange.to;
+//   const isRangeSelected = dateRange.from && dateRange.to;
 
-  return (
-    <div className={`space-y-2 min-w-0 relative${className}`}>
-      <Label className="flex items-center gap-2 text-sm font-semibold">
-        <Clock className="h-4 w-4 text-primary" />
-        Custom Date Range
-      </Label>
+//   return (
+//     <div className={`space-y-2 min-w-0 relative${className}`}>
+//       <Label className="flex items-center gap-2 text-sm font-semibold">
+//         <Clock className="h-4 w-4 text-primary" />
+//         Custom Date Range
+//       </Label>
 
-      {/* This Button now acts as a toggle */}
-      <Button
-        id="date-toggle"
-        variant={"outline"}
-        className={`w-full justify-start text-left font-normal bg-background pr-3 ${
-          !dateRange.from && "text-muted-foreground"
-        }`}
-        onClick={() => setIsCalendarVisible(!isCalendarVisible)}
-      >
-        <CalendarIcon className="mr-2 h-4 w-4" />
-        {dateRange.from ? (
-          dateRange.to ? (
-            <>
-              {format(dateRange.from, "LLL dd, y")} -{" "}
-              {format(dateRange.to, "LLL dd, y")}
-            </>
-          ) : (
-            format(dateRange.from, "LLL dd, y")
-          )
-        ) : (
-          <span>Select a start and end date</span>
-        )}
+//       {/* This Button now acts as a toggle */}
+//       <Button
+//         id="date-toggle"
+//         variant={"outline"}
+//         className={`w-full justify-start text-left font-normal bg-background pr-3 ${
+//           !dateRange.from && "text-muted-foreground"
+//         }`}
+//         onClick={() => setIsCalendarVisible(!isCalendarVisible)}
+//       >
+//         <CalendarIcon className="mr-2 h-4 w-4" />
+//         {dateRange.from ? (
+//           dateRange.to ? (
+//             <>
+//               {format(dateRange.from, "LLL dd, y")} -{" "}
+//               {format(dateRange.to, "LLL dd, y")}
+//             </>
+//           ) : (
+//             format(dateRange.from, "LLL dd, y")
+//           )
+//         ) : (
+//           <span>Select a start and end date</span>
+//         )}
 
-        {/* Toggle Icon */}
-        <span className="ml-auto">
-          {isCalendarVisible ? (
-            <ChevronUp className="h-4 w-4 opacity-50" />
-          ) : (
-            <ChevronDown className="h-4 w-4 opacity-50" />
-          )}
-        </span>
-      </Button>
+//         {/* Toggle Icon */}
+//         <span className="ml-auto">
+//           {isCalendarVisible ? (
+//             <ChevronUp className="h-4 w-4 opacity-50" />
+//           ) : (
+//             <ChevronDown className="h-4 w-4 opacity-50" />
+//           )}
+//         </span>
+//       </Button>
 
-      {/* Conditional Rendering of the Calendar */}
-      {isCalendarVisible && (
-        <div className="absolute z-50 mt-2 border rounded-lg p-2 bg-popover text-popover-foreground shadow-lg min-w-full sm:min-w-[300px]">
-          {" "}
-          <Calendar
-            initialFocus
-            mode="range"
-            defaultMonth={dateRange.from}
-            selected={dateRange}
-            onSelect={handleDateSelect}
-            numberOfMonths={1} // Use 1 month since space might be limited now
-            className="w-full"
-          />
-        </div>
-      )}
-    </div>
-  );
-};
+//       {/* Conditional Rendering of the Calendar */}
+//       {isCalendarVisible && (
+//         <div className="absolute z-50 mt-2 border rounded-lg p-2 bg-popover text-popover-foreground shadow-lg min-w-full sm:min-w-[300px]">
+//           {" "}
+//           <Calendar
+//             initialFocus
+//             mode="range"
+//             defaultMonth={dateRange.from}
+//             selected={dateRange}
+//             onSelect={handleDateSelect}
+//             numberOfMonths={1} // Use 1 month since space might be limited now
+//             className="w-full"
+//           />
+//         </div>
+//       )}
+//     </div>
+//   );
+// };
 
 interface AdvanceFilterDialogProps {
   advanceFilter: AdvanceFilterValues;
