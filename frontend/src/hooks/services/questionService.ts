@@ -8,6 +8,7 @@ import { apiFetch } from "../api/api-fetch";
 import type { QuestionFilter } from "@/components/QA-interface";
 import type { GeneratedQuestion } from "@/components/voice-recorder-card";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
+import { formatDateLocal } from "@/utils/formatDate";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -33,9 +34,12 @@ export class QuestionService {
     if (filter.priority) params.append("priority", filter.priority);
     if (filter.domain) params.append("domain", filter.domain);
     if (filter.user) params.append("user", filter.user);
-    if (filter.startTime)
-      params.append("startTime", filter.startTime.toISOString());
-    if (filter.endTime) params.append("endTime", filter.endTime.toISOString());
+    if (filter.startTime) {
+      params.append("startTime", formatDateLocal(filter.startTime));
+    }
+    if (filter.endTime) {
+      params.append("endTime", formatDateLocal(filter.endTime));
+    }
 
     if (filter.answersCount) {
       params.append("answersCountMin", filter.answersCount[0].toString());

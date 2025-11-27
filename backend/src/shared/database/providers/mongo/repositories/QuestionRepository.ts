@@ -318,33 +318,17 @@ export class QuestionRepository implements IQuestionRepository {
       // --- Date Range Filter ---
       //  Priority: Custom date > Predefined dateRange
       if (startTime || endTime) {
-        filter.createdAt = {};
+        const filterDate: any = {};
 
         if (startTime) {
-          const d = new Date(startTime);
-          filter.createdAt.$gte = new Date(
-            d.getFullYear(),
-            d.getMonth(),
-            d.getDate(),
-            0,
-            0,
-            0,
-            0,
-          );
+          filterDate.$gte = new Date(`${startTime}T00:00:00.000Z`);
         }
 
         if (endTime) {
-          const d = new Date(endTime);
-          filter.createdAt.$lte = new Date(
-            d.getFullYear(),
-            d.getMonth(),
-            d.getDate(),
-            23,
-            59,
-            59,
-            999,
-          );
+          filterDate.$lte = new Date(`${endTime}T23:59:59.999Z`);
         }
+
+        filter.createdAt = filterDate;
       } else if (dateRange && dateRange !== 'all') {
         const now = new Date();
         let startDate: Date | undefined;
