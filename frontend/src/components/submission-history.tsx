@@ -1,4 +1,4 @@
-import { useGetSubmissions } from "@/hooks/api/answer/useGetSubmissions";
+// import { useGetSubmissions } from "@/hooks/api/answer/useGetSubmissions";
 import { useEffect, useRef} from "react";
 import type { IUser } from "@/types";
 import UserActivityHistory from "./ExpertHistory";
@@ -10,31 +10,31 @@ export const FullSubmissionHistory = ({
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const {
-    data: submissionpages,
-    isLoading,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useGetSubmissions(5);
-  const submissions = submissionpages?.pages.flat() || [];
+  // const {
+  //   data: submissionpages,
+  //   isLoading,
+  //   fetchNextPage,
+  //   hasNextPage,
+  //   isFetchingNextPage,
+  // } = useGetSubmissions(5);
+  // const submissions = submissionpages?.pages.flat() || [];
 
-  useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
+  // useEffect(() => {
+  //   const container = scrollRef.current;
+  //   if (!container) return;
 
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      if (scrollTop + clientHeight >= scrollHeight - 20) {
-        if (hasNextPage && !isFetchingNextPage) {
-          fetchNextPage();
-        }
-      }
-    };
+  //   const handleScroll = () => {
+  //     const { scrollTop, scrollHeight, clientHeight } = container;
+  //     if (scrollTop + clientHeight >= scrollHeight - 20) {
+  //       if (hasNextPage && !isFetchingNextPage) {
+  //         fetchNextPage();
+  //       }
+  //     }
+  //   };
 
-    container.addEventListener("scroll", handleScroll);
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+  //   container.addEventListener("scroll", handleScroll);
+  //   return () => container.removeEventListener("scroll", handleScroll);
+  // }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   return (
     // <>

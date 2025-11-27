@@ -537,319 +537,284 @@ export class QuestionSubmissionRepository
     }
   }
 
-//   async getUserActivityHistory(
-//     userId: string,
-//     page = 1,
-//     limit = 20
-//   ): Promise<any> {
-//     await this.init()
-//     const userObjId = new ObjectId(userId);
-//     const safePage = Math.max(1, Math.floor(page));
-//     const safeLimit = Math.max(1, Math.floor(limit));
-//     const skip = (safePage - 1) * safeLimit;
 
-//     // Build aggregation
-//     const pipeline: any[] = [
-//       // Only submissions that have at least one history updated by this user
-//       {
-//         $match: {
-//           "history.updatedBy": userObjId
-//         }
-//       },
 
-//       // unwind history entries and keep index so we can detect first entry (author)
-//       {
-//         $unwind: {
-//           path: "$history",
-//           includeArrayIndex: "historyIndex"
-//         }
-//       },
+// async getUserActivityHistory(
+//   userId: string,
+//   page = 1,
+//   limit = 20
+// ) {
+//   await this.init();
 
-//       // only keep entries that were updatedBy this user
-//       {
-//         $match: {
-//           "history.updatedBy": userObjId
-//         }
-//       },
+//   const userObjId = new ObjectId(userId);
+//   const safePage = Math.max(1, Math.floor(page));
+//   const safeLimit = Math.max(1, Math.floor(limit));
+//   const skip = (safePage - 1) * safeLimit;
 
-//       // sort by history.createdAt descending so newest actions appear first
-//       {
-//         $sort: {
-//           "history.createdAt": -1
-//         }
-//       },
+//   // -----------------------------------------
+//   // Shared stages for filtered + totalCount
+//   // -----------------------------------------
+//   const COMMON_STAGES = [
+//     // Only submissions where user appears in history array
+//     {
+//       $match: {
+//         "history.updatedBy": userObjId
+//       }
+//     },
 
-//       // Use facet so we can get totalCount and paginated data in one go
-//       {
-//         $facet: {
-//           data: [
-//             { $skip: skip },
-//             { $limit: safeLimit },
+//     // Expand history array with index
+//     {
+//       $unwind: {
+//         path: "$history",
+//         includeArrayIndex: "historyIndex"
+//       }
+//     },
 
-//             // Lookup review (if any)
-//             {
-//               $lookup: {
-//                 from: 'reviews',
-//                 localField: "history.reviewId",
-//                 foreignField: "_id",
-//                 as: "reviewDoc"
-//               }
-//             },
-//             { $unwind: { path: "$reviewDoc", preserveNullAndEmptyArrays: true } },
+//     // Keep only history items user created
+//     {
+//       $match: {
+//         "history.updatedBy": userObjId
+//       }
+//     },
 
-//             // Lookup answer referenced by this history entry (history.answer)
-//             {
-//               $lookup: {
-//                 from: 'answers',
-//                 localField: "history.answer",
-//                 foreignField: "_id",
-//                 as: "answerDoc"
-//               }
-//             },
-//             { $unwind: { path: "$answerDoc", preserveNullAndEmptyArrays: true } },
+//     // Add timestamps early
+//     {
+//       $addFields: {
+//         historyCreatedAt: "$history.createdAt",
+//         historyUpdatedAt: "$history.updatedAt"
+//       }
+//     },
 
-//             // Lookup rejectedAnswer (if any)
-//             {
-//               $lookup: {
-//                 from:"answers",
-//                 localField: "history.rejectedAnswer",
-//                 foreignField: "_id",
-//                 as: "rejectedAnswerDoc"
-//               }
-//             },
-//             { $unwind: { path: "$rejectedAnswerDoc", preserveNullAndEmptyArrays: true } },
+//     // --- Lookups: review + answers + question ---
+//     {
+//       $lookup: {
+//         from: "reviews",
+//         localField: "history.reviewId",
+//         foreignField: "_id",
+//         as: "reviewDoc"
+//       }
+//     },
+//     { $unwind: { path: "$reviewDoc", preserveNullAndEmptyArrays: true } },
 
-//             // Lookup modifiedAnswer (if any) - optional
-//             {
-//               $lookup: {
-//                 from: "answers",
-//                 localField: "history.modifiedAnswer",
-//                 foreignField: "_id",
-//                 as: "modifiedAnswerDoc"
-//               }
-//             },
-//             { $unwind: { path: "$modifiedAnswerDoc", preserveNullAndEmptyArrays: true } },
+//     {
+//       $lookup: {
+//         from: "answers",
+//         localField: "history.answer",
+//         foreignField: "_id",
+//         as: "answerDoc"
+//       }
+//     },
+//     { $unwind: { path: "$answerDoc", preserveNullAndEmptyArrays: true } },
 
-//             // Lookup approvedAnswer (if any)
-//             {
-//               $lookup: {
-//                 from: 'answers',
-//                 localField: "history.approvedAnswer",
-//                 foreignField: "_id",
-//                 as: "approvedAnswerDoc"
-//               }
-//             },
-//             { $unwind: { path: "$approvedAnswerDoc", preserveNullAndEmptyArrays: true } },
+//     {
+//       $lookup: {
+//         from: "answers",
+//         localField: "history.rejectedAnswer",
+//         foreignField: "_id",
+//         as: "rejectedAnswerDoc"
+//       }
+//     },
+//     { $unwind: { path: "$rejectedAnswerDoc", preserveNullAndEmptyArrays: true } },
 
-//             // Lookup question details using the parent document's questionId
-//             {
-//               $lookup: {
-//                 from:'questions',
-//                 localField: "questionId",
-//                 foreignField: "_id",
-//                 as: "questionDoc"
-//               }
-//             },
-//             { $unwind: { path: "$questionDoc", preserveNullAndEmptyArrays: true } },
+//     {
+//       $lookup: {
+//         from: "answers",
+//         localField: "history.modifiedAnswer",
+//         foreignField: "_id",
+//         as: "modifiedAnswerDoc"
+//       }
+//     },
+//     { $unwind: { path: "$modifiedAnswerDoc", preserveNullAndEmptyArrays: true } },
 
-//             // Build final action mapping and project into desired shape
-//             // {
-//             //   $addFields: {
-//             //     isAuthor: {
-//             //       // author if this was the first history entry (index === 0)
-//             //       $eq: ["$historyIndex", 0]
-//             //     }
-//             //   }
-//             // },
+//     {
+//       $lookup: {
+//         from: "answers",
+//         localField: "history.approvedAnswer",
+//         foreignField: "_id",
+//         as: "approvedAnswerDoc"
+//       }
+//     },
+//     { $unwind: { path: "$approvedAnswerDoc", preserveNullAndEmptyArrays: true } },
 
-//             {
-//   $addFields: {
-//     isAuthor: {
-//       $and: [
-//         { $eq: ["$historyIndex", 0] },
-//         {
-//           $eq: [
-//             "$answerDoc.authorId",
-//             userObjId
+//     {
+//       $lookup: {
+//         from: "questions",
+//         localField: "questionId",
+//         foreignField: "_id",
+//         as: "questionDoc"
+//       }
+//     },
+//     { $unwind: { path: "$questionDoc", preserveNullAndEmptyArrays: true } },
+
+//     // -------------------
+//     // Detect author action
+//     // -------------------
+//     {
+//       $addFields: {
+//         isAuthor: {
+//           $and: [
+//             { $eq: ["$historyIndex", 0] },
+//             { $eq: ["$answerDoc.authorId", userObjId] }
 //           ]
 //         }
-//       ]
+//       }
+//     },
+
+//     // -------------------
+//     // Determine action type
+//     // -------------------
+//     {
+//       $addFields: {
+//         action: {
+//           $switch: {
+//             branches: [
+//               { case: { $eq: ["$isAuthor", true] }, then: "author" },
+//               { case: { $eq: ["$reviewDoc.action", "accepted"] }, then: "approved" },
+//               { case: { $eq: ["$reviewDoc.action", "rejected"] }, then: "rejected" },
+//               { case: { $eq: ["$reviewDoc.action", "modified"] }, then: "modify" }
+//             ],
+//             default: null
+//           }
+//         }
+//       }
+//     },
+
+//     // Keep only valid actions
+//     {
+//       $match: {
+//         action: { $in: ["author", "approved", "rejected", "modify"] }
+//       }
 //     }
-//   }
-// },
+//   ];
 
-//             {
-//               $addFields: {
-//                 action: {
-//                   $switch: {
-//                     branches: [
-//                       { case: { $eq: ["$isAuthor", true] }, then: "author" },
-//                       // prefer explicit review.action if exists
-//                       { case: { $eq: ["$reviewDoc.action", "accepted"] }, then: "approved" },
-//                       { case: { $eq: ["$reviewDoc.action", "rejected"] }, then: "rejected" },
-//                       { case: { $eq: ["$reviewDoc.action", "modified"] }, then: "modify" },
-//                       // fallback to history.status
-//                       { case: { $eq: ["$history.status", "approved"] }, then: "approved" },
-//                       { case: { $eq: ["$history.status", "rejected"] }, then: "rejected" },
-//                       { case: { $eq: ["$history.status", "in-review"] }, then: "created" }
-//                     ],
-//                     default: "created"
-//                   }
-//                 }
-//               }
-//             },
+//   // -----------------------------------------
+//   // Final Pipeline
+//   // -----------------------------------------
+//   const pipeline = [
+//     {
+//       $facet: {
+//         // ---- PAGINATED DATA ----
+//         filtered: [
+//           ...COMMON_STAGES,
 
-//             {
-//               $project: {
-//                 // unique id for this history entry: submissionId_index (string)
-//                 _id: {
-//                   $concat: [{ $toString: "$_id" }, "_", { $toString: "$historyIndex" }]
-//                 },
-//                 // keep timestamps from the history entry
-//                 // createdAt: "$history.createdAt",
-//                 // updatedAt: "$history.updatedAt",
+//           // Sort *after* action detection
+//           { $sort: { historyCreatedAt: -1 } },
 
-//                 createdAt: {
-//   $ifNull: ["$history.createdAt", "$history.createdAt"]
-// },
-// updatedAt: {
-//   $ifNull: ["$history.updatedAt", "$history.updatedAt"]
-// },
+//           // Pagination happens last
+//           { $skip: skip },
+//           { $limit: safeLimit },
 
-//                 action: 1,
-//                 reviewType: "$reviewDoc.reviewType",
-//                 reason: "$history.reasonForRejection", // or "$reviewDoc.reason" if review stores reason
-//                 remarks: "$answerDoc.remarks",
-
-//                 review: {
-//                   parameters: "$reviewDoc.parameters",
-//                   action: "$reviewDoc.action",
-//                   reason: "$reviewDoc.reason"
-//                 },
-
-//                 question: {
-//                   _id: "$questionDoc._id",
-//                   question: "$questionDoc.question"
-//                 },
-
-//                 // answers: prefer the most relevant field from history
-//                 answer: {
-//                   _id: "$answerDoc._id",
-//                   answer: "$answerDoc.answer"
-//                 },
-
-//                 rejectedAnswer: {
-//                   _id: "$rejectedAnswerDoc._id",
-//                   answer: "$rejectedAnswerDoc.answer"
-//                 },
-
-//                 modifiedAnswer: {
-//                   _id: "$modifiedAnswerDoc._id",
-//                   answer: "$modifiedAnswerDoc.answer"
-//                 },
-
-//                 approvedAnswer: {
-//                   _id: "$approvedAnswerDoc._id",
-//                   answer: "$approvedAnswerDoc.answer"
-//                 },
-
-//                 // raw fields if needed
-//                 raw: {
-//                   submissionId: "$_id",
-//                   historyIndex: "$historyIndex",
-//                   historyStatus: "$history.status",
-//                   historyUpdatedBy: "$history.updatedBy",
-//                   reviewId: "$history.reviewId"
-//                 }
+//           // Output shape
+//           {
+//             $project: {
+//               _id: {
+//                 $concat: [
+//                   { $toString: "$_id" },
+//                   "_",
+//                   { $toString: "$historyIndex" }
+//                 ]
+//               },
+//               action: 1,
+//               createdAt: "$historyCreatedAt",
+//               updatedAt: "$historyUpdatedAt",
+//               reviewType: "$reviewDoc.reviewType",
+//               reason: {
+//                 $ifNull: ["$reviewDoc.reason", "$history.reasonForRejection"]
+//               },
+//               remarks: "$answerDoc.remarks",
+//               review: {
+//                 parameters: "$reviewDoc.parameters",
+//                 action: "$reviewDoc.action",
+//                 reason: "$reviewDoc.reason",
+//                 reviewerId: "$reviewDoc.reviewerId",
+//                 createdAt: "$reviewDoc.createdAt"
+//               },
+//               question: {
+//                 _id: "$questionDoc._id",
+//                 question: "$questionDoc.question"
+//               },
+//               answer: {
+//                 _id: "$answerDoc._id",
+//                 answer: "$answerDoc.answer"
+//               },
+//               rejectedAnswer: {
+//                 _id: "$rejectedAnswerDoc._id",
+//                 answer: "$rejectedAnswerDoc.answer"
+//               },
+//               modifiedAnswer: {
+//                 _id: "$modifiedAnswerDoc._id",
+//                 answer: "$modifiedAnswerDoc.answer"
+//               },
+//               approvedAnswer: {
+//                 _id: "$approvedAnswerDoc._id",
+//                 answer: "$approvedAnswerDoc.answer"
 //               }
 //             }
-//           ],
+//           }
+//         ],
 
-//           // count total matched entries (for pagination)
-//           totalCount: [{ $count: "count" }]
-//         }
-//       },
+//         // ---- TOTAL COUNT ----
+//         totalCount: [
+//           ...COMMON_STAGES,
+//           { $count: "count" }
+//         ]
+//       }
+//     },
 
-//       // unwind the totalCount result to a single number (or default to 0)
-//       {
-//         $unwind: {
-//           path: "$totalCount",
-//           preserveNullAndEmptyArrays: true
-//         }
-//       },
-
-//       // reshape to have totalCount and data at root
-//       {
-//         $project: {
-//           data: 1,
-//           totalCount: { $ifNull: ["$totalCount.count", 0] }
+//     // Extract final shape
+//     {
+//       $project: {
+//         data: "$filtered",
+//         totalCount: {
+//           $ifNull: [{ $arrayElemAt: ["$totalCount.count", 0] }, 0]
 //         }
 //       }
-//     ];
+//     }
+//   ];
 
-//     // Run aggregation
-//     const [aggResult] = await this.QuestionSubmissionCollection
-//       .aggregate(pipeline)
-//       .toArray()
-//       // aggregation always returns array; if empty use defaults
-//       .catch((err: any) => {
-//         throw err;
-//       });
+//   const [aggResult] = await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
 
-//     const totalCount = (aggResult && aggResult.totalCount) || 0;
-//     const rawData = (aggResult && aggResult.data) || [];
+//   const data = aggResult?.data || [];
+//   const totalCount = aggResult?.totalCount || 0;
 
-//     // Convert any ObjectId to string recursively
-//     const stringifyIds = (v: any): any => {
-//       if (v === null || v === undefined) return v;
-//       if (v instanceof ObjectId) return v.toString();
-//       if (Array.isArray(v)) return v.map(stringifyIds);
-//       if (typeof v === "object") {
-//         const o: any = {};
-//         for (const [k, val] of Object.entries(v)) {
-//           o[k] = stringifyIds(val);
-//         }
-//         return o;
-//       }
-//       return v;
-//     };
-
-//     const data = rawData.map(stringifyIds);
-
-//     const totalPages = Math.ceil(totalCount / safeLimit);
-
-//     return {
-//       totalCount,
-//       page: safePage,
-//       totalPages,
-//       limit: safeLimit,
-//       data
-//     };
-//   }
-
-
-
+//   return {
+//     totalCount,
+//     page: safePage,
+//     totalPages: Math.ceil(totalCount / safeLimit),
+//     limit: safeLimit,
+//     data
+//   };
+// }
 
 async getUserActivityHistory(
   userId: string,
   page = 1,
-  limit = 20
+  limit = 20,
+  dateRange?: { from?: string; to?: string }
 ): Promise<any> {
   await this.init();
+
   const userObjId = new ObjectId(userId);
   const safePage = Math.max(1, Math.floor(page));
   const safeLimit = Math.max(1, Math.floor(limit));
   const skip = (safePage - 1) * safeLimit;
 
+  // Parse date range
+  const fromDate = dateRange?.from ? new Date(dateRange.from) : null;
+  const toDate = dateRange?.to ? new Date(dateRange.to) : null;
+
+  // Build Mongo match object
+  const dateFilter: any = {};
+  if (fromDate) dateFilter.$gte = fromDate;
+  if (toDate) dateFilter.$lte = toDate;
+
   const pipeline = [
-    // Narrow documents to those that contain at least one history updated by user
     {
       $match: {
         "history.updatedBy": userObjId
       }
     },
 
-    // Expand history array into individual documents and keep index
     {
       $unwind: {
         path: "$history",
@@ -857,14 +822,12 @@ async getUserActivityHistory(
       }
     },
 
-    // Keep only the history entries updated by the user
     {
       $match: {
         "history.updatedBy": userObjId
       }
     },
 
-    // Capture timestamps from the history entry immediately so they never get lost/overwritten
     {
       $addFields: {
         historyCreatedAt: "$history.createdAt",
@@ -872,22 +835,31 @@ async getUserActivityHistory(
       }
     },
 
-    // Sort by the history timestamp (latest first)
+    // ---------------------------
+    // NEW DATE RANGE FILTER
+    // ---------------------------
+    ...(Object.keys(dateFilter).length > 0
+      ? [
+          {
+            $match: {
+              historyCreatedAt: dateFilter
+            }
+          }
+        ]
+      : []),
+
     {
       $sort: {
         historyCreatedAt: -1
       }
     },
 
-    // Use facet: one branch for data (with pagination) and one branch for counting
     {
       $facet: {
         filtered: [
-          // pagination
           { $skip: skip },
           { $limit: safeLimit },
 
-          // lookups
           {
             $lookup: {
               from: "reviews",
@@ -948,7 +920,6 @@ async getUserActivityHistory(
           },
           { $unwind: { path: "$questionDoc", preserveNullAndEmptyArrays: true } },
 
-          // Author detection: first history entry for the submission AND the user is the answer author
           {
             $addFields: {
               isAuthor: {
@@ -960,7 +931,6 @@ async getUserActivityHistory(
             }
           },
 
-          // Action mapping (NO default). If none match, action will be null and filtered out next.
           {
             $addFields: {
               action: {
@@ -977,14 +947,12 @@ async getUserActivityHistory(
             }
           },
 
-          // Keep only the allowed actions
           {
             $match: {
               action: { $in: ["author", "approved", "rejected", "modify"] }
             }
           },
 
-          // Final project shape
           {
             $project: {
               _id: {
@@ -994,7 +962,6 @@ async getUserActivityHistory(
               createdAt: "$historyCreatedAt",
               updatedAt: "$historyUpdatedAt",
               reviewType: "$reviewDoc.reviewType",
-              // prefer review reason, fallback to history rejection reason
               reason: { $ifNull: ["$reviewDoc.reason", "$history.reasonForRejection"] },
               remarks: "$answerDoc.remarks",
               review: {
@@ -1028,7 +995,6 @@ async getUserActivityHistory(
           }
         ],
 
-        // For totalCount we must perform the same lookup+action detection but without skip/limit
         totalCount: [
           {
             $lookup: {
@@ -1078,58 +1044,34 @@ async getUserActivityHistory(
           },
 
           { $match: { action: { $in: ["author", "approved", "rejected", "modify"] } } },
+
           { $count: "count" }
         ]
       }
     },
 
-    // Normalize facet output
     {
       $project: {
         data: "$filtered",
-        totalCount: { $ifNull: [{ $arrayElemAt: ["$totalCount.count", 0] }, 0] }
+        totalCount: {
+          $ifNull: [{ $arrayElemAt: ["$totalCount.count", 0] }, 0]
+        }
       }
     }
   ];
 
-  // Execute pipeline
   const [aggResult] = await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
 
   const totalCount = aggResult?.totalCount ?? 0;
   const rawData = aggResult?.data ?? [];
-
-  // Recursively convert ObjectId to string and Date to ISO strings
-  const serializeDbValue = (v: any): any => {
-    if (v === null || v === undefined) return v;
-    // ObjectId -> string
-    if (v instanceof ObjectId) return v.toString();
-    // Date -> ISO string
-    if (v instanceof Date) return v.toISOString();
-    // Array -> map
-    if (Array.isArray(v)) return v.map(serializeDbValue);
-    // Plain object -> recurse
-    if (typeof v === "object") {
-      const out: any = {};
-      for (const [k, val] of Object.entries(v)) {
-        out[k] = serializeDbValue(val);
-      }
-      return out;
-    }
-    // primitive
-    return v;
-  };
-
-  const data = rawData.map(serializeDbValue);
 
   return {
     totalCount,
     page: safePage,
     totalPages: Math.ceil(totalCount / safeLimit),
     limit: safeLimit,
-    data
+    data: rawData
   };
 }
-
-
 
 }

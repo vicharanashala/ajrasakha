@@ -79,10 +79,11 @@ export class AnswerService {
 
   async getSubmissions(
     pageParam: number,
-    limit: number
+    limit: number,
+    dateRange:any
   ): Promise<ISubmissions[] | null> {
     return apiFetch<ISubmissions[] | null>(
-      `${this._baseUrl}/submissions?page=${pageParam}&limit=${limit}`
+      `${this._baseUrl}/submissions?page=${pageParam}&limit=${limit}&start=${dateRange.start}&end=${dateRange.end}`
     );
   }
   async getFinalizedAnswers(

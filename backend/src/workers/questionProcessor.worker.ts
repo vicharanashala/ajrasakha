@@ -99,8 +99,8 @@ const aiService = new AiService();
       // }
 
       // Get embedding from AI server
-      const {embedding} = await aiService.getEmbedding(textToEmbed);
-      // const embedding = [];
+      // const {embedding} = await aiService.getEmbedding(textToEmbed);
+      const embedding = [];
 
       await questionRepo['QuestionCollection'].updateOne(
         {_id: new (await import('mongodb')).ObjectId(qId)},

@@ -1137,8 +1137,9 @@ export class AnswerService extends BaseService {
     userId: string,
     page: number,
     limit: number,
+    dateRange?:{from:string,to:string}
   ): Promise<SubmissionResponse[]> {
-    return await this.questionSubmissionRepo.getUserActivityHistory(userId,page,limit)
+    return await this.questionSubmissionRepo.getUserActivityHistory(userId,page,limit,dateRange)
   }
   async getFinalAnswerQuestions(
     userId: string,
