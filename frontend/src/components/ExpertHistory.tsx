@@ -81,7 +81,7 @@ const ViewContextModal = ({
     item?.answer?.answer || item?.approvedAnswer?.answer || "No answer";
   const modifiedAnswer = item?.modifiedAnswer?.answer;
   const rejectedAnswer = item?.rejectedAnswer?.answer;
-
+  const createdAnswer = item?.answer?.answer
   const reviewParams = item?.review?.parameters;
   const remark = item?.remarks || item?.reason || "";
 
@@ -102,6 +102,29 @@ const ViewContextModal = ({
               {question}
             </div>
           </div>
+
+          {item.action === "author" && (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Answer:
+              </label>
+              <div className="p-3 bg-gray-50 dark:bg-gray-800 border rounded">
+                {createdAnswer}
+              </div>
+            </div>
+          )}
+
+          {item.action === "approved" && (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Answer:
+              </label>
+              <div className="p-3 bg-gray-50 dark:bg-gray-800 border rounded">
+                {currentAnswer}
+              </div>
+            </div>
+          )}
+
 
           {/* Current Answer */}
           {item.action === "rejected" && (
