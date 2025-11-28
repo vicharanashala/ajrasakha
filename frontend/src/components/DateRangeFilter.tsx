@@ -5,13 +5,11 @@ import { CalendarIcon, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { Button } from "./atoms/button";
 import { format } from "date-fns";
 import { Calendar } from "./atoms/calendar";
+import type { AdvanceFilterValues } from "./advanced-question-filter";
 
 interface DateRangeFilterProps {
   // advanceFilter prop now includes startTime and endTime
-  advanceFilter: {
-    startTime: Date | undefined;
-    endTime: Date | undefined;
-  };
+  advanceFilter: AdvanceFilterValues
   // The handler to update the parent state
   handleDialogChange: (key: string, value: any) => void;
   className?: string;

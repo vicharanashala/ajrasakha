@@ -85,21 +85,18 @@ export type AdvanceFilterValues = {
   domain: string;
   crop: string;
   priority: QuestionPriorityFilter;
-  startTime: Date | undefined; // Use a specific name like startTime/endTime
-  endTime: Date | undefined;
+  startTime?: Date | undefined; // Use a specific name like startTime/endTime
+  endTime?: Date | undefined;
 };
 
 // Define the props for your new component
-// interface DateRangeFilterProps {
-//   // advanceFilter prop now includes startTime and endTime
-//   advanceFilter: {
-//     startTime: Date | undefined;
-//     endTime: Date | undefined;
-//   };
-//   // The handler to update the parent state
-//   handleDialogChange: (key: string, value: any) => void;
-//   className?: string;
-// }
+interface DateRangeFilterProps {
+  // advanceFilter prop now includes startTime and endTime
+  advanceFilter: AdvanceFilterValues;
+  // The handler to update the parent state
+  handleDialogChange: (key: string, value: any) => void;
+  className?: string;
+}
 
 // export const DateRangeFilter = ({
 //   advanceFilter,
@@ -378,26 +375,10 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
               </div>
 
               <div className="space-y-2 min-w-0">
-                <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Sprout className="h-4 w-4 text-primary" />
-                  Crop Type
-                </Label>
-                <Select
-                  value={advanceFilter.crop}
-                  onValueChange={(v) => handleDialogChange("crop", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Crops</SelectItem>
-                    {crops.map((crop) => (
-                      <SelectItem key={crop} value={crop}>
-                        {crop}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <DateRangeFilter
+                  advanceFilter={advanceFilter}
+                  handleDialogChange={handleDialogChange}
+                />
               </div>
             </div>
 
@@ -426,10 +407,26 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     ))}
                   </SelectContent>
                 </Select> */}
-                <DateRangeFilter
-                  advanceFilter={advanceFilter}
-                  handleDialogChange={handleDialogChange}
-                />
+                <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <Sprout className="h-4 w-4 text-primary" />
+                  Crop Type
+                </Label>
+                <Select
+                  value={advanceFilter.crop}
+                  onValueChange={(v) => handleDialogChange("crop", v)}
+                >
+                  <SelectTrigger className="bg-background w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Crops</SelectItem>
+                    {crops.map((crop) => (
+                      <SelectItem key={crop} value={crop}>
+                        {crop}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2 min-w-0">
