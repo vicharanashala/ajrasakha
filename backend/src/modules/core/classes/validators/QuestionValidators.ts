@@ -402,6 +402,24 @@ class GetDetailedQuestionsQuery {
   @IsInt()
   @Min(1)
   limit?: number;
+
+  @JSONSchema({
+    description: 'Start time for custom date range filter',
+    example: '2025-11-12T18:30:00.000Z',
+    type: 'string',
+    format: 'date-time',
+  })
+  @IsOptional()
+  startTime?: string;
+
+  @JSONSchema({
+    description: 'End time for custom date range filter',
+    example: '2025-11-27T18:30:00.000Z',
+    type: 'string',
+    format: 'date-time',
+  })
+  @IsOptional()
+  endTime?: string;
 }
 
 export interface IQuestionWithAnswerTexts {

@@ -8,6 +8,7 @@ import { apiFetch } from "../api/api-fetch";
 import type { QuestionFilter } from "@/components/QA-interface";
 import type { GeneratedQuestion } from "@/components/voice-recorder-card";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
+import { formatDateLocal } from "@/utils/formatDate";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -33,6 +34,12 @@ export class QuestionService {
     if (filter.priority) params.append("priority", filter.priority);
     if (filter.domain) params.append("domain", filter.domain);
     if (filter.user) params.append("user", filter.user);
+    if (filter.startTime) {
+      params.append("startTime", formatDateLocal(filter.startTime));
+    }
+    if (filter.endTime) {
+      params.append("endTime", formatDateLocal(filter.endTime));
+    }
 
     if (filter.answersCount) {
       params.append("answersCountMin", filter.answersCount[0].toString());
@@ -110,10 +117,10 @@ export class QuestionService {
   }
 
   async addQuestion(
-    newQuestionData: Partial<IDetailedQuestion> | FormData,isFormData=false
+    newQuestionData: Partial<IDetailedQuestion> | FormData,
+    isFormData = false
   ): Promise<void | null> {
-    const body: BodyInit | null =
-    isFormData
+    const body: BodyInit | null = isFormData
       ? (newQuestionData as FormData)
       : JSON.stringify(newQuestionData);
     return apiFetch<void>(`${this._baseUrl}`, {
@@ -122,12 +129,12 @@ export class QuestionService {
       // body:isFormData ? newQuestionData : JSON.stringify(newQuestionData),
       // headers: isFormData
       // ? undefined // Let browser set correct multipart/form-data boundary
-      // : { "Content-Type": "application/json" }, 
+      // : { "Content-Type": "application/json" },
       method: "POST",
-    body,
-    headers: isFormData
-      ? undefined // Let browser set multipart boundary automatically
-      : { "Content-Type": "application/json" },
+      body,
+      headers: isFormData
+        ? undefined // Let browser set multipart boundary automatically
+        : { "Content-Type": "application/json" },
     });
   }
 
@@ -180,7 +187,6 @@ export class QuestionService {
       }
     );
   }
-
 
   async getAllocatedQuestionPage(questionId: string) {
     return apiFetch<number>(

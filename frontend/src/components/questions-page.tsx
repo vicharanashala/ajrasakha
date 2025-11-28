@@ -29,6 +29,9 @@ export const QuestionsPage = ({
   const [crop, setCrop] = useState("");
   const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
+  const [startTime, setStartTime] = useState<Date | undefined>(undefined);
+  const [endTime, setEndTime] = useState<Date | undefined>(undefined);
+
   // const observerRef = useRef<IntersectionObserver | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   // const [selectedQuestionId, setSelectedQuestionId] = useState("");
@@ -40,7 +43,7 @@ export const QuestionsPage = ({
   );
 
   const [uploadedQuestionsCount, setUploadedQuestionsCount] = useState(0); // to track the bulk uploaded file size to run timer
-  const [isBulkUpload, setIsBulkUpload] = useState(false)
+  const [isBulkUpload, setIsBulkUpload] = useState(false);
   const debouncedSearch = useDebounce(search);
 
   const LIMIT = 12;
@@ -55,6 +58,8 @@ export const QuestionsPage = ({
       priority,
       domain,
       user,
+      startTime,
+      endTime,
     }),
     [
       status,
@@ -66,6 +71,8 @@ export const QuestionsPage = ({
       priority,
       domain,
       user,
+      startTime,
+      endTime,
     ]
   );
   // const {
@@ -146,6 +153,8 @@ export const QuestionsPage = ({
     user?: string;
     answersCount?: [number, number];
     dateRange?: QuestionDateRangeFilter;
+    startTime?: Date | undefined;
+    endTime?: Date | undefined;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -156,6 +165,8 @@ export const QuestionsPage = ({
     if (next.priority !== undefined) setPriority(next.priority);
     if (next.domain !== undefined) setDomain(next.domain);
     if (next.user !== undefined) setUser(next.user);
+    if (next.startTime !== undefined) setStartTime(next.startTime);
+    if (next.endTime !== undefined) setEndTime(next.endTime);
   };
 
   const onReset = () => {
@@ -174,15 +185,15 @@ export const QuestionsPage = ({
     setSelectedQuestionId(questoinId);
   };
   const goBack = () => {
-    const url = new URL(window.location.href)
-    if(url.searchParams.has('comment')){
-      url.searchParams.delete('comment')
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("comment")) {
+      url.searchParams.delete("comment");
       window.history.replaceState({}, "", url.toString());
-      setSelectedQuestionId('')
-      return
+      setSelectedQuestionId("");
+      return;
     }
-    setSelectedQuestionId('')
-  }
+    setSelectedQuestionId("");
+  };
   return (
     <main className="mx-auto w-full p-4 md:p-6 space-y-6 ">
       {selectedQuestionId && questionDetails ? (
