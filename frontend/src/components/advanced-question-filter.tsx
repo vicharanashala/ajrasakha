@@ -374,26 +374,10 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
               </div>
 
               <div className="space-y-2 min-w-0">
-                <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Sprout className="h-4 w-4 text-primary" />
-                  Crop Type
-                </Label>
-                <Select
-                  value={advanceFilter.crop}
-                  onValueChange={(v) => handleDialogChange("crop", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Crops</SelectItem>
-                    {crops.map((crop) => (
-                      <SelectItem key={crop} value={crop}>
-                        {crop}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <DateRangeFilter
+                  advanceFilter={advanceFilter}
+                  handleDialogChange={handleDialogChange}
+                />
               </div>
             </div>
 
@@ -422,10 +406,26 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     ))}
                   </SelectContent>
                 </Select> */}
-                <DateRangeFilter
-                  advanceFilter={advanceFilter}
-                  handleDialogChange={handleDialogChange}
-                />
+                <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <Sprout className="h-4 w-4 text-primary" />
+                  Crop Type
+                </Label>
+                <Select
+                  value={advanceFilter.crop}
+                  onValueChange={(v) => handleDialogChange("crop", v)}
+                >
+                  <SelectTrigger className="bg-background w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Crops</SelectItem>
+                    {crops.map((crop) => (
+                      <SelectItem key={crop} value={crop}>
+                        {crop}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2 min-w-0">
