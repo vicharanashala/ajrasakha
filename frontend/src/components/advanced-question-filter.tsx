@@ -84,17 +84,14 @@ export type AdvanceFilterValues = {
   domain: string;
   crop: string;
   priority: QuestionPriorityFilter;
-  startTime: Date | undefined; // Use a specific name like startTime/endTime
-  endTime: Date | undefined;
+  startTime?: Date | undefined; // Use a specific name like startTime/endTime
+  endTime?: Date | undefined;
 };
 
 // Define the props for your new component
 interface DateRangeFilterProps {
   // advanceFilter prop now includes startTime and endTime
-  advanceFilter: {
-    startTime: Date | undefined;
-    endTime: Date | undefined;
-  };
+  advanceFilter: AdvanceFilterValues;
   // The handler to update the parent state
   handleDialogChange: (key: string, value: any) => void;
   className?: string;
