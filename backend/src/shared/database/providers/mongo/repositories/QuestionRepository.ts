@@ -271,6 +271,12 @@ export class QuestionRepository implements IQuestionRepository {
     try {
       await this.init();
 
+      const caseInsensitiveStringFilter = (field: string, value?: string) => {
+        if (value && value !== 'all') {
+          filter[field] = {$regex: `^${value}$`, $options: 'i'};
+        }
+      };
+
       const {
         search,
         searchEmbedding,
@@ -282,6 +288,8 @@ export class QuestionRepository implements IQuestionRepository {
         answersCountMin,
         answersCountMax,
         dateRange,
+        startTime,
+        endTime,
         domain,
         user,
         page = 1,
@@ -291,12 +299,13 @@ export class QuestionRepository implements IQuestionRepository {
       const filter: any = {};
 
       // --- Filters ---
-      if (status && status !== 'all') filter.status = status;
-      if (source && source !== 'all') filter.source = source;
-      if (priority && priority !== 'all') filter.priority = priority;
-      if (state && state !== 'all') filter['details.state'] = state;
-      if (crop && crop !== 'all') filter['details.crop'] = crop;
-      if (domain && domain !== 'all') filter['details.domain'] = domain;
+
+      caseInsensitiveStringFilter('status', status);
+      caseInsensitiveStringFilter('source', source);
+      caseInsensitiveStringFilter('priority', priority);
+      caseInsensitiveStringFilter('details.state', state);
+      caseInsensitiveStringFilter('details.crop', crop);
+      caseInsensitiveStringFilter('details.domain', domain);
 
       if (answersCountMin !== undefined || answersCountMax !== undefined) {
         filter.totalAnswersCount = {};
@@ -306,10 +315,24 @@ export class QuestionRepository implements IQuestionRepository {
           filter.totalAnswersCount.$lte = answersCountMax;
       }
 
-      // --- Date range ---
-      if (dateRange && dateRange !== 'all') {
+      // --- Date Range Filter ---
+      //  Priority: Custom date > Predefined dateRange
+      if (startTime || endTime) {
+        const filterDate: any = {};
+
+        if (startTime) {
+          filterDate.$gte = new Date(`${startTime}T00:00:00.000Z`);
+        }
+
+        if (endTime) {
+          filterDate.$lte = new Date(`${endTime}T23:59:59.999Z`);
+        }
+
+        filter.createdAt = filterDate;
+      } else if (dateRange && dateRange !== 'all') {
         const now = new Date();
         let startDate: Date | undefined;
+
         switch (dateRange) {
           case 'today':
             startDate = new Date(now.setHours(0, 0, 0, 0));
@@ -327,6 +350,7 @@ export class QuestionRepository implements IQuestionRepository {
             startDate = new Date(now.setFullYear(now.getFullYear() - 1));
             break;
         }
+
         if (startDate) filter.createdAt = {$gte: startDate};
       }
 
