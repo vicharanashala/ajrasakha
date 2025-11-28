@@ -6,12 +6,16 @@ import {
   XCircle,
   Edit,
   X,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { useGetSubmissions } from "@/hooks/api/answer/useGetSubmissions";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { Card, CardContent } from "./atoms/card";
 import { Pagination } from "./pagination";
+import { Badge } from "./atoms/badge";
+import { parameterLabels } from "./QA-interface";
+import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 
 const getStatusColor = (status: string) => {
   switch (status?.toLowerCase()) {
@@ -84,11 +88,8 @@ const ViewContextModal = ({
   const createdAnswer = item?.answer?.answer
   const reviewParams = item?.review?.parameters;
   const remark = item?.remarks || item?.reason || "";
-
+  const authorEmail = item?.author?.email
   const title = `View Context: ${item.action}`;
-
-  const getReviewIcon = (value: boolean) => (value ? "✅" : "❌");
-
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-black rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
@@ -114,7 +115,7 @@ const ViewContextModal = ({
             </div>
           )}
 
-          {item.action === "approved" && (
+          {(item.action === "approved" || item.action === 'finalized') && (
             <div>
               <label className="block text-sm font-medium mb-1">
                 Answer:
@@ -122,6 +123,19 @@ const ViewContextModal = ({
               <div className="p-3 bg-gray-50 dark:bg-gray-800 border rounded">
                 {currentAnswer}
               </div>
+            </div>
+          )}
+
+          {item.action === "finalized" && (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Author:
+              </label>
+              <div className="p-3 bg-gray-50 dark:bg-gray-800 border rounded">
+                {/* {author} */}
+                {authorEmail}
+              </div>
+
             </div>
           )}
 
@@ -165,12 +179,33 @@ const ViewContextModal = ({
           {reviewParams && (
             <div>
               <h4 className="text-sm font-medium mb-2">Review Parameters</h4>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                {Object.keys(reviewParams).map((key) => (
-                  <div key={key}>
-                    {key} {getReviewIcon(reviewParams[key])}
-                  </div>
-                ))}
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(reviewParams ?? {}).map(
+                  ([key, value]) => (
+                    <Badge
+                      key={key}
+                      variant="outline"
+                      className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-full border 
+                                                    ${value
+                          ? "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700"
+                          : "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700"
+                        }
+                                                  `}
+                    >
+                      {value ? (
+                        <Check className="w-3 h-3" />
+                      ) : (
+                        <X className="w-3 h-3" />
+                      )}
+
+                      {
+                        parameterLabels[
+                        key as keyof typeof parameterLabels
+                        ]
+                      }
+                    </Badge>
+                  )
+                )}
               </div>
             </div>
           )}
@@ -209,8 +244,13 @@ export default function UserActivityHistory() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
-
+  const [selectedQuestionId,setSelectedQuestionId] = useState('')
   const { data, isLoading } = useGetSubmissions(currentPage, 5, dateRange);
+    const {
+      data: questionDetails,
+      refetch: refechSelectedQuestion,
+      isLoading: isLoadingSelectedQuestion,
+    } = useGetQuestionFullDataById(selectedQuestionId);
 
   const submissions = data?.data || [];
   const totalPages = data?.totalPages || 1;
