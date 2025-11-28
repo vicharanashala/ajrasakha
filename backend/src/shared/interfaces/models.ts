@@ -52,6 +52,7 @@ export interface IQuestion {
   isAutoAllocate: boolean;
   source: 'AJRASAKHA' | 'AGRI_EXPERT';
   embedding: number[];
+  aiInitialAnswer?: string;
   metrics: IQuestionMetrics | null;
   text?: string;
   createdAt?: Date;

@@ -88,7 +88,7 @@ export interface HistoryItem {
     answer: string;
     approvalCount: string;
     sources: SourceItem[];
-    remarks: string,
+    remarks: string;
   };
   review?: Partial<IReview>;
   // in-review => if a question assigned to an expert for reiview, or state of a answer before approval or rejection
@@ -132,6 +132,7 @@ export interface IQuestion {
     domain: string;
   };
   isAutoAllocate: boolean;
+  aiInitialAnswer?: string;
   currentAnswers?: {
     answer: string;
     id: string;

@@ -109,51 +109,6 @@ export class AnswerService extends BaseService {
 
       let isFinalAnswer = false;
       let metrics: IQuestionMetrics | null = null;
-      // let analysisStatus: 'CONTINUE' | 'FLAGGED_FOR_REVIEW' | 'CONVERGED' =
-      //   'CONTINUE';
-
-      const answers = (await this.answerRepo.getByQuestionId(questionId)) || [];
-      const answerTexts = answers.map(ans => ans.answer);
-
-      // const payload: IQuestionWithAnswerTexts = {
-      //   question_id: questionId,
-      //   question_text: question.question,
-      //   answers: [...answerTexts, answer],
-      // };
-
-      // const analysis = await this.aiService.evaluateAnswers(payload);
-      // const analysis: IQuestionAnalysis = {
-      //   question_id: '68f137fe5fbcb9f0f5f091eb',
-      //   num_answers: 5,
-      //   mean_similarity: 0.72,
-      //   std_similarity: 0.15,
-      //   recent_similarity: 0.68,
-      //   collusion_score: 0.85,
-      //   status: 'CONTINUE',
-      //   message: 'Similarity score is high, needs review',
-      // };
-
-      // metrics = {
-      //   mean_similarity: analysis.mean_similarity,
-      //   std_similarity: analysis.std_similarity,
-      //   recent_similarity: analysis.recent_similarity,
-      //   collusion_score: analysis.collusion_score,
-      // };
-
-      // analysisStatus = analysis.status;
-
-      // if (analysisStatus === 'CONVERGED') isFinalAnswer = true;
-      if (isFinalAnswer) {
-        const text = `Question: ${question.question}\nAnswer: ${answer}`;
-        // const {embedding} = await this.aiService.getEmbedding(text);
-        const embedding = [];
-        await this.questionRepo.updateQuestion(
-          questionId,
-          {text, embedding},
-          activeSession,
-          true,
-        );
-      }
 
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
@@ -170,7 +125,7 @@ export class AnswerService extends BaseService {
         updatedAnswerCount,
         activeSession,
         status,
-        remarks
+        remarks,
       );
 
       await this.questionRepo.updateQuestion(
@@ -178,12 +133,6 @@ export class AnswerService extends BaseService {
         {
           totalAnswersCount: updatedAnswerCount,
           metrics,
-          // status
-          // analysisStatus === 'FLAGGED_FOR_REVIEW'
-          //   ? 'in-review'
-          //   : analysisStatus === 'CONTINUE'
-          //     ? 'open'
-          //     : 'closed',
         },
         activeSession,
       );
@@ -394,7 +343,7 @@ export class AnswerService extends BaseService {
             sources,
             session,
             intialStatus,
-            remarks
+            remarks,
           );
 
           const history = buildHistoryEntry({
@@ -521,7 +470,7 @@ export class AnswerService extends BaseService {
             sources,
             session,
             newStatus,
-            remarks
+            remarks,
           );
 
           // 4. Update reviewer history
@@ -544,6 +493,17 @@ export class AnswerService extends BaseService {
         if (status === 'modified') {
           const modifiedExpertId = lastAnsweredHistory.updatedBy.toString();
           // const modifiedAnswerId = lastAnsweredHistory.answer.toString();
+
+          const answerToModify = await this.answerRepo.getById(modifiedAnswer);
+
+          if (
+            answerToModify.answer &&
+            answerToModify.answer.trim() === answer.trim()
+          ) {
+            throw new BadRequestError(
+              `The submitted answer is identical to the existing answer. Please modify your response before saving.`,
+            );
+          }
 
           // 1. Update previous expert entry
           await this.questionSubmissionRepo.updateHistoryByUserId(
@@ -664,9 +624,7 @@ export class AnswerService extends BaseService {
 
       return {message: 'Your response recorded sucessfully, thankyou!'};
     } catch (error) {
-      throw new InternalServerError(
-        `Failed to review answer, please try again! /More: ${error}`,
-      );
+      throw new InternalServerError(`${error}`);
     }
   }
   // async reviewAnswer(
