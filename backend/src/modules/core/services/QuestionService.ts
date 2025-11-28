@@ -1026,7 +1026,6 @@ export class QuestionService extends BaseService {
             Number(index),
             session,
           );
-        console.log('the updated user====', updated);
         /*  if(updated)
           {
             const IS_INCREMENT = true;
@@ -1040,7 +1039,6 @@ export class QuestionService extends BaseService {
 
         //7. Handle auto reallocation logic if autoAllocate is enabled
         if (index >= 0 && question.isAutoAllocate) {
-          console.log('the if coming======');
           // Get updated queue and history lengths
           const UPDATED_QUEUE_LENGTH = updated?.queue.length || 0;
           const UPDATED_HISTORY_LENGTH = updated?.history.length || 0;
