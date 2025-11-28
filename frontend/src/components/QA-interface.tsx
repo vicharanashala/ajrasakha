@@ -419,7 +419,7 @@ export const QAInterface = ({
     const isAiAnswer =
       newAnswer.trim() === selectedQuestionData.aiInitialAnswer.trim();
 
-    if (!draft) setRemarks(isAiAnswer ? "AI Generated Answer" : "");
+    if (!draft?.remarks) setRemarks(isAiAnswer ? "AI Generated Answer" : "");
   }, [selectedQuestionData, newAnswer]);
 
   const handleReset = () => {
