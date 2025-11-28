@@ -88,7 +88,7 @@ export interface HistoryItem {
     answer: string;
     approvalCount: string;
     sources: SourceItem[];
-    remarks: string,
+    remarks: string;
   };
   review?: Partial<IReview>;
   // in-review => if a question assigned to an expert for reiview, or state of a answer before approval or rejection
@@ -441,6 +441,7 @@ export type IRequest = RequestDetails & {
   entityId: string;
   responses: IRequestResponse[];
   status: RequestStatus;
+  requestedUser: IUser;
   createdAt: string | Date;
   updatedAt: string | Date;
 };

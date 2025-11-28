@@ -117,35 +117,42 @@ export class RequestRepository implements IRequestRepository {
         .toArray();
 
       const totalPages = Math.ceil(totalCount / limit);
-      const sanitizedData: IRequest[] = data.map(req => {
-        const responses: IRequestResponse[] =
-          req.responses?.map(r => ({
-            ...r,
-            reviewedBy: r.reviewedBy?.toString(),
-          })) || [];
+      const sanitizedData: IRequest[] = await Promise.all(
+        data.map(async req => {
+          const responses: IRequestResponse[] =
+            req.responses?.map(r => ({
+              ...r,
+              reviewedBy: r.reviewedBy?.toString(),
+            })) || [];
 
-        const details =
-          req.requestType === 'question_flag'
-            ? (req.details as IQuestion | null)
-            : (req.details as Record<string, any> | null);
+          const details =
+            req.requestType === 'question_flag'
+              ? (req.details as IQuestion | null)
+              : (req.details as Record<string, any> | null);
 
-        return {
-          ...req,
-          _id: req._id?.toString(),
-          requestedBy: req.requestedBy?.toString(),
-          entityId: req.entityId?.toString(),
-          responses,
-          details,
-          createdAt:
-            req.createdAt instanceof Date
-              ? req.createdAt.toISOString()
-              : req.createdAt,
-          updatedAt:
-            req.updatedAt instanceof Date
-              ? req.updatedAt.toISOString()
-              : req.updatedAt,
-        } as IRequest;
-      });
+          const requestedUser = await this.usersCollection.findOne({
+            _id: req.requestedBy,
+          });
+
+          return {
+            ...req,
+            _id: req._id?.toString(),
+            requestedBy: req.requestedBy?.toString(),
+            entityId: req.entityId?.toString(),
+            responses,
+            details,
+            createdAt:
+              req.createdAt instanceof Date
+                ? req.createdAt.toISOString()
+                : req.createdAt,
+            updatedAt:
+              req.updatedAt instanceof Date
+                ? req.updatedAt.toISOString()
+                : req.updatedAt,
+            requestedUser: requestedUser || null,
+          } as IRequest;
+        }),
+      );
 
       return {requests: sanitizedData, totalPages, totalCount};
     } catch (error) {
@@ -161,7 +168,6 @@ export class RequestRepository implements IRequestRepository {
     session?: ClientSession,
   ): Promise<IRequestResponse> {
     try {
-      
       const user = await this.usersCollection.findOne({
         _id: new ObjectId(userId),
       });
@@ -169,7 +175,7 @@ export class RequestRepository implements IRequestRepository {
 
       const responsePayload: IRequestResponse = {
         reviewedBy: new ObjectId(userId),
-        reviewerName: `${user.firstName} ${user.lastName}`, 
+        reviewerName: `${user.firstName} ${user.lastName}`,
         role: user.role,
         status,
         response,
@@ -185,7 +191,6 @@ export class RequestRepository implements IRequestRepository {
         {returnDocument: 'after', session},
       );
 
-    
       return responsePayload;
     } catch (error) {
       throw new InternalServerError(`Failed to update request: ${error}`);
