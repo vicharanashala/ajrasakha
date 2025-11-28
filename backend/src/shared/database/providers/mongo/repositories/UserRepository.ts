@@ -302,11 +302,7 @@ export class UserRepository implements IUserRepository {
       return a.workloadScore - b.workloadScore;
     });
 
-    // Shuffle unmatched users
-    for (let i = unmatched.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [unmatched[i], unmatched[j]] = [unmatched[j], unmatched[i]];
-    }
+    unmatched.sort((a, b) => a.workloadScore - b.workloadScore);
 
     // 4. Sort
     // scoredUsers.sort((a, b) => {
