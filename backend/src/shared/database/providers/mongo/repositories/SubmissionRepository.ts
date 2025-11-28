@@ -426,6 +426,7 @@ export class QuestionSubmissionRepository
       throw new InternalServerError(`Failed to update submission: ${error}`);
     }
   }
+
   async heatMapResultsForReviewer(): Promise<IReviewerHeatmapRow[] | null> {
     try {
       await this.init();
@@ -535,5 +536,18 @@ export class QuestionSubmissionRepository
       console.error('Error generating reviewer heatmap:', err);
       return null;
     }
+  }
+
+  async getByQuestionIds(
+    questionIds: string[],
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]> {
+    await this.init();
+    const mappedIds = questionIds.map(id => new ObjectId(id));
+
+    return this.QuestionSubmissionCollection.find(
+      {questionId: {$in: mappedIds}},
+      {session},
+    ).toArray();
   }
 }
