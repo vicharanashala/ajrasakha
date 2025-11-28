@@ -1150,10 +1150,10 @@ export class AnswerService extends BaseService {
 
 answer: ${updates.answer}`;
 
-      const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
-        text,
-      );
-      // const questionEmbedding = [];
+      // const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
+      //   text,
+      // );
+      const questionEmbedding = [];
       const authorId = answer.authorId.toString();
       await this.userRepo.updatePenaltyAndIncentive(
         authorId,
