@@ -1166,23 +1166,27 @@ export class AnswerRepository implements IAnswerRepository {
 
           {
             $project: {
-              _id: 1,
+              // _id: 1,
+              _id: {$toString: "$_id"},
               action: "finalized",
               createdAt: "$createdAt",
               updatedAt: "$updatedAt",
 
               question: {
-                _id: "$questionDoc._id",
+                // _id: "$questionDoc._id",
+                _id: { $toString: "$questionDoc._id" },
                 question: "$questionDoc.question"
               },
 
               answer: {
-                _id: "$_id",
+                // _id: "$_id",
+                _id: { $toString: "$_id" },
                 answer: "$answer"
               },
 
               author: {
-                _id: "$authorDoc._id",
+                // _id: "$authorDoc._id",
+                _id: { $toString: "$authorDoc._id" },
                 name: { $concat: ["$authorDoc.firstName", " ", "$authorDoc.lastName"] },
                 email:"$authorDoc.email"
               }

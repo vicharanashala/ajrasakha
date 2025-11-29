@@ -16,6 +16,9 @@ import { Pagination } from "./pagination";
 import { Badge } from "./atoms/badge";
 import { parameterLabels } from "./QA-interface";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { QuestionDetails } from "./question-details";
+import { useRouter } from "@tanstack/react-router";
 
 const getStatusColor = (status: string) => {
   switch (status?.toLowerCase()) {
@@ -251,10 +254,10 @@ export default function UserActivityHistory() {
       refetch: refechSelectedQuestion,
       isLoading: isLoadingSelectedQuestion,
     } = useGetQuestionFullDataById(selectedQuestionId);
-
+  const goBack = () => setSelectedQuestionId('')
   const submissions = data?.data || [];
   const totalPages = data?.totalPages || 1;
-
+  const { data: user } = useGetCurrentUser();
   const handleDialogChange = (key: string, value: any) => {
     setDateRange((prev) => ({
       ...prev,
@@ -262,15 +265,32 @@ export default function UserActivityHistory() {
     }));
     setCurrentPage(1);
   };
-
+  console.log('selectred ',selectedQuestionId)
+  console.log('selectred ques det',questionDetails)
+ 
   return (
+     
     <main className="min-h-screen bg-gray-50 dark:bg-black  sm:p-8">
+
+      {(selectedQuestionId && questionDetails) &&  (
+          <>
+            <QuestionDetails
+              question={questionDetails?.data!}
+              currentUserId={questionDetails?.currentUserId!}
+              refetchAnswers={refechSelectedQuestion}
+              isRefetching={isLoadingSelectedQuestion}
+              // goBack={() => setSelectedQuestionId("")}
+              goBack={goBack}
+              currentUser={user!}
+            />
+          </>
+          )}
       <div className=" mx-auto px-6">
         <div className="mb-6 w-64">
           <DateRangeFilter
             advanceFilter={{
               startTime: dateRange.start,
-              endTime: dateRange.end,
+              endTime: dateRange.end
             }}
             handleDialogChange={handleDialogChange}
           />
@@ -318,7 +338,7 @@ export default function UserActivityHistory() {
                     <span className="text-gray-300">|</span>
 
                     {/* Question */}
-                    <p className="text-gray-700 dark:text-gray-300 text-md truncate">
+                    <p onClick={() => setSelectedQuestionId(item.question._id)} className="text-gray-700 dark:text-gray-300 text-md truncate hover:underline cursor-pointer">
                       {item.question?.question}
                     </p>
 

@@ -724,23 +724,28 @@ async getUserActivityHistory(
                 createdAt: "$reviewDoc.createdAt"
               },
               question: {
-                _id: "$questionDoc._id",
+                // _id: "$questionDoc._id",
+                 _id: { $toString: "$questionDoc._id" },
                 question: "$questionDoc.question"
               },
               answer: {
-                _id: "$answerDoc._id",
+                // _id: "$answerDoc._id",
+                _id: { $toString: "$answerDoc._id" },
                 answer: "$answerDoc.answer"
               },
               rejectedAnswer: {
-                _id: "$rejectedAnswerDoc._id",
+                // _id: "$rejectedAnswerDoc._id",
+                _id: { $toString: "$rejectedAnswerDoc._id" },
                 answer: "$rejectedAnswerDoc.answer"
               },
               modifiedAnswer: {
-                _id: "$modifiedAnswerDoc._id",
+                // _id: "$modifiedAnswerDoc._id",
+                _id: { $toString: "$modifiedAnswerDoc._id" },
                 answer: "$modifiedAnswerDoc.answer"
               },
               approvedAnswer: {
-                _id: "$approvedAnswerDoc._id",
+                // _id: "$approvedAnswerDoc._id",
+                _id: { $toString: "$approvedAnswerDoc._id" },
                 answer: "$approvedAnswerDoc.answer"
               }
             }

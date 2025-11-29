@@ -9,7 +9,7 @@ import type { AdvanceFilterValues } from "./advanced-question-filter";
 
 interface DateRangeFilterProps {
   // advanceFilter prop now includes startTime and endTime
-  advanceFilter: AdvanceFilterValues
+  advanceFilter: Partial<AdvanceFilterValues>
   // The handler to update the parent state
   handleDialogChange: (key: string, value: any) => void;
   className?: string;
