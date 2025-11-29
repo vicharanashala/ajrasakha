@@ -132,6 +132,7 @@ export interface IQuestion {
     domain: string;
   };
   isAutoAllocate: boolean;
+  aiInitialAnswer?: string;
   currentAnswers?: {
     answer: string;
     id: string;

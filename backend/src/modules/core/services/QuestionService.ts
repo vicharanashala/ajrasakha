@@ -81,6 +81,9 @@ export class QuestionService extends BaseService {
       throw new BadRequestError('No questions provided for bulk insert');
     }
 
+    // To test whether the ai server is running or not
+    const testEmbedding = await this.aiService.getEmbedding('Test');
+
     const formatted: IQuestion[] = questions.map((q: any) => {
       const low = normalizeKeysToLower(q || {});
       const details = {
@@ -361,8 +364,10 @@ export class QuestionService extends BaseService {
           isAutoAllocate: true,
           embedding,
           metrics: null,
+          aiInitialAnswer: body.aiInitialAnswer || '',
           text,
           createdAt: new Date(),
+
           // createdAt: body.createdAt ? new Date(body.createdAt) : new Date(),
           updatedAt: new Date(),
         };
@@ -475,6 +480,17 @@ export class QuestionService extends BaseService {
             session,
           );
 
+        // Only author needs to see ai initial answer
+        let aiInitialAnswer = '';
+
+        const answers = await this.answerRepo.getByQuestionId(
+          questionId,
+          session,
+        );
+
+        if (answers && answers.length == 0)
+          aiInitialAnswer = currentQuestion.aiInitialAnswer;
+
         return {
           id: currentQuestion._id.toString(),
           text: currentQuestion.question,
@@ -482,6 +498,7 @@ export class QuestionService extends BaseService {
           details: currentQuestion.details,
           status: currentQuestion.status,
           priority: currentQuestion.priority,
+          aiInitialAnswer,
           createdAt: new Date(currentQuestion.createdAt).toLocaleString(),
           updatedAt: new Date(currentQuestion.updatedAt).toLocaleString(),
           totalAnswersCount: currentQuestion.totalAnswersCount,
