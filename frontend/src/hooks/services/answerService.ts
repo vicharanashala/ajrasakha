@@ -82,9 +82,14 @@ export class AnswerService {
     limit: number,
     dateRange:any
   ): Promise<any> {
-    return apiFetch<any>(
-      `${this._baseUrl}/submissions?page=${pageParam}&limit=${limit}&start=${dateRange.start}&end=${dateRange.end}`
-    );
+    const params = new URLSearchParams();
+  params.append("page", String(pageParam));
+  params.append("limit", String(limit));
+
+  if (dateRange?.start) params.append("start", dateRange.start);
+  if (dateRange?.end) params.append("end", dateRange.end);
+
+  return apiFetch<any>(`${this._baseUrl}/submissions?${params.toString()}`);
   }
   async getFinalizedAnswers(
     userId: string,

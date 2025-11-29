@@ -71,14 +71,14 @@ export class AnswerController {
   @ResponseSchema(SubmissionResponse, {isArray: true})
   @OpenAPI({summary: 'Get all submissions'})
   async getUnAnsweredQuestions(
-    @QueryParams() query: {page?: number; limit?: number; start:string,end:string},
+    @QueryParams() query: {page?: number; limit?: number; start:string | undefined,end:string | undefined},
     @CurrentUser() user: IUser,
   ): Promise<SubmissionResponse[]> {
     const page = Number(query.page) ?? 1;
     const limit = Number(query.limit) ?? 10;
     const userId = user._id.toString();
-    let dateRange;
-    if(query.start || query.end){
+    let dateRange=undefined
+    if(query.start && query.end){
     let end = new Date(query.end as string);
     end.setHours(23,59,59,999)
     dateRange = {from:new Date(query.start as string),to:end}

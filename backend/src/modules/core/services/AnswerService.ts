@@ -1137,7 +1137,7 @@ export class AnswerService extends BaseService {
     userId: string,
     page: number,
     limit: number,
-    dateRange?:{from:string,to:string}
+    dateRange?:{from:string | undefined,to:string | undefined}
   ): Promise<SubmissionResponse[]> {
     return await this._withTransaction(async (session:ClientSession) => {
     const user = await this.userRepo.findById(userId)
