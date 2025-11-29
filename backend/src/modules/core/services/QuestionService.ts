@@ -632,95 +632,72 @@ export class QuestionService extends BaseService {
       const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);
 
       // Add entry for first expert in the queue as status in-review (only after intial 3 allocation)
-      if (
-        questionSubmission.history.length >= 0 &&
-        (!lastSubmission ||
-          (lastSubmission?.answer && lastSubmission.status !== 'in-review') ||
-          lastSubmission?.status == 'reviewed')
-        // &&EXISTING_QUEUE_COUNT >= 3
-      ) {
-        const hasExperts = expertsToAdd?.length >= 1;
-        if (!lastSubmission && questionSubmission.queue.length == 0) {
-          const IS_INCREMENT = true;
-          const ExpertId = expertsToAdd[0]?.toString();
-          await this.userRepo.updateReputationScore(
-            ExpertId,
-            IS_INCREMENT,
-            session,
-          );
-        }
-        if (hasExperts && lastSubmission) {
-          // If there is no lastSubmission, that means the author is not responded yet
-          const nextExpertId = expertsToAdd[0]?.toString();
-          const nextAllocatedSubmissionData: ISubmissionHistory = {
-            updatedBy: new ObjectId(nextExpertId),
-            status: 'in-review',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-
-          await this.questionSubmissionRepo.update(
-            questionId,
-            nextAllocatedSubmissionData,
-            session,
-          );
-          const IS_INCREMENT = true;
-          await this.userRepo.updateReputationScore(
-            nextExpertId.toString(),
-            IS_INCREMENT,
-            session,
-          );
-          let message = `A new Review has been assigned to you`;
-          let title = 'New Review Assigned';
-          let entityId = questionId.toString();
-          const user = nextExpertId.toString();
-          const type: INotificationType = 'peer_review';
-          await this.notificationService.saveTheNotifications(
-            message,
-            title,
-            entityId,
-            user,
-            type,
-          );
-        }
-
-        // if (hasExperts) {
-        //   const IS_INCREMENT = true;
-
-        //   await Promise.all(
-        //     expertsToAdd.map(expertId =>
-        //       this.userRepo.updateReputationScore(
-        //         expertId,
-        //         IS_INCREMENT,
-        //         session,
-        //       ),
-        //     ),
-        //   );
-        // }
-
-        // for (const expertId of expertsToAdd) {
-        //   const IS_INCREMENT = true;
-
-        //   await this.userRepo.updateReputationScore(
-        //     expertId,
-        //     IS_INCREMENT,
-        //     session,
-        //   );
-        // }
-
-        const updatedQueue = [
-          ...questionSubmission.queue,
-          ...(expertsToAdd || []),
-        ]
-          .slice(0, TOTAL_EXPERTS_LIMIT)
-          .map(id => new ObjectId(id));
-
-        await this.questionSubmissionRepo.updateQueue(
-          questionId,
-          updatedQueue,
+      // if (
+      //   questionSubmission.history.length >= 0 &&
+      //   (!lastSubmission ||
+      //     (lastSubmission?.answer && lastSubmission.status !== 'in-review') ||
+      //     lastSubmission?.status == 'reviewed')
+      //   // &&EXISTING_QUEUE_COUNT >= 3
+      // ) {
+      const hasExperts = expertsToAdd?.length >= 1;
+      if (!lastSubmission) {
+        const IS_INCREMENT = true;
+        const expertId = expertsToAdd[0]?.toString();
+        await this.userRepo.updateReputationScore(
+          expertId,
+          IS_INCREMENT,
           session,
         );
       }
+      if (
+        hasExperts &&
+        lastSubmission &&
+        (lastSubmission.reviewId || lastSubmission.answer) // if last submission is reviewed or author's answer
+      ) {
+        const nextExpertId = expertsToAdd[0]?.toString();
+        const nextAllocatedSubmissionData: ISubmissionHistory = {
+          updatedBy: new ObjectId(nextExpertId),
+          status: 'in-review',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        await this.questionSubmissionRepo.update(
+          questionId,
+          nextAllocatedSubmissionData,
+          session,
+        );
+        const IS_INCREMENT = true;
+        await this.userRepo.updateReputationScore(
+          nextExpertId.toString(),
+          IS_INCREMENT,
+          session,
+        );
+        let message = `A new Review has been assigned to you`;
+        let title = 'New Review Assigned';
+        let entityId = questionId.toString();
+        const user = nextExpertId.toString();
+        const type: INotificationType = 'peer_review';
+        await this.notificationService.saveTheNotifications(
+          message,
+          title,
+          entityId,
+          user,
+          type,
+        );
+      }
+      const updatedQueue = [
+        ...questionSubmission.queue,
+        ...(expertsToAdd || []),
+      ]
+        .slice(0, TOTAL_EXPERTS_LIMIT)
+        .map(id => new ObjectId(id));
+
+      await this.questionSubmissionRepo.updateQueue(
+        questionId,
+        updatedQueue,
+        session,
+      );
     }
     return true;
   }
