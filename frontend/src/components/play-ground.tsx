@@ -21,6 +21,7 @@ import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 import { MobileSidebar } from "./mobile-sidebar";
 import { HoverCard } from "./atoms/hover-card";
 import { UserManagement } from "./user-management";
+import { Dashboard } from "./dashboard";
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser();
@@ -334,7 +335,8 @@ export const PlaygroundPage = () => {
             <div className="md:order-1 w-full min-w-0">
               {user && user.role !== "expert" && (
                 <TabsContent value="performance" className="mt-0 border-0 p-0 ">
-                  <PerformanceMatrics />
+                  {/* <PerformanceMatrics /> */}
+                  <Dashboard/>
                 </TabsContent>
               )}
               {user && user.role == "expert" && (
