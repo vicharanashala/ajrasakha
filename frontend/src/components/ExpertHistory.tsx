@@ -10,6 +10,8 @@ import {
   AlertCircle,
   Clock,
   FileText,
+  Pencil,
+  User,
 } from "lucide-react";
 import { useGetSubmissions } from "@/hooks/api/answer/useGetSubmissions";
 import { DateRangeFilter } from "./DateRangeFilter";
@@ -351,14 +353,14 @@ export default function UserActivityHistory() {
                       <div className="flex flex-wrap items-center gap-4 text-sm">
                         {/* Date with enhanced styling */}
                         <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium bg-card  px-3 py-1.5 rounded-lg shadow-xs">
-                          <Clock className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          <Clock className="w-4 h-4 text-primary" />
                           <span className="text-sm">
                             {formatTimestamp(item.createdAt)}
                           </span>
                         </div>
 
                         {/* Status Badge with glow effect */}
-                        <div
+                        {/* <div
                           className={`
                 flex items-center gap-2 
                 px-4 py-1.5 
@@ -380,7 +382,50 @@ export default function UserActivityHistory() {
                           <span className="uppercase tracking-wider">
                             {item.action}
                           </span>
-                        </div>
+                        </div> */}
+
+                        <Badge
+                                variant="outline"
+                                className={`
+    ${
+      item.action === "accepted"
+        ? "border-green-600 text-green-600"
+        : item.action === "rejected"
+        ? "border-red-600 text-red-600" : item.action==='author' ? " rounded-full bg-blue-100 text-blue-700 font-semibold"
+        : "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700"
+    }
+  `}
+                              >
+                                <span className="flex items-center gap-1">
+                                  {item.action === "accepted" && (
+                                    <>
+                                      <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
+                                      <span>Accepted</span>
+                                    </>
+                                  )}
+
+                                  {item.action === "rejected" && (
+                                    <>
+                                      <XCircle className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                      <span>Rejected</span>
+                                    </>
+                                  )}
+
+                                  {item.action === "modified" && (
+                                    <>
+                                      <Pencil className="w-3 h-3 text-orange-700 dark:text-orange-400" />
+                                      <span>Modified</span>
+                                    </>
+                                  )}
+
+                                  {item.action === "author" && (
+                                    <>
+                                      <User className="w-3 h-3 text-gray-700 dark:text-gray-400" />
+                                      <span>Author</span>
+                                    </>
+                                  )}
+                                </span>
+                              </Badge>
 
                         {/* Type Badge with enhanced interaction */}
                         {/* 
@@ -416,7 +461,7 @@ export default function UserActivityHistory() {
                         <div className="flex-1 min-w-0">
                           {/* Question label */}
                           <div className="flex items-center gap-2 mb-3">
-                            <FileText className="w-4 h-4 text-green-600 dark:text-green-400" />
+                            <FileText className="w-4 h-4 text-primary" />
                             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                               Question
                             </span>
@@ -455,10 +500,10 @@ export default function UserActivityHistory() {
 
                             {/* Hover indicator */}
                             <div className="flex items-center gap-1 mt-3 opacity-0 group-hover/question:opacity-100 transition-opacity duration-300">
-                              <span className="text-xs font-medium text-green-600 dark:text-primary">
+                              <span className="text-xs font-medium text-primary">
                                 Click to view details
                               </span>
-                              <ChevronRight className="w-3 h-3 text-green-600 dark:text-green-400" />
+                              <ChevronRight className="w-3 h-3 text-primary" />
                             </div>
                           </div>
                         </div>
@@ -485,10 +530,10 @@ export default function UserActivityHistory() {
                 "
                           >
                             {/* Shine effect */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000" />
-
-                            <span className="relative">View Context</span>
-                            <ChevronRight className="w-4 h-4 relative group-hover/btn:translate-x-0.5 transition-transform duration-300" />
+                            {/* <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000" /> */}
+                            <div className="absolute inset-0 bg-primary" />
+                            <span className="relative text-black dark:text-white">View Context</span>
+                            <ChevronRight className="w-4 h-4 relative group-hover/btn:translate-x-0.5 transition-transform duration-300 text-black dark:text-white" />
                           </button>
 
                           {/* Additional context info */}
