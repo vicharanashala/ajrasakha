@@ -342,7 +342,7 @@ export default function UserActivityHistory() {
                     {/* Header Section */}
                     <div
                       className="
-          px-6 py-4 
+          px-6 py-1
           bg-card
           border-b border-gray-100 dark:border-gray-800
           backdrop-blur-sm
@@ -383,6 +383,7 @@ export default function UserActivityHistory() {
                         </div>
 
                         {/* Type Badge with enhanced interaction */}
+                        {/* 
                         <div
                           className="
               flex items-center justify-center 
@@ -403,6 +404,8 @@ export default function UserActivityHistory() {
                             </span>
                           </span>
                         </div>
+ */}
+
                       </div>
                     </div>
 
