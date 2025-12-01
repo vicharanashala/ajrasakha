@@ -21,7 +21,13 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { TrendingUp, Database, CheckCircle2 } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../atoms/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../atoms/select";
 
 // const yearData = [
 //   { month: "Jan", entries: 1240, verified: 1100 },
@@ -132,20 +138,29 @@ export interface GoldenDataset {
   >;
 }
 
-interface GoldenDatasetOverviewProps {
+export interface GoldenDatasetOverviewProps {
   data: GoldenDataset;
+  viewType: "year" | "month" | "week" | "day";
+  setViewType: (v: "year" | "month" | "week" | "day") => void;
+  selectedMonth: string;
+  setSelectedMonth: (m: string) => void;
+  selectedWeek: string;
+  setSelectedWeek: (w: string) => void;
+  selectedDay: string;
+  setSelectedDay: (d: string) => void;
 }
 
-export const GoldenDatasetOverview: React.FC<GoldenDatasetOverviewProps> = ({
+export const GoldenDatasetOverview = ({
   data,
-}) => {
-  const [viewType, setViewType] = useState<"year" | "month" | "week" | "day">(
-    "year"
-  );
-  const [selectedMonth, setSelectedMonth] = useState("January");
-  const [selectedWeek, setSelectedWeek] = useState("Week 1");
-  const [selectedDay, setSelectedDay] = useState("Mon");
-
+  viewType,
+  setViewType,
+  selectedMonth,
+  setSelectedMonth,
+  selectedWeek,
+  setSelectedWeek,
+  selectedDay,
+  setSelectedDay,
+}: GoldenDatasetOverviewProps) => {
   const getTotals = () => {
     if (viewType === "year") {
       const total = data.yearData.reduce((sum, d) => sum + d.entries, 0);

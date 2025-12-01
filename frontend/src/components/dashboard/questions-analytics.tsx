@@ -62,16 +62,21 @@ const domainData = [
   { name: "Fertilizers", value: 201, color: "var(--color-chart-4)" },
 ];
 
-export const QuestionsAnalytics = () => {
+export interface DateRange {
+  startTime?: Date;
+  endTime?: Date;
+}
+interface QuestionsAnalyticsProps {
+  date: DateRange;
+  setDate: React.Dispatch<React.SetStateAction<DateRange>>;
+}
 
-  const [date, setDate] = useState({
-    startTime: undefined,
-    endTime: undefined
-  })
+export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
+  date,
+  setDate,
+}) => {
+  const handleDateChange = () => {};
 
-  const handleDateChange = () => {
-    
-  }
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-4 mb-2">

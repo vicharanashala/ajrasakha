@@ -60,12 +60,18 @@ export interface QuestionContributionTrend {
   Moderator: number;
 }
 
-export const SourcesChart = ({
-  data,
-}: {
+export interface SourcesChartProps {
   data: QuestionContributionTrend[];
+
+  timeRange: string;
+  setTimeRange: React.Dispatch<React.SetStateAction<string>>;
+}
+
+export const SourcesChart: React.FC<SourcesChartProps> = ({
+  data,
+  timeRange,
+  setTimeRange,
 }) => {
-  const [timeRange, setTimeRange] = React.useState("90d");
   const filteredData = data.filter((item) => {
     const date = new Date(item.date);
     const referenceDate = new Date("2024-06-30");

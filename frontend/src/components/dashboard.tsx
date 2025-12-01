@@ -1,40 +1,23 @@
 import { useEffect, useState } from "react";
+import { ApprovalRateCard } from "./dashboard/approval-rate";
+import { ExpertsPerformance } from "./dashboard/experts-performance";
+import { GoldenDatasetOverview } from "./dashboard/golden-dataset";
+import { ModeratorsOverview } from "./dashboard/overview";
+import { StatusCharts } from "./dashboard/question-status";
 import {
-  ApprovalRateCard,
-  type ModeratorApprovalRate,
-} from "./dashboard/approval-rate";
-import {
-  ExpertsPerformance,
-  type ExpertPerformance,
-} from "./dashboard/experts-performance";
-import {
-  GoldenDatasetOverview,
-  type GoldenDataset,
-} from "./dashboard/golden-dataset";
-import {
-  ModeratorsOverview,
-  type UserRoleOverview,
-} from "./dashboard/overview";
-import { StatusCharts, type StatusOverview } from "./dashboard/question-status";
-import { QuestionsAnalytics } from "./dashboard/questions-analytics";
+  QuestionsAnalytics,
+  type DateRange,
+} from "./dashboard/questions-analytics";
 import { SourcesChart } from "./dashboard/sources-chart";
 import HeatMap from "./HeatMap";
 import { Card, CardHeader, CardTitle } from "./atoms/card";
+import {
+  useGetDashboardData,
+  type DashboardAnalyticsResponse,
+} from "@/hooks/api/performance/useGetDashboard";
+import { DashboardClock } from "./dashboard/dashboard-clock";
 
-export interface DashboardAnalyticsResponse {
-  userRoleOverview: UserRoleOverview[];
-  moderatorApprovalRate: ModeratorApprovalRate;
-  goldenDataset: GoldenDataset;
-  questionContributionTrend: {
-    date: string;
-    Ajraskha: number;
-    Moderator: number;
-  }[];
-  statusOverview: StatusOverview;
-  expertPerformance: ExpertPerformance[];
-}
-
-export const dashboardDummyData: DashboardAnalyticsResponse = {
+const dashboardDummyData: DashboardAnalyticsResponse = {
   userRoleOverview: [
     { name: "Experts", value: 32 },
     { name: "Moderators", value: 8 },
@@ -45,7 +28,7 @@ export const dashboardDummyData: DashboardAnalyticsResponse = {
     approvalRate: 62.5,
   },
   goldenDataset: {
-    type: "year", // default view
+    type: "year",
 
     yearData: [
       { month: "Jan", entries: 450, verified: 300 },
@@ -192,38 +175,39 @@ export const dashboardDummyData: DashboardAnalyticsResponse = {
     { expert: "Priya", reputation: 95, incentive: 3500, penalty: 80 },
   ],
 };
-const DashboardClock = () => {
-  const [dateTime, setDateTime] = useState(new Date());
-
-  useEffect(() => {
-    const interval = setInterval(() => setDateTime(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const formattedTime = dateTime.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false, // 24-hour format
-  });
-
-  const formattedDate = dateTime.toLocaleDateString([], {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-
-  return (
-    <div className="text-right">
-      <p className="text-lg font-semibold text-foreground tracking-wide">
-        {formattedTime}
-      </p>
-      <p className="text-sm text-muted-foreground">{formattedDate}</p>
-    </div>
-  );
-};
+export type ViewType = "year" | "month" | "week" | "day";
 
 export const Dashboard = () => {
+  // ---- Golden Dataset Overview state filters ----- //
+  const [viewType, setViewType] = useState<ViewType>("year");
+  const [selectedMonth, setSelectedMonth] = useState("January");
+  const [selectedWeek, setSelectedWeek] = useState("Week 1");
+  const [selectedDay, setSelectedDay] = useState("Mon");
+
+  // ---- SourcesChart state filters ----- //
+  const [timeRange, setTimeRange] = useState("90d");
+
+  // ---- QuestionsAnalytics state filters ----- //
+  const [date, setDate] = useState<DateRange>({
+    startTime: undefined,
+    endTime: undefined,
+  });
+
+  // Fetch dashboard data
+  const { data, isLoading, error } = useGetDashboardData({
+    goldenDataViewType: viewType,
+    goldenDataSelectedMonth: selectedMonth,
+    goldenDataSelectedWeek: selectedWeek,
+    goldenDataSelectedDay: selectedDay,
+    sourceChartTimeRange: timeRange,
+    qnAnalyticsStartTime: date.startTime,
+    qnAnalyticsEndTime: date.endTime,
+  });
+
+  if (isLoading) return <p>Loading...</p>;
+  if (!data) return <p>No data found</p>;
+  if (error) return <p>Error loading dashboard</p>;
+
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto p-6">
@@ -248,10 +232,24 @@ export const Dashboard = () => {
 
         {/* Full Width Sources Chart */}
         <div className="mb-6">
-          <GoldenDatasetOverview data={dashboardDummyData.goldenDataset} />
+          <GoldenDatasetOverview
+            data={dashboardDummyData.goldenDataset}
+            selectedDay={selectedDay}
+            selectedMonth={selectedMonth}
+            selectedWeek={selectedWeek}
+            setSelectedDay={setSelectedDay}
+            setSelectedMonth={setSelectedMonth}
+            setSelectedWeek={setSelectedWeek}
+            setViewType={setViewType}
+            viewType={viewType}
+          />
         </div>
         <div className="mb-6">
-          <SourcesChart data={dashboardDummyData.questionContributionTrend} />
+          <SourcesChart
+            data={dashboardDummyData.questionContributionTrend}
+            timeRange={timeRange}
+            setTimeRange={setTimeRange}
+          />
         </div>
 
         {/* Question Status and Golden Dataset Row */}
@@ -261,7 +259,7 @@ export const Dashboard = () => {
 
         {/* Performance Row */}
         <div className="mb-6">
-          <QuestionsAnalytics />
+          <QuestionsAnalytics date={date} setDate={setDate} />
         </div>
 
         {/* Analytics Row */}

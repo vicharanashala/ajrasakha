@@ -24,6 +24,7 @@ import {
   IReviewerHeatmapRow,
 } from '#root/shared/interfaces/models.js';
 import {PerformanceService} from '../services/PerformanceService.js';
+import { DashboardResponse, GetDashboardQuery } from '../classes/validators/DashboardValidators.js';
 
 @OpenAPI({
   tags: ['performance'],
@@ -36,16 +37,16 @@ export class PerformanceController {
     private readonly performanceService: PerformanceService,
   ) {}
 
-  // @Get('/dashboard')
-  // @HttpCode(200)
-  // @Authorized()
-  // @OpenAPI({summary: 'Get dashboard analytics'})
-  // @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  // async getDashboardData(
-  //   @QueryParams() query: GetDashboardQuery,
-  // ): Promise<{data: DashboardResponse}> {
-  //   return this.performanceService.getDashboardData(query);
-  // }
+  @Get('/dashboard')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Get dashboard analytics'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async getDashboardData(
+    @QueryParams() query: GetDashboardQuery,
+  ): Promise<{data: DashboardResponse}> {
+    return this.performanceService.getDashboardData(query);
+  }
 
   @Get('/heatMapofReviewers')
   @HttpCode(200)

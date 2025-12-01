@@ -8,7 +8,7 @@ import {
   IAnswer,
   IQuestionMetrics,
   ISubmissionHistory,
-  IReviewerHeatmapRow
+  IReviewerHeatmapRow,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -34,10 +34,13 @@ import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.
 import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
 import {notifyUser} from '#root/utils/pushNotification.js';
 import {NotificationService} from './NotificationService.js';
+import {
+  DashboardResponse,
+  GetDashboardQuery,
+} from '../classes/validators/DashboardValidators.js';
 
 @injectable()
 export class PerformanceService extends BaseService {
-
   constructor(
     @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
     private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
@@ -51,19 +54,58 @@ export class PerformanceService extends BaseService {
     super(mongoDatabase);
   }
 
-async getHeatMapresults(): Promise<IReviewerHeatmapRow[] | null> {
-   
+  async getHeatMapresults(): Promise<IReviewerHeatmapRow[] | null> {
     return await this.questionSubmissionRepo.heatMapResultsForReviewer();
   }
-  
-  async getCurrentUserWorkLoad( currentUserId:string,): Promise<{
-   
-    currentUserAnswers: any[],
-    totalQuestionsCount: number,
-    totalInreviewQuestionsCount:number
+
+  async getCurrentUserWorkLoad(currentUserId: string): Promise<{
+    currentUserAnswers: any[];
+    totalQuestionsCount: number;
+    totalInreviewQuestionsCount: number;
   }> {
-    
-    return await this.answerRepo.getCurrentUserWorkLoad(currentUserId)
+    return await this.answerRepo.getCurrentUserWorkLoad(currentUserId);
   }
 
+  async getDashboardData(
+    query: GetDashboardQuery,
+  ): Promise<{data: DashboardResponse}> {
+    console.log('Dashboard Filters:', query);
+
+    const response: DashboardResponse = {
+      userRoleOverview: [
+        {role: 'Moderator', count: 12},
+        {role: 'Expert', count: 40},
+      ],
+      moderatorApprovalRate: {
+        approvalRate: 84,
+        totalReviews: 560,
+      },
+      goldenDataset: {
+        yearData: [{date: '2025-01', entries: 200, verified: 180}],
+        weeksData: [{date: 'Week 1', entries: 50, verified: 45}],
+        dailyData: [{date: 'Monday', entries: 10, verified: 9}],
+        dayHourlyData: {
+          Mon: [{date: '10 AM', entries: 2, verified: 2}],
+        },
+      },
+      questionContributionTrend: [
+        {date: '2025-01-01', Ajraskha: 5, Moderator: 2},
+      ],
+      statusOverview: {
+        questions: [
+          {status: 'pending', value: 40},
+          {status: 'completed', value: 100},
+        ],
+        answers: [
+          {status: 'accepted', value: 80},
+          {status: 'rejected', value: 20},
+        ],
+      },
+      expertPerformance: [
+        {expert: 'John', reputation: 120, incentive: 50, penalty: 2},
+      ],
+    };
+
+    return {data: response};
+  }
 }
