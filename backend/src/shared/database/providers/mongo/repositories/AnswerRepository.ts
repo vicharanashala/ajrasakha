@@ -13,6 +13,7 @@ import {isValidObjectId} from '#root/utils/isValidObjectId.js';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
 import {SubmissionResponse} from '#root/modules/core/classes/validators/AnswerValidators.js';
+import {ModeratorApprovalRate} from '#root/modules/core/classes/validators/DashboardValidators.js';
 
 export class AnswerRepository implements IAnswerRepository {
   private AnswerCollection: Collection<IAnswer>;
@@ -1101,6 +1102,41 @@ export class AnswerRepository implements IAnswerRepository {
       throw new InternalServerError(
         `Error while updating answer, More/ ${error}`,
       );
+    }
+  }
+
+  async getModeratorApprovalRate(
+    currentUserId: string,
+    session?: ClientSession,
+  ): Promise<ModeratorApprovalRate> {
+    try {
+      await this.init();
+
+      // count of answer which completed expert review
+      const totalReviews = await this.AnswerCollection.countDocuments(
+        {
+          status: {$in: ['approved', 'pending-with-moderator']},
+        },
+        {session},
+      );
+
+      const approvedCount = await this.AnswerCollection.countDocuments(
+        {status: 'approved'},
+        {session},
+      );
+
+      const approvalRate =
+        totalReviews > 0
+          ? Number(((approvedCount / totalReviews) * 100).toFixed(2))
+          : 0;
+
+      return {
+        totalReviews,
+        approvalRate,
+      };
+    } catch (error) {
+      console.error('Error fetching moderator approval rate:', error);
+      throw new InternalServerError('Failed to fetch moderator approval rate');
     }
   }
 }

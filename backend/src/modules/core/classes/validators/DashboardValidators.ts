@@ -1,11 +1,12 @@
 import {IsIn, IsOptional, IsString, IsDateString} from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 
+export type GoldenDataViewType = 'year' | 'month' | 'week' | 'day';
 export class GetDashboardQuery {
   @JSONSchema({example: 'year', description: 'View type for Golden Dataset'})
   @IsString()
   @IsIn(['year', 'month', 'week', 'day'])
-  goldenDataViewType!: 'year' | 'month' | 'week' | 'day';
+  goldenDataViewType!: GoldenDataViewType;
 
   @JSONSchema({
     example: 'January',

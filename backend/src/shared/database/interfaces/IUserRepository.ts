@@ -1,3 +1,7 @@
+import {
+  ModeratorApprovalRate,
+  UserRoleOverview,
+} from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
 import {IUser, NotificationRetentionType} from '#shared/interfaces/models.js';
 import {MongoClient, ClientSession, ObjectId} from 'mongodb';
@@ -111,12 +115,12 @@ export interface IUserRepository {
     isIncrement: boolean,
     session?: ClientSession,
   ): Promise<void>;
-  
+
   /**
    * Finds all moderators.
    * @returns A promise that resolves to an array of moderators.
    */
-  findModerators():Promise<IUser[]>
+  findModerators(): Promise<IUser[]>;
 
   /**
    * Finds all users.
@@ -124,30 +128,55 @@ export interface IUserRepository {
    * @param preference -  Time period when to delete the notifications.
    * @returns void.
    */
-  updateAutoDeleteNotificationPreference(preference:NotificationRetentionType,userId:string,session?:ClientSession):Promise<void>
+  updateAutoDeleteNotificationPreference(
+    preference: NotificationRetentionType,
+    userId: string,
+    session?: ClientSession,
+  ): Promise<void>;
 
-
-   /**
+  /**
    * Finds all users.
    * @param userId -  user IDs to find.
    * @param field - field to update
    * @param incrementValue - value to increment or decrement
    * @returns void.
    */
-updatePenaltyAndIncentive(userId:string,field:'incentive' | 'penalty',session?:ClientSession):Promise<void>
-/**
+  updatePenaltyAndIncentive(
+    userId: string,
+    field: 'incentive' | 'penalty',
+    session?: ClientSession,
+  ): Promise<void>;
+  /**
    * Finds all users.
    * @param page -  page count.
    * @param limit - documents to display in one page
    * @param search - serach query
    * @returns A promise that resolve to an array of all users.
    */
-findAllExperts(page:number,limit:number,search:string,sortOption:string,filter:string,session?:ClientSession):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>
+  findAllExperts(
+    page: number,
+    limit: number,
+    search: string,
+    sortOption: string,
+    filter: string,
+    session?: ClientSession,
+  ): Promise<{experts: IUser[]; totalExperts: number; totalPages: number}>;
   /**
    * Finds all users.
    * @param userId - userid of expert to block.
    * @param action - either block or unblock
    * @returns void
    */
-updateIsBlocked(userId:string,action:string,session?:ClientSession):Promise<void>
+  updateIsBlocked(
+    userId: string,
+    action: string,
+    session?: ClientSession,
+  ): Promise<void>;
+
+  /**
+   * @param session
+   */
+  getUserRoleCount(session?: ClientSession): Promise<UserRoleOverview[]>;
+
+
 }

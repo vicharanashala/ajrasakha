@@ -37,11 +37,24 @@ import {NotificationService} from './NotificationService.js';
 import {
   DashboardResponse,
   GetDashboardQuery,
+  GoldenDataset,
+  GoldenDataViewType,
+  UserRoleOverview,
 } from '../classes/validators/DashboardValidators.js';
+import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
 
 @injectable()
 export class PerformanceService extends BaseService {
   constructor(
+    @inject(GLOBAL_TYPES.QuestionRepository)
+    private readonly questionRepo: IQuestionRepository,
+
+    @inject(GLOBAL_TYPES.UserRepository)
+    private readonly userRepo: IUserRepository,
+
+    @inject(GLOBAL_TYPES.RequestRepository)
+    private readonly requestRepository: IRequestRepository,
+
     @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
     private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
 
@@ -66,46 +79,110 @@ export class PerformanceService extends BaseService {
     return await this.answerRepo.getCurrentUserWorkLoad(currentUserId);
   }
 
+  async getGoldenDatasetData(
+    viewType: GoldenDataViewType,
+    session?: ClientSession,
+  ): Promise<GoldenDataset> {
+    const closedStatus = 'closed';
+    const closedQuestions = await this.questionRepo.getQuestionsByStatus(
+      closedStatus,
+      session,
+    );
+
+    if (viewType === 'year') {
+      const yearData = await this.getYearAnalytics(closedQuestions);
+      return {yearData};
+    }
+
+    if (viewType === 'month') {
+      const weeksData = await this.getMonthAnalytics(closedQuestions);
+      return {weeksData};
+    }
+
+    if (viewType === 'week') {
+      const dailyData = await this.getWeekAnalytics(closedQuestions);
+      return {dailyData};
+    }
+
+    if (viewType === 'day') {
+      const dayHourlyData = await this.getDayAnalytics(closedQuestions);
+      return {dayHourlyData};
+    }
+
+    throw new InternalServerError('Invalid Golden Dataset Type');
+  }
+
   async getDashboardData(
+    currentUserId: string,
     query: GetDashboardQuery,
   ): Promise<{data: DashboardResponse}> {
-    console.log('Dashboard Filters:', query);
+    await this._withTransaction(async (session: ClientSession) => {
+      const {
+        goldenDataViewType,
+        sourceChartTimeRange,
+        goldenDataSelectedDay,
+        goldenDataSelectedMonth,
+        goldenDataSelectedWeek,
+        qnAnalyticsEndTime,
+        qnAnalyticsStartTime,
+      } = query;
 
-    const response: DashboardResponse = {
-      userRoleOverview: [
-        {role: 'Moderator', count: 12},
-        {role: 'Expert', count: 40},
-      ],
-      moderatorApprovalRate: {
-        approvalRate: 84,
-        totalReviews: 560,
-      },
-      goldenDataset: {
-        yearData: [{date: '2025-01', entries: 200, verified: 180}],
-        weeksData: [{date: 'Week 1', entries: 50, verified: 45}],
-        dailyData: [{date: 'Monday', entries: 10, verified: 9}],
-        dayHourlyData: {
-          Mon: [{date: '10 AM', entries: 2, verified: 2}],
+      const user = await this.userRepo.findById(currentUserId, session);
+      if (!user || user.role == 'expert')
+        throw new UnauthorizedError(
+          "You don't have permission to access this data",
+        );
+
+      const userRoleOverview = await this.userRepo.getUserRoleCount(session);
+      const moderatorApprovalRate =
+        await this.answerRepo.getModeratorApprovalRate(currentUserId, session);
+
+      // goldenDataset
+      const closedStatus = 'closed';
+      const closedQuestions = await this.questionRepo.getQuestionsByStatus(
+        closedStatus,
+        session,
+      );
+
+      if (goldenDataViewType == 'year') {
+      } else if (goldenDataViewType == 'month') {
+      } else if (goldenDataViewType == 'week') {
+      } else if (goldenDataViewType == 'day') {
+      }
+
+      const response: DashboardResponse = {
+        userRoleOverview,
+        moderatorApprovalRate,
+
+        goldenDataset: {
+          yearData: [{date: 'Jan', entries: 200, verified: 180}],
+          weeksData: [{date: 'Week 1', entries: 50, verified: 45}],
+          dailyData: [{date: 'Monday', entries: 10, verified: 9}],
+          dayHourlyData: {
+            Mon: [{date: '10 AM', entries: 2, verified: 2}],
+          },
         },
-      },
-      questionContributionTrend: [
-        {date: '2025-01-01', Ajraskha: 5, Moderator: 2},
-      ],
-      statusOverview: {
-        questions: [
-          {status: 'pending', value: 40},
-          {status: 'completed', value: 100},
-        ],
-        answers: [
-          {status: 'accepted', value: 80},
-          {status: 'rejected', value: 20},
-        ],
-      },
-      expertPerformance: [
-        {expert: 'John', reputation: 120, incentive: 50, penalty: 2},
-      ],
-    };
 
-    return {data: response};
+        questionContributionTrend: [
+          {date: '2025-01-01', Ajraskha: 5, Moderator: 2},
+        ],
+
+        statusOverview: {
+          questions: [
+            {status: 'pending', value: 40},
+            {status: 'completed', value: 100},
+          ],
+          answers: [
+            {status: 'accepted', value: 80},
+            {status: 'rejected', value: 20},
+          ],
+        },
+        expertPerformance: [
+          {expert: 'John', reputation: 120, incentive: 50, penalty: 2},
+        ],
+      };
+
+      return {data: response};
+    });
   }
 }

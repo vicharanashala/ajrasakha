@@ -1,4 +1,5 @@
 import {SubmissionResponse} from '#root/modules/core/classes/validators/AnswerValidators.js';
+import { ModeratorApprovalRate } from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {IAnswer, SourceItem} from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
 
@@ -156,10 +157,19 @@ export interface IAnswerRepository {
     session?: ClientSession,
   ): Promise<{faqs: any[]; totalFaqs: number}>;
 
-  
   updateAnswerStatus(
     answerId: string,
     updates: Partial<IAnswer>,
     session?: ClientSession,
   ): Promise<{modifiedCount: number}>;
+
+  /**
+   * @param currentUserId - requested userId
+   * @param session
+   */
+
+  getModeratorApprovalRate(
+    currentUserId: string,
+    session?: ClientSession,
+  ): Promise<ModeratorApprovalRate>;
 }

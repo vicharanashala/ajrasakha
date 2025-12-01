@@ -24,7 +24,10 @@ import {
   IReviewerHeatmapRow,
 } from '#root/shared/interfaces/models.js';
 import {PerformanceService} from '../services/PerformanceService.js';
-import { DashboardResponse, GetDashboardQuery } from '../classes/validators/DashboardValidators.js';
+import {
+  DashboardResponse,
+  GetDashboardQuery,
+} from '../classes/validators/DashboardValidators.js';
 
 @OpenAPI({
   tags: ['performance'],
@@ -44,8 +47,11 @@ export class PerformanceController {
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async getDashboardData(
     @QueryParams() query: GetDashboardQuery,
+    @CurrentUser() user: IUser,
   ): Promise<{data: DashboardResponse}> {
-    return this.performanceService.getDashboardData(query);
+    const currentUserId = user._id.toString();
+
+    return this.performanceService.getDashboardData(currentUserId, query);
   }
 
   @Get('/heatMapofReviewers')

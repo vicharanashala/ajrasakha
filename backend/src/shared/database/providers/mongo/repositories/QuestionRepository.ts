@@ -6,6 +6,7 @@ import {
   IQuestionSubmission,
   IReview,
   IUser,
+  QuestionStatus,
 } from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
@@ -1080,5 +1081,13 @@ export class QuestionRepository implements IQuestionRepository {
       {$set: update},
       {session},
     );
+  }
+
+  async getQuestionsByStatus(
+    status: QuestionStatus,
+    session?: ClientSession,
+  ): Promise<IQuestion[]> {
+    await this.init();
+    return await this.QuestionCollection.find({status}, {session}).toArray();
   }
 }

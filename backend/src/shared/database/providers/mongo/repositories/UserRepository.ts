@@ -8,6 +8,10 @@ import {InternalServerError, NotFoundError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {User} from '#auth/classes/transformers/User.js';
 import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
+import {
+  ModeratorApprovalRate,
+  UserRoleOverview,
+} from '#root/modules/core/classes/validators/DashboardValidators.js';
 
 @injectable()
 export class UserRepository implements IUserRepository {
@@ -446,6 +450,47 @@ export class UserRepository implements IUserRepository {
       );
     } catch (error) {
       throw new InternalServerError(`Failed to update IsBlock`);
+    }
+  }
+
+  async getUserRoleCount(session?: ClientSession): Promise<UserRoleOverview[]> {
+    try {
+      await this.init();
+
+      const result = await this.usersCollection
+        .aggregate(
+          [
+            {$match: {isBlocked: false}},
+            {
+              $group: {
+                _id: '$role',
+                count: {$sum: 1},
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                role: {
+                  $switch: {
+                    branches: [
+                      {case: {$eq: ['$_id', 'expert']}, then: 'Experts'},
+                      {case: {$eq: ['$_id', 'moderator']}, then: 'Moderators'},
+                    ],
+                    default: 'Others',
+                  },
+                },
+                count: 1,
+              },
+            },
+          ],
+          {session},
+        )
+        .toArray();
+
+      return result as UserRoleOverview[];
+    } catch (error) {
+      console.error('Error fetching user role count:', error);
+      throw new InternalServerError('Failed to fetch user role count');
     }
   }
 }
