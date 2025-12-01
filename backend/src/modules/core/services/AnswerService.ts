@@ -10,6 +10,7 @@ import {
   IQuestionMetrics,
   IReview,
   ISubmissionHistory,
+  PreviousAnswersItem,
   ReviewAction,
   ReviewType,
   SourceItem,
@@ -112,8 +113,8 @@ export class AnswerService extends BaseService {
 
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
-      // const embedding = [];
-      const {embedding} = await this.aiService.getEmbedding(answer);
+      const embedding = [];
+      // const {embedding} = await this.aiService.getEmbedding(answer);
 
       const {insertedId} = await this.answerRepo.addAnswer(
         questionId,
@@ -527,6 +528,15 @@ export class AnswerService extends BaseService {
             {answer, sources, status: newStatus},
             session,
           );
+
+          //update in the modifications array
+          const modificationEntry: PreviousAnswersItem = {
+            oldAnswer: answerToModify.answer,
+            newAnswer: answer,
+            modifiedBy: new ObjectId(userId),
+            modifiedAt: new Date(),
+          }
+          await this.answerRepo.addAnswerModification(modifiedAnswer,modificationEntry,session)
 
           // 3. Update reviewing user's history
           await this.questionSubmissionRepo.updateHistoryByUserId(
@@ -1150,10 +1160,10 @@ export class AnswerService extends BaseService {
 
 answer: ${updates.answer}`;
 
-      const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
-        text,
-      );
-      // const questionEmbedding = [];
+      // const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
+      //   text,
+      // );
+      const questionEmbedding = [];
       const authorId = answer.authorId.toString();
       await this.userRepo.updatePenaltyAndIncentive(
         authorId,
@@ -1167,8 +1177,8 @@ answer: ${updates.answer}`;
         true,
       );
 
-      const {embedding} = await this.aiService.getEmbedding(text);
-      // const embedding = [];
+      // const {embedding} = await this.aiService.getEmbedding(text);
+      const embedding = [];
       const payload: Partial<IAnswer> = {
         ...updates,
         approvedBy: new ObjectId(userId),

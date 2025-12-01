@@ -63,6 +63,12 @@ export interface SourceItem {
   source: string;
   page?: number;
 }
+export interface PreviousAnswersItem{
+  modifiedBy:string | ObjectId;
+  oldAnswer:string;
+  newAnswer:string;
+  modifiedAt?:Date
+}
 export interface IAnswer {
   _id?: string | ObjectId;
   questionId: string | ObjectId;
@@ -74,6 +80,7 @@ export interface IAnswer {
   approvedBy?: string | ObjectId;
   status?: string;
   answer: string;
+  modifications?:PreviousAnswersItem[];
   sources: SourceItem[];
   embedding: number[];
   createdAt?: Date;

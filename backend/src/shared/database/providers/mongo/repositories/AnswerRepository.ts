@@ -4,6 +4,7 @@ import {
   IUser,
   SourceItem,
   IQuestionSubmission,
+  PreviousAnswersItem,
 } from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
@@ -907,6 +908,35 @@ export class AnswerRepository implements IAnswerRepository {
       );
     }
   }
+  async addAnswerModification(
+  answerId: string,
+  modification: PreviousAnswersItem,
+  session?: ClientSession
+): Promise<{ modifiedCount: number }> {
+  try {
+    await this.init();
+
+    if (!answerId || !isValidObjectId(answerId)) {
+      throw new BadRequestError('Invalid or missing answerId');
+    }
+
+    const result = await this.AnswerCollection.updateOne(
+      { _id: new ObjectId(answerId) },
+      {
+        $push: {
+          modifications: modification
+        }
+      },
+      { session }
+    );
+
+    return { modifiedCount: result.modifiedCount };
+  } catch (error) {
+    throw new InternalServerError(
+      `Error while adding modification entry, More/ ${error}`
+    );
+  }
+}
 
   async deleteAnswer(
     answerId: string,
