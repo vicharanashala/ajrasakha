@@ -248,6 +248,10 @@ class AddQuestionBodyDto {
 
   @IsString()
   @IsOptional()
+  aiInitialAnswer?: string;
+
+  @IsString()
+  @IsOptional()
   createdAt?: string;
 }
 

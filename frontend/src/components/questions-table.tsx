@@ -1322,6 +1322,7 @@ export const AddOrEditQuestionDialog = ({
           ) : userRole === "expert" ? (
             <Button
               variant="destructive"
+              disabled={isLoadingAction}
               onClick={() => {
                 onSave?.("edit", question?._id!, flagReason);
               }}
