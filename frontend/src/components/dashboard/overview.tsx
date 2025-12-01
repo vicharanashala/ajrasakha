@@ -67,26 +67,44 @@ import {
   CardContent,
   CardFooter,
 } from "@/components/atoms/card";
-import { TrendingUp } from "lucide-react";
 
-const data = [
-  { name: "Experts", value: 21, color: "var(--chart-1)" },
-  { name: "Moderators", value: 5, color: "var(--chart-2)" },
-];
+export interface UserRoleOverview {
+  name: string;
+  value: number;
+}
+
+// export const data: UserRoleOverview[] = [
+//   { name: "Experts", value: 21, color: "var(--chart-1)" },
+//   { name: "Moderators", value: 5, color: "var(--chart-2)" },
+// ];
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length > 0) {
     const entry = payload[0];
+
     return (
-      <div className="bg-white border p-2 rounded shadow-sm text-sm">
+      <div
+        className="
+          z-50 
+          bg-card text-gray-900 
+          dark:text-gray-100
+          border dark:border-gray-700
+          p-2 rounded-md shadow-lg
+          text-sm
+        "
+      >
         <strong>{entry.name}</strong>: {entry.value} users
       </div>
     );
   }
   return null;
 };
-
-export const ModeratorsOverview = () => {
+interface ModeratorsOverviewProps {
+  data: UserRoleOverview[];
+}
+export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
+  data,
+}) => {
   const total = data.reduce((acc, item) => acc + item.value, 0);
 
   return (
@@ -112,7 +130,14 @@ export const ModeratorsOverview = () => {
                 activeIndex={undefined}
               >
                 {data.map((entry, index) => (
-                  <Cell key={index} fill={entry.color} />
+                  <Cell
+                    key={index}
+                    fill={
+                      entry.name == "Experts"
+                        ? "var(--chart-1)"
+                        : "var(--chart-2)"
+                    }
+                  />
                 ))}
               </Pie>
 
@@ -132,9 +157,9 @@ export const ModeratorsOverview = () => {
       </CardContent>
 
       <CardFooter className="flex-col gap-2 text-sm">
-        <div className="flex items-center gap-1 leading-none font-medium">
+        {/* <div className="flex items-center gap-1 leading-none font-medium">
           Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
-        </div>
+        </div> */}
         <div className="text-muted-foreground leading-none">
           Showing count of active users by role
         </div>

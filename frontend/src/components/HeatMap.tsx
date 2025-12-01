@@ -81,8 +81,8 @@ export default function HeatMap() {
           theme={{
             tooltip: {
               container: {
-                background: "var(--tooltip-bg, #1f2937)", 
-                color: "var(--tooltip-text, #f9fafb)", 
+                background: "var(--tooltip-bg, #1f2937)",
+                color: "var(--tooltip-text, #f9fafb)",
                 fontSize: 12,
                 borderRadius: "6px",
                 padding: "6px 10px",
@@ -118,7 +118,7 @@ export default function HeatMap() {
             tickSize: 5,
             tickPadding: 5,
             tickRotation: 0,
-            legend: "Reviewers vs. Turnaround Time",
+            legend: "Experts vs Turnaround Time",
             legendPosition: "start",
             legendOffset: -40, // move text UP so it's visible above ticks
           }}
@@ -134,7 +134,7 @@ export default function HeatMap() {
             tickSize: 15,
             tickPadding: 5,
             tickRotation: 0,
-            legend: "Reviewers",
+            legend: "Experts",
             legendPosition: "middle",
             legendOffset: -150,
           }}
@@ -157,7 +157,7 @@ export default function HeatMap() {
         />
       </div>
       <div>
-        <div className="md:hidden mt-10">Reviewers vs. Turnaround Time</div>
+        <div className="md:hidden mt-10">Experts vs Turnaround Time</div>
       </div>
       <div className="overflow-x-auto w-[80vw] mt-4 border rounded-lg md:hidden ">
         <table className="min-w-[90vw] border-collapse w-full text-sm">

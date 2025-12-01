@@ -245,7 +245,8 @@ export const PlaygroundPage = () => {
                     className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
                   >
                     <HoverCard openDelay={150}>
-                      <span>Performance</span>
+                      <span>Dashboard</span>
+                      {/* <span>Performance</span> */}
                     </HoverCard>
                   </TabsTrigger>
                 )}
@@ -336,7 +337,7 @@ export const PlaygroundPage = () => {
               {user && user.role !== "expert" && (
                 <TabsContent value="performance" className="mt-0 border-0 p-0 ">
                   {/* <PerformanceMatrics /> */}
-                  <Dashboard/>
+                  <Dashboard />
                 </TabsContent>
               )}
               {user && user.role == "expert" && (

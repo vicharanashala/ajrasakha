@@ -25,6 +25,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/atoms/tabs";
+import { DateRangeFilter } from "../advanced-question-filter";
+import { useState } from "react";
 
 const cropData = [
   { name: "Rice", value: 245, color: "var(--color-chart-1)" },
@@ -60,12 +62,32 @@ const domainData = [
   { name: "Fertilizers", value: 201, color: "var(--color-chart-4)" },
 ];
 
-export function QuestionsAnalytics() {
+export const QuestionsAnalytics = () => {
+
+  const [date, setDate] = useState({
+    startTime: undefined,
+    endTime: undefined
+  })
+
+  const handleDateChange = () => {
+    
+  }
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Questions & Answers Analytics</CardTitle>
-        <CardDescription>Breakdown by crop, state, and domain</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between gap-4 mb-2">
+        <div>
+          <CardTitle className="mb-2">Questions & Answers Analytics</CardTitle>
+          <CardDescription>
+            Breakdown by crop, state, and domain
+          </CardDescription>
+        </div>
+
+        <div className="min-w-[220px]">
+          <DateRangeFilter
+            advanceFilter={date}
+            handleDialogChange={handleDateChange}
+          />
+        </div>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="crop" className="w-full">
@@ -231,4 +253,4 @@ export function QuestionsAnalytics() {
       </CardContent>
     </Card>
   );
-}
+};

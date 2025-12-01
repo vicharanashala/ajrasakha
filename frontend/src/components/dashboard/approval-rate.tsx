@@ -1,30 +1,45 @@
-import { CheckCircle2, Clock } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../atoms/card"
+import { CheckCircle2, Clock } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../atoms/card";
 
-export function ApprovalRateCard() {
+export interface ModeratorApprovalRate {
+  approved: number;
+  pending: number;
+  approvalRate: number;
+}
 
-    const approved = 324
-  const pending = 47
-  const total = approved + pending
-  const approvalRate = Math.round((approved / total) * 100)
+interface ApprovalRateCardProps {
+  data: ModeratorApprovalRate;
+}
 
+export const ApprovalRateCard: React.FC<ApprovalRateCardProps> = ({ data }) => {
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle className="text-base">Moderator Approval Rate</CardTitle>
         <CardDescription>Based on pending and approved answers</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
+
+      <CardContent className="flex-1 flex items-center">
+        <div className="w-full space-y-4">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-foreground">Approval Rate</span>
-              <span className="text-2xl font-bold text-primary">{approvalRate}%</span>
+              <span className="text-sm font-medium text-foreground">
+                Approval Rate
+              </span>
+              <span className="text-2xl font-bold text-primary">
+                {data.approvalRate}%
+              </span>
             </div>
             <div className="w-full bg-muted rounded-full h-2">
               <div
                 className="bg-primary h-2 rounded-full transition-all duration-300"
-                style={{ width: `${approvalRate}%` }}
+                style={{ width: `${data.approvalRate}%` }}
               />
             </div>
           </div>
@@ -34,19 +49,23 @@ export function ApprovalRateCard() {
               <CheckCircle2 className="w-4 h-4 text-primary" />
               <div>
                 <p className="text-xs text-muted-foreground">Approved</p>
-                <p className="text-lg font-semibold text-foreground">{approved}</p>
+                <p className="text-lg font-semibold text-foreground">
+                  {data.approved}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-muted-foreground" />
               <div>
                 <p className="text-xs text-muted-foreground">Pending</p>
-                <p className="text-lg font-semibold text-foreground">{pending}</p>
+                <p className="text-lg font-semibold text-foreground">
+                  {data.pending}
+                </p>
               </div>
             </div>
           </div>
         </div>
       </CardContent>
     </Card>
-  )
-}
+  );
+};

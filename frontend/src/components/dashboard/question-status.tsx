@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
+import type { QuestionStatus } from "@/types";
 import {
   PieChart,
   Pie,
@@ -16,63 +17,21 @@ import {
   Tooltip,
 } from "recharts";
 
-const totalQuestionsData = [
-  { name: "Answered", value: 1245, color: "var(--color-chart-1)" },
-  { name: "Open", value: 342, color: "var(--color-chart-2)" },
-  { name: "Closed", value: 89, color: "var(--color-chart-3)" },
+export interface StatusOverview {
+  questions: { status: QuestionStatus; value: number }[];
+  answers: { status: string; value: number }[];
+}
+const colors = [
+  "var(--color-chart-1)",
+  "var(--color-chart-2)",
+  "var(--color-chart-3)",
+  "var(--color-chart-4)",
+  "var(--color-chart-5)",
 ];
-
-const inReviewData = [
-  { name: "In Review", value: 156, color: "var(--color-chart-2)" },
-  { name: "Reviewed", value: 1520, color: "var(--color-chart-1)" },
-];
-
-const closedData = [
-  { name: "Closed", value: 89, color: "var(--color-chart-3)" },
-  { name: "Active", value: 1587, color: "var(--color-chart-4)" },
-];
-
-export function QuestionStatusCharts() {
+export const StatusCharts = ({ data }: { data: StatusOverview }) => {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">In-Review Questions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={inReviewData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={45}
-                  outerRadius={75}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {inReviewData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="mt-4 space-y-2">
-              {inReviewData.map((item) => (
-                <div
-                  key={item.name}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <span className="text-muted-foreground">{item.name}</span>
-                  <span className="font-semibold text-foreground">
-                    {item.value}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card> */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
@@ -84,16 +43,20 @@ export function QuestionStatusCharts() {
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
-                  data={totalQuestionsData}
+                  data={data.questions}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
                   outerRadius={100}
                   paddingAngle={2}
                   dataKey="value"
+                  nameKey="status"
                 >
-                  {totalQuestionsData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  {data.questions.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={colors[index % colors.length]}
+                    />
                   ))}
                 </Pie>
                 <Tooltip
@@ -109,12 +72,12 @@ export function QuestionStatusCharts() {
             </ResponsiveContainer>
 
             <div className="mt-6 grid grid-cols-3 gap-3">
-              {totalQuestionsData.map((item) => (
+              {data.questions.map((item) => (
                 <div
-                  key={item.name}
+                  key={item.status}
                   className="p-3 rounded-lg bg-muted text-center"
                 >
-                  <p className="text-xs text-muted-foreground">{item.name}</p>
+                  <p className="text-xs text-muted-foreground">{item.status}</p>
                   <p className="text-lg font-semibold text-foreground">
                     {item.value}
                   </p>
@@ -125,25 +88,27 @@ export function QuestionStatusCharts() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">
-              Question Status Overview
-            </CardTitle>
+            <CardTitle className="text-base">Answer Status Overview</CardTitle>
             <CardDescription>Distribution of question statuses</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
-                  data={totalQuestionsData}
+                  data={data.answers}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
                   outerRadius={100}
                   paddingAngle={2}
                   dataKey="value"
+                  nameKey="status"
                 >
-                  {totalQuestionsData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  {data.answers.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={colors[index % colors.length]}
+                    />
                   ))}
                 </Pie>
                 <Tooltip
@@ -159,12 +124,12 @@ export function QuestionStatusCharts() {
             </ResponsiveContainer>
 
             <div className="mt-6 grid grid-cols-3 gap-3">
-              {totalQuestionsData.map((item) => (
+              {data.answers.map((item) => (
                 <div
-                  key={item.name}
+                  key={item.status}
                   className="p-3 rounded-lg bg-muted text-center"
                 >
-                  <p className="text-xs text-muted-foreground">{item.name}</p>
+                  <p className="text-xs text-muted-foreground">{item.status}</p>
                   <p className="text-lg font-semibold text-foreground">
                     {item.value}
                   </p>
@@ -173,44 +138,7 @@ export function QuestionStatusCharts() {
             </div>
           </CardContent>
         </Card>
-        {/* <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Closed Questions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={closedData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={45}
-                  outerRadius={75}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {closedData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="mt-4 space-y-2">
-              {closedData.map((item) => (
-                <div
-                  key={item.name}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <span className="text-muted-foreground">{item.name}</span>
-                  <span className="font-semibold text-foreground">
-                    {item.value}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card> */}
       </div>
     </div>
   );
-}
+};
