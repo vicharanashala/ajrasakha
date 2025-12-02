@@ -353,7 +353,7 @@ export class QuestionService extends BaseService {
         // const embedding = [];
         // 3. Create Question entry
         const newQuestion: IQuestion = {
-          userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
+          userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null, 
           question,
           priority,
           source,

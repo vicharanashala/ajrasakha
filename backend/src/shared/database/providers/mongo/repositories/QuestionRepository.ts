@@ -699,6 +699,7 @@ export class QuestionRepository implements IQuestionRepository {
           _id: r._id?.toString(),
           questionId: r.questionId?.toString(),
           answerId: r.answerId?.toString(),
+          answer:answersMap.get(r.answerId.toString()),
           reviewerId: r.reviewerId?.toString(),
 
           reviewer: reviewer

@@ -1093,12 +1093,28 @@ export class AnswerService extends BaseService {
       );
     }
   }
+  // async getSubmissions(
+  //   userId: string,
+  //   page: number,
+  //   limit: number,
+  // ): Promise<SubmissionResponse[]> {
+  //   return await this.answerRepo.getAllSubmissions(userId, page, limit);
+  // }
+
   async getSubmissions(
     userId: string,
     page: number,
     limit: number,
+    dateRange?:{from:string | undefined,to:string | undefined}
   ): Promise<SubmissionResponse[]> {
-    return await this.answerRepo.getAllSubmissions(userId, page, limit);
+    return await this._withTransaction(async (session:ClientSession) => {
+    const user = await this.userRepo.findById(userId)
+    if(user.role==='expert'){
+      return await this.questionSubmissionRepo.getUserActivityHistory(userId,page,limit,dateRange,session)
+    }else if(user.role==='moderator'){
+      return await this.answerRepo.getModeratorActivityHistory(userId,page,limit,dateRange,session)
+    }
+     })
   }
   async getFinalAnswerQuestions(
     userId: string,

@@ -536,4 +536,266 @@ export class QuestionSubmissionRepository
       return null;
     }
   }
+
+
+async getUserActivityHistory(
+  userId: string,
+  page = 1,
+  limit = 20,
+  dateRange?: { from?: string; to?: string },
+  session?: ClientSession
+): Promise<any> {
+  await this.init();
+
+  const userObjId = new ObjectId(userId);
+  const safePage = Math.max(1, Math.floor(page));
+  const safeLimit = Math.max(1, Math.floor(limit));
+  const skip = (safePage - 1) * safeLimit;
+
+  // Parse date range
+  const fromDate = dateRange?.from ? new Date(dateRange.from) : null;
+  const toDate = dateRange?.to ? new Date(dateRange.to) : null;
+
+  const dateFilter: any = {};
+  if (fromDate) dateFilter.$gte = fromDate;
+  if (toDate) dateFilter.$lte = toDate;
+
+  const pipeline: any[] = [
+    // Match only user activities
+    { $match: { "history.updatedBy": userObjId } },
+
+    // Explode history entries
+    {
+      $unwind: {
+        path: "$history",
+        includeArrayIndex: "historyIndex"
+      }
+    },
+
+    // Match again after unwind
+    { $match: { "history.updatedBy": userObjId } },
+
+    // Filter by date range (using history.createdAt first)
+    ...(Object.keys(dateFilter).length
+      ? [{ $match: { "history.createdAt": dateFilter } }]
+      : []),
+
+    // ---- LOOKUPS ----
+    {
+      $lookup: {
+        from: "reviews",
+        localField: "history.reviewId",
+        foreignField: "_id",
+        as: "reviewDoc"
+      }
+    },
+    { $unwind: { path: "$reviewDoc", preserveNullAndEmptyArrays: true } },
+
+    {
+      $lookup: {
+        from: "answers",
+        localField: "history.answer",
+        foreignField: "_id",
+        as: "answerDoc"
+      }
+    },
+    { $unwind: { path: "$answerDoc", preserveNullAndEmptyArrays: true } },
+
+    {
+      $lookup: {
+        from: "answers",
+        localField: "history.rejectedAnswer",
+        foreignField: "_id",
+        as: "rejectedAnswerDoc"
+      }
+    },
+    { $unwind: { path: "$rejectedAnswerDoc", preserveNullAndEmptyArrays: true } },
+
+    {
+      $lookup: {
+        from: "answers",
+        localField: "history.modifiedAnswer",
+        foreignField: "_id",
+        as: "modifiedAnswerDoc"
+      }
+    },
+    { $unwind: { path: "$modifiedAnswerDoc", preserveNullAndEmptyArrays: true } },
+
+    {
+      $lookup: {
+        from: "answers",
+        localField: "history.approvedAnswer",
+        foreignField: "_id",
+        as: "approvedAnswerDoc"
+      }
+    },
+    { $unwind: { path: "$approvedAnswerDoc", preserveNullAndEmptyArrays: true } },
+
+    {
+      $lookup: {
+        from: "questions",
+        localField: "questionId",
+        foreignField: "_id",
+        as: "questionDoc"
+      }
+    },
+    { $unwind: { path: "$questionDoc", preserveNullAndEmptyArrays: true } },
+
+    // Determine author vs review actions
+    {
+      $addFields: {
+        isAuthor: {
+          $and: [
+            { $eq: ["$historyIndex", 0] },
+            { $eq: ["$answerDoc.authorId", userObjId] }
+          ]
+        }
+      }
+    },
+
+    {
+      $addFields: {
+        action: {
+          $switch: {
+            branches: [
+              { case: { $eq: ["$isAuthor", true] }, then: "author" },
+              { case: { $eq: ["$reviewDoc.action", "accepted"] }, then: "approved" },
+              { case: { $eq: ["$reviewDoc.action", "rejected"] }, then: "rejected" },
+              { case: { $eq: ["$reviewDoc.action", "modified"] }, then: "modified" }
+            ],
+            default: null
+          }
+        }
+      }
+    },
+
+    // Only count valid actions
+    { $match: { action: { $in: ["author", "approved", "rejected", "modified"] } } },
+
+    
+
+    // ---- FACET ----
+    {
+      $facet: {
+        filtered: [
+    {
+        $addFields: {
+          mainDate: {
+            $ifNull: ["$reviewDoc.createdAt", "$history.createdAt"]
+          }
+        }
+      },
+       ...(Object.keys(dateFilter).length > 0
+        ? [
+            {
+              $match: {
+                mainDate: dateFilter
+              }
+            }
+          ]
+        : []),
+          { $sort: { mainDate: -1 } },
+          { $skip: skip },
+          { $limit: safeLimit },
+
+          {
+            $project: {
+              _id: {
+                $concat: [
+                  { $toString: "$_id" },
+                  "_",
+                  { $toString: "$historyIndex" }
+                ]
+              },
+              action: 1,
+              createdAt: "$mainDate",
+              updatedAt: "$history.updatedAt",
+              reviewType: "$reviewDoc.reviewType",
+              reason: {
+                $ifNull: ["$reviewDoc.reason", "$history.reasonForRejection"]
+              },
+              remarks: "$answerDoc.remarks",
+
+              review: {
+                parameters: "$reviewDoc.parameters",
+                action: "$reviewDoc.action",
+                reason: "$reviewDoc.reason",
+                reviewerId: "$reviewDoc.reviewerId",
+                createdAt: "$reviewDoc.createdAt"
+              },
+
+              question: {
+                _id: { $toString: "$questionDoc._id" },
+                question: "$questionDoc.question"
+              },
+
+              answer: {
+                _id: { $toString: "$answerDoc._id" },
+                answer: "$answerDoc.answer"
+              },
+
+              rejectedAnswer: {
+                _id: { $toString: "$rejectedAnswerDoc._id" },
+                answer: "$rejectedAnswerDoc.answer"
+              },
+
+              modifiedAnswer: {
+                _id: { $toString: "$modifiedAnswerDoc._id" },
+                answer: "$modifiedAnswerDoc.answer"
+              },
+
+              approvedAnswer: {
+                _id: { $toString: "$approvedAnswerDoc._id" },
+                answer: "$approvedAnswerDoc.answer"
+              }
+            }
+          }
+        ],
+
+        totalCount: [{
+        $addFields: {
+          mainDate: {
+            $ifNull: ["$reviewDoc.createdAt", "$history.createdAt"]
+          }
+        }
+      },
+
+      ...(Object.keys(dateFilter).length > 0
+        ? [
+            {
+              $match: {
+                mainDate: dateFilter
+              }
+            }
+          ]
+        : []),
+{ $count: "count" }]
+      }
+    },
+
+    {
+      $project: {
+        data: "$filtered",
+        totalCount: {
+          $ifNull: [{ $arrayElemAt: ["$totalCount.count", 0] }, 0]
+        }
+      }
+    }
+  ];
+
+  const [aggResult] = await this.QuestionSubmissionCollection.aggregate(
+    pipeline,
+    { session }
+  ).toArray();
+
+  return {
+    totalCount: aggResult?.totalCount ?? 0,
+    page: safePage,
+    totalPages: Math.ceil((aggResult?.totalCount ?? 0) / safeLimit),
+    limit: safeLimit,
+    data: aggResult?.data ?? []
+  };
+}
+
+
 }
