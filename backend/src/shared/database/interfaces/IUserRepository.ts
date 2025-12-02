@@ -1,4 +1,5 @@
 import {
+  ExpertPerformance,
   ModeratorApprovalRate,
   UserRoleOverview,
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
@@ -178,5 +179,8 @@ export interface IUserRepository {
    */
   getUserRoleCount(session?: ClientSession): Promise<UserRoleOverview[]>;
 
-
+  /**
+   * @param session
+   */
+  getExpertPerformance(session?: ClientSession): Promise<ExpertPerformance[]>;
 }

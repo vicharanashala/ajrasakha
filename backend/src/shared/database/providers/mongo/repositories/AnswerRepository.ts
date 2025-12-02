@@ -13,7 +13,12 @@ import {isValidObjectId} from '#root/utils/isValidObjectId.js';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
 import {SubmissionResponse} from '#root/modules/core/classes/validators/AnswerValidators.js';
-import {ModeratorApprovalRate} from '#root/modules/core/classes/validators/DashboardValidators.js';
+import {
+  Analytics,
+  AnalyticsItem,
+  AnswerStatusOverview,
+  ModeratorApprovalRate,
+} from '#root/modules/core/classes/validators/DashboardValidators.js';
 
 export class AnswerRepository implements IAnswerRepository {
   private AnswerCollection: Collection<IAnswer>;
@@ -1138,5 +1143,137 @@ export class AnswerRepository implements IAnswerRepository {
       console.error('Error fetching moderator approval rate:', error);
       throw new InternalServerError('Failed to fetch moderator approval rate');
     }
+  }
+
+  async getAnswerOverviewByStatus(
+    session?: ClientSession,
+  ): Promise<AnswerStatusOverview[]> {
+    await this.init();
+
+    const results = await this.AnswerCollection.aggregate(
+      [
+        {
+          $group: {
+            _id: '$status',
+            count: {$sum: 1},
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            dbStatus: '$_id',
+            count: 1,
+          },
+        },
+      ],
+      {session},
+    ).toArray();
+
+    const statusMap: Record<string, string> = {
+      'in-review': 'open',
+      'pending-with-moderator': 'in-review',
+    };
+
+    const allStatuses = ['open', 'in-review'];
+
+    const overview: AnswerStatusOverview[] = allStatuses.map(status => {
+      const found = results.find(r => statusMap[r.dbStatus] === status);
+      return {
+        status,
+        value: found?.count ?? 0,
+      };
+    });
+
+    return overview;
+  }
+  async getAnswerAnalytics(
+    startTime?: string,
+    endTime?: string,
+    session?: ClientSession,
+  ): Promise<{analytics: Analytics}> {
+    await this.init();
+
+    const filterDate: any = {};
+
+    // Date filter from Answer collection based on createdAt
+    if (startTime) {
+      filterDate.$gte = new Date(`${startTime}T00:00:00.000Z`);
+    }
+    if (endTime) {
+      filterDate.$lte = new Date(`${endTime}T23:59:59.999Z`);
+    }
+
+    const matchStage: any = {};
+    if (Object.keys(filterDate).length > 0) {
+      matchStage.createdAt = filterDate;
+    }
+
+    const pipeline = [
+      {$match: matchStage},
+
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'questionDetails',
+        },
+      },
+      {$unwind: '$questionDetails'},
+
+      {
+        $match: {
+          'questionDetails.details': {$exists: true},
+        },
+      },
+
+      // === CROPS ===
+      {
+        $group: {
+          _id: '$questionDetails.details.crop',
+          count: {$sum: 1},
+        },
+      },
+      {$project: {name: '$_id', count: 1, _id: 0}},
+    ];
+
+    // Run first aggregation for cropData
+    const cropData = (await this.AnswerCollection.aggregate(pipeline, {
+      session,
+    }).toArray()) as AnalyticsItem[];
+
+    // State Data
+    const stateData = (await this.AnswerCollection.aggregate(
+      [
+        ...pipeline.slice(0, -2), // reuse up to lookup/unwind/filter
+        {
+          $group: {
+            _id: '$questionDetails.details.state',
+            count: {$sum: 1},
+          },
+        },
+        {$project: {name: '$_id', count: 1, _id: 0}},
+      ],
+      {session},
+    ).toArray()) as AnalyticsItem[];
+
+    // Domain Data
+    const domainData = (await this.AnswerCollection.aggregate(
+      [
+        ...pipeline.slice(0, -2),
+        {
+          $group: {
+            _id: '$questionDetails.details.domain',
+            count: {$sum: 1},
+          },
+        },
+        {$project: {name: '$_id', count: 1, _id: 0}},
+      ],
+      {session},
+    ).toArray()) as AnalyticsItem[];
+
+    return {
+      analytics: {cropData, stateData, domainData},
+    };
   }
 }

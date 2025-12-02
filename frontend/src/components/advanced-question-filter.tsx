@@ -110,7 +110,7 @@ export const DateRangeFilter = ({
   };
 
   const handleDateSelect = (range: DateRange | undefined) => {
-    console.log("Date range: ", range);
+
     handleDialogChange("startTime", range?.from);
     handleDialogChange("endTime", range?.to);
 

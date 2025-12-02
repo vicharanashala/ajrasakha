@@ -174,6 +174,41 @@ const dashboardDummyData: DashboardAnalyticsResponse = {
     { expert: "Ajay", reputation: 81, incentive: 2200, penalty: 130 },
     { expert: "Priya", reputation: 95, incentive: 3500, penalty: 80 },
   ],
+
+  analytics: {
+    cropData: [
+      { name: "Rice", count: 245 },
+      { name: "Wheat", count: 189 },
+      { name: "Corn", count: 167 },
+      { name: "Cotton", count: 142 },
+      { name: "Others", count: 257 },
+      { name: "Rice", count: 245 },
+    ],
+    stateData: [
+      { name: "Maharashtra", count: 234 },
+      { name: "Punjab", count: 198 },
+      { name: "Uttar Pradesh", count: 187 },
+      { name: "Karnataka", count: 156 },
+      { name: "Rajasthan", count: 145 },
+      { name: "Maharashtra", count: 234 },
+      { name: "Punjab", count: 198 },
+      { name: "Uttar Pradesh", count: 187 },
+      { name: "Karnataka", count: 156 },
+      { name: "Rajasthan", count: 145 },
+      { name: "Maharashtra", count: 234 },
+      { name: "Punjab", count: 198 },
+      { name: "Uttar Pradesh", count: 187 },
+      { name: "Karnataka", count: 156 },
+      { name: "Rajasthan", count: 145 },
+    ],
+
+    domainData: [
+      { name: "Pest Management", count: 312 },
+      { name: "Soil Health", count: 287 },
+      { name: "Irrigation", count: 256 },
+      { name: "Fertilizers", count: 201 },
+    ],
+  },
 };
 export type ViewType = "year" | "month" | "week" | "day";
 
@@ -188,29 +223,33 @@ export const Dashboard = () => {
   const [selectedDay, setSelectedDay] = useState("Mon");
 
   // ---- SourcesChart state filters ----- //
-  const [timeRange, setTimeRange] = useState("90d");
+  const [timeRange, setTimeRange] = useState("90d"); // questionContributionTrend
 
   // ---- QuestionsAnalytics state filters ----- //
   const [date, setDate] = useState<DateRange>({
     startTime: undefined,
     endTime: undefined,
   });
+  const [analyticsType, setAnalyticsType] = useState<"question" | "answer">(
+    "question"
+  );
 
   // Fetch dashboard data
-  // const { data, isLoading, error } = useGetDashboardData({
-  //   goldenDataViewType: viewType,
-  //   goldenDataSelectedYear: selectedYear,
-  //   goldenDataSelectedMonth: selectedMonth,
-  //   goldenDataSelectedWeek: selectedWeek,
-  //   goldenDataSelectedDay: selectedDay,
-  //   sourceChartTimeRange: timeRange,
-  //   qnAnalyticsStartTime: date.startTime,
-  //   qnAnalyticsEndTime: date.endTime,
-  // });
+  const { data, isLoading, error } = useGetDashboardData({
+    goldenDataViewType: viewType,
+    goldenDataSelectedYear: selectedYear,
+    goldenDataSelectedMonth: selectedMonth,
+    goldenDataSelectedWeek: selectedWeek,
+    goldenDataSelectedDay: selectedDay,
+    sourceChartTimeRange: timeRange,
+    qnAnalyticsStartTime: date.startTime,
+    qnAnalyticsEndTime: date.endTime,
+    qnAnalyticsType: analyticsType
+  });
 
-  // if (isLoading) return <p>Loading...</p>;
-  // if (!data) return <p>No data found</p>;
-  // if (error) return <p>Error loading dashboard</p>;
+  if (isLoading) return <p>Loading...</p>;
+  if (!data) return <p>No data found</p>;
+  if (error) return <p>Error loading dashboard</p>;
 
   return (
     <main className="min-h-screen bg-background">
@@ -259,13 +298,19 @@ export const Dashboard = () => {
         </div>
 
         {/* Question Status and Golden Dataset Row */}
-        <div className=" mb-6">
+        <div className="mb-6">
           <StatusCharts data={dashboardDummyData.statusOverview} />
         </div>
 
         {/* Performance Row */}
         <div className="mb-6">
-          <QuestionsAnalytics date={date} setDate={setDate} />
+          <QuestionsAnalytics
+            date={date}
+            setDate={setDate}
+            analyticsType={analyticsType}
+            setAnalyticsType={setAnalyticsType}
+            data={dashboardDummyData.analytics}
+          />
         </div>
 
         {/* Analytics Row */}

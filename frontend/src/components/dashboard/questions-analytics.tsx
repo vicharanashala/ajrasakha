@@ -26,56 +26,60 @@ import {
   TabsTrigger,
 } from "@/components/atoms/tabs";
 import { DateRangeFilter } from "../advanced-question-filter";
-import { useState } from "react";
-
-const cropData = [
-  { name: "Rice", value: 245, color: "var(--color-chart-1)" },
-  { name: "Wheat", value: 189, color: "var(--color-chart-2)" },
-  { name: "Corn", value: 167, color: "var(--color-chart-3)" },
-  { name: "Cotton", value: 142, color: "var(--color-chart-4)" },
-  { name: "Others", value: 257, color: "var(--color-chart-5)" },
-  { name: "Rice", value: 245, color: "var(--color-chart-1)" },
-];
-
-const stateData = [
-  { state: "Maharashtra", count: 234 },
-  { state: "Punjab", count: 198 },
-  { state: "Uttar Pradesh", count: 187 },
-  { state: "Karnataka", count: 156 },
-  { state: "Rajasthan", count: 145 },
-  { state: "Maharashtra", count: 234 },
-  { state: "Punjab", count: 198 },
-  { state: "Uttar Pradesh", count: 187 },
-  { state: "Karnataka", count: 156 },
-  { state: "Rajasthan", count: 145 },
-  { state: "Maharashtra", count: 234 },
-  { state: "Punjab", count: 198 },
-  { state: "Uttar Pradesh", count: 187 },
-  { state: "Karnataka", count: 156 },
-  { state: "Rajasthan", count: 145 },
-];
-
-const domainData = [
-  { name: "Pest Management", value: 312, color: "var(--color-chart-1)" },
-  { name: "Soil Health", value: 287, color: "var(--color-chart-2)" },
-  { name: "Irrigation", value: 256, color: "var(--color-chart-3)" },
-  { name: "Fertilizers", value: 201, color: "var(--color-chart-4)" },
-];
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../atoms/select";
+import { Label } from "../atoms/label";
+import { Activity } from "lucide-react";
 
 export interface DateRange {
   startTime?: Date;
   endTime?: Date;
 }
+
 interface QuestionsAnalyticsProps {
   date: DateRange;
   setDate: React.Dispatch<React.SetStateAction<DateRange>>;
+  data: QuestionsAnalytics;
+  setAnalyticsType: (value: "question" | "answer") => void;
+  analyticsType: "question" | "answer";
+}
+const colors = [
+  "var(--color-chart-1)",
+  "var(--color-chart-2)",
+  "var(--color-chart-3)",
+  "var(--color-chart-4)",
+  "var(--color-chart-5)",
+];
+
+export interface AnalyticsItem {
+  name: string;
+  count: number;
+}
+
+export interface QuestionsAnalytics {
+  cropData: AnalyticsItem[];
+  stateData: AnalyticsItem[];
+  domainData: AnalyticsItem[];
 }
 
 export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
   date,
   setDate,
+  data,
+  setAnalyticsType,
+  analyticsType,
 }) => {
-  const handleDateChange = () => {};
+  const handleDateChange = (key: string, value?: Date) => {
+    setDate((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
 
   return (
     <Card>
@@ -87,11 +91,37 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
           </CardDescription>
         </div>
 
-        <div className="min-w-[220px]">
-          <DateRangeFilter
-            advanceFilter={date}
-            handleDialogChange={handleDateChange}
-          />
+        <div className=" flex justify-center items-center gap-6">
+          <div className="w-[120px] flex flex-col">
+            <Label
+              htmlFor="analyticsType"
+              className="mb-2 text-sm font-medium flex items-center gap-1"
+            >
+              <Activity className="w-4 h-4 text-primary" />
+              Analytics Type
+            </Label>
+            <Select
+              value={analyticsType}
+              onValueChange={(value) =>
+                setAnalyticsType(value as "question" | "answer")
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="question">Question</SelectItem>
+                <SelectItem value="answer">Answer</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="min-w-[220px]">
+            <DateRangeFilter
+              advanceFilter={date}
+              handleDialogChange={handleDateChange}
+            />
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -111,16 +141,19 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
-                      data={cropData}
+                      data={data.cropData}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
                       label={({ name, value }) => `${name}: ${value}`}
                       outerRadius={100}
-                      dataKey="value"
+                      dataKey="count"
                     >
-                      {cropData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      {data.cropData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={colors[index % colors.length]}
+                        />
                       ))}
                     </Pie>
                     <Tooltip
@@ -138,7 +171,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                 <h3 className="text-sm font-semibold text-foreground mb-4">
                   Crop Breakdown
                 </h3>
-                {cropData.map((item) => (
+                {data.cropData.map((item) => (
                   <div
                     key={item.name}
                     className="flex items-center justify-between p-3 rounded-lg bg-muted"
@@ -146,14 +179,14 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                     <div className="flex items-center gap-2">
                       <div
                         className="w-3 h-3 rounded"
-                        style={{ backgroundColor: item.color }}
+                        style={{ backgroundColor: "var(--color-chart-3)" }}
                       />
                       <span className="text-sm text-foreground">
                         {item.name}
                       </span>
                     </div>
                     <span className="font-semibold text-foreground">
-                      {item.value}
+                      {item.count}
                     </span>
                   </div>
                 ))}
@@ -166,13 +199,13 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
               Questions by State
             </h3>
             <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={stateData}>
+              <BarChart data={data.stateData}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   stroke="var(--color-border)"
                 />
                 <XAxis
-                  dataKey="state"
+                  dataKey="name"
                   stroke="var(--color-muted-foreground)"
                   angle={-45}
                   textAnchor="end"
@@ -205,16 +238,19 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
-                      data={domainData}
+                      data={data.domainData}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
                       label={({ name, value }) => `${name}: ${value}`}
                       outerRadius={100}
-                      dataKey="value"
+                      dataKey="count"
                     >
-                      {domainData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      {data.domainData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={colors[index % colors.length]}
+                        />
                       ))}
                     </Pie>
                     <Tooltip
@@ -232,7 +268,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                 <h3 className="text-sm font-semibold text-foreground mb-4">
                   Domain Breakdown
                 </h3>
-                {domainData.map((item) => (
+                {data.domainData.map((item) => (
                   <div
                     key={item.name}
                     className="flex items-center justify-between p-3 rounded-lg bg-muted"
@@ -240,14 +276,14 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                     <div className="flex items-center gap-2">
                       <div
                         className="w-3 h-3 rounded"
-                        style={{ backgroundColor: item.color }}
+                        style={{ backgroundColor: "var(--color-chart-2)" }}
                       />
                       <span className="text-sm text-foreground">
                         {item.name}
                       </span>
                     </div>
                     <span className="font-semibold text-foreground">
-                      {item.value}
+                      {item.count}
                     </span>
                   </div>
                 ))}

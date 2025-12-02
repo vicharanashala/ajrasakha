@@ -1,4 +1,12 @@
-import {IsIn, IsOptional, IsString, IsDateString} from 'class-validator';
+import {
+  IsIn,
+  IsOptional,
+  IsString,
+  IsDateString,
+  IsInt,
+  IsArray,
+  IsEnum,
+} from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 
 export type GoldenDataViewType = 'year' | 'month' | 'week' | 'day';
@@ -56,6 +64,15 @@ export class GetDashboardQuery {
   @IsOptional()
   @IsDateString()
   qnAnalyticsEndTime?: string;
+
+  @JSONSchema({
+    example: 'question',
+    description: 'Type of analytics to fetch',
+  })
+  @IsEnum(['question', 'answer'], {
+    message: 'qnAnalyticsType must be either "question" or "answer"',
+  })
+  qnAnalyticsType!: 'question' | 'answer';
 }
 
 export class UserRoleOverview {
@@ -119,7 +136,7 @@ export class QuestionContributionTrend {
   Moderator!: number;
 }
 
-export class QuestionStatus {
+export class QuestionStatusOverview {
   @JSONSchema({description: 'Status of the question', example: 'pending'})
   status!: string;
 
@@ -130,7 +147,7 @@ export class QuestionStatus {
   value!: number;
 }
 
-export class AnswerStatus {
+export class AnswerStatusOverview {
   @JSONSchema({description: 'Status of the answer', example: 'accepted'})
   status!: string;
 
@@ -140,10 +157,10 @@ export class AnswerStatus {
 
 export class StatusOverview {
   @JSONSchema({description: 'Overview of question statuses'})
-  questions!: QuestionStatus[];
+  questions!: QuestionStatusOverview[];
 
   @JSONSchema({description: 'Overview of answer statuses'})
-  answers!: AnswerStatus[];
+  answers!: AnswerStatusOverview[];
 }
 
 export class ExpertPerformance {
@@ -158,6 +175,30 @@ export class ExpertPerformance {
 
   @JSONSchema({description: 'Penalty points for expert', example: 5})
   penalty!: number;
+}
+
+export class AnalyticsItem {
+  @JSONSchema({description: 'Name of the crop/state/domain', example: 'Rice'})
+  @IsString()
+  name!: string;
+
+  @JSONSchema({description: 'Count for this item', example: 245})
+  @IsInt()
+  count!: number;
+}
+
+export class Analytics {
+  @JSONSchema({description: 'Crop wise analytics'})
+  @IsArray()
+  cropData!: AnalyticsItem[];
+
+  @JSONSchema({description: 'State wise analytics'})
+  @IsArray()
+  stateData!: AnalyticsItem[];
+
+  @JSONSchema({description: 'Domain wise analytics'})
+  @IsArray()
+  domainData!: AnalyticsItem[];
 }
 
 export class DashboardResponse {
@@ -182,4 +223,7 @@ export class DashboardResponse {
 
   @JSONSchema({description: 'Expert performance overview'})
   expertPerformance!: ExpertPerformance[];
+
+  @JSONSchema({description: 'Questions analytics overview'})
+  analytics!: Analytics;
 }

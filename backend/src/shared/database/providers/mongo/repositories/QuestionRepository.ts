@@ -31,9 +31,14 @@ import {
   sources,
 } from '#root/modules/core/utils/questionGen.js';
 import {
+  Analytics,
+  AnalyticsItem,
+  DashboardResponse,
   GoldenDatasetEntry,
   GoldenDataViewType,
+  QuestionStatusOverview,
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
+import {promises} from 'dns';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';
@@ -1393,5 +1398,139 @@ export class QuestionRepository implements IQuestionRepository {
     );
 
     return {dayHourlyData: {[goldenDataSelectedDay]: hourlyData}};
+  }
+
+  async getCountBySource(
+    timeRange: string, // 90d, 30d, 7d ,...
+    session?: ClientSession,
+  ): Promise<DashboardResponse['questionContributionTrend']> {
+    await this.init();
+
+    const rangeMatch = timeRange.match(/^(\d+)d$/);
+    if (!rangeMatch) throw new Error('Invalid time range format');
+    const days = Number(rangeMatch[1]);
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const contributions = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: {
+            createdAt: {$gte: startDate},
+          },
+        },
+        {
+          $group: {
+            _id: '$source', // group by source
+            count: {$sum: 1},
+          },
+        },
+      ],
+      {session},
+    ).toArray();
+
+    const trend = {
+      date: timeRange,
+      Ajraskha: 0,
+      Moderator: 0,
+    };
+
+    contributions.forEach(c => {
+      if (c._id === 'AJRASAKHA') trend.Ajraskha = c.count;
+      if (c._id === 'AGRI_EXPERT') trend.Moderator = c.count;
+    });
+
+    return [trend];
+  }
+  async getQuestionOverviewByStatus(
+    session?: ClientSession,
+  ): Promise<QuestionStatusOverview[]> {
+    await this.init();
+
+    const results = await this.QuestionCollection.aggregate(
+      [
+        {
+          $group: {
+            _id: '$status',
+            count: {$sum: 1},
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            status: '$_id',
+            value: '$count',
+          },
+        },
+      ],
+      {session},
+    ).toArray();
+
+    const allStatuses = ['open', 'delayed', 'in-review'];
+    const overview: QuestionStatusOverview[] = allStatuses.map(status => {
+      const found = results.find(r => r.status === status);
+      return {
+        status,
+        value: found?.value ?? 0,
+      };
+    });
+
+    return overview;
+  }
+
+  async getQuestionAnalytics(
+    startTime?: string,
+    endTime?: string,
+    session?: ClientSession,
+  ): Promise<{analytics: Analytics}> {
+    await this.init();
+
+    const filterDate: any = {};
+    if (startTime) filterDate.$gte = new Date(`${startTime}T00:00:00.000Z`);
+    if (endTime) filterDate.$lte = new Date(`${endTime}T23:59:59.999Z`);
+
+    const matchStage: any = {};
+    if (Object.keys(filterDate).length > 0) {
+      matchStage.createdAt = filterDate;
+    }
+
+    // Aggregate crop data
+    const cropDataRaw = (await this.QuestionCollection.aggregate(
+      [
+        {$match: matchStage},
+        {$group: {_id: '$details.crop', count: {$sum: 1}}},
+        {$project: {name: '$_id', count: 1, _id: 0}},
+      ],
+      {session},
+    ).toArray()) as AnalyticsItem[];
+
+    // Aggregate state data
+    const stateDataRaw = (await this.QuestionCollection.aggregate(
+      [
+        {$match: matchStage},
+        {$group: {_id: '$details.state', count: {$sum: 1}}},
+        {$project: {name: '$_id', count: 1, _id: 0}},
+      ],
+      {session},
+    ).toArray()) as AnalyticsItem[];
+
+    // Aggregate domain data
+    const domainDataRaw = (await this.QuestionCollection.aggregate(
+      [
+        {$match: matchStage},
+        {$group: {_id: '$details.domain', count: {$sum: 1}}},
+        {$project: {name: '$_id', count: 1, _id: 0}},
+      ],
+      {session},
+    ).toArray()) as AnalyticsItem[];
+
+    return {
+      analytics: {
+        cropData: cropDataRaw,
+        stateData: stateDataRaw,
+        domainData: domainDataRaw,
+      },
+    };
   }
 }

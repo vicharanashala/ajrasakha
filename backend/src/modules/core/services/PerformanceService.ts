@@ -9,6 +9,7 @@ import {
   IQuestionMetrics,
   ISubmissionHistory,
   IReviewerHeatmapRow,
+  QuestionStatus,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -35,10 +36,15 @@ import {INotificationRepository} from '#root/shared/database/interfaces/INotific
 import {notifyUser} from '#root/utils/pushNotification.js';
 import {NotificationService} from './NotificationService.js';
 import {
+  Analytics,
+  AnswerStatusOverview,
   DashboardResponse,
+  ExpertPerformance,
   GetDashboardQuery,
   GoldenDataset,
   GoldenDataViewType,
+  QuestionStatusOverview,
+  StatusOverview,
   UserRoleOverview,
 } from '../classes/validators/DashboardValidators.js';
 import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
@@ -79,91 +85,12 @@ export class PerformanceService extends BaseService {
     return await this.answerRepo.getCurrentUserWorkLoad(currentUserId);
   }
 
-  async getGoldenDatasetData(): Promise<GoldenDataset> {
-    const closedStatus = 'closed';
-    const closedQuestions = await this.questionRepo.getQuestionsByStatus(
-      closedStatus,
-      session,
-    );
-
-    if (viewType === 'year') {
-      const selectedYearNum = Number(goldenDataSelectedYear);
-
-      const startDate = new Date(selectedYearNum, 0, 1);
-      const endDate = new Date(selectedYearNum + 1, 0, 1);
-
-      const yearData = await this.questionRepo.aggregate([
-        {
-          $match: {
-            status: 'closed',
-            closedAt: {$gte: startDate, $lt: endDate},
-          },
-        },
-        {
-          $group: {
-            _id: {month: {$month: '$closedAt'}},
-            totalClosed: {$sum: 1},
-          },
-        },
-        {$sort: {'_id.month': 1}},
-      ]);
-
-      const formattedMonths = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
-
-      const formattedData = Array.from({length: 12}, (_, i) => {
-        const match = yearData.find(m => m._id.month === i + 1);
-        return {
-          month: formattedMonths[i],
-          entries: 0,
-          verified: match?.totalClosed ?? 0,
-        };
-      });
-
-      return {yearData: formattedData};
-    }
-
-    // if (viewType === 'month') {
-    //   const weeksData = await this.questionRepo.getMonthAnalytics(
-    //     closedQuestions,
-    //   );
-    //   return {weeksData};
-    // }
-
-    // if (viewType === 'week') {
-    //   const dailyData = await this.questionRepo.getWeekAnalytics(
-    //     closedQuestions,
-    //   );
-    //   return {dailyData};
-    // }
-
-    // if (viewType === 'day') {
-    //   const dayHourlyData = await this.questionRepo.getDayAnalytics(
-    //     closedQuestions,
-    //   );
-    //   return {dayHourlyData};
-    // }
-
-    throw new InternalServerError('Invalid Golden Dataset Type');
-  }
-
   async getDashboardData(
     currentUserId: string,
     query: GetDashboardQuery,
   ): Promise<{data: DashboardResponse}> {
-    await this._withTransaction(async (session: ClientSession) => {
+    return await this._withTransaction(async (session: ClientSession) => {
+
       const {
         goldenDataViewType,
         goldenDataSelectedYear,
@@ -173,6 +100,7 @@ export class PerformanceService extends BaseService {
         sourceChartTimeRange,
         qnAnalyticsEndTime,
         qnAnalyticsStartTime,
+        qnAnalyticsType,
       } = query;
 
       const user = await this.userRepo.findById(currentUserId, session);
@@ -187,6 +115,7 @@ export class PerformanceService extends BaseService {
 
       // goldenDataset
       let goldenDataset = {} as GoldenDataset;
+      console.log("goldenDataViewType: ", goldenDataViewType)
 
       if (goldenDataViewType == 'year') {
         const {yearData} = await this.questionRepo.getYearAnalytics(
@@ -220,28 +149,52 @@ export class PerformanceService extends BaseService {
         goldenDataset = {dayHourlyData};
       }
 
+      //questionContributionTrend
+      const questionContributionTrend: DashboardResponse['questionContributionTrend'] =
+        await this.questionRepo.getCountBySource(sourceChartTimeRange, session);
+
+      // statusOverview
+      const questionsOverview: QuestionStatusOverview[] =
+        await this.questionRepo.getQuestionOverviewByStatus(session);
+
+      const answerOverView: AnswerStatusOverview[] =
+        await this.answerRepo.getAnswerOverviewByStatus(session);
+
+      const statusOverview: StatusOverview = {
+        questions: questionsOverview,
+        answers: answerOverView,
+      };
+
+      //expertPerformance
+      const expertPerformance: ExpertPerformance[] =
+        await this.userRepo.getExpertPerformance(session);
+
+      let analytics = {} as Analytics;
+
+      if (qnAnalyticsType == 'question') {
+        const result = await this.questionRepo.getQuestionAnalytics(
+          qnAnalyticsStartTime,
+          qnAnalyticsEndTime,
+          session,
+        );
+        analytics = result.analytics;
+      } else {
+        const result = await this.answerRepo.getAnswerAnalytics(
+          qnAnalyticsStartTime,
+          qnAnalyticsEndTime,
+          session,
+        );
+        analytics = result.analytics;
+      }
+
       const response: DashboardResponse = {
         userRoleOverview,
         moderatorApprovalRate,
         goldenDataset,
-
-        questionContributionTrend: [
-          {date: '2025-01-01', Ajraskha: 5, Moderator: 2},
-        ],
-
-        statusOverview: {
-          questions: [
-            {status: 'pending', value: 40},
-            {status: 'completed', value: 100},
-          ],
-          answers: [
-            {status: 'accepted', value: 80},
-            {status: 'rejected', value: 20},
-          ],
-        },
-        expertPerformance: [
-          {expert: 'John', reputation: 120, incentive: 50, penalty: 2},
-        ],
+        questionContributionTrend,
+        statusOverview,
+        expertPerformance,
+        analytics,
       };
 
       return {data: response};

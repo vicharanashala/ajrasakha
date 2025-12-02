@@ -1,6 +1,9 @@
 import {
+  Analytics,
+  DashboardResponse,
   GoldenDatasetEntry,
   GoldenDataViewType,
+  QuestionStatusOverview,
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {
   GetDetailedQuestionsQuery,
@@ -246,4 +249,33 @@ export interface IQuestionRepository {
     goldenDataSelectedDay: string,
     session?: ClientSession,
   ): Promise<{dayHourlyData: Record<string, GoldenDatasetEntry[]>}>;
+
+  /**
+   * get daily analytics.
+   * @param timeRange - timeRange.
+   * @param session - Optional MongoDB client session for transactions.
+   */
+  getCountBySource(
+    timeRange: string,
+    session?: ClientSession,
+  ): Promise<DashboardResponse['questionContributionTrend']>;
+
+  /**
+   * get count of questoins on each status.
+   * @param session - Optional MongoDB client session for transactions.
+   */
+  getQuestionOverviewByStatus(
+    session?: ClientSession,
+  ): Promise<QuestionStatusOverview[]>;
+
+  /**
+   * @param startTime: string,
+   * @param endTime - string.
+   * @param session - Optional MongoDB client session for transactions.
+   */
+  getQuestionAnalytics(
+    startTime?: string,
+    endTime?: string,
+    session?: ClientSession,
+  ): Promise<{analytics: Analytics}>;
 }

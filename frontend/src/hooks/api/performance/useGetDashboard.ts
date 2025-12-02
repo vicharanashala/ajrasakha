@@ -5,8 +5,9 @@ import type { ModeratorApprovalRate } from "@/components/dashboard/approval-rate
 import type { GoldenDataset } from "@/components/dashboard/golden-dataset";
 import type { StatusOverview } from "@/components/dashboard/question-status";
 import type { ExpertPerformance } from "@/components/dashboard/experts-performance";
-import type { DateRange } from "@/components/dashboard/questions-analytics";
-import type { ViewType } from "@/components/dashboard";
+import type {
+  QuestionsAnalytics,
+} from "@/components/dashboard/questions-analytics";
 
 export interface DashboardAnalyticsResponse {
   userRoleOverview: UserRoleOverview[];
@@ -19,6 +20,7 @@ export interface DashboardAnalyticsResponse {
   }[];
   statusOverview: StatusOverview;
   expertPerformance: ExpertPerformance[];
+  analytics: QuestionsAnalytics;
 }
 
 export interface DashboardFilters {
@@ -30,6 +32,7 @@ export interface DashboardFilters {
   sourceChartTimeRange: string;
   qnAnalyticsStartTime?: Date;
   qnAnalyticsEndTime?: Date;
+  qnAnalyticsType: "question" | "answer"
 }
 
 const performaceService = new PerformaneService();
@@ -42,6 +45,7 @@ export const useGetDashboardData = ({
   sourceChartTimeRange,
   qnAnalyticsEndTime,
   qnAnalyticsStartTime,
+  qnAnalyticsType
 }: DashboardFilters) => {
   const { data, isLoading, error, refetch } = useQuery<
     DashboardAnalyticsResponse | null,
@@ -57,6 +61,7 @@ export const useGetDashboardData = ({
       sourceChartTimeRange,
       qnAnalyticsEndTime,
       qnAnalyticsStartTime,
+      qnAnalyticsType
     ],
     queryFn: async () => {
       return await performaceService.getDashboardData({
@@ -68,6 +73,7 @@ export const useGetDashboardData = ({
         sourceChartTimeRange,
         qnAnalyticsEndTime,
         qnAnalyticsStartTime,
+        qnAnalyticsType
       });
     },
   });

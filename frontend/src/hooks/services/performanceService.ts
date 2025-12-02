@@ -29,6 +29,7 @@ export class PerformaneService {
     params.append("goldenDataSelectedWeek", filters.goldenDataSelectedWeek);
     params.append("goldenDataSelectedDay", filters.goldenDataSelectedDay);
     params.append("sourceChartTimeRange", filters.sourceChartTimeRange);
+    params.append("qnAnalyticsType", filters.qnAnalyticsType);
 
     if (filters.qnAnalyticsStartTime) {
       params.append(

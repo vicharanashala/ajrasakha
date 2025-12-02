@@ -48,10 +48,14 @@ export class PerformanceController {
   async getDashboardData(
     @QueryParams() query: GetDashboardQuery,
     @CurrentUser() user: IUser,
-  ): Promise<{data: DashboardResponse}> {
+  ): Promise<DashboardResponse> {
     const currentUserId = user._id.toString();
+    const {data} = await this.performanceService.getDashboardData(
+      currentUserId,
+      query,
+    );
 
-    return this.performanceService.getDashboardData(currentUserId, query);
+    return data;
   }
 
   @Get('/heatMapofReviewers')

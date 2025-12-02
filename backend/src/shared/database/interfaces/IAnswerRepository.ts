@@ -1,5 +1,9 @@
 import {SubmissionResponse} from '#root/modules/core/classes/validators/AnswerValidators.js';
-import { ModeratorApprovalRate } from '#root/modules/core/classes/validators/DashboardValidators.js';
+import {
+  Analytics,
+  AnswerStatusOverview,
+  ModeratorApprovalRate,
+} from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {IAnswer, SourceItem} from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
 
@@ -172,4 +176,22 @@ export interface IAnswerRepository {
     currentUserId: string,
     session?: ClientSession,
   ): Promise<ModeratorApprovalRate>;
+
+  /**
+   * @param session
+   */
+  getAnswerOverviewByStatus(
+    session?: ClientSession,
+  ): Promise<AnswerStatusOverview[]>;
+
+  /**
+   * @param startTime: string,
+   * @param endTime - string.
+   * @param session - Optional MongoDB client session for transactions.
+   */
+  getAnswerAnalytics(
+    startTime?: string,
+    endTime?: string,
+    session?: ClientSession,
+  ): Promise<{analytics: Analytics}>;
 }

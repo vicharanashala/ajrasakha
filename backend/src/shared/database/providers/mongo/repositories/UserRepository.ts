@@ -9,6 +9,7 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {User} from '#auth/classes/transformers/User.js';
 import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
 import {
+  ExpertPerformance,
   ModeratorApprovalRate,
   UserRoleOverview,
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
@@ -492,5 +493,30 @@ export class UserRepository implements IUserRepository {
       console.error('Error fetching user role count:', error);
       throw new InternalServerError('Failed to fetch user role count');
     }
+  }
+
+  async getExpertPerformance(
+    session?: ClientSession,
+  ): Promise<ExpertPerformance[]> {
+    await this.init();
+
+    const experts = await this.usersCollection
+      .find(
+        {role: 'expert'},
+        {
+          session,
+          projection: {name: 1, reputation: 1, incentive: 1, penalty: 1},
+        },
+      )
+      .toArray();
+
+    const performance: ExpertPerformance[] = experts.map(expert => ({
+      expert: expert.firstName || 'Unknown',
+      reputation: expert.reputation_score || 0,
+      incentive: expert.incentive || 0,
+      penalty: expert.penalty || 0,
+    }));
+
+    return performance;
   }
 }
