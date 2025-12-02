@@ -180,6 +180,9 @@ export type ViewType = "year" | "month" | "week" | "day";
 export const Dashboard = () => {
   // ---- Golden Dataset Overview state filters ----- //
   const [viewType, setViewType] = useState<ViewType>("year");
+  const [selectedYear, setSelectedYear] = useState(
+    new Date().getFullYear().toString()
+  );
   const [selectedMonth, setSelectedMonth] = useState("January");
   const [selectedWeek, setSelectedWeek] = useState("Week 1");
   const [selectedDay, setSelectedDay] = useState("Mon");
@@ -194,19 +197,20 @@ export const Dashboard = () => {
   });
 
   // Fetch dashboard data
-  const { data, isLoading, error } = useGetDashboardData({
-    goldenDataViewType: viewType,
-    goldenDataSelectedMonth: selectedMonth,
-    goldenDataSelectedWeek: selectedWeek,
-    goldenDataSelectedDay: selectedDay,
-    sourceChartTimeRange: timeRange,
-    qnAnalyticsStartTime: date.startTime,
-    qnAnalyticsEndTime: date.endTime,
-  });
+  // const { data, isLoading, error } = useGetDashboardData({
+  //   goldenDataViewType: viewType,
+  //   goldenDataSelectedYear: selectedYear,
+  //   goldenDataSelectedMonth: selectedMonth,
+  //   goldenDataSelectedWeek: selectedWeek,
+  //   goldenDataSelectedDay: selectedDay,
+  //   sourceChartTimeRange: timeRange,
+  //   qnAnalyticsStartTime: date.startTime,
+  //   qnAnalyticsEndTime: date.endTime,
+  // });
 
-  if (isLoading) return <p>Loading...</p>;
-  if (!data) return <p>No data found</p>;
-  if (error) return <p>Error loading dashboard</p>;
+  // if (isLoading) return <p>Loading...</p>;
+  // if (!data) return <p>No data found</p>;
+  // if (error) return <p>Error loading dashboard</p>;
 
   return (
     <main className="min-h-screen bg-background">
@@ -234,6 +238,8 @@ export const Dashboard = () => {
         <div className="mb-6">
           <GoldenDatasetOverview
             data={dashboardDummyData.goldenDataset}
+            selectedYear={selectedYear}
+            setSelectedYear={setSelectedYear}
             selectedDay={selectedDay}
             selectedMonth={selectedMonth}
             selectedWeek={selectedWeek}

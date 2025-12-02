@@ -30,6 +30,10 @@ import {
   questionStatus,
   sources,
 } from '#root/modules/core/utils/questionGen.js';
+import {
+  GoldenDatasetEntry,
+  GoldenDataViewType,
+} from '#root/modules/core/classes/validators/DashboardValidators.js';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';
@@ -1089,5 +1093,305 @@ export class QuestionRepository implements IQuestionRepository {
   ): Promise<IQuestion[]> {
     await this.init();
     return await this.QuestionCollection.find({status}, {session}).toArray();
+  }
+
+  async getYearAnalytics(
+    goldenDataSelectedYear: string,
+    session?: ClientSession,
+  ): Promise<{yearData: GoldenDatasetEntry[]}> {
+    await this.init();
+    const selectedYearNum = Number(goldenDataSelectedYear);
+
+    const startDate = new Date(selectedYearNum, 0, 1);
+    const endDate = new Date(selectedYearNum + 1, 0, 1);
+
+    const yearData = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: {
+            status: 'closed',
+            closedAt: {$gte: startDate, $lt: endDate},
+          },
+        },
+        {
+          $group: {
+            _id: {month: {$month: '$closedAt'}},
+            totalClosed: {$sum: 1},
+          },
+        },
+        {$sort: {'_id.month': 1}},
+      ],
+      {session},
+    ).toArray();
+
+    const formattedMonths = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    const formattedData: GoldenDatasetEntry[] = Array.from(
+      {length: 12},
+      (_, i) => {
+        const match = yearData.find(m => m._id.month === i + 1);
+        return {
+          month: formattedMonths[i],
+          entries: 0,
+          verified: match?.totalClosed ?? 0,
+        };
+      },
+    );
+
+    return {yearData: formattedData};
+  }
+  async getMonthAnalytics(
+    goldenDataSelectedYear: string,
+    goldenDataSelectedMonth: string,
+    session?: ClientSession,
+  ): Promise<{weeksData: GoldenDatasetEntry[]}> {
+    await this.init();
+
+    const monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    const yearNum = Number(goldenDataSelectedYear);
+    const monthNum = monthNames.indexOf(goldenDataSelectedMonth);
+    if (monthNum === -1) throw new BadRequestError('Invalid month name');
+
+    const startDate = new Date(yearNum, monthNum, 1);
+    const endDate = new Date(yearNum, monthNum + 1, 1);
+
+    const weeksDataRaw = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: {
+            status: 'closed',
+            closedAt: {$gte: startDate, $lt: endDate},
+          },
+        },
+        {
+          $addFields: {
+            weekOfMonth: {
+              $ceil: {
+                $divide: [{$dayOfMonth: '$closedAt'}, 7],
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {week: '$weekOfMonth'},
+            totalClosed: {$sum: 1},
+          },
+        },
+        {$sort: {'_id.week': 1}},
+      ],
+      {session},
+    ).toArray();
+
+    const formattedWeeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
+
+    const weeksData: GoldenDatasetEntry[] = formattedWeeks.map((w, i) => {
+      const match = weeksDataRaw.find(x => x._id.week === i + 1);
+      return {
+        week: w,
+        entries: 0,
+        verified: match?.totalClosed ?? 0,
+      };
+    });
+
+    return {weeksData};
+  }
+
+  async getWeekAnalytics(
+    goldenDataSelectedYear: string,
+    goldenDataSelectedMonth: string,
+    goldenDataSelectedWeek: string,
+    session?: ClientSession,
+  ): Promise<{dailyData: GoldenDatasetEntry[]}> {
+    await this.init();
+    const monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    const monthNum = monthNames.indexOf(goldenDataSelectedMonth);
+    if (monthNum === -1) throw new BadRequestError('Invalid month name');
+
+    const yearNum = Number(goldenDataSelectedYear);
+
+    // Calculate start and end dates for the selected week
+    const weekNum = Number(goldenDataSelectedWeek.replace('Week ', ''));
+    const startDay = (weekNum - 1) * 7 + 1; // start day of the week
+    const endDay = startDay + 6; // end day of the week
+
+    const startDate = new Date(yearNum, monthNum, startDay);
+    const endDate = new Date(yearNum, monthNum, endDay + 1); // +1 for exclusive range
+
+    // Aggregate closed questions grouped by day of week
+    const dailyDataRaw = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: {
+            status: 'closed',
+            closedAt: {$gte: startDate, $lt: endDate},
+          },
+        },
+        {
+          $addFields: {
+            dayOfWeek: {$dayOfWeek: '$closedAt'}, // 1 = Sunday, 2 = Monday ...
+          },
+        },
+        {
+          $group: {
+            _id: {day: '$dayOfWeek'},
+            totalClosed: {$sum: 1},
+          },
+        },
+        {$sort: {'_id.day': 1}},
+      ],
+      {session},
+    ).toArray();
+
+    const daysMap = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    const dailyData: GoldenDatasetEntry[] = Array.from({length: 7}, (_, i) => {
+      // MongoDB: 1 = Sunday, so index = dayOfWeek - 1
+      const match = dailyDataRaw.find(d => d._id.day === i + 1);
+      return {
+        day: daysMap[i],
+        entries: 0,
+        verified: match?.totalClosed ?? 0,
+      };
+    });
+
+    return {dailyData};
+  }
+
+  async getDailyAnalytics(
+    goldenDataSelectedYear: string,
+    goldenDataSelectedMonth: string,
+    goldenDataSelectedWeek: string,
+    goldenDataSelectedDay: string,
+    session?: ClientSession,
+  ): Promise<{dayHourlyData: Record<string, GoldenDatasetEntry[]>}> {
+    await this.init();
+    const monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    const monthNum = monthNames.indexOf(goldenDataSelectedMonth);
+    if (monthNum === -1) throw new BadRequestError('Invalid month name');
+
+    const yearNum = Number(goldenDataSelectedYear);
+    const weekNum = Number(goldenDataSelectedWeek.replace('Week ', ''));
+
+    // Calculate start and end day for the week
+    const startDay = (weekNum - 1) * 7 + 1;
+    const endDay = startDay + 6;
+
+    const startDate = new Date(yearNum, monthNum, startDay);
+    const endDate = new Date(yearNum, monthNum, endDay + 1); // exclusive
+
+    // Map day names to numbers (JS: 0=Sun, 1=Mon...)
+    const dayMap: Record<string, number> = {
+      Sun: 0,
+      Mon: 1,
+      Tue: 2,
+      Wed: 3,
+      Thu: 4,
+      Fri: 5,
+      Sat: 6,
+    };
+
+    const selectedDayNum = dayMap[goldenDataSelectedDay];
+    if (selectedDayNum === undefined) throw new BadRequestError('Invalid day');
+
+    const answers = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: {
+            status: 'closed',
+            closedAt: {$gte: startDate, $lt: endDate},
+          },
+        },
+        {
+          $addFields: {
+            dayOfWeek: {$dayOfWeek: '$closedAt'}, // 1=Sun, 2=Mon...
+            hourOfDay: {$hour: '$closedAt'},
+          },
+        },
+        {
+          $match: {
+            dayOfWeek: selectedDayNum + 1, // MongoDB: 1=Sun
+          },
+        },
+        {
+          $group: {
+            _id: '$hourOfDay',
+            totalClosed: {$sum: 1},
+          },
+        },
+        {$sort: {_id: 1}},
+      ],
+      {session},
+    ).toArray();
+
+    // Initialize all 24 hours with 0 entries
+    const hourlyData: GoldenDatasetEntry[] = Array.from(
+      {length: 24},
+      (_, i) => {
+        const match = answers.find(a => a._id === i);
+        return {
+          hour: i.toString().padStart(2, '0') + ':00',
+          entries: 0,
+          verified: match?.totalClosed ?? 0,
+        };
+      },
+    );
+
+    return {dayHourlyData: {[goldenDataSelectedDay]: hourlyData}};
   }
 }

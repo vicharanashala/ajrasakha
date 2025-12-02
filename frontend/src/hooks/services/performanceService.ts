@@ -24,6 +24,7 @@ export class PerformaneService {
     const params = new URLSearchParams();
 
     params.append("goldenDataViewType", filters.goldenDataViewType);
+    params.append("goldenDataSelectedYear", filters.goldenDataSelectedYear);
     params.append("goldenDataSelectedMonth", filters.goldenDataSelectedMonth);
     params.append("goldenDataSelectedWeek", filters.goldenDataSelectedWeek);
     params.append("goldenDataSelectedDay", filters.goldenDataSelectedDay);

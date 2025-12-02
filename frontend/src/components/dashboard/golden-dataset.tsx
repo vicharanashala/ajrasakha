@@ -144,6 +144,8 @@ export interface GoldenDatasetOverviewProps {
   setViewType: (v: "year" | "month" | "week" | "day") => void;
   selectedMonth: string;
   setSelectedMonth: (m: string) => void;
+  selectedYear: string;
+  setSelectedYear: (m: string) => void;
   selectedWeek: string;
   setSelectedWeek: (w: string) => void;
   selectedDay: string;
@@ -153,6 +155,8 @@ export interface GoldenDatasetOverviewProps {
 export const GoldenDatasetOverview = ({
   data,
   viewType,
+  selectedYear,
+  setSelectedYear,
   setViewType,
   selectedMonth,
   setSelectedMonth,
@@ -161,6 +165,11 @@ export const GoldenDatasetOverview = ({
   selectedDay,
   setSelectedDay,
 }: GoldenDatasetOverviewProps) => {
+  const getLast10Years = () => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 10 }, (_, i) => currentYear - i);
+  };
+
   const getTotals = () => {
     if (viewType === "year") {
       const total = data.yearData.reduce((sum, d) => sum + d.entries, 0);
@@ -322,13 +331,26 @@ export const GoldenDatasetOverview = ({
             </div>
           </div>
 
-          {(viewType === "month" ||
+          {/* {(viewType === "month" ||
             viewType === "week" ||
-            viewType === "day") && (
-            <div className="flex flex-wrap gap-3 mt-4">
-              {(viewType === "month" ||
-                viewType === "week" ||
-                viewType === "day") && (
+            viewType === "day") && ( */}
+          <div className="flex flex-wrap gap-3 mt-4">
+            <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Select Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {getLast10Years().map((year) => (
+                  <SelectItem key={year} value={String(year)}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {(viewType === "month" ||
+              viewType === "week" ||
+              viewType === "day") && (
+              <>
                 <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                   <SelectTrigger className="w-[120px]">
                     <SelectValue placeholder="Select Month" />
@@ -342,40 +364,42 @@ export const GoldenDatasetOverview = ({
                     <SelectItem value="June">June</SelectItem>
                   </SelectContent>
                 </Select>
-              )}
+              </>
+            )}
 
-              {(viewType === "week" || viewType === "day") && (
-                <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder="Select Week" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Week 1">Week 1</SelectItem>
-                    <SelectItem value="Week 2">Week 2</SelectItem>
-                    <SelectItem value="Week 3">Week 3</SelectItem>
-                    <SelectItem value="Week 4">Week 4</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
+            {(viewType === "week" || viewType === "day") && (
+              <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Select Week" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Week 1">Week 1</SelectItem>
+                  <SelectItem value="Week 2">Week 2</SelectItem>
+                  <SelectItem value="Week 3">Week 3</SelectItem>
+                  <SelectItem value="Week 4">Week 4</SelectItem>
+                  <SelectItem value="Week 5">Week 4</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
 
-              {viewType === "day" && (
-                <Select value={selectedDay} onValueChange={setSelectedDay}>
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder="Select Day" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Mon">Mon</SelectItem>
-                    <SelectItem value="Tue">Tue</SelectItem>
-                    <SelectItem value="Wed">Wed</SelectItem>
-                    <SelectItem value="Thu">Thu</SelectItem>
-                    <SelectItem value="Fri">Fri</SelectItem>
-                    <SelectItem value="Sat">Sat</SelectItem>
-                    <SelectItem value="Sun">Sun</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          )}
+            {viewType === "day" && (
+              <Select value={selectedDay} onValueChange={setSelectedDay}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Select Day" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Mon">Mon</SelectItem>
+                  <SelectItem value="Tue">Tue</SelectItem>
+                  <SelectItem value="Wed">Wed</SelectItem>
+                  <SelectItem value="Thu">Thu</SelectItem>
+                  <SelectItem value="Fri">Fri</SelectItem>
+                  <SelectItem value="Sat">Sat</SelectItem>
+                  <SelectItem value="Sun">Sun</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          {/* )} */}
         </CardHeader>
 
         <CardContent>

@@ -9,6 +9,14 @@ export class GetDashboardQuery {
   goldenDataViewType!: GoldenDataViewType;
 
   @JSONSchema({
+    example: '2026',
+    description: 'Selected year for Golden Dataset',
+  })
+  @IsOptional()
+  @IsString()
+  goldenDataSelectedYear?: string;
+
+  @JSONSchema({
     example: 'January',
     description: 'Selected month for Golden Dataset',
   })
@@ -67,8 +75,17 @@ export class ModeratorApprovalRate {
 }
 
 export class GoldenDatasetEntry {
-  @JSONSchema({description: 'Date of the entry', example: '2025-12-01'})
-  date!: string;
+  @JSONSchema({description: 'Week name', example: 'Week 1'})
+  week?: string;
+
+  @JSONSchema({description: 'Month name', example: 'Jan'})
+  month?: string;
+
+  @JSONSchema({description: 'Day of week', example: 'Mon'})
+  day?: string;
+
+  @JSONSchema({description: 'Hour of the day', example: '09:00'})
+  hour?: string;
 
   @JSONSchema({description: 'Number of verified entries', example: 20})
   entries!: number;

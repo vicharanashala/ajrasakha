@@ -106,14 +106,14 @@ export class AnswerController {
   @HttpCode(200)
   @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async updateAnswer(
+  async approveAnswer(
     @Params() params: AnswerIdParam,
     @Body() body: UpdateAnswerBody,
     @CurrentUser() user: IUser,
   ) {
     const {answerId} = params;
     const {_id: userId} = user;
-    return this.answerService.updateAnswer(userId.toString(), answerId, body);
+    return this.answerService.approveAnswer(userId.toString(), answerId, body);
   }
 
   @OpenAPI({summary: 'Delete an answer and update the related question state'})

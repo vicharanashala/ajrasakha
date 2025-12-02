@@ -1,4 +1,8 @@
 import {
+  GoldenDatasetEntry,
+  GoldenDataViewType,
+} from '#root/modules/core/classes/validators/DashboardValidators.js';
+import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '#root/modules/core/classes/validators/QuestionValidators.js';
@@ -186,4 +190,60 @@ export interface IQuestionRepository {
     status: QuestionStatus,
     session?: ClientSession,
   ): Promise<IQuestion[]>;
+
+  /**
+   * get yearly analytics.
+   * @param goldenDataSelectedYear - question status.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to question document
+   */
+  getYearAnalytics(
+    goldenDataSelectedYear: string,
+    session?: ClientSession,
+  ): Promise<{yearData: GoldenDatasetEntry[]}>;
+
+  /**
+   * get monthly analytics.
+   * @param goldenDataSelectedYear - selected year.
+   * @param goldenDataSelectedMonth - selected month
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to question document
+   */
+  getMonthAnalytics(
+    goldenDataSelectedYear: string,
+    goldenDataSelectedMonth: string,
+    session?: ClientSession,
+  ): Promise<{weeksData: GoldenDatasetEntry[]}>;
+
+  /**
+   * get weekly analytics.
+   * @param goldenDataSelectedYear - selected year.
+   * @param goldenDataSelectedMonth - selected month
+   * @param goldenDataSelectedWeek - selected week
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to question document
+   */
+  getWeekAnalytics(
+    goldenDataSelectedYear: string,
+    goldenDataSelectedMonth: string,
+    goldenDataSelectedWeek: string,
+    session?: ClientSession,
+  ): Promise<{dailyData: GoldenDatasetEntry[]}>;
+
+  /**
+   * get daily analytics.
+   * @param goldenDataSelectedYear - selected year.
+   * @param goldenDataSelectedMonth - selected month
+   * @param goldenDataSelectedWeek - selected week
+   * @param goldenDataSelectedDay - selected day
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to question document
+   */
+  getDailyAnalytics(
+    goldenDataSelectedYear: string,
+    goldenDataSelectedMonth: string,
+    goldenDataSelectedWeek: string,
+    goldenDataSelectedDay: string,
+    session?: ClientSession,
+  ): Promise<{dayHourlyData: Record<string, GoldenDatasetEntry[]>}>;
 }

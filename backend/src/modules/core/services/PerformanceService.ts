@@ -79,10 +79,7 @@ export class PerformanceService extends BaseService {
     return await this.answerRepo.getCurrentUserWorkLoad(currentUserId);
   }
 
-  async getGoldenDatasetData(
-    viewType: GoldenDataViewType,
-    session?: ClientSession,
-  ): Promise<GoldenDataset> {
+  async getGoldenDatasetData(): Promise<GoldenDataset> {
     const closedStatus = 'closed';
     const closedQuestions = await this.questionRepo.getQuestionsByStatus(
       closedStatus,
@@ -90,24 +87,74 @@ export class PerformanceService extends BaseService {
     );
 
     if (viewType === 'year') {
-      const yearData = await this.getYearAnalytics(closedQuestions);
-      return {yearData};
+      const selectedYearNum = Number(goldenDataSelectedYear);
+
+      const startDate = new Date(selectedYearNum, 0, 1);
+      const endDate = new Date(selectedYearNum + 1, 0, 1);
+
+      const yearData = await this.questionRepo.aggregate([
+        {
+          $match: {
+            status: 'closed',
+            closedAt: {$gte: startDate, $lt: endDate},
+          },
+        },
+        {
+          $group: {
+            _id: {month: {$month: '$closedAt'}},
+            totalClosed: {$sum: 1},
+          },
+        },
+        {$sort: {'_id.month': 1}},
+      ]);
+
+      const formattedMonths = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+
+      const formattedData = Array.from({length: 12}, (_, i) => {
+        const match = yearData.find(m => m._id.month === i + 1);
+        return {
+          month: formattedMonths[i],
+          entries: 0,
+          verified: match?.totalClosed ?? 0,
+        };
+      });
+
+      return {yearData: formattedData};
     }
 
-    if (viewType === 'month') {
-      const weeksData = await this.getMonthAnalytics(closedQuestions);
-      return {weeksData};
-    }
+    // if (viewType === 'month') {
+    //   const weeksData = await this.questionRepo.getMonthAnalytics(
+    //     closedQuestions,
+    //   );
+    //   return {weeksData};
+    // }
 
-    if (viewType === 'week') {
-      const dailyData = await this.getWeekAnalytics(closedQuestions);
-      return {dailyData};
-    }
+    // if (viewType === 'week') {
+    //   const dailyData = await this.questionRepo.getWeekAnalytics(
+    //     closedQuestions,
+    //   );
+    //   return {dailyData};
+    // }
 
-    if (viewType === 'day') {
-      const dayHourlyData = await this.getDayAnalytics(closedQuestions);
-      return {dayHourlyData};
-    }
+    // if (viewType === 'day') {
+    //   const dayHourlyData = await this.questionRepo.getDayAnalytics(
+    //     closedQuestions,
+    //   );
+    //   return {dayHourlyData};
+    // }
 
     throw new InternalServerError('Invalid Golden Dataset Type');
   }
@@ -119,10 +166,11 @@ export class PerformanceService extends BaseService {
     await this._withTransaction(async (session: ClientSession) => {
       const {
         goldenDataViewType,
-        sourceChartTimeRange,
-        goldenDataSelectedDay,
+        goldenDataSelectedYear,
         goldenDataSelectedMonth,
         goldenDataSelectedWeek,
+        goldenDataSelectedDay,
+        sourceChartTimeRange,
         qnAnalyticsEndTime,
         qnAnalyticsStartTime,
       } = query;
@@ -138,30 +186,44 @@ export class PerformanceService extends BaseService {
         await this.answerRepo.getModeratorApprovalRate(currentUserId, session);
 
       // goldenDataset
-      const closedStatus = 'closed';
-      const closedQuestions = await this.questionRepo.getQuestionsByStatus(
-        closedStatus,
-        session,
-      );
+      let goldenDataset = {} as GoldenDataset;
 
       if (goldenDataViewType == 'year') {
+        const {yearData} = await this.questionRepo.getYearAnalytics(
+          goldenDataSelectedYear,
+          session,
+        );
+        goldenDataset = {yearData};
       } else if (goldenDataViewType == 'month') {
+        const {weeksData} = await this.questionRepo.getMonthAnalytics(
+          goldenDataSelectedYear,
+          goldenDataSelectedMonth,
+          session,
+        );
+        goldenDataset = {weeksData};
       } else if (goldenDataViewType == 'week') {
+        const {dailyData} = await this.questionRepo.getWeekAnalytics(
+          goldenDataSelectedYear,
+          goldenDataSelectedMonth,
+          goldenDataSelectedWeek,
+          session,
+        );
+        goldenDataset = {dailyData};
       } else if (goldenDataViewType == 'day') {
+        const {dayHourlyData} = await this.questionRepo.getDailyAnalytics(
+          goldenDataSelectedYear,
+          goldenDataSelectedMonth,
+          goldenDataSelectedWeek,
+          goldenDataSelectedDay,
+          session,
+        );
+        goldenDataset = {dayHourlyData};
       }
 
       const response: DashboardResponse = {
         userRoleOverview,
         moderatorApprovalRate,
-
-        goldenDataset: {
-          yearData: [{date: 'Jan', entries: 200, verified: 180}],
-          weeksData: [{date: 'Week 1', entries: 50, verified: 45}],
-          dailyData: [{date: 'Monday', entries: 10, verified: 9}],
-          dayHourlyData: {
-            Mon: [{date: '10 AM', entries: 2, verified: 2}],
-          },
-        },
+        goldenDataset,
 
         questionContributionTrend: [
           {date: '2025-01-01', Ajraskha: 5, Moderator: 2},

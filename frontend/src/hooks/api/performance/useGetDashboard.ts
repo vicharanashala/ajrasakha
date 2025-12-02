@@ -23,6 +23,7 @@ export interface DashboardAnalyticsResponse {
 
 export interface DashboardFilters {
   goldenDataViewType: string;
+  goldenDataSelectedYear: string;
   goldenDataSelectedMonth: string;
   goldenDataSelectedWeek: string;
   goldenDataSelectedDay: string;
@@ -33,6 +34,7 @@ export interface DashboardFilters {
 
 const performaceService = new PerformaneService();
 export const useGetDashboardData = ({
+  goldenDataSelectedYear,
   goldenDataSelectedDay,
   goldenDataSelectedMonth,
   goldenDataSelectedWeek,
@@ -47,6 +49,7 @@ export const useGetDashboardData = ({
   >({
     queryKey: [
       "dashboard",
+      goldenDataSelectedYear,
       goldenDataSelectedDay,
       goldenDataSelectedMonth,
       goldenDataSelectedWeek,
@@ -57,6 +60,7 @@ export const useGetDashboardData = ({
     ],
     queryFn: async () => {
       return await performaceService.getDashboardData({
+        goldenDataSelectedYear,
         goldenDataSelectedDay,
         goldenDataSelectedMonth,
         goldenDataSelectedWeek,

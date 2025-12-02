@@ -1110,7 +1110,7 @@ export class AnswerService extends BaseService {
   }
 
   // Currently using for approving answer
-  async updateAnswer(
+  async approveAnswer(
     userId: string,
     answerId: string,
     updates: UpdateAnswerBody,
@@ -1162,7 +1162,12 @@ answer: ${updates.answer}`;
       );
       await this.questionRepo.updateQuestion(
         questionId,
-        {text, embedding: questionEmbedding, status: 'closed'},
+        {
+          text,
+          embedding: questionEmbedding,
+          status: 'closed',
+          closedAt: new Date(),
+        },
         session,
         true,
       );
