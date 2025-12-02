@@ -290,7 +290,7 @@ export default function UserActivityHistory() {
   };
 
   return (
-    <main className="min-h-screen   sm:p-8">
+    <main className="min-h-screen   sm:p-8 ">
       {selectedQuestionId && questionDetails && (
         <>
           <QuestionDetails
@@ -325,120 +325,113 @@ export default function UserActivityHistory() {
         {/* List */}
         {!isLoading && submissions.length > 0 && (
           <>
-            <div className="space-y-4">
+            <div className="space-y-4 ">
               {submissions.map((item: any) => (
+                <Card className="bg-card rounded-2xl  shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group hover:-translate-y-0.5">
+                  <CardContent className="p-0">
+                    <div className="px-4 sm:px-6  bg-card border-b border-gray-100 dark:border-gray-800 backdrop-blur-sm">
+                      <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:gap-4 text-sm">
+                        <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium bg-card px-3 py-1.5 rounded-lg shadow-xs w-full sm:w-auto">
+                          <Clock className="w-4 h-4 text-primary flex-shrink-0" />
+                          <span className="text-xs sm:text-sm truncate">
+                            {formatTimestamp(item.createdAt)}
+                          </span>
+                        </div>
 
-<Card className="bg-card rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group hover:-translate-y-0.5">
-        <CardContent className="p-0">
-          {/* Header Section - Responsive */}
-          <div className="px-4 sm:px-6 py-3 sm:py-4 bg-card border-b border-gray-100 dark:border-gray-800 backdrop-blur-sm">
-            <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:gap-4 text-sm">
-              {/* Date with enhanced styling */}
-              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium bg-card px-3 py-1.5 rounded-lg shadow-xs w-full sm:w-auto">
-                <Clock className="w-4 h-4 text-primary flex-shrink-0" />
-                <span className="text-xs sm:text-sm truncate">
-                  {formatTimestamp(item.createdAt)}
-                </span>
-              </div>
-
-              {/* Status Badge */}
-              <Badge
-                variant="outline"
-                className={`
+                        <Badge
+                          variant="outline"
+                          className={`
                   w-full sm:w-auto justify-center
                   ${
                     item.action === "accepted"
                       ? "border-green-600 text-green-600"
                       : item.action === "rejected"
-                      ? "border-red-600 text-red-600" 
-                      : item.action === 'author' 
+                      ? "border-red-600 text-red-600"
+                      : item.action === "author"
                       ? "rounded-full bg-blue-100 text-blue-700 font-semibold"
                       : "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700"
                   }
                 `}
-              >
-                <span className="flex items-center gap-1">
-                  {item.action === "accepted" && (
-                    <>
-                      <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
-                      <span>Accepted</span>
-                    </>
-                  )}
-                  {item.action === "rejected" && (
-                    <>
-                      <XCircle className="w-3 h-3 text-red-600 dark:text-red-400" />
-                      <span>Rejected</span>
-                    </>
-                  )}
-                  {item.action === "modified" && (
-                    <>
-                      <Pencil className="w-3 h-3 text-orange-700 dark:text-orange-400" />
-                      <span>Modified</span>
-                    </>
-                  )}
-                  {item.action === "author" && (
-                    <>
-                      <User className="w-3 h-3 text-gray-700 dark:text-gray-400" />
-                      <span>Author</span>
-                    </>
-                  )}
-                </span>
-              </Badge>
-            </div>
-          </div>
+                        >
+                          <span className="flex items-center gap-1">
+                            {item.action === "accepted" && (
+                              <>
+                                <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
+                                <span>Accepted</span>
+                              </>
+                            )}
+                            {item.action === "rejected" && (
+                              <>
+                                <XCircle className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                <span>Rejected</span>
+                              </>
+                            )}
+                            {item.action === "modified" && (
+                              <>
+                                <Pencil className="w-3 h-3 text-orange-700 dark:text-orange-400" />
+                                <span>Modified</span>
+                              </>
+                            )}
+                            {item.action === "author" && (
+                              <>
+                                <User className="w-3 h-3 text-gray-700 dark:text-gray-400" />
+                                <span>Author</span>
+                              </>
+                            )}
+                          </span>
+                        </Badge>
+                      </div>
+                    </div>
 
-          {/* Main Content Section - Responsive */}
-          <div className="px-4 sm:px-6 py-4 sm:py-5">
-            <div className="flex flex-col lg:flex-row items-start gap-4 lg:gap-6">
-              {/* Enhanced Question Section */}
-              <div className="flex-1 min-w-0 w-full">
-                {/* Question label */}
-                <div className="flex items-center gap-2 mb-3">
-                  <FileText className="w-4 h-4 text-primary flex-shrink-0" />
-                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                    Question
-                  </span>
-                </div>
+                    <div className="px-4 sm:px-6 py-4 sm:py-5">
+                      <div className="flex flex-col lg:flex-row items-start gap-4 lg:gap-6">
+                        <div className="flex-1 min-w-0 w-full">
+                          <div className="flex items-center gap-2 mb-3">
+                            <FileText className="w-4 h-4 text-primary flex-shrink-0" />
+                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                              Question
+                            </span>
+                          </div>
 
-                {/* Question text with enhanced focus */}
-                <div
-                  onClick={() => setSelectedQuestionId(item.question._id)}
-                  className="group/question cursor-pointer p-3 sm:p-4 rounded-xl bg-card shadow-xs dark:from-gray-800/50 dark:to-gray-900/50 border border-gray-100 dark:border-gray-800 hover:border-green-200 dark:hover:border-green-800 hover:shadow-lg transition-all duration-300 hover:scale-[1.00]"
-                >
-                  <p className="text-base sm:text-lg text-gray-900 dark:text-gray-100 font-semibold leading-relaxed transition-colors duration-300 line-clamp-3">
-                    {item.question?.question}
-                  </p>
+                          <div
+                            onClick={() =>
+                              setSelectedQuestionId(item.question._id)
+                            }
+                            className="group/question cursor-pointer p-3 sm:p-4 rounded-xl bg-card shadow-xs dark:from-gray-800/50 dark:to-gray-900/50 border border-gray-100 dark:border-gray-800 hover:border-green-200 dark:hover:border-green-800 hover:shadow-lg transition-all duration-300 hover:scale-[1.00]"
+                          >
+                            <p className="text-base sm:text-lg text-gray-900  dark:text-gray-100 font-semibold leading-relaxed transition-colors duration-300 line-clamp-3">
+                              {item.question?.question}
+                            </p>
 
-                  {/* Hover indicator */}
-                  <div className="flex items-center gap-1 mt-3 opacity-0 group-hover/question:opacity-100 transition-opacity duration-300">
-                    <span className="text-xs font-medium text-primary">
-                      Click to view details
-                    </span>
-                    <ChevronRight className="w-3 h-3 text-primary" />
-                  </div>
-                </div>
-              </div>
+                            <div className="flex items-center gap-1 mt-3 opacity-0 group-hover/question:opacity-100 transition-opacity duration-300">
+                              <span className="text-xs font-medium text-primary">
+                                Click to view details
+                              </span>
+                              <ChevronRight className="w-3 h-3 text-primary" />
+                            </div>
+                          </div>
+                        </div>
 
-              {/* Enhanced Action Button - Responsive */}
-              <div className="flex flex-col items-stretch lg:items-end gap-3 w-full lg:w-auto lg:flex-shrink-0 lg:pt-8">
-                <button
-                  onClick={() => setSelectedItem(item)}
-                  className="group/btn relative flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl shadow-lg hover:shadow-xl hover:shadow-green-500/25 transition-all duration-300 hover:scale-105 overflow-hidden w-full lg:w-auto"
-                >
-                  <div className="absolute inset-0 bg-primary" />
-                  <span className="relative text-black dark:text-white">View Context</span>
-                  <ChevronRight className="w-4 h-4 relative group-hover/btn:translate-x-0.5 transition-transform duration-300 text-black dark:text-white" />
-                </button>
+                        <div className="flex flex-col items-stretch lg:items-end gap-3 w-full lg:w-auto lg:flex-shrink-0 lg:pt-8">
+                          <button
+                            onClick={() => setSelectedItem(item)}
+                            className="group/btn relative flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl shadow-lg hover:shadow-xl hover:shadow-green-500/25 transition-all duration-300 hover:scale-105 overflow-hidden w-full lg:w-auto"
+                          >
+                            <div className="absolute inset-0 bg-primary" />
+                            <span className="relative text-black dark:text-white">
+                              View Context
+                            </span>
+                            <ChevronRight className="w-4 h-4 relative group-hover/btn:translate-x-0.5 transition-transform duration-300 text-black dark:text-white" />
+                          </button>
 
-                {/* Additional context info */}
-                <div className="text-xs text-gray-500 dark:text-gray-400 text-center lg:text-right">
-                  Full submission details
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 text-center lg:text-right">
+                            Full submission details
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
             {!isLoading && submissions.length > 0 && totalPages > 1 && (
