@@ -90,7 +90,6 @@ export class PerformanceService extends BaseService {
     query: GetDashboardQuery,
   ): Promise<{data: DashboardResponse}> {
     return await this._withTransaction(async (session: ClientSession) => {
-
       const {
         goldenDataViewType,
         goldenDataSelectedYear,
@@ -114,22 +113,28 @@ export class PerformanceService extends BaseService {
         await this.answerRepo.getModeratorApprovalRate(currentUserId, session);
 
       // goldenDataset
+      const closedQuestions = await this.questionRepo.getQuestionsByStatus(
+        'closed',
+        session,
+      );
+
+      const verifiedEntries = closedQuestions.length;
+
       let goldenDataset = {} as GoldenDataset;
-      console.log("goldenDataViewType: ", goldenDataViewType)
 
       if (goldenDataViewType == 'year') {
         const {yearData} = await this.questionRepo.getYearAnalytics(
           goldenDataSelectedYear,
           session,
         );
-        goldenDataset = {yearData};
+        goldenDataset = {yearData, verifiedEntries};
       } else if (goldenDataViewType == 'month') {
         const {weeksData} = await this.questionRepo.getMonthAnalytics(
           goldenDataSelectedYear,
           goldenDataSelectedMonth,
           session,
         );
-        goldenDataset = {weeksData};
+        goldenDataset = {weeksData, verifiedEntries};
       } else if (goldenDataViewType == 'week') {
         const {dailyData} = await this.questionRepo.getWeekAnalytics(
           goldenDataSelectedYear,
@@ -137,7 +142,7 @@ export class PerformanceService extends BaseService {
           goldenDataSelectedWeek,
           session,
         );
-        goldenDataset = {dailyData};
+        goldenDataset = {dailyData, verifiedEntries};
       } else if (goldenDataViewType == 'day') {
         const {dayHourlyData} = await this.questionRepo.getDailyAnalytics(
           goldenDataSelectedYear,
@@ -146,7 +151,7 @@ export class PerformanceService extends BaseService {
           goldenDataSelectedDay,
           session,
         );
-        goldenDataset = {dayHourlyData};
+        goldenDataset = {dayHourlyData, verifiedEntries};
       }
 
       //questionContributionTrend

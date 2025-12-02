@@ -127,8 +127,24 @@ import {
 //   ],
 // };
 
+const monthNames = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
 export interface GoldenDataset {
   type: "year" | "month" | "week" | "day";
+  verifiedEntries: number;
   yearData: { month: string; entries: number; verified: number }[];
   weeksData: { week: string; entries: number; verified: number }[];
   dailyData: { day: string; entries: number; verified: number }[];
@@ -226,11 +242,9 @@ export const GoldenDatasetOverview = ({
                 <p className="text-xs text-muted-foreground mb-1">
                   Total Entries
                 </p>
-                <p className="text-3xl font-bold text-foreground">
-                  {totals.total.toLocaleString()}
-                </p>
+                <p className="text-3xl font-bold text-foreground">N/A</p>
                 <p className="text-xs text-green-600 mt-2 font-medium">
-                  ↑ 12.4% from previous period
+                  Total Questions in Golden DB{" "}
                 </p>
               </div>
               <Database className="w-8 h-8 text-chart-1 opacity-60" />
@@ -246,11 +260,10 @@ export const GoldenDatasetOverview = ({
                   Verified Entries
                 </p>
                 <p className="text-3xl font-bold text-foreground">
-                  {totals.verified.toLocaleString()}
+                  {data.verifiedEntries}
                 </p>
                 <p className="text-xs text-green-600 mt-2 font-medium">
-                  ↑ {Math.round((totals.verified / totals.total) * 100)}%
-                  verification rate
+                  Total questions verified through review/approval process
                 </p>
               </div>
               <CheckCircle2 className="w-8 h-8 text-chart-2 opacity-60" />
@@ -356,12 +369,11 @@ export const GoldenDatasetOverview = ({
                     <SelectValue placeholder="Select Month" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="January">January</SelectItem>
-                    <SelectItem value="February">February</SelectItem>
-                    <SelectItem value="March">March</SelectItem>
-                    <SelectItem value="April">April</SelectItem>
-                    <SelectItem value="May">May</SelectItem>
-                    <SelectItem value="June">June</SelectItem>
+                    {monthNames.map((month) => (
+                      <SelectItem key={month} value={month}>
+                        {month}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </>
@@ -377,7 +389,7 @@ export const GoldenDatasetOverview = ({
                   <SelectItem value="Week 2">Week 2</SelectItem>
                   <SelectItem value="Week 3">Week 3</SelectItem>
                   <SelectItem value="Week 4">Week 4</SelectItem>
-                  <SelectItem value="Week 5">Week 4</SelectItem>
+                  <SelectItem value="Week 5">Week 5</SelectItem>
                 </SelectContent>
               </Select>
             )}

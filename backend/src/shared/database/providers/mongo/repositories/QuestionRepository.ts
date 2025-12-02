@@ -1400,6 +1400,50 @@ export class QuestionRepository implements IQuestionRepository {
     return {dayHourlyData: {[goldenDataSelectedDay]: hourlyData}};
   }
 
+  // async getCountBySource(
+  //   timeRange: string, // 90d, 30d, 7d ,...
+  //   session?: ClientSession,
+  // ): Promise<DashboardResponse['questionContributionTrend']> {
+  //   await this.init();
+
+  //   const rangeMatch = timeRange.match(/^(\d+)d$/);
+  //   if (!rangeMatch) throw new Error('Invalid time range format');
+  //   const days = Number(rangeMatch[1]);
+
+  //   const startDate = new Date();
+  //   startDate.setDate(startDate.getDate() - days);
+
+  //   const contributions = await this.QuestionCollection.aggregate(
+  //     [
+  //       {
+  //         $match: {
+  //           createdAt: {$gte: startDate},
+  //         },
+  //       },
+  //       {
+  //         $group: {
+  //           _id: '$source', // group by source
+  //           count: {$sum: 1},
+  //         },
+  //       },
+  //     ],
+  //     {session},
+  //   ).toArray();
+
+  //   const trend = {
+  //     date: timeRange,
+  //     Ajrasakha: 12,
+  //     Moderator: 0,
+  //   };
+
+  //   contributions.forEach(c => {
+  //     if (c._id === 'AJRASAKHA') trend.Ajrasakha = 12;
+  //     if (c._id === 'AGRI_EXPERT') trend.Moderator = c.count;
+  //   });
+
+  //   return [trend];
+  // }
+
   async getCountBySource(
     timeRange: string, // 90d, 30d, 7d ,...
     session?: ClientSession,
@@ -1413,7 +1457,7 @@ export class QuestionRepository implements IQuestionRepository {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    const contributions = await this.QuestionCollection.aggregate(
+    const results = await this.QuestionCollection.aggregate(
       [
         {
           $match: {
@@ -1422,27 +1466,53 @@ export class QuestionRepository implements IQuestionRepository {
         },
         {
           $group: {
-            _id: '$source', // group by source
+            _id: {
+              source: '$source',
+              day: {
+                $dateToString: {format: '%Y-%m-%d', date: '$createdAt'},
+              },
+            },
             count: {$sum: 1},
+          },
+        },
+        {
+          $group: {
+            _id: '$_id.day',
+            counts: {
+              $push: {
+                source: '$_id.source',
+                count: '$count',
+              },
+            },
+          },
+        },
+        {
+          $sort: {
+            _id: 1, // sort by date asc
           },
         },
       ],
       {session},
     ).toArray();
 
-    const trend = {
-      date: timeRange,
-      Ajraskha: 0,
-      Moderator: 0,
-    };
+    const chartData = results.map(r => {
+      const dataObj = {
+        date: r._id,
+        Ajrasakha: 0,
+        Moderator: 0,
+      };
 
-    contributions.forEach(c => {
-      if (c._id === 'AJRASAKHA') trend.Ajraskha = c.count;
-      if (c._id === 'AGRI_EXPERT') trend.Moderator = c.count;
+      r.counts.forEach((item: any) => {
+        if (item.source === 'AJRASAKHA') dataObj.Ajrasakha = item.count;
+        if (item.source === 'AGRI_EXPERT') dataObj.Moderator = item.count;
+      });
+
+      return dataObj;
     });
 
-    return [trend];
+    return chartData;
   }
+
   async getQuestionOverviewByStatus(
     session?: ClientSession,
   ): Promise<QuestionStatusOverview[]> {

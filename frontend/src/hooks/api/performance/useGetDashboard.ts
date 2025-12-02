@@ -15,7 +15,7 @@ export interface DashboardAnalyticsResponse {
   goldenDataset: GoldenDataset;
   questionContributionTrend: {
     date: string;
-    Ajraskha: number;
+    Ajrasakha: number;
     Moderator: number;
   }[];
   statusOverview: StatusOverview;

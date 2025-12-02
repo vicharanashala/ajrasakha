@@ -505,7 +505,7 @@ export class UserRepository implements IUserRepository {
         {role: 'expert'},
         {
           session,
-          projection: {name: 1, reputation: 1, incentive: 1, penalty: 1},
+          projection: {firstName: 1, reputation: 1, incentive: 1, penalty: 1},
         },
       )
       .toArray();

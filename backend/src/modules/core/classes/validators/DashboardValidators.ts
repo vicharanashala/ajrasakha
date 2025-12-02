@@ -87,8 +87,11 @@ export class ModeratorApprovalRate {
   @JSONSchema({description: 'Percentage of approved questions', example: 80})
   approvalRate!: number;
 
-  @JSONSchema({description: 'Total number of reviews done', example: 100})
-  totalReviews!: number;
+  @JSONSchema({description: 'Total number of pending questions', example: 10})
+  pending!: number;
+
+  @JSONSchema({description: 'Total number of approved questions', example: 7})
+  approved!: number;
 }
 
 export class GoldenDatasetEntry {
@@ -112,6 +115,9 @@ export class GoldenDatasetEntry {
 }
 
 export class GoldenDataset {
+  @JSONSchema({description: 'Total count of verified answers'})
+  verifiedEntries: number;
+
   @JSONSchema({description: 'Yearly data breakdown'})
   yearData?: GoldenDatasetEntry[];
 
@@ -214,7 +220,7 @@ export class DashboardResponse {
   @JSONSchema({description: 'Question contribution trends'})
   questionContributionTrend!: {
     date: string;
-    Ajraskha: number;
+    Ajrasakha: number;
     Moderator: number;
   }[];
 

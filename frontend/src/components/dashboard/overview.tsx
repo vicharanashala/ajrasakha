@@ -69,8 +69,8 @@ import {
 } from "@/components/atoms/card";
 
 export interface UserRoleOverview {
-  name: string;
-  value: number;
+  role: string;
+  count: number;
 }
 
 // export const data: UserRoleOverview[] = [
@@ -105,7 +105,7 @@ interface ModeratorsOverviewProps {
 export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
   data,
 }) => {
-  const total = data.reduce((acc, item) => acc + item.value, 0);
+  const total = data.reduce((acc, item) => acc + item.count, 0);
 
   return (
     <Card className="flex flex-col">
@@ -120,8 +120,8 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
             <PieChart>
               <Pie
                 data={data}
-                dataKey="value"
-                nameKey="name"
+                dataKey="count"
+                nameKey="role"
                 innerRadius={70}
                 outerRadius={100}
                 paddingAngle={4}
@@ -133,7 +133,7 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
                   <Cell
                     key={index}
                     fill={
-                      entry.name == "Experts"
+                      entry.role == "Experts"
                         ? "var(--chart-1)"
                         : "var(--chart-2)"
                     }

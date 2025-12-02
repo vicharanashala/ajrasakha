@@ -25,27 +25,27 @@ import {
 } from "@/components/atoms/select";
 export const description = "An interactive area chart";
 // const chartData = [
-//   { date: "2024-04-01", Ajraskha: 222, Moderator: 150 },
-//   { date: "2024-04-02", Ajraskha: 97, Moderator: 180 },
-//   { date: "2024-04-03", Ajraskha: 167, Moderator: 120 },
-//   { date: "2024-04-04", Ajraskha: 242, Moderator: 260 },
-//   { date: "2024-04-05", Ajraskha: 373, Moderator: 290 },
-//   { date: "2024-04-06", Ajraskha: 301, Moderator: 340 },
-//   { date: "2024-04-07", Ajraskha: 245, Moderator: 180 },
-//   { date: "2024-04-08", Ajraskha: 409, Moderator: 320 },
-//   { date: "2024-04-09", Ajraskha: 59, Moderator: 110 },
-//   { date: "2024-04-10", Ajraskha: 261, Moderator: 190 },
-//   { date: "2024-04-11", Ajraskha: 327, Moderator: 350 },
-//   { date: "2024-04-12", Ajraskha: 292, Moderator: 210 },
-//   { date: "2024-04-13", Ajraskha: 342, Moderator: 380 },
-//   { date: "2024-04-14", Ajraskha: 137, Moderator: 220 },
+//   { date: "2024-04-01", Ajrasakha: 222, Moderator: 150 },
+//   { date: "2024-04-02", Ajrasakha: 97, Moderator: 180 },
+//   { date: "2024-04-03", Ajrasakha: 167, Moderator: 120 },
+//   { date: "2024-04-04", Ajrasakha: 242, Moderator: 260 },
+//   { date: "2024-04-05", Ajrasakha: 373, Moderator: 290 },
+//   { date: "2024-04-06", Ajrasakha: 301, Moderator: 340 },
+//   { date: "2024-04-07", Ajrasakha: 245, Moderator: 180 },
+//   { date: "2024-04-08", Ajrasakha: 409, Moderator: 320 },
+//   { date: "2024-04-09", Ajrasakha: 59, Moderator: 110 },
+//   { date: "2024-04-10", Ajrasakha: 261, Moderator: 190 },
+//   { date: "2024-04-11", Ajrasakha: 327, Moderator: 350 },
+//   { date: "2024-04-12", Ajrasakha: 292, Moderator: 210 },
+//   { date: "2024-04-13", Ajrasakha: 342, Moderator: 380 },
+//   { date: "2024-04-14", Ajrasakha: 137, Moderator: 220 },
 // ];
 const chartConfig = {
   visitors: {
     label: "Visitors",
   },
-  Ajraskha: {
-    label: "Ajraskha",
+  Ajrasakha: {
+    label: "Ajrasakha",
     color: "var(--chart-1)",
   },
   Moderator: {
@@ -56,7 +56,7 @@ const chartConfig = {
 
 export interface QuestionContributionTrend {
   date: string;
-  Ajraskha: number;
+  Ajrasakha: number;
   Moderator: number;
 }
 
@@ -72,19 +72,20 @@ export const SourcesChart: React.FC<SourcesChartProps> = ({
   timeRange,
   setTimeRange,
 }) => {
-  const filteredData = data.filter((item) => {
-    const date = new Date(item.date);
-    const referenceDate = new Date("2024-06-30");
-    let daysToSubtract = 90;
-    if (timeRange === "30d") {
-      daysToSubtract = 30;
-    } else if (timeRange === "7d") {
-      daysToSubtract = 7;
-    }
-    const startDate = new Date(referenceDate);
-    startDate.setDate(startDate.getDate() - daysToSubtract);
-    return date >= startDate;
-  });
+  // const filteredData = data.filter((item) => {
+  //   const date = new Date(item.date);
+  //   const referenceDate = new Date("2024-06-30");
+  //   let daysToSubtract = 90;
+  //   if (timeRange === "30d") {
+  //     daysToSubtract = 30;
+  //   } else if (timeRange === "7d") {
+  //     daysToSubtract = 7;
+  //   }
+  //   const startDate = new Date(referenceDate);
+  //   startDate.setDate(startDate.getDate() - daysToSubtract);
+  //   return date >= startDate;
+  // });
+  // console.log("filteredData: ", filteredData)
 
   return (
     <Card className="pt-0">
@@ -122,17 +123,17 @@ export const SourcesChart: React.FC<SourcesChartProps> = ({
           config={chartConfig}
           className="aspect-auto h-[250px] w-full"
         >
-          <AreaChart data={filteredData}>
+          <AreaChart data={data}>
             <defs>
               <linearGradient id="fillDesktop" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="5%"
-                  stopColor="var(--color-Ajraskha)"
+                  stopColor="var(--color-Ajrasakha)"
                   stopOpacity={0.8}
                 />
                 <stop
                   offset="95%"
-                  stopColor="var(--color-Ajraskha)"
+                  stopColor="var(--color-Ajrasakha)"
                   stopOpacity={0.1}
                 />
               </linearGradient>
@@ -186,10 +187,10 @@ export const SourcesChart: React.FC<SourcesChartProps> = ({
               stackId="a"
             />
             <Area
-              dataKey="Ajraskha"
+              dataKey="Ajrasakha"
               type="natural"
               fill="url(#fillDesktop)"
-              stroke="var(--color-Ajraskha)"
+              stroke="var(--color-Ajrasakha)"
               stackId="a"
             />
             <ChartLegend content={<ChartLegendContent />} />

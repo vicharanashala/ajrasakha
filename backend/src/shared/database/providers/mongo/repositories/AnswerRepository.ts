@@ -1117,13 +1117,16 @@ export class AnswerRepository implements IAnswerRepository {
     try {
       await this.init();
 
-      // count of answer which completed expert review
-      const totalReviews = await this.AnswerCollection.countDocuments(
-        {
-          status: {$in: ['approved', 'pending-with-moderator']},
-        },
+      const pending = await this.AnswerCollection.countDocuments(
+        {status: 'pending-with-moderator'},
         {session},
       );
+      const approved = await this.AnswerCollection.countDocuments(
+        {status: 'approved'},
+        {session},
+      );
+
+      const totalReviews = pending + approved || 0;
 
       const approvedCount = await this.AnswerCollection.countDocuments(
         {status: 'approved'},
@@ -1136,7 +1139,8 @@ export class AnswerRepository implements IAnswerRepository {
           : 0;
 
       return {
-        totalReviews,
+        approved,
+        pending,
         approvalRate,
       };
     } catch (error) {

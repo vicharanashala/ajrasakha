@@ -210,6 +210,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                   angle={-45}
                   textAnchor="end"
                   height={80}
+                  tick={{ fontSize: 12 }} 
                 />
                 <YAxis stroke="var(--color-muted-foreground)" />
                 <Tooltip

@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Card,
   CardContent,
@@ -7,7 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
-import { Award, TrendingDown, TrendingUp } from "lucide-react";
+
 import {
   BarChart,
   Bar,
