@@ -35,6 +35,7 @@ import {
 } from "../atoms/select";
 import { Label } from "../atoms/label";
 import { Activity } from "lucide-react";
+import { ScrollArea } from "../atoms/scroll-area";
 
 export interface DateRange {
   startTime?: Date;
@@ -80,6 +81,22 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
       [key]: value,
     }));
   };
+
+  const getTopTenWithOthers = (data: { name: string; count: number }[]) => {
+    const sorted = [...data].sort((a, b) => b.count - a.count);
+    const topTen = sorted.slice(0, 10);
+
+    const othersCount = sorted
+      .slice(10)
+      .reduce((sum, item) => sum + item.count, 0);
+
+    return [
+      ...topTen,
+      ...(othersCount > 0 ? [{ name: "Others", count: othersCount }] : []),
+    ];
+  };
+  const processedCropData = getTopTenWithOthers(data.cropData);
+  const processedDomainData = getTopTenWithOthers(data.domainData);
 
   return (
     <Card>
@@ -141,7 +158,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
-                      data={data.cropData}
+                      data={processedCropData}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
@@ -163,6 +180,9 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                         borderRadius: "var(--radius)",
                         color: "var(--color-foreground)",
                       }}
+                      itemStyle={{
+                        color: "var(--color-foreground)",
+                      }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -171,25 +191,33 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                 <h3 className="text-sm font-semibold text-foreground mb-4">
                   Crop Breakdown
                 </h3>
-                {data.cropData.map((item) => (
-                  <div
-                    key={item.name}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted"
-                  >
-                    <div className="flex items-center gap-2">
+
+                <ScrollArea className="h-72 rounded-md border p-1">
+                  <div className="space-y-2 pr-2">
+                    {data.cropData.map((item) => (
                       <div
-                        className="w-3 h-3 rounded"
-                        style={{ backgroundColor: "var(--color-chart-3)" }}
-                      />
-                      <span className="text-sm text-foreground">
-                        {item.name}
-                      </span>
-                    </div>
-                    <span className="font-semibold text-foreground">
-                      {item.count}
-                    </span>
+                        key={item.name}
+                        className="flex items-center justify-between p-3 rounded-lg bg-muted"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded"
+                            style={{ backgroundColor: "var(--color-chart-3)" }}
+                          />
+                          <span className="text-sm text-foreground">
+                            {item.name.length > 18
+                              ? item.name.substring(0, 18) + "..."
+                              : item.name}
+                          </span>
+                        </div>
+
+                        <span className="font-semibold text-foreground">
+                          {item.count}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </ScrollArea>
               </div>
             </div>
           </TabsContent>
@@ -210,7 +238,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                   angle={-45}
                   textAnchor="end"
                   height={80}
-                  tick={{ fontSize: 12 }} 
+                  tick={{ fontSize: 12 }}
                 />
                 <YAxis stroke="var(--color-muted-foreground)" />
                 <Tooltip
@@ -239,9 +267,10 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
-                      data={data.domainData}
+                      data={processedDomainData}
                       cx="50%"
                       cy="50%"
+                      innerRadius={50}
                       labelLine={false}
                       label={({ name, value }) => `${name}: ${value}`}
                       outerRadius={100}
@@ -261,6 +290,9 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                         borderRadius: "var(--radius)",
                         color: "var(--color-foreground)",
                       }}
+                      itemStyle={{
+                        color: "var(--color-foreground)",
+                      }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -269,25 +301,31 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                 <h3 className="text-sm font-semibold text-foreground mb-4">
                   Domain Breakdown
                 </h3>
-                {data.domainData.map((item) => (
-                  <div
-                    key={item.name}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted"
-                  >
-                    <div className="flex items-center gap-2">
+
+                <ScrollArea className="h-72 rounded-md border p-1">
+                  <div className="space-y-2 pr-2">
+                    {data.domainData.map((item) => (
                       <div
-                        className="w-3 h-3 rounded"
-                        style={{ backgroundColor: "var(--color-chart-2)" }}
-                      />
-                      <span className="text-sm text-foreground">
-                        {item.name}
-                      </span>
-                    </div>
-                    <span className="font-semibold text-foreground">
-                      {item.count}
-                    </span>
+                        key={item.name}
+                        className="flex items-center justify-between p-3 rounded-lg bg-muted"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded"
+                            style={{ backgroundColor: "var(--color-chart-2)" }}
+                          />
+                          <span className="text-sm text-foreground">
+                            {item.name}
+                          </span>
+                        </div>
+
+                        <span className="font-semibold text-foreground">
+                          {item.count}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </ScrollArea>
               </div>
             </div>
           </TabsContent>

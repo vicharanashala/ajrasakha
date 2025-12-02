@@ -1103,7 +1103,7 @@ export class QuestionRepository implements IQuestionRepository {
   async getYearAnalytics(
     goldenDataSelectedYear: string,
     session?: ClientSession,
-  ): Promise<{yearData: GoldenDatasetEntry[]}> {
+  ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number}> {
     await this.init();
     const selectedYearNum = Number(goldenDataSelectedYear);
 
@@ -1155,14 +1155,18 @@ export class QuestionRepository implements IQuestionRepository {
         };
       },
     );
+    const totalEntriesByType = formattedData.reduce(
+      (sum, m) => sum + m.verified,
+      0,
+    );
 
-    return {yearData: formattedData};
+    return {yearData: formattedData, totalEntriesByType};
   }
   async getMonthAnalytics(
     goldenDataSelectedYear: string,
     goldenDataSelectedMonth: string,
     session?: ClientSession,
-  ): Promise<{weeksData: GoldenDatasetEntry[]}> {
+  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number}> {
     await this.init();
 
     const monthNames = [
@@ -1225,8 +1229,11 @@ export class QuestionRepository implements IQuestionRepository {
         verified: match?.totalClosed ?? 0,
       };
     });
-
-    return {weeksData};
+    const totalEntriesByType = weeksDataRaw.reduce(
+      (acc, curr) => acc + curr.totalClosed,
+      0,
+    );
+    return {weeksData, totalEntriesByType};
   }
 
   async getWeekAnalytics(
@@ -1234,7 +1241,7 @@ export class QuestionRepository implements IQuestionRepository {
     goldenDataSelectedMonth: string,
     goldenDataSelectedWeek: string,
     session?: ClientSession,
-  ): Promise<{dailyData: GoldenDatasetEntry[]}> {
+  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number}> {
     await this.init();
     const monthNames = [
       'January',
@@ -1301,7 +1308,12 @@ export class QuestionRepository implements IQuestionRepository {
       };
     });
 
-    return {dailyData};
+    const totalEntriesByType = dailyDataRaw.reduce(
+      (acc, curr) => acc + curr.totalClosed,
+      0,
+    );
+
+    return {dailyData, totalEntriesByType};
   }
 
   async getDailyAnalytics(
@@ -1310,7 +1322,10 @@ export class QuestionRepository implements IQuestionRepository {
     goldenDataSelectedWeek: string,
     goldenDataSelectedDay: string,
     session?: ClientSession,
-  ): Promise<{dayHourlyData: Record<string, GoldenDatasetEntry[]>}> {
+  ): Promise<{
+    dayHourlyData: Record<string, GoldenDatasetEntry[]>;
+    totalEntriesByType: number;
+  }> {
     await this.init();
     const monthNames = [
       'January',
@@ -1397,52 +1412,16 @@ export class QuestionRepository implements IQuestionRepository {
       },
     );
 
-    return {dayHourlyData: {[goldenDataSelectedDay]: hourlyData}};
+    const totalEntriesByType = answers.reduce(
+      (acc, curr) => acc + curr.totalClosed,
+      0,
+    );
+
+    return {
+      dayHourlyData: {[goldenDataSelectedDay]: hourlyData},
+      totalEntriesByType,
+    };
   }
-
-  // async getCountBySource(
-  //   timeRange: string, // 90d, 30d, 7d ,...
-  //   session?: ClientSession,
-  // ): Promise<DashboardResponse['questionContributionTrend']> {
-  //   await this.init();
-
-  //   const rangeMatch = timeRange.match(/^(\d+)d$/);
-  //   if (!rangeMatch) throw new Error('Invalid time range format');
-  //   const days = Number(rangeMatch[1]);
-
-  //   const startDate = new Date();
-  //   startDate.setDate(startDate.getDate() - days);
-
-  //   const contributions = await this.QuestionCollection.aggregate(
-  //     [
-  //       {
-  //         $match: {
-  //           createdAt: {$gte: startDate},
-  //         },
-  //       },
-  //       {
-  //         $group: {
-  //           _id: '$source', // group by source
-  //           count: {$sum: 1},
-  //         },
-  //       },
-  //     ],
-  //     {session},
-  //   ).toArray();
-
-  //   const trend = {
-  //     date: timeRange,
-  //     Ajrasakha: 12,
-  //     Moderator: 0,
-  //   };
-
-  //   contributions.forEach(c => {
-  //     if (c._id === 'AJRASAKHA') trend.Ajrasakha = 12;
-  //     if (c._id === 'AGRI_EXPERT') trend.Moderator = c.count;
-  //   });
-
-  //   return [trend];
-  // }
 
   async getCountBySource(
     timeRange: string, // 90d, 30d, 7d ,...

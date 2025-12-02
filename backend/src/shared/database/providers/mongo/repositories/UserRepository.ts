@@ -505,18 +505,22 @@ export class UserRepository implements IUserRepository {
         {role: 'expert'},
         {
           session,
-          projection: {firstName: 1, reputation: 1, incentive: 1, penalty: 1},
+          projection: {firstName: 1, reputation_score: 1, incentive: 1, penalty: 1},
         },
       )
       .toArray();
 
-    const performance: ExpertPerformance[] = experts.map(expert => ({
-      expert: expert.firstName || 'Unknown',
-      reputation: expert.reputation_score || 0,
-      incentive: expert.incentive || 0,
-      penalty: expert.penalty || 0,
-    }));
+    const performance: ExpertPerformance[] = experts.map(expert => {
+      const name = expert.firstName || 'Unknown';
+      const truncatedName = name.length > 18 ? name.slice(0, 18) + '...' : name;
 
+      return {
+        expert: truncatedName,
+        reputation: expert.reputation_score || 0,
+        incentive: expert.incentive || 0,
+        penalty: expert.penalty || 0,
+      };
+    });
     return performance;
   }
 }

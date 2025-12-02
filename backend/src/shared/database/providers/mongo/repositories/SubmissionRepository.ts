@@ -16,6 +16,7 @@ import {
 } from 'routing-controllers';
 import {USER_VALIDATORS} from '#root/modules/core/classes/validators/UserValidators.js';
 import {HistoryItem} from '#root/modules/core/classes/validators/QuestionValidators.js';
+import {GetHeatMapQuery} from '#root/modules/core/classes/validators/DashboardValidators.js';
 
 export class QuestionSubmissionRepository
   implements IQuestionSubmissionRepository
@@ -426,17 +427,58 @@ export class QuestionSubmissionRepository
       throw new InternalServerError(`Failed to update submission: ${error}`);
     }
   }
-  async heatMapResultsForReviewer(): Promise<IReviewerHeatmapRow[] | null> {
+
+  async heatMapResultsForReviewer(
+    query: GetHeatMapQuery,
+  ): Promise<IReviewerHeatmapRow[] | null> {
     try {
       await this.init();
+
+      //   let {startTime, endTime} = query;
+
+      // const matchConditions: any = {
+      //   'history.status': {$in: ['reviewed', 'rejected']},
+      // };
+
+      // if (startTime) {
+      //   matchConditions['history.createdAt'] = {$gte: startTime};
+      // }
+      // if (endTime) {
+      //   matchConditions['history.createdAt'] = {
+      //     ...matchConditions['history.createdAt'],
+      //     $lte: endTime,
+      //   };
+      // }
+
+      // console.log('Match condition: ', matchConditions);
+
+      // const pipeline = [
+      //   {$unwind: '$history'},
+
+      //   {$match: matchConditions},
+      //   ,
+
+      let {startTime, endTime} = query;
+
+      const matchConditions: any = {
+        'history.status': {$in: ['reviewed', 'rejected']},
+      };
+
+      if (startTime) {
+        matchConditions['history.createdAt'] = {$gte: startTime};
+      }
+      if (endTime) {
+        matchConditions['history.createdAt'] = {
+          ...matchConditions['history.createdAt'],
+          $lte: endTime,
+        };
+      }
 
       const pipeline = [
         {$unwind: '$history'},
 
         {
-          $match: {
-            'history.status': {$in: ['reviewed', 'rejected']},
-          },
+          $match: matchConditions,
         },
 
         {

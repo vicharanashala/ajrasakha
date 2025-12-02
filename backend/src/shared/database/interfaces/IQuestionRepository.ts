@@ -203,7 +203,7 @@ export interface IQuestionRepository {
   getYearAnalytics(
     goldenDataSelectedYear: string,
     session?: ClientSession,
-  ): Promise<{yearData: GoldenDatasetEntry[]}>;
+  ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number}>;
 
   /**
    * get monthly analytics.
@@ -216,7 +216,7 @@ export interface IQuestionRepository {
     goldenDataSelectedYear: string,
     goldenDataSelectedMonth: string,
     session?: ClientSession,
-  ): Promise<{weeksData: GoldenDatasetEntry[]}>;
+  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number}>;
 
   /**
    * get weekly analytics.
@@ -231,7 +231,7 @@ export interface IQuestionRepository {
     goldenDataSelectedMonth: string,
     goldenDataSelectedWeek: string,
     session?: ClientSession,
-  ): Promise<{dailyData: GoldenDatasetEntry[]}>;
+  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number}>;
 
   /**
    * get daily analytics.
@@ -248,7 +248,10 @@ export interface IQuestionRepository {
     goldenDataSelectedWeek: string,
     goldenDataSelectedDay: string,
     session?: ClientSession,
-  ): Promise<{dayHourlyData: Record<string, GoldenDatasetEntry[]>}>;
+  ): Promise<{
+    dayHourlyData: Record<string, GoldenDatasetEntry[]>;
+    totalEntriesByType: number;
+  }>;
 
   /**
    * get daily analytics.

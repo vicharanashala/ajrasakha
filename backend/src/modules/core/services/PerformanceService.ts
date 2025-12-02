@@ -41,6 +41,7 @@ import {
   DashboardResponse,
   ExpertPerformance,
   GetDashboardQuery,
+  GetHeatMapQuery,
   GoldenDataset,
   GoldenDataViewType,
   QuestionStatusOverview,
@@ -73,8 +74,10 @@ export class PerformanceService extends BaseService {
     super(mongoDatabase);
   }
 
-  async getHeatMapresults(): Promise<IReviewerHeatmapRow[] | null> {
-    return await this.questionSubmissionRepo.heatMapResultsForReviewer();
+  async getHeatMapresults(
+    query: GetHeatMapQuery,
+  ): Promise<IReviewerHeatmapRow[] | null> {
+    return await this.questionSubmissionRepo.heatMapResultsForReviewer(query);
   }
 
   async getCurrentUserWorkLoad(currentUserId: string): Promise<{
@@ -123,35 +126,39 @@ export class PerformanceService extends BaseService {
       let goldenDataset = {} as GoldenDataset;
 
       if (goldenDataViewType == 'year') {
-        const {yearData} = await this.questionRepo.getYearAnalytics(
-          goldenDataSelectedYear,
-          session,
-        );
-        goldenDataset = {yearData, verifiedEntries};
+        const {yearData, totalEntriesByType} =
+          await this.questionRepo.getYearAnalytics(
+            goldenDataSelectedYear,
+            session,
+          );
+        goldenDataset = {yearData, verifiedEntries, totalEntriesByType};
       } else if (goldenDataViewType == 'month') {
-        const {weeksData} = await this.questionRepo.getMonthAnalytics(
-          goldenDataSelectedYear,
-          goldenDataSelectedMonth,
-          session,
-        );
-        goldenDataset = {weeksData, verifiedEntries};
+        const {weeksData, totalEntriesByType} =
+          await this.questionRepo.getMonthAnalytics(
+            goldenDataSelectedYear,
+            goldenDataSelectedMonth,
+            session,
+          );
+        goldenDataset = {weeksData, verifiedEntries, totalEntriesByType};
       } else if (goldenDataViewType == 'week') {
-        const {dailyData} = await this.questionRepo.getWeekAnalytics(
-          goldenDataSelectedYear,
-          goldenDataSelectedMonth,
-          goldenDataSelectedWeek,
-          session,
-        );
-        goldenDataset = {dailyData, verifiedEntries};
+        const {dailyData, totalEntriesByType} =
+          await this.questionRepo.getWeekAnalytics(
+            goldenDataSelectedYear,
+            goldenDataSelectedMonth,
+            goldenDataSelectedWeek,
+            session,
+          );
+        goldenDataset = {dailyData, verifiedEntries, totalEntriesByType};
       } else if (goldenDataViewType == 'day') {
-        const {dayHourlyData} = await this.questionRepo.getDailyAnalytics(
-          goldenDataSelectedYear,
-          goldenDataSelectedMonth,
-          goldenDataSelectedWeek,
-          goldenDataSelectedDay,
-          session,
-        );
-        goldenDataset = {dayHourlyData, verifiedEntries};
+        const {dayHourlyData, totalEntriesByType} =
+          await this.questionRepo.getDailyAnalytics(
+            goldenDataSelectedYear,
+            goldenDataSelectedMonth,
+            goldenDataSelectedWeek,
+            goldenDataSelectedDay,
+            session,
+          );
+        goldenDataset = {dayHourlyData, verifiedEntries, totalEntriesByType};
       }
 
       //questionContributionTrend

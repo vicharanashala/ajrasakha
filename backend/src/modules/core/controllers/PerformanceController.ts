@@ -27,6 +27,7 @@ import {PerformanceService} from '../services/PerformanceService.js';
 import {
   DashboardResponse,
   GetDashboardQuery,
+  GetHeatMapQuery,
 } from '../classes/validators/DashboardValidators.js';
 
 @OpenAPI({
@@ -63,10 +64,11 @@ export class PerformanceController {
   @Authorized()
   @OpenAPI({summary: 'Get HeatMap of Reviewers'})
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async getHeatMapresults(): Promise<IReviewerHeatmapRow[] | null> {
+  async getHeatMapresults(
+    @QueryParams() query: GetHeatMapQuery,
+  ): Promise<IReviewerHeatmapRow[] | null> {
     //console.log("the controller calling===haiiiiii",this.performanceService)
-
-    const result = await this.performanceService.getHeatMapresults();
+    const result = await this.performanceService.getHeatMapresults(query);
 
     return result;
   }

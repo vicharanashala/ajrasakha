@@ -1,4 +1,5 @@
-import { HistoryItem } from '#root/modules/core/classes/validators/QuestionValidators.js';
+import {GetHeatMapQuery} from '#root/modules/core/classes/validators/DashboardValidators.js';
+import {HistoryItem} from '#root/modules/core/classes/validators/QuestionValidators.js';
 import {
   IQuestionSubmission,
   IReviewerHeatmapRow,
@@ -108,8 +109,8 @@ export interface IQuestionSubmissionRepository {
     questionId: string,
     session?: ClientSession,
   ): Promise<void>;
-  
-  heatMapResultsForReviewer(): Promise<IReviewerHeatmapRow[] | null>;
-  
-  
+
+  heatMapResultsForReviewer(
+    query: GetHeatMapQuery,
+  ): Promise<IReviewerHeatmapRow[] | null>;
 }

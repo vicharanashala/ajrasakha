@@ -144,6 +144,7 @@ const monthNames = [
 
 export interface GoldenDataset {
   type: "year" | "month" | "week" | "day";
+  totalEntriesByType: number;
   verifiedEntries: number;
   yearData: { month: string; entries: number; verified: number }[];
   weeksData: { week: string; entries: number; verified: number }[];
@@ -279,7 +280,7 @@ export const GoldenDatasetOverview = ({
                   Current Period
                 </p>
                 <p className="text-3xl font-bold text-foreground">
-                  {totals.lastEntry}
+                  {data.totalEntriesByType}
                 </p>
                 <p className="text-xs text-green-600 mt-2 font-medium">
                   Latest data point

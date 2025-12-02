@@ -17,6 +17,7 @@ import {
 } from "@/hooks/api/performance/useGetDashboard";
 import { DashboardClock } from "./dashboard/dashboard-clock";
 import { Spinner } from "./atoms/spinner";
+import { DateRangeFilter } from "./advanced-question-filter";
 
 // const dashboardDummyData: DashboardAnalyticsResponse = {
 //   userRoleOverview: [
@@ -235,6 +236,12 @@ export const Dashboard = () => {
     "question"
   );
 
+  // ---- Heat map state filters ----- //
+  const [heatMapDate, setHeatMapDate] = useState<DateRange>({
+    startTime: undefined,
+    endTime: undefined,
+  });
+
   // Fetch dashboard data
   const {
     data: dashboardData,
@@ -251,6 +258,13 @@ export const Dashboard = () => {
     qnAnalyticsEndTime: date.endTime,
     qnAnalyticsType: analyticsType,
   });
+
+  const handleHeatMapDateChange = (key: string, value?: Date) => {
+    setHeatMapDate((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
 
   if (isLoading) return <Spinner />;
   if (!dashboardData) return <p>No data found</p>;
@@ -321,16 +335,23 @@ export const Dashboard = () => {
         {/* Analytics Row */}
         <div className="flex flex-col gap-5">
           <ExpertsPerformance data={dashboardData.expertPerformance} />
-          {/* <div className="space-y-6  hidden md:block">
+          <div className="space-y-6  hidden md:block">
             <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
-              <CardHeader>
+              <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
                 <CardTitle className="text-xl font-semibold">
                   Heat Map Of Experts
                 </CardTitle>
+
+                <div className="min-w-[220px]">
+                  <DateRangeFilter
+                    advanceFilter={heatMapDate}
+                    handleDialogChange={handleHeatMapDateChange}
+                  />
+                </div>
               </CardHeader>
             </Card>
-            <HeatMap />
-          </div> */}
+            <HeatMap heatMapDate={heatMapDate} />
+          </div>
         </div>
       </div>
     </main>

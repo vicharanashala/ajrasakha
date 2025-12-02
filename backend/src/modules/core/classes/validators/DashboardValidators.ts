@@ -10,6 +10,25 @@ import {
 import {JSONSchema} from 'class-validator-jsonschema';
 
 export type GoldenDataViewType = 'year' | 'month' | 'week' | 'day';
+
+export class GetHeatMapQuery {
+  @JSONSchema({
+    example: '2025-12-01T00:00:00.000Z',
+    description: 'Start date ',
+  })
+  @IsOptional()
+  @IsDateString()
+  startTime?: string;
+
+  @JSONSchema({
+    example: '2025-12-31T23:59:59.999Z',
+    description: 'End date ',
+  })
+  @IsOptional()
+  @IsDateString()
+  endTime?: string;
+}
+
 export class GetDashboardQuery {
   @JSONSchema({example: 'year', description: 'View type for Golden Dataset'})
   @IsString()
@@ -117,6 +136,9 @@ export class GoldenDatasetEntry {
 export class GoldenDataset {
   @JSONSchema({description: 'Total count of verified answers'})
   verifiedEntries: number;
+
+  @JSONSchema({description: 'Total count by requested type'})
+  totalEntriesByType: number;
 
   @JSONSchema({description: 'Yearly data breakdown'})
   yearData?: GoldenDatasetEntry[];
