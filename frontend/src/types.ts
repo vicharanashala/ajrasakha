@@ -302,7 +302,12 @@ export interface SourceItem {
   source: string;
   page?: number;
 }
-
+export interface PreviousAnswersItem{
+  modifiedBy:string 
+  oldAnswer:string;
+  newAnswer:string;
+  modifiedAt?:Date
+}
 export interface IAnswer {
   _id?: string;
   questionId: string;
@@ -313,6 +318,7 @@ export interface IAnswer {
   remarks: string;
   sources: SourceItem[];
   reviews?: IReview[];
+  modifications?:PreviousAnswersItem[]
   answer: string;
   threshold: number;
   createdAt?: Date;

@@ -94,6 +94,13 @@ import { TimerDisplay } from "./timer-display";
 import { CommentsSection } from "./comments-section";
 import { parameterLabels } from "./QA-interface";
 import { ExpandableText } from "./expandable-text";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "./atoms/accordion";
+import { diffWords } from "@/utils/wordDifference";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -1699,369 +1706,9 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
 
   const isRejected =
     props.submissionData && props.submissionData.status === "rejected";
-
+  const oldAns = "Old answer here";
+  const newAns = "New answer here";
   return (
-    // <Card className="p-6 grid gap-4">
-    //   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
-    //     <div className="flex items-center gap-2">
-    //       <span className="font-medium text-foreground">
-    //         Iteration {props.answer.answerIteration}
-    //       </span>
-    //       {props.answer.isFinalAnswer && (
-    //         <Badge
-    //           variant="outline"
-    //           className="text-green-600 border-green-600"
-    //         >
-    //           Final
-    //         </Badge>
-    //       )}
-    //       {isMine && <UserCheck className="w-4 h-4 text-blue-600 ml-1" />}
-    //     </div>
-    //     <div className="flex items-center justify-center gap-2">
-    //       {props.userRole !== "expert" &&
-    //         props.questionStatus === "in-review" &&
-    //         props.lastAnswerId === props.answer?._id && (
-    //           <Dialog open={editOpen} onOpenChange={setEditOpen}>
-    //             <DialogTrigger asChild>
-    //               <button className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2 rounded">
-    //                 <CheckCircle2 className="h-4 w-4" />
-    //                 Approve Answer
-    //               </button>
-    //             </DialogTrigger>
-
-    //             <DialogContent
-    //               className="w-[90vw] max-w-6xl max-h-[85vh] flex flex-col"
-    //               style={{ maxWidth: "70vw" }}
-    //             >
-    //               <DialogHeader>
-    //                 <DialogTitle className="text-lg font-semibold">
-    //                   Approve Answer
-    //                 </DialogTitle>
-    //               </DialogHeader>
-
-    //               <div className="mt-4">
-    //                 <Textarea
-    //                   value={editableAnswer}
-    //                   placeholder="Update answer here..."
-    //                   onChange={(e) => setEditableAnswer(e.target.value)}
-    //                   className="min-h-[150px] resize-none border border-border bg-background"
-    //                 />
-    //               </div>
-    //               <div
-    //                 className="mt-4 p-4 rounded-md border bg-yellow-50 border-yellow-300 text-yellow-900 text-sm
-    //             dark:bg-yellow-900/20 dark:border-yellow-700/60 dark:text-yellow-200"
-    //               >
-    //                 ⚠️ You are about to approve a <strong> answer</strong>.
-    //                 Please review your changes carefully before saving to avoid
-    //                 mistakes.
-    //               </div>
-
-    //               <div className="mt-6 flex justify-end gap-3">
-    //                 <Button
-    //                   variant="outline"
-    //                   onClick={() => setEditOpen(false)}
-    //                 >
-    //                   Cancel
-    //                 </Button>
-    //                 <Button
-    //                   onClick={handleUpdateAnswer}
-    //                   className="bg-primary text-primary-foreground flex items-center gap-2"
-    //                   disabled={isUpdatingAnswer}
-    //                 >
-    //                   {isUpdatingAnswer ? (
-    //                     <>
-    //                       <Loader2 className="w-4 h-4 animate-spin" />
-    //                       Saving...
-    //                     </>
-    //                   ) : (
-    //                     "Save & finalize"
-    //                   )}
-    //                 </Button>
-    //               </div>
-    //             </DialogContent>
-    //           </Dialog>
-    //         )}
-    //       {props.answer?.approvalCount !== undefined &&
-    //         props.answer?.approvalCount > 0 && (
-    //           <p>Approval count: {props.answer.approvalCount}</p>
-    //         )}
-    //       <Dialog>
-    //         <DialogTrigger asChild>
-    //           <Button variant="outline" size="sm" className="w-full sm:w-auto ">
-    //             <Eye className="w-4 h-4 mr-2" />
-    //             View More
-    //           </Button>
-    //         </DialogTrigger>
-    //         <DialogContent
-    //           className="w-[90vw] max-w-6xl h-[85vh] flex flex-col"
-    //           style={{ maxWidth: "70vw" }}
-    //         >
-    //           <DialogHeader className="pb-4 border-b">
-    //             <DialogTitle className="text-xl font-semibold">
-    //               Answer Details
-    //             </DialogTitle>
-    //           </DialogHeader>
-
-    //           <ScrollArea className="flex-1 h-[85vh] ">
-    //             <div className="space-y-6 p-4">
-    //               <div className="grid gap-4 text-sm ">
-    //                 <div className="flex flex-col sm:flex-row justify-between gap-3">
-    //                   <div className="flex items-center gap-4">
-    //                     <span className="font-medium">
-    //                       Iteration:{" "}
-    //                       <span className="text-foreground font-normal">
-    //                         {props.answer.answerIteration}
-    //                       </span>
-    //                     </span>
-
-    //                     <Badge
-    //                       variant={
-    //                         props.answer.isFinalAnswer ? "default" : "secondary"
-    //                       }
-    //                       className={
-    //                         props.answer.isFinalAnswer
-    //                           ? "bg-green-100 text-green-800 hover:bg-green-100"
-    //                           : ""
-    //                       }
-    //                     >
-    //                       {props.answer.isFinalAnswer
-    //                         ? "Final Answer"
-    //                         : "Draft"}
-    //                     </Badge>
-    //                   </div>
-
-    //                   <div className="flex flex-col text-muted-foreground text-xs">
-    //                     <span>
-    //                       Submitted At:{" "}
-    //                       {new Date(
-    //                         props.answer.createdAt || ""
-    //                       ).toLocaleString()}
-    //                     </span>
-    //                   </div>
-    //                 </div>
-
-    //                 {props.submissionData?.updatedBy && (
-    //                   <div className="rounded-lg border bg-muted/50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-    //                     <div className="flex items-center gap-2">
-    //                       <p className="text-sm font-medium text-foreground">
-    //                         Submitted By:{" "}
-    //                         <span className="text-sm text-muted-foreground">
-    //                           {props.submissionData.updatedBy.name} (
-    //                           {props.submissionData.updatedBy.email})
-    //                         </span>
-    //                       </p>
-
-    //                       {props.answer.threshold > 0 && (
-    //                         <Badge
-    //                           variant="outline"
-    //                           className="text-foreground border border-muted-foreground w-fit flex items-center gap-1"
-    //                         >
-    //                           <span className="font-medium">Correctness:</span>
-    //                           <span>
-    //                             {Math.round(props.answer.threshold * 100)}%
-    //                           </span>
-    //                         </Badge>
-    //                       )}
-    //                     </div>
-    //                   </div>
-    //                 )}
-    //               </div>
-
-    //               <div>
-    //                 <p className="text-sm font-medium text-foreground mb-3">
-    //                   Answer Content
-    //                 </p>
-    //                 <div className="rounded-lg border bg-muted/30 h-[40vh]  ">
-    //                   <ScrollArea className="h-full">
-    //                     <div className="p-4">
-    //                       <p className="whitespace-pre-wrap leading-relaxed text-foreground">
-    //                         {props.answer.answer}
-    //                       </p>
-    //                     </div>
-    //                   </ScrollArea>
-    //                 </div>
-    //               </div>
-
-    //               {props.answer.sources?.length > 0 && (
-    //                 <div>
-    //                   <p className="text-sm font-medium text-foreground mb-3">
-    //                     Source URLs
-    //                   </p>
-
-    //                   <div className="space-y-2">
-    //                     {props.answer.sources.map((source, idx) => (
-    //                       <div
-    //                         key={idx}
-    //                         className="flex items-center justify-between rounded-lg border bg-muted/30 p-2 pr-3"
-    //                       >
-    //                         <div className="flex items-center gap-2 min-w-0">
-    //                           <Tooltip>
-    //                             <TooltipTrigger asChild>
-    //                               <span
-    //                                 className="text-sm truncate max-w-[260px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-    //                                 onClick={() =>
-    //                                   window.open(source.source, "_blank")
-    //                                 }
-    //                               >
-    //                                 {source.source}
-    //                               </span>
-    //                             </TooltipTrigger>
-    //                             <TooltipContent>{source.source}</TooltipContent>
-    //                           </Tooltip>
-
-    //                           {source.page && (
-    //                             <>
-    //                               <span className="text-muted-foreground">
-    //                                 •
-    //                               </span>
-    //                               <span className="text-xs text-muted-foreground">
-    //                                 page {source.page}
-    //                               </span>
-    //                             </>
-    //                           )}
-    //                         </div>
-    //                         <a
-    //                           href={source.source}
-    //                           target="_blank"
-    //                           rel="noopener noreferrer"
-    //                           className="p-1 rounded hover:bg-muted/20 dark:hover:bg-muted/50 transition-colors"
-    //                         >
-    //                           <ArrowUpRight className="w-4 h-4 text-foreground/80" />
-    //                         </a>
-    //                       </div>
-    //                     ))}
-    //                   </div>
-    //                 </div>
-    //               )}
-    //             </div>
-    //           </ScrollArea>
-    //         </DialogContent>
-    //       </Dialog>
-    //     </div>
-    //   </div>
-    //   {isRejected &&
-    //     props.submissionData &&
-    //     props.submissionData.reasonForRejection && (
-    //       <div className="rounded-lg border border-rejected bg-rejected-bg p-4">
-    //         <div className="flex items-start gap-3">
-    //           <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-700 mt-0.5 flex-shrink-0" />
-    //           <div className="flex-1 space-y-1">
-    //             <p className="text-sm font-semibold text-red-500 dark:text-red-700">
-    //               This answer was rejected
-    //             </p>
-    //             <p className="text-sm text-muted-foreground leading-relaxed">
-    //               {props.submissionData &&
-    //                 props.submissionData.reasonForRejection}
-    //             </p>
-    //           </div>
-    //         </div>
-    //       </div>
-    //     )}
-    //   <div className="rounded-lg border bg-card p-4">
-    //     <p className="whitespace-pre-wrap leading-relaxed line-clamp-4 text-card-foreground px-5">
-    //       {props.answer.answer}
-    //     </p>
-    //   </div>
-
-    //   <div className="w-full sm:w-auto">
-    //     <Accordion type="single" collapsible className="w-full">
-    //       <AccordionItem value="comments" className="border-none">
-    //         <AccordionTrigger className="flex items-center gap-2 text-sm font-medium p-3 hover:no-underline hover:bg-muted/50 rounded-lg w-full sm:w-auto justify-between shadow-md shadow-gray-400/30 dark:shadow-gray-900/50">
-    //           <div className="flex items-center gap-2">
-    //             <MessageSquare className="h-4 w-4 text-muted-foreground" />
-    //             <span>Comments</span>
-    //             {comments?.length > 0 && (
-    //               <Badge
-    //                 variant="secondary"
-    //                 className="h-5 w-5 p-0 flex items-center justify-center text-xs"
-    //               >
-    //                 {comments?.length}
-    //               </Badge>
-    //             )}
-    //           </div>
-    //         </AccordionTrigger>
-
-    //         <AccordionContent className="p-4">
-    //           <div className="space-y-4">
-    //             {isLoadingComments ? (
-    //               <div className="flex justify-center items-center py-4">
-    //                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-    //               </div>
-    //             ) : comments?.length === 0 ? (
-    //               <p className="text-sm text-muted-foreground text-center py-4">
-    //                 {isMine
-    //                   ? "You haven't received any comments on your answer yet."
-    //                   : "No comments yet. Be the first to add one!"}
-    //               </p>
-    //             ) : (
-    //               <ScrollArea className="h-[40vh]">
-    //                 <div className="space-y-3 p-2">
-    //                   {comments?.map((c, idx) => {
-    //                     const isLast = idx === comments.length - 1;
-    //                     return (
-    //                       <div
-    //                         key={c._id}
-    //                         ref={isLast ? lastCommentRef : null}
-    //                         className={`rounded-lg border bg-muted/30 p-3 ${
-    //                           idx % 2 === 0 ? "bg-secondary/80" : ""
-    //                         }`}
-    //                       >
-    //                         <div className="flex items-center justify-between mb-1">
-    //                           <span className="text-sm  text-muted-foreground">
-    //                             {c.userName || "Unknown User"}
-    //                           </span>
-    //                           <span className="text-xs text-muted-foreground">
-    //                             {formatDate(new Date(c.createdAt))}
-    //                           </span>
-    //                         </div>
-    //                         <p className="text-sm ms-2 text-foreground leading-relaxed">
-    //                           {c.text}
-    //                         </p>
-    //                       </div>
-    //                     );
-    //                   })}
-    //                   {isFetchingNextPage && (
-    //                     <div className="text-center text-sm text-muted-foreground py-2">
-    //                       Loading more...
-    //                     </div>
-    //                   )}
-    //                 </div>
-    //               </ScrollArea>
-    //             )}
-    //             {!isMine && (
-    //               <div className="space-y-3 border-t-2 pt-3">
-    //                 <Textarea
-    //                   placeholder="Add your comment here..."
-    //                   value={comment}
-    //                   onChange={(e) => setComment(e.target.value)}
-    //                   rows={3}
-    //                   className="resize-none h-[8vh] md:h-[20vh]"
-    //                 />
-    //                 <div className="flex justify-end">
-    //                   <Button
-    //                     onClick={submitComment}
-    //                     size="sm"
-    //                     className="md:p-2 flex items-center justify-center gap-1"
-    //                     disabled={!comment.trim() || isAddingComment}
-    //                   >
-    //                     {isAddingComment ? (
-    //                       <>
-    //                         <Loader2 className="w-4 h-4 animate-spin" />
-    //                         Submitting...
-    //                       </>
-    //                     ) : (
-    //                       "Submit"
-    //                     )}
-    //                   </Button>
-    //                 </div>
-    //               </div>
-    //             )}
-    //           </div>
-    //         </AccordionContent>
-    //       </AccordionItem>
-    //     </Accordion>
-    //   </div>
-    // </Card>
     <Card className="p-6 grid gap-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
         <div className="flex items-center gap-2">
@@ -2367,8 +2014,9 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                     </div>
                   )}
 
-                  {/* Review Timeline */}
+                  
 
+                  {/* Review Timeline */}
                   {props.answer.reviews && props.answer.reviews.length > 0 && (
                     <div className="mt-6">
                       <p className="text-sm font-medium text-foreground mb-3">
@@ -2376,93 +2024,94 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       </p>
 
                       <div className="space-y-4">
-                        {props.answer.reviews.map((review) => (
-                          <div
-                            key={review._id}
-                            className="rounded-lg border bg-muted/30 p-4 space-y-3"
-                          >
-                            {/* Header */}
-                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                        {props.answer.reviews.map((review) => {
+                          // 🔥 Find modification done by THIS reviewer
+                          const modification =
+                            review?.answer?.modifications?.find(
+                              (mod) => mod.modifiedBy === review.reviewerId
+                            );
+
+                          return (
+                            <div
+                              key={review._id}
+                              className="rounded-lg border bg-muted/30 p-4 space-y-3"
+                            >
+                              {/* Reviewer + Date */}
+                              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium">
+                                    Reviewer:
+                                  </span>
+                                  <span className="text-sm text-muted-foreground">
+                                    {review.reviewer?.firstName} (
+                                    {review.reviewer?.email})
+                                  </span>
+                                </div>
+
+                                <div className="text-xs text-muted-foreground">
+                                  {formatDate(review.createdAt!)}
+                                </div>
+                              </div>
+
+                              {/* Action Badge */}
                               <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium">
-                                  Reviewer:
-                                </span>
-                                <span className="text-sm text-muted-foreground">
-                                  {review.reviewer?.firstName} (
-                                  {review.reviewer?.email})
-                                </span>
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    review.action === "accepted"
+                                      ? "border-green-600 text-green-600"
+                                      : review.action === "rejected"
+                                      ? "border-red-600 text-red-600"
+                                      : "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700"
+                                  }
+                                >
+                                  <span className="flex items-center gap-1">
+                                    {review.action === "accepted" && (
+                                      <>
+                                        <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
+                                        <span>Accepted</span>
+                                      </>
+                                    )}
+
+                                    {review.action === "rejected" && (
+                                      <>
+                                        <XCircle className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                        <span>Rejected</span>
+                                      </>
+                                    )}
+
+                                    {review.action === "modified" && (
+                                      <>
+                                        <Pencil className="w-3 h-3 text-orange-700 dark:text-orange-400" />
+                                        <span>Modified</span>
+                                      </>
+                                    )}
+                                  </span>
+                                </Badge>
                               </div>
 
-                              <div className="text-xs text-muted-foreground">
-                                {formatDate(review.createdAt!)}
-                              </div>
-                            </div>
-
-                            {/* Action */}
-                            <div className="flex items-center gap-2">
-                              <Badge
-                                variant="outline"
-                                className={`
-    ${
-      review.action === "accepted"
-        ? "border-green-600 text-green-600"
-        : review.action === "rejected"
-        ? "border-red-600 text-red-600"
-        : "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700"
-    }
-  `}
-                              >
-                                <span className="flex items-center gap-1">
-                                  {review.action === "accepted" && (
-                                    <>
-                                      <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
-                                      <span>Accepted</span>
-                                    </>
-                                  )}
-
-                                  {review.action === "rejected" && (
-                                    <>
-                                      <XCircle className="w-3 h-3 text-red-600 dark:text-red-400" />
-                                      <span>Rejected</span>
-                                    </>
-                                  )}
-
-                                  {review.action === "modified" && (
-                                    <>
-                                      <Pencil className="w-3 h-3 text-orange-700 dark:text-orange-400" />
-                                      <span>Modified</span>
-                                    </>
-                                  )}
-                                </span>
-                              </Badge>
-                            </div>
-
-                            {/* Parameters */}
-                            <div className="space-y-1">
-                              <p className="text-xs mb-2 font-medium text-foreground">
-                                Parameters
-                              </p>
-                              <div className="flex flex-wrap gap-2">
+                              {/* Parameters */}
+                              <div className="space-y-1">
+                                <p className="text-xs mb-2 font-medium text-foreground">
+                                  Parameters
+                                </p>
                                 <div className="flex flex-wrap gap-2">
                                   {Object.entries(review.parameters ?? {}).map(
                                     ([key, value]) => (
                                       <Badge
                                         key={key}
                                         variant="outline"
-                                        className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-full border 
-                                                    ${
-                                                      value
-                                                        ? "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700"
-                                                        : "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700"
-                                                    }
-                                                  `}
+                                        className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-full border ${
+                                          value
+                                            ? "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700"
+                                            : "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700"
+                                        }`}
                                       >
                                         {value ? (
                                           <Check className="w-3 h-3" />
                                         ) : (
                                           <X className="w-3 h-3" />
                                         )}
-
                                         {
                                           parameterLabels[
                                             key as keyof typeof parameterLabels
@@ -2473,21 +2122,106 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                                   )}
                                 </div>
                               </div>
-                            </div>
 
-                            {/* Reason */}
-                            {review.reason && review.reason.trim() !== "" && (
-                              <div className="space-y-1">
-                                <p className="text-xs font-medium text-foreground">
-                                  Reason
-                                </p>
-                                <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                                  {review.reason}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                              {/* Reason */}
+                              {review.reason && review.reason.trim() !== "" && (
+                                <div className="space-y-1">
+                                  <p className="text-xs font-medium text-foreground">
+                                    Reason
+                                  </p>
+                                  <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                    {review.reason}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Modification Accordion */}
+                              {review.action === "modified" && modification && (
+                                <div className="space-y-2">
+                                  <Accordion
+                                    type="single"
+                                    collapsible
+                                    className="w-full"
+                                  >
+                                    <AccordionItem
+                                      value={`mod-details-${review._id}`}
+                                    >
+                                      <AccordionTrigger className="text-sm font-medium">
+                                        View Modification Details
+                                      </AccordionTrigger>
+
+                                      <AccordionContent>
+                                        {(() => {
+                                          const diff = diffWords(
+                                            modification.oldAnswer,
+                                            modification.newAnswer
+                                          );
+
+                                          return (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                                              {/* BEFORE modification */}
+                                              <div className="border rounded-lg p-3 bg-muted/50">
+                                                <p className="text-xs font-semibold mb-1 text-foreground">
+                                                  Before modification
+                                                </p>
+
+                                                <div className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                                  {diff.map((part, idx) => {
+                                                    if (part.type === "added")
+                                                      return null;
+                                                    return (
+                                                      <span
+                                                        key={idx}
+                                                        className={
+                                                          part.type ===
+                                                          "removed"
+                                                            ? "bg-red-100 dark:bg-red-900/40 px-1 rounded"
+                                                            : ""
+                                                        }
+                                                      >
+                                                        {part.value}
+                                                      </span>
+                                                    );
+                                                  })}
+                                                </div>
+                                              </div>
+
+                                              {/* AFTER modification */}
+                                              <div className="border rounded-lg p-3 bg-muted/50">
+                                                <p className="text-xs font-semibold mb-1 text-foreground">
+                                                  After modification
+                                                </p>
+
+                                                <div className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                                  {diff.map((part, idx) => {
+                                                    if (part.type === "removed")
+                                                      return null;
+                                                    return (
+                                                      <span
+                                                        key={idx}
+                                                        className={
+                                                          part.type === "added"
+                                                            ? "bg-green-100 dark:bg-green-900/40 px-1 rounded"
+                                                            : ""
+                                                        }
+                                                      >
+                                                        {part.value}
+                                                      </span>
+                                                    );
+                                                  })}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })()}
+                                      </AccordionContent>
+                                    </AccordionItem>
+                                  </Accordion>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -2497,25 +2231,6 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
           </Dialog>
         </div>
       </div>
-
-      {/* {isRejected &&
-        props.submissionData &&
-        props.submissionData.reasonForRejection && (
-          <div className="rounded-lg border border-rejected bg-rejected-bg p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-700 mt-0.5 flex-shrink-0" />
-              <div className="flex-1 space-y-1">
-                <p className="text-sm font-semibold text-red-500 dark:text-red-700">
-                  This answer was rejected
-                </p>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {props.submissionData &&
-                    props.submissionData.reasonForRejection}
-                </p>
-              </div>
-            </div>
-          </div>
-        )} */}
 
       <div className="rounded-lg border bg-card p-4">
         <p className="whitespace-pre-wrap leading-relaxed line-clamp-4 text-card-foreground px-5">
@@ -2527,104 +2242,6 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         answerId={props.answer._id!}
         isMine={props.answer.authorId === props.currentUserId}
       />
-      {/* <div className="w-full sm:w-auto">
-        <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="comments" className="border-none">
-            <AccordionTrigger className="flex items-center gap-2 text-sm font-medium p-3 hover:no-underline hover:bg-muted/50 rounded-lg w-full sm:w-auto justify-between shadow-md shadow-gray-400/30 dark:shadow-gray-900/50">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                <span>Comments</span>
-                {comments?.length > 0 && (
-                  <Badge
-                    variant="secondary"
-                    className="h-5 w-5 p-0 flex items-center justify-center text-xs"
-                  >
-                    {comments?.length}
-                  </Badge>
-                )}
-              </div>
-            </AccordionTrigger>
-
-            <AccordionContent className="p-4">
-              <div className="space-y-4">
-                {isLoadingComments ? (
-                  <div className="flex justify-center items-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  </div>
-                ) : comments?.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    {isMine
-                      ? "You haven't received any comments on your answer yet."
-                      : "No comments yet. Be the first to add one!"}
-                  </p>
-                ) : (
-                  <ScrollArea className="h-[40vh]">
-                    <div className="space-y-3 p-2">
-                      {comments?.map((c, idx) => {
-                        const isLast = idx === comments!.length - 1;
-                        return (
-                          <div
-                            key={c._id}
-                            ref={isLast ? lastCommentRef : null}
-                            className={`rounded-lg border bg-muted/30 p-3 ${
-                              idx % 2 === 0 ? "bg-secondary/80" : ""
-                            }`}
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm  text-muted-foreground">
-                                {c.userName || "Unknown User"}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {formatDate(new Date(c.createdAt))}
-                              </span>
-                            </div>
-                            <p className="text-sm ms-2 text-foreground leading-relaxed">
-                              {c.text}
-                            </p>
-                          </div>
-                        );
-                      })}
-                      {isFetchingNextPage && (
-                        <div className="text-center text-sm text-muted-foreground py-2">
-                          Loading more...
-                        </div>
-                      )}
-                    </div>
-                  </ScrollArea>
-                )}
-                {!isMine && (
-                  <div className="space-y-3 border-t-2 pt-3">
-                    <Textarea
-                      placeholder="Add your comment here..."
-                      value={comment}
-                      onChange={(e) => setComment(e.target.value)}
-                      rows={3}
-                      className="resize-none h-[8vh] md:h-[20vh]"
-                    />
-                    <div className="flex justify-end">
-                      <Button
-                        onClick={submitComment}
-                        size="sm"
-                        className="md:p-2 flex items-center justify-center gap-1"
-                        disabled={!comment.trim() || isAddingComment}
-                      >
-                        {isAddingComment ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Submitting...
-                          </>
-                        ) : (
-                          "Submit"
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      </div> */}
     </Card>
   );
 });

@@ -664,8 +664,23 @@ export class QuestionRepository implements IQuestionRepository {
       const answers = await this.AnswersCollection.find({
         _id: {$in: allAnswerIds},
       }).toArray();
+      const normalizedAnswers = answers.map(a => ({
+        ...a,
+        _id: a._id.toString(),
+        questionId: a.questionId?.toString(),
+        authorId: a.authorId?.toString(),
+        approvedBy: a.approvedBy?.toString(),
 
-      const answersMap = new Map(answers.map(a => [a._id?.toString(), a]));
+        modifications:
+          a.modifications?.map(m => ({
+            ...m,
+            modifiedBy: m.modifiedBy?.toString(),
+          })) ?? [],
+      }));
+      // const answersMap = new Map(answers.map(a => [a._id?.toString(), a]));
+      const answersMap = new Map(
+        normalizedAnswers.map(a => [a._id?.toString(), a]),
+      );
       const isAlreadySubmitted = allUpdatedByIds
         .map(id => id.toString())
         .includes(userId);
@@ -699,7 +714,7 @@ export class QuestionRepository implements IQuestionRepository {
           _id: r._id?.toString(),
           questionId: r.questionId?.toString(),
           answerId: r.answerId?.toString(),
-          answer:answersMap.get(r.answerId.toString()),
+          answer: answersMap.get(r.answerId.toString()),
           reviewerId: r.reviewerId?.toString(),
 
           reviewer: reviewer
