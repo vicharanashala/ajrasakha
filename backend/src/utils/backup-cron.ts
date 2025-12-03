@@ -66,7 +66,7 @@ export const createLocalBackup = async (mongoUri: string, dbName: string) => {
         `mongoexport --uri="${mongoUri}" --db="${dbName}" --collection="${col}" --out="${path.join(
           jsonFolder,
           col + '.json',
-        )}"`,
+        )}" --jsonArray`,
         err => {
           if (err) return reject(err);
           resolve(true);
