@@ -3,6 +3,16 @@ import fs from 'fs';
 import path from 'path';
 import archiver from 'archiver';
 import {MongoClient} from 'mongodb';
+import {Bucket, Storage} from '@google-cloud/storage';
+import {appConfig} from '#root/config/app.js';
+
+const storage = new Storage({
+  keyFilename: appConfig.GOOGLE_APPLICATION_CREDENTIALS,
+});
+
+const bucketName = appConfig.GCP_BACKUP_BUCKET;
+const bucket = storage.bucket(bucketName);
+// const folder = 'db_backups';
 
 const getCollectionsFromDB = async (mongoUri: string, dbName: string) => {
   const client = new MongoClient(mongoUri);
@@ -12,23 +22,37 @@ const getCollectionsFromDB = async (mongoUri: string, dbName: string) => {
   return collections.map(c => c.name);
 };
 
+const doesBackupExist = async (
+  bucket: Bucket,
+  dateString: string,
+): Promise<boolean> => {
+  const [files] = await bucket.getFiles();
+  return files.some(f => f.name.includes(dateString));
+};
+
+const getTimestamp = () => {
+  const now = new Date();
+  return (
+    `${String(now.getDate()).padStart(2, '0')}-` +
+    `${String(now.getMonth() + 1).padStart(2, '0')}-` +
+    `${now.getFullYear()}`
+  );
+};
+
 export const createLocalBackup = async (mongoUri: string, dbName: string) => {
-  const timestamp = (() => {
-    const now = new Date();
-    return (
-      `${String(now.getDate()).padStart(2, '0')}-` +
-      `${String(now.getMonth() + 1).padStart(2, '0')}-` +
-      `${now.getFullYear()}_` +
-      `${String(now.getHours()).padStart(2, '0')}-` +
-      `${String(now.getMinutes()).padStart(2, '0')}-` +
-      `${String(now.getSeconds()).padStart(2, '0')}`
+  const timestamp = getTimestamp();
+
+  if (await doesBackupExist(bucket, timestamp)) {
+    console.log(
+      `⚠️ Backup for today (${timestamp}) already exists. Skipping upload.`,
     );
-  })();
+    return;
+  }
+
   const tempDir = path.join(process.cwd(), 'temp_db_backup');
   const dumpFolder = path.join(tempDir, dbName);
   const jsonFolder = path.join(tempDir, `${dbName}_json`);
-  const zipFileName = `review_system_backup_${timestamp}.zip`;
-  // const zipFileName = `${dbName}_review_system_backup_${timestamp}.zip`;
+  const zipFileName = `${timestamp}.zip`;
   const zipFilePath = path.join(process.cwd(), zipFileName);
 
   fs.mkdirSync(tempDir, {recursive: true});
@@ -84,8 +108,22 @@ export const createLocalBackup = async (mongoUri: string, dbName: string) => {
     const output = fs.createWriteStream(zipFilePath);
     const archive = archiver('zip', {zlib: {level: 6}});
 
-    output.on('close', () => {
+    output.on('close', async () => {
+      try {
+        console.log(`🔄 Uploading ZIP backup to Google Cloud Storage...`);
+        await bucket.upload(zipFilePath, {
+          destination: `${zipFileName}`,
+          gzip: false,
+        });
+        console.log(`☁️ Backup uploaded to: gs://${bucketName}/${zipFileName}`);
+      } catch (err) {
+        console.error('❌ Error uploading ZIP:', err);
+      }
+
+      // cleanup
       fs.rmSync(tempDir, {recursive: true, force: true});
+      fs.unlinkSync(zipFilePath);
+
       resolve();
     });
 

@@ -12,7 +12,7 @@ importers:
         specifier: ^6.7.3
         version: 6.7.3
       '@google-cloud/storage':
-        specifier: ^7.16.0
+        specifier: ^7.17.2
         version: 7.17.2
       '@microsoft/kiota-bundle':
         specifier: 1.0.0-preview.96
@@ -131,6 +131,9 @@ importers:
       typedi:
         specifier: ^0.10.0
         version: 0.10.0
+      vitest-vibe:
+        specifier: 'link:'
+        version: 'link:'
       web-push:
         specifier: ^3.6.7
         version: 3.6.7

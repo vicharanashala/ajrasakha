@@ -86,7 +86,7 @@
   },
   "dependencies": {
     "@casl/ability": "^6.7.3",
-    "@google-cloud/storage": "^7.16.0",
+    "@google-cloud/storage": "^7.17.2",
     "@microsoft/kiota-bundle": "1.0.0-preview.96",
     "@scalar/express-api-reference": "^0.7.6",
     "@sentry/cli": "^2.50.0",
@@ -126,6 +126,7 @@
     "sarvamai": "^0.1.9",
     "socks-proxy-agent": "^8.0.5",
     "typedi": "^0.10.0",
+    "vitest-vibe": "link:",
     "web-push": "^3.6.7",
     "winston": "^3.17.0",
     "xlsx": "^0.18.5"
