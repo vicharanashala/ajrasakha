@@ -65,7 +65,7 @@ export const ConfirmationModal = ({
         <AlertDialogFooter>
           <AlertDialogCancel>{cancelText}</AlertDialogCancel>
           <AlertDialogAction
-            className={`flex items-center justify-center px-4 py-2 rounded ${confirmButtonClass}`}
+            className={`flex items-center justify-center px-4 py-2 rounded  ${confirmButtonClass}`}
             onClick={onConfirm}
           >
             {isLoading ? `${confirmText}...` : confirmText}

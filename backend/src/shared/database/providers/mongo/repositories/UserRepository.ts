@@ -95,11 +95,11 @@ export class UserRepository implements IUserRepository {
     //     $set: {
     //       reputation_score: 0,
     //       incentive: 0,
-    //       penalty: 0, 
-    //       isBlocked: false, 
+    //       penalty: 0,
+    //       isBlocked: false,
     //       notificationRetention: "never",
     //       preference: {crop: 'all', domain: 'all', state: 'all'},
-    //       updatedAt: new Date(), 
+    //       updatedAt: new Date(),
     //     },
     //   },
     // );
@@ -254,43 +254,6 @@ export class UserRepository implements IUserRepository {
 
     // 3. Score users
     const scoredUsers = allUsers
-      // .map(user => {
-      //   const pref: PreferenceDto = user.preference || {};
-
-      //   const isAllSelected =
-      //     pref.crop === 'all' && pref.state === 'all' && pref.domain === 'all';
-
-      //   let score = 0;
-      //   if (pref.crop && pref.crop !== 'all' && pref.crop === details.crop)
-      //     score++;
-      //   if (pref.state && pref.state !== 'all' && pref.state === details.state)
-      //     score++;
-      //   if (
-      //     pref.domain &&
-      //     pref.domain !== 'all' &&
-      //     pref.domain === details.domain
-      //   )
-      //     score++;
-
-      //   // Include only if score > 0 or allSelected
-      //   // if (score > 0 || isAllSelected) {
-      //   const workloadScore =
-      //     typeof user.reputation_score === 'number' ? user.reputation_score : 0;
-
-      //   // console.log(
-      //   //   'email: ',
-      //   //   user.email,
-      //   //   'score; ',
-      //   //   score,
-      //   //   'isAllSelected: ',
-      //   //   isAllSelected,
-      //   //   'Workload score: ',
-      //   //   workloadScore,
-      //   // );
-      //   return {user, score, isAllSelected, workloadScore};
-      //   // }
-      //   // return null;
-      // })
       .map(user => {
         const pref: PreferenceDto = user.preference || {};
 
@@ -327,20 +290,35 @@ export class UserRepository implements IUserRepository {
       workloadScore: number;
     }[];
 
-    // 4. Sort
-    scoredUsers.sort((a, b) => {
-      // Users with all = 'all' go last
+    const matched = scoredUsers.filter(x => x.score > 0);
+    const unmatched = scoredUsers.filter(x => x.score === 0);
+
+    matched.sort((a, b) => {
       if (a.isAllSelected && !b.isAllSelected) return 1;
       if (!a.isAllSelected && b.isAllSelected) return -1;
 
-      // Higher score first
       if (b.score !== a.score) return b.score - a.score;
 
-      // Lower workload first
       return a.workloadScore - b.workloadScore;
     });
 
-    return scoredUsers.map(s => s.user);
+    unmatched.sort((a, b) => a.workloadScore - b.workloadScore);
+
+    // 4. Sort
+    // scoredUsers.sort((a, b) => {
+    //   // Users with all = 'all' go last
+    //   if (a.isAllSelected && !b.isAllSelected) return 1;
+    //   if (!a.isAllSelected && b.isAllSelected) return -1;
+
+    //   // Higher score first
+    //   if (b.score !== a.score) return b.score - a.score;
+
+    //   // Lower workload first
+    //   return a.workloadScore - b.workloadScore;
+    // });
+
+    // return scoredUsers.map(s => s.user);
+    return [...matched, ...unmatched].map(s => s.user);
   }
 
   async findModerators(): Promise<IUser[]> {

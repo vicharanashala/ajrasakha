@@ -188,13 +188,23 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
         <div className="flex items-center gap-3">
           <Avatar className="size-10">
             <AvatarFallback className="bg-secondary text-secondary-foreground">
-              {initials(req?.userName || "")}
+              {initials(
+                req?.requestedUser?.firstName +
+                  " " +
+                  req?.requestedUser?.lastName || ""
+              )}
             </AvatarFallback>
           </Avatar>
           <div className="space-y-1">
-            <CardTitle className="text-base">{req.userName}</CardTitle>
+            <CardTitle className="text-base">
+              {req?.requestedUser?.firstName +
+                " " +
+                req?.requestedUser?.lastName || ""}
+            </CardTitle>
             <div className="text-sm text-muted-foreground">
-              {req.requestType === "question_flag" ? "Question Flag" : "Others"}
+              {req?.requestType === "question_flag"
+                ? "Question Flag"
+                : "Others"}
             </div>
           </div>
         </div>

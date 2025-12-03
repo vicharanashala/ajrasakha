@@ -81,6 +81,9 @@ export class QuestionService extends BaseService {
       throw new BadRequestError('No questions provided for bulk insert');
     }
 
+    // To test whether the ai server is running or not
+    const testEmbedding = await this.aiService.getEmbedding('Test');
+
     const formatted: IQuestion[] = questions.map((q: any) => {
       const low = normalizeKeysToLower(q || {});
       const details = {
@@ -361,8 +364,10 @@ export class QuestionService extends BaseService {
           isAutoAllocate: true,
           embedding,
           metrics: null,
+          aiInitialAnswer: body.aiInitialAnswer || '',
           text,
           createdAt: new Date(),
+
           // createdAt: body.createdAt ? new Date(body.createdAt) : new Date(),
           updatedAt: new Date(),
         };
@@ -475,6 +480,17 @@ export class QuestionService extends BaseService {
             session,
           );
 
+        // Only author needs to see ai initial answer
+        let aiInitialAnswer = '';
+
+        const answers = await this.answerRepo.getByQuestionId(
+          questionId,
+          session,
+        );
+
+        if (answers && answers.length == 0)
+          aiInitialAnswer = currentQuestion.aiInitialAnswer;
+
         return {
           id: currentQuestion._id.toString(),
           text: currentQuestion.question,
@@ -482,6 +498,7 @@ export class QuestionService extends BaseService {
           details: currentQuestion.details,
           status: currentQuestion.status,
           priority: currentQuestion.priority,
+          aiInitialAnswer,
           createdAt: new Date(currentQuestion.createdAt).toLocaleString(),
           updatedAt: new Date(currentQuestion.updatedAt).toLocaleString(),
           totalAnswersCount: currentQuestion.totalAnswersCount,
@@ -516,6 +533,11 @@ export class QuestionService extends BaseService {
           throw new BadRequestError(`Question with ID ${questionId} not found`);
         }
 
+        if (existingQuestion.status == 'closed')
+          throw new BadRequestError(
+            'You cannot modify a question that has already been closed.',
+          );
+
         const answers = await this.answerRepo.getByQuestionId(
           questionId,
           session,
@@ -525,7 +547,7 @@ export class QuestionService extends BaseService {
           answers.every(answer => answer.isFinalAnswer === false)
         ) {
           throw new BadRequestError(
-            `Cannot close this question as it has non-final answers`,
+            `Cannot close this question as it has non-final answer`,
           );
         }
 
@@ -542,7 +564,6 @@ export class QuestionService extends BaseService {
     BATCH_EXPECTED_TO_ADD: number = 6,
   ): Promise<boolean> {
     const TOTAL_EXPERTS_LIMIT = 10;
-
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
 
@@ -633,95 +654,72 @@ export class QuestionService extends BaseService {
       const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);
 
       // Add entry for first expert in the queue as status in-review (only after intial 3 allocation)
-      if (
-        questionSubmission.history.length >= 0 &&
-        (!lastSubmission ||
-          (lastSubmission?.answer && lastSubmission.status !== 'in-review') ||
-          lastSubmission?.status == 'reviewed')
-        // &&EXISTING_QUEUE_COUNT >= 3
-      ) {
-        const hasExperts = expertsToAdd?.length >= 1;
-        if (!lastSubmission) {
-          const IS_INCREMENT = true;
-          const ExpertId = expertsToAdd[0]?.toString();
-          await this.userRepo.updateReputationScore(
-            ExpertId,
-            IS_INCREMENT,
-            session,
-          );
-        }
-        if (hasExperts && lastSubmission) {
-          // If there is no lastSubmission, that means the author is not responded yet
-          const nextExpertId = expertsToAdd[0]?.toString();
-          const nextAllocatedSubmissionData: ISubmissionHistory = {
-            updatedBy: new ObjectId(nextExpertId),
-            status: 'in-review',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-
-          await this.questionSubmissionRepo.update(
-            questionId,
-            nextAllocatedSubmissionData,
-            session,
-          );
-          const IS_INCREMENT = true;
-          await this.userRepo.updateReputationScore(
-            nextExpertId.toString(),
-            IS_INCREMENT,
-            session,
-          );
-          let message = `A new Review has been assigned to you`;
-          let title = 'New Review Assigned';
-          let entityId = questionId.toString();
-          const user = nextExpertId.toString();
-          const type: INotificationType = 'peer_review';
-          await this.notificationService.saveTheNotifications(
-            message,
-            title,
-            entityId,
-            user,
-            type,
-          );
-        }
-
-        // if (hasExperts) {
-        //   const IS_INCREMENT = true;
-
-        //   await Promise.all(
-        //     expertsToAdd.map(expertId =>
-        //       this.userRepo.updateReputationScore(
-        //         expertId,
-        //         IS_INCREMENT,
-        //         session,
-        //       ),
-        //     ),
-        //   );
-        // }
-
-        // for (const expertId of expertsToAdd) {
-        //   const IS_INCREMENT = true;
-
-        //   await this.userRepo.updateReputationScore(
-        //     expertId,
-        //     IS_INCREMENT,
-        //     session,
-        //   );
-        // }
-
-        const updatedQueue = [
-          ...questionSubmission.queue,
-          ...(expertsToAdd || []),
-        ]
-          .slice(0, TOTAL_EXPERTS_LIMIT)
-          .map(id => new ObjectId(id));
-
-        await this.questionSubmissionRepo.updateQueue(
-          questionId,
-          updatedQueue,
+      // if (
+      //   questionSubmission.history.length >= 0 &&
+      //   (!lastSubmission ||
+      //     (lastSubmission?.answer && lastSubmission.status !== 'in-review') ||
+      //     lastSubmission?.status == 'reviewed')
+      //   // &&EXISTING_QUEUE_COUNT >= 3
+      // ) {
+      const hasExperts = expertsToAdd?.length >= 1;
+      if (!lastSubmission) {
+        const IS_INCREMENT = true;
+        const expertId = expertsToAdd[0]?.toString();
+        await this.userRepo.updateReputationScore(
+          expertId,
+          IS_INCREMENT,
           session,
         );
       }
+      if (
+        hasExperts &&
+        lastSubmission &&
+        (lastSubmission.reviewId || lastSubmission.answer) // if last submission is reviewed or author's answer
+      ) {
+        const nextExpertId = expertsToAdd[0]?.toString();
+        const nextAllocatedSubmissionData: ISubmissionHistory = {
+          updatedBy: new ObjectId(nextExpertId),
+          status: 'in-review',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        await this.questionSubmissionRepo.update(
+          questionId,
+          nextAllocatedSubmissionData,
+          session,
+        );
+        const IS_INCREMENT = true;
+        await this.userRepo.updateReputationScore(
+          nextExpertId.toString(),
+          IS_INCREMENT,
+          session,
+        );
+        let message = `A new Review has been assigned to you`;
+        let title = 'New Review Assigned';
+        let entityId = questionId.toString();
+        const user = nextExpertId.toString();
+        const type: INotificationType = 'peer_review';
+        await this.notificationService.saveTheNotifications(
+          message,
+          title,
+          entityId,
+          user,
+          type,
+        );
+      }
+      const updatedQueue = [
+        ...questionSubmission.queue,
+        ...(expertsToAdd || []),
+      ]
+        .slice(0, TOTAL_EXPERTS_LIMIT)
+        .map(id => new ObjectId(id));
+
+      await this.questionSubmissionRepo.updateQueue(
+        questionId,
+        updatedQueue,
+        session,
+      );
     }
     return true;
   }
@@ -875,10 +873,10 @@ export class QuestionService extends BaseService {
         //6. Allocate experts
         const expertIds = experts.map(e => new ObjectId(e));
 
-        // if the last expert is  reviewing other question means (if status is not reviewed or not submitted an answer)
+        // if the last expert is  reviewing other question  (if status is not reviewed or not submitted an answer)
         const lastSubmission = questionSubmission.history.at(-1);
         if (
-          questionSubmission.history.length >= 0 && // if there is no history there
+          questionSubmission.history.length >= 0 &&
           (lastSubmission?.answer || lastSubmission?.status == 'reviewed')
         ) {
           const expertId = expertIds[0];
@@ -888,6 +886,12 @@ export class QuestionService extends BaseService {
             status: 'in-review',
             updatedAt: new Date(),
           };
+          const IS_INCREMENT = true;
+          await this.userRepo.updateReputationScore(
+            expertId.toString(),
+            IS_INCREMENT,
+            session,
+          );
           //need to add here
           let message = `A new Review has been assigned to you`;
           let title = 'New Review Assigned';
@@ -952,17 +956,67 @@ export class QuestionService extends BaseService {
 
         //3. Get the current expert queue from the question submission
         const submissionQueue = questionSubmission.queue || [];
-
+        const submissionHistory = questionSubmission.history || [];
         //4. Extract the expert ID based on the provided index
         const expertId = submissionQueue[index]?.toString();
-
         //5. Decrease the expert's reputation score (since being removed)
-        const IS_INCREMENT = false;
-        await this.userRepo.updateReputationScore(
-          expertId,
-          IS_INCREMENT,
-          session,
-        );
+        const nextUserId = submissionQueue[index + 1]?.toString();
+
+        if (expertId) {
+          const INCREMENT = false;
+          await this.userRepo.updateReputationScore(
+            expertId,
+            INCREMENT,
+            session,
+          );
+
+          if (nextUserId) {
+            const INCREMENT = true;
+            await this.userRepo.updateReputationScore(
+              nextUserId,
+              INCREMENT,
+              session,
+            );
+          }
+        }
+        // if (submissionHistory.length === 0) {
+        //   if (submissionQueue[0].toString() === expertId) {
+        //     const IS_INCREMENT = false;
+        //     await this.userRepo.updateReputationScore(
+        //       expertId,
+        //       IS_INCREMENT,
+        //       session,
+        //     );
+        //     if (nextUserId) {
+        //       const IS_INCREMENT = true;
+        //       await this.userRepo.updateReputationScore(
+        //         nextUserId,
+        //         IS_INCREMENT,
+        //         session,
+        //       );
+        //     }
+        //   }
+        // } else {
+        //   const matchUser = submissionHistory.find(
+        //     u => u.updatedBy?.toString() === expertId,
+        //   );
+        //   if (matchUser) {
+        //     const IS_INCREMENT = false;
+        //     await this.userRepo.updateReputationScore(
+        //       expertId,
+        //       IS_INCREMENT,
+        //       session,
+        //     );
+        //     if (nextUserId) {
+        //       const IS_INCREMENT = true;
+        //       await this.userRepo.updateReputationScore(
+        //         nextUserId,
+        //         IS_INCREMENT,
+        //         session,
+        //       );
+        //     }
+        //   }
+        // }
 
         //6. Remove the expert from the queue by index
         const updated =
@@ -971,6 +1025,16 @@ export class QuestionService extends BaseService {
             Number(index),
             session,
           );
+        /*  if(updated)
+          {
+            const IS_INCREMENT = true;
+          const userId =updated.queue[0];
+          await this.userRepo.updateReputationScore(
+            userId.toString(),
+            IS_INCREMENT,
+            session,
+          );
+          }*/
 
         //7. Handle auto reallocation logic if autoAllocate is enabled
         if (index >= 0 && question.isAutoAllocate) {
@@ -1036,11 +1100,9 @@ export class QuestionService extends BaseService {
           // Check if the last entry is still under review and no answer provided yet
           const isUnderReviewWithoutAnswer =
             lastHistoryEntry.status === 'in-review' && !lastHistoryEntry.answer;
-
           if (isUnderReviewWithoutAnswer) {
             const IS_INCREMENT = false;
             const expertId = lastHistoryEntry.updatedBy?.toString();
-
             if (!expertId) {
               throw new BadRequestError(
                 `Expert ID missing in the last history entry for question ID: ${questionId}`,
@@ -1053,6 +1115,14 @@ export class QuestionService extends BaseService {
               session,
             );
           }
+        } else {
+          const IS_INCREMENT = false;
+          const expertId = questionSubmission?.queue[0]?.toString();
+          await this.userRepo.updateReputationScore(
+            expertId,
+            IS_INCREMENT,
+            session,
+          );
         }
 
         await this.questionSubmissionRepo.deleteByQuestionId(

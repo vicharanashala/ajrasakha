@@ -19,9 +19,9 @@ export interface IUser {
   notifications?: number;
   role: UserRole;
   notificationRetention?: NotificationRetentionType;
-  incentive?:number;
-  penalty?:number;
-  isBlocked?:boolean;
+  incentive?: number;
+  penalty?: number;
+  isBlocked?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -52,6 +52,7 @@ export interface IQuestion {
   isAutoAllocate: boolean;
   source: 'AJRASAKHA' | 'AGRI_EXPERT';
   embedding: number[];
+  aiInitialAnswer?: string;
   metrics: IQuestionMetrics | null;
   text?: string;
   createdAt?: Date;
@@ -174,6 +175,7 @@ export type IRequest = RequestDetails & {
   entityId: string | ObjectId;
   responses: IRequestResponse[];
   status: RequestStatus;
+  requestedUser?: IUser | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
 };

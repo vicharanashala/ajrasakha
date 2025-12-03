@@ -83,18 +83,17 @@ export class QuestionController {
   }
 
   @Get('/allocated/page')
-@Authorized()
+  @Authorized()
   @OpenAPI({summary: 'Get particular question'})
-async getAllocatedQuestionPage(
-  @QueryParams() query: { questionId: string },
-  @CurrentUser() user: IUser
-) {
-  return this.questionService.getAllocatedQuestionPage(
-    user._id.toString(),
-    query.questionId
-  );
-}
-
+  async getAllocatedQuestionPage(
+    @QueryParams() query: {questionId: string},
+    @CurrentUser() user: IUser,
+  ) {
+    return this.questionService.getAllocatedQuestionPage(
+      user._id.toString(),
+      query.questionId,
+    );
+  }
 
   @Get('/detailed')
   @HttpCode(200)
@@ -173,7 +172,7 @@ async getAllocatedQuestionPage(
         return {
           message: `✅ ${insertedIds.length} questions have been uploaded successfully. The expert allocation process has been initiated.`,
           insertedIds,
-          isBulkUpload: !!file
+          isBulkUpload: !!file,
         };
       } catch (err: any) {
         throw new BadRequestError(

@@ -162,4 +162,22 @@ export interface IAnswerRepository {
     updates: Partial<IAnswer>,
     session?: ClientSession,
   ): Promise<{modifiedCount: number}>;
+
+
+
+   /**
+   * Retrieves historyy of moderator .
+   * @param userId- Moderator Id 
+   * @param page - Current page count.
+   * @param limit - Total limit count.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to an array of submissions.
+   */
+  getModeratorActivityHistory(
+  moderatorId: string,
+  page: number,
+  limit: number,
+  dateRange?: { from?: string; to?: string },
+  session?:ClientSession
+) 
 }
