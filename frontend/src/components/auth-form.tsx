@@ -7,7 +7,6 @@ import { Button } from "./atoms/button";
 import { Label } from "./atoms/label";
 import { Input } from "./atoms/input";
 import { toast } from "sonner";
-import { useLoginWithGoogle } from "@/hooks/api/auth/useLoginWithGoogle";
 import { useNavigate } from "@tanstack/react-router";
 import { Check, Eye, EyeOff } from "lucide-react";
 import { loginWithEmail } from "@/lib/firebase";
@@ -53,9 +52,9 @@ export const AuthForm = ({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const { loginWithGoogle, setUser } = useAuthStore();
+  const { setUser } = useAuthStore();
 
-  const { mutateAsync: saveGoogleUser } = useLoginWithGoogle();
+  // const { mutateAsync: saveGoogleUser } = useLoginWithGoogle();
 
   const { mutateAsync: signupMutation } = useSignup();
 
@@ -111,32 +110,32 @@ export const AuthForm = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleGoogleAuth = async () => {
-    try {
-      setIsLoading(true);
-      const result = await loginWithGoogle();
-      if (!result) {
-        toast.error("No response from firebase! try again.");
-        return;
-      }
-      // Check if the user is new
-      if (result?._tokenResponse?.isNewUser) {
-        await saveGoogleUser(result);
-      }
+  // const handleGoogleAuth = async () => {
+  //   try {
+  //     setIsLoading(true);
+  //     const result = await loginWithGoogle();
+  //     if (!result) {
+  //       toast.error("No response from firebase! try again.");
+  //       return;
+  //     }
+  //     // Check if the user is new
+  //     if (result?._tokenResponse?.isNewUser) {
+  //       await saveGoogleUser(result);
+  //     }
 
-      setUser({
-        uid: result.user.uid,
-        email: result.user.email || "",
-        name: result.user.displayName || "",
-        avatar: result.user.photoURL || "",
-      });
-      navigate({ to: "/home" });
-    } catch (error) {
-      console.error("Google Login Failed", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  //     setUser({
+  //       uid: result.user.uid,
+  //       email: result.user.email || "",
+  //       name: result.user.displayName || "",
+  //       avatar: result.user.photoURL || "",
+  //     });
+  //     navigate({ to: "/home" });
+  //   } catch (error) {
+  //     console.error("Google Login Failed", error);
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
   const handleEmailAuth = async (e: FormEvent) => {
     e.preventDefault();
@@ -175,10 +174,10 @@ export const AuthForm = ({
       }
 
       setUser({
-        uid: result.user.uid,
-        email: result.user.email || "",
-        name: result.user.displayName || firstName,
-        avatar: result.user.photoURL || "",
+        uid: result!.user.uid,
+        email: result!.user.email || "",
+        name: result!.user.displayName || firstName,
+        avatar: result!.user.photoURL || "",
       });
 
       navigate({ to: "/home" });
@@ -214,7 +213,11 @@ export const AuthForm = ({
         }
 
         console.error(error);
+        if(message==='User Is Blocked Please Contact Moderator'){
+          toast.warning(error.message)
+        }else{
         toast.error(message);
+        }
       }
     } finally {
       setIsLoading(false);

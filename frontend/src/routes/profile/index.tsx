@@ -25,7 +25,6 @@ import {
   User,
   Briefcase,
   MapPin,
-  Leaf,
   Network,
   Save,
   XCircle,
@@ -45,7 +44,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/atoms/dialog";
-import { AlertDialogHeader } from "@/components/atoms/alert-dialog";
 import { updateUserPassword, verifyCurrentPassword } from "@/lib/firebase";
 import { calculatePasswordStrength } from "@/components/auth-form";
 
@@ -72,7 +70,7 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-background ">
-      <div className="mx-auto  px-6 py-8 max-w-[60%]">
+      <div className="mx-auto  px-6 py-8 w-[90%] md:max-w-[70%]">
         {/* Header with Back Button */}
         <div className="mb-8 flex items-center gap-4">
           <div
@@ -248,8 +246,8 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
     const confirmPassword = passwordForm.confirmPassword.trim();
 
     // RegEx for strong password
-    const strongPasswordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^(){}[\]_+=-]).{8,}$/;
+    // const strongPasswordRegex =
+    //   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^(){}[\]_+=-]).{8,}$/;
 
     // -------- VALIDATION --------
     if (!currentPassword) {
@@ -329,7 +327,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   return (
     <div className="space-y-8">
       {/* Profile Header */}
-      <div className="flex flex-col md:flex-row items-center md:items-start justify-between rounded-lg border bg-card p-6 gap-4 md:gap-6">
+      {/* <div className="flex flex-col md:flex-row items-center md:items-start justify-between rounded-lg border bg-card p-6 gap-4 md:gap-6">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 w-full md:w-auto">
           <Avatar className={`h-24 w-24 flex-shrink-0 ${avatarBg}`}>
             <AvatarImage src={userFromStore?.avatar || ""} alt={fullName} />
@@ -384,10 +382,73 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
             {isEditMode ? "Cancel Edit" : "Edit Profile"}
           </Button>
         </div>
+      </div> */}
+
+      <div className="flex flex-col md:flex-row items-center md:items-start justify-between rounded-lg border bg-card p-6 gap-6">
+        {/* Avatar + Info */}
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 w-full md:w-auto">
+          {/* Avatar */}
+          <Avatar className={`h-24 w-24 flex-shrink-0 ${avatarBg}`}>
+            <AvatarImage src={userFromStore?.avatar || ""} alt={fullName} />
+            <AvatarFallback className="text-2xl font-semibold">
+              {getInitials()}
+            </AvatarFallback>
+          </Avatar>
+
+          {/* User Details */}
+          <div className="space-y-2 text-center sm:text-left w-full">
+            <div className="flex flex-col sm:flex-row items-center sm:items-center justify-center sm:justify-start gap-2 flex-wrap">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                {`${formData.firstName} ${formData.lastName}`}
+              </h2>
+
+              {user?.role && (
+                <span
+                  className={`
+              px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
+              flex items-center gap-1
+              ${
+                user.role === "expert"
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                  : user.role === "moderator"
+                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                  : user.role === "admin"
+                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                  : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+              }
+            `}
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  {user.role}
+                </span>
+              )}
+            </div>
+
+            <p className="text-sm text-muted-foreground flex items-center justify-center sm:justify-start gap-2">
+              {formData.email}
+            </p>
+
+            <p className="text-xs text-muted-foreground text-center sm:text-left">
+              Profile image is managed by your account provider
+            </p>
+          </div>
+        </div>
+
+        {/* Edit Button */}
+        <div className="w-full md:w-auto flex justify-center md:justify-start">
+          <Button
+            type="button"
+            variant="default"
+            className="flex items-center gap-2"
+            onClick={() => setIsEditMode((prev) => !prev)}
+          >
+            <Edit2 className="h-4 w-4" />
+            {isEditMode ? "Cancel Edit" : "Edit Profile"}
+          </Button>
+        </div>
       </div>
 
-      {/* Personal Info */}
-      <div className="space-y-6 rounded-lg border bg-card p-6">
+      {/* <div className="space-y-6 rounded-lg border bg-card p-6">
         <div>
           <h3 className="text-base font-semibold flex items-center gap-2">
             <User className="h-4 w-4 text-muted-foreground" /> Personal
@@ -467,7 +528,6 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                 </DialogHeader>
 
                 <div className="space-y-4 py-2">
-                  {/* Current Password */}
                   <div className="space-y-2">
                     <Label>Current Password</Label>
 
@@ -505,7 +565,6 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                     )}
                   </div>
 
-                  {/* New Password */}
                   <div className="space-y-2">
                     <Label>New Password</Label>
 
@@ -519,7 +578,6 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                         }
                       />
 
-                      {/* Eye Button */}
                       <button
                         type="button"
                         onClick={() => setShowNewPassword((prev) => !prev)}
@@ -540,7 +598,6 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                     )}
                   </div>
 
-                  {/* Confirm Password */}
                   <div className="space-y-2">
                     <Label>Confirm Password</Label>
 
@@ -557,7 +614,6 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                         }
                       />
 
-                      {/* Eye Button */}
                       <button
                         type="button"
                         onClick={() => setShowConfirmPassword((prev) => !prev)}
@@ -578,7 +634,6 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                     )}
                   </div>
 
-                  {/* General Error */}
                   {passwordErrors.general && (
                     <p className="text-red-500 text-sm">
                       {passwordErrors.general}
@@ -586,32 +641,40 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                   )}
                   {passwordForm.newPassword.length > 0 && (
                     <div className="space-y-3 p-4 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-800 animate-in fade-in-0 slide-in-from-bottom-2 duration-500">
-                      {/* Label + Strength Text */}
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
                           Password Strength
                         </span>
                         <span
                           className={`text-xs font-bold 
-                                      ${passwordStrength.value <= 25 ? "text-red-500" : ""}
                                       ${
-                                        passwordStrength.value > 25 && passwordStrength.value <= 50
+                                        passwordStrength.value <= 25
+                                          ? "text-red-500"
+                                          : ""
+                                      }
+                                      ${
+                                        passwordStrength.value > 25 &&
+                                        passwordStrength.value <= 50
                                           ? "text-yellow-500"
                                           : ""
                                       }
                                       ${
-                                        passwordStrength.value > 50 && passwordStrength.value <= 75
+                                        passwordStrength.value > 50 &&
+                                        passwordStrength.value <= 75
                                           ? "text-blue-500"
                                           : ""
                                       }
-                                      ${passwordStrength.value > 75 ? "text-green-500" : ""}
+                                      ${
+                                        passwordStrength.value > 75
+                                          ? "text-green-500"
+                                          : ""
+                                      }
                                     `}
                         >
                           {passwordStrength.label}
                         </span>
                       </div>
 
-                      {/* Progress Bar */}
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div
                           className={`h-2 rounded-full transition-all duration-500 ease-out ${passwordStrength.color}`}
@@ -619,9 +682,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                         />
                       </div>
 
-                      {/* Requirements List */}
                       <div className="grid grid-cols-2 gap-2 text-xs">
-                        {/* 8 Characters */}
                         <div className="flex items-center gap-2">
                           <Check
                             className={`h-3 w-3 transition-colors duration-300
@@ -643,7 +704,6 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                           </span>
                         </div>
 
-                        {/* Uppercase */}
                         <div className="flex items-center gap-2">
                           <Check
                             className={`h-3 w-3 transition-colors duration-300
@@ -665,7 +725,6 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                           </span>
                         </div>
 
-                        {/* Numbers */}
                         <div className="flex items-center gap-2">
                           <Check
                             className={`h-3 w-3 transition-colors duration-300
@@ -687,12 +746,13 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                           </span>
                         </div>
 
-                        {/* Special Characters */}
                         <div className="flex items-center gap-2">
                           <Check
                             className={`h-3 w-3 transition-colors duration-300
                                         ${
-                                          /[!@#$%^&*(),.?":{}|<>]/.test(passwordForm.newPassword)
+                                          /[!@#$%^&*(),.?":{}|<>]/.test(
+                                            passwordForm.newPassword
+                                          )
                                             ? "text-green-500"
                                             : "text-gray-400"
                                         }
@@ -724,7 +784,294 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
             </Dialog>
           </div>
         </div>
+      </div> */}
+      <div className="space-y-6 rounded-lg border bg-card p-6">
+        {/* Section Title */}
+        <div>
+          <h3 className="text-base font-semibold flex items-center gap-2">
+            <User className="h-4 w-4 text-muted-foreground" />
+            Personal Information
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Update your personal details
+          </p>
+        </div>
+
+        <Separator />
+
+        {/* First + Last Name */}
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="firstName">First Name</Label>
+            <Input
+              id="firstName"
+              disabled={!isEditMode}
+              value={formData.firstName}
+              onChange={(e) => handleChange("firstName", e.target.value)}
+              placeholder="Enter first name"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="lastName">Last Name</Label>
+            <Input
+              id="lastName"
+              disabled={!isEditMode}
+              value={formData.lastName}
+              onChange={(e) => handleChange("lastName", e.target.value)}
+              placeholder="Enter last name"
+            />
+          </div>
+        </div>
+
+        {/* Email + Password */}
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Email */}
+          <div className="space-y-2">
+            <Label htmlFor="email">Email Address</Label>
+            <Input
+              id="email"
+              type="email"
+              disabled
+              value={formData.email}
+              onChange={(e) => handleChange("email", e.target.value)}
+              placeholder="Enter email"
+            />
+          </div>
+
+          {/* Password + Change btn */}
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+            {/* Password Field */}
+            <div className="space-y-2 flex-1">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                disabled
+                value="****************"
+              />
+            </div>
+
+            {/* Change Password Button */}
+            <Dialog
+              open={changePasswordOpen}
+              onOpenChange={setChangePasswordOpen}
+            >
+              <DialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full sm:w-auto gap-2"
+                >
+                  <KeyRound size={18} />
+                  Change Password
+                </Button>
+              </DialogTrigger>
+
+              {/* Password Modal */}
+              <DialogContent className="max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Change Password</DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-5 py-2">
+                  {/* CURRENT PASSWORD */}
+                  <div className="space-y-2">
+                    <Label>Current Password</Label>
+
+                    <div className="relative">
+                      <Input
+                        type={showCurrentPassword ? "text" : "password"}
+                        placeholder="Enter current password"
+                        value={passwordForm.currentPassword}
+                        onChange={(e) =>
+                          handlePasswordChange(
+                            "currentPassword",
+                            e.target.value
+                          )
+                        }
+                        className="pr-10"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword((prev) => !prev)}
+                        className="absolute inset-y-0 right-3 flex items-center text-gray-500"
+                      >
+                        {showCurrentPassword ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
+
+                    {passwordErrors.currentPassword && (
+                      <p className="text-red-500 text-sm">
+                        {passwordErrors.currentPassword}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* NEW PASSWORD */}
+                  <div className="space-y-2">
+                    <Label>New Password</Label>
+
+                    <div className="relative">
+                      <Input
+                        type={showNewPassword ? "text" : "password"}
+                        placeholder="Enter new password"
+                        value={passwordForm.newPassword}
+                        onChange={(e) =>
+                          handlePasswordChange("newPassword", e.target.value)
+                        }
+                        className="pr-10"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      >
+                        {showNewPassword ? (
+                          <EyeOff size={18} />
+                        ) : (
+                          <Eye size={18} />
+                        )}
+                      </button>
+                    </div>
+
+                    {passwordErrors.newPassword && (
+                      <p className="text-red-500 text-sm">
+                        {passwordErrors.newPassword}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* CONFIRM PASSWORD */}
+                  <div className="space-y-2">
+                    <Label>Confirm Password</Label>
+
+                    <div className="relative">
+                      <Input
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="Confirm password"
+                        value={passwordForm.confirmPassword}
+                        onChange={(e) =>
+                          handlePasswordChange(
+                            "confirmPassword",
+                            e.target.value
+                          )
+                        }
+                        className="pr-10"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff size={18} />
+                        ) : (
+                          <Eye size={18} />
+                        )}
+                      </button>
+                    </div>
+
+                    {passwordErrors.confirmPassword && (
+                      <p className="text-red-500 text-sm">
+                        {passwordErrors.confirmPassword}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* General Error */}
+                  {passwordErrors.general && (
+                    <p className="text-red-500 text-sm">
+                      {passwordErrors.general}
+                    </p>
+                  )}
+
+                  {/* PASSWORD STRENGTH UI */}
+                  {passwordForm.newPassword.length > 0 && (
+                    <div className="space-y-3 p-4 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-800 animate-in fade-in-0 slide-in-from-bottom-2 duration-500">
+                      {/* Label + Strength */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                          Password Strength
+                        </span>
+
+                        <span
+                          className={`text-xs font-bold ${passwordStrength.color}`}
+                        >
+                          {passwordStrength.label}
+                        </span>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full transition-all duration-500 ease-out ${passwordStrength.color}`}
+                          style={{ width: `${passwordStrength.value}%` }}
+                        />
+                      </div>
+
+                      {/* Requirements */}
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {[
+                          {
+                            check: passwordForm.newPassword.length >= 8,
+                            label: "8+ characters",
+                          },
+                          {
+                            check: /[A-Z]/.test(passwordForm.newPassword),
+                            label: "Uppercase",
+                          },
+                          {
+                            check: /\d/.test(passwordForm.newPassword),
+                            label: "Numbers",
+                          },
+                          {
+                            check: /[!@#$%^&*(),.?":{}|<>]/.test(
+                              passwordForm.newPassword
+                            ),
+                            label: "Special chars",
+                          },
+                        ].map((req, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <Check
+                              className={`h-3 w-3 ${
+                                req.check ? "text-green-500" : "text-gray-400"
+                              }`}
+                            />
+                            <span
+                              className={
+                                req.check
+                                  ? "text-green-700 dark:text-green-400"
+                                  : "text-gray-500"
+                              }
+                            >
+                              {req.label}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <DialogFooter>
+                  <Button type="button" onClick={handleUpdatePassword}>
+                    {isChangingPassword ? "Updating..." : "Update Password"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
       </div>
+
       {/* Preferences */}
       {user.role !== "moderator" && (
         <div className="space-y-6 rounded-lg border bg-card p-6">
@@ -747,14 +1094,14 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
           <Separator />
 
           <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-2">
+            <div className="space-y-2 w-full">
               <Label htmlFor="state">State</Label>
               <Select
                 value={formData.preference?.state}
                 disabled={!isEditMode || user.role == "admin"}
                 onValueChange={(val) => handleChange("preference.state", val)}
               >
-                <SelectTrigger id="state">
+                <SelectTrigger id="state" className="w-full">
                   <SelectValue placeholder="Select state" />
                 </SelectTrigger>
                 <SelectContent>
@@ -768,21 +1115,20 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
               </Select>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 w-full">
               <Label htmlFor="crop">Crop Type</Label>
               <Select
                 value={formData.preference?.crop}
                 disabled={!isEditMode || user.role == "admin"}
                 onValueChange={(val) => handleChange("preference.crop", val)}
               >
-                <SelectTrigger id="crop">
+                <SelectTrigger id="crop" className="w-full">
                   <SelectValue placeholder="Select crop" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Crops</SelectItem>
                   {CROPS.map((crop) => (
                     <SelectItem key={crop} value={crop}>
-                      {/* <Leaf className="h-4 w-4 mr-2 inline" />  */}
                       {crop}
                     </SelectItem>
                   ))}
@@ -816,18 +1162,18 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
 
       {/* Save/Cancel Section */}
       {isEditMode && (
-        <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-4">
-          <span className="text-sm text-muted-foreground">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-lg border bg-muted/50 p-4">
+          <span className="text-sm text-muted-foreground text-center sm:text-left">
             Make sure to review all changes before saving.
           </span>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
             <Button
               type="button"
               variant="outline"
               disabled={isUpdating}
               onClick={() => setIsEditMode(false)}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 w-full sm:w-auto"
             >
               <XCircle className="h-4 w-4" />
               Cancel
@@ -845,7 +1191,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                 <Button
                   type="button"
                   disabled={isUpdating}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 w-full sm:w-auto"
                 >
                   <Save className="h-4 w-4" />
                   {isUpdating ? "Saving..." : "Save Changes"}

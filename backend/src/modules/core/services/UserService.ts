@@ -88,6 +88,7 @@ export class UserService extends BaseService {
             email: u.email,
             preference: u.preference,
             userName: `${u.firstName} ${u.lastName ? u.lastName : ''}`.trim(),
+            isBlocked:u.isBlocked
           })),
         };
       });
@@ -105,6 +106,24 @@ export class UserService extends BaseService {
   async updatePenaltyAndIncentive(userId:string,type:'penalty' | 'incentive'):Promise<void>{
     await this._withTransaction(async (session:ClientSession) => {
       await this.userRepo.updatePenaltyAndIncentive(userId,type,session)
+    })
+  }
+
+  async findAllExperts(page:number,limit:number,search:string,sort:string,filter:string):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>{
+    return await this._withTransaction(async (session:ClientSession) => {
+      return await this.userRepo.findAllExperts(page,limit,search,sort,filter,session)
+    })
+  }
+
+  async blockUnblockExperts(userId:string,action:string){
+    return await this._withTransaction(async (session:ClientSession) => {
+      return await this.userRepo.updateIsBlocked(userId,action,session)
+    })
+  }
+
+  async getUserByEmail(email:string):Promise<IUser | null>{
+    return await this._withTransaction(async (session:ClientSession) => {
+      return await this.userRepo.findByEmail(email,session)
     })
   }
 

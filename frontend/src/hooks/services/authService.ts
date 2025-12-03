@@ -49,7 +49,7 @@ export class AuthService {
       const backendUrl = `${this._baseUrl}/signup`;
       const res = await fetch(backendUrl, {
         method: "POST",
-        headers: {
+        headers: { 
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password, firstName, lastName }),

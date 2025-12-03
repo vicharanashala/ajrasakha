@@ -1,12 +1,11 @@
 import { ResponsiveHeatMap } from "@nivo/heatmap";
-import { useRef, useLayoutEffect, useState } from "react";
 import { useGetHeapMap } from "@/hooks/api/performance/useGetHeatMap";
 
-interface HeatMapRow {
-  reviewerId: string;
-  reviewerName: string;
-  counts: Record<string, number>;
-}
+// interface HeatMapRow {
+//   reviewerId: string;
+//   reviewerName: string;
+//   counts: Record<string, number>;
+// }
 
 export default function HeatMap() {
   const { data: heatMapData, isLoading } = useGetHeapMap();
@@ -43,16 +42,16 @@ export default function HeatMap() {
       y: r.counts?.[bucket] ?? 0,
     })),
   }));
-  const timeBuckets = [
-    "0_1",
-    "1_2",
-    "2_3",
-    "3_4",
-    "4_5",
-    "5_6",
-    "6_12",
-    "12_plus",
-  ];
+  // const timeBuckets = [
+  //   "0_1",
+  //   "1_2",
+  //   "2_3",
+  //   "3_4",
+  //   "4_5",
+  //   "5_6",
+  //   "6_12",
+  //   "12_plus",
+  // ];
   const getBackground = (value: number) => {
     if (value === 0) return "bg-gray-200 dark:bg-gray-900";
 

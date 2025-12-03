@@ -14,15 +14,22 @@ import {
 } from "firebase/auth";
 import { firebaseConfig } from "@/config/firebase";
 import { useAuthStore } from "@/stores/auth-store";
+import { UserService } from "@/hooks/services/userService";
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const provider = new GoogleAuthProvider();
-
+const userService = new UserService()
 export const loginWithEmail = async (email: string, password: string) => {
+  const user = await userService.Getuser(email)
+  if(user?.isBlocked){
+    throw new Error("User Is Blocked Please Contact Moderator")
+  }
+  if(!user?.isBlocked){
   const result = await signInWithEmailAndPassword(auth, email, password);
   return result;
+  }
 };
 
 // Add a function to create a user with email and password

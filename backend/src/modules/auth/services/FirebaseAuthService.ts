@@ -7,7 +7,7 @@ import {
 import {IAuthService} from '#auth/interfaces/IAuthService.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {injectable, inject} from 'inversify';
-import {InternalServerError, UnauthorizedError} from 'routing-controllers';
+import {BadRequestError, InternalServerError, UnauthorizedError} from 'routing-controllers';
 import admin from 'firebase-admin';
 import {IUser} from '#root/shared/interfaces/models.js';
 import {BaseService} from '#root/shared/classes/BaseService.js';
@@ -69,31 +69,6 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       console.log("deleted firebase user ")
       throw new UnauthorizedError("User not found in database")
     }
-    // if (!user) {
-    //   // get user data from Firebase
-    //   console.log("creating new userr for firebase UID ",firebaseUID)
-    //   console.trace()
-    //   try {
-    //     const firebaseUser = await this.auth.getUser(firebaseUID);
-    //     if (!firebaseUser) {
-    //       throw new InternalServerError('Firebase user not found');
-    //     }
-    //     // Map Firebase user data to our application user model
-    //     const userData: GoogleSignUpBody = {
-    //       email: firebaseUser.email,
-    //       firstName: firebaseUser.displayName?.split(' ')[0] || '',
-    //       lastName: firebaseUser.displayName?.split(' ')[1] || '',
-    //     };
-    //     const createdUser = await this.googleSignup(userData, token);
-    //     if (!createdUser) {
-    //       throw new InternalServerError('Failed to create the user');
-    //     }
-    //   } catch (error) {
-    //     throw new InternalServerError(
-    //       `Failed to retrieve user from Firebase: ${error.message}`,
-    //     );
-    //   }
-    // }
     user._id = user._id.toString();
     return user;
   }
@@ -141,9 +116,19 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
         disabled: false,
       });
     } catch (error) {
-      throw new InternalServerError(
-        `Failed to create user in Firebase: ${error.message}`,
-      );
+      let message = "Failed to create user";
+
+      if (error.code === "auth/email-already-exists") {
+        message = "An account with this email already exists, Please try login!";
+      } 
+      else if (error.code === "auth/invalid-password") {
+        message = "The password does not meet Firebase requirements.";
+      }
+      else if (error.code === "auth/invalid-email") {
+        message = "Invalid email format.";
+      }
+
+      throw new BadRequestError(message);
     }
 
     // Prepare user object for storage in our database

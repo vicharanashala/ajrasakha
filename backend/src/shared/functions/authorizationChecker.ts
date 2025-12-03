@@ -19,6 +19,9 @@ export async function authorizationChecker(action): Promise<boolean> {
   }
   await firebaseAuthService.getCurrentUserFromToken(token);
   const decoded = await firebaseAuthService.getCurrentUserFromToken(token)
+  if(decoded.isBlocked){
+    return false
+  }
   if (!decoded?.firebaseUID) {
     return false
   }

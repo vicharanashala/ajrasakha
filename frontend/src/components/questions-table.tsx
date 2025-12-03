@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
 import {
@@ -13,21 +13,17 @@ import { Input } from "./atoms/input";
 
 import {
   AlertCircle,
-  AlertTriangle,
   Check,
   CheckCircle,
-  Clock,
   Edit,
   Eye,
   File,
   Flag,
   FlagTriangleRight,
-  Globe,
   Info,
   Loader2,
   MessageSquareText,
   MoreVertical,
-  Paperclip,
   PaperclipIcon,
   PencilLine,
   Plus,
@@ -93,7 +89,7 @@ import {
   TooltipTrigger,
 } from "./atoms/tooltip";
 
-import {STATES,CROPS,DOMAINS,SEASONS} from './MetaData'
+import { STATES, CROPS, DOMAINS, SEASONS } from "./MetaData";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -109,6 +105,7 @@ type QuestionsTableProps = {
   currentPage: number;
   setCurrentPage: (val: number) => void;
   isLoading?: boolean;
+  isBulkUpload: boolean;
   totalPages: number;
   limit: number;
   uploadedQuestionsCount: number;
@@ -117,9 +114,9 @@ type QuestionsTableProps = {
 type DetailField = keyof NonNullable<IDetailedQuestion["details"]>;
 const OPTIONS: Partial<Record<DetailField, string[]>> = {
   state: STATES,
-           
+
   crop: CROPS,
-  season:SEASONS ,
+  season: SEASONS,
   domain: DOMAINS,
 };
 
@@ -133,6 +130,7 @@ export const QuestionsTable = ({
   isLoading,
   totalPages,
   uploadedQuestionsCount,
+  isBulkUpload,
 }: QuestionsTableProps) => {
   const [editOpen, setEditOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
@@ -155,8 +153,8 @@ export const QuestionsTable = ({
     mode: "add" | "edit",
     entityId?: string,
     flagReason?: string,
-    status?: QuestionStatus,
-    formData?: FormData
+    status?: QuestionStatus
+    // formData?: FormData
   ) => {
     try {
       if (!entityId) {
@@ -221,7 +219,7 @@ export const QuestionsTable = ({
   };
 
   return (
-    <div>
+    <div className="ps-4 md:ps-0">
       <AddOrEditQuestionDialog
         open={editOpen}
         setOpen={setEditOpen}
@@ -234,66 +232,105 @@ export const QuestionsTable = ({
         mode="edit"
       />
 
-      <div className="rounded-lg border bg-card overflow-x-auto min-h-[55vh]">
-        <Table className="min-w-[800px]">
-          <TableHeader className="bg-card sticky top-0 z-10">
-            <TableRow>
-              <TableHead className="text-center">Sl.No</TableHead>
-              <TableHead className="w-[35%] text-center">Question</TableHead>
-              <TableHead className="text-center">Priority</TableHead>
-              <TableHead className="text-center">State</TableHead>
-              <TableHead className="text-center">Crop</TableHead>
-              <TableHead className="text-center">Source</TableHead>
-              <TableHead className="text-center">Status</TableHead>
-              <TableHead className="text-center">Answers</TableHead>
-              <TableHead className="text-center">Created</TableHead>
-              <TableHead className="text-center">Action</TableHead>
-            </TableRow>
-          </TableHeader>
+      <div className="rounded-lg border bg-card min-h-[55vh] ">
+        <div className="hidden md:block overflow-x-auto">
+          <Table className="min-w-[800px]">
+            <TableHeader className="bg-card sticky top-0 z-10">
+              <TableRow>
+                <TableHead className="text-center">Sl.No</TableHead>
+                <TableHead className="w-[35%] text-center">Question</TableHead>
+                <TableHead className="text-center">Priority</TableHead>
+                <TableHead className="text-center">State</TableHead>
+                <TableHead className="text-center">Crop</TableHead>
+                <TableHead className="text-center">Source</TableHead>
+                <TableHead className="text-center">Status</TableHead>
+                <TableHead className="text-center">Answers</TableHead>
+                <TableHead className="text-center">Created</TableHead>
+                <TableHead className="text-center">Action</TableHead>
+              </TableRow>
+            </TableHeader>
 
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={10} className="text-center py-10">
-                  <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
-                </TableCell>
-              </TableRow>
-            ) : items?.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={10}
-                  rowSpan={10}
-                  className="text-center py-10 text-muted-foreground"
-                >
-                  No questions found
-                </TableCell>
-              </TableRow>
-            ) : (
-              items?.map((q, idx) => (
-                <QuestionRow
-                  currentPage={currentPage}
-                  deletingQuestion={deletingQuestion}
-                  handleDelete={handleDelete}
-                  idx={idx}
-                  onViewMore={onViewMore}
-                  q={q}
-                  uploadedQuestionsCount={uploadedQuestionsCount}
-                  limit={limit}
-                  setUpdatedData={setUpdatedData}
-                  updateQuestion={handleUpdateQuestion}
-                  setEditOpen={setEditOpen}
-                  setQuestionIdToDelete={setQuestionIdToDelete}
-                  setSelectedQuestion={setSelectedQuestion}
-                  totalPages={totalPages}
-                  updatingQuestion={updatingQuestion}
-                  userRole={userRole!}
-                  key={q._id}
-                />
-              ))
-            )}
-          </TableBody>
-        </Table>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={10} className="text-center py-10 ">
+                    <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
+                  </TableCell>
+                </TableRow>
+              ) : items?.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={10}
+                    rowSpan={10}
+                    className="text-center py-10 text-muted-foreground"
+                  >
+                    No questions found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                items?.map((q, idx) => (
+                  <QuestionRow
+                    currentPage={currentPage}
+                    deletingQuestion={deletingQuestion}
+                    handleDelete={handleDelete}
+                    idx={idx}
+                    onViewMore={onViewMore}
+                    q={q}
+                    uploadedQuestionsCount={uploadedQuestionsCount}
+                    isBulkUpload={isBulkUpload}
+                    limit={limit}
+                    setUpdatedData={setUpdatedData}
+                    updateQuestion={handleUpdateQuestion}
+                    setEditOpen={setEditOpen}
+                    setQuestionIdToDelete={setQuestionIdToDelete}
+                    setSelectedQuestion={setSelectedQuestion}
+                    totalPages={totalPages}
+                    updatingQuestion={updatingQuestion}
+                    userRole={userRole!}
+                    key={q._id}
+                  />
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        <div className="md:hidden space-y-4 p-3">
+          {isLoading ? (
+            <div className="text-center py-10">
+              <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
+            </div>
+          ) : items?.length === 0 ? (
+            <p className="text-center py-10 text-muted-foreground">
+              No questions found
+            </p>
+          ) : (
+            items?.map((q, idx) => (
+              <MobileQuestionCard
+                currentPage={currentPage}
+                deletingQuestion={deletingQuestion}
+                handleDelete={handleDelete}
+                idx={idx}
+                onViewMore={onViewMore}
+                q={q}
+                uploadedQuestionsCount={uploadedQuestionsCount}
+                isBulkUpload={isBulkUpload}
+                limit={limit}
+                setUpdatedData={setUpdatedData}
+                updateQuestion={handleUpdateQuestion}
+                setEditOpen={setEditOpen}
+                setQuestionIdToDelete={setQuestionIdToDelete}
+                setSelectedQuestion={setSelectedQuestion}
+                totalPages={totalPages}
+                updatingQuestion={updatingQuestion}
+                userRole={userRole!}
+                key={q._id}
+              />
+            ))
+          )}
+        </div>
       </div>
+
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}
@@ -309,6 +346,7 @@ interface QuestionRowProps {
   currentPage: number;
   limit: number;
   uploadedQuestionsCount: number;
+  isBulkUpload: boolean;
   totalPages: number;
   userRole: UserRole;
   updatingQuestion: boolean;
@@ -337,6 +375,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   userRole,
   updatingQuestion,
   uploadedQuestionsCount,
+  isBulkUpload,
   deletingQuestion,
   setEditOpen,
   setSelectedQuestion,
@@ -368,7 +407,8 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   const delayMinutes = delaySeconds / 60;
 
   //  Check if enough time has passed
-  const isClickable = remainingSeconds <= totalSeconds - delaySeconds;
+  const isClickable =
+    remainingSeconds <= totalSeconds - delaySeconds && !isBulkUpload;
 
   const priorityBadge = useMemo(() => {
     if (!q.priority)
@@ -576,6 +616,217 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
         </div>
       </TableCell>
     </TableRow>
+  );
+};
+
+const MobileQuestionCard: React.FC<QuestionRowProps> = ({
+  q,
+  idx,
+  currentPage,
+  limit,
+  uploadedQuestionsCount,
+  isBulkUpload,
+  userRole,
+  // updatingQuestion,
+  deletingQuestion,
+  setEditOpen,
+  setSelectedQuestion,
+  // setQuestionIdToDelete,
+  handleDelete,
+  onViewMore,
+}) => {
+  const uploadedCountRef = useRef(uploadedQuestionsCount);
+
+  const DURATION_HOURS = 4;
+  const timer = useCountdown(q.createdAt, DURATION_HOURS, () => {});
+  const totalSeconds = DURATION_HOURS * 3600;
+
+  const [h, m, s] = timer.split(":").map(Number);
+  const remainingSeconds = h * 3600 + m * 60 + s;
+
+  const delayPerQuestion = 180 / 200;
+  let delaySeconds = uploadedCountRef.current * delayPerQuestion;
+  if (userRole === "expert") delaySeconds = 200;
+
+  const isClickable =
+    remainingSeconds <= totalSeconds - delaySeconds && !isBulkUpload;
+
+  const statusBadge = useMemo(() => {
+    // const status = q.status || "NIL";
+    const effectiveStatus =
+      timer === "00:00:00" && q.status == "open"
+        ? "delayed"
+        : q.status || "NIL";
+
+    const formatted = effectiveStatus.replace("_", " ");
+
+    const colorClass =
+      effectiveStatus === "in-review"
+        ? "bg-green-500/10 text-green-600 border-green-500/30"
+        : effectiveStatus === "open"
+        ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+        : effectiveStatus === "closed"
+        ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
+        : "bg-muted text-foreground";
+
+    return (
+      <Badge variant="outline" className={colorClass}>
+        {formatted}
+      </Badge>
+    );
+  }, [q.status, timer]);
+
+  const priorityBadge = useMemo(() => {
+    if (!q.priority)
+      return (
+        <Badge variant="outline" className="text-muted-foreground">
+          NIL
+        </Badge>
+      );
+
+    const colorClass =
+      q.priority === "high"
+        ? "bg-red-500/10 text-red-600 border-red-500/30"
+        : q.priority === "medium"
+        ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+        : "bg-green-500/10 text-green-600 border-green-500/30";
+
+    return (
+      <Badge variant="outline" className={colorClass}>
+        {q.priority.charAt(0).toUpperCase() + q.priority.slice(1)}
+      </Badge>
+    );
+  }, [q.priority]);
+
+  return (
+    <div className="rounded-lg border p-4 bg-card shadow-sm text-sm leading-snug">
+      {/* Line 1 — Serial + Status */}
+      <div className="flex justify-between items-center mb-1">
+        <p className="text-muted-foreground font-medium">
+          #{(currentPage - 1) * limit + idx + 1}
+        </p>
+        <div className="flex-shrink-0">{statusBadge}</div>
+      </div>
+
+      {/* Question */}
+      <p
+        className={`mt-1 font-medium break-words ${
+          isClickable ? "hover:underline cursor-pointer" : "opacity-50"
+        }`}
+        onClick={() => isClickable && onViewMore(q._id!)}
+      >
+        {truncate(q.question, 80)}
+      </p>
+
+      {/* Timer */}
+      <div className="mt-1 text-xs text-muted-foreground">
+        <TimerDisplay timer={timer} status={q.status} />
+      </div>
+
+      {/* Grid of details */}
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-3 text-xs">
+        <div className="flex gap-1">
+          <span className="text-muted-foreground">Priority:</span>
+          <span className="flex-shrink-0">{priorityBadge}</span>
+        </div>
+
+        <div className="truncate">
+          <span className="text-muted-foreground">State:</span>
+          <span className="ml-1">{truncate(q.details.state, 10)}</span>
+        </div>
+
+        <div className="truncate">
+          <span className="text-muted-foreground">Crop:</span>
+          <span className="ml-1">{truncate(q.details.crop, 10)}</span>
+        </div>
+
+        <div className="truncate flex items-center gap-1">
+          <span className="text-muted-foreground">Source:</span>
+          <Badge variant="outline" className="px-1 py-0 text-[10px]">
+            {q.source}
+          </Badge>
+        </div>
+
+        <div>
+          <span className="text-muted-foreground">Answers:</span>
+          <span className="ml-1">{q.totalAnswersCount}</span>
+        </div>
+
+        <div className="truncate">
+          <span className="text-muted-foreground">Created:</span>
+          <span className="ml-1">
+            {formatDate(new Date(q.createdAt!), false)}
+          </span>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex justify-end mt-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="icon" variant="outline" className="w-8 h-8 p-1">
+              <MoreVertical className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent align="end" className="w-40 text-sm">
+            <DropdownMenuItem onClick={() => onViewMore(q._id!)}>
+              <Eye className="w-4 h-4 mr-2" />
+              View
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            {userRole === "expert" ? (
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setSelectedQuestion(q);
+                  setEditOpen(true);
+                }}
+              >
+                <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
+                Raise Flag
+              </DropdownMenuItem>
+            ) : (
+              <>
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setSelectedQuestion(q);
+                    setEditOpen(true);
+                  }}
+                >
+                  <Edit className="w-4 h-4 mr-2 text-blue-500" />
+                  Edit
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
+                {/* Delete with confirmation */}
+                <DropdownMenuItem asChild>
+                  <ConfirmationModal
+                    title="Delete Question Permanently?"
+                    description="Are you sure you want to delete this question?"
+                    confirmText="Delete"
+                    cancelText="Cancel"
+                    isLoading={deletingQuestion}
+                    type="delete"
+                    onConfirm={handleDelete}
+                    trigger={
+                      <button className="flex w-full items-center">
+                        <Trash className="w-4 h-4 mr-2 text-red-500" />
+                        {deletingQuestion ? "Deleting..." : "Delete"}
+                      </button>
+                    }
+                  />
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
   );
 };
 
@@ -856,15 +1107,14 @@ export const AddOrEditQuestionDialog = ({
                       "domain",
                     ] as DetailField[]
                   ).map((field) => {
-                    return(
-                    
-                    <div key={field} className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                        <label>
-                          {field.charAt(0).toUpperCase() + field.slice(1)}*
-                        </label>
-                      </div>
-                     {/* <Input
+                    return (
+                      <div key={field} className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                          <label>
+                            {field.charAt(0).toUpperCase() + field.slice(1)}*
+                          </label>
+                        </div>
+                        {/* <Input
                         type="text"
                         value={updatedData?.details?.[field] || ""}
                         onChange={(e) =>
@@ -881,38 +1131,39 @@ export const AddOrEditQuestionDialog = ({
                           )
                         }
                       />*/}
-                {OPTIONS[field] ? (
-                  <Select
-                      value={updatedData?.details?.[field]?.trim()
-                        ? updatedData.details[field]
-                        : undefined}
-                      onValueChange={(val) =>
-                        setUpdatedData((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                details: {
-                                  ...prev.details,
-                                  [field]: val,
-                                },
-                              }
-                            : prev
-                        )
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder={`Select ${field}`} />
-                      </SelectTrigger>
+                        {OPTIONS[field] ? (
+                          <Select
+                            value={
+                              updatedData?.details?.[field]?.trim()
+                                ? updatedData.details[field]
+                                : undefined
+                            }
+                            onValueChange={(val) =>
+                              setUpdatedData((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        [field]: val,
+                                      },
+                                    }
+                                  : prev
+                              )
+                            }
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder={`Select ${field}`} />
+                            </SelectTrigger>
 
-                      <SelectContent>
-                        {OPTIONS[field]?.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
+                            <SelectContent>
+                              {OPTIONS[field]?.map((option) => (
+                                <SelectItem key={option} value={option}>
+                                  {option}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         ) : (
                           <Input
                             type="text"
@@ -932,8 +1183,8 @@ export const AddOrEditQuestionDialog = ({
                             }
                           />
                         )}
-                    </div>
-                    )
+                      </div>
+                    );
                   })}
                 </div>
 
@@ -1058,7 +1309,7 @@ export const AddOrEditQuestionDialog = ({
                     const formData = new FormData();
                     formData.append("file", file);
                     onSave?.("add", undefined, undefined, undefined, formData);
-                    setFile(null)
+                    setFile(null);
                   } else {
                     onSave?.("add");
                   }
@@ -1071,6 +1322,7 @@ export const AddOrEditQuestionDialog = ({
           ) : userRole === "expert" ? (
             <Button
               variant="destructive"
+              disabled={isLoadingAction}
               onClick={() => {
                 onSave?.("edit", question?._id!, flagReason);
               }}
@@ -1103,6 +1355,8 @@ type QuestionsFiltersProps = {
   onReset: () => void;
   setSearch: (val: string) => void;
   setUploadedQuestionsCount: (val: number) => void;
+  setIsBulkUpload: (val: boolean) => void;
+
   refetch: () => void;
   totalQuestions: number;
   userRole: UserRole;
@@ -1112,6 +1366,7 @@ export const QuestionsFilters = ({
   search,
   setSearch,
   setUploadedQuestionsCount,
+  setIsBulkUpload,
   crops,
   states,
   onChange,
@@ -1131,6 +1386,8 @@ export const QuestionsFilters = ({
       priority: "all",
       domain: "all",
       user: "all",
+      endTime: undefined,
+      startTime: undefined,
     }
   );
   const [addOpen, setAddOpen] = useState(false);
@@ -1139,7 +1396,10 @@ export const QuestionsFilters = ({
   );
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
-    useAddQuestion((count) => setUploadedQuestionsCount(count));
+    useAddQuestion((count, isBulkUpload) => {
+      setUploadedQuestionsCount(count);
+      setIsBulkUpload(isBulkUpload);
+    });
 
   const handleAddQuestion = async (
     mode: "add" | "edit",
@@ -1206,10 +1466,10 @@ export const QuestionsFilters = ({
       }
 
       const { state, district, crop, season, domain } = payload.details;
-      console.log("the payload deatils=====",payload)
+      console.log("the payload deatils=====", payload);
 
       if (!state?.trim()) {
-         toast.error("Please Select the State field.");
+        toast.error("Please Select the State field.");
         return;
       }
 
@@ -1258,15 +1518,99 @@ export const QuestionsFilters = ({
       priority: advanceFilter.priority,
       domain: myPreference?.domain || advanceFilter.domain,
       user: advanceFilter.user,
+      endTime: advanceFilter.endTime,
+      startTime: advanceFilter.startTime,
     });
   };
 
   const activeFiltersCount = Object.values(advanceFilter).filter(
-    (v) => v !== "all" && !(Array.isArray(v) && v[0] === 0 && v[1] === 100)
+    (v) =>
+      v !== undefined &&
+      v !== "all" &&
+      !(Array.isArray(v) && v[0] === 0 && v[1] === 100)
   ).length;
 
   return (
-    <div className="flex flex-wrap items-center justify-between w-full p-4 gap-3 border-b bg-card rounded">
+    // <div className="flex flex-wrap items-center justify-between w-full p-4 gap-3 border-b bg-card rounded">
+    //   <AddOrEditQuestionDialog
+    //     open={addOpen}
+    //     setOpen={setAddOpen}
+    //     setUpdatedData={setUpdatedData}
+    //     updatedData={updatedData}
+    //     onSave={handleAddQuestion}
+    //     userRole={userRole!}
+    //     isLoadingAction={addingQuestion}
+    //     mode="add"
+    //   />
+
+    //   <div className="flex-1 min-w-[200px] max-w-[400px]">
+    //     <div className="relative w-full">
+    //       {/* Search Icon */}
+    //       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+
+    //       {/* Input Field */}
+    //       <Input
+    //         placeholder="Search questions by id, state, crops..."
+    //         value={search}
+    //         onChange={(e) => {
+    //           if (userRole !== "expert") onReset(); // Reset filters on search change for non-experts
+    //           setSearch(e.target.value);
+    //         }}
+    //         className="pl-9 pr-9 bg-background"
+    //       />
+
+    //       {search && (
+    //         <button
+    //           onClick={() => setSearch("")}
+    //           className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+    //         >
+    //           <X className="h-4 w-4" />
+    //         </button>
+    //       )}
+    //     </div>
+    //   </div>
+
+    //   <div className="flex flex-wrap gap-2 items-center justify-end w-full sm:w-auto">
+    //     <AdvanceFilterDialog
+    //       advanceFilter={advanceFilter}
+    //       setAdvanceFilterValues={setAdvanceFilterValues}
+    //       handleDialogChange={handleDialogChange}
+    //       handleApplyFilters={handleApplyFilters}
+    //       normalizedStates={states}
+    //       crops={crops}
+    //       activeFiltersCount={activeFiltersCount}
+    //       onReset={onReset}
+    //       isForQA={false}
+    //     />
+
+    //     <Button
+    //       variant="outline"
+    //       size="icon"
+    //       className="flex-none w-12 p-3 sm:w-auto"
+    //       onClick={refetch}
+    //     >
+    //       <RefreshCcw className="h-4 w-4" />
+    //     </Button>
+
+    //     {userRole !== "expert" && (
+    //       <Button
+    //         variant="default"
+    //         size="sm"
+    //         className="flex items-center gap-2"
+    //         onClick={() => setAddOpen(true)}
+    //       >
+    //         <Plus className="h-4 w-4" />
+    //         Add Question
+    //       </Button>
+    //     )}
+
+    //     <span className="ml-4 text-sm text-muted-foreground">
+    //       Total Questions: {totalQuestions}
+    //     </span>
+    //   </div>
+    // </div>
+    <div className="w-full p-4 border-b bg-card ms-2 md:ms-0  rounded flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      {/* Add Dialog (No change) */}
       <AddOrEditQuestionDialog
         open={addOpen}
         setOpen={setAddOpen}
@@ -1278,17 +1622,16 @@ export const QuestionsFilters = ({
         mode="add"
       />
 
-      <div className="flex-1 min-w-[200px] max-w-[400px]">
+      {/* SEARCH BAR – full width on mobile, fixed width on desktop */}
+      <div className="w-full sm:flex-1 sm:min-w-[250px] sm:max-w-[400px]">
         <div className="relative w-full">
-          {/* Search Icon */}
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 
-          {/* Input Field */}
           <Input
             placeholder="Search questions by id, state, crops..."
             value={search}
             onChange={(e) => {
-              if (userRole !== "expert") onReset(); // Reset filters on search change for non-experts
+              if (userRole !== "expert") onReset();
               setSearch(e.target.value);
             }}
             className="pl-9 pr-9 bg-background"
@@ -1305,7 +1648,8 @@ export const QuestionsFilters = ({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 items-center justify-end w-full sm:w-auto">
+      {/* RIGHT ACTIONS – wrap nicely on small screens */}
+      <div className="w-full sm:w-auto flex flex-wrap items-center gap-3 justify-between sm:justify-end">
         <AdvanceFilterDialog
           advanceFilter={advanceFilter}
           setAdvanceFilterValues={setAdvanceFilterValues}
@@ -1321,7 +1665,7 @@ export const QuestionsFilters = ({
         <Button
           variant="outline"
           size="icon"
-          className="flex-none w-12 p-3 sm:w-auto"
+          className="w-10 h-10 sm:w-12 sm:h-10 flex-none hidden md:flex"
           onClick={refetch}
         >
           <RefreshCcw className="h-4 w-4" />
@@ -1331,7 +1675,7 @@ export const QuestionsFilters = ({
           <Button
             variant="default"
             size="sm"
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 w-full md:w-fit"
             onClick={() => setAddOpen(true)}
           >
             <Plus className="h-4 w-4" />
@@ -1339,7 +1683,7 @@ export const QuestionsFilters = ({
           </Button>
         )}
 
-        <span className="ml-4 text-sm text-muted-foreground">
+        <span className="text-sm text-muted-foreground whitespace-nowrap hidden md:block">
           Total Questions: {totalQuestions}
         </span>
       </div>

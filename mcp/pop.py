@@ -1,4 +1,5 @@
 from typing import List
+import asyncio
 from fastmcp import FastMCP
 import pymongo
 from llama_index.core import Settings
@@ -90,6 +91,17 @@ async def upload_question_to_reviewer_system(question: str, state_name: str, cro
     priority = "high"
     context = ""  # Empty string as context for now
     
+    # Ensure all required fields are non-empty
+    required_fields = ["state", "district", "crop", "season", "domain"]
+    for field in required_fields:
+        if not details.get(field):
+            if field == "district":
+                details[field] = "Not specified"
+            elif field == "season":
+                details[field] = "General"
+            else:
+                details[field] = "Not specified"
+
     # Construct the payload according to the schema
     payload = {
         "question": question,
@@ -100,11 +112,12 @@ async def upload_question_to_reviewer_system(question: str, state_name: str, cro
     }
     
     # Send the POST request
-    url = "http://34.131.207.81:4000/api/questions"
+    url = "https://desk.vicharanashala.ai/api/questions"
     headers = {"Content-Type": "application/json"}
 
+    print(f"DEBUG: Sending to URL: {url}", flush=True)
     try:
-        response = requests.post(url, json=payload, headers=headers)
+        response = await asyncio.to_thread(requests.post, url, json=payload, headers=headers, timeout=10)
         
         if response.status_code == 201:
             return {"status": "Uploaded Successfully"}

@@ -10,33 +10,24 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import {
-  CROPS,
-  STATES,
-  AdvanceFilterDialog,
   type AdvanceFilterValues,
-  type QuestionDateRangeFilter,
-  type QuestionFilterStatus,
-  type QuestionPriorityFilter,
-  type QuestionSourceFilter,
 } from "./advanced-question-filter";
 import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetailedQuestions";
 import { useGetFinalizedAnswers } from "@/hooks/api/answer/useGetFinalizedAnswers";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
-
-import type { IMyPreference } from "@/types";
 import { ScrollArea } from "./atoms/scroll-area";
 import PreferenceFilter from "./PreferenceFilter";
 import HeatMap from "./HeatMap";
 import { useGetWorkLoad } from "@/hooks/api/performance/useGetWorkLoad";
 export const PerformanceMatrics = () => {
-  type BaseStatusItem = {
-    status: string;
-    details: {
-      state?: string;
-      crop?: string;
-      domain?: string;
-    };
-  };
+  // type BaseStatusItem = {
+  //   status: string;
+  //   details: {
+  //     state?: string;
+  //     crop?: string;
+  //     domain?: string;
+  //   };
+  // };
   const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
     {
       status: "all",
@@ -58,7 +49,7 @@ export const PerformanceMatrics = () => {
   const currentPage = 1;
   const LIMIT = 2000;
   const search = "";
-  const { data: questionData, isLoading: isLoadingQuestions } =
+  const { data: questionData } =
     useGetAllDetailedQuestions(currentPage, LIMIT, filter, search);
   const { data: finalizedAnswers, refetch } = useGetFinalizedAnswers(
     selectedUser,
@@ -71,7 +62,7 @@ export const PerformanceMatrics = () => {
   const currentUserAnswers = WorkLoad?.currentUserAnswers || [];
   const totalQuestionsCount = WorkLoad?.totalQuestionsCount || 0;
   const approvedCount = currentUserAnswers.length;
-  const heatMapResults = finalizedAnswers?.heatMapResults || [];
+  // const heatMapResults = finalizedAnswers?.heatMapResults || [];
   const approvalPercentage =
     totalQuestionsCount > 0
       ? ((approvedCount / totalQuestionsCount) * 100).toFixed(2)
@@ -80,8 +71,8 @@ export const PerformanceMatrics = () => {
     //refetch();
   }, [selectedUser, date, status]);
 
-  const { data: userNameReponse, isLoading: isLoadingUsers } = useGetAllUsers();
-  const { data: user, isLoading } = useGetCurrentUser();
+  const { data: userNameReponse } = useGetAllUsers();
+  const { isLoading } = useGetCurrentUser();
   /*const safeCurrentUser = user  
   ? {
       _id: '',
@@ -100,8 +91,8 @@ export const PerformanceMatrics = () => {
     ...otherModerators,
   ];
 
-  const total = questionData?.totalCount || 0;
-  const questions = questionData?.questions;
+  // const total = questionData?.totalCount || 0;
+  // const questions = questionData?.questions;
 
   function groupWithCount<T extends { status?: any; details?: any }>(
     data: T[],
@@ -222,21 +213,21 @@ export const PerformanceMatrics = () => {
     );
   }
 
-  const statusData = groupWithCount(questions ?? [], "status");
-  const cropData = groupWithCount(questions ?? [], "crop");
-  const stateData = groupWithCount(questions ?? [], "state");
+  // const statusData = groupWithCount(questions ?? [], "status");
+  // const cropData = groupWithCount(questions ?? [], "crop");
+  // const stateData = groupWithCount(questions ?? [], "state");
   const AnswerData = groupWithCount(finalized ?? [], "status");
   const answerCropData = groupWithCount(finalized ?? [], "crop");
   const answerStateData = groupWithCount(finalized ?? [], "state");
-  const COLORS = [
-    "#8884d8",
-    "#82ca9d",
-    "#ffc658",
-    "#ff8042",
-    "#a4de6c",
-    "#d0ed57",
-    "#8dd1e1",
-  ];
+  // const COLORS = [
+  //   "#8884d8",
+  //   "#82ca9d",
+  //   "#ffc658",
+  //   "#ff8042",
+  //   "#a4de6c",
+  //   "#d0ed57",
+  //   "#8dd1e1",
+  // ];
 
   const quickActions = [
     {
@@ -254,63 +245,63 @@ export const PerformanceMatrics = () => {
       // path: `${getBasePath()}/performance?data=${encodeURIComponent(JSON.stringify(performance))}`,
     },
   ];
-  const handleDialogChange = (key: string, value: any) => {
-    setAdvanceFilterValues((prev) => ({ ...prev, [key]: value }));
-  };
-  const onChange = (next: {
-    status?: QuestionFilterStatus;
-    source?: QuestionSourceFilter;
-    priority?: QuestionPriorityFilter;
-    state?: string;
-    crop?: string;
-    domain?: string;
-    user?: string;
-    answersCount?: [number, number];
-    dateRange?: QuestionDateRangeFilter;
-  }) => {
-    setAdvanceFilterValues((prev) => ({
-      ...prev,
-      ...next,
-    }));
-  };
+  // const handleDialogChange = (key: string, value: any) => {
+  //   setAdvanceFilterValues((prev) => ({ ...prev, [key]: value }));
+  // };
+  // const onChange = (next: {
+  //   status?: QuestionFilterStatus;
+  //   source?: QuestionSourceFilter;
+  //   priority?: QuestionPriorityFilter;
+  //   state?: string;
+  //   crop?: string;
+  //   domain?: string;
+  //   user?: string;
+  //   answersCount?: [number, number];
+  //   dateRange?: QuestionDateRangeFilter;
+  // }) => {
+  //   setAdvanceFilterValues((prev) => ({
+  //     ...prev,
+  //     ...next,
+  //   }));
+  // };
 
-  const handleApplyFilters = (myPreference?: IMyPreference) => {
-    onChange({
-      status: advanceFilter.status,
-      source: advanceFilter.source,
-      state: myPreference?.state || advanceFilter.state,
-      crop: myPreference?.crop || advanceFilter.crop,
-      answersCount: advanceFilter.answersCount,
-      dateRange: advanceFilter.dateRange,
-      priority: advanceFilter.priority,
-      domain: myPreference?.domain || advanceFilter.domain,
-      user: advanceFilter.user,
-    });
-  };
-  const activeFiltersCount = Object.values(advanceFilter).filter(
-    (v) => v !== "all" && !(Array.isArray(v) && v[0] === 0 && v[1] === 100)
-  ).length;
-  const onReset = () => {
-    setAdvanceFilterValues({
-      status: "all",
-      source: "all",
-      state: "all",
-      answersCount: [0, 100],
-      dateRange: "all",
-      crop: "all",
-      priority: "all",
-      user: "all",
-      domain: "all",
-    });
-  };
+  // const handleApplyFilters = (myPreference?: IMyPreference) => {
+  //   onChange({
+  //     status: advanceFilter.status,
+  //     source: advanceFilter.source,
+  //     state: myPreference?.state || advanceFilter.state,
+  //     crop: myPreference?.crop || advanceFilter.crop,
+  //     answersCount: advanceFilter.answersCount,
+  //     dateRange: advanceFilter.dateRange,
+  //     priority: advanceFilter.priority,
+  //     domain: myPreference?.domain || advanceFilter.domain,
+  //     user: advanceFilter.user,
+  //   });
+  // };
+  // const activeFiltersCount = Object.values(advanceFilter).filter(
+  //   (v) => v !== "all" && !(Array.isArray(v) && v[0] === 0 && v[1] === 100)
+  // ).length;
+  // const onReset = () => {
+  //   setAdvanceFilterValues({
+  //     status: "all",
+  //     source: "all",
+  //     state: "all",
+  //     answersCount: [0, 100],
+  //     dateRange: "all",
+  //     crop: "all",
+  //     priority: "all",
+  //     user: "all",
+  //     domain: "all",
+  //   });
+  // };
   const handleApplyAnswerFilters = () => {
     refetch();
   };
 
   return (
-    <div>
+    <div >
       {isLoading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm mx-12">
           <div className="w-full max-w-sm p-6 bg-card rounded-lg shadow-lg flex flex-col items-center justify-center gap-4">
             <h3 className="text-lg font-semibold text-center">
               Fetching user details...
@@ -474,7 +465,7 @@ export const PerformanceMatrics = () => {
         )}
       </div>
     */}
-      <div className="space-y-6 p-6  ">
+      <div className="space-y-6 p-6  hidden md:block">
         <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
           <CardHeader>
             <CardTitle className="text-xl font-semibold">

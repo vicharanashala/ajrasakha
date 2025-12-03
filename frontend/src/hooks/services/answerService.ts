@@ -38,6 +38,7 @@ export class AnswerService {
     modifiedAnswer,
     reasonForModification,
     parameters,
+    remarks
   }: IReviewAnswerPayload): Promise<SubmitAnswerResponse | null> {
     try {
       return await apiFetch<SubmitAnswerResponse>(`${this._baseUrl}/review`, {
@@ -53,6 +54,7 @@ export class AnswerService {
           modifiedAnswer,
           reasonForModification,
           parameters,
+          remarks
         }),
       });
     } catch (error) {
@@ -77,11 +79,17 @@ export class AnswerService {
 
   async getSubmissions(
     pageParam: number,
-    limit: number
-  ): Promise<ISubmissions[] | null> {
-    return apiFetch<ISubmissions[] | null>(
-      `${this._baseUrl}/submissions?page=${pageParam}&limit=${limit}`
-    );
+    limit: number,
+    dateRange:any
+  ): Promise<any> {
+    const params = new URLSearchParams();
+  params.append("page", String(pageParam));
+  params.append("limit", String(limit));
+
+  if (dateRange?.start) params.append("start", dateRange.start);
+  if (dateRange?.end) params.append("end", dateRange.end);
+
+  return apiFetch<any>(`${this._baseUrl}/submissions?${params.toString()}`);
   }
   async getFinalizedAnswers(
     userId: string,

@@ -94,6 +94,10 @@ export class UserRepository implements IUserRepository {
     //   {
     //     $set: {
     //       reputation_score: 0,
+    //       incentive: 0,
+    //       penalty: 0,
+    //       isBlocked: false,
+    //       notificationRetention: "never",
     //       preference: {crop: 'all', domain: 'all', state: 'all'},
     //       updatedAt: new Date(),
     //     },
@@ -231,7 +235,7 @@ export class UserRepository implements IUserRepository {
 
     // 1. Fetch all experts
     const allUsersRaw = await this.usersCollection
-      .find({role: 'expert'}, {session})
+      .find({role: 'expert', isBlocked: false}, {session})
       .toArray();
 
     // 2. Remove duplicates based on email
@@ -250,43 +254,6 @@ export class UserRepository implements IUserRepository {
 
     // 3. Score users
     const scoredUsers = allUsers
-      // .map(user => {
-      //   const pref: PreferenceDto = user.preference || {};
-
-      //   const isAllSelected =
-      //     pref.crop === 'all' && pref.state === 'all' && pref.domain === 'all';
-
-      //   let score = 0;
-      //   if (pref.crop && pref.crop !== 'all' && pref.crop === details.crop)
-      //     score++;
-      //   if (pref.state && pref.state !== 'all' && pref.state === details.state)
-      //     score++;
-      //   if (
-      //     pref.domain &&
-      //     pref.domain !== 'all' &&
-      //     pref.domain === details.domain
-      //   )
-      //     score++;
-
-      //   // Include only if score > 0 or allSelected
-      //   // if (score > 0 || isAllSelected) {
-      //   const workloadScore =
-      //     typeof user.reputation_score === 'number' ? user.reputation_score : 0;
-
-      //   // console.log(
-      //   //   'email: ',
-      //   //   user.email,
-      //   //   'score; ',
-      //   //   score,
-      //   //   'isAllSelected: ',
-      //   //   isAllSelected,
-      //   //   'Workload score: ',
-      //   //   workloadScore,
-      //   // );
-      //   return {user, score, isAllSelected, workloadScore};
-      //   // }
-      //   // return null;
-      // })
       .map(user => {
         const pref: PreferenceDto = user.preference || {};
 
@@ -323,20 +290,35 @@ export class UserRepository implements IUserRepository {
       workloadScore: number;
     }[];
 
-    // 4. Sort
-    scoredUsers.sort((a, b) => {
-      // Users with all = 'all' go last
+    const matched = scoredUsers.filter(x => x.score > 0);
+    const unmatched = scoredUsers.filter(x => x.score === 0);
+
+    matched.sort((a, b) => {
       if (a.isAllSelected && !b.isAllSelected) return 1;
       if (!a.isAllSelected && b.isAllSelected) return -1;
 
-      // Higher score first
       if (b.score !== a.score) return b.score - a.score;
 
-      // Lower workload first
       return a.workloadScore - b.workloadScore;
     });
 
-    return scoredUsers.map(s => s.user);
+    unmatched.sort((a, b) => a.workloadScore - b.workloadScore);
+
+    // 4. Sort
+    // scoredUsers.sort((a, b) => {
+    //   // Users with all = 'all' go last
+    //   if (a.isAllSelected && !b.isAllSelected) return 1;
+    //   if (!a.isAllSelected && b.isAllSelected) return -1;
+
+    //   // Higher score first
+    //   if (b.score !== a.score) return b.score - a.score;
+
+    //   // Lower workload first
+    //   return a.workloadScore - b.workloadScore;
+    // });
+
+    // return scoredUsers.map(s => s.user);
+    return [...matched, ...unmatched].map(s => s.user);
   }
 
   async findModerators(): Promise<IUser[]> {
@@ -368,16 +350,102 @@ export class UserRepository implements IUserRepository {
     }
   }
 
-  async updatePenaltyAndIncentive(userId:string,field:'incentive' | 'penalty',session:ClientSession):Promise<void>{
-    await this.init()
+  async updatePenaltyAndIncentive(
+    userId: string,
+    field: 'incentive' | 'penalty',
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
     try {
-      const user = await this.usersCollection.findOne({_id:new ObjectId(userId)})
-      if(!user){
-        throw new NotFoundError("User not found")
+      const user = await this.usersCollection.findOne({
+        _id: new ObjectId(userId),
+      });
+      if (!user) {
+        throw new NotFoundError('User not found');
       }
-      await this.usersCollection.findOneAndUpdate({_id:new ObjectId(userId)},{$inc:{[field]:1}},{upsert:true,session})
+      await this.usersCollection.findOneAndUpdate(
+        {_id: new ObjectId(userId)},
+        {$inc: {[field]: 1}},
+        {upsert: true, session},
+      );
     } catch (error) {
       throw new InternalServerError(`Failed to update incentive`);
+    }
+  }
+
+  async findAllExperts(
+    page: number,
+    limit: number,
+    search: string,
+    sortOption: string,
+    filter: string,
+    session?: ClientSession,
+  ): Promise<{experts: IUser[]; totalExperts: number; totalPages: number}> {
+    await this.init();
+    try {
+      const skip = (page - 1) * limit;
+      let query: any = {role: 'expert'};
+      let sort: any = {};
+      if (search) {
+        query.$or = [
+          {firstName: {$regex: search, $options: 'i'}},
+          {lastName: {$regex: search, $options: 'i'}},
+        ];
+      }
+      if (filter && filter !== 'ALL') {
+        query['preference.state'] = filter;
+      }
+      switch (sortOption) {
+        case 'reputation_score':
+          sort = {reputation_score: -1};
+          break;
+        case 'incentive':
+          sort = {incentive: -1};
+          break;
+        case 'penalty':
+          sort = {penalty: -1};
+          break;
+        case 'createdAt':
+          sort = {createdAt: -1};
+          break;
+        default:
+          sort = {firstName: 1};
+      }
+      const users = await this.usersCollection
+        .find(query, {session})
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .toArray();
+      const totalExperts = await this.usersCollection.countDocuments(query, {
+        session,
+      });
+      const totalPages = Math.ceil(totalExperts / limit);
+      const mappedExperts = users.map(u => ({
+        ...u,
+        _id: u._id.toString(),
+      }));
+      return {experts: mappedExperts, totalExperts, totalPages};
+    } catch (error) {
+      throw new InternalServerError(`Failed to get experts`);
+    }
+  }
+
+  async updateIsBlocked(
+    userId: string,
+    action: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    try {
+      const isBlocked = action === 'block';
+      await this.usersCollection.updateOne(
+        {_id: new ObjectId(userId)},
+        {$set: {isBlocked}},
+        {upsert: true, session},
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to update IsBlock`);
     }
   }
 }

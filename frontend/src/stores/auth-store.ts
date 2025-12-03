@@ -74,11 +74,14 @@ export const useAuthStore = create<AuthStore>()(
           set({ loading: true });
           try {
             await signOut(auth);
+            localStorage.removeItem("questionDrafts");
             set(
               { user: null, firebaseUser: null, loading: false },
               undefined,
               "logout"
             );
+
+
           } catch (err: any) {
             console.error(err);
             set({ error: err.message || "Logout failed", loading: false });

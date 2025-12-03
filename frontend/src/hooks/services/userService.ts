@@ -28,4 +28,19 @@ export class UserService {
       method:"PATCH"
     })
   }
+
+  async useGetAllExperts(page:number,limit:number,search:string,sort:string,filter:string):Promise<{experts:IUser[]; totalExperts:number; totalPages:number} | null>{
+    return apiFetch<{experts:IUser[]; totalExperts:number; totalPages:number}>(`${this._baseUrl}/list?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}`);
+  }
+
+  async isBlockUser(userId:string,action:string):Promise<void | null>{
+    return apiFetch<void>(`${this._baseUrl}/expert`,{
+      body:JSON.stringify({ userId,action }),
+      method:"PATCH"
+    })
+  }
+
+   async Getuser(email:string):Promise<IUser| null>{
+    return apiFetch<IUser | null>(`${this._baseUrl}/details/${email}`);
+  }
 }

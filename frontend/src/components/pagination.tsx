@@ -28,42 +28,88 @@ export const Pagination = ({
   }
 
   return (
-    <div className="flex items-center justify-end gap-2 mt-4">
+    // <div className="flex items-center justify-end gap-2 mt-4">
+    //   <Button
+    //     size="sm"
+    //     variant="outline"
+    //     disabled={currentPage === 1}
+    //     onClick={() => onPageChange(currentPage - 1)}
+    //   >
+    //     Previous
+    //   </Button>
+
+    //   {pages.map((p) => (
+    //     <Button
+    //       key={p}
+    //       size="sm"
+    //       variant={p === currentPage ? "default" : "outline"}
+    //       onClick={() => onPageChange(p)}
+    //     >
+    //       {p}
+    //     </Button>
+    //   ))}
+
+    //   {endPage < totalPages && (
+    //     <Button
+    //       size="sm"
+    //       variant="outline"
+    //       onClick={() => onPageChange(endPage + 1)}
+    //     >
+    //       ...
+    //     </Button>
+    //   )}
+
+    //   <Button
+    //     size="sm"
+    //     variant="outline"
+    //     disabled={currentPage === totalPages}
+    //     onClick={() => onPageChange(currentPage + 1)}
+    //   >
+    //     Next
+    //   </Button>
+    // </div>
+    <div className="flex flex-wrap items-center md:justify-end justify-center gap-2 mt-4 w-full">
       <Button
         size="sm"
         variant="outline"
         disabled={currentPage === 1}
         onClick={() => onPageChange(currentPage - 1)}
+        className="flex-shrink-0"
       >
         Previous
       </Button>
 
-      {pages.map((p) => (
-        <Button
-          key={p}
-          size="sm"
-          variant={p === currentPage ? "default" : "outline"}
-          onClick={() => onPageChange(p)}
-        >
-          {p}
-        </Button>
-      ))}
+      <div className="flex gap-2 overflow-x-auto max-w-full px-1 scrollbar-thin scrollbar-thumb-gray-300">
+        {pages.map((p) => (
+          <Button
+            key={p}
+            size="sm"
+            variant={p === currentPage ? "default" : "outline"}
+            onClick={() => onPageChange(p)}
+            className="flex-shrink-0"
+          >
+            {p}
+          </Button>
+        ))}
 
-      {endPage < totalPages && (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => onPageChange(endPage + 1)}
-        >
-          ...
-        </Button>
-      )}
+        {endPage < totalPages && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onPageChange(endPage + 1)}
+            className="flex-shrink-0"
+          >
+            ...
+          </Button>
+        )}
+      </div>
 
       <Button
         size="sm"
         variant="outline"
         disabled={currentPage === totalPages}
         onClick={() => onPageChange(currentPage + 1)}
+        className="flex-shrink-0"
       >
         Next
       </Button>

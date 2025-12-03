@@ -15,12 +15,13 @@ export interface IUser {
   firstName: string;
   lastName?: string;
   preference?: IPreference | null;
-  reputation_score: number;
+  reputation_score?: number;
   notifications?: number;
   role: UserRole;
   notificationRetention?: NotificationRetentionType;
-  incentive?:number;
-  penalty?:number;
+  incentive?: number;
+  penalty?: number;
+  isBlocked?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -51,6 +52,7 @@ export interface IQuestion {
   isAutoAllocate: boolean;
   source: 'AJRASAKHA' | 'AGRI_EXPERT';
   embedding: number[];
+  aiInitialAnswer?: string;
   metrics: IQuestionMetrics | null;
   text?: string;
   createdAt?: Date;
@@ -68,6 +70,7 @@ export interface IAnswer {
   answerIteration: number;
   approvalCount: number;
   isFinalAnswer: boolean;
+  remarks?: string;
   approvedBy?: string | ObjectId;
   status?: string;
   answer: string;
@@ -172,6 +175,7 @@ export type IRequest = RequestDetails & {
   entityId: string | ObjectId;
   responses: IRequestResponse[];
   status: RequestStatus;
+  requestedUser?: IUser | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
 };

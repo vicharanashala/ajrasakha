@@ -70,22 +70,47 @@ export class AiService {
     return data;
   }
 
-  async getEmbedding(text: string): Promise<{embedding: number[]}> {
-    const response = await fetch(`${this._aiServerUrl}/embed`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({text}),
-    });
+  // async getEmbedding(text: string): Promise<{embedding: number[]}> {
+  //   const response = await fetch(`${this._aiServerUrl}/embed`, {
+  //     method: 'POST',
+  //     headers: {
+  //       'Content-Type': 'application/json',
+  //     },
+  //     body: JSON.stringify({text}),
+  //   });
 
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get embedding from AI server: ${response.statusText}`,
+  //   if (!response.ok) {
+  //     throw new InternalServerError(
+  //       `Failed to get embedding from AI server: ${response.statusText}`,
+  //     );
+  //   }
+
+  //   const data = (await response.json()) as {embedding: number[]};
+  //   return data;
+  // }
+
+  async getEmbedding(text: string): Promise<{embedding: number[]}> {
+    try {
+      const response = await fetch(`${this._aiServerUrl}/embed`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({text}),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new InternalServerError(
+          `Failed to get embedding from AI server: ${response.status} ${response.statusText} - ${errorText}`,
+        );
+      }
+
+      const data = (await response.json()) as {embedding: number[]};
+      return data;
+    } catch (error) {
+      console.error('AI embedding request failed:', error);
+      throw new InternalServerError(
+        'Failed to generate embedding from the AI server. Please try again later.',
       );
     }
-
-    const data = (await response.json()) as {embedding: number[]};
-    return data;
   }
 }

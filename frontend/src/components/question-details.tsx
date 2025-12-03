@@ -33,14 +33,10 @@ import {
   DialogTrigger,
 } from "./atoms/dialog";
 import { ScrollArea } from "./atoms/scroll-area";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "./atoms/accordion";
+
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowUpRight,
   Calendar,
   Check,
@@ -58,7 +54,6 @@ import {
   Link2,
   Loader2,
   MapPin,
-  MessageSquare,
   Pencil,
   PlusCircle,
   RefreshCcw,
@@ -75,7 +70,6 @@ import {
 } from "lucide-react";
 import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
 import { useGetComments } from "@/hooks/api/comment/useGetComments";
-import { useAddComment } from "@/hooks/api/comment/useAddComment";
 import { SourceUrlManager } from "./source-url-manager";
 import { Timeline } from "primereact/timeline";
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
@@ -99,6 +93,7 @@ import { useCountdown } from "@/hooks/ui/useCountdown";
 import { TimerDisplay } from "./timer-display";
 import { CommentsSection } from "./comments-section";
 import { parameterLabels } from "./QA-interface";
+import { ExpandableText } from "./expandable-text";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -133,7 +128,6 @@ export const QuestionDetails = ({
   currentUser,
   goBack,
 }: QuestionDetailProps) => {
-  console.log("here ", question);
   const answers = useMemo(
     () => flattenAnswers(question?.submission),
     [question.submission]
@@ -155,7 +149,7 @@ export const QuestionDetails = ({
 
   return (
     <main className="mx-auto p-6 pt-0 grid gap-6">
-      <header className="grid gap-2">
+      {/* <header className="grid gap-2">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-pretty">
             {question.question}
@@ -227,12 +221,93 @@ export const QuestionDetails = ({
           Created: {formatDate(new Date(question.createdAt))} • Updated:{" "}
           {formatDate(new Date(question.updatedAt))}
         </div>
+      </header> */}
+
+      <header className="grid gap-3 w-full">
+        {/* Title + Timer + Exit */}
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+          {/* Question Title */}
+          <h1 className="text-xl sm:text-2xl font-semibold text-pretty break-words flex-1">
+            {question.question}
+          </h1>
+
+          {/* Right Side */}
+          <div className="flex sm:flex-row flex-col sm:items-center items-end gap-3 sm:gap-6">
+            <TimerDisplay timer={timer} status={question.status} size="lg" />
+
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                variant="outline"
+                className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
+                onClick={() => goBack()}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                  className="w-4 h-4"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M17 8l4 4m0 0l-4 4m4-4H3"
+                  />
+                </svg>
+                <span className="leading-none">Exit</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Status + Priority + Total answers */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            className={
+              question.status === "in-review"
+                ? "bg-green-500/10 text-green-600 border-green-500/30"
+                : question.status === "open"
+                ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                : question.status === "closed"
+                ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
+                : "bg-muted text-foreground"
+            }
+          >
+            {question.status.replace("_", " ")}
+          </Badge>
+
+          <Badge
+            className={
+              question.priority === "high"
+                ? "bg-red-500/10 text-red-600 border-red-500/30"
+                : question.priority === "medium"
+                ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+                : question.priority === "low"
+                ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                : "bg-muted text-foreground"
+            }
+          >
+            {question.priority ? question.priority.toUpperCase() : "NIL"}
+          </Badge>
+
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            Total answers: {question.totalAnswersCount}
+          </span>
+        </div>
+
+        {/* Created / Updated */}
+        <div className="text-xs text-muted-foreground flex flex-wrap gap-1">
+          <span>Created: {formatDate(new Date(question.createdAt))}</span>
+          <span>•</span>
+          <span>Updated: {formatDate(new Date(question.updatedAt))}</span>
+        </div>
       </header>
 
-      <Card className="p-4 grid gap-3">
+      {/* <Card className="p-4 grid gap-3">
         <p className="text-sm font-medium">Details</p>
 
-        {/* Basic Info */}
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-primary" />
@@ -301,7 +376,6 @@ export const QuestionDetails = ({
               </div>
             )}
 
-            {/* Metrics */}
             {metrics && (
               <div className="grid gap-1 text-sm">
                 <div className="flex items-center gap-2 mt-2">
@@ -343,6 +417,142 @@ export const QuestionDetails = ({
             )}
           </Button>
         )}
+      </Card> */}
+
+      <Card className="p-4 grid gap-4">
+        <p className="text-sm font-medium">Details</p>
+
+        {/* Basic Info */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+          <div className="flex items-start gap-2">
+            <MapPin className="w-4 h-4 text-primary shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-muted-foreground">State</span>
+              <span className="truncate">{question.details?.state || "-"}</span>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <Landmark className="w-4 h-4 text-primary shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-muted-foreground">District</span>
+              <span className="truncate">
+                {question.details?.district || "-"}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <Sprout className="w-4 h-4 text-primary shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-muted-foreground">Crop</span>
+              <span className="truncate">{question.details?.crop || "-"}</span>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <Calendar className="w-4 h-4 text-primary shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-muted-foreground">Season</span>
+              <span className="truncate">
+                {question.details?.season || "-"}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2 sm:col-span-2">
+            <Layers className="w-4 h-4 text-primary shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-muted-foreground">Domain</span>
+              <span className="truncate">
+                {question.details?.domain || "-"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="flex items-start gap-2 text-sm">
+          <Link2 className="w-4 h-4 text-primary shrink-0" />
+          <div className="flex flex-col">
+            <span className="text-muted-foreground">Source</span>
+            <span className="truncate">{question.source || "-"}</span>
+          </div>
+        </div>
+
+        {showMoreDetails && (
+          <>
+            <Separator className="my-2" />
+
+            {context && (
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary" />
+                  <span className="text-muted-foreground">Context</span>
+                </div>
+
+                <p className="text-muted-foreground ml-6">
+                  {showFullContext || context.length <= 180
+                    ? context
+                    : `${context.slice(0, 180)}... `}
+                  {context.length > 180 && (
+                    <button
+                      onClick={() => setShowFullContext((prev) => !prev)}
+                      className="text-primary text-xs font-medium"
+                    >
+                      {showFullContext ? "Show less" : "Read more"}
+                    </button>
+                  )}
+                </p>
+              </div>
+            )}
+
+            {metrics && (
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-center gap-2 mt-1">
+                  <Gauge className="w-4 h-4 text-primary" />
+                  <span className="text-muted-foreground font-medium">
+                    Metrics
+                  </span>
+                </div>
+
+                <div className="ml-6 grid grid-cols-1 sm:grid-cols-2 gap-1 text-muted-foreground">
+                  <span>Mean Similarity:</span>
+                  <span>{metrics.mean_similarity.toFixed(2)}</span>
+
+                  <span>Std Deviation:</span>
+                  <span>{metrics.std_similarity.toFixed(2)}</span>
+
+                  <span>Recent Similarity:</span>
+                  <span>{metrics.recent_similarity.toFixed(2)}</span>
+
+                  <span>Collusion Score:</span>
+                  <span>{metrics.collusion_score.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {currentUser.role !== "expert" && (context || metrics) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-2 flex items-center gap-1 text-primary"
+            onClick={() => setShowMoreDetails((prev) => !prev)}
+          >
+            {showMoreDetails ? (
+              <>
+                <ChevronUp className="w-4 h-4" /> View Less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-4 h-4" /> View More
+              </>
+            )}
+          </Button>
+        )}
       </Card>
 
       {/* {currentUser.role !== "expert" && ( */}
@@ -353,7 +563,7 @@ export const QuestionDetails = ({
         question={question}
       />
       {/* )} */}
-      <div className="flex items-center justify-between md:mt-12">
+      <div className="md:flex items-center justify-between md:mt-12 hidden ">
         <h2 className="text-lg font-semibold flex justify-center gap-2 items-center ">
           <div className="p-2 rounded-lg bg-primary/10">
             <FileText className="w-5 h-5 text-primary" />
@@ -388,11 +598,29 @@ export const QuestionDetails = ({
           </Button>
         </div>
       </div>
+      <p
+        className="
+    text-sm md:hidden p-3 rounded w-full 
+    flex items-center justify-center gap-3 text-center flex-wrap
+    bg-yellow-50 border border-yellow-300 text-yellow-700
+    dark:bg-yellow-900/30 dark:border-yellow-800 dark:text-yellow-300
+  "
+      >
+        <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+
+        <span className="font-medium">
+          Allocation timeline is only accessible on laptop/desktop
+        </span>
+
+        <span className="opacity-80">(or switch to desktop view)</span>
+      </p>
 
       {answers.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No answers yet.</p>
+        <p className="text-sm text-muted-foreground  hidden md:block">
+          No answers yet.
+        </p>
       ) : (
-        <div>
+        <div className="hidden md:block">
           {/* <SubmissionTimeline /> */}
           <AnswerTimeline
             answerVisibleCount={answerVisibleCount}
@@ -513,7 +741,8 @@ const AllocationQueueHeader = ({
 
   return (
     <div className="flex flex-col gap-4 pb-6 border-b border-border">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        {/* LEFT SECTION */}
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-primary/10">
             <Users className="w-6 h-6 text-primary" />
@@ -529,9 +758,11 @@ const AllocationQueueHeader = ({
           </div>
         </div>
 
+        {/* RIGHT SECTION */}
         {currentUser.role !== "expert" && (
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
+            {/* Auto-Allocate Block */}
+            <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
               <Switch
                 id="auto-allocate"
                 checked={autoAllocate}
@@ -556,14 +787,10 @@ const AllocationQueueHeader = ({
                     <div className="space-y-1.5 text-sm">
                       <p>
                         <strong>ON:</strong> Questions are automatically
-                        assigned to available experts. If there are not enough
-                        experts currently allocated, the system will
-                        auto-allocate more.
+                        assigned to available experts…
                       </p>
                       <p>
-                        <strong>OFF:</strong> You need to manually add experts
-                        using the option on the right side. After assigning,
-                        make sure to submit to confirm the allocation.
+                        <strong>OFF:</strong> You must manually add experts…
                       </p>
                     </div>
                   </TooltipContent>
@@ -571,19 +798,29 @@ const AllocationQueueHeader = ({
               </TooltipProvider>
             </div>
 
+            {/* Select Experts Button */}
             {!autoAllocate && (
               <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="default" className="gap-2">
+                  <Button variant="default" className="gap-2 w-full sm:w-auto">
                     <UserPlus className="w-4 h-4" />
                     Select Experts
                   </Button>
                 </DialogTrigger>
+
                 <DialogContent
-                  className="max-w-6xl max-h-[80vh] min-h-[60vh]"
-                  style={{ maxWidth: "70vw" }}
+                  className="
+                          w-[95vw]                 
+                          sm:max-w-xl              
+                          md:max-w-4xl             
+                          lg:max-w-6xl             
+                          max-h-[85vh]             
+                          min-h-[60vh]             
+                          overflow-hidden           
+                          p-4                       
+                        "
                 >
-                  <DialogHeader>
+                  <DialogHeader className="space-y-4">
                     <DialogTitle className="flex items-center gap-3 text-lg font-semibold">
                       <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
                         <UserPlus className="w-5 h-5 text-primary" />
@@ -591,7 +828,7 @@ const AllocationQueueHeader = ({
                       Select Experts Manually
                     </DialogTitle>
 
-                    <div className="mt-3 relative">
+                    <div className="mt-1 relative">
                       <Input
                         type="text"
                         placeholder="Search experts by name, email..."
@@ -611,7 +848,13 @@ const AllocationQueueHeader = ({
                     </div>
                   </DialogHeader>
 
-                  <ScrollArea className="max-h-96 pr-2">
+                  <ScrollArea
+                    className="
+                              max-h-[50vh]      
+                              md:max-h-[60vh]
+                              pr-2
+                            "
+                  >
                     <div className="space-y-3">
                       {isUsersLoading && (
                         <div className="flex justify-center items-center py-10 text-muted-foreground">
@@ -638,7 +881,12 @@ const AllocationQueueHeader = ({
                         filteredExperts.map((expert) => (
                           <div
                             key={expert._id}
-                            className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                            className={`flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors ${
+                              expert.isBlocked
+                                ? "blur-[0px] cursor-not-allowed"
+                                : "hover:bg-muted/50"
+                            }
+  `}
                           >
                             <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
                               <User className="w-5 h-5 text-primary" />
@@ -650,8 +898,10 @@ const AllocationQueueHeader = ({
                               onCheckedChange={() =>
                                 handleSelectExpert(expert._id)
                               }
+                              disabled={expert.isBlocked}
                               className="mt-1"
                             />
+                            {/* {expert.isBlocked ? 'Blocked' : ''} */}
 
                             <Label
                               htmlFor={`expert-${expert._id}`}
@@ -673,9 +923,14 @@ const AllocationQueueHeader = ({
                                     {expert?.email?.slice(0, 48)}
                                     {expert?.email?.length > 48 ? "..." : ""}
                                   </div>
+                                  {expert.isBlocked && (
+                                    <span className="mt-1 text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full w-fit">
+                                      Blocked
+                                    </span>
+                                  )}
                                 </div>
 
-                                <div className="text-sm text-muted-foreground flex-shrink-0 ml-2">
+                                <div className="text-sm text-muted-foreground flex-shrink-0 ml-2 hidden md:block">
                                   {expert.preference?.domain &&
                                   expert.preference.domain !== "all"
                                     ? expert.preference.domain
@@ -688,8 +943,12 @@ const AllocationQueueHeader = ({
                     </div>
                   </ScrollArea>
 
-                  <DialogFooter className="flex gap-2 justify-end">
-                    <Button variant="outline" onClick={handleCancel}>
+                  <DialogFooter className="flex gap-2 justify-end pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={handleCancel}
+                      className="hidden md:block"
+                    >
                       Cancel
                     </Button>
                     <Button onClick={handleSubmit} disabled={allocatingExperts}>
@@ -737,7 +996,7 @@ const AllocationTimeline = ({
   const { mutateAsync: removeAllocation, isPending: removingAllocation } =
     useRemoveAllocation();
 
-  let timer: NodeJS.Timeout;
+  // let timer: NodeJS.Timeout;
 
   const handleMouseEnter = (id: string) => {
     const timeout = setTimeout(() => {
@@ -850,9 +1109,9 @@ const AllocationTimeline = ({
       .map((entry) => entry.updatedBy?.email)
   );
 
-  const unSubmittedExpertsCount = queue?.filter(
-    (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email)
-  ).length;
+  // const unSubmittedExpertsCount = queue?.filter(
+  //   (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email)
+  // ).length;
 
   const nextWaitingIndex = queue?.findIndex(
     (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email)
@@ -1025,7 +1284,7 @@ const AllocationTimeline = ({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 transition-all duration-500 ease-in-out">
+        <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6   transition-all duration-500 ease-in-out">
           {displayedQueue?.map((user, index) => {
             const status = getStatus(index);
             const styles = getStatusStyles(status);
@@ -1039,9 +1298,9 @@ const AllocationTimeline = ({
                 className="relative flex flex-col items-center justify-center my-4 group"
               >
                 {!isLast && (
-                  <div className="absolute top-1/2 right-0 flex items-center transform translate-x-full -translate-y-1/2">
+                  <div className="absolute top-50 right-36 md:top-1/2 md:right-0 flex items-center transform translate-x-full -translate-y-1/2">
                     <svg
-                      className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 ${
+                      className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 hidden md:block ${
                         isCurrentUserWaiting ? "animate-bounce" : ""
                       }`}
                       xmlns="http://www.w3.org/2000/svg"
@@ -1054,6 +1313,23 @@ const AllocationTimeline = ({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         d="M5 12h14m0 0l-4-4m4 4l-4 4"
+                      />
+                    </svg>
+
+                    <svg
+                      className={`w-5 h-5 ml-1 text-gray-300 dark:text-gray-600 block md:hidden ${
+                        isCurrentUserWaiting ? "animate-bounce" : ""
+                      }`}
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 5v14m0 0l4-4m-4 4l-4-4"
                       />
                     </svg>
                   </div>
@@ -1098,7 +1374,7 @@ const AllocationTimeline = ({
                 </div>
 
                 <div
-                  className="relative w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44"
+                  className="relative w-42 h-42 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44"
                   style={{ perspective: "1000px" }}
                   onMouseEnter={() => handleMouseEnter(user._id)}
                   onMouseLeave={handleMouseLeave}
@@ -1334,16 +1610,16 @@ interface AnswerItemProps {
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const isMine = props.answer.authorId === props.currentUserId;
-  const [comment, setComment] = useState("");
-  const observer = useRef<IntersectionObserver>(null);
+  // const [comment, setComment] = useState("");
+  // const observer = useRef<IntersectionObserver>(null);
   const LIMIT = 1;
   const {
-    data: commentsData,
+    // data: commentsData,
     refetch: refetchComments,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading: isLoadingComments,
+    // fetchNextPage,
+    // hasNextPage,
+    // isFetchingNextPage,
+    // isLoading: isLoadingComments,
   } = useGetComments(LIMIT, props.questionId, props.answer._id);
 
   // const comments =
@@ -1956,10 +2232,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
 
                       <div className="flex flex-col text-muted-foreground text-xs">
                         <span>
-                          Submitted At:{" "}
-                          {new Date(
-                            props.answer.createdAt || ""
-                          ).toLocaleString()}
+                          Submitted At: {formatDate(props.answer.createdAt!)}
                         </span>
                       </div>
                     </div>
@@ -2025,6 +2298,23 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                     </div>
                   </div>
 
+                  <div>
+                    {props.answer.remarks && (
+                      <div className="p-3 rounded-md bg-muted/20 border text-sm">
+                        <p className="text-sm font-semibold text-muted-foreground mb-1">
+                          Remarks:
+                        </p>
+
+                        <div className="text-foreground text-sm">
+                          <ExpandableText
+                            text={props.answer.remarks}
+                            maxLength={120}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {props.answer.sources?.length > 0 && (
                     <div>
                       <p className="text-sm font-medium text-foreground mb-3">
@@ -2078,7 +2368,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                   )}
 
                   {/* Review Timeline */}
-                  
+
                   {props.answer.reviews && props.answer.reviews.length > 0 && (
                     <div className="mt-6">
                       <p className="text-sm font-medium text-foreground mb-3">
@@ -2091,7 +2381,6 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                             key={review._id}
                             className="rounded-lg border bg-muted/30 p-4 space-y-3"
                           >
-                            
                             {/* Header */}
                             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                               <div className="flex items-center gap-2">

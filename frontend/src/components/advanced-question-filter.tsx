@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogTrigger,
@@ -26,11 +26,9 @@ import {
   FileText,
   MessageSquare,
   MapPin,
-  Calendar,
   Flag,
   RefreshCcw,
   Sprout,
-  XCircle,
   UserIcon,
   Globe,
   Loader2,
@@ -45,12 +43,21 @@ import {
   ArrowUp,
   ArrowDown,
   ListFilter,
+  CalendarIcon,
+  ChevronUp,
+  ChevronDown,
+  XCircle,
 } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 import type { IMyPreference } from "@/types";
-import { CROPS, STATES,DOMAINS } from "@/components/MetaData";
-export { STATES,CROPS,DOMAINS }
+import { CROPS, STATES, DOMAINS } from "@/components/MetaData";
+import { Popover, PopoverContent, PopoverTrigger } from "./atoms/popover";
+import { format } from "date-fns";
+export { STATES, CROPS, DOMAINS };
+import type { DateRange } from "react-day-picker";
+import { Calendar } from "./atoms/calendar";
+import { DateRangeFilter } from "./DateRangeFilter";
 
 export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed";
 export type QuestionDateRangeFilter =
@@ -61,47 +68,13 @@ export type QuestionDateRangeFilter =
   | "quarter"
   | "year";
 
-/*export const STATES = [
-  "Andhra Pradesh",
-  "Arunachal Pradesh",
-  "Assam",
-  "Bihar",
-  "Chhattisgarh",
-  "Goa",
-  "Gujarat",
-  "Haryana",
-  "Himachal Pradesh",
-  "Jharkhand",
-  "Karnataka",
-  "Kerala",
-  "Madhya Pradesh",
-  "Maharashtra",
-  "Manipur",
-  "Meghalaya",
-  "Mizoram",
-  "Nagaland",
-  "Odisha",
-  "Punjab",
-  "Rajasthan",
-  "Sikkim",
-  "Tamil Nadu",
-  "Telangana",
-  "Tripura",
-  "Uttar Pradesh",
-  "Uttarakhand",
-  "West Bengal",
-].sort();
-export const CROPS = ["Rice", "Wheat", "Cotton", "Sugarcane", "Vegetables"];
-export const DOMAINS = [
-  "Agriculture",
-  "Horticulture",
-  "Livestock",
-  "Fisheries",
-  "Agri-Tech",
-  "Soil Science",
-];*/
 export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT";
 export type QuestionPriorityFilter = "all" | "high" | "low" | "medium";
+export type QuestionTimeRange = {
+  startDate: Date | undefined;
+  endDate: Date | undefined;
+};
+
 export type AdvanceFilterValues = {
   status: QuestionFilterStatus;
   source: QuestionSourceFilter;
@@ -112,7 +85,102 @@ export type AdvanceFilterValues = {
   domain: string;
   crop: string;
   priority: QuestionPriorityFilter;
+  startTime?: Date | undefined; // Use a specific name like startTime/endTime
+  endTime?: Date | undefined;
 };
+
+// Define the props for your new component
+interface DateRangeFilterProps {
+  // advanceFilter prop now includes startTime and endTime
+  advanceFilter: AdvanceFilterValues;
+  // The handler to update the parent state
+  handleDialogChange: (key: string, value: any) => void;
+  className?: string;
+}
+
+// export const DateRangeFilter = ({
+//   advanceFilter,
+//   handleDialogChange,
+//   className,
+// }: DateRangeFilterProps) => {
+//   const [isCalendarVisible, setIsCalendarVisible] = React.useState(false);
+//   // Convert the flat startTime/endTime into the DateRange object for the Calendar
+//   const dateRange: DateRange = {
+//     from: advanceFilter.startTime,
+//     to: advanceFilter.endTime,
+//   };
+
+//   const handleDateSelect = (range: DateRange | undefined) => {
+//     console.log("Date range: ", range);
+//     handleDialogChange("startTime", range?.from);
+//     handleDialogChange("endTime", range?.to);
+
+//     // Close the calendar once both dates are selected
+//     if (range?.from && range?.to) {
+//       setIsCalendarVisible(false);
+//     }
+//   };
+
+//   const isRangeSelected = dateRange.from && dateRange.to;
+
+//   return (
+//     <div className={`space-y-2 min-w-0 relative${className}`}>
+//       <Label className="flex items-center gap-2 text-sm font-semibold">
+//         <Clock className="h-4 w-4 text-primary" />
+//         Custom Date Range
+//       </Label>
+
+//       {/* This Button now acts as a toggle */}
+//       <Button
+//         id="date-toggle"
+//         variant={"outline"}
+//         className={`w-full justify-start text-left font-normal bg-background pr-3 ${
+//           !dateRange.from && "text-muted-foreground"
+//         }`}
+//         onClick={() => setIsCalendarVisible(!isCalendarVisible)}
+//       >
+//         <CalendarIcon className="mr-2 h-4 w-4" />
+//         {dateRange.from ? (
+//           dateRange.to ? (
+//             <>
+//               {format(dateRange.from, "LLL dd, y")} -{" "}
+//               {format(dateRange.to, "LLL dd, y")}
+//             </>
+//           ) : (
+//             format(dateRange.from, "LLL dd, y")
+//           )
+//         ) : (
+//           <span>Select a start and end date</span>
+//         )}
+
+//         {/* Toggle Icon */}
+//         <span className="ml-auto">
+//           {isCalendarVisible ? (
+//             <ChevronUp className="h-4 w-4 opacity-50" />
+//           ) : (
+//             <ChevronDown className="h-4 w-4 opacity-50" />
+//           )}
+//         </span>
+//       </Button>
+
+//       {/* Conditional Rendering of the Calendar */}
+//       {isCalendarVisible && (
+//         <div className="absolute z-50 mt-2 border rounded-lg p-2 bg-popover text-popover-foreground shadow-lg min-w-full sm:min-w-[300px]">
+//           {" "}
+//           <Calendar
+//             initialFocus
+//             mode="range"
+//             defaultMonth={dateRange.from}
+//             selected={dateRange}
+//             onSelect={handleDateSelect}
+//             numberOfMonths={1} // Use 1 month since space might be limited now
+//             className="w-full"
+//           />
+//         </div>
+//       )}
+//     </div>
+//   );
+// };
 
 interface AdvanceFilterDialogProps {
   advanceFilter: AdvanceFilterValues;
@@ -143,23 +211,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
     a.userName.localeCompare(b.userName)
   );
 
-  // useEffect(() => {
-  //   if (userNameReponse?.myPreference) {
-  //     setAdvanceFilterValues((prev: AdvanceFilterValues) => {
-  //       const updatedFilters = {
-  //         ...prev,
-  //         state: userNameReponse.myPreference?.state || prev.state,
-  //         crop: userNameReponse.myPreference?.crop || prev.crop,
-  //         domain: userNameReponse.myPreference?.domain || prev.domain,
-  //       };
-
-  //       handleApplyFilters(updatedFilters);
-
-  //       return updatedFilters;
-  //     });
-  //   }
-  // }, [userNameReponse, setAdvanceFilterValues]);
-
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -181,7 +232,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
       </DialogTrigger>
 
       <ScrollArea>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
               <Filter className="h-5 w-5 text-primary" />
@@ -204,9 +255,9 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
           <div className="space-y-6 py-4">
             {/* Question Status & Source */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {!isForQA && (
-                <div className="space-y-2">
+                <div className="space-y-2 min-w-0 ">
                   <Label className="flex items-center gap-2 text-sm font-semibold">
                     <FileText className="h-4 w-4 text-primary" />
                     Question Status
@@ -215,7 +266,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     value={advanceFilter.status}
                     onValueChange={(v) => handleDialogChange("status", v)}
                   >
-                    <SelectTrigger className="bg-background">
+                    <SelectTrigger className="bg-background w-full w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -258,7 +309,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 </div>
               )}
 
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <MessageSquare className="h-4 w-4 text-primary" />
                   Source
@@ -267,7 +318,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   value={advanceFilter.source}
                   onValueChange={(v) => handleDialogChange("source", v)}
                 >
-                  <SelectTrigger className="bg-background">
+                  <SelectTrigger className="bg-background w-full">
                     <SelectValue placeholder="Select Source" />
                   </SelectTrigger>
                   <SelectContent>
@@ -295,11 +346,12 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 </Select>
               </div>
             </div>
+
             <Separator />
 
             {/* Location & Crop */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2 min-w-0">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <MapPin className="h-4 w-4 text-primary" />
                   State/Region
@@ -308,7 +360,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   value={advanceFilter.state}
                   onValueChange={(v) => handleDialogChange("state", v)}
                 >
-                  <SelectTrigger className="bg-background">
+                  <SelectTrigger className="bg-background w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -322,7 +374,39 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 </Select>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
+                <DateRangeFilter
+                  advanceFilter={advanceFilter}
+                  handleDialogChange={handleDialogChange}
+                />
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Domain & Users */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2 min-w-0">
+                {/* <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <Globe className="h-4 w-4 text-primary" />
+                  Domain
+                </Label>
+                <Select
+                  value={advanceFilter.domain}
+                  onValueChange={(v) => handleDialogChange("domain", v)}
+                >
+                  <SelectTrigger className="bg-background w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Domains</SelectItem>
+                    {DOMAINS.map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select> */}
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <Sprout className="h-4 w-4 text-primary" />
                   Crop Type
@@ -331,7 +415,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   value={advanceFilter.crop}
                   onValueChange={(v) => handleDialogChange("crop", v)}
                 >
-                  <SelectTrigger className="bg-background">
+                  <SelectTrigger className="bg-background w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -344,35 +428,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <Separator />
-            {/* Domain & Users */}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Globe className="h-4 w-4 text-primary" />
-                  Domain
-                </Label>
-                <Select
-                  value={advanceFilter.domain}
-                  onValueChange={(v) => handleDialogChange("domain", v)}
-                >
-                  <SelectTrigger className="bg-background">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Domains</SelectItem>
-                    {DOMAINS.map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <UserIcon className="h-4 w-4 text-primary" />
                   User
@@ -399,7 +456,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   onValueChange={(v) => handleDialogChange("user", v)}
                   disabled={isLoading}
                 >
-                  <SelectTrigger className="bg-background">
+                  <SelectTrigger className="bg-background w-full">
                     <SelectValue />
                   </SelectTrigger>
 
@@ -425,19 +482,20 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 </Select>
               </div>
             </div>
+
             <Separator />
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Calendar className="h-4 w-4 text-primary" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2 min-w-0">
+                {/* <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <CalendarIcon className="h-4 w-4 text-primary" />
                   Date Range
                 </Label>
                 <Select
                   value={advanceFilter.dateRange}
                   onValueChange={(v) => handleDialogChange("dateRange", v)}
                 >
-                  <SelectTrigger className="bg-background">
+                  <SelectTrigger className="bg-background w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -448,10 +506,31 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     <SelectItem value="quarter">Last 3 Months</SelectItem>
                     <SelectItem value="year">This Year</SelectItem>
                   </SelectContent>
+                </Select> */}
+
+                <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <Globe className="h-4 w-4 text-primary" />
+                  Domain
+                </Label>
+                <Select
+                  value={advanceFilter.domain}
+                  onValueChange={(v) => handleDialogChange("domain", v)}
+                >
+                  <SelectTrigger className="bg-background w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Domains</SelectItem>
+                    {DOMAINS.map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <Flag className="h-4 w-4 text-primary" />
                   Priority
@@ -460,7 +539,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   value={advanceFilter.priority}
                   onValueChange={(v) => handleDialogChange("priority", v)}
                 >
-                  <SelectTrigger className="bg-background">
+                  <SelectTrigger className="bg-background w-full">
                     <SelectValue placeholder="Select Priority" />
                   </SelectTrigger>
 
@@ -545,6 +624,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(advanceFilter).map(([key, value]) => {
                       if (
+                        key == "startTime" ||
+                        key == "endTime" ||
                         value === "all" ||
                         (Array.isArray(value) &&
                           value[0] === 0 &&
@@ -560,7 +641,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                           {key}:{" "}
                           {Array.isArray(value)
                             ? `${value[0]}-${value[1]}`
-                            : value}
+                            : (value as String)}
                           <XCircle
                             className="h-3 w-3 ml-1 cursor-pointer"
                             onClick={() =>
@@ -579,7 +660,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
             )}
           </div>
 
-          <DialogFooter className="flex justify-between sm:justify-between">
+          <DialogFooter className="flex flex-col sm:flex-row sm:justify-between gap-2">
             <Button
               variant="outline"
               onClick={() => {
@@ -596,16 +677,24 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 });
                 onReset();
               }}
+              className="w-full sm:w-auto"
             >
               <RefreshCcw className="h-4 w-4 mr-2" />
               Reset
             </Button>
-            <div className="flex gap-2">
+
+            <div className="flex gap-2 w-full sm:w-auto">
               <DialogClose asChild>
-                <Button variant="secondary">Cancel</Button>
+                <Button variant="secondary" className="flex-1 sm:flex-none">
+                  Cancel
+                </Button>
               </DialogClose>
+
               <DialogClose asChild>
-                <Button onClick={() => handleApplyFilters()}>
+                <Button
+                  onClick={() => handleApplyFilters()}
+                  className="flex-1 sm:flex-none"
+                >
                   Apply Preferences
                 </Button>
               </DialogClose>
