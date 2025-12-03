@@ -575,11 +575,6 @@ async getUserActivityHistory(
     // Match again after unwind
     { $match: { "history.updatedBy": userObjId } },
 
-    // Filter by date range (using history.createdAt first)
-    ...(Object.keys(dateFilter).length
-      ? [{ $match: { "history.createdAt": dateFilter } }]
-      : []),
-
     // ---- LOOKUPS ----
     {
       $lookup: {
