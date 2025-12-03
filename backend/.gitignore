@@ -81,7 +81,7 @@ build/
 # Firebase credentials
 agriai-a2fba-firebase-adminsdk-fbsvc-452072d744.json
 
-# GCP cred
+# GCP
 gcp-service-account.json
 
 # DB migration scripts
