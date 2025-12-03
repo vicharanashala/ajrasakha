@@ -2175,8 +2175,8 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                                                         className={
                                                           part.type ===
                                                           "removed"
-                                                            ? "bg-red-100 dark:bg-red-900/40 px-1 rounded"
-                                                            : ""
+                                                            ? "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700"
+                                                            : "text-whitext-dark dark:text-white"
                                                         }
                                                       >
                                                         {part.value}
@@ -2201,8 +2201,8 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                                                         key={idx}
                                                         className={
                                                           part.type === "added"
-                                                            ? "bg-green-100 dark:bg-green-900/40 px-1 rounded"
-                                                            : ""
+                                                            ? "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700"
+                                                            : "text-dark dark:text-white"
                                                         }
                                                       >
                                                         {part.value}
