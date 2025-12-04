@@ -129,8 +129,8 @@ class UpdatedBy {
   @IsString()
   userName!: string;
 
-  @IsString()
-  email!: string;
+  // @IsString()
+  // email!: string;
 }
 
 class AnswerDetails {

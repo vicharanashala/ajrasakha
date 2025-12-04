@@ -75,7 +75,7 @@ export interface HistoryItem {
     // who's submission is this
     _id: string;
     userName: string;
-    email: string;
+    // email: string;
   };
   lastModifiedBy?: {
     // who modified last

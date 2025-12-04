@@ -1702,11 +1702,11 @@ export const ReviewHistoryTimeline = ({
                       </span>
 
                       {/* AUTHOR BADGE */}
-                      {isLast && (
+                      {/* {isLast && (
                         <span className="px-2 py-0.5 text-[10px] rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100 font-semibold flex-shrink-0">
                           Author
                         </span>
-                      )}
+                      )} */}
                     </div>
 
                     <div className="flex items-center gap-1.5 flex-shrink-0">

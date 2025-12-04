@@ -18,6 +18,7 @@ import {
 import {USER_VALIDATORS} from '#root/modules/core/classes/validators/UserValidators.js';
 import {HistoryItem} from '#root/modules/core/classes/validators/QuestionValidators.js';
 import {GetHeatMapQuery} from '#root/modules/core/classes/validators/DashboardValidators.js';
+import {getReviewerHistoryPosition} from '#root/utils/getReviewerHistoryPosition.js';
 
 export class QuestionSubmissionRepository
   implements IQuestionSubmissionRepository
@@ -288,6 +289,16 @@ export class QuestionSubmissionRepository
     try {
       await this.init();
 
+      // To get reviewer position
+      const submission = await this.QuestionSubmissionCollection.findOne({
+        questionId: new ObjectId(questionId),
+      });
+      if (!submission)
+        throw new NotFoundError(
+          `Failed to get submission for questionId: ${questionId}`,
+        );
+      const history = submission.history || [];
+
       const historyData = await this.QuestionSubmissionCollection.aggregate(
         [
           {$match: {questionId: new ObjectId(questionId)}},
@@ -323,22 +334,22 @@ export class QuestionSubmissionRepository
               localField: 'history.reviewId',
               foreignField: '_id',
               as: 'reviewData',
-               pipeline: [
-              // Add this nested pipeline to populate review's answer
-              {
-                $lookup: {
-                  from: 'answers',
-                  localField: 'answerId',
-                  foreignField: '_id',
-                  as: 'reviewAnswerData',
+              pipeline: [
+                // Add this nested pipeline to populate review's answer
+                {
+                  $lookup: {
+                    from: 'answers',
+                    localField: 'answerId',
+                    foreignField: '_id',
+                    as: 'reviewAnswerData',
+                  },
                 },
-              },
-              {
-                $addFields: {
-                  reviewAnswer: { $arrayElemAt: ['$reviewAnswerData', 0] }
-                }
-              }
-            ],
+                {
+                  $addFields: {
+                    reviewAnswer: {$arrayElemAt: ['$reviewAnswerData', 0]},
+                  },
+                },
+              ],
             },
           },
           {
@@ -360,47 +371,63 @@ export class QuestionSubmissionRepository
         ],
         {session},
       ).toArray();
+
       type ReviewWithAnswer = IReview & {
-  reviewAnswer?: any;
-};
-
-          const transformAnswer = (answerDoc: any): Partial<IAnswer> | undefined => {
-      if (!answerDoc) return undefined;
-      
-      return {
-        modifications: answerDoc.modifications?.map((mod: any) => ({
-          modifiedBy: mod.modifiedBy?.toString() || mod.modifiedBy,
-          oldAnswer: mod.oldAnswer,
-          newAnswer: mod.newAnswer,
-          modifiedAt: mod.modifiedAt
-        })) || [],
-        createdAt: answerDoc.createdAt,
-        updatedAt: answerDoc.updatedAt,
+        reviewAnswer?: IAnswer;
       };
-    };
 
-      const populatedHistory: HistoryItem[] = historyData.map(item => {
+      const transformAnswer = (
+        answerDoc: any,
+      ): Partial<IAnswer> | undefined => {
+        if (!answerDoc) return undefined;
+
+        return {
+          modifications:
+            answerDoc.modifications?.map((mod: any) => ({
+              modifiedBy: mod.modifiedBy?.toString() || mod.modifiedBy,
+              oldAnswer: mod.oldAnswer,
+              newAnswer: mod.newAnswer,
+              modifiedAt: mod.modifiedAt,
+            })) || [],
+          createdAt: answerDoc.createdAt,
+          updatedAt: answerDoc.updatedAt,
+        };
+      };
+
+      const populatedHistory: HistoryItem[] = historyData.map((item, index) => {
         const h = item.history;
         const updatedBy = item.updatedBy;
         const answer = item.answer;
         const review = item.review as ReviewWithAnswer;
         const lastModifiedBy = item.lastModifiedBy;
-        const reviewAnswer = review?.reviewAnswer
+        const reviewAnswer = review?.reviewAnswer;
 
+        const reviewerPosition = getReviewerHistoryPosition(
+          history,
+          updatedBy._id.toString(),
+        );
         return {
           updatedBy: updatedBy
             ? {
                 _id: updatedBy._id.toString(),
-                userName: `${updatedBy.firstName} ${updatedBy.lastName}`,
-                email: updatedBy.email,
+                userName:
+                  reviewerPosition == 0
+                    ? 'Author'
+                    : `Reviewer ${reviewerPosition}`,
+                // userName: `${updatedBy.firstName} ${updatedBy.lastName}`,
+                // email: updatedBy.email,
               }
             : {_id: '', userName: '', email: ''},
 
           lastModifiedBy: lastModifiedBy
             ? {
                 _id: lastModifiedBy._id.toString(),
-                userName: `${lastModifiedBy.firstName} ${lastModifiedBy.lastName}`,
-                email: lastModifiedBy.email,
+                // userName: `${lastModifiedBy.firstName} ${lastModifiedBy.lastName}`,
+                userName: `Reviewer ${getReviewerHistoryPosition(
+                  history,
+                  lastModifiedBy._id.toString(),
+                )}`,
+                // email: lastModifiedBy.email,
               }
             : {_id: '', userName: '', email: ''},
 
@@ -420,7 +447,7 @@ export class QuestionSubmissionRepository
                 reviewType: review.reviewType,
                 action: review.action,
                 reason: review.reason,
-                answer:transformAnswer(reviewAnswer),
+                answer: transformAnswer(reviewAnswer),
                 parameters: review.parameters,
                 createdAt: review.createdAt,
                 updatedAt: review.updatedAt,
