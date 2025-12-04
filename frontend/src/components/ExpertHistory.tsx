@@ -12,6 +12,7 @@ import {
   FileText,
   Pencil,
   User,
+  CheckCheck,
 } from "lucide-react";
 import { useGetSubmissions } from "@/hooks/api/answer/useGetSubmissions";
 import { DateRangeFilter } from "./DateRangeFilter";
@@ -377,6 +378,13 @@ export default function UserActivityHistory() {
                               <>
                                 <User className="w-3 h-3 text-gray-700 dark:text-gray-400" />
                                 <span>Author</span>
+                              </>
+                            )}
+
+                            {item.action === "finalized" && (
+                              <>
+                                <CheckCircle className="w-3 h-3 text-gray-700 dark:text-gray-400" />
+                                <span>Finalized</span>
                               </>
                             )}
                           </span>
