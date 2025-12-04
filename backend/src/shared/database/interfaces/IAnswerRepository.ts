@@ -116,6 +116,16 @@ export interface IAnswerRepository {
     answerId: string,
     session?: ClientSession,
   ): Promise<number>;
+ /**
+   * Updates an existing answer.
+   * @param answerId - The ID of the answer to update.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns void
+   */
+  resetApprovalCount(
+    answerId: string,
+    session?: ClientSession,
+  ): Promise<number>
 
   /**
    * Deletes an answer by its ID.

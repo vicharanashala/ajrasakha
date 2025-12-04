@@ -503,6 +503,7 @@ export class AnswerService extends BaseService {
         // --------------------- MODIFIED REVIEW --------------------------------
         // ======================================================================
         if (status === 'modified') {
+          const review_answerId = lastAnsweredHistory.answer.toString();
           const modifiedExpertId = lastAnsweredHistory.updatedBy.toString();
           // const modifiedAnswerId = lastAnsweredHistory.answer.toString();
 
@@ -539,6 +540,8 @@ export class AnswerService extends BaseService {
             {answer, sources, status: newStatus},
             session,
           );
+
+          await this.answerRepo.resetApprovalCount(review_answerId,session)
 
           //update in the modifications array
           const modificationEntry: PreviousAnswersItem = {
@@ -1104,6 +1107,8 @@ export class AnswerService extends BaseService {
       );
     }
   }
+  
+  
   // async getSubmissions(
   //   userId: string,
   //   page: number,

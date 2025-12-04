@@ -1249,4 +1249,32 @@ export class AnswerRepository implements IAnswerRepository {
   };
 }
 
+async resetApprovalCount(
+    answerId: string,
+    session?: ClientSession,
+  ): Promise<number> {
+    try {
+      await this.init();
+
+      const result = await this.AnswerCollection.findOneAndUpdate(
+        {_id: new ObjectId(answerId)},
+        {$set:{approvalCount:0}},
+        {
+          session,
+          returnDocument: 'after',
+        },
+      );
+
+      if (!result) {
+        throw new InternalServerError(`Answer not found with ID ${answerId}`);
+      }
+
+      return result.approvalCount ?? 0;
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while reseting approval count of answer ${answerId}. More: ${error}`,
+      );
+    }
+  }
+
 }
