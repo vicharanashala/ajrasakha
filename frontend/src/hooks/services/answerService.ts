@@ -62,13 +62,13 @@ export class AnswerService {
       throw error;
     }
   }
-  async updateAnswer(answerId: string, updatedAnswer: string) {
+  async updateAnswer(answerId: string, updatedAnswer: string,sources:SourceItem[]) {
     try {
       return await apiFetch<SubmitAnswerResponse>(
         `${this._baseUrl}/${answerId}`,
         {
           method: "PUT",
-          body: JSON.stringify({ answer: updatedAnswer }),
+          body: JSON.stringify({ answer: updatedAnswer,sources:sources }),
         }
       );
     } catch (error) {

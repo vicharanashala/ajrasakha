@@ -471,6 +471,20 @@ class UpdateAnswerBody {
   @IsString()
   @IsNotEmpty()
   answer!: string;
+
+  @JSONSchema({
+    description: 'List of sources with page numbers',
+    example: [
+      {source: 'https://example.com', page: 1},
+      {source: 'https://docs.example.com', page: 5},
+    ],
+    type: 'array',
+    items: {$ref: '#/definitions/SourceItem'},
+  })
+  @IsArray()
+  @ValidateNested({each: true})
+  @Type(() => SourceItem)
+  sources: SourceItem[];
 }
 
 export const ANSWER_VALIDATORS = [

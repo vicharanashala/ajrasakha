@@ -1616,6 +1616,7 @@ interface AnswerItemProps {
 }
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
+    const [sources, setSources] = useState<SourceItem[]>(props.answer.sources);
   const isMine = props.answer.authorId === props.currentUserId;
   // const [comment, setComment] = useState("");
   // const observer = useRef<IntersectionObserver>(null);
@@ -1681,6 +1682,11 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         return;
       }
 
+      if(sources.length<=0){
+        toast.error("Updated answer should contain atleast 1 source");
+        return;
+      }
+
       const answerId = props.answer._id;
 
       if (!answerId) {
@@ -1690,6 +1696,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
 
       await updateAnswer({
         updatedAnswer: editableAnswer,
+        sources,
         answerId,
       });
 
@@ -1706,8 +1713,6 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
 
   const isRejected =
     props.submissionData && props.submissionData.status === "rejected";
-  const oldAns = "Old answer here";
-  const newAns = "New answer here";
   return (
     <Card className="p-6 grid gap-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
@@ -1774,6 +1779,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       onChange={(e) => setEditableAnswer(e.target.value)}
                       className="min-h-[150px] resize-none border border-border bg-background"
                     />
+                    <SourceUrlManager sources={sources} onSourcesChange={setSources} />
                   </div>
                   <div
                     className="mt-4 p-4 rounded-md border bg-yellow-50 border-yellow-300 text-yellow-900 text-sm

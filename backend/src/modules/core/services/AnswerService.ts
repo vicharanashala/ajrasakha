@@ -1219,7 +1219,8 @@ answer: ${updates.answer}`;
       // const {embedding} = await this.aiService.getEmbedding(text);
       const embedding = [];
       const payload: Partial<IAnswer> = {
-        ...updates,
+        answer:updates.answer,
+        sources:updates.sources,
         approvedBy: new ObjectId(userId),
         embedding,
         isFinalAnswer: true,

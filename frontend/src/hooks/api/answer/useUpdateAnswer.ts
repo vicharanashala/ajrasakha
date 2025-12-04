@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AnswerService } from "../../services/answerService";
-import type { SubmitAnswerResponse } from "@/types";
+import type { SourceItem, SubmitAnswerResponse } from "@/types";
 
 const answerService = new AnswerService();
 
@@ -10,11 +10,11 @@ export const useUpdateAnswer = () => {
   return useMutation<
     SubmitAnswerResponse | null,
     Error,
-    { answerId: string; updatedAnswer: string}
+    { answerId: string; updatedAnswer: string,sources:SourceItem[]}
   >({
-    mutationFn: async ({ answerId, updatedAnswer }) => {
+    mutationFn: async ({ answerId, updatedAnswer,sources }) => {
       try {
-        return await answerService.updateAnswer(answerId, updatedAnswer);
+        return await answerService.updateAnswer(answerId, updatedAnswer,sources);
       } catch (error) {
         throw error instanceof Error ? error : new Error("Unknown error");
       }
