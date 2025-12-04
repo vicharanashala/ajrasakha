@@ -441,7 +441,7 @@ export class AnswerService extends BaseService {
             answerToReject.answer.trim() === answer.trim()
           ) {
             throw new BadRequestError(
-              `The submitted answer is identical to the existing answer. Please modify your response before saving.`,
+              `The submitted answer is either identical to the existing answer or not provided. Please modify your response before saving.`,
             );
           }
 
