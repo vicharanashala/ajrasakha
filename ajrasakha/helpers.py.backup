@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("myapp")
 
-OLLAMA_API_URL = "http://localhost:8000/api/chat"  # Using Claude adapter
+OLLAMA_API_URL = "http://100.100.108.13:11434/api/chat"
 
 T = TypeVar("T")
 
