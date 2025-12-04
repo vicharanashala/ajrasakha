@@ -25,7 +25,6 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/atoms/tabs";
-import { DateRangeFilter } from "../advanced-question-filter";
 import {
   Select,
   SelectContent,
@@ -36,6 +35,7 @@ import {
 import { Label } from "../atoms/label";
 import { Activity } from "lucide-react";
 import { ScrollArea } from "../atoms/scroll-area";
+import { DateRangeFilter } from "../DateRangeFilter";
 
 export interface DateRange {
   startTime?: Date;

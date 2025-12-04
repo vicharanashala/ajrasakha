@@ -1368,7 +1368,6 @@ export class QuestionRepository implements IQuestionRepository {
 
     const selectedDayNum = dayMap[goldenDataSelectedDay];
     if (selectedDayNum === undefined) throw new BadRequestError('Invalid day');
-
     const answers = await this.QuestionCollection.aggregate(
       [
         {
@@ -1379,13 +1378,28 @@ export class QuestionRepository implements IQuestionRepository {
         },
         {
           $addFields: {
-            dayOfWeek: {$dayOfWeek: '$closedAt'}, // 1=Sun, 2=Mon...
-            hourOfDay: {$hour: '$closedAt'},
+            dateIST: {
+              $dateToParts: {
+                date: '$closedAt',
+                timezone: 'Asia/Kolkata',
+              },
+            },
+            dayOfWeek: {
+              $dayOfWeek: {
+                date: '$closedAt',
+                timezone: 'Asia/Kolkata',
+              },
+            },
+          },
+        },
+        {
+          $addFields: {
+            hourOfDay: '$dateIST.hour',
           },
         },
         {
           $match: {
-            dayOfWeek: selectedDayNum + 1, // MongoDB: 1=Sun
+            dayOfWeek: selectedDayNum + 1,
           },
         },
         {
@@ -1398,6 +1412,36 @@ export class QuestionRepository implements IQuestionRepository {
       ],
       {session},
     ).toArray();
+
+    // const answers = await this.QuestionCollection.aggregate(
+    //   [
+    //     {
+    //       $match: {
+    //         status: 'closed',
+    //         closedAt: {$gte: startDate, $lt: endDate},
+    //       },
+    //     },
+    //     {
+    //       $addFields: {
+    //         dayOfWeek: {$dayOfWeek: '$closedAt'}, // 1=Sun, 2=Mon...
+    //         hourOfDay: {$hour: '$closedAt'},
+    //       },
+    //     },
+    //     {
+    //       $match: {
+    //         dayOfWeek: selectedDayNum + 1, // MongoDB: 1=Sun
+    //       },
+    //     },
+    //     {
+    //       $group: {
+    //         _id: '$hourOfDay',
+    //         totalClosed: {$sum: 1},
+    //       },
+    //     },
+    //     {$sort: {_id: 1}},
+    //   ],
+    //   {session},
+    // ).toArray();
 
     // Initialize all 24 hours with 0 entries
     const hourlyData: GoldenDatasetEntry[] = Array.from(

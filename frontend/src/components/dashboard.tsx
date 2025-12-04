@@ -293,7 +293,7 @@ export const Dashboard = () => {
         </div>
 
         {/* Full Width Sources Chart */}
-        <div className="mb-6">
+        <div className="mb-6 ">
           <GoldenDatasetOverview
             data={dashboardData.goldenDataset}
             selectedYear={selectedYear}
