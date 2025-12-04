@@ -296,4 +296,10 @@ export interface IQuestionRepository {
     currentUserId: string,
     session?: ClientSession,
   ): Promise<ModeratorApprovalRate>;
+  getAll(session?: ClientSession): Promise<IQuestion[]>;
+  
+  getByStatus(
+    status: IQuestion['status'],
+    session?: ClientSession,
+  ): Promise<IQuestion[]>;
 }

@@ -44,6 +44,7 @@
     "@swc/cli": "^0.7.7",
     "@swc/core": "^1.12.0",
     "@swc/helpers": "^0.5.17",
+    "@types/archiver": "^7.0.0",
     "@types/bcrypt": "^5.0.2",
     "@types/body-parser": "^1.19.5",
     "@types/config": "^3.3.5",
@@ -85,7 +86,7 @@
   },
   "dependencies": {
     "@casl/ability": "^6.7.3",
-    "@google-cloud/storage": "^7.16.0",
+    "@google-cloud/storage": "^7.17.2",
     "@microsoft/kiota-bundle": "1.0.0-preview.96",
     "@scalar/express-api-reference": "^0.7.6",
     "@sentry/cli": "^2.50.0",
@@ -93,6 +94,7 @@
     "@sentry/profiling-node": "^9.27.0",
     "@types/cors": "^2.8.19",
     "@types/nodemailer": "^6.4.17",
+    "archiver": "^7.0.1",
     "axios": "^1.9.0",
     "bcrypt": "^5.1.1",
     "body-parser": "^1.20.3",
@@ -124,6 +126,7 @@
     "sarvamai": "^0.1.9",
     "socks-proxy-agent": "^8.0.5",
     "typedi": "^0.10.0",
+    "vitest-vibe": "link:",
     "web-push": "^3.6.7",
     "winston": "^3.17.0",
     "xlsx": "^0.18.5"

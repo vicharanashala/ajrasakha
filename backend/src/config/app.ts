@@ -6,7 +6,7 @@ export enum AppModule {
   All = 'all',
   Auth = 'auth',
   Users = 'users',
-  Courses = 'courses', 
+  Courses = 'courses',
   Quizzes = 'quizzes',
 }
 
@@ -35,4 +35,7 @@ export const appConfig = {
     environment: env('NODE_ENV') || 'development',
     sendDefaultPii: true,
   },
+  GOOGLE_APPLICATION_CREDENTIALS: env('GOOGLE_APPLICATION_CREDENTIALS') || null,
+  GCP_BACKUP_BUCKET: env('GCP_BACKUP_BUCKET') || null,
+  ENABLE_DB_BACKUP: env('ENABLE_DB_BACKUP') == 'true' || false,
 };
