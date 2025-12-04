@@ -11,7 +11,13 @@ from models import ContextPOP, ContextQuestionAnswerPair
 from llama_index.core.settings import Settings
 from golden_query_function import collection, search
 
-mcp = FastMCP("GD")
+mcp = FastMCP(
+    name="GD",
+    description="Golden Dataset - Safe for Qwen3 & GPT-OSS",
+    max_tool_calls_per_turn=3,
+    max_total_tool_calls=10,
+    timeout_seconds=120,
+)
 
 Settings.embed_model = HuggingFaceEmbedding(
     model_name=EMBEDDING_MODEL, cache_folder="./hf_cache", trust_remote_code=True
@@ -41,42 +47,44 @@ state_codes = {
 @mcp.tool()
 async def get_context_from_golden_dataset(query: str, state_code: str, crop: str) -> List[ContextQuestionAnswerPair]:
     """
-    Retrieve the most contextually relevant agricultural question-answer pairs 
-        from the Golden Dataset based on the query, state, and crop.
+    Retrieve exactly 3 most relevant Q&A pairs from Golden Dataset.
+    
+    IMPORTANT: CALL THIS TOOL AT MOST ONCE per question.
+    If you already called it, DO NOT call again.
+    
+    This function performs a vector-based semantic search on the Golden Dataset, 
+    leveraging an embedding model to find the most relevant entries. The search 
+    can be filtered by both the state and crop, allowing fine-grained retrieval 
+    of domain-specific agricultural information.
 
-        This function performs a vector-based semantic search on the Golden Dataset, 
-        leveraging an embedding model to find the most relevant entries. The search 
-        can be filtered by both the state and crop, allowing fine-grained retrieval 
-        of domain-specific agricultural information.
+    Args:
+        query (str):
+            A natural language query describing the agricultural or climate-related issue.
+            Example: "how to improve soil fertility in paddy fields"
+        
+        state_code (str):
+            A two-letter state code (e.g., "TN" for Tamil Nadu, "PB" for Punjab)
+            used to narrow the search context to region-specific questions.
 
-        Args:
-            query (str):
-                A natural language query describing the agricultural or climate-related issue.
-                Example: "how to improve soil fertility in paddy fields"
-            
-            state_code (str):
-                A two-letter state code (e.g., "TN" for Tamil Nadu, "PB" for Punjab)
-                used to narrow the search context to region-specific questions.
+        crop (str):
+            The crop name (e.g., "Paddy", "Cotton", "Sugarcane") to restrict results 
+            to a specific agricultural domain.
 
-            crop (str):
-                The crop name (e.g., "Paddy", "Cotton", "Sugarcane") to restrict results 
-                to a specific agricultural domain.
-
-        Returns:
-            List[ContextQuestionAnswerPair]:
-                A list of contextually relevant question-answer pairs, each containing:
-                    - `question`: The retrieved question text.
-                    - `answer`: The corresponding expert answer.
-                    - `meta_data`: Metadata fields including:
-                        - Agri Specialist
-                        - Crop
-                        - State
-                        - Source
-                        - Similarity score with the input query.
+    Returns:
+        List[ContextQuestionAnswerPair]:
+            A list of contextually relevant question-answer pairs, each containing:
+                - `question`: The retrieved question text.
+                - `answer`: The corresponding expert answer.
+                - `meta_data`: Metadata fields including:
+                    - Agri Specialist
+                    - Crop
+                    - State
+                    - Source
+                    - Similarity score with the input query.
     """
 
-    results = search(query, state_code, crop, threshold=0.8, limit=5)
-    return results
+    results = search(query, state_code, crop, threshold=0.78, limit=3)
+    return results[:3]
 
 
 @mcp.tool()

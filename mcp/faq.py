@@ -48,7 +48,13 @@ Settings.embed_model = HuggingFaceEmbedding(
 load_dotenv()
 
 # Initialize FastMCP server
-mcp = FastMCP("faq-video")
+mcp = FastMCP(
+    name="faq-video",
+    description="FAQ search - Safe for Qwen3 & GPT-OSS",
+    max_tool_calls_per_turn=2,
+    max_total_tool_calls=8,
+    timeout_seconds=90,
+)
 
 user = "agriai"
 password = "agriai1224"
@@ -170,6 +176,9 @@ async def search_faq(
                 "message": "Query cannot be empty",
                 "query": query
             }
+        
+        # Hard cap: this line saves your life
+        max_results = min(max_results, 3)
         
         # Limit max_results to reasonable range
         max_results = max(1, min(max_results, 10))

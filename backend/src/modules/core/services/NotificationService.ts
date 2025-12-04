@@ -12,13 +12,25 @@ import {
   notifyUser,
   sendPushNotification,
 } from '#root/utils/pushNotification.js';
+import {buildEmailTemplate} from '#root/utils/buildEmailTemplate.js';
+import {sendEmailNotification} from '#root/utils/mailer.js';
+import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
+import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
+import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
 
 @injectable()
 export class NotificationService extends BaseService {
   constructor(
     @inject(GLOBAL_TYPES.NotificationRepository)
     private readonly notificationRepository: INotificationRepository,
+    @inject(GLOBAL_TYPES.UserRepository)
+    private readonly userRepo: IUserRepository,
 
+    @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
+    private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
+
+    @inject(GLOBAL_TYPES.QuestionRepository)
+    private readonly questionRepo: IQuestionRepository,
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
   ) {
@@ -119,26 +131,81 @@ export class NotificationService extends BaseService {
     // });
   }
 
+  // async saveTheNotifications(
+  //   message: string,
+  //   title: string,
+  //   entityId: string,
+  //   userId: string,
+  //   type: string,
+  //   session?:ClientSession
+  // ) {
+  //   // return await this._withTransaction(async (session: ClientSession) => {
+  //     await this.notificationRepository.addNotification(
+  //       userId,
+  //       entityId,
+  //       type,
+  //       message,
+  //       title,
+  //       session,
+  //     );
+  //     const subscription =
+  //       await this.notificationRepository.getSubscriptionByUserId(userId);
+  //     await notifyUser(userId, title, subscription);
+  //   // });
+  // }
+
   async saveTheNotifications(
     message: string,
     title: string,
     entityId: string,
     userId: string,
     type: string,
-    session?:ClientSession
+    session?: ClientSession,
   ) {
     // return await this._withTransaction(async (session: ClientSession) => {
-      await this.notificationRepository.addNotification(
-        userId,
-        entityId,
-        type,
-        message,
-        title,
-        session,
-      );
-      const subscription =
-        await this.notificationRepository.getSubscriptionByUserId(userId); 
-      await notifyUser(userId, title, subscription);
+    await this.notificationRepository.addNotification(
+      userId,
+      entityId,
+      type,
+      message,
+      title,
+      session,
+    );
+    // const user = await this.userRepo.findById(userId.toString(), session);
+    // const subscription =
+    //   await this.notificationRepository.getSubscriptionByUserId(userId);
+
+    const [user, subscription, question, questionSubmission] =
+      await Promise.all([
+        this.userRepo.findById(userId.toString(), session),
+        this.notificationRepository.getSubscriptionByUserId(userId),
+        this.questionRepo.getById(entityId, session),
+        this.questionSubmissionRepo.getByQuestionId(entityId, session),
+      ]);
+
+    // const history = questionSubmission?.history || [];
+
+    // const involvedUserIds = [
+    //   ...new Set(history.map(h => h.updatedBy?.toString()).filter(Boolean)),
+    // ];
+
+    // const allUsers = await this.userRepo.getUsersByIds(
+    //   involvedUserIds,
+    //   session,
+    // );
+
+    // const html = buildEmailTemplate(
+    //   type,
+    //   user,
+    //   question,
+    //   history,
+    //   title,
+    //   message,
+    //   allUsers,
+    // );
+
+    // await sendEmailNotification(user.email.toString(), title, message, html);
+    await notifyUser(userId, title, subscription);
     // });
   }
 }

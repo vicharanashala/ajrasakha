@@ -175,16 +175,21 @@ export class UserRepository implements IUserRepository {
     return updatedUser as IUser;
   }
 
-  async getUsersByIds(ids: string[]): Promise<IUser[]> {
+  async getUsersByIds(
+    ids: string[],
+    session?: ClientSession,
+  ): Promise<IUser[]> {
     await this.init();
     const objectIds = ids.map(id => new ObjectId(id));
     const users = await this.usersCollection
-      .find({_id: {$in: objectIds}})
+      .find({_id: {$in: objectIds}}, {session})
       .toArray();
+
     return users.map(user => ({
       ...user,
       _id: user._id.toString(),
     }));
+    
   }
 
   async findAll(session?: ClientSession): Promise<IUser[]> {
