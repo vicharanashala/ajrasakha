@@ -1,4 +1,5 @@
-import { HistoryItem } from '#root/modules/core/classes/validators/QuestionValidators.js';
+import {GetHeatMapQuery} from '#root/modules/core/classes/validators/DashboardValidators.js';
+import {HistoryItem} from '#root/modules/core/classes/validators/QuestionValidators.js';
 import {
   IQuestionSubmission,
   IReviewerHeatmapRow,
@@ -108,12 +109,20 @@ export interface IQuestionSubmissionRepository {
     questionId: string,
     session?: ClientSession,
   ): Promise<void>;
-  
-  heatMapResultsForReviewer(): Promise<IReviewerHeatmapRow[] | null>;
-  
+
+  heatMapResultsForReviewer(
+    query: GetHeatMapQuery,
+  ): Promise<IReviewerHeatmapRow[] | null>;
+
   /**
    * @param userId - Userid of the expeet
    * @param session Optional MongoDB session for transaction
    */
-  getUserActivityHistory(userId: string, page:number, limit:number,dateRange?:{from:string,to:string},session?:ClientSession)
+  getUserActivityHistory(
+    userId: string,
+    page: number,
+    limit: number,
+    dateRange?: {from: string; to: string},
+    session?: ClientSession,
+  );
 }

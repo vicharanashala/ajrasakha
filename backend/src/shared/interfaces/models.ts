@@ -55,6 +55,7 @@ export interface IQuestion {
   aiInitialAnswer?: string;
   metrics: IQuestionMetrics | null;
   text?: string;
+  closedAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 }

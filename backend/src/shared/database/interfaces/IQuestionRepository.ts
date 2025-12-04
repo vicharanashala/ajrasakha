@@ -1,8 +1,20 @@
 import {
+  Analytics,
+  DashboardResponse,
+  GoldenDatasetEntry,
+  GoldenDataViewType,
+  ModeratorApprovalRate,
+  QuestionStatusOverview,
+} from '#root/modules/core/classes/validators/DashboardValidators.js';
+import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '#root/modules/core/classes/validators/QuestionValidators.js';
-import {IQuestion, IUser} from '#root/shared/interfaces/models.js';
+import {
+  IQuestion,
+  IUser,
+  QuestionStatus,
+} from '#root/shared/interfaces/models.js';
 import {ClientSession} from 'mongodb';
 
 /**
@@ -98,7 +110,7 @@ export interface IQuestionRepository {
    * @returns A promise that resolves to an array of detailed questions.
    */
   findDetailedQuestions(
-  query: GetDetailedQuestionsQuery & { searchEmbedding: number[] | null }
+    query: GetDetailedQuestionsQuery & {searchEmbedding: number[] | null},
   ): Promise<{questions: IQuestion[]; totalPages: number; totalCount: number}>;
 
   /**
@@ -156,15 +168,128 @@ export interface IQuestionRepository {
    */
   updateExpiredAfterFourHours(): Promise<void>;
 
+  insertMany(questions: IQuestion[]): Promise<string[]>;
 
-  insertMany(questions: IQuestion[]): Promise<string[]>
-
-  updateQuestionStatus(id: string, status: string, errorMessage?: string, session?: ClientSession): Promise<void>
+  updateQuestionStatus(
+    id: string,
+    status: string,
+    errorMessage?: string,
+    session?: ClientSession,
+  ): Promise<void>;
 
   // findById(id: string, session?: ClientSession): Promise<IQuestion | null>
-    getAllocatedQuestionPage(
-  userId: string,
-  questionId: string,
-  session?: ClientSession
-): Promise<number>
+  getAllocatedQuestionPage(
+    userId: string,
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<number>;
+
+  /**
+   * Updates a specific question.
+   * @param status - question status.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to question document
+   */
+  getQuestionsByStatus(
+    status: QuestionStatus,
+    session?: ClientSession,
+  ): Promise<IQuestion[]>;
+
+  /**
+   * get yearly analytics.
+   * @param goldenDataSelectedYear - question status.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to question document
+   */
+  getYearAnalytics(
+    goldenDataSelectedYear: string,
+    session?: ClientSession,
+  ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number}>;
+
+  /**
+   * get monthly analytics.
+   * @param goldenDataSelectedYear - selected year.
+   * @param goldenDataSelectedMonth - selected month
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to question document
+   */
+  getMonthAnalytics(
+    goldenDataSelectedYear: string,
+    goldenDataSelectedMonth: string,
+    session?: ClientSession,
+  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number}>;
+
+  /**
+   * get weekly analytics.
+   * @param goldenDataSelectedYear - selected year.
+   * @param goldenDataSelectedMonth - selected month
+   * @param goldenDataSelectedWeek - selected week
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to question document
+   */
+  getWeekAnalytics(
+    goldenDataSelectedYear: string,
+    goldenDataSelectedMonth: string,
+    goldenDataSelectedWeek: string,
+    session?: ClientSession,
+  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number}>;
+
+  /**
+   * get daily analytics.
+   * @param goldenDataSelectedYear - selected year.
+   * @param goldenDataSelectedMonth - selected month
+   * @param goldenDataSelectedWeek - selected week
+   * @param goldenDataSelectedDay - selected day
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to question document
+   */
+  getDailyAnalytics(
+    goldenDataSelectedYear: string,
+    goldenDataSelectedMonth: string,
+    goldenDataSelectedWeek: string,
+    goldenDataSelectedDay: string,
+    session?: ClientSession,
+  ): Promise<{
+    dayHourlyData: Record<string, GoldenDatasetEntry[]>;
+    totalEntriesByType: number;
+  }>;
+
+  /**
+   * get daily analytics.
+   * @param timeRange - timeRange.
+   * @param session - Optional MongoDB client session for transactions.
+   */
+  getCountBySource(
+    timeRange: string,
+    session?: ClientSession,
+  ): Promise<DashboardResponse['questionContributionTrend']>;
+
+  /**
+   * get count of questoins on each status.
+   * @param session - Optional MongoDB client session for transactions.
+   */
+  getQuestionOverviewByStatus(
+    session?: ClientSession,
+  ): Promise<QuestionStatusOverview[]>;
+
+  /**
+   * @param startTime: string,
+   * @param endTime - string.
+   * @param session - Optional MongoDB client session for transactions.
+   */
+  getQuestionAnalytics(
+    startTime?: string,
+    endTime?: string,
+    session?: ClientSession,
+  ): Promise<{analytics: Analytics}>;
+
+  /**
+   * @param currentUserId - requested userId
+   * @param session
+   */
+
+  getModeratorApprovalRate(
+    currentUserId: string,
+    session?: ClientSession,
+  ): Promise<ModeratorApprovalRate>;
 }

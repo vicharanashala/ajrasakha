@@ -14,6 +14,12 @@ import {isValidObjectId} from '#root/utils/isValidObjectId.js';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
 import {SubmissionResponse} from '#root/modules/core/classes/validators/AnswerValidators.js';
+import {
+  Analytics,
+  AnalyticsItem,
+  AnswerStatusOverview,
+  ModeratorApprovalRate,
+} from '#root/modules/core/classes/validators/DashboardValidators.js';
 
 export class AnswerRepository implements IAnswerRepository {
   private AnswerCollection: Collection<IAnswer>;
@@ -1134,122 +1140,262 @@ export class AnswerRepository implements IAnswerRepository {
     }
   }
 
+
+
+  async getAnswerOverviewByStatus(
+    session?: ClientSession,
+  ): Promise<AnswerStatusOverview[]> {
+    await this.init();
+
+    const results = await this.AnswerCollection.aggregate(
+      [
+        {
+          $group: {
+            _id: '$status',
+            count: {$sum: 1},
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            dbStatus: '$_id',
+            count: 1,
+          },
+        },
+      ],
+      {session},
+    ).toArray();
+
+    const statusMap: Record<string, string> = {
+      'in-review': 'open',
+      'pending-with-moderator': 'in-review',
+    };
+
+    const allStatuses = ['open', 'in-review'];
+
+    const overview: AnswerStatusOverview[] = allStatuses.map(status => {
+      const found = results.find(r => statusMap[r.dbStatus] === status);
+      return {
+        status,
+        value: found?.count ?? 0,
+      };
+    });
+
+    return overview;
+  }
+  async getAnswerAnalytics(
+    startTime?: string,
+    endTime?: string,
+    session?: ClientSession,
+  ): Promise<{analytics: Analytics}> {
+    await this.init();
+
+    const filterDate: any = {};
+
+    // Date filter from Answer collection based on createdAt
+    if (startTime) {
+      filterDate.$gte = new Date(`${startTime}T00:00:00.000Z`);
+    }
+    if (endTime) {
+      filterDate.$lte = new Date(`${endTime}T23:59:59.999Z`);
+    }
+
+    const matchStage: any = {};
+    if (Object.keys(filterDate).length > 0) {
+      matchStage.createdAt = filterDate;
+    }
+
+    const pipeline = [
+      {$match: matchStage},
+
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'questionDetails',
+        },
+      },
+      {$unwind: '$questionDetails'},
+
+      {
+        $match: {
+          'questionDetails.details': {$exists: true},
+        },
+      },
+
+      // === CROPS ===
+      {
+        $group: {
+          _id: '$questionDetails.details.crop',
+          count: {$sum: 1},
+        },
+      },
+      {$project: {name: '$_id', count: 1, _id: 0}},
+    ];
+
+    // Run first aggregation for cropData
+    const cropData = (await this.AnswerCollection.aggregate(pipeline, {
+      session,
+    }).toArray()) as AnalyticsItem[];
+
+    // State Data
+    const stateData = (await this.AnswerCollection.aggregate(
+      [
+        ...pipeline.slice(0, -2), // reuse up to lookup/unwind/filter
+        {
+          $group: {
+            _id: '$questionDetails.details.state',
+            count: {$sum: 1},
+          },
+        },
+        {$project: {name: '$_id', count: 1, _id: 0}},
+      ],
+      {session},
+    ).toArray()) as AnalyticsItem[];
+
+    // Domain Data
+    const domainData = (await this.AnswerCollection.aggregate(
+      [
+        ...pipeline.slice(0, -2),
+        {
+          $group: {
+            _id: '$questionDetails.details.domain',
+            count: {$sum: 1},
+          },
+        },
+        {$project: {name: '$_id', count: 1, _id: 0}},
+      ],
+      {session},
+    ).toArray()) as AnalyticsItem[];
+
+    return {
+      analytics: {cropData, stateData, domainData},
+    };
+  }
   async getModeratorActivityHistory(
-  moderatorId: string,
-  page: number,
-  limit: number,
-  dateRange?: { from?: string; to?: string },
-  session?:ClientSession
-) {
-  await this.init()
-  const safePage = Math.max(1, page);
-  const safeLimit = Math.max(1, limit);
-  const skip = (safePage - 1) * safeLimit;
+    moderatorId: string,
+    page: number,
+    limit: number,
+    dateRange?: {from?: string; to?: string},
+    session?: ClientSession,
+  ) {
+    await this.init();
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.max(1, limit);
+    const skip = (safePage - 1) * safeLimit;
 
-  const fromDate = dateRange?.from ? new Date(dateRange.from) : null;
-  const toDate   = dateRange?.to ? new Date(dateRange.to) : null;
+    const fromDate = dateRange?.from ? new Date(dateRange.from) : null;
+    const toDate = dateRange?.to ? new Date(dateRange.to) : null;
 
-  const dateFilter: any = {};
-  if (fromDate) dateFilter.$gte = fromDate;
-  if (toDate) dateFilter.$lte = toDate;
+    const dateFilter: any = {};
+    if (fromDate) dateFilter.$gte = fromDate;
+    if (toDate) dateFilter.$lte = toDate;
 
-  const matchStage: any = {
-    approvedBy: new ObjectId(moderatorId)
-  };
+    const matchStage: any = {
+      approvedBy: new ObjectId(moderatorId),
+    };
 
-  if (Object.keys(dateFilter).length > 0) {
-    matchStage.updatedAt = dateFilter;
+    if (Object.keys(dateFilter).length > 0) {
+      matchStage.updatedAt = dateFilter;
+    }
+
+    const pipeline = [
+      {$match: matchStage},
+
+      {$sort: {updatedAt: -1}},
+
+      {
+        $facet: {
+          filtered: [
+            {$skip: skip},
+            {$limit: safeLimit},
+
+            // Populate Question
+            {
+              $lookup: {
+                from: 'questions',
+                localField: 'questionId',
+                foreignField: '_id',
+                as: 'questionDoc',
+              },
+            },
+            {$unwind: {path: '$questionDoc', preserveNullAndEmptyArrays: true}},
+
+            // Populate Author
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'authorId',
+                foreignField: '_id',
+                as: 'authorDoc',
+              },
+            },
+            {$unwind: {path: '$authorDoc', preserveNullAndEmptyArrays: true}},
+
+            {
+              $project: {
+                // _id: 1,
+                _id: {$toString: '$_id'},
+                action: 'finalized',
+                createdAt: '$createdAt',
+                updatedAt: '$updatedAt',
+
+                question: {
+                  // _id: "$questionDoc._id",
+                  _id: {$toString: '$questionDoc._id'},
+                  question: '$questionDoc.question',
+                },
+
+                answer: {
+                  // _id: "$_id",
+                  _id: {$toString: '$_id'},
+                  answer: '$answer',
+                },
+
+                author: {
+                  // _id: "$authorDoc._id",
+                  _id: {$toString: '$authorDoc._id'},
+                  name: {
+                    $concat: [
+                      '$authorDoc.firstName',
+                      ' ',
+                      '$authorDoc.lastName',
+                    ],
+                  },
+                  email: '$authorDoc.email',
+                },
+              },
+            },
+          ],
+
+          totalCount: [{$count: 'count'}],
+        },
+      },
+
+      {
+        $project: {
+          data: '$filtered',
+          totalCount: {$ifNull: [{$arrayElemAt: ['$totalCount.count', 0]}, 0]},
+        },
+      },
+    ];
+
+    const [result] = await this.AnswerCollection.aggregate(pipeline, {
+      session,
+    }).toArray();
+
+    return {
+      totalCount: result?.totalCount ?? 0,
+      page: safePage,
+      totalPages: Math.ceil((result?.totalCount ?? 0) / safeLimit),
+      limit: safeLimit,
+      data: result?.data ?? [],
+    };
   }
 
-  const pipeline = [
-    { $match: matchStage },
 
-    { $sort: { updatedAt: -1 } },
-
-    {
-      $facet: {
-        filtered: [
-          { $skip: skip },
-          { $limit: safeLimit },
-
-          // Populate Question
-          {
-            $lookup: {
-              from: "questions",
-              localField: "questionId",
-              foreignField: "_id",
-              as: "questionDoc"
-            }
-          },
-          { $unwind: { path: "$questionDoc", preserveNullAndEmptyArrays: true } },
-
-          // Populate Author
-          {
-            $lookup: {
-              from: "users",
-              localField: "authorId",
-              foreignField: "_id",
-              as: "authorDoc"
-            }
-          },
-          { $unwind: { path: "$authorDoc", preserveNullAndEmptyArrays: true } },
-
-          {
-            $project: {
-              // _id: 1,
-              _id: {$toString: "$_id"},
-              action: "finalized",
-              createdAt: "$createdAt",
-              updatedAt: "$updatedAt",
-
-              question: {
-                // _id: "$questionDoc._id",
-                _id: { $toString: "$questionDoc._id" },
-                question: "$questionDoc.question"
-              },
-
-              answer: {
-                // _id: "$_id",
-                _id: { $toString: "$_id" },
-                answer: "$answer"
-              },
-
-              author: {
-                // _id: "$authorDoc._id",
-                _id: { $toString: "$authorDoc._id" },
-                name: { $concat: ["$authorDoc.firstName", " ", "$authorDoc.lastName"] },
-                email:"$authorDoc.email"
-              }
-            }
-          }
-        ],
-
-        totalCount: [
-          { $count: "count" }
-        ]
-      }
-    },
-
-    {
-      $project: {
-        data: "$filtered",
-        totalCount: { $ifNull: [{ $arrayElemAt: ["$totalCount.count", 0] }, 0] }
-      }
-    }
-  ];
-
-  const [result] = await this.AnswerCollection.aggregate(pipeline,{session}).toArray();
-
-  return {
-    totalCount: result?.totalCount ?? 0,
-    page: safePage,
-    totalPages: Math.ceil((result?.totalCount ?? 0) / safeLimit),
-    limit: safeLimit,
-    data: result?.data ?? []
-  };
-}
-
-async resetApprovalCount(
+  async resetApprovalCount(
     answerId: string,
     session?: ClientSession,
   ): Promise<number> {
@@ -1276,5 +1422,4 @@ async resetApprovalCount(
       );
     }
   }
-
 }

@@ -1,5 +1,6 @@
 import { ResponsiveHeatMap } from "@nivo/heatmap";
 import { useGetHeapMap } from "@/hooks/api/performance/useGetHeatMap";
+import type { DateRange } from "./dashboard/questions-analytics";
 
 // interface HeatMapRow {
 //   reviewerId: string;
@@ -7,8 +8,11 @@ import { useGetHeapMap } from "@/hooks/api/performance/useGetHeatMap";
 //   counts: Record<string, number>;
 // }
 
-export default function HeatMap() {
-  const { data: heatMapData, isLoading } = useGetHeapMap();
+export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
+  const { data: heatMapData, isLoading } = useGetHeapMap({
+    startTime: heatMapDate.startTime,
+    endTime: heatMapDate.endTime,
+  });
 
   if (isLoading) return <div>Loading heatmap...</div>;
 
@@ -81,8 +85,8 @@ export default function HeatMap() {
           theme={{
             tooltip: {
               container: {
-                background: "var(--tooltip-bg, #1f2937)", 
-                color: "var(--tooltip-text, #f9fafb)", 
+                background: "var(--tooltip-bg, #1f2937)",
+                color: "var(--tooltip-text, #f9fafb)",
                 fontSize: 12,
                 borderRadius: "6px",
                 padding: "6px 10px",
@@ -118,7 +122,7 @@ export default function HeatMap() {
             tickSize: 5,
             tickPadding: 5,
             tickRotation: 0,
-            legend: "Reviewers vs. Turnaround Time",
+            legend: "Experts vs Turnaround Time",
             legendPosition: "start",
             legendOffset: -40, // move text UP so it's visible above ticks
           }}
@@ -134,7 +138,7 @@ export default function HeatMap() {
             tickSize: 15,
             tickPadding: 5,
             tickRotation: 0,
-            legend: "Reviewers",
+            legend: "Experts",
             legendPosition: "middle",
             legendOffset: -150,
           }}
@@ -157,7 +161,7 @@ export default function HeatMap() {
         />
       </div>
       <div>
-        <div className="md:hidden mt-10">Reviewers vs. Turnaround Time</div>
+        <div className="md:hidden mt-10">Experts vs Turnaround Time</div>
       </div>
       <div className="overflow-x-auto w-[80vw] mt-4 border rounded-lg md:hidden ">
         <table className="min-w-[90vw] border-collapse w-full text-sm">
@@ -167,9 +171,9 @@ export default function HeatMap() {
               <th className="p-3 text-left left-0 bg-gray-200 z-10">
                 Reviewer
               </th>
-              {allBuckets.map((bucket) => (
+              {allBuckets.map((bucket, index) => (
                 <th
-                  key={bucket}
+                  key={`${bucket}-${index}`}
                   className="px-4 py-2 whitespace-nowrap text-center"
                 >
                   {bucket.replace("_", "–").replace("plus", "+")} hrs
@@ -181,16 +185,19 @@ export default function HeatMap() {
           {/* Body */}
           <tbody>
             {heatMapData.map((row) => (
-              <tr key={row.reviewerId} className="border-t">
+              <tr
+                key={`${row.reviewerId}-${Math.random()}`}
+                className="border-t"
+              >
                 <td className="px-4 py-2 font-medium  left-0  z-10">
                   {row.reviewerName}
                 </td>
 
-                {allBuckets.map((bucket) => {
+                {allBuckets.map((bucket, index) => {
                   const value = row.counts?.[bucket] ?? 0;
                   return (
                     <td
-                      key={bucket}
+                      key={`${bucket}-${index}`}
                       className={`px-4 py-2 text-center font-semibold ${getBackground(
                         value
                       )}`}

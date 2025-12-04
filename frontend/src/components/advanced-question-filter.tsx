@@ -92,7 +92,7 @@ export type AdvanceFilterValues = {
 // Define the props for your new component
 interface DateRangeFilterProps {
   // advanceFilter prop now includes startTime and endTime
-  advanceFilter: AdvanceFilterValues;
+  advanceFilter: Partial<AdvanceFilterValues>;
   // The handler to update the parent state
   handleDialogChange: (key: string, value: any) => void;
   className?: string;

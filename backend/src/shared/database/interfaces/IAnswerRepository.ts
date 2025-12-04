@@ -1,5 +1,10 @@
 import {SubmissionResponse} from '#root/modules/core/classes/validators/AnswerValidators.js';
 import {IAnswer, PreviousAnswersItem, SourceItem} from '#root/shared/interfaces/models.js';
+import {
+  Analytics,
+  AnswerStatusOverview,
+  ModeratorApprovalRate,
+} from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {ClientSession, ObjectId} from 'mongodb';
 
 /**
@@ -166,7 +171,6 @@ export interface IAnswerRepository {
     session?: ClientSession,
   ): Promise<{faqs: any[]; totalFaqs: number}>;
 
-  
   updateAnswerStatus(
     answerId: string,
     updates: Partial<IAnswer>,
@@ -178,6 +182,25 @@ export interface IAnswerRepository {
     modification: PreviousAnswersItem,
     session?: ClientSession
   ): Promise<{ modifiedCount: number }> 
+
+
+  /**
+   * @param session
+   */
+  getAnswerOverviewByStatus(
+    session?: ClientSession,
+  ): Promise<AnswerStatusOverview[]>;
+
+  /**
+   * @param startTime: string,
+   * @param endTime - string.
+   * @param session - Optional MongoDB client session for transactions.
+   */
+  getAnswerAnalytics(
+    startTime?: string,
+    endTime?: string,
+    session?: ClientSession,
+  ): Promise<{analytics: Analytics}>;
 
 
    /**
