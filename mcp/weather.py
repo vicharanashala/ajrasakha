@@ -31,13 +31,7 @@ from datetime import datetime, timezone
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-mcp = FastMCP(
-    name="Weather MCP",
-    description="Weather data retrieval - Safe for Qwen3 & GPT-OSS",
-    max_tool_calls_per_turn=2,
-    max_total_tool_calls=8,
-    timeout_seconds=90,
-)
+mcp = FastMCP("Weather MCP")
 
 # Retry configuration
 MAX_RETRIES = 3
