@@ -1,3 +1,4 @@
+import {appConfig} from '#root/config/app.js';
 import {dbConfig} from '#root/config/db.js';
 import {createLocalBackup} from '#root/utils/backup-cron.js';
 import {sendEmailNotification} from '#root/utils/mailer.js';
@@ -13,8 +14,13 @@ cron.schedule(
     const DB = dbConfig.dbName;
 
     try {
-      await createLocalBackup(URI, DB);
-      console.log('🎉 Backup Job Completed Successfully');
+      const ENABLE_DB_BACKUP = appConfig.ENABLE_DB_BACKUP;
+      if (ENABLE_DB_BACKUP) {
+        await createLocalBackup(URI, DB);
+        console.log('🎉 Backup Job Completed Successfully');
+      } else {
+        console.log('Skipped backup ENABLE_DB_BACKUP==', ENABLE_DB_BACKUP);
+      }
     } catch (err) {
       console.error('❌ Backup Failed:', err);
     }

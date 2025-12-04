@@ -37,4 +37,5 @@ export const appConfig = {
   },
   GOOGLE_APPLICATION_CREDENTIALS: env('GOOGLE_APPLICATION_CREDENTIALS') || null,
   GCP_BACKUP_BUCKET: env('GCP_BACKUP_BUCKET') || null,
+  ENABLE_DB_BACKUP: env('ENABLE_DB_BACKUP') == 'true' || false,
 };
