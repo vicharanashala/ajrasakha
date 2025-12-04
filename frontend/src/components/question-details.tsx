@@ -1779,7 +1779,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       onChange={(e) => setEditableAnswer(e.target.value)}
                       className="min-h-[150px] resize-none border border-border bg-background"
                     />
-                    <SourceUrlManager sources={sources} onSourcesChange={setSources} />
+                    <SourceUrlManager sources={sources} onSourcesChange={setSources} className="py-3" />
                   </div>
                   <div
                     className="mt-4 p-4 rounded-md border bg-yellow-50 border-yellow-300 text-yellow-900 text-sm
@@ -2029,7 +2029,6 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
 
                       <div className="space-y-4">
                         {props.answer.reviews.map((review) => {
-                          // 🔥 Find modification done by THIS reviewer
                           const modification =
                             review?.answer?.modifications?.find(
                               (mod) => mod.modifiedBy === review.reviewerId

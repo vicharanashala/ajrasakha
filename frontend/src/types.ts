@@ -59,6 +59,7 @@ export interface IReview {
   action: ReviewAction;
   questionId: string;
   answerId?: string;
+  answer?:IAnswer;
   reviewerId: string;
   reviewer?: IUser;
   reason?: string;
