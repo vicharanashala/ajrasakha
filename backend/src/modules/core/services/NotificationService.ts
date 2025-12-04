@@ -23,14 +23,14 @@ export class NotificationService extends BaseService {
   constructor(
     @inject(GLOBAL_TYPES.NotificationRepository)
     private readonly notificationRepository: INotificationRepository,
-    @inject(GLOBAL_TYPES.UserRepository)
-    private readonly userRepo: IUserRepository,
+    // @inject(GLOBAL_TYPES.UserRepository)
+    // private readonly userRepo: IUserRepository,
 
-    @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
-    private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
+    // @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
+    // private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
 
-    @inject(GLOBAL_TYPES.QuestionRepository)
-    private readonly questionRepo: IQuestionRepository,
+    // @inject(GLOBAL_TYPES.QuestionRepository)
+    // private readonly questionRepo: IQuestionRepository,
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
   ) {
@@ -175,13 +175,13 @@ export class NotificationService extends BaseService {
     // const subscription =
     //   await this.notificationRepository.getSubscriptionByUserId(userId);
 
-    const [user, subscription, question, questionSubmission] =
-      await Promise.all([
-        this.userRepo.findById(userId.toString(), session),
-        this.notificationRepository.getSubscriptionByUserId(userId),
-        this.questionRepo.getById(entityId, session),
-        this.questionSubmissionRepo.getByQuestionId(entityId, session),
-      ]);
+    // const [user, subscription, question, questionSubmission] =
+    //   await Promise.all([
+    //     this.userRepo.findById(userId.toString(), session),
+    //     this.notificationRepository.getSubscriptionByUserId(userId),
+    //     this.questionRepo.getById(entityId, session),
+    //     this.questionSubmissionRepo.getByQuestionId(entityId, session),
+    //   ]);
 
     // const history = questionSubmission?.history || [];
 
@@ -203,7 +203,8 @@ export class NotificationService extends BaseService {
     //   message,
     //   allUsers,
     // );
-
+    const subscription =
+      await this.notificationRepository.getSubscriptionByUserId(userId);
     // await sendEmailNotification(user.email.toString(), title, message, html);
     await notifyUser(userId, title, subscription);
     // });
