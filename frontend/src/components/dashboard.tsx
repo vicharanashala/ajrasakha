@@ -22,7 +22,7 @@ import { DashboardClock } from "./dashboard/dashboard-clock";
 import { Spinner } from "./atoms/spinner";
 import { DateRangeFilter } from "./DateRangeFilter";
 
-//   userRoleOverview: [
+
 //     { name: "Experts", value: 32 },
 //     { name: "Moderators", value: 8 },
 //   ],

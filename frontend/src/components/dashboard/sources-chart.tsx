@@ -91,7 +91,7 @@ export const SourcesChart: React.FC<SourcesChartProps> = ({
     <Card className="pt-0">
       <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row">
         <div className="grid flex-1 gap-1">
-          <CardTitle>Question Contribution Trend</CardTitle>
+          <CardTitle>Question Contribution Analysis</CardTitle>
           <CardDescription>
             Interactive chart showing questions added by Arjasakha and
             Moderators over time
