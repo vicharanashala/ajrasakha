@@ -2,13 +2,7 @@ from typing import List
 import aiohttp
 from fastmcp import FastMCP
 
-mcp = FastMCP(
-    name="Market",
-    description="eNAM Market Data - Safe for Qwen3 & GPT-OSS",
-    max_tool_calls_per_turn=3,
-    max_total_tool_calls=10,
-    timeout_seconds=120,
-)
+mcp = FastMCP("GD")
 
 
 @mcp.tool()

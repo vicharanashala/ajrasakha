@@ -11,13 +11,7 @@ from functions import process_nodes_pop, process_nodes_qa
 from models import ContextPOP, ContextQuestionAnswerPair
 from llama_index.core.settings import Settings
 
-mcp = FastMCP(
-    name="POP",
-    description="Package of Practices - Safe for Qwen3 & GPT-OSS",
-    max_tool_calls_per_turn=3,
-    max_total_tool_calls=10,
-    timeout_seconds=120,
-)
+mcp = FastMCP("POP")
 
 Settings.embed_model = HuggingFaceEmbedding(
     model_name=EMBEDDING_MODEL, cache_folder="./hf_cache", trust_remote_code=True
@@ -26,10 +20,10 @@ Settings.embed_model = HuggingFaceEmbedding(
 client: pymongo.MongoClient = pymongo.MongoClient(MONGODB_URI)
 
 retriever_qa = get_retriever(
-    client=client, collection_name=COLLECTION_QA, similarity_top_k=3
+    client=client, collection_name=COLLECTION_QA, similarity_top_k=4
 )
 retriever_pop = get_retriever(
-    client=client, collection_name=COLLECTION_POP, similarity_top_k=3
+    client=client, collection_name=COLLECTION_POP, similarity_top_k=5
 )
 
 
@@ -48,11 +42,8 @@ async def get_states_for_pop() -> dict:
 @mcp.tool()
 async def get_context_from_package_of_practices(query: str, state_code : str)-> List[ContextPOP]:
     """
-    Retrieve exactly 3 PoP entries.
-    
-    IMPORTANT: CALL THIS TOOL AT MOST ONCE per question.
-    Never combine with Golden Dataset unless explicitly justified.
-    
+    Retrieve context from the package of practices dataset.
+
     The query should:
     - Be concise and directly related to agriculture, climate, or closely associated domains.
     - Exclude any meta-instructions (e.g., "use mcp tools", "use package of practices dataset").
