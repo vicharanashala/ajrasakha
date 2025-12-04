@@ -1153,6 +1153,580 @@ export class QuestionRepository implements IQuestionRepository {
     );
   }
 
+  async getQuestionsByStatus(
+    status: QuestionStatus,
+    session?: ClientSession,
+  ): Promise<IQuestion[]> {
+    await this.init();
+    return await this.QuestionCollection.find({status}, {session}).toArray();
+  }
+
+  async getYearAnalytics(
+    goldenDataSelectedYear: string,
+    session?: ClientSession,
+  ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number}> {
+    await this.init();
+    const selectedYearNum = Number(goldenDataSelectedYear);
+
+    const startDate = new Date(selectedYearNum, 0, 1);
+    const endDate = new Date(selectedYearNum + 1, 0, 1);
+
+    const yearData = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: {
+            status: 'closed',
+            closedAt: {$gte: startDate, $lt: endDate},
+          },
+        },
+        {
+          $group: {
+            _id: {month: {$month: '$closedAt'}},
+            totalClosed: {$sum: 1},
+          },
+        },
+        {$sort: {'_id.month': 1}},
+      ],
+      {session},
+    ).toArray();
+
+    const formattedMonths = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    const formattedData: GoldenDatasetEntry[] = Array.from(
+      {length: 12},
+      (_, i) => {
+        const match = yearData.find(m => m._id.month === i + 1);
+        return {
+          month: formattedMonths[i],
+          entries: 0,
+          verified: match?.totalClosed ?? 0,
+        };
+      },
+    );
+    const totalEntriesByType = formattedData.reduce(
+      (sum, m) => sum + m.verified,
+      0,
+    );
+
+    return {yearData: formattedData, totalEntriesByType};
+  }
+  async getMonthAnalytics(
+    goldenDataSelectedYear: string,
+    goldenDataSelectedMonth: string,
+    session?: ClientSession,
+  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number}> {
+    await this.init();
+
+    const monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    const yearNum = Number(goldenDataSelectedYear);
+    const monthNum = monthNames.indexOf(goldenDataSelectedMonth);
+    if (monthNum === -1) throw new BadRequestError('Invalid month name');
+
+    const startDate = new Date(yearNum, monthNum, 1);
+    const endDate = new Date(yearNum, monthNum + 1, 1);
+
+    const weeksDataRaw = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: {
+            status: 'closed',
+            closedAt: {$gte: startDate, $lt: endDate},
+          },
+        },
+        {
+          $addFields: {
+            weekOfMonth: {
+              $ceil: {
+                $divide: [{$dayOfMonth: '$closedAt'}, 7],
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {week: '$weekOfMonth'},
+            totalClosed: {$sum: 1},
+          },
+        },
+        {$sort: {'_id.week': 1}},
+      ],
+      {session},
+    ).toArray();
+
+    const formattedWeeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
+
+    const weeksData: GoldenDatasetEntry[] = formattedWeeks.map((w, i) => {
+      const match = weeksDataRaw.find(x => x._id.week === i + 1);
+      return {
+        week: w,
+        entries: 0,
+        verified: match?.totalClosed ?? 0,
+      };
+    });
+    const totalEntriesByType = weeksDataRaw.reduce(
+      (acc, curr) => acc + curr.totalClosed,
+      0,
+    );
+    return {weeksData, totalEntriesByType};
+  }
+
+  async getWeekAnalytics(
+    goldenDataSelectedYear: string,
+    goldenDataSelectedMonth: string,
+    goldenDataSelectedWeek: string,
+    session?: ClientSession,
+  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number}> {
+    await this.init();
+    const monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    const monthNum = monthNames.indexOf(goldenDataSelectedMonth);
+    if (monthNum === -1) throw new BadRequestError('Invalid month name');
+
+    const yearNum = Number(goldenDataSelectedYear);
+
+    // Calculate start and end dates for the selected week
+    const weekNum = Number(goldenDataSelectedWeek.replace('Week ', ''));
+    const startDay = (weekNum - 1) * 7 + 1; // start day of the week
+    const endDay = startDay + 6; // end day of the week
+
+    const startDate = new Date(yearNum, monthNum, startDay);
+    const endDate = new Date(yearNum, monthNum, endDay + 1); // +1 for exclusive range
+
+    // Aggregate closed questions grouped by day of week
+    const dailyDataRaw = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: {
+            status: 'closed',
+            closedAt: {$gte: startDate, $lt: endDate},
+          },
+        },
+        {
+          $addFields: {
+            dayOfWeek: {$dayOfWeek: '$closedAt'}, // 1 = Sunday, 2 = Monday ...
+          },
+        },
+        {
+          $group: {
+            _id: {day: '$dayOfWeek'},
+            totalClosed: {$sum: 1},
+          },
+        },
+        {$sort: {'_id.day': 1}},
+      ],
+      {session},
+    ).toArray();
+
+    const daysMap = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    const dailyData: GoldenDatasetEntry[] = Array.from({length: 7}, (_, i) => {
+      // MongoDB: 1 = Sunday, so index = dayOfWeek - 1
+      const match = dailyDataRaw.find(d => d._id.day === i + 1);
+      return {
+        day: daysMap[i],
+        entries: 0,
+        verified: match?.totalClosed ?? 0,
+      };
+    });
+
+    const totalEntriesByType = dailyDataRaw.reduce(
+      (acc, curr) => acc + curr.totalClosed,
+      0,
+    );
+
+    return {dailyData, totalEntriesByType};
+  }
+
+  async getDailyAnalytics(
+    goldenDataSelectedYear: string,
+    goldenDataSelectedMonth: string,
+    goldenDataSelectedWeek: string,
+    goldenDataSelectedDay: string,
+    session?: ClientSession,
+  ): Promise<{
+    dayHourlyData: Record<string, GoldenDatasetEntry[]>;
+    totalEntriesByType: number;
+  }> {
+    await this.init();
+    const monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    const monthNum = monthNames.indexOf(goldenDataSelectedMonth);
+    if (monthNum === -1) throw new BadRequestError('Invalid month name');
+
+    const yearNum = Number(goldenDataSelectedYear);
+    const weekNum = Number(goldenDataSelectedWeek.replace('Week ', ''));
+
+    // Calculate start and end day for the week
+    const startDay = (weekNum - 1) * 7 + 1;
+    const endDay = startDay + 6;
+
+    const startDate = new Date(yearNum, monthNum, startDay);
+    const endDate = new Date(yearNum, monthNum, endDay + 1); // exclusive
+
+    // Map day names to numbers (JS: 0=Sun, 1=Mon...)
+    const dayMap: Record<string, number> = {
+      Sun: 0,
+      Mon: 1,
+      Tue: 2,
+      Wed: 3,
+      Thu: 4,
+      Fri: 5,
+      Sat: 6,
+    };
+
+    const selectedDayNum = dayMap[goldenDataSelectedDay];
+    if (selectedDayNum === undefined) throw new BadRequestError('Invalid day');
+    const answers = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: {
+            status: 'closed',
+            closedAt: {$gte: startDate, $lt: endDate},
+          },
+        },
+        {
+          $addFields: {
+            dateIST: {
+              $dateToParts: {
+                date: '$closedAt',
+                timezone: 'Asia/Kolkata',
+              },
+            },
+            dayOfWeek: {
+              $dayOfWeek: {
+                date: '$closedAt',
+                timezone: 'Asia/Kolkata',
+              },
+            },
+          },
+        },
+        {
+          $addFields: {
+            hourOfDay: '$dateIST.hour',
+          },
+        },
+        {
+          $match: {
+            dayOfWeek: selectedDayNum + 1,
+          },
+        },
+        {
+          $group: {
+            _id: '$hourOfDay',
+            totalClosed: {$sum: 1},
+          },
+        },
+        {$sort: {_id: 1}},
+      ],
+      {session},
+    ).toArray();
+
+    // const answers = await this.QuestionCollection.aggregate(
+    //   [
+    //     {
+    //       $match: {
+    //         status: 'closed',
+    //         closedAt: {$gte: startDate, $lt: endDate},
+    //       },
+    //     },
+    //     {
+    //       $addFields: {
+    //         dayOfWeek: {$dayOfWeek: '$closedAt'}, // 1=Sun, 2=Mon...
+    //         hourOfDay: {$hour: '$closedAt'},
+    //       },
+    //     },
+    //     {
+    //       $match: {
+    //         dayOfWeek: selectedDayNum + 1, // MongoDB: 1=Sun
+    //       },
+    //     },
+    //     {
+    //       $group: {
+    //         _id: '$hourOfDay',
+    //         totalClosed: {$sum: 1},
+    //       },
+    //     },
+    //     {$sort: {_id: 1}},
+    //   ],
+    //   {session},
+    // ).toArray();
+
+    // Initialize all 24 hours with 0 entries
+    const hourlyData: GoldenDatasetEntry[] = Array.from(
+      {length: 24},
+      (_, i) => {
+        const match = answers.find(a => a._id === i);
+        return {
+          hour: i.toString().padStart(2, '0') + ':00',
+          entries: 0,
+          verified: match?.totalClosed ?? 0,
+        };
+      },
+    );
+
+    const totalEntriesByType = answers.reduce(
+      (acc, curr) => acc + curr.totalClosed,
+      0,
+    );
+
+    return {
+      dayHourlyData: {[goldenDataSelectedDay]: hourlyData},
+      totalEntriesByType,
+    };
+  }
+
+  async getCountBySource(
+    timeRange: string, // 90d, 30d, 7d ,...
+    session?: ClientSession,
+  ): Promise<DashboardResponse['questionContributionTrend']> {
+    await this.init();
+
+    const rangeMatch = timeRange.match(/^(\d+)d$/);
+    if (!rangeMatch) throw new Error('Invalid time range format');
+    const days = Number(rangeMatch[1]);
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const results = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: {
+            createdAt: {$gte: startDate},
+          },
+        },
+        {
+          $group: {
+            _id: {
+              source: '$source',
+              day: {
+                $dateToString: {format: '%Y-%m-%d', date: '$createdAt'},
+              },
+            },
+            count: {$sum: 1},
+          },
+        },
+        {
+          $group: {
+            _id: '$_id.day',
+            counts: {
+              $push: {
+                source: '$_id.source',
+                count: '$count',
+              },
+            },
+          },
+        },
+        {
+          $sort: {
+            _id: 1, // sort by date asc
+          },
+        },
+      ],
+      {session},
+    ).toArray();
+
+    const chartData = results.map(r => {
+      const dataObj = {
+        date: r._id,
+        Ajrasakha: 0,
+        Moderator: 0,
+      };
+
+      r.counts.forEach((item: any) => {
+        if (item.source === 'AJRASAKHA') dataObj.Ajrasakha = item.count;
+        if (item.source === 'AGRI_EXPERT') dataObj.Moderator = item.count;
+      });
+
+      return dataObj;
+    });
+
+    return chartData;
+  }
+
+  async getQuestionOverviewByStatus(
+    session?: ClientSession,
+  ): Promise<QuestionStatusOverview[]> {
+    await this.init();
+
+    const results = await this.QuestionCollection.aggregate(
+      [
+        {
+          $group: {
+            _id: '$status',
+            count: {$sum: 1},
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            status: '$_id',
+            value: '$count',
+          },
+        },
+      ],
+      {session},
+    ).toArray();
+
+    const allStatuses = ['open', 'delayed', 'in-review'];
+    const overview: QuestionStatusOverview[] = allStatuses.map(status => {
+      const found = results.find(r => r.status === status);
+      return {
+        status,
+        value: found?.value ?? 0,
+      };
+    });
+
+    return overview;
+  }
+
+  async getQuestionAnalytics(
+    startTime?: string,
+    endTime?: string,
+    session?: ClientSession,
+  ): Promise<{analytics: Analytics}> {
+    await this.init();
+
+    const filterDate: any = {};
+    if (startTime) filterDate.$gte = new Date(`${startTime}T00:00:00.000Z`);
+    if (endTime) filterDate.$lte = new Date(`${endTime}T23:59:59.999Z`);
+
+    const matchStage: any = {};
+    if (Object.keys(filterDate).length > 0) {
+      matchStage.createdAt = filterDate;
+    }
+
+    // Aggregate crop data
+    const cropDataRaw = (await this.QuestionCollection.aggregate(
+      [
+        {$match: matchStage},
+        {$group: {_id: '$details.crop', count: {$sum: 1}}},
+        {$project: {name: '$_id', count: 1, _id: 0}},
+      ],
+      {session},
+    ).toArray()) as AnalyticsItem[];
+
+    // Aggregate state data
+    const stateDataRaw = (await this.QuestionCollection.aggregate(
+      [
+        {$match: matchStage},
+        {$group: {_id: '$details.state', count: {$sum: 1}}},
+        {$project: {name: '$_id', count: 1, _id: 0}},
+      ],
+      {session},
+    ).toArray()) as AnalyticsItem[];
+
+    // Aggregate domain data
+    const domainDataRaw = (await this.QuestionCollection.aggregate(
+      [
+        {$match: matchStage},
+        {$group: {_id: '$details.domain', count: {$sum: 1}}},
+        {$project: {name: '$_id', count: 1, _id: 0}},
+      ],
+      {session},
+    ).toArray()) as AnalyticsItem[];
+
+    return {
+      analytics: {
+        cropData: cropDataRaw,
+        stateData: stateDataRaw,
+        domainData: domainDataRaw,
+      },
+    };
+  }
+
+  async getModeratorApprovalRate(
+    currentUserId: string,
+    session?: ClientSession,
+  ): Promise<ModeratorApprovalRate> {
+    try {
+      await this.init();
+
+      const pending = await this.QuestionCollection.countDocuments(
+        {status: 'in-review'},
+        {session},
+      );
+
+      const approved = await this.QuestionCollection.countDocuments(
+        {status: 'closed'},
+        {session},
+      );
+
+      const totalReviews = pending + approved || 0;
+
+      const approvedCount = await this.QuestionCollection.countDocuments(
+        {status: 'closed'},
+        {session},
+      );
+
+      const approvalRate =
+        totalReviews > 0
+          ? Number(((approvedCount / totalReviews) * 100).toFixed(2))
+          : 0;
+
+      return {
+        approved,
+        pending,
+        approvalRate,
+      };
+    } catch (error) {
+      console.error('Error fetching moderator approval rate:', error);
+      throw new InternalServerError('Failed to fetch moderator approval rate');
+    }
+  }
   async getAll(session?: ClientSession): Promise<IQuestion[]> {
     await this.init();
     return await this.QuestionCollection.find({}, {session})
