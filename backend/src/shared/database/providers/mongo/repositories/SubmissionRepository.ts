@@ -4,6 +4,7 @@ import {
   ISubmissionHistory,
   IReviewerHeatmapRow,
   IReview,
+  IAnswer,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -21,7 +22,6 @@ export class QuestionSubmissionRepository
   implements IQuestionSubmissionRepository
 {
   private QuestionSubmissionCollection: Collection<IQuestionSubmission>;
-
   constructor(
     @inject(GLOBAL_TYPES.Database)
     private db: MongoDatabase,
@@ -322,6 +322,22 @@ export class QuestionSubmissionRepository
               localField: 'history.reviewId',
               foreignField: '_id',
               as: 'reviewData',
+               pipeline: [
+              // Add this nested pipeline to populate review's answer
+              {
+                $lookup: {
+                  from: 'answers',
+                  localField: 'answerId',
+                  foreignField: '_id',
+                  as: 'reviewAnswerData',
+                },
+              },
+              {
+                $addFields: {
+                  reviewAnswer: { $arrayElemAt: ['$reviewAnswerData', 0] }
+                }
+              }
+            ],
             },
           },
           {
@@ -343,13 +359,32 @@ export class QuestionSubmissionRepository
         ],
         {session},
       ).toArray();
+      type ReviewWithAnswer = IReview & {
+  reviewAnswer?: any;
+};
+
+          const transformAnswer = (answerDoc: any): Partial<IAnswer> | undefined => {
+      if (!answerDoc) return undefined;
+      
+      return {
+        modifications: answerDoc.modifications?.map((mod: any) => ({
+          modifiedBy: mod.modifiedBy?.toString() || mod.modifiedBy,
+          oldAnswer: mod.oldAnswer,
+          newAnswer: mod.newAnswer,
+          modifiedAt: mod.modifiedAt
+        })) || [],
+        createdAt: answerDoc.createdAt,
+        updatedAt: answerDoc.updatedAt,
+      };
+    };
 
       const populatedHistory: HistoryItem[] = historyData.map(item => {
         const h = item.history;
         const updatedBy = item.updatedBy;
         const answer = item.answer;
-        const review = item.review as IReview;
+        const review = item.review as ReviewWithAnswer;
         const lastModifiedBy = item.lastModifiedBy;
+        const reviewAnswer = review?.reviewAnswer
 
         return {
           updatedBy: updatedBy
@@ -384,6 +419,7 @@ export class QuestionSubmissionRepository
                 reviewType: review.reviewType,
                 action: review.action,
                 reason: review.reason,
+                answer:transformAnswer(reviewAnswer),
                 parameters: review.parameters,
                 createdAt: review.createdAt,
                 updatedAt: review.updatedAt,
@@ -403,7 +439,6 @@ export class QuestionSubmissionRepository
           updatedAt: h.updatedAt,
         };
       });
-
       return populatedHistory;
     } catch (error) {
       throw new InternalServerError(

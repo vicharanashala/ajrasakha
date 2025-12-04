@@ -92,6 +92,13 @@ import { Switch } from "./atoms/switch";
 import { Badge } from "./atoms/badge";
 import { Separator } from "./atoms/separator";
 import { CommentsSection } from "./comments-section";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "./atoms/accordion";
+import { renderModificationDiff } from "./question-details";
 
 export type QuestionFilter =
   | "newest"
@@ -1663,7 +1670,7 @@ export const ReviewHistoryTimeline = ({
         const isFirst = index === 0;
         const isLast = index == history.length - 1;
         const isMine = item.status === "in-review" && !item.answer;
-
+        const modification = item.review?.answer?.modifications?.find((mod) => mod.modifiedBy ===item.updatedBy._id)
         return (
           <div key={item.updatedBy._id + index} className="relative">
             {!isFirst && (
@@ -1792,6 +1799,28 @@ export const ReviewHistoryTimeline = ({
                               maxLength={0}
                             />
                           </p>
+                        </div>
+                      )}
+
+                      {item.review?.action === "modified" && modification && (
+                        <div className="mt-3">
+                          <Accordion
+                            type="single"
+                            collapsible
+                            className="w-full"
+                          >
+                            <AccordionItem
+                              value={`mod-details-${item.review._id}`}
+                            >
+                              <AccordionTrigger className="text-sm font-medium">
+                                View Modification Details
+                              </AccordionTrigger>
+
+                              <AccordionContent>
+                                {renderModificationDiff(modification)}
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
                         </div>
                       )}
                     </div>
