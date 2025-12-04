@@ -1,3 +1,4 @@
+import {emailConfig} from '#root/config/mail.js';
 import nodemailer from 'nodemailer';
 
 export async function sendEmailNotification(
@@ -6,10 +7,11 @@ export async function sendEmailNotification(
   message: string,
   html?: string,
 ) {
-  console.log('crede ', process.env.EMAIL_USER, process.env.EMAIL_PASS);
+  const user = emailConfig.EMAIL_USER;
+  const pass = emailConfig.EMAIL_PASS;
   const transporter = nodemailer.createTransport({
     service: 'gmail',
-    auth: {user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS},
+    auth: {user, pass},
   });
   await transporter.sendMail({
     from: process.env.EMAIL,

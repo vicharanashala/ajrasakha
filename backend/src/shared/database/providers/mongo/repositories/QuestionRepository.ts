@@ -1081,4 +1081,21 @@ export class QuestionRepository implements IQuestionRepository {
       {session},
     );
   }
+
+  async getAll(session?: ClientSession): Promise<IQuestion[]> {
+    await this.init();
+    return await this.QuestionCollection.find({}, {session})
+      .sort({createdAt: -1})
+      .toArray();
+  }
+
+  async getByStatus(
+    status: IQuestion['status'],
+    session?: ClientSession,
+  ): Promise<IQuestion[]> {
+    await this.init();
+    return await this.QuestionCollection.find({status}, {session})
+      .sort({createdAt: -1})
+      .toArray();
+  }
 }

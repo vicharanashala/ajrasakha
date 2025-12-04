@@ -1,5 +1,6 @@
 import {dbConfig} from '#root/config/db.js';
 import {createLocalBackup} from '#root/utils/backup-cron.js';
+import {sendEmailNotification} from '#root/utils/mailer.js';
 import cron from 'node-cron';
 
 // cron.schedule('* * * * *', async () => {

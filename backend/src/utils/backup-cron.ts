@@ -5,6 +5,7 @@ import archiver from 'archiver';
 import {MongoClient} from 'mongodb';
 import {Bucket, Storage} from '@google-cloud/storage';
 import {appConfig} from '#root/config/app.js';
+import { sendBackupSuccessEmail } from './backupEmailService.js';
 
 const storage = new Storage({
   keyFilename: appConfig.GOOGLE_APPLICATION_CREDENTIALS,
@@ -115,6 +116,11 @@ export const createLocalBackup = async (mongoUri: string, dbName: string) => {
           destination: `${zipFileName}`,
           gzip: false,
         });
+
+        // Sent mail
+        const publicUrl = `https://console.cloud.google.com/storage/browser/_details/${bucketName}/${zipFileName}`;
+        await sendBackupSuccessEmail(publicUrl);
+
         console.log(`☁️ Backup uploaded to: gs://${bucketName}/${zipFileName}`);
       } catch (err) {
         console.error('❌ Error uploading ZIP:', err);
