@@ -435,6 +435,17 @@ export class AnswerService extends BaseService {
           const rejectedExpertId = lastAnsweredHistory.updatedBy.toString();
           const rejectedAnswerId = lastAnsweredHistory.answer.toString();
 
+          const answerToReject = await this.answerRepo.getById(rejectedAnswer);
+
+          if (
+            answerToReject.answer &&
+            answerToReject.answer.trim() === answer.trim()
+          ) {
+            throw new BadRequestError(
+              `The submitted answer is either identical to the existing answer or not provided. Please modify your response before saving.`,
+            );
+          }
+
           // 1. Mark answer rejected
           await this.userRepo.updatePenaltyAndIncentive(
             rejectedExpertId,
@@ -1105,16 +1116,28 @@ export class AnswerService extends BaseService {
     userId: string,
     page: number,
     limit: number,
-    dateRange?:{from:string | undefined,to:string | undefined}
+    dateRange?: {from: string | undefined; to: string | undefined},
   ): Promise<SubmissionResponse[]> {
-    return await this._withTransaction(async (session:ClientSession) => {
-    const user = await this.userRepo.findById(userId)
-    if(user.role==='expert'){
-      return await this.questionSubmissionRepo.getUserActivityHistory(userId,page,limit,dateRange,session)
-    }else if(user.role==='moderator'){
-      return await this.answerRepo.getModeratorActivityHistory(userId,page,limit,dateRange,session)
-    }
-     })
+    return await this._withTransaction(async (session: ClientSession) => {
+      const user = await this.userRepo.findById(userId);
+      if (user.role === 'expert') {
+        return await this.questionSubmissionRepo.getUserActivityHistory(
+          userId,
+          page,
+          limit,
+          dateRange,
+          session,
+        );
+      } else if (user.role === 'moderator') {
+        return await this.answerRepo.getModeratorActivityHistory(
+          userId,
+          page,
+          limit,
+          dateRange,
+          session,
+        );
+      }
+    });
   }
   async getFinalAnswerQuestions(
     userId: string,
