@@ -2318,7 +2318,7 @@ export const renderModificationDiff = (modification: any) => {
                 className={
                   part.type === "removed"
                     ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                    : ""
+                    : "text-dark dark:text-white"
                 }
               >
                 {part.value}
@@ -2342,7 +2342,7 @@ export const renderModificationDiff = (modification: any) => {
                 className={
                   part.type === "added"
                     ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                    : ""
+                    : "text-dark dark:text-white"
                 }
               >
                 {part.value}

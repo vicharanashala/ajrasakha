@@ -1,47 +1,52 @@
 export function diffWords(oldText: string, newText: string) {
-  const oldChars = oldText.split("");
-  const newChars = newText.split("");
-
-  const diffs: { value: string; type: "same" | "added" | "removed" }[] = [];
-
-  let i = 0;
-  let j = 0;
-
-  const pushGrouped = (value: string, type: "same" | "added" | "removed") => {
-    if (!value) return;
-    const last = diffs[diffs.length - 1];
-    if (last && last.type === type) {
-      last.value += value;
-    } else {
-      diffs.push({ value, type });
-    }
-  };
-
-  while (i < oldChars.length && j < newChars.length) {
-    if (oldChars[i] === newChars[j]) {
-      pushGrouped(oldChars[i], "same");
-      i++;
-      j++;
-    } else {
-      pushGrouped(oldChars[i], "removed");
-      pushGrouped(newChars[j], "added");
-      i++;
-      j++;
+  const oldWords = oldText.split(/(\s+)/);
+  const newWords = newText.split(/(\s+)/);
+  
+  const matrix = [];
+  
+  // Build matrix for LCS
+  for (let i = 0; i <= oldWords.length; i++) {
+    matrix[i] = [];
+    for (let j = 0; j <= newWords.length; j++) {
+      if (i === 0 || j === 0) {
+        matrix[i][j] = 0;
+      } else if (oldWords[i - 1] === newWords[j - 1]) {
+        matrix[i][j] = matrix[i - 1][j - 1] + 1;
+      } else {
+        matrix[i][j] = Math.max(matrix[i - 1][j], matrix[i][j - 1]);
+      }
     }
   }
-
-  while (i < oldChars.length) {
-    pushGrouped(oldChars[i], "removed");
-    i++;
+  
+  // Backtrack to find differences
+  const diffs = [];
+  let i = oldWords.length;
+  let j = newWords.length;
+  
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && oldWords[i - 1] === newWords[j - 1]) {
+      diffs.unshift({ value: oldWords[i - 1], type: "same" });
+      i--;
+      j--;
+    } else if (j > 0 && (i === 0 || matrix[i][j - 1] >= matrix[i - 1][j])) {
+      diffs.unshift({ value: newWords[j - 1], type: "added" });
+      j--;
+    } else if (i > 0 && (j === 0 || matrix[i][j - 1] < matrix[i - 1][j])) {
+      diffs.unshift({ value: oldWords[i - 1], type: "removed" });
+      i--;
+    }
   }
-
-  while (j < newChars.length) {
-    pushGrouped(newChars[j], "added");
-    j++;
+  
+  // Merge consecutive same-type items
+  const mergedDiffs = [];
+  for (const diff of diffs) {
+    const last = mergedDiffs[mergedDiffs.length - 1];
+    if (last && last.type === diff.type) {
+      last.value += diff.value;
+    } else {
+      mergedDiffs.push({ ...diff });
+    }
   }
-
-  return diffs;
+  
+  return mergedDiffs;
 }
-
-
-
