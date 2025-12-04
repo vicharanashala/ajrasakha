@@ -67,7 +67,6 @@ export class PerformanceController {
   async getHeatMapresults(
     @QueryParams() query: GetHeatMapQuery,
   ): Promise<IReviewerHeatmapRow[] | null> {
-    //console.log("the controller calling===haiiiiii",this.performanceService)
     const result = await this.performanceService.getHeatMapresults(query);
 
     return result;

@@ -22,6 +22,7 @@ import { MobileSidebar } from "./mobile-sidebar";
 import { HoverCard } from "./atoms/hover-card";
 import { UserManagement } from "./user-management";
 import { Dashboard } from "./dashboard";
+import Spinner from "./atoms/spinner";
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser();
@@ -92,41 +93,42 @@ export const PlaygroundPage = () => {
   return (
     <>
       {isLoading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-10">
-          <div className="w-full max-w-sm p-6 bg-card rounded-lg shadow-lg flex flex-col items-center justify-center gap-4 ">
-            <h3 className="text-lg font-semibold text-center">
-              Fetching user details...
-            </h3>
+        // <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-10">
+        //   <div className="w-full max-w-sm p-6 bg-card rounded-lg shadow-lg flex flex-col items-center justify-center gap-4 ">
+        //     <h3 className="text-lg font-semibold text-center">
+        //       Fetching user details...
+        //     </h3>
 
-            <div className="flex items-center justify-center">
-              <svg
-                className="animate-spin h-10 w-10 text-green-500"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                />
-              </svg>
-            </div>
+        //     <div className="flex items-center justify-center">
+        //       <svg
+        //         className="animate-spin h-10 w-10 text-green-500"
+        //         xmlns="http://www.w3.org/2000/svg"
+        //         fill="none"
+        //         viewBox="0 0 24 24"
+        //       >
+        //         <circle
+        //           className="opacity-25"
+        //           cx="12"
+        //           cy="12"
+        //           r="10"
+        //           stroke="currentColor"
+        //           strokeWidth="4"
+        //         />
+        //         <path
+        //           className="opacity-75"
+        //           fill="currentColor"
+        //           d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+        //         />
+        //       </svg>
+        //     </div>
 
-            <p className="text-sm text-muted-foreground text-center">
-              Please wait while we fetch your profile, preferences, and
-              authorizations.
-            </p>
-          </div>
-        </div>
+        //     <p className="text-sm text-muted-foreground text-center">
+        //       Please wait while we fetch your profile, preferences, and
+        //       authorizations.
+        //     </p>
+        //   </div>
+        // </div>
+        <Spinner text="Fetching user details" />
       )}
 
       <Tabs

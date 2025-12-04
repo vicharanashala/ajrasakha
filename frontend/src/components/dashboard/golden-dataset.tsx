@@ -29,104 +29,6 @@ import {
   SelectValue,
 } from "../atoms/select";
 
-// const yearData = [
-//   { month: "Jan", entries: 1240, verified: 1100 },
-//   { month: "Feb", entries: 1890, verified: 1650 },
-//   { month: "Mar", entries: 2400, verified: 2100 },
-//   { month: "Apr", entries: 2780, verified: 2450 },
-//   { month: "May", entries: 3390, verified: 3000 },
-//   { month: "Jun", entries: 3800, verified: 3400 },
-//   { month: "Jul", entries: 4200, verified: 3800 },
-//   { month: "Aug", entries: 4600, verified: 4150 },
-//   { month: "Sep", entries: 4900, verified: 4400 },
-//   { month: "Oct", entries: 5200, verified: 4700 },
-//   { month: "Nov", entries: 5500, verified: 5000 },
-//   { month: "Dec", entries: 5900, verified: 5350 },
-// ];
-
-// const weeksData = [
-//   { week: "Week 1", entries: 280, verified: 250 },
-//   { week: "Week 2", entries: 310, verified: 280 },
-//   { week: "Week 3", entries: 340, verified: 300 },
-//   { week: "Week 4", entries: 310, verified: 270 },
-// ];
-
-// const dailyData = [
-//   { day: "Mon", entries: 45, verified: 40 },
-//   { day: "Tue", entries: 52, verified: 47 },
-//   { day: "Wed", entries: 48, verified: 43 },
-//   { day: "Thu", entries: 55, verified: 50 },
-//   { day: "Fri", entries: 62, verified: 56 },
-//   { day: "Sat", entries: 38, verified: 34 },
-//   { day: "Sun", entries: 28, verified: 25 },
-// ];
-
-// const dayHourlyData = {
-//   Mon: [
-//     { hour: "00:00", entries: 2, verified: 2 },
-//     { hour: "04:00", entries: 2, verified: 2 },
-//     { hour: "08:00", entries: 6, verified: 5 },
-//     { hour: "12:00", entries: 9, verified: 8 },
-//     { hour: "16:00", entries: 11, verified: 10 },
-//     { hour: "20:00", entries: 12, verified: 11 },
-//     { hour: "23:59", entries: 3, verified: 2 },
-//   ],
-//   Tue: [
-//     { hour: "00:00", entries: 2, verified: 2 },
-//     { hour: "04:00", entries: 3, verified: 3 },
-//     { hour: "08:00", entries: 7, verified: 6 },
-//     { hour: "12:00", entries: 11, verified: 10 },
-//     { hour: "16:00", entries: 13, verified: 12 },
-//     { hour: "20:00", entries: 14, verified: 12 },
-//     { hour: "23:59", entries: 2, verified: 2 },
-//   ],
-//   Wed: [
-//     { hour: "00:00", entries: 1, verified: 1 },
-//     { hour: "04:00", entries: 2, verified: 2 },
-//     { hour: "08:00", entries: 6, verified: 5 },
-//     { hour: "12:00", entries: 10, verified: 9 },
-//     { hour: "16:00", entries: 12, verified: 11 },
-//     { hour: "20:00", entries: 15, verified: 13 },
-//     { hour: "23:59", entries: 2, verified: 2 },
-//   ],
-//   Thu: [
-//     { hour: "00:00", entries: 2, verified: 2 },
-//     { hour: "04:00", entries: 4, verified: 4 },
-//     { hour: "08:00", entries: 8, verified: 7 },
-//     { hour: "12:00", entries: 12, verified: 11 },
-//     { hour: "16:00", entries: 14, verified: 13 },
-//     { hour: "20:00", entries: 13, verified: 12 },
-//     { hour: "23:59", entries: 2, verified: 1 },
-//   ],
-//   Fri: [
-//     { hour: "00:00", entries: 2, verified: 2 },
-//     { hour: "04:00", entries: 3, verified: 3 },
-//     { hour: "08:00", entries: 8, verified: 7 },
-//     { hour: "12:00", entries: 12, verified: 11 },
-//     { hour: "16:00", entries: 15, verified: 14 },
-//     { hour: "20:00", entries: 18, verified: 16 },
-//     { hour: "23:59", entries: 4, verified: 4 },
-//   ],
-//   Sat: [
-//     { hour: "00:00", entries: 1, verified: 1 },
-//     { hour: "04:00", entries: 1, verified: 1 },
-//     { hour: "08:00", entries: 5, verified: 4 },
-//     { hour: "12:00", entries: 8, verified: 7 },
-//     { hour: "16:00", entries: 10, verified: 9 },
-//     { hour: "20:00", entries: 11, verified: 10 },
-//     { hour: "23:59", entries: 2, verified: 2 },
-//   ],
-//   Sun: [
-//     { hour: "00:00", entries: 1, verified: 1 },
-//     { hour: "04:00", entries: 1, verified: 1 },
-//     { hour: "08:00", entries: 3, verified: 3 },
-//     { hour: "12:00", entries: 6, verified: 5 },
-//     { hour: "16:00", entries: 8, verified: 7 },
-//     { hour: "20:00", entries: 8, verified: 7 },
-//     { hour: "23:59", entries: 1, verified: 1 },
-//   ],
-// };
-
 const monthNames = [
   "January",
   "February",
@@ -189,36 +91,43 @@ export const GoldenDatasetOverview = ({
 
   const getTotals = () => {
     if (viewType === "year") {
-      const total = data.yearData.reduce((sum, d) => sum + d.entries, 0);
-      const verified = data.yearData.reduce((sum, d) => sum + d.verified, 0);
+      const total = data?.yearData?.reduce((sum, d) => sum + d?.entries, 0);
+      const verified = data?.yearData?.reduce((sum, d) => sum + d?.verified, 0);
       return {
         total,
         verified,
-        lastEntry: data.yearData[data.yearData.length - 1].entries,
+        lastEntry: data?.yearData[data?.yearData.length - 1].entries,
       };
     } else if (viewType === "month") {
-      const total = data.weeksData.reduce((sum, d) => sum + d.entries, 0);
-      const verified = data.weeksData.reduce((sum, d) => sum + d.verified, 0);
+      const total = data?.weeksData?.reduce((sum, d) => sum + d?.entries, 0);
+      const verified = data?.weeksData?.reduce(
+        (sum, d) => sum + d?.verified,
+        0
+      );
       return { total, verified, lastEntry: total };
     } else if (viewType === "week") {
-      const total = data.dailyData.reduce((sum, d) => sum + d.entries, 0);
-      const verified = data.dailyData.reduce((sum, d) => sum + d.verified, 0);
+      const total = data?.dailyData?.reduce((sum, d) => sum + d?.entries, 0);
+      const verified = data?.dailyData?.reduce(
+        (sum, d) => sum + d?.verified,
+        0
+      );
       return { total, verified, lastEntry: total };
     } else {
       const dayData =
-        data.dayHourlyData[selectedDay as keyof typeof data.dayHourlyData];
-      const total = dayData.reduce((sum, d) => sum + d.entries, 0);
-      const verified = dayData.reduce((sum, d) => sum + d.verified, 0);
+        data?.dayHourlyData[selectedDay as keyof typeof data.dayHourlyData];
+      const total = dayData?.reduce((sum, d) => sum + d?.entries, 0);
+      const verified = dayData?.reduce((sum, d) => sum + d?.verified, 0);
       return { total, verified, lastEntry: total };
     }
   };
 
-  const totals = getTotals();
+  // const totals = getTotals();
 
   const getChartData = () => {
-    if (viewType === "year") return data.yearData;
-    if (viewType === "month") return data.weeksData;
-    if (viewType === "week") return data.dailyData;
+    if (viewType === "year") return data?.yearData;
+    if (viewType === "month") return data?.weeksData;
+    if (viewType === "week") return data?.dailyData;
+    if (!data.dayHourlyData || !selectedDay) return undefined;
     return data.dayHourlyData[selectedDay as keyof typeof data.dayHourlyData];
   };
 
@@ -261,7 +170,7 @@ export const GoldenDatasetOverview = ({
                   Verified Entries
                 </p>
                 <p className="text-3xl font-bold text-foreground">
-                  {data.verifiedEntries}
+                  {data?.verifiedEntries}
                 </p>
                 <p className="text-xs text-green-600 mt-2 font-medium">
                   Total questions verified through review/approval process
@@ -280,7 +189,7 @@ export const GoldenDatasetOverview = ({
                   Current Period
                 </p>
                 <p className="text-3xl font-bold text-foreground">
-                  {data.totalEntriesByType}
+                  {data?.totalEntriesByType}
                 </p>
                 <p className="text-xs text-green-600 mt-2 font-medium">
                   Latest data point

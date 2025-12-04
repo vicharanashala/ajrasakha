@@ -3,6 +3,7 @@ import {
   DashboardResponse,
   GoldenDatasetEntry,
   GoldenDataViewType,
+  ModeratorApprovalRate,
   QuestionStatusOverview,
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {
@@ -281,4 +282,14 @@ export interface IQuestionRepository {
     endTime?: string,
     session?: ClientSession,
   ): Promise<{analytics: Analytics}>;
+
+  /**
+   * @param currentUserId - requested userId
+   * @param session
+   */
+
+  getModeratorApprovalRate(
+    currentUserId: string,
+    session?: ClientSession,
+  ): Promise<ModeratorApprovalRate>;
 }

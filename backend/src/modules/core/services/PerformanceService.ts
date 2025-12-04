@@ -113,7 +113,10 @@ export class PerformanceService extends BaseService {
 
       const userRoleOverview = await this.userRepo.getUserRoleCount(session);
       const moderatorApprovalRate =
-        await this.answerRepo.getModeratorApprovalRate(currentUserId, session);
+        await this.questionRepo.getModeratorApprovalRate(
+          currentUserId,
+          session,
+        );
 
       // goldenDataset
       const closedQuestions = await this.questionRepo.getQuestionsByStatus(

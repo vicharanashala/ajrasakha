@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { ApprovalRateCard } from "./dashboard/approval-rate";
 import { ExpertsPerformance } from "./dashboard/experts-performance";
-import { GoldenDatasetOverview } from "./dashboard/golden-dataset";
+import {
+  GoldenDatasetOverview,
+  type GoldenDataset,
+} from "./dashboard/golden-dataset";
 import { ModeratorsOverview } from "./dashboard/overview";
 import { StatusCharts } from "./dashboard/question-status";
 import {
@@ -19,7 +22,6 @@ import { DashboardClock } from "./dashboard/dashboard-clock";
 import { Spinner } from "./atoms/spinner";
 import { DateRangeFilter } from "./DateRangeFilter";
 
-// const dashboardDummyData: DashboardAnalyticsResponse = {
 //   userRoleOverview: [
 //     { name: "Experts", value: 32 },
 //     { name: "Moderators", value: 8 },
@@ -242,6 +244,10 @@ export const Dashboard = () => {
     endTime: undefined,
   });
 
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [dashboardState, setDashboardState] =
+    useState<DashboardAnalyticsResponse | null>(null);
+
   // Fetch dashboard data
   const {
     data: dashboardData,
@@ -259,6 +265,16 @@ export const Dashboard = () => {
     qnAnalyticsType: analyticsType,
   });
 
+  useEffect(() => {
+    if (dashboardData) {
+      setDashboardState(dashboardData);
+      setInitialLoading(false);
+    }
+    if (error && !dashboardData) {
+      setInitialLoading(false);
+    }
+  }, [dashboardData, error]);
+
   const handleHeatMapDateChange = (key: string, value?: Date) => {
     setHeatMapDate((prev) => ({
       ...prev,
@@ -266,12 +282,34 @@ export const Dashboard = () => {
     }));
   };
 
-  if (isLoading) return <Spinner />;
-  if (!dashboardData) return <p>No data found</p>;
-  if (error) return <p>Error loading dashboard</p>;
+  const emptyDashboard: DashboardAnalyticsResponse = {
+    userRoleOverview: [],
+    moderatorApprovalRate: { approved: 0, pending: 0, approvalRate: 0 },
+    goldenDataset: {
+      type: "year" as GoldenDataset["type"],
+      yearData: [] as GoldenDataset["yearData"],
+      weeksData: [] as GoldenDataset["weeksData"],
+      dailyData: [] as GoldenDataset["dailyData"],
+      dayHourlyData: {} as GoldenDataset["dayHourlyData"],
+      totalEntriesByType: 0,
+      verifiedEntries: 0,
+    },
+    questionContributionTrend: [],
+    statusOverview: { questions: [], answers: [] },
+    expertPerformance: [],
+    analytics: { cropData: [], stateData: [], domainData: [] },
+  };
+
+  const dataToShow = dashboardState ?? emptyDashboard;
+
+  if (initialLoading) return <Spinner text="Fetching dashboard data" />;
+  if (error && !dashboardState) return <p>Error loading dashboard</p>;
+  if (!dashboardState) return <p>No data found</p>;
 
   return (
-    <main className="min-h-screen bg-background">
+    <main
+      className={`min-h-screen bg-background ${isLoading ? "opacity-40" : ""}`}
+    >
       <div className="mx-auto p-6">
         <div className="mb-8 flex justify-between items-center">
           <div>
@@ -288,14 +326,14 @@ export const Dashboard = () => {
 
         {/* Top Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <ModeratorsOverview data={dashboardData.userRoleOverview} />
-          <ApprovalRateCard data={dashboardData.moderatorApprovalRate} />
+          <ModeratorsOverview data={dataToShow.userRoleOverview} />
+          <ApprovalRateCard data={dataToShow.moderatorApprovalRate} />
         </div>
 
         {/* Full Width Sources Chart */}
         <div className="mb-6 ">
           <GoldenDatasetOverview
-            data={dashboardData.goldenDataset}
+            data={dataToShow.goldenDataset}
             selectedYear={selectedYear}
             setSelectedYear={setSelectedYear}
             selectedDay={selectedDay}
@@ -310,7 +348,7 @@ export const Dashboard = () => {
         </div>
         <div className="mb-6">
           <SourcesChart
-            data={dashboardData.questionContributionTrend}
+            data={dataToShow.questionContributionTrend}
             timeRange={timeRange}
             setTimeRange={setTimeRange}
           />
@@ -318,7 +356,7 @@ export const Dashboard = () => {
 
         {/* Question Status and Golden Dataset Row */}
         <div className="mb-6">
-          <StatusCharts data={dashboardData.statusOverview} />
+          <StatusCharts data={dataToShow.statusOverview} />
         </div>
 
         {/* Performance Row */}
@@ -328,13 +366,13 @@ export const Dashboard = () => {
             setDate={setDate}
             analyticsType={analyticsType}
             setAnalyticsType={setAnalyticsType}
-            data={dashboardData.analytics}
+            data={dataToShow.analytics}
           />
         </div>
 
         {/* Analytics Row */}
         <div className="flex flex-col gap-5">
-          <ExpertsPerformance data={dashboardData.expertPerformance} />
+          <ExpertsPerformance data={dataToShow.expertPerformance} />
           <div className="space-y-6  hidden md:block">
             <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
               <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">

@@ -167,15 +167,7 @@ export interface IAnswerRepository {
     session?: ClientSession,
   ): Promise<{modifiedCount: number}>;
 
-  /**
-   * @param currentUserId - requested userId
-   * @param session
-   */
 
-  getModeratorApprovalRate(
-    currentUserId: string,
-    session?: ClientSession,
-  ): Promise<ModeratorApprovalRate>;
 
   /**
    * @param session

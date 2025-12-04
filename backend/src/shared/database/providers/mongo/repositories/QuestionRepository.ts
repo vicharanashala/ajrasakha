@@ -36,6 +36,7 @@ import {
   DashboardResponse,
   GoldenDatasetEntry,
   GoldenDataViewType,
+  ModeratorApprovalRate,
   QuestionStatusOverview,
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {promises} from 'dns';
@@ -1626,4 +1627,45 @@ export class QuestionRepository implements IQuestionRepository {
       },
     };
   }
+
+
+    async getModeratorApprovalRate(
+      currentUserId: string,
+      session?: ClientSession,
+    ): Promise<ModeratorApprovalRate> {
+      try {
+        await this.init();
+  
+        const pending = await this.QuestionCollection.countDocuments(
+          {status: 'in-review'},
+          {session},
+        );
+  
+        const approved = await this.QuestionCollection.countDocuments(
+          {status: 'closed'},
+          {session},
+        );
+  
+        const totalReviews = pending + approved || 0;
+  
+        const approvedCount = await this.QuestionCollection.countDocuments(
+          {status: 'closed'},
+          {session},
+        );
+  
+        const approvalRate =
+          totalReviews > 0
+            ? Number(((approvedCount / totalReviews) * 100).toFixed(2))
+            : 0;
+  
+        return {
+          approved,
+          pending,
+          approvalRate,
+        };
+      } catch (error) {
+        console.error('Error fetching moderator approval rate:', error);
+        throw new InternalServerError('Failed to fetch moderator approval rate');
+      }
+    }
 }
