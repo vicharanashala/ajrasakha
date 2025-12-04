@@ -1280,4 +1280,119 @@ export class AnswerRepository implements IAnswerRepository {
       analytics: {cropData, stateData, domainData},
     };
   }
+  async getModeratorActivityHistory(
+  moderatorId: string,
+  page: number,
+  limit: number,
+  dateRange?: { from?: string; to?: string },
+  session?:ClientSession
+) {
+  await this.init()
+  const safePage = Math.max(1, page);
+  const safeLimit = Math.max(1, limit);
+  const skip = (safePage - 1) * safeLimit;
+
+  const fromDate = dateRange?.from ? new Date(dateRange.from) : null;
+  const toDate   = dateRange?.to ? new Date(dateRange.to) : null;
+
+  const dateFilter: any = {};
+  if (fromDate) dateFilter.$gte = fromDate;
+  if (toDate) dateFilter.$lte = toDate;
+
+  const matchStage: any = {
+    approvedBy: new ObjectId(moderatorId)
+  };
+
+  if (Object.keys(dateFilter).length > 0) {
+    matchStage.updatedAt = dateFilter;
+  }
+
+  const pipeline = [
+    { $match: matchStage },
+
+    { $sort: { updatedAt: -1 } },
+
+    {
+      $facet: {
+        filtered: [
+          { $skip: skip },
+          { $limit: safeLimit },
+
+          // Populate Question
+          {
+            $lookup: {
+              from: "questions",
+              localField: "questionId",
+              foreignField: "_id",
+              as: "questionDoc"
+            }
+          },
+          { $unwind: { path: "$questionDoc", preserveNullAndEmptyArrays: true } },
+
+          // Populate Author
+          {
+            $lookup: {
+              from: "users",
+              localField: "authorId",
+              foreignField: "_id",
+              as: "authorDoc"
+            }
+          },
+          { $unwind: { path: "$authorDoc", preserveNullAndEmptyArrays: true } },
+
+          {
+            $project: {
+              // _id: 1,
+              _id: {$toString: "$_id"},
+              action: "finalized",
+              createdAt: "$createdAt",
+              updatedAt: "$updatedAt",
+
+              question: {
+                // _id: "$questionDoc._id",
+                _id: { $toString: "$questionDoc._id" },
+                question: "$questionDoc.question"
+              },
+
+              answer: {
+                // _id: "$_id",
+                _id: { $toString: "$_id" },
+                answer: "$answer"
+              },
+
+              author: {
+                // _id: "$authorDoc._id",
+                _id: { $toString: "$authorDoc._id" },
+                name: { $concat: ["$authorDoc.firstName", " ", "$authorDoc.lastName"] },
+                email:"$authorDoc.email"
+              }
+            }
+          }
+        ],
+
+        totalCount: [
+          { $count: "count" }
+        ]
+      }
+    },
+
+    {
+      $project: {
+        data: "$filtered",
+        totalCount: { $ifNull: [{ $arrayElemAt: ["$totalCount.count", 0] }, 0] }
+      }
+    }
+  ];
+
+  const [result] = await this.AnswerCollection.aggregate(pipeline,{session}).toArray();
+
+  return {
+    totalCount: result?.totalCount ?? 0,
+    page: safePage,
+    totalPages: Math.ceil((result?.totalCount ?? 0) / safeLimit),
+    limit: safeLimit,
+    data: result?.data ?? []
+  };
+}
+
 }

@@ -113,4 +113,16 @@ export interface IQuestionSubmissionRepository {
   heatMapResultsForReviewer(
     query: GetHeatMapQuery,
   ): Promise<IReviewerHeatmapRow[] | null>;
+
+  /**
+   * @param userId - Userid of the expeet
+   * @param session Optional MongoDB session for transaction
+   */
+  getUserActivityHistory(
+    userId: string,
+    page: number,
+    limit: number,
+    dateRange?: {from: string; to: string},
+    session?: ClientSession,
+  );
 }

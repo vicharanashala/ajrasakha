@@ -17,7 +17,7 @@ import {
 } from "@/hooks/api/performance/useGetDashboard";
 import { DashboardClock } from "./dashboard/dashboard-clock";
 import { Spinner } from "./atoms/spinner";
-import { DateRangeFilter } from "./advanced-question-filter";
+import { DateRangeFilter } from "./DateRangeFilter";
 
 // const dashboardDummyData: DashboardAnalyticsResponse = {
 //   userRoleOverview: [

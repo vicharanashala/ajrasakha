@@ -533,6 +533,11 @@ export class QuestionService extends BaseService {
           throw new BadRequestError(`Question with ID ${questionId} not found`);
         }
 
+        if (existingQuestion.status == 'closed')
+          throw new BadRequestError(
+            'You cannot modify a question that has already been closed.',
+          );
+
         const answers = await this.answerRepo.getByQuestionId(
           questionId,
           session,
@@ -542,7 +547,7 @@ export class QuestionService extends BaseService {
           answers.every(answer => answer.isFinalAnswer === false)
         ) {
           throw new BadRequestError(
-            `Cannot close this question as it has non-final answers`,
+            `Cannot close this question as it has non-final answer`,
           );
         }
 
