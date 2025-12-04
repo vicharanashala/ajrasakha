@@ -87,7 +87,11 @@ export interface IQuestionRepository {
    * @param session - Optional MongoDB client session for transactions.
    * @returns A promise that resolves to an array of questions.
    */
-  getQuestionWithFullData(questionId: string, userId: string): Promise<any>;
+  getQuestionWithFullData(
+    questionId: string,
+    userId: string,
+    isExpert: boolean,
+  ): Promise<any>;
 
   /**
    * Retrieves all questions that have not been answered yet.

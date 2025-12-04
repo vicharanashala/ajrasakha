@@ -698,7 +698,7 @@ const AllocationQueueHeader = ({
   const filteredExperts = experts.filter(
     (expert) =>
       expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      expert.email.toLowerCase().includes(searchTerm.toLowerCase())
+      expert.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleToggle = async (checked: boolean) => {
@@ -1450,8 +1450,8 @@ const AllocationTimeline = ({
                           className="text-[10px] text-muted-foreground truncate mt-0.5"
                           title={user.email}
                         >
-                          {user.email?.slice(0, 23)}
-                          {user.email?.length > 23 ? "..." : ""}
+                          {user.email && user.email?.slice(0, 23)}
+                          {user.email && user.email?.length > 23 ? "..." : ""}
                         </p>
                       </div>
 
@@ -1569,13 +1569,16 @@ export const AnswerTimeline = ({
             {item.submission?.updatedBy && (
               <div className="text-xs text-foreground px-2 py-1 rounded-md">
                 <span className="font-medium">By:</span>{" "}
-                {item.submission.updatedBy.name} (
-                {item.submission.updatedBy.email})
-                {item.firstAnswerId === item.submission.answer._id && (
-                  <span className="ml-2 px-2 py-0.5 text-[10px] rounded-full bg-blue-100 text-blue-700 font-semibold">
-                    Author
-                  </span>
+                {item?.submission?.updatedBy?.name}
+                {item?.submission?.updatedBy?.email && (
+                  <> ({item.submission.updatedBy.email})</>
                 )}
+                {item?.submission?.updatedBy?.email &&
+                  item?.firstAnswerId === item?.submission?.answer?._id && (
+                    <span className="ml-2 px-2 py-0.5 text-[10px] rounded-full bg-blue-100 text-blue-700 font-semibold">
+                      Author
+                    </span>
+                  )}
               </div>
             )}
 
@@ -1616,7 +1619,7 @@ interface AnswerItemProps {
 }
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
-    const [sources, setSources] = useState<SourceItem[]>(props.answer.sources);
+  const [sources, setSources] = useState<SourceItem[]>(props.answer.sources);
   const isMine = props.answer.authorId === props.currentUserId;
   // const [comment, setComment] = useState("");
   // const observer = useRef<IntersectionObserver>(null);
@@ -1682,7 +1685,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         return;
       }
 
-      if(sources.length<=0){
+      if (sources.length <= 0) {
         toast.error("Updated answer should contain atleast 1 source");
         return;
       }
@@ -1779,7 +1782,11 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       onChange={(e) => setEditableAnswer(e.target.value)}
                       className="min-h-[150px] resize-none border border-border bg-background"
                     />
-                    <SourceUrlManager sources={sources} onSourcesChange={setSources} className="py-3" />
+                    <SourceUrlManager
+                      sources={sources}
+                      onSourcesChange={setSources}
+                      className="py-3"
+                    />
                   </div>
                   <div
                     className="mt-4 p-4 rounded-md border bg-yellow-50 border-yellow-300 text-yellow-900 text-sm
@@ -1896,8 +1903,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                           <p className="text-sm font-medium text-foreground">
                             Submitted By:{" "}
                             <span className="text-sm text-muted-foreground">
-                              {props.submissionData.updatedBy.name} (
-                              {props.submissionData.updatedBy.email})
+                              {props.submissionData.updatedBy?.name}
+                              {props.submissionData.updatedBy?.email && (
+                                <> ({props.submissionData.updatedBy.email})</>
+                              )}
                             </span>
                           </p>
 
@@ -2046,8 +2055,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                                     Reviewer:
                                   </span>
                                   <span className="text-sm text-muted-foreground">
-                                    {review.reviewer?.firstName} (
-                                    {review.reviewer?.email})
+                                    {review.reviewer?.firstName}
+                                    {review.reviewer?.email && (
+                                      <> ({review.reviewer.email})</>
+                                    )}
                                   </span>
                                 </div>
 

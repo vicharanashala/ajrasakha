@@ -1142,9 +1142,12 @@ export class QuestionService extends BaseService {
     userId: string,
   ): Promise<IQuestion | null> {
     try {
+      const user = await this.userRepo.findById(userId);
+      const isExpert = user.role == "expert"
       const question = await this.questionRepo.getQuestionWithFullData(
         questionId,
         userId,
+        isExpert
       );
       if (!question) {
         return null;

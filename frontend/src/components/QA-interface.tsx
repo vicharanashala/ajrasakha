@@ -1670,7 +1670,9 @@ export const ReviewHistoryTimeline = ({
         const isFirst = index === 0;
         const isLast = index == history.length - 1;
         const isMine = item.status === "in-review" && !item.answer;
-        const modification = item.review?.answer?.modifications?.find((mod) => mod.modifiedBy ===item.updatedBy._id)
+        const modification = item.review?.answer?.modifications?.find(
+          (mod) => mod.modifiedBy === item.updatedBy._id
+        );
         return (
           <div key={item.updatedBy._id + index} className="relative">
             {!isFirst && (

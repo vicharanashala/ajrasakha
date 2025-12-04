@@ -40,6 +40,7 @@ import {
   QuestionStatusOverview,
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {promises} from 'dns';
+import {getReviewerQueuePosition} from '#root/utils/getReviewerQueuePosition.js';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';
@@ -633,7 +634,11 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
-  async getQuestionWithFullData(questionId: string, userId: string) {
+  async getQuestionWithFullData(
+    questionId: string,
+    userId: string,
+    isExpert: boolean,
+  ) {
     await this.init();
 
     const questionObjectId = new ObjectId(questionId);
@@ -731,8 +736,18 @@ export class QuestionRepository implements IQuestionRepository {
           reviewer: reviewer
             ? {
                 _id: reviewer._id.toString(),
-                firstName: reviewer.firstName + reviewer.lastName,
-                email: reviewer.email,
+                firstName: isExpert
+                  ? getReviewerQueuePosition(
+                      submission.queue,
+                      reviewer._id.toString(),
+                    ) == 0
+                    ? 'Author'
+                    : `Reviewer ${getReviewerQueuePosition(
+                        submission.queue,
+                        reviewer._id.toString(),
+                      )}`
+                  : reviewer.firstName + reviewer.lastName,
+                email: !isExpert && reviewer.email,
               }
             : null,
         };
@@ -752,22 +767,49 @@ export class QuestionRepository implements IQuestionRepository {
         lastRespondedBy: lastRespondedId
           ? {
               _id: submission?.lastRespondedBy?.toString(),
-              name: usersMap.get(lastRespondedId)?.firstName,
-              email: usersMap.get(submission?.lastRespondedBy?.toString())
+              name: isExpert
+                ? getReviewerQueuePosition(
+                    submission.queue,
+                    submission?.lastRespondedBy?.toString(),
+                  ) == 0
+                  ? 'Author'
+                  : `Reviewer ${getReviewerQueuePosition(
+                      submission.queue,
+                      submission?.lastRespondedBy?.toString(),
+                    )}`
+                : usersMap.get(lastRespondedId)?.firstName,
+              email: !isExpert && usersMap.get(submission?.lastRespondedBy?.toString())
                 ?.email,
             }
           : null,
         queue: submission?.queue?.map(q => ({
           _id: q.toString(),
-          name: usersMap.get(q.toString())?.firstName,
-          email: usersMap.get(q.toString())?.email,
+          name: isExpert
+            ? getReviewerQueuePosition(submission.queue, q.toString()) == 0
+              ? 'Author'
+              : `Reviewer ${getReviewerQueuePosition(
+                  submission.queue,
+                  q.toString(),
+                )}`
+            : usersMap.get(q.toString())?.firstName,
+          email: !isExpert && usersMap.get(q.toString())?.email,
         })),
         history: submission?.history.map(h => ({
           updatedBy: h.updatedBy
             ? {
                 _id: h.updatedBy?.toString(),
-                name: usersMap.get(h.updatedBy?.toString())?.firstName,
-                email: usersMap.get(h.updatedBy?.toString())?.email,
+                name: isExpert
+                  ? getReviewerQueuePosition(
+                      submission.queue,
+                      h.updatedBy?.toString(),
+                    ) == 0
+                    ? 'Author'
+                    : `Reviewer ${getReviewerQueuePosition(
+                        submission.queue,
+                        h.updatedBy?.toString(),
+                      )}`
+                  : usersMap.get(h.updatedBy?.toString())?.firstName,
+                email: !isExpert && usersMap.get(h.updatedBy?.toString())?.email,
               }
             : [],
           answer: h.answer
@@ -1644,44 +1686,43 @@ export class QuestionRepository implements IQuestionRepository {
     };
   }
 
+  async getModeratorApprovalRate(
+    currentUserId: string,
+    session?: ClientSession,
+  ): Promise<ModeratorApprovalRate> {
+    try {
+      await this.init();
 
-    async getModeratorApprovalRate(
-      currentUserId: string,
-      session?: ClientSession,
-    ): Promise<ModeratorApprovalRate> {
-      try {
-        await this.init();
-  
-        const pending = await this.QuestionCollection.countDocuments(
-          {status: 'in-review'},
-          {session},
-        );
-  
-        const approved = await this.QuestionCollection.countDocuments(
-          {status: 'closed'},
-          {session},
-        );
-  
-        const totalReviews = pending + approved || 0;
-  
-        const approvedCount = await this.QuestionCollection.countDocuments(
-          {status: 'closed'},
-          {session},
-        );
-  
-        const approvalRate =
-          totalReviews > 0
-            ? Number(((approvedCount / totalReviews) * 100).toFixed(2))
-            : 0;
-  
-        return {
-          approved,
-          pending,
-          approvalRate,
-        };
-      } catch (error) {
-        console.error('Error fetching moderator approval rate:', error);
-        throw new InternalServerError('Failed to fetch moderator approval rate');
-      }
+      const pending = await this.QuestionCollection.countDocuments(
+        {status: 'in-review'},
+        {session},
+      );
+
+      const approved = await this.QuestionCollection.countDocuments(
+        {status: 'closed'},
+        {session},
+      );
+
+      const totalReviews = pending + approved || 0;
+
+      const approvedCount = await this.QuestionCollection.countDocuments(
+        {status: 'closed'},
+        {session},
+      );
+
+      const approvalRate =
+        totalReviews > 0
+          ? Number(((approvedCount / totalReviews) * 100).toFixed(2))
+          : 0;
+
+      return {
+        approved,
+        pending,
+        approvalRate,
+      };
+    } catch (error) {
+      console.error('Error fetching moderator approval rate:', error);
+      throw new InternalServerError('Failed to fetch moderator approval rate');
     }
+  }
 }

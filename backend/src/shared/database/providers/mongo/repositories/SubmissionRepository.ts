@@ -18,7 +18,7 @@ import {
 import {USER_VALIDATORS} from '#root/modules/core/classes/validators/UserValidators.js';
 import {HistoryItem} from '#root/modules/core/classes/validators/QuestionValidators.js';
 import {GetHeatMapQuery} from '#root/modules/core/classes/validators/DashboardValidators.js';
-import {getReviewerHistoryPosition} from '#root/utils/getReviewerHistoryPosition.js';
+import {getReviewerQueuePosition} from '#root/utils/getReviewerQueuePosition.js';
 
 export class QuestionSubmissionRepository
   implements IQuestionSubmissionRepository
@@ -297,7 +297,7 @@ export class QuestionSubmissionRepository
         throw new NotFoundError(
           `Failed to get submission for questionId: ${questionId}`,
         );
-      const history = submission.history || [];
+      const queue = submission.queue || [];
 
       const historyData = await this.QuestionSubmissionCollection.aggregate(
         [
@@ -402,8 +402,8 @@ export class QuestionSubmissionRepository
         const lastModifiedBy = item.lastModifiedBy;
         const reviewAnswer = review?.reviewAnswer;
 
-        const reviewerPosition = getReviewerHistoryPosition(
-          history,
+        const reviewerPosition = getReviewerQueuePosition(
+          queue,
           updatedBy._id.toString(),
         );
         return {
@@ -423,8 +423,8 @@ export class QuestionSubmissionRepository
             ? {
                 _id: lastModifiedBy._id.toString(),
                 // userName: `${lastModifiedBy.firstName} ${lastModifiedBy.lastName}`,
-                userName: `Reviewer ${getReviewerHistoryPosition(
-                  history,
+                userName: `Reviewer ${getReviewerQueuePosition(
+                  queue,
                   lastModifiedBy._id.toString(),
                 )}`,
                 // email: lastModifiedBy.email,
