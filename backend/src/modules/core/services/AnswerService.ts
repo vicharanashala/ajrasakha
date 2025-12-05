@@ -1226,8 +1226,8 @@ answer: ${updates.answer}`;
         true,
       );
 
-      // const {embedding} = await this.aiService.getEmbedding(text);
-      const embedding = [];
+      const {embedding} = await this.aiService.getEmbedding(text);
+      // const embedding = [];
       const payload: Partial<IAnswer> = {
         answer:updates.answer,
         sources:updates.sources,
