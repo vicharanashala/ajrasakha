@@ -76,6 +76,7 @@ export const UsersTable = ({
               </TableHead>
               <TableHead className="text-center w-24">Incentive</TableHead>
               <TableHead className="text-center w-24">Penalty</TableHead>
+              <TableHead className="text-center w-24">Total Answered</TableHead>
               <TableHead className="text-center w-24">Joined At</TableHead>
               <TableHead className="text-center w-24">Status</TableHead>
               <TableHead className="text-center w-24">Action</TableHead>
@@ -188,8 +189,15 @@ const UserRow: React.FC<UserRowProps> = ({
 
       {/* Penalty */}
       <TableCell className="align-middle w-32">
-        {/* {u.penalty || 0} */}
-        <Badge variant="outline">{u.penalty || 0}</Badge>
+      {/* {u.penalty || 0}} */}
+        <Badge variant="outline">{u.penaltyPercentage || 0}%</Badge>
+      </TableCell>
+      
+
+      {/* total_answers_creted */}
+      <TableCell className="align-middle w-32">
+        {/* {u.totalAnswers_Created || 0} */}
+        <Badge variant="outline">{u.totalAnswers_Created || 0}</Badge>
       </TableCell>
 
       {/* Created At */}
