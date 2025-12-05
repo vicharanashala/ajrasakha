@@ -90,18 +90,17 @@ export const UsersTable = ({
                   <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
                 </TableCell>
               </TableRow>
-            ) : items?.length===0 ? (
+            ) : items?.length === 0 ? (
               <TableRow>
-                  <TableCell
-                    colSpan={10}
-                    rowSpan={10}
-                    className="text-center py-10 text-muted-foreground"
-                  >
-                    No users found
-                  </TableCell>
-                </TableRow>
-            ):
-            (
+                <TableCell
+                  colSpan={10}
+                  rowSpan={10}
+                  className="text-center py-10 text-muted-foreground"
+                >
+                  No users found
+                </TableCell>
+              </TableRow>
+            ) : (
               items?.map((u, idx) => (
                 <UserRow
                   currentPage={currentPage}
@@ -189,10 +188,9 @@ const UserRow: React.FC<UserRowProps> = ({
 
       {/* Penalty */}
       <TableCell className="align-middle w-32">
-      {/* {u.penalty || 0}} */}
-        <Badge variant="outline">{u.penaltyPercentage || 0}%</Badge>
+        {/* {u.penalty || 0}} */}
+        <Badge variant="outline">{u.penaltyPercentage?.toFixed(0) || 0}%</Badge>
       </TableCell>
-      
 
       {/* total_answers_creted */}
       <TableCell className="align-middle w-32">
