@@ -533,10 +533,10 @@ export class QuestionService extends BaseService {
           throw new BadRequestError(`Question with ID ${questionId} not found`);
         }
 
-        if (existingQuestion.status == 'closed')
-          throw new BadRequestError(
-            'You cannot modify a question that has already been closed.',
-          );
+        // if (existingQuestion.status == 'closed')
+        //   throw new BadRequestError(
+        //     'You cannot modify a question that has already been closed.',
+        //   );
 
         const answers = await this.answerRepo.getByQuestionId(
           questionId,
