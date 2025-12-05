@@ -5,14 +5,8 @@ import archiver from 'archiver';
 import {MongoClient} from 'mongodb';
 import {Bucket, Storage} from '@google-cloud/storage';
 import {appConfig} from '#root/config/app.js';
-import { sendBackupSuccessEmail } from './backupEmailService.js';
+import {sendBackupSuccessEmail} from './backupEmailService.js';
 
-const storage = new Storage({
-  keyFilename: appConfig.GOOGLE_APPLICATION_CREDENTIALS,
-});
-
-const bucketName = appConfig.GCP_BACKUP_BUCKET;
-const bucket = storage.bucket(bucketName);
 // const folder = 'db_backups';
 
 const getCollectionsFromDB = async (mongoUri: string, dbName: string) => {
@@ -42,6 +36,13 @@ const getTimestamp = () => {
 
 export const createLocalBackup = async (mongoUri: string, dbName: string) => {
   const timestamp = getTimestamp();
+
+  const storage = new Storage({
+    keyFilename: appConfig.GOOGLE_APPLICATION_CREDENTIALS,
+  });
+
+  const bucketName = appConfig.GCP_BACKUP_BUCKET;
+  const bucket = storage.bucket(bucketName);
 
   if (await doesBackupExist(bucket, timestamp)) {
     console.log(
