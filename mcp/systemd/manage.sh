@@ -112,6 +112,11 @@ case $COMMAND in
         check_sudo
         execute_command start "$SERVICE"
         echo -e "${GREEN}✓ Done${NC}"
+        if [[ -z "$SERVICE" ]]; then
+            echo -e "${YELLOW}⏱️  Waiting 15 seconds for embedding models to load...${NC}"
+            sleep 15
+            echo -e "${GREEN}✓ Services should be ready now${NC}"
+        fi
         ;;
     stop)
         check_sudo
