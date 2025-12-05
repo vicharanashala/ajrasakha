@@ -1,5 +1,5 @@
 import {IUserRepository} from '#shared/database/interfaces/IUserRepository.js';
-import {IUser, NotificationRetentionType} from '#shared/interfaces/models.js';
+import {IUser, NotificationRetentionType,IAnswer} from '#shared/interfaces/models.js';
 import {instanceToPlain} from 'class-transformer';
 import {injectable, inject} from 'inversify';
 import {Collection, MongoClient, ClientSession, ObjectId} from 'mongodb';
@@ -13,10 +13,12 @@ import {
   ModeratorApprovalRate,
   UserRoleOverview,
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
+import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
 
 @injectable()
 export class UserRepository implements IUserRepository {
   private usersCollection!: Collection<IUser>;
+  private AnswerCollection: Collection<IAnswer>;
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
@@ -30,6 +32,7 @@ export class UserRepository implements IUserRepository {
     if (!this.usersCollection) {
       this.usersCollection = await this.db.getCollection<IUser>('users');
     }
+    this.AnswerCollection = await this.db.getCollection<IAnswer>('answers');
   }
 
   async getDBClient(): Promise<MongoClient> {
@@ -431,14 +434,68 @@ export class UserRepository implements IUserRepository {
         session,
       });
       const totalPages = Math.ceil(totalExperts / limit);
-      const mappedExperts = users.map(u => ({
+     /* const mappedExperts = users.map(u => ({
         ...u,
         _id: u._id.toString(),
-      }));
-      return {experts: mappedExperts, totalExperts, totalPages};
-    } catch (error) {
-      throw new InternalServerError(`Failed to get experts`);
+      }));*/
+      const userIds = users.map(u => u._id);
+
+    const answerCounts = await this.AnswerCollection
+      .aggregate([
+        { $match: { authorId: { $in: userIds } } },
+        {
+          $group: {
+            _id: "$authorId",
+            totalAnswers_Created: { $sum: 1 }
+          }
+        }
+      ])
+      .toArray();
+
+    // convert to map for fast lookup
+    const answersMap = new Map(
+      answerCounts.map(a => [a._id.toString(), a.totalAnswers_Created])
+    );
+
+    // -----------------------------------------
+    // ⭐ ADDED: Append totalAnswers_Created to each expert
+    // -----------------------------------------
+    const mappedExperts = users.map(u => {
+      const totalAnswers = answersMap.get(u._id.toString()) || 0;
+      const penalty = u.penalty || 0;
+      const incentive = u.incentive || 0;
+
+      const penaltyPercentage =
+        totalAnswers > 0 ? (penalty / totalAnswers) * 100 : 0;
+
+      const rank =
+        totalAnswers * 0.5 + incentive * 0.3 - penaltyPercentage * 0.2;
+
+      return {
+        ...u,
+        _id: u._id.toString(),
+        totalAnswers_Created: totalAnswers,
+        penaltyPercentage,
+        rank,
+        rankPosition: 0,
+      };
+    });
+
+    // Sort experts by rank descending
+    if(!sortOption)
+    {
+      mappedExperts.sort((a, b) => (b.rank || 0) - (a.rank || 0));
     }
+   
+    mappedExperts.forEach((u, index) => {
+      u.rankPosition = index + 1; // 1 = highest rank
+    });
+
+    return { experts: mappedExperts, totalExperts, totalPages };
+  } catch (error) {
+    throw new InternalServerError(`Failed to get experts`);
+  }
+
   }
 
   async updateIsBlocked(
