@@ -349,8 +349,8 @@ export class QuestionService extends BaseService {
 
         // 2. Create Embedding for the question based on text
         const text = `Question: ${question}`;
-        const {embedding} = await this.aiService.getEmbedding(text);
-        // const embedding = [];
+        // const {embedding} = await this.aiService.getEmbedding(text);
+        const embedding = [];
         // 3. Create Question entry
         const newQuestion: IQuestion = {
           userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,

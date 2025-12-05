@@ -497,6 +497,20 @@ export class AnswerService extends BaseService {
             }),
             session,
           );
+          let message = `Your review has been rejected. Check the reviewer’s reason for more information.`;
+            let title = 'Your review has been rejected.';
+            let entityId = questionId.toString();
+            const authorId = answerToReject.authorId.toString();
+            const type: INotificationType = 'review_rejected';
+
+            await this.notificationService.saveTheNotifications(
+              message,
+              title,
+              entityId,
+              authorId,
+              type,
+              session,
+            ); 
         }
 
         // ======================================================================
@@ -563,6 +577,20 @@ export class AnswerService extends BaseService {
             }),
             session,
           );
+          let message = `Your review has been modified. Check the question details for the updated changes`;
+            let title = 'Your answer has been modified.';
+            let entityId = questionId.toString();
+            const authorId = answerToModify.authorId.toString();
+            const type: INotificationType = 'review_modified';
+
+            await this.notificationService.saveTheNotifications(
+              message,
+              title,
+              entityId,
+              authorId,
+              type,
+              session,
+            ); 
         }
         // Allocate next user in the history from queue if necessary
 
@@ -1226,8 +1254,8 @@ answer: ${updates.answer}`;
         true,
       );
 
-      const {embedding} = await this.aiService.getEmbedding(text);
-      // const embedding = [];
+      // const {embedding} = await this.aiService.getEmbedding(text);
+      const embedding = [];
       const payload: Partial<IAnswer> = {
         answer:updates.answer,
         sources:updates.sources,

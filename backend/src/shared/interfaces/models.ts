@@ -193,7 +193,9 @@ export type INotificationType =
   | 'answer_creation'
   | 'peer_review'
   | 'comment'
-  | 'flag_response';
+  | 'flag_response'
+  | 'review_rejected'
+  | 'review_modified';
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;
