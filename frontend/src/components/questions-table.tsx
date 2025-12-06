@@ -240,6 +240,7 @@ export const QuestionsTable = ({
                 <TableHead className="text-center">Sl.No</TableHead>
                 <TableHead className="w-[35%] text-center">Question</TableHead>
                 <TableHead className="text-center">Priority</TableHead>
+                <TableHead className="text-center">Review Level</TableHead>
                 <TableHead className="text-center">State</TableHead>
                 <TableHead className="text-center">Crop</TableHead>
                 <TableHead className="text-center">Source</TableHead>
@@ -511,6 +512,10 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
         {priorityBadge}
       </TableCell>
 
+      <TableCell className="align-middle">
+      {q.review_level_number}
+      </TableCell>
+
       {/* Details */}
       <TableCell className="align-middle">
         {" "}
@@ -728,6 +733,10 @@ const MobileQuestionCard: React.FC<QuestionRowProps> = ({
         <div className="flex gap-1">
           <span className="text-muted-foreground">Priority:</span>
           <span className="flex-shrink-0">{priorityBadge}</span>
+        </div>
+        <div className="flex gap-1">
+          <span className="text-muted-foreground">Review Level:</span>
+          <span className="flex-shrink-0">{q.review_level_number}</span>
         </div>
 
         <div className="truncate">

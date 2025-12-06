@@ -418,6 +418,8 @@ export interface IDetailedQuestion {
   source: "AJRASAKHA" | "AGRI_EXPERT";
   createdAt?: string;
   updatedAt?: string;
+  review_level_number?:number;
+
 }
 
 export interface IDetailedQuestionResponse {
