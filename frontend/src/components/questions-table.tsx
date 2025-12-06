@@ -1388,6 +1388,7 @@ export const QuestionsFilters = ({
       user: "all",
       endTime: undefined,
       startTime: undefined,
+      review_level:"all"
     }
   );
   const [addOpen, setAddOpen] = useState(false);
@@ -1520,6 +1521,7 @@ export const QuestionsFilters = ({
       user: advanceFilter.user,
       endTime: advanceFilter.endTime,
       startTime: advanceFilter.startTime,
+      review_level:advanceFilter?.review_level
     });
   };
 

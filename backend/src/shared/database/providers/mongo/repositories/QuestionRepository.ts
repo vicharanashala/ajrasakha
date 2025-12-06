@@ -306,6 +306,7 @@ export class QuestionRepository implements IQuestionRepository {
         user,
         page = 1,
         limit = 10,
+        review_level,
       } = query;
 
       const filter: any = {};
@@ -382,6 +383,45 @@ export class QuestionRepository implements IQuestionRepository {
 
         filter._id = {$in: questionIdsByUser.map(id => new ObjectId(id))};
       }
+      // --- review_level filter (Level 1–9) ---
+    // --- review_level filter ---
+if (review_level && review_level !== 'all') {
+  const numericLevel = parseInt(review_level.replace("Level ", "").trim());
+
+  if (!isNaN(numericLevel)) {
+    let requiredSize = numericLevel;
+
+    // Special rule: Level 1 → history.length = 0
+    if (numericLevel === 1) {
+      requiredSize = 0;
+    }
+
+    const submissions = await this.QuestionSubmissionCollection.find({
+      history: { $size: requiredSize }
+    })
+      .project({ questionId: 1 })
+      .toArray();
+
+    const levelFilteredIds = submissions.map(s => s.questionId.toString());
+
+    if (levelFilteredIds.length === 0) {
+      return { questions: [], totalPages: 0, totalCount: 0 };
+    }
+
+    if (filter._id) {
+      filter._id = {
+        $in: levelFilteredIds
+          .map(id => new ObjectId(id))
+          .filter(id =>
+            filter._id.$in.some((u: any) => u.equals(id))
+          )
+      };
+    } else {
+      filter._id = { $in: levelFilteredIds.map(id => new ObjectId(id)) };
+    }
+  }
+}
+
 
       let totalCount = 0;
       let result = [];
