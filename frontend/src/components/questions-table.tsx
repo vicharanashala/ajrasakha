@@ -513,7 +513,9 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
       </TableCell>
 
       <TableCell className="align-middle">
-      {q.review_level_number}
+        {q.review_level_number?.toString() == "Author"
+          ? q.review_level_number
+          : `Level ${q.review_level_number}`}
       </TableCell>
 
       {/* Details */}
@@ -1397,7 +1399,7 @@ export const QuestionsFilters = ({
       user: "all",
       endTime: undefined,
       startTime: undefined,
-      review_level:"all"
+      review_level: "all",
     }
   );
   const [addOpen, setAddOpen] = useState(false);
@@ -1530,7 +1532,7 @@ export const QuestionsFilters = ({
       user: advanceFilter.user,
       endTime: advanceFilter.endTime,
       startTime: advanceFilter.startTime,
-      review_level:advanceFilter?.review_level
+      review_level: advanceFilter?.review_level,
     });
   };
 
