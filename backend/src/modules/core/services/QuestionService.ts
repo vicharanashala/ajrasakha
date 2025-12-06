@@ -36,6 +36,7 @@ import {INotificationRepository} from '#root/shared/database/interfaces/INotific
 import {notifyUser} from '#root/utils/pushNotification.js';
 import {NotificationService} from './NotificationService.js';
 import {normalizeKeysToLower} from '#root/utils/normalizeKeysToLower.js';
+import {appConfig} from '#root/config/app.js';
 
 @injectable()
 export class QuestionService extends BaseService {
@@ -349,8 +350,15 @@ export class QuestionService extends BaseService {
 
         // 2. Create Embedding for the question based on text
         const text = `Question: ${question}`;
-        // const {embedding} = await this.aiService.getEmbedding(text);
-        const embedding = [];
+
+        let textEmbedding = [];
+        const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+
+        if (ENABLE_AI_SERVER) {
+          const {embedding} = await this.aiService.getEmbedding(text);
+          textEmbedding = embedding;
+        }
+
         // 3. Create Question entry
         const newQuestion: IQuestion = {
           userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
@@ -362,7 +370,7 @@ export class QuestionService extends BaseService {
           contextId,
           details,
           isAutoAllocate: true,
-          embedding,
+          embedding: textEmbedding,
           metrics: null,
           aiInitialAnswer: body.aiInitialAnswer || '',
           text,
@@ -1143,11 +1151,11 @@ export class QuestionService extends BaseService {
   ): Promise<IQuestion | null> {
     try {
       const user = await this.userRepo.findById(userId);
-      const isExpert = user.role == "expert"
+      const isExpert = user.role == 'expert';
       const question = await this.questionRepo.getQuestionWithFullData(
         questionId,
         userId,
-        isExpert
+        isExpert,
       );
       if (!question) {
         return null;
