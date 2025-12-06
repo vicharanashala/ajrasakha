@@ -389,12 +389,12 @@ if (review_level && review_level !== 'all') {
   const numericLevel = parseInt(review_level.replace("Level ", "").trim());
 
   if (!isNaN(numericLevel)) {
-    let requiredSize = numericLevel;
+    let requiredSize = numericLevel+1;
 
     // Special rule: Level 1 → history.length = 0
-    if (numericLevel === 1) {
+  /*  if (numericLevel === 1) {
       requiredSize = 0;
-    }
+    }*/
 
     const submissions = await this.QuestionSubmissionCollection.find({
       history: { $size: requiredSize }
@@ -470,7 +470,42 @@ if (review_level && review_level !== 'all') {
           },
           {$match: filter},
           {
+            $lookup: {
+              from: "question_submissions",
+              localField: "_id",
+              foreignField: "questionId",
+              as: "submissionData"
+            }
+          },
+        
+          // ---- APPLY REVIEW LEVEL LOGIC ----
+          {
+            $addFields: {
+              review_level_number: {
+                $let: {
+                  vars: {
+                    len: {
+                      $cond: {
+                        if: { $gt: [ { $size: "$submissionData" }, 0 ] },
+                        then: { $size: { $arrayElemAt: ["$submissionData.history", 0] } },
+                        else: 0
+                      }
+                    }
+                  },
+                  in: {
+                    $cond: {
+                      if: { $lte: ["$$len", 1] },   // 0 or 1 → return 0
+                      then: "Author",
+                      else: { $subtract: ["$$len", 1] }  // >=2 → len-1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
             $project: {
+              submissionData: 0,
               userId: 0,
               updatedAt: 0,
               contextId: 0,
@@ -517,7 +552,7 @@ if (review_level && review_level !== 'all') {
       totalCount = await this.QuestionCollection.countDocuments(filter);
       const totalPages = Math.ceil(totalCount / limit);
 
-      result = await this.QuestionCollection.find(filter)
+    /*  result = await this.QuestionCollection.find(filter)
         .sort({createdAt: -1})
         .skip((page - 1) * limit)
         .limit(limit)
@@ -528,7 +563,60 @@ if (review_level && review_level !== 'all') {
           metrics: 0,
           embedding: 0,
         })
-        .toArray();
+        .toArray();*/
+        result = await this.QuestionCollection.aggregate([
+          { $match: filter },
+          { $sort: { createdAt: -1 } },
+          { $skip: (page - 1) * limit },
+          { $limit: limit },
+        
+          // JOIN submissions → extract history length
+          {
+            $lookup: {
+              from: "question_submissions",
+              localField: "_id",
+              foreignField: "questionId",
+              as: "submissionData"
+            }
+          },
+          {
+            $addFields: {
+              review_level_number: {
+                $let: {
+                  vars: {
+                    len: {
+                      $cond: {
+                        if: { $gt: [ { $size: "$submissionData" }, 0 ] },
+                        then: { $size: { $arrayElemAt: ["$submissionData.history", 0] } },
+                        else: 0
+                      }
+                    }
+                  },
+                  in: {
+                    $cond: {
+                      if: { $lte: ["$$len", 1] },   // length 0 or 1 → return 0
+                      then: "Author",
+                      else: { $subtract: ["$$len", 1] }  // length >=2 → length-1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          
+        
+          {
+            $project: {
+              submissionData: 0,
+              userId: 0,
+              updatedAt: 0,
+              contextId: 0,
+              metrics: 0,
+              embedding: 0
+            }
+          }
+        ]).toArray();
+        
 
       // // --- Total count for pagination ---
       // const totalCount = await this.QuestionCollection.countDocuments(filter);
