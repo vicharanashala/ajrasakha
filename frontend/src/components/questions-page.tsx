@@ -11,6 +11,7 @@ import {
   type QuestionFilterStatus,
   type QuestionPriorityFilter,
   type QuestionSourceFilter,
+  type ReviewLevel
 } from "./advanced-question-filter";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 
@@ -31,6 +32,7 @@ export const QuestionsPage = ({
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
   const [startTime, setStartTime] = useState<Date | undefined>(undefined);
   const [endTime, setEndTime] = useState<Date | undefined>(undefined);
+  const [review_level,setReviewLevel]=useState<ReviewLevel>("all")
 
   // const observerRef = useRef<IntersectionObserver | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -60,6 +62,7 @@ export const QuestionsPage = ({
       user,
       startTime,
       endTime,
+      review_level,
     }),
     [
       status,
@@ -73,6 +76,7 @@ export const QuestionsPage = ({
       user,
       startTime,
       endTime,
+      review_level
     ]
   );
   // const {
@@ -155,6 +159,7 @@ export const QuestionsPage = ({
     dateRange?: QuestionDateRangeFilter;
     startTime?: Date | undefined;
     endTime?: Date | undefined;
+    review_level?:ReviewLevel
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -167,6 +172,7 @@ export const QuestionsPage = ({
     if (next.user !== undefined) setUser(next.user);
     if (next.startTime !== undefined) setStartTime(next.startTime);
     if (next.endTime !== undefined) setEndTime(next.endTime);
+    if(next.review_level!== undefined) setReviewLevel(next.review_level)
   };
 
   const onReset = () => {
@@ -179,6 +185,7 @@ export const QuestionsPage = ({
     setPriority("all");
     setDomain("all");
     setUser("all");
+    setReviewLevel('all')
   };
 
   const handleViewMore = (questoinId: string) => {

@@ -51,7 +51,7 @@ import {
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 import type { IMyPreference } from "@/types";
-import { CROPS, STATES, DOMAINS } from "@/components/MetaData";
+import { CROPS, STATES, DOMAINS,Review_Level } from "@/components/MetaData";
 import { Popover, PopoverContent, PopoverTrigger } from "./atoms/popover";
 import { format } from "date-fns";
 export { STATES, CROPS, DOMAINS };
@@ -74,6 +74,17 @@ export type QuestionTimeRange = {
   startDate: Date | undefined;
   endDate: Date | undefined;
 };
+export type ReviewLevel="all"
+                |"Level 1"
+                |"Level 2"
+                |"Level 3"
+                |"Level 4"
+                |"Level 5"
+                |"Level 6"
+                |"Level 7"
+                |"Level 8"
+                |"Level 9"
+                
 
 export type AdvanceFilterValues = {
   status: QuestionFilterStatus;
@@ -87,6 +98,7 @@ export type AdvanceFilterValues = {
   priority: QuestionPriorityFilter;
   startTime?: Date | undefined; // Use a specific name like startTime/endTime
   endTime?: Date | undefined;
+  review_level?:string
 };
 
 // Define the props for your new component
@@ -577,6 +589,34 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
             </div>
 
             <Separator />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2 min-w-0">
+                <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <Globe className="h-4 w-4 text-primary" />
+                  Review Level
+                </Label>
+                <Select
+                  value={advanceFilter.review_level}
+                  onValueChange={(v) => handleDialogChange("review_level", v)}
+                >
+                  <SelectTrigger className="bg-background w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Levels</SelectItem>
+                    {Review_Level.map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              
+            </div>
+
+            <Separator />
 
             {/* Number of Answers Slider */}
             <div className="space-y-4">
@@ -674,6 +714,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   priority: "all",
                   user: "all",
                   domain: "all",
+                  review_level:"all"
                 });
                 onReset();
               }}
