@@ -41,6 +41,7 @@ export interface IUser {
   notificationRetention?: string;
   totalAnswers_Created?:number;
   penaltyPercentage?:number;
+  rankPosition?:number;
 
 }
 

@@ -386,7 +386,7 @@ export class UserRepository implements IUserRepository {
     }
   }
 
-  async findAllExperts(
+ /* async findAllExperts(
     page: number,
     limit: number,
     search: string,
@@ -434,10 +434,7 @@ export class UserRepository implements IUserRepository {
         session,
       });
       const totalPages = Math.ceil(totalExperts / limit);
-     /* const mappedExperts = users.map(u => ({
-        ...u,
-        _id: u._id.toString(),
-      }));*/
+     
       const userIds = users.map(u => u._id);
 
     const answerCounts = await this.AnswerCollection
@@ -486,6 +483,10 @@ export class UserRepository implements IUserRepository {
     {
       mappedExperts.sort((a, b) => (b.rank || 0) - (a.rank || 0));
     }
+   else if(sortOption==="penalty")
+   {
+    mappedExperts.sort((a, b) => (b.penaltyPercentage || 0) - (a.penaltyPercentage || 0));
+   }
    
     mappedExperts.forEach((u, index) => {
       u.rankPosition = index + 1; // 1 = highest rank
@@ -496,7 +497,125 @@ export class UserRepository implements IUserRepository {
     throw new InternalServerError(`Failed to get experts`);
   }
 
+  }*/
+  async findAllExperts(
+    page: number,
+    limit: number,
+    search: string,
+    sortOption: string,
+    filter: string,
+    session?: ClientSession,
+  ): Promise<{ experts: any[]; totalExperts: number; totalPages: number }> {
+    await this.init();
+    try {
+      const skip = (page - 1) * limit;
+  
+      let matchQuery: any = { role: "expert" };
+      if (search) {
+        matchQuery.$or = [
+          { firstName: { $regex: search, $options: "i" } },
+          { lastName: { $regex: search, $options: "i" } },
+        ];
+      }
+      if (filter && filter !== "ALL") {
+        matchQuery["preference.state"] = filter;
+      }
+  
+      // 1. Fetch all users matching the query
+      const users = await this.usersCollection.aggregate([
+        { $match: matchQuery },
+        {
+          $lookup: {
+            from: "answers",
+            localField: "_id",
+            foreignField: "authorId",
+            as: "answers",
+          },
+        },
+        {
+          $addFields: {
+            totalAnswers_Created: { $size: "$answers" },
+            penalty: { $ifNull: ["$penalty", 0] },
+            incentive: { $ifNull: ["$incentive", 0] },
+            penaltyPercentage: {
+              $cond: [
+                { $gt: [{ $size: "$answers" }, 0] },
+                { $multiply: [{ $divide: ["$penalty", { $size: "$answers" }] }, 100] },
+                0,
+              ],
+            },
+            rank: {
+              $let: {
+                vars: {
+                  totalAnswers: { $size: "$answers" },
+                  penalty: { $ifNull: ["$penalty", 0] },
+                  incentive: { $ifNull: ["$incentive", 0] },
+                },
+                in: {
+                  $subtract: [
+                    {
+                      $add: [
+                        { $multiply: ["$$totalAnswers", 0.5] },
+                        { $multiply: ["$$incentive", 0.3] },
+                      ],
+                    },
+                    {
+                      $multiply: [
+                        {
+                          $cond: [
+                            { $gt: ["$$totalAnswers", 0] },
+                            { $multiply: [{ $divide: ["$$penalty", "$$totalAnswers"] }, 100] },
+                            0,
+                          ],
+                        },
+                        0.2,
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      ]).toArray();
+  
+      // 2. Assign global rankPosition based on calculated rank
+      users.sort((a, b) => (b.rank || 0) - (a.rank || 0));
+      users.forEach((u, index) => {
+        u.rankPosition = index + 1;
+        u._id = u._id.toString();
+      });
+  
+      // 3. Apply UI sorting if requested (does NOT change rankPosition)
+      let sortedUsers = [...users];
+      if (sortOption === "penalty") {
+        sortedUsers.sort((a, b) => (b.penaltyPercentage || 0) - (a.penaltyPercentage || 0));
+      } else if (sortOption === "reputation_score") {
+        sortedUsers.sort((a, b) => (b.reputation_score || 0) - (a.reputation_score || 0));
+      } else if (sortOption === "incentive") {
+        sortedUsers.sort((a, b) => (b.incentive || 0) - (a.incentive || 0));
+      } else if (sortOption === "createdAt") {
+        sortedUsers.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      }
+      // default = rank descending (already sorted globally)
+  
+      // 4. Pagination
+      const paginatedUsers = sortedUsers.slice(skip, skip + limit);
+  
+      return {
+        experts: paginatedUsers,
+        totalExperts: users.length,
+        totalPages: Math.ceil(users.length / limit),
+      };
+    } catch (error) {
+      throw new InternalServerError("Failed to get experts");
+    }
   }
+  
+  
+  
+  
+
 
   async updateIsBlocked(
     userId: string,
