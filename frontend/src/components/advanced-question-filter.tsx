@@ -47,6 +47,7 @@ import {
   ChevronUp,
   ChevronDown,
   XCircle,
+  Layers
 } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
@@ -592,7 +593,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2 min-w-0">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Globe className="h-4 w-4 text-primary" />
+                  <Layers className="h-4 w-4 text-primary" />
                   Review Level
                 </Label>
                 <Select
