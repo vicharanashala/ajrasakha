@@ -950,6 +950,7 @@ export class QuestionRepository implements IQuestionRepository {
     try {
       await this.init();
 
+      console.log("Updates: ", updates)
       if (!questionId || !isValidObjectId(questionId)) {
         throw new BadRequestError('Invalid or missing questionId');
       }
@@ -966,6 +967,7 @@ export class QuestionRepository implements IQuestionRepository {
       for (const field of forbiddenFields) {
         delete (updates as any)[field];
       }
+      console.log("Updates: ", updates)
 
       const result = await this.QuestionCollection.updateOne(
         {_id: new ObjectId(questionId)},

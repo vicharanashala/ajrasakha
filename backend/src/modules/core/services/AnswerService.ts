@@ -1209,6 +1209,7 @@ answer: ${updates.answer}`;
       );
       // const questionEmbedding = [];
       const authorId = answer.authorId.toString();
+      
       await this.userRepo.updatePenaltyAndIncentive(
         authorId,
         'incentive',
