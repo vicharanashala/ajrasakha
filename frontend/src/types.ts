@@ -39,6 +39,9 @@ export interface IUser {
   isBlocked?: boolean;
   penalty?: number;
   notificationRetention?: string;
+  totalAnswers_Created?:number;
+  penaltyPercentage?:number;
+
 }
 
 export interface IReviewParmeters {
