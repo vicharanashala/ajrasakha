@@ -245,6 +245,7 @@ export const QuestionsTable = ({
                 <TableHead className="text-center">Source</TableHead>
                 <TableHead className="text-center">Status</TableHead>
                 <TableHead className="text-center">Answers</TableHead>
+                <TableHead className="text-center">Review Level</TableHead>
                 <TableHead className="text-center">Created</TableHead>
                 <TableHead className="text-center">Action</TableHead>
               </TableRow>
@@ -511,6 +512,12 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
         {priorityBadge}
       </TableCell>
 
+      {/* <TableCell className="align-middle">
+        {q.review_level_number?.toString() == "Author"
+          ? q.review_level_number
+          : `Level ${q.review_level_number}`}
+      </TableCell> */}
+
       {/* Details */}
       <TableCell className="align-middle">
         {" "}
@@ -530,6 +537,12 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
 
       {/* Total Answers */}
       <TableCell className="align-middle">{q.totalAnswersCount}</TableCell>
+
+      <TableCell className="align-middle">
+        {q.review_level_number?.toString() == "Author"
+          ? q.review_level_number
+          : `Level ${q.review_level_number}`}
+      </TableCell>
 
       <TableCell className="align-middle">
         {formatDate(new Date(q.createdAt!), false)}
@@ -728,6 +741,10 @@ const MobileQuestionCard: React.FC<QuestionRowProps> = ({
         <div className="flex gap-1">
           <span className="text-muted-foreground">Priority:</span>
           <span className="flex-shrink-0">{priorityBadge}</span>
+        </div>
+        <div className="flex gap-1">
+          <span className="text-muted-foreground">Review Level:</span>
+          <span className="flex-shrink-0">{q.review_level_number}</span>
         </div>
 
         <div className="truncate">
@@ -1388,6 +1405,7 @@ export const QuestionsFilters = ({
       user: "all",
       endTime: undefined,
       startTime: undefined,
+      review_level: "all",
     }
   );
   const [addOpen, setAddOpen] = useState(false);
@@ -1520,6 +1538,7 @@ export const QuestionsFilters = ({
       user: advanceFilter.user,
       endTime: advanceFilter.endTime,
       startTime: advanceFilter.startTime,
+      review_level: advanceFilter?.review_level,
     });
   };
 

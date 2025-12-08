@@ -424,6 +424,15 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   endTime?: string;
+
+  @JSONSchema({
+    description: 'Review Level filter',
+    example: 'Level 1',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  review_level?: string;
 }
 
 export interface IQuestionWithAnswerTexts {

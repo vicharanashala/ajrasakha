@@ -5,7 +5,7 @@ import archiver from 'archiver';
 import {MongoClient} from 'mongodb';
 import {Bucket, Storage} from '@google-cloud/storage';
 import {appConfig} from '#root/config/app.js';
-import {sendBackupSuccessEmail} from './backupEmailService.js';
+import {sendBackupSuccessEmail, sendStatsEmail} from './backupEmailService.js';
 
 // const folder = 'db_backups';
 
@@ -48,6 +48,7 @@ export const createLocalBackup = async (mongoUri: string, dbName: string) => {
     console.log(
       `⚠️ Backup for today (${timestamp}) already exists. Skipping upload.`,
     );
+    await sendStatsEmail();
     return;
   }
 

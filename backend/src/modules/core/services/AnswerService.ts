@@ -40,6 +40,7 @@ import {INotificationRepository} from '#root/shared/database/interfaces/INotific
 import {notifyUser} from '#root/utils/pushNotification.js';
 import {NotificationService} from './NotificationService.js';
 import {IReviewRepository} from '#root/shared/database/interfaces/IReviewRepository.js';
+import {appConfig} from '#root/config/app.js';
 
 @injectable()
 export class AnswerService extends BaseService {
@@ -113,8 +114,8 @@ export class AnswerService extends BaseService {
 
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
-      const embedding = [];
-      // const {embedding} = await this.aiService.getEmbedding(answer);
+      // const embedding = [];
+      const {embedding} = await this.aiService.getEmbedding(answer);
 
       const {insertedId} = await this.answerRepo.addAnswer(
         questionId,
@@ -498,19 +499,19 @@ export class AnswerService extends BaseService {
             session,
           );
           let message = `Your review has been rejected. Check the reviewer’s reason for more information.`;
-            let title = 'Your review has been rejected.';
-            let entityId = questionId.toString();
-            const authorId = answerToReject.authorId.toString();
-            const type: INotificationType = 'review_rejected';
+          let title = 'Your review has been rejected.';
+          let entityId = questionId.toString();
+          const authorId = answerToReject.authorId.toString();
+          const type: INotificationType = 'review_rejected';
 
-            await this.notificationService.saveTheNotifications(
-              message,
-              title,
-              entityId,
-              authorId,
-              type,
-              session,
-            ); 
+          await this.notificationService.saveTheNotifications(
+            message,
+            title,
+            entityId,
+            authorId,
+            type,
+            session,
+          );
         }
 
         // ======================================================================
@@ -555,7 +556,7 @@ export class AnswerService extends BaseService {
             session,
           );
 
-          await this.answerRepo.resetApprovalCount(review_answerId,session)
+          await this.answerRepo.resetApprovalCount(review_answerId, session);
 
           //update in the modifications array
           const modificationEntry: PreviousAnswersItem = {
@@ -563,8 +564,12 @@ export class AnswerService extends BaseService {
             newAnswer: answer,
             modifiedBy: new ObjectId(userId),
             modifiedAt: new Date(),
-          }
-          await this.answerRepo.addAnswerModification(modifiedAnswer,modificationEntry,session)
+          };
+          await this.answerRepo.addAnswerModification(
+            modifiedAnswer,
+            modificationEntry,
+            session,
+          );
 
           // 3. Update reviewing user's history
           await this.questionSubmissionRepo.updateHistoryByUserId(
@@ -578,19 +583,19 @@ export class AnswerService extends BaseService {
             session,
           );
           let message = `Your review has been modified. Check the question details for the updated changes`;
-            let title = 'Your answer has been modified.';
-            let entityId = questionId.toString();
-            const authorId = answerToModify.authorId.toString();
-            const type: INotificationType = 'review_modified';
+          let title = 'Your answer has been modified.';
+          let entityId = questionId.toString();
+          const authorId = answerToModify.authorId.toString();
+          const type: INotificationType = 'review_modified';
 
-            await this.notificationService.saveTheNotifications(
-              message,
-              title,
-              entityId,
-              authorId,
-              type,
-              session,
-            ); 
+          await this.notificationService.saveTheNotifications(
+            message,
+            title,
+            entityId,
+            authorId,
+            type,
+            session,
+          );
         }
         // Allocate next user in the history from queue if necessary
 
@@ -1135,8 +1140,7 @@ export class AnswerService extends BaseService {
       );
     }
   }
-  
-  
+
   // async getSubmissions(
   //   userId: string,
   //   page: number,
@@ -1234,11 +1238,21 @@ export class AnswerService extends BaseService {
 
 answer: ${updates.answer}`;
 
+      let questionEmbedding = [];
+
+      const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+
+      if (ENABLE_AI_SERVER) {
+        const {embedding} = await this.aiService.getEmbedding(text);
+        questionEmbedding = embedding;
+      }
+
       // const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
       //   text,
       // );
-      const questionEmbedding = [];
+      // const questionEmbedding = [];
       const authorId = answer.authorId.toString();
+
       await this.userRepo.updatePenaltyAndIncentive(
         authorId,
         'incentive',
@@ -1248,7 +1262,7 @@ answer: ${updates.answer}`;
         questionId,
         {
           text,
-          embedding: questionEmbedding,
+          embedding: questionEmbedding, 
           status: 'closed',
           closedAt: new Date(),
         },
@@ -1256,13 +1270,18 @@ answer: ${updates.answer}`;
         true,
       );
 
-      // const {embedding} = await this.aiService.getEmbedding(text);
-      const embedding = [];
+      let textEmbedding = [];
+
+      if (ENABLE_AI_SERVER) {
+        const {embedding} = await this.aiService.getEmbedding(text);
+        textEmbedding = embedding;
+      }
+
       const payload: Partial<IAnswer> = {
-        answer:updates.answer,
-        sources:updates.sources,
+        answer: updates.answer,
+        sources: updates.sources,
         approvedBy: new ObjectId(userId),
-        embedding,
+        embedding: textEmbedding,
         isFinalAnswer: true,
         status: 'approved',
       };

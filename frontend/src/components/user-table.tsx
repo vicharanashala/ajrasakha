@@ -76,6 +76,8 @@ export const UsersTable = ({
               </TableHead>
               <TableHead className="text-center w-24">Incentive</TableHead>
               <TableHead className="text-center w-24">Penalty</TableHead>
+              <TableHead className="text-center w-24">Total Answered</TableHead>
+              {/* <TableHead className="text-center w-24">Rank</TableHead> */}
               <TableHead className="text-center w-24">Joined At</TableHead>
               <TableHead className="text-center w-24">Status</TableHead>
               <TableHead className="text-center w-24">Action</TableHead>
@@ -89,18 +91,17 @@ export const UsersTable = ({
                   <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
                 </TableCell>
               </TableRow>
-            ) : items?.length===0 ? (
+            ) : items?.length === 0 ? (
               <TableRow>
-                  <TableCell
-                    colSpan={10}
-                    rowSpan={10}
-                    className="text-center py-10 text-muted-foreground"
-                  >
-                    No users found
-                  </TableCell>
-                </TableRow>
-            ):
-            (
+                <TableCell
+                  colSpan={10}
+                  rowSpan={10}
+                  className="text-center py-10 text-muted-foreground"
+                >
+                  No users found
+                </TableCell>
+              </TableRow>
+            ) : (
               items?.map((u, idx) => (
                 <UserRow
                   currentPage={currentPage}
@@ -188,9 +189,20 @@ const UserRow: React.FC<UserRowProps> = ({
 
       {/* Penalty */}
       <TableCell className="align-middle w-32">
-        {/* {u.penalty || 0} */}
-        <Badge variant="outline">{u.penalty || 0}</Badge>
+        {/* {u.penalty || 0}} */}
+        <Badge variant="outline">{u.penaltyPercentage?.toFixed(0) || 0}%</Badge>
       </TableCell>
+
+      {/* total_answers_creted */}
+      <TableCell className="align-middle w-32">
+        {/* {u.totalAnswers_Created || 0} */}
+        <Badge variant="outline">{u.totalAnswers_Created || 0}</Badge>
+      </TableCell>
+       {/* Rank */}
+       {/* <TableCell className="align-middle w-32"> */}
+        {/* {u.totalAnswers_Created || 0} */}
+        {/* <Badge variant="outline">{u.rankPosition || 0}</Badge> */}
+      {/* </TableCell> */}
 
       {/* Created At */}
       <TableCell className="align-middle w-32">

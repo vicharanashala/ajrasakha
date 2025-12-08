@@ -34,6 +34,7 @@ export class QuestionService {
     if (filter.priority) params.append("priority", filter.priority);
     if (filter.domain) params.append("domain", filter.domain);
     if (filter.user) params.append("user", filter.user);
+    if(filter.review_level) params.append("review_level",filter.review_level)
     if (filter.startTime) {
       params.append("startTime", formatDateLocal(filter.startTime));
     }

@@ -306,6 +306,7 @@ export class QuestionRepository implements IQuestionRepository {
         user,
         page = 1,
         limit = 10,
+        review_level,
       } = query;
 
       const filter: any = {};
@@ -382,6 +383,45 @@ export class QuestionRepository implements IQuestionRepository {
 
         filter._id = {$in: questionIdsByUser.map(id => new ObjectId(id))};
       }
+      // --- review_level filter (Level 1–9) ---
+    // --- review_level filter ---
+if (review_level && review_level !== 'all') {
+  const numericLevel = parseInt(review_level.replace("Level ", "").trim());
+
+  if (!isNaN(numericLevel)) {
+    let requiredSize = numericLevel+1;
+
+    // Special rule: Level 1 → history.length = 0
+  /*  if (numericLevel === 1) {
+      requiredSize = 0;
+    }*/
+
+    const submissions = await this.QuestionSubmissionCollection.find({
+      history: { $size: requiredSize }
+    })
+      .project({ questionId: 1 })
+      .toArray();
+
+    const levelFilteredIds = submissions.map(s => s.questionId.toString());
+
+    if (levelFilteredIds.length === 0) {
+      return { questions: [], totalPages: 0, totalCount: 0 };
+    }
+
+    if (filter._id) {
+      filter._id = {
+        $in: levelFilteredIds
+          .map(id => new ObjectId(id))
+          .filter(id =>
+            filter._id.$in.some((u: any) => u.equals(id))
+          )
+      };
+    } else {
+      filter._id = { $in: levelFilteredIds.map(id => new ObjectId(id)) };
+    }
+  }
+}
+
 
       let totalCount = 0;
       let result = [];
@@ -430,7 +470,42 @@ export class QuestionRepository implements IQuestionRepository {
           },
           {$match: filter},
           {
+            $lookup: {
+              from: "question_submissions",
+              localField: "_id",
+              foreignField: "questionId",
+              as: "submissionData"
+            }
+          },
+        
+          // ---- APPLY REVIEW LEVEL LOGIC ----
+          {
+            $addFields: {
+              review_level_number: {
+                $let: {
+                  vars: {
+                    len: {
+                      $cond: {
+                        if: { $gt: [ { $size: "$submissionData" }, 0 ] },
+                        then: { $size: { $arrayElemAt: ["$submissionData.history", 0] } },
+                        else: 0
+                      }
+                    }
+                  },
+                  in: {
+                    $cond: {
+                      if: { $lte: ["$$len", 1] },   // 0 or 1 → return 0
+                      then: "Author",
+                      else: { $subtract: ["$$len", 1] }  // >=2 → len-1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
             $project: {
+              submissionData: 0,
               userId: 0,
               updatedAt: 0,
               contextId: 0,
@@ -477,7 +552,7 @@ export class QuestionRepository implements IQuestionRepository {
       totalCount = await this.QuestionCollection.countDocuments(filter);
       const totalPages = Math.ceil(totalCount / limit);
 
-      result = await this.QuestionCollection.find(filter)
+    /*  result = await this.QuestionCollection.find(filter)
         .sort({createdAt: -1})
         .skip((page - 1) * limit)
         .limit(limit)
@@ -488,7 +563,60 @@ export class QuestionRepository implements IQuestionRepository {
           metrics: 0,
           embedding: 0,
         })
-        .toArray();
+        .toArray();*/
+        result = await this.QuestionCollection.aggregate([
+          { $match: filter },
+          { $sort: { createdAt: -1 } },
+          { $skip: (page - 1) * limit },
+          { $limit: limit },
+        
+          // JOIN submissions → extract history length
+          {
+            $lookup: {
+              from: "question_submissions",
+              localField: "_id",
+              foreignField: "questionId",
+              as: "submissionData"
+            }
+          },
+          {
+            $addFields: {
+              review_level_number: {
+                $let: {
+                  vars: {
+                    len: {
+                      $cond: {
+                        if: { $gt: [ { $size: "$submissionData" }, 0 ] },
+                        then: { $size: { $arrayElemAt: ["$submissionData.history", 0] } },
+                        else: 0
+                      }
+                    }
+                  },
+                  in: {
+                    $cond: {
+                      if: { $lte: ["$$len", 1] },   // length 0 or 1 → return 0
+                      then: "Author",
+                      else: { $subtract: ["$$len", 1] }  // length >=2 → length-1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          
+        
+          {
+            $project: {
+              submissionData: 0,
+              userId: 0,
+              updatedAt: 0,
+              contextId: 0,
+              metrics: 0,
+              embedding: 0
+            }
+          }
+        ]).toArray();
+        
 
       // // --- Total count for pagination ---
       // const totalCount = await this.QuestionCollection.countDocuments(filter);
@@ -950,6 +1078,7 @@ export class QuestionRepository implements IQuestionRepository {
     try {
       await this.init();
 
+      console.log("Updates: ", updates)
       if (!questionId || !isValidObjectId(questionId)) {
         throw new BadRequestError('Invalid or missing questionId');
       }
@@ -966,6 +1095,7 @@ export class QuestionRepository implements IQuestionRepository {
       for (const field of forbiddenFields) {
         delete (updates as any)[field];
       }
+      console.log("Updates: ", updates)
 
       const result = await this.QuestionCollection.updateOne(
         {_id: new ObjectId(questionId)},

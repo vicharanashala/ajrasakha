@@ -5,6 +5,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "         MCP SERVERS QUICK STATUS CHECK"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
+echo "⏱️  Note: After starting, servers need 15-20 seconds to load embedding models"
+echo ""
 
 SERVICES=("mcp-server:9000" "mcp-gd:9001" "mcp-pop:9002" "mcp-market:9003" "mcp-weather:9004" "mcp-faq:9005")
 

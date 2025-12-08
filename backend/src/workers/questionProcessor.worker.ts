@@ -8,6 +8,7 @@ import {CORE_TYPES} from '#root/modules/core/types.js';
 import {ObjectId} from 'mongodb';
 import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
 import {getBackgroundJobs} from './workerManager.js';
+import {appConfig} from '#root/config/app.js';
 
 interface WorkerData {
   ids: string[];
@@ -97,14 +98,18 @@ const aiService = new AiService();
       //   );
       //   continue;
       // }
+      let textEmbedding = [];
 
-      // Get embedding from AI server
-      const {embedding} = await aiService.getEmbedding(textToEmbed);
-      // const embedding = [];
+      const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+
+      if (ENABLE_AI_SERVER) {
+        const {embedding} = await aiService.getEmbedding(textToEmbed);
+        textEmbedding = embedding;
+      }
 
       await questionRepo['QuestionCollection'].updateOne(
         {_id: new (await import('mongodb')).ObjectId(qId)},
-        {$set: {embedding, updatedAt: new Date()}},
+        {$set: {embedding: textEmbedding, updatedAt: new Date()}},
       );
 
       // allocation stage - 2
@@ -124,7 +129,7 @@ const aiService = new AiService();
       //   const userId = user._id.toString();
       //   await userRepo.updateReputationScore(userId, IS_INCREMENT);
       // }
-      if(intialUsersToAllocate){
+      if (intialUsersToAllocate) {
         const IS_INCREMENT = true;
         const userId = intialUsersToAllocate[0]._id.toString();
         await userRepo.updateReputationScore(userId, IS_INCREMENT);
@@ -164,7 +169,7 @@ const aiService = new AiService();
         `❌ Error processing question ${qId}:`,
         error?.message || error,
       );
-      await questionRepo.deleteQuestion(qId)
+      await questionRepo.deleteQuestion(qId);
       // await questionRepo.updateQuestionStatus(qId, 'failed', error?.message);
     }
   }

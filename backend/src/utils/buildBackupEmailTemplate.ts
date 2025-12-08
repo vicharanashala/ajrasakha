@@ -39,6 +39,17 @@ export const buildBackupEmailTemplate = (
 };
 
 export const buildDailyStatsEmailTemplate = (stats?: DailyStats) => {
+  const today = new Date();
+
+  const dayName = today.toLocaleDateString('en-US', {weekday: 'long'}); // Monday, Tuesday...
+  const dateFormatted = today.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }); // December 5, 2025
+
+  const weekNumber = Math.ceil((today.getDate() - today.getDay() + 1) / 7); // Simple week number calc
+
   return `
     <div style="max-width: 600px; margin: 0 auto; padding: 20px;
       border: 1px solid #e0e0e0; border-radius: 8px;
@@ -49,6 +60,11 @@ export const buildDailyStatsEmailTemplate = (stats?: DailyStats) => {
         padding-bottom: 10px; margin-bottom: 20px;">
         📊 Daily Question Review System Summary
       </h2>
+
+      <div style="background-color:#eef2ff; padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+      <p style="margin: 4px 0;"><strong>🗓️ Date:</strong> ${dateFormatted}</p>
+      <p style="margin: 4px 0;"><strong>📅 Day:</strong> ${dayName}</p>
+      </div>
 
       ${
         stats

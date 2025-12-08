@@ -31,7 +31,9 @@ export const getDailyStats = async (): Promise<DailyStats> => {
 
   const today = questions.filter(q => new Date(q.createdAt) >= todayStart);
 
-  const todayGolden = today.filter(q => q.status === 'closed').length;
+  const todayGolden = questions.filter(
+    q => new Date(q.closedAt) >= todayStart,
+  ).length;
   const chatbot = today.filter(q => q.source === 'AJRASAKHA').length;
   const manual = today.length - chatbot;
 

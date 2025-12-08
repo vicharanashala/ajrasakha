@@ -39,6 +39,10 @@ export interface IUser {
   isBlocked?: boolean;
   penalty?: number;
   notificationRetention?: string;
+  totalAnswers_Created?:number;
+  penaltyPercentage?:number;
+  rankPosition?:number;
+
 }
 
 export interface IReviewParmeters {
@@ -418,6 +422,8 @@ export interface IDetailedQuestion {
   source: "AJRASAKHA" | "AGRI_EXPERT";
   createdAt?: string;
   updatedAt?: string;
+  review_level_number?:number;
+
 }
 
 export interface IDetailedQuestionResponse {

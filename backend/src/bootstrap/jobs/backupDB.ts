@@ -20,7 +20,7 @@ cron.schedule(
         console.log('🎉 Backup Job Completed Successfully');
       } else {
         console.log('Skipped backup ENABLE_DB_BACKUP==', ENABLE_DB_BACKUP);
-      }
+      } 
     } catch (err) {
       console.error('❌ Backup Failed:', err);
     }

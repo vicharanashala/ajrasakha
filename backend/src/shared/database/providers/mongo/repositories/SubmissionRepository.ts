@@ -404,12 +404,12 @@ export class QuestionSubmissionRepository
 
         const reviewerPosition = getReviewerQueuePosition(
           queue,
-          updatedBy._id.toString(),
+          updatedBy?._id.toString(),
         );
         return {
           updatedBy: updatedBy
             ? {
-                _id: updatedBy._id.toString(),
+                _id: updatedBy?._id.toString(),
                 userName:
                   reviewerPosition == 0
                     ? 'Author'
