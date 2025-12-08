@@ -627,6 +627,7 @@ export class QuestionSubmissionRepository
     limit = 20,
     dateRange?: {from?: string; to?: string},
     session?: ClientSession,
+    selectedHistoryId?:string
   ): Promise<any> {
     await this.init();
 
@@ -643,9 +644,21 @@ export class QuestionSubmissionRepository
     if (fromDate) dateFilter.$gte = fromDate;
     if (toDate) dateFilter.$lte = toDate;
 
+const matchStage = selectedHistoryId
+    ? {
+        $match: {
+          questionId: new ObjectId(selectedHistoryId),
+        },
+      }
+    : {
+        $match: {
+          "history.updatedBy": userObjId,
+        },
+      };
     const pipeline: any[] = [
       // Match only user activities
-      {$match: {'history.updatedBy': userObjId}},
+     // {$match: {'history.updatedBy': userObjId}},
+     matchStage,
 
       // Explode history entries
       {

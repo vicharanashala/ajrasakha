@@ -1150,6 +1150,7 @@ export class AnswerService extends BaseService {
     page: number,
     limit: number,
     dateRange?: {from: string | undefined; to: string | undefined},
+    selectedHistoryId?:string|undefined
   ): Promise<SubmissionResponse[]> {
     return await this._withTransaction(async (session: ClientSession) => {
       const user = await this.userRepo.findById(userId);
@@ -1160,6 +1161,7 @@ export class AnswerService extends BaseService {
           limit,
           dateRange,
           session,
+          selectedHistoryId
         );
       } else if (user.role === 'moderator') {
         return await this.answerRepo.getModeratorActivityHistory(

@@ -54,3 +54,20 @@ export const useNavigateToComment = () => {
 
   return { goToComment };
 };
+
+export const useNavigateToHistory = () => {
+  const navigate = useNavigate();
+
+  const goToHistory = useCallback(
+    (questionId: string) => {
+      navigate({
+        to: "/home",
+        search: (prev) => ({ ...prev, history: questionId }),
+        replace: true,
+      });
+    },
+    [navigate]
+  );
+
+  return { goToHistory };
+};

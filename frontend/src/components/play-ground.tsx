@@ -35,6 +35,8 @@ export const PlaygroundPage = () => {
     setSelectedRequestId,
     selectedCommentId,
     setSelectedCommentId,
+    selectedHistoryId,
+    setSelectedHistoryId
   } = useSelectedQuestion();
   const [activeTab, setActiveTab] = useState<string>("performance");
 
@@ -57,13 +59,17 @@ export const PlaygroundPage = () => {
         calculatedTab = "questions";
       } else if (selectedCommentId) {
         calculatedTab = "all_questions";
-      } else {
+      } 
+     else if (selectedHistoryId) {
+      calculatedTab = "history";
+    }
+      else {
         calculatedTab = "questions";
       }
     }
 
     setActiveTab(calculatedTab);
-  }, [user, selectedQuestionId, selectedRequestId, selectedCommentId]);
+  }, [user, selectedQuestionId, selectedRequestId, selectedCommentId,selectedHistoryId]);
   // const defaultTab = (() => {
   //   if (!user) return "performance";
   //   if (user.role !== "expert") return "performance";
@@ -85,6 +91,10 @@ export const PlaygroundPage = () => {
     if (value !== "all_questions") {
       setSelectedCommentId(null);
     }
+    if (value !== "history") {
+      setSelectedHistoryId(null);
+    }
+
   };
   useEffect(() => {
     initializeNotifications();
@@ -388,7 +398,7 @@ export const PlaygroundPage = () => {
                   value="history"
                   className="mt-0 border-0 p-0 max-w-[98%]"
                 >
-                  <FullSubmissionHistory currentUser={user!} />
+                  <FullSubmissionHistory currentUser={user!}  selectedHistoryId={selectedHistoryId}/>
                 </TabsContent>
               )}
             </div>
