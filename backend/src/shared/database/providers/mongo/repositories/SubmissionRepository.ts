@@ -883,4 +883,173 @@ export class QuestionSubmissionRepository
       data: aggResult?.data ?? [],
     };
   }
+  //690f05447360add0cf5aa0f8
+  async getUserReviewLevel(userId) {
+    await this.init();
+    console.log("the log coming=====")
+    const reviewerId = new ObjectId(userId);
+    const pipeline = [
+
+      // 1) Safe fields
+      {
+        $addFields: {
+          queueIndex: { $indexOfArray: ["$queue", reviewerId] },
+          historyArr: { $ifNull: ["$history", []] }
+        }
+      },
+  
+      // 2) Compute history length
+      {
+        $addFields: {
+          historyLen: { $size: "$historyArr" }
+        }
+      },
+  
+      // 3) Slice history excluding 0th index
+      {
+        $addFields: {
+          historyExceptFirst: {
+            $cond: [
+              { $gt: ["$historyLen", 1] },
+              { $slice: ["$historyArr", 1, { $subtract: ["$historyLen", 1] }] },
+              []
+            ]
+          }
+        }
+      },
+  
+      // 4) Check if reviewer has in-review entry in history[1..]
+      {
+        $addFields: {
+          hasInReviewEntry: {
+            $gt: [
+              {
+                $size: {
+                  $filter: {
+                    input: "$historyExceptFirst",
+                    as: "h",
+                    cond: {
+                      $and: [
+                        { $eq: ["$$h.updatedBy", reviewerId] },
+                        { $eq: ["$$h.status", "in-review"] }
+                      ]
+                    }
+                  }
+                }
+              },
+              0
+            ]
+          }
+        }
+      },
+  
+      // 5) Determine Author or Level (Level = historyLen - 1)
+      {
+        $addFields: {
+          isAuthor: {
+            $and: [
+              { $eq: ["$queueIndex", 0] },
+              { $eq: ["$historyLen", 0] }
+            ]
+          },
+          computedLevel: {
+            $cond: [
+              { $and: [ { $eq: ["$hasInReviewEntry", true] }, { $gt: ["$historyLen", 1] } ] },
+              { $concat: [
+                  "Level ",
+                  { $toString: { $subtract: ["$historyLen", 1] } } // subtract 1 for 0th index
+                ]
+              },
+              null
+            ]
+          }
+        }
+      },
+  
+      // 6) Final Review_level
+      {
+        $addFields: {
+          Review_level: {
+            $cond: [
+              { $eq: ["$isAuthor", true] },
+              "Author",
+              "$computedLevel"
+            ]
+          }
+        }
+      },
+  
+      // 7) Keep only documents with Review_level
+      { $match: { Review_level: { $ne: null } } },
+  
+      // 8) Group counts by level
+      {
+        $group: {
+          _id: "$Review_level",
+          count: { $sum: 1 }
+        }
+      },
+  
+      // 9) Collect actual results into an array
+      {
+        $group: {
+          _id: null,
+          actual: { $push: { Review_level: "$_id", count: "$count" } }
+        }
+      },
+  
+      // 10) Merge with static levels to ensure missing levels show 0, including Level 1
+      {
+        $project: {
+          merged: {
+            $map: {
+              input: [
+                "Author",
+                "Level 1",
+                "Level 2",
+                "Level 3",
+                "Level 4",
+                "Level 5",
+                "Level 6",
+                "Level 7",
+                "Level 8",
+                "Level 9"
+              ],
+              as: "lvl",
+              in: {
+                Review_level: "$$lvl",
+                count: {
+                  $let: {
+                    vars: {
+                      found: {
+                        $first: {
+                          $filter: {
+                            input: { $ifNull: ["$actual", []] },
+                            cond: { $eq: ["$$this.Review_level", "$$lvl"] }
+                          }
+                        }
+                      }
+                    },
+                    in: { $ifNull: ["$$found.count", 0] }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+  
+      { $unwind: "$merged" },
+      { $replaceRoot: { newRoot: "$merged" } },
+  
+      // Optional: ensure Author comes first (already in map order)
+      { $sort: { Review_level: 1 } }
+    ];
+  
+    let result= await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
+  console.log("the result coming=====",result)
+    return result;
+  }
+  
+  
 }
