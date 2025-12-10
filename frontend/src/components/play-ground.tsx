@@ -37,7 +37,7 @@ export const PlaygroundPage = () => {
     selectedCommentId,
     setSelectedCommentId,
     selectedHistoryId,
-    setSelectedHistoryId
+    setSelectedHistoryId,
   } = useSelectedQuestion();
   const [activeTab, setActiveTab] = useState<string>("performance");
 
@@ -60,17 +60,19 @@ export const PlaygroundPage = () => {
         calculatedTab = "questions";
       } else if (selectedCommentId) {
         calculatedTab = "all_questions";
-      } 
-     else if (selectedHistoryId) {
-      calculatedTab = "history";
-    }
-      else {
-        calculatedTab = "questions";
+      } else if (selectedHistoryId) {
+        calculatedTab = "history";
       }
     }
 
     setActiveTab(calculatedTab);
-  }, [user, selectedQuestionId, selectedRequestId, selectedCommentId,selectedHistoryId]);
+  }, [
+    user,
+    selectedQuestionId,
+    selectedRequestId,
+    selectedCommentId,
+    selectedHistoryId,
+  ]);
   // const defaultTab = (() => {
   //   if (!user) return "performance";
   //   if (user.role !== "expert") return "performance";
@@ -95,7 +97,6 @@ export const PlaygroundPage = () => {
     if (value !== "history") {
       setSelectedHistoryId(null);
     }
-
   };
   useEffect(() => {
     initializeNotifications();
@@ -252,17 +253,15 @@ export const PlaygroundPage = () => {
 
             <div className="flex-1 md:flex justify-center min-w-0 hidden ">
               <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
-                
-                  <TabsTrigger
-                    value="performance"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                  >
-                    <HoverCard openDelay={150}>
-                      <span>Dashboard</span>
-                      {/* <span>Performance</span> */}
-                    </HoverCard>
-                  </TabsTrigger>
-            
+                <TabsTrigger
+                  value="performance"
+                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                >
+                  <HoverCard openDelay={150}>
+                    <span>Dashboard</span>
+                    {/* <span>Performance</span> */}
+                  </HoverCard>
+                </TabsTrigger>
 
                 {user && user.role == "expert" && (
                   <TabsTrigger
@@ -405,7 +404,10 @@ export const PlaygroundPage = () => {
                   value="history"
                   className="mt-0 border-0 p-0 max-w-[98%]"
                 >
-                  <FullSubmissionHistory currentUser={user!}  selectedHistoryId={selectedHistoryId}/>
+                  <FullSubmissionHistory
+                    currentUser={user!}
+                    selectedHistoryId={selectedHistoryId}
+                  />
                 </TabsContent>
               )}
             </div>
