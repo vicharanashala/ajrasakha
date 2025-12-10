@@ -28,12 +28,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./atoms/select";
+import {ExpertDashboard} from './ExpertDashboard'
 
 export const UserManagement = ({
   currentUser,
 }: {
   currentUser?: IUser;
 }) => {
+  const [selectExpertId,setSelectExpertId]=useState<string>('')
+  const [rankPostion,setRankPosition]=useState<number>(0)
   const [search, setSearch] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [filter, setFilter] = useState("");
@@ -65,9 +68,24 @@ export const UserManagement = ({
   const handleViewMore = (userId: string) => {
     setSelectedUserId(userId);
   };
+  const goBack = () => {
+    
+    const url = new URL(window.location.href);
+   
+    if (url.searchParams.has("comment")) {
+      url.searchParams.delete("comment");
+      window.history.replaceState({}, "", url.toString());
+      setSelectExpertId("")
+      return;
+    }
+    setSelectExpertId("")
+  };
 
   return (
     <main className="mx-auto w-full p-4 md:p-6 space-y-6 ">
+      {selectExpertId?
+      <ExpertDashboard expertId={selectExpertId} goBack={goBack} rankPosition={rankPostion} expertDetailsList={expertDetails}/>:
+      (
         <>
           <div className="flex flex-wrap items-start justify-between gap-4 w-full bg-card py-4 px-2 rounded">
             {/* LEFT — Search */}
@@ -182,8 +200,12 @@ export const UserManagement = ({
             limit={LIMIT}
             totalPages={expertDetails?.totalPages || 0}
             isLoading={isLoading}
+            setSelectExpertId={setSelectExpertId}
+            setRankPosition={setRankPosition}
           />
         </>
+      )
+                    }
     </main>
   );
 };

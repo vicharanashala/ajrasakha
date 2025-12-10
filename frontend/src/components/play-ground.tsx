@@ -50,6 +50,10 @@ export const PlaygroundPage = () => {
       if (selectedRequestId) {
         calculatedTab = "request_queue";
       } else {
+      /* else if(selectedExpertId)
+      {
+        calculatedTab = "expertPerformance";
+      }*/
         calculatedTab = "performance";
       }
     } else {
@@ -62,6 +66,8 @@ export const PlaygroundPage = () => {
         calculatedTab = "all_questions";
       } else if (selectedHistoryId) {
         calculatedTab = "history";
+      } else {
+        calculatedTab = "expertPerformance";
       }
     }
 
@@ -253,15 +259,28 @@ export const PlaygroundPage = () => {
 
             <div className="flex-1 md:flex justify-center min-w-0 hidden ">
               <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
-                <TabsTrigger
-                  value="performance"
-                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                >
-                  <HoverCard openDelay={150}>
-                    <span>Dashboard</span>
-                    {/* <span>Performance</span> */}
-                  </HoverCard>
-                </TabsTrigger>
+                {user && user.role !== "expert" && (
+                  <TabsTrigger
+                    value="performance"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <HoverCard openDelay={150}>
+                      <span>Dashboard</span>
+                      {/* <span>Performance</span> */}
+                    </HoverCard>
+                  </TabsTrigger>
+                )}
+                {user && user.role === "expert" && (
+                  <TabsTrigger
+                    value="expertPerformance"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <HoverCard openDelay={150}>
+                      <span>Dashboard</span>
+                      {/* <span>Performance</span> */}
+                    </HoverCard>
+                  </TabsTrigger>
+                )}
 
                 {user && user.role == "expert" && (
                   <TabsTrigger
@@ -353,7 +372,10 @@ export const PlaygroundPage = () => {
                 </TabsContent>
               )}
               {user && user.role === "expert" && (
-                <TabsContent value="performance" className="mt-0 border-0 p-0 ">
+                <TabsContent
+                  value="expertPerformance"
+                  className="mt-0 border-0 p-0 "
+                >
                   {/* <PerformanceMatrics /> */}
                   <ExpertDashboard />
                 </TabsContent>

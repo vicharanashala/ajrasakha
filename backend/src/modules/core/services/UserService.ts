@@ -51,13 +51,13 @@ export class UserService extends BaseService {
       );
     }
   }
-  async getUserReviewLevel(userId: string): Promise<IUser> {
+  async getUserReviewLevel(userId: string): Promise<any> {
     try {
       if (!userId) throw new NotFoundError('User ID is required');
 
       return this._withTransaction(async (session: ClientSession) => {
-        return await this.questionSubmissionRepo.getUserReviewLevel(userId)
-        
+        const result= await this.questionSubmissionRepo.getUserReviewLevel(userId)
+        return result
       });
     } catch (error) {
       throw new InternalServerError(

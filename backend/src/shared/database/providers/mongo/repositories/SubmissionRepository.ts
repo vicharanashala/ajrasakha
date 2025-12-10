@@ -897,9 +897,8 @@ const matchStage = selectedHistoryId
     };
   }
   //690f05447360add0cf5aa0f8
-  async getUserReviewLevel(userId) {
+  async getUserReviewLevel(userId): Promise<any> {
     await this.init();
-    console.log("the log coming=====")
     const reviewerId = new ObjectId(userId);
     const pipeline = [
 
@@ -1211,16 +1210,31 @@ const matchStage = selectedHistoryId
   
     let pending= await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
     let completed=await this.QuestionSubmissionCollection.aggregate(pipe).toArray();
+    if(pending.length==0)
+    {
+      pending= [{ Review_level: 'Author', count: 0 },
+         { Review_level: 'Level 1', count: 0 },
+         { Review_level: 'Level 2', count: 0 },
+       { Review_level: 'Level 3', count: 0 },
+       { Review_level: 'Level 4', count: 0 },
+         { Review_level: 'Level 5', count: 0 },
+      { Review_level: 'Level 6', count: 0 },
+         { Review_level: 'Level 7', count: 0 },
+        { Review_level: 'Level 8', count: 0 },
+        { Review_level: 'Level 9', count: 0 }
+       ]
+    }
     
-    const merged = completed.map(c => {
-      const matchPending = pending.find(p => p.Review_level === c.Review_level);
+    const merged = pending.map(c => {
+      const matchCompleted = completed.find(p => p.Review_level === c.Review_level);
     
       return {
         Review_level: c.Review_level,
-        pendingcount: matchPending ? matchPending.count : 0,
-        completedcount: c.count
+        pendingcount: c.count,
+        completedcount: matchCompleted ? matchCompleted.count : 0,
       };
     });
+   
     return merged;
   }
   

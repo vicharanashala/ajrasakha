@@ -126,5 +126,5 @@ export interface IQuestionSubmissionRepository {
     session?: ClientSession,
     selectedHistoryId?:string|undefined
   );
-  getUserReviewLevel(userId)
+  getUserReviewLevel(userId): Promise<any >
 }
