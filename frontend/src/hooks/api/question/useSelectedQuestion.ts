@@ -2,7 +2,7 @@ import { useSearch, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
 
 export const useSelectedQuestion = () => {
-  const { question, request, comment,history } = useSearch({ from: "/home/" });
+  const { question, request, comment,history,expertId } = useSearch({ from: "/home/" });
   const navigate = useNavigate({ from: "/home" });
 
   const setSelectedQuestionId = useCallback(
@@ -31,7 +31,8 @@ export const useSelectedQuestion = () => {
           // Keep question if exists
           question: prev.question,
           comment: prev.comment,
-          history:prev.history
+          history:prev.history,
+          expertId:prev.expertId
         }),
         replace: true,
       });
@@ -48,7 +49,8 @@ export const useSelectedQuestion = () => {
           // Keep other params if they exist
           question: prev.question,
           request: prev.request,
-          history:prev.history
+          history:prev.history,
+          expertId:prev.expertId
         }),
         replace: true,
       });
@@ -65,6 +67,7 @@ export const useSelectedQuestion = () => {
           request: prev.request,
           comment: prev.comment,
           question: prev.question,
+          expertId:prev.expertId
 
         }),
         replace: true,
@@ -72,6 +75,24 @@ export const useSelectedQuestion = () => {
     },
     [navigate]
   );
+ /* const setSelectedExpertId = useCallback(
+    (id: string | null) => {
+      navigate({
+        search: (prev) => ({
+          ...prev,
+          expertId: id ?? undefined,
+          // Keep request if exists
+          request: prev.request,
+          comment: prev.comment,
+          question: prev.question,
+          history:prev.history,
+
+        }),
+        replace: true,
+      });
+    },
+    [navigate]
+  );*/
 
   return {
     selectedQuestionId: question ?? null,
@@ -81,6 +102,8 @@ export const useSelectedQuestion = () => {
     setSelectedQuestionId,
     setSelectedRequestId,
     setSelectedCommentId,
-    setSelectedHistoryId
+    setSelectedHistoryId,
+   // selectedExpertId:expertId??null,
+   // setSelectedExpertId
   };
 };
