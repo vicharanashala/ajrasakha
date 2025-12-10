@@ -125,4 +125,5 @@ export interface IQuestionSubmissionRepository {
     dateRange?: {from: string; to: string},
     session?: ClientSession,
   );
+  getUserReviewLevel(userId)
 }

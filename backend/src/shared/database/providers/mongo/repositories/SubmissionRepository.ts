@@ -1045,10 +1045,170 @@ export class QuestionSubmissionRepository
       // Optional: ensure Author comes first (already in map order)
       { $sort: { Review_level: 1 } }
     ];
+    const pipe = [
+      // 1) Ensure history exists
+      {
+        $addFields: {
+          historyArr: { $ifNull: ["$history", []] },
+          historyLen: { $size: { $ifNull: ["$history", []] } }
+        }
+      },
+    
+      // 2) Check if reviewer is Author (history[0])
+      {
+        $addFields: {
+          isAuthor: {
+            $and: [
+              { $gt: ["$historyLen", 0] },
+              { $eq: [{ $arrayElemAt: ["$historyArr.updatedBy", 0] }, reviewerId] }
+            ]
+          }
+        }
+      },
+    
+      // 3) Map history[1..] with index and filter completed entries
+      {
+        $addFields: {
+          completedEntriesWithIndex: {
+            $map: {
+              input: { $range: [1, { $size: "$historyArr" }] }, // indices 1..N
+              as: "i",
+              in: {
+                index: "$$i",
+                entry: { $arrayElemAt: ["$historyArr", "$$i"] }
+              }
+            }
+          }
+        }
+      },
+      {
+        $addFields: {
+          completedEntriesWithIndex: {
+            $filter: {
+              input: "$completedEntriesWithIndex",
+              as: "x",
+              cond: {
+                $and: [
+                  { $eq: ["$$x.entry.updatedBy", reviewerId] },
+                  { $ne: ["$$x.entry.status", "in-review"] }
+                ]
+              }
+            }
+          }
+        }
+      },
+    
+      // 4) Determine Review_level with Level number starting from 1
+      {
+        $addFields: {
+          Review_level: {
+            $cond: [
+              { $eq: ["$isAuthor", true] },
+              "Author",
+              {
+                $cond: [
+                  { $gt: [{ $size: "$completedEntriesWithIndex" }, 0] },
+                  {
+                    $concat: [
+                      "Level ",
+                      {
+                        $toString: { $arrayElemAt: ["$completedEntriesWithIndex.index", 0] }
+                      }
+                    ]
+                  },
+                  null
+                ]
+              }
+            ]
+          }
+        }
+      },
+    
+      // 5) Keep only documents with Review_level
+      { $match: { Review_level: { $ne: null } } },
+    
+      // 6) Group counts by Review_level
+      {
+        $group: {
+          _id: "$Review_level",
+          count: { $sum: 1 }
+        }
+      },
+    
+      // 7) Collect into array
+      {
+        $group: {
+          _id: null,
+          actual: { $push: { Review_level: "$_id", count: "$count" } }
+        }
+      },
+    
+      // 8) Merge with fixed levels to fill missing with 0
+      {
+        $project: {
+          merged: {
+            $map: {
+              input: [
+                "Author",
+                "Level 1",
+                "Level 2",
+                "Level 3",
+                "Level 4",
+                "Level 5",
+                "Level 6",
+                "Level 7",
+                "Level 8",
+                "Level 9"
+              ],
+              as: "lvl",
+              in: {
+                Review_level: "$$lvl",
+                count: {
+                  $let: {
+                    vars: {
+                      found: {
+                        $first: {
+                          $filter: {
+                            input: { $ifNull: ["$actual", []] },
+                            cond: { $eq: ["$$this.Review_level", "$$lvl"] }
+                          }
+                        }
+                      }
+                    },
+                    in: { $ifNull: ["$$found.count", 0] }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+    
+      // 9) Unwind merged array
+      { $unwind: "$merged" },
+      { $replaceRoot: { newRoot: "$merged" } },
+    
+      // 10) Optional: keep order
+      { $sort: { Review_level: 1 } }
+    ];
+    
+    
+    
+    
   
-    let result= await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
-  console.log("the result coming=====",result)
-    return result;
+    let pending= await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
+    let completed=await this.QuestionSubmissionCollection.aggregate(pipe).toArray();
+    
+    const merged = completed.map(c => {
+      const matchPending = pending.find(p => p.Review_level === c.Review_level);
+    
+      return {
+        Review_level: c.Review_level,
+        pendingcount: matchPending ? matchPending.count : 0,
+        completedcount: c.count
+      };
+    });
+    return merged;
   }
   
   

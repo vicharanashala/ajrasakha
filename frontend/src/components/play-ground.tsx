@@ -23,6 +23,7 @@ import { HoverCard } from "./atoms/hover-card";
 import { UserManagement } from "./user-management";
 import { Dashboard } from "./dashboard";
 import Spinner from "./atoms/spinner";
+import { ExpertDashboard } from "./ExpertDashboard";
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser();
@@ -241,7 +242,7 @@ export const PlaygroundPage = () => {
 
             <div className="flex-1 md:flex justify-center min-w-0 hidden ">
               <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
-                {user && user.role !== "expert" && (
+                
                   <TabsTrigger
                     value="performance"
                     className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
@@ -251,7 +252,7 @@ export const PlaygroundPage = () => {
                       {/* <span>Performance</span> */}
                     </HoverCard>
                   </TabsTrigger>
-                )}
+            
 
                 {user && user.role == "expert" && (
                   <TabsTrigger
@@ -340,6 +341,12 @@ export const PlaygroundPage = () => {
                 <TabsContent value="performance" className="mt-0 border-0 p-0 ">
                   {/* <PerformanceMatrics /> */}
                   <Dashboard />
+                </TabsContent>
+              )}
+              {user && user.role === "expert" && (
+                <TabsContent value="performance" className="mt-0 border-0 p-0 ">
+                  {/* <PerformanceMatrics /> */}
+                  <ExpertDashboard />
                 </TabsContent>
               )}
               {user && user.role == "expert" && (

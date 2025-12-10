@@ -10,6 +10,7 @@ import {
   UsersNameResponseDto,
 } from '../classes/validators/UserValidators.js';
 import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
+import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
 
 @injectable()
 export class UserService extends BaseService {
@@ -22,6 +23,10 @@ export class UserService extends BaseService {
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
+
+    @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
+    private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
+
   ) {
     super(mongoDatabase);
   }
@@ -43,6 +48,20 @@ export class UserService extends BaseService {
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch user with ID ${userId}: ${error}`,
+      );
+    }
+  }
+  async getUserReviewLevel(userId: string): Promise<IUser> {
+    try {
+      if (!userId) throw new NotFoundError('User ID is required');
+
+      return this._withTransaction(async (session: ClientSession) => {
+        return await this.questionSubmissionRepo.getUserReviewLevel(userId)
+        
+      });
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch user review-level with ID ${userId}: ${error}`,
       );
     }
   }

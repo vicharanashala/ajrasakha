@@ -1,4 +1,4 @@
-import type { IUser } from "@/types";
+import type { IUser,ReviewLevelCount } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { IUsersNameResponse } from "../api/user/useGetAllUsers";
 
@@ -42,5 +42,8 @@ export class UserService {
 
    async Getuser(email:string):Promise<IUser| null>{
     return apiFetch<IUser | null>(`${this._baseUrl}/details/${email}`);
+  }
+  async getUserReviewLevel(userId:string|undefined): Promise<ReviewLevelCount[] | null> {
+    return apiFetch<ReviewLevelCount[]>(`${this._baseUrl}/review-level/${userId}`);
   }
 }

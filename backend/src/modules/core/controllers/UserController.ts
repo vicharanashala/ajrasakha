@@ -45,6 +45,20 @@ export class UserController {
     }
     return user;
   }
+  @Get('/review-level/:userId')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Get current user'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async getUserReviewLevel(@Params() params:{userId:string}): Promise<any> {
+    
+    const {userId }= params;
+    const result = await this.userService.getUserReviewLevel(userId);
+    if (!result) {
+      throw new NotFoundError('not able to find review_levvel odf user');
+    }
+    return result;
+  }
 
   @Put('/')
   @HttpCode(200)
