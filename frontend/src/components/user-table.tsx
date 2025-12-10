@@ -26,7 +26,7 @@ import { useBlockUser } from "@/hooks/api/user/useBlockUser";
 import {
  useNavigateToExpertDashboard
 } from "@/hooks/api/question/useNavigateToQuestion";
-import {ExpertDashboard} from './ExpertDashboard'
+
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -42,6 +42,8 @@ type UserTableProps = {
   totalPages: number;
   limit: number;
   userRole?: UserRole;
+  setSelectExpertId?:(userId: string) => void
+  setRankPosition?:(rank: number) => void
 };
 
 export const UsersTable = ({
@@ -53,6 +55,8 @@ export const UsersTable = ({
   userRole,
   isLoading,
   totalPages,
+  setSelectExpertId,
+  setRankPosition
 }: UserTableProps) => {
   const [userIdToBlock, setUserIdToBlock] = useState<string>("");
   const [isCurrentlyBlocked, setIsCurrentlyBlocked] = useState<boolean>(false);
@@ -65,7 +69,7 @@ export const UsersTable = ({
 
   return (
     <div>
-      <div className="rounded-lg border bg-card overflow-x-auto min-h-[55vh]">
+         <div className="rounded-lg border bg-card overflow-x-auto min-h-[55vh]">
         <Table className="min-w-[800px]">
           <TableHeader className="bg-card sticky top-0 z-10">
             <TableRow>
@@ -119,6 +123,8 @@ export const UsersTable = ({
                   setIsCurrentlyBlocked={setIsCurrentlyBlocked}
                   userRole={userRole!}
                   key={String(u._id)}
+                  setSelectExpertId={setSelectExpertId}
+                  setRankPosition={setRankPosition}
                 />
               ))
             )}
@@ -130,6 +136,9 @@ export const UsersTable = ({
         totalPages={totalPages}
         onPageChange={(page) => setCurrentPage(page)}
       />
+        
+      
+     
     </div>
   );
 };
@@ -145,6 +154,8 @@ interface UserRowProps {
   setIsCurrentlyBlocked: (value: boolean) => void;
   handleBlock: () => Promise<void>;
   onViewMore: (id: string) => void;
+  setSelectExpertId?:(id: string) => void;
+  setRankPosition?:(rank: number) => void
 }
 
 const UserRow: React.FC<UserRowProps> = ({
@@ -155,13 +166,20 @@ const UserRow: React.FC<UserRowProps> = ({
   handleBlock,
   setUserIdToBlock,
   setIsCurrentlyBlocked,
+  setSelectExpertId,
+  setRankPosition
 }) => {
   const isBlocked = u.isBlocked || false;
-  
+
   const { goToExpertDashboard } = useNavigateToExpertDashboard();
-  const handleExpertClick = async (userId:string|undefined) => {
-    if (userId) {
-      goToExpertDashboard(userId); // enitity_id is questionId
+  const handleExpertClick = async (userdetails:any) => {
+    
+    if (userdetails) {
+      setSelectExpertId?.(userdetails._id);
+      setRankPosition?.(userdetails.rankPosition); // ✅ safe call
+      return;
+
+     // goToExpertDashboard(userId); // enitity_id is questionId
       return;
     }
 
@@ -178,7 +196,7 @@ const UserRow: React.FC<UserRowProps> = ({
         <div>
         <span
         className={"hover:underline"}
-        onClick={()=>{handleExpertClick(u._id)}}
+        onClick={()=>{handleExpertClick(u)}}
         >
         {truncate(u.firstName + " " + u.lastName, 60)}
         </span>

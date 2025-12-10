@@ -75,7 +75,7 @@ export const useSelectedQuestion = () => {
     },
     [navigate]
   );
-  const setSelectedExpertId = useCallback(
+ /* const setSelectedExpertId = useCallback(
     (id: string | null) => {
       navigate({
         search: (prev) => ({
@@ -92,7 +92,7 @@ export const useSelectedQuestion = () => {
       });
     },
     [navigate]
-  );
+  );*/
 
   return {
     selectedQuestionId: question ?? null,
@@ -103,7 +103,7 @@ export const useSelectedQuestion = () => {
     setSelectedRequestId,
     setSelectedCommentId,
     setSelectedHistoryId,
-    selectedExpertId:expertId??null,
-    setSelectedExpertId
+   // selectedExpertId:expertId??null,
+   // setSelectedExpertId
   };
 };

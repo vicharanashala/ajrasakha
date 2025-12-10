@@ -19,11 +19,15 @@ import {
   TableRow,
 } from "./atoms/table";
 import { DashboardClock } from "./dashboard/dashboard-clock";
+import { Button } from "./atoms/button";
 interface ExpertDashboardProps {
-  expertId: string|null
+  expertId?: string|null
+  goBack?: () => void;
+  rankPosition?:number;
+  expertDetailsList?:any
 }
 
-export const ExpertDashboard = ({ expertId }: ExpertDashboardProps) => {
+export const ExpertDashboard = ({ expertId,goBack,rankPosition,expertDetailsList }: ExpertDashboardProps) => {
   const { data: user, isLoading } = useGetCurrentUser();
   let userId:string|undefined
  // console.log("the expert id coming=====",expertId)
@@ -74,6 +78,35 @@ export const ExpertDashboard = ({ expertId }: ExpertDashboardProps) => {
     <main
     className={`min-h-screen bg-background ${isLoading ? "opacity-40" : ""}`}
   >
+    {
+      expertId?
+      <div className="flex justify-end">
+              <Button
+                size="sm"
+                variant="outline"
+                className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
+                onClick={goBack}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                  className="w-4 h-4"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M17 8l4 4m0 0l-4 4m4-4H3"
+                  />
+                </svg>
+                <span className="leading-none">Exit</span>
+              </Button>
+            </div>:
+            null
+    }
+     
     <div className="mx-auto p-6">
         <div className="mb-8 flex justify-between items-center">
           <div>

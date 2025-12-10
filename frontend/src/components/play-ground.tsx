@@ -38,8 +38,8 @@ export const PlaygroundPage = () => {
     setSelectedCommentId,
     selectedHistoryId,
     setSelectedHistoryId,
-    selectedExpertId,
-    setSelectedExpertId
+   // selectedExpertId,
+   // setSelectedExpertId
   } = useSelectedQuestion();
   const [activeTab, setActiveTab] = useState<string>("performance");
 
@@ -52,10 +52,10 @@ export const PlaygroundPage = () => {
       if (selectedRequestId) {
         calculatedTab = "request_queue";
       } 
-      else if(selectedExpertId)
+     /* else if(selectedExpertId)
       {
         calculatedTab = "expertPerformance";
-      }
+      }*/
       else  {
         calculatedTab = "performance";
       }
@@ -77,7 +77,7 @@ export const PlaygroundPage = () => {
     }
 
     setActiveTab(calculatedTab);
-  }, [user, selectedQuestionId, selectedRequestId, selectedCommentId,selectedHistoryId,selectedExpertId]);
+  }, [user, selectedQuestionId, selectedRequestId, selectedCommentId,selectedHistoryId]);
   // const defaultTab = (() => {
   //   if (!user) return "performance";
   //   if (user.role !== "expert") return "performance";
@@ -102,10 +102,10 @@ export const PlaygroundPage = () => {
     if (value !== "history") {
       setSelectedHistoryId(null);
     }
-    if(value!=="expertPerformance")
+   /* if(value!=="expertPerformance")
     {
       setSelectedExpertId(null)
-    }
+    }*/
 
   };
   useEffect(() => {
@@ -375,10 +375,10 @@ export const PlaygroundPage = () => {
                   <Dashboard />
                 </TabsContent>
               )}
-              {(user && user.role === "expert" || selectedExpertId) && (
+              {(user && user.role === "expert" ) && (
                 <TabsContent value="expertPerformance" className="mt-0 border-0 p-0 ">
                   {/* <PerformanceMatrics /> */}
-                  <ExpertDashboard expertId={selectedExpertId} />
+                  <ExpertDashboard  />
                 </TabsContent>
               )}
               {user && user.role == "expert" && (
