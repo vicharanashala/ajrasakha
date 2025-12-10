@@ -111,7 +111,7 @@ const aiService = new AiService();
         {_id: new (await import('mongodb')).ObjectId(qId)},
         {$set: {embedding: textEmbedding, updatedAt: new Date()}},
       );
-
+ 
       // allocation stage - 2
 
       const users = await userRepo.findExpertsByPreference(
