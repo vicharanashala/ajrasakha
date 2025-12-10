@@ -114,15 +114,20 @@ export class AnswerService extends BaseService {
 
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
-      // const embedding = [];
-      const {embedding} = await this.aiService.getEmbedding(answer);
+      let textEmbedding = [];
+      const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+
+      if (ENABLE_AI_SERVER) {
+        const {embedding} = await this.aiService.getEmbedding(answer);
+        textEmbedding = embedding;
+      }
 
       const {insertedId} = await this.answerRepo.addAnswer(
         questionId,
         authorId,
         answer,
         sources,
-        embedding,
+        textEmbedding,
         isFinalAnswer,
         updatedAnswerCount,
         activeSession,
@@ -1154,7 +1159,7 @@ export class AnswerService extends BaseService {
     page: number,
     limit: number,
     dateRange?: {from: string | undefined; to: string | undefined},
-    selectedHistoryId?:string|undefined
+    selectedHistoryId?: string | undefined,
   ): Promise<SubmissionResponse[]> {
     return await this._withTransaction(async (session: ClientSession) => {
       const user = await this.userRepo.findById(userId);
@@ -1165,7 +1170,7 @@ export class AnswerService extends BaseService {
           limit,
           dateRange,
           session,
-          selectedHistoryId
+          selectedHistoryId,
         );
       } else if (user.role === 'moderator') {
         return await this.answerRepo.getModeratorActivityHistory(
@@ -1262,7 +1267,7 @@ answer: ${updates.answer}`;
         questionId,
         {
           text,
-          embedding: questionEmbedding, 
+          embedding: questionEmbedding,
           status: 'closed',
           closedAt: new Date(),
         },
