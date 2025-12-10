@@ -260,7 +260,11 @@ const ViewContextModal = ({
   );
 };
 
-export default function UserActivityHistory() {
+export default function UserActivityHistory({
+  selectedHistoryId,
+}: {
+  selectedHistoryId: string | null;
+}) {
   const [dateRange, setDateRange] = useState({
     // start: new Date(),
     start: undefined,
@@ -271,7 +275,7 @@ export default function UserActivityHistory() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [selectedQuestionId, setSelectedQuestionId] = useState("");
-  const { data, isLoading } = useGetSubmissions(currentPage, 5, dateRange);
+  const { data, isLoading } = useGetSubmissions(currentPage, 5, dateRange,selectedHistoryId?.toString());
   const {
     data: questionDetails,
     refetch: refechSelectedQuestion,
@@ -327,8 +331,8 @@ export default function UserActivityHistory() {
         {!isLoading && submissions.length > 0 && (
           <>
             <div className="space-y-4 ">
-              {submissions.map((item: any) => (
-                <Card className="bg-card rounded-2xl  shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group hover:-translate-y-0.5">
+              {submissions.map((item: any,ind:number) => (
+                <Card key={ind} className="bg-card rounded-2xl  shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group hover:-translate-y-0.5">
                   <CardContent className="p-0">
                     <div className="px-4 sm:px-6  bg-card border-b border-gray-100 dark:border-gray-800 backdrop-blur-sm">
                       <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:gap-4 text-sm">

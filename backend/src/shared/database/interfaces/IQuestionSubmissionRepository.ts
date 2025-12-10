@@ -124,6 +124,7 @@ export interface IQuestionSubmissionRepository {
     limit: number,
     dateRange?: {from: string; to: string},
     session?: ClientSession,
+    selectedHistoryId?:string|undefined
   );
   getUserReviewLevel(userId)
 }

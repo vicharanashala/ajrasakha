@@ -512,11 +512,11 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
         {priorityBadge}
       </TableCell>
 
-      <TableCell className="align-middle">
+      {/* <TableCell className="align-middle">
         {q.review_level_number?.toString() == "Author"
           ? q.review_level_number
           : `Level ${q.review_level_number}`}
-      </TableCell>
+      </TableCell> */}
 
       {/* Details */}
       <TableCell className="align-middle">

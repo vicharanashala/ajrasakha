@@ -80,14 +80,17 @@ export class AnswerService {
   async getSubmissions(
     pageParam: number,
     limit: number,
-    dateRange:any
+    dateRange:any,
+    selectedHistoryId?:string,
   ): Promise<any> {
+    console.log("the date range coming=====",dateRange)
     const params = new URLSearchParams();
   params.append("page", String(pageParam));
   params.append("limit", String(limit));
 
   if (dateRange?.start) params.append("start", dateRange.start);
   if (dateRange?.end) params.append("end", dateRange.end);
+  if (selectedHistoryId) params.append("selectedHistoryId", selectedHistoryId);
 
   return apiFetch<any>(`${this._baseUrl}/submissions?${params.toString()}`);
   }

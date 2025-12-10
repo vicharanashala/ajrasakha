@@ -44,6 +44,7 @@ import {
   useNavigateToComment,
   useNavigateToQuestion,
   useNavigateToRequest,
+  useNavigateToHistory
 } from "@/hooks/api/question/useNavigateToQuestion";
 
 export default function Notification() {
@@ -61,6 +62,7 @@ export default function Notification() {
   const { goToQuestion } = useNavigateToQuestion();
   const { goToRequest } = useNavigateToRequest();
   const { goToComment } = useNavigateToComment();
+  const {goToHistory}=useNavigateToHistory()
   const {
     data: notificationPages,
     fetchNextPage,
@@ -144,6 +146,12 @@ export default function Notification() {
     if (type === "comment" || type === "flag_response") {
       goToComment(enitity_id); // enitity_id is questionId
       return;
+    }
+    if(type==="review_rejected" || type==="review_modified")
+    {
+      goToHistory(enitity_id);
+      return;
+
     }
   };
   const handlePreferenceChange = async (value: string) => {

@@ -5,8 +5,10 @@ import UserActivityHistory from "./ExpertHistory";
 
 export const FullSubmissionHistory = ({
   currentUser,
+  selectedHistoryId
 }: {
   currentUser: IUser;
+  selectedHistoryId:string | null
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -443,6 +445,6 @@ export const FullSubmissionHistory = ({
     //   )}
     // </>
 
-    <UserActivityHistory/>
+    <UserActivityHistory selectedHistoryId={selectedHistoryId}/>
   );
 };
