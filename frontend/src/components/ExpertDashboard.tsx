@@ -19,16 +19,29 @@ import {
   TableRow,
 } from "./atoms/table";
 import { DashboardClock } from "./dashboard/dashboard-clock";
+interface ExpertDashboardProps {
+  expertId: string|null
+}
 
-export const ExpertDashboard=()=>{
+export const ExpertDashboard = ({ expertId }: ExpertDashboardProps) => {
   const { data: user, isLoading } = useGetCurrentUser();
-  const userId=user?._id?.toString()
+  let userId:string|undefined
+ // console.log("the expert id coming=====",expertId)
+  if(expertId)
+  {
+    userId=expertId.toString()
+    //console.log("the user id coming===",userId)
+  }
+  else{
+    userId=user?._id?.toString()
+  }
   const { data: reviewLevel, isLoading:isLoadingReviewLevel } = useGetReviewLevel(userId);
+//  console.log("the review level coming===",reviewLevel)
   const levels = reviewLevel || [];
   const totalPending = levels.reduce((sum, item) => sum + item.pendingcount, 0);
   const totalCompleted = levels.reduce((sum, item) => sum + item.completedcount, 0);
  const [search, setSearch] = useState("");
- const [selectedUserId, setSelectedUserId] = useState("");
+ 
  const [filter, setFilter] = useState("");
 
  const [selectedSort, setSelectedSort] = useState("");
@@ -47,9 +60,8 @@ export const ExpertDashboard=()=>{
 
  useEffect(() => {
    if (!expertDetails || !expertDetails.experts) return; // safety check
- 
    const filteredUsers = expertDetails.experts.filter((ele: any) => {
-     return ele.email === user?.email; // optional chaining for user
+     return ele._id === userId; // optional chaining for user
    });
    setTotalUsers(expertDetails.experts.length)
    setUserDetails(filteredUsers);
@@ -69,7 +81,7 @@ export const ExpertDashboard=()=>{
               Expert Dashboard
             </h1>
             <p className="text-muted-foreground mt-1">
-              Monitor  expert performance
+             Monitor  expert performance of : {userDetails?.[0]?.firstName}
             </p>
           </div>
 
@@ -103,7 +115,7 @@ export const ExpertDashboard=()=>{
               <p className="text-xs text-muted-foreground mb-1">
               Reputation Score
               </p>
-              <p className="text-3xl font-bold text-foreground">{totalPending || 'N/A'}</p>
+              <p className="text-3xl font-bold text-foreground">{totalPending || 0}</p>
               <p className="text-xs text-green-600 mt-2 font-medium">
                 Pending Questions To Review
               </p>
@@ -167,8 +179,8 @@ export const ExpertDashboard=()=>{
                       <TableHead className="w-[35%] text-center w-52">
                         Review Level
                       </TableHead>
-                      <TableHead className="text-center w-52">Total Pending Tasks</TableHead>
-                      <TableHead className="text-center w-52">Total Completed Tasks</TableHead>
+                      <TableHead className="text-center w-52">Total Pending Tasks({totalPending})</TableHead>
+                      <TableHead className="text-center w-52">Total Completed Tasks({totalCompleted})</TableHead>
                     </TableRow>
                   </TableHeader>
 

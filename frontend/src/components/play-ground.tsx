@@ -37,7 +37,9 @@ export const PlaygroundPage = () => {
     selectedCommentId,
     setSelectedCommentId,
     selectedHistoryId,
-    setSelectedHistoryId
+    setSelectedHistoryId,
+    selectedExpertId,
+    setSelectedExpertId
   } = useSelectedQuestion();
   const [activeTab, setActiveTab] = useState<string>("performance");
 
@@ -49,7 +51,12 @@ export const PlaygroundPage = () => {
     if (user.role !== "expert") {
       if (selectedRequestId) {
         calculatedTab = "request_queue";
-      } else {
+      } 
+      else if(selectedExpertId)
+      {
+        calculatedTab = "expertPerformance";
+      }
+      else  {
         calculatedTab = "performance";
       }
     } else {
@@ -70,7 +77,7 @@ export const PlaygroundPage = () => {
     }
 
     setActiveTab(calculatedTab);
-  }, [user, selectedQuestionId, selectedRequestId, selectedCommentId,selectedHistoryId]);
+  }, [user, selectedQuestionId, selectedRequestId, selectedCommentId,selectedHistoryId,selectedExpertId]);
   // const defaultTab = (() => {
   //   if (!user) return "performance";
   //   if (user.role !== "expert") return "performance";
@@ -94,6 +101,10 @@ export const PlaygroundPage = () => {
     }
     if (value !== "history") {
       setSelectedHistoryId(null);
+    }
+    if(value!=="expertPerformance")
+    {
+      setSelectedExpertId(null)
     }
 
   };
@@ -252,7 +263,7 @@ export const PlaygroundPage = () => {
 
             <div className="flex-1 md:flex justify-center min-w-0 hidden ">
               <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
-                
+              {user && user.role !== "expert" && (
                   <TabsTrigger
                     value="performance"
                     className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
@@ -262,7 +273,18 @@ export const PlaygroundPage = () => {
                       {/* <span>Performance</span> */}
                     </HoverCard>
                   </TabsTrigger>
-            
+              )}
+              {user && user.role === "expert" && (
+                  <TabsTrigger
+                    value="expertPerformance"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <HoverCard openDelay={150}>
+                      <span>Dashboard</span>
+                      {/* <span>Performance</span> */}
+                    </HoverCard>
+                  </TabsTrigger>
+              )}
 
                 {user && user.role == "expert" && (
                   <TabsTrigger
@@ -353,10 +375,10 @@ export const PlaygroundPage = () => {
                   <Dashboard />
                 </TabsContent>
               )}
-              {user && user.role === "expert" && (
-                <TabsContent value="performance" className="mt-0 border-0 p-0 ">
+              {(user && user.role === "expert" || selectedExpertId) && (
+                <TabsContent value="expertPerformance" className="mt-0 border-0 p-0 ">
                   {/* <PerformanceMatrics /> */}
-                  <ExpertDashboard />
+                  <ExpertDashboard expertId={selectedExpertId} />
                 </TabsContent>
               )}
               {user && user.role == "expert" && (

@@ -48,8 +48,7 @@ export class UserController {
   @Get('/review-level/:userId')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get current user'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  @OpenAPI({summary: 'Get current user review level'})
   async getUserReviewLevel(@Params() params:{userId:string}): Promise<any> {
     
     const {userId }= params;

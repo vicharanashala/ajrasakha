@@ -23,6 +23,10 @@ import { ConfirmationModal } from "./confirmation-modal";
 import { formatDate } from "@/utils/formatDate";
 import { useState } from "react";
 import { useBlockUser } from "@/hooks/api/user/useBlockUser";
+import {
+ useNavigateToExpertDashboard
+} from "@/hooks/api/question/useNavigateToQuestion";
+import {ExpertDashboard} from './ExpertDashboard'
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -153,6 +157,15 @@ const UserRow: React.FC<UserRowProps> = ({
   setIsCurrentlyBlocked,
 }) => {
   const isBlocked = u.isBlocked || false;
+  
+  const { goToExpertDashboard } = useNavigateToExpertDashboard();
+  const handleExpertClick = async (userId:string|undefined) => {
+    if (userId) {
+      goToExpertDashboard(userId); // enitity_id is questionId
+      return;
+    }
+
+  }
   return (
     <TableRow key={String(u._id)} className="text-center">
       {/* Serial Number */}
@@ -162,7 +175,14 @@ const UserRow: React.FC<UserRowProps> = ({
 
       {/* User name */}
       <TableCell className="align-middle w-36" title={u.firstName}>
+        <div>
+        <span
+        className={"hover:underline"}
+        onClick={()=>{handleExpertClick(u._id)}}
+        >
         {truncate(u.firstName + " " + u.lastName, 60)}
+        </span>
+        </div>
       </TableCell>
 
       {/* Email */}

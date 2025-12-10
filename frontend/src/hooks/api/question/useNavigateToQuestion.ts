@@ -71,3 +71,19 @@ export const useNavigateToHistory = () => {
 
   return { goToHistory };
 };
+export const useNavigateToExpertDashboard = () => {
+  const navigate = useNavigate();
+
+  const goToExpertDashboard = useCallback(
+    (expertUserId: string) => {
+      navigate({
+        to: "/home",
+        search: (prev) => ({ ...prev, expertId: expertUserId }),
+        replace: true,
+      });
+    },
+    [navigate]
+  );
+
+  return { goToExpertDashboard };
+};
