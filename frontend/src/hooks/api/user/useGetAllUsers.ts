@@ -36,7 +36,8 @@ export const useGetAllExperts = (
   limit: number,
   search: string,
   sort: string,
-  filter: string
+  filter: string,
+  options:{enabled?:boolean}={}
 ) => {
   const { data, isLoading, error } = useQuery<{
     experts: IUser[];
@@ -53,6 +54,7 @@ export const useGetAllExperts = (
         filter
       );
     },
+    enabled: options?.enabled,
   });
 
   return { data, isLoading, error };
