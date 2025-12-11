@@ -6,7 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
-import { ListTodo, Award, ThumbsDown, Loader2, Trophy } from "lucide-react";
+import { ListTodo, Award, ThumbsDown, Loader2, Trophy,Clock } from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useGetReviewLevel } from "@/hooks/api/user/useGetReviewLevel";
 import { useGetAllExperts } from "@/hooks/api/user/useGetAllUsers";
@@ -33,18 +33,18 @@ export const ExpertDashboard = ({
   rankPosition,
   expertDetailsList,
 }: ExpertDashboardProps) => {
-  const { data: user, isLoading } = useGetCurrentUser();
+  const shouldFetch = !expertDetailsList;
+
+  const { data: user, isLoading } = useGetCurrentUser({enabled: shouldFetch });
   let userId: string | undefined;
-  // console.log("the expert id coming=====",expertId)
+
   if (expertId) {
     userId = expertId.toString();
-    //console.log("the user id coming===",userId)
   } else {
     userId = user?._id?.toString();
   }
   const { data: reviewLevel, isLoading: isLoadingReviewLevel } =
     useGetReviewLevel(userId);
-  //  console.log("the review level coming===",reviewLevel)
   const levels = reviewLevel || [];
   const totalPending = levels.reduce((sum, item) => sum + item.pendingcount, 0);
   const totalCompleted = levels.reduce(
@@ -58,25 +58,26 @@ export const ExpertDashboard = ({
   const [selectedSort, setSelectedSort] = useState("");
   const [page, setPage] = useState(1);
   const LIMIT = 500;
-
+  
   const { data: expertDetails, isLoading: isloadingRank } = useGetAllExperts(
     page,
     LIMIT,
     search,
     selectedSort,
-    filter
+    filter,
+     {enabled: shouldFetch }
   );
   const [userDetails, setUserDetails] = useState<any[]>([]);
   const [totalUsers, setTotalUsers] = useState<number>(0);
-
+  const expertArr = expertDetailsList || expertDetails;
   useEffect(() => {
-    if (!expertDetails || !expertDetails.experts) return; // safety check
-    const filteredUsers = expertDetails.experts.filter((ele: any) => {
+    if (!expertArr || !expertArr.experts) return; // safety check
+    const filteredUsers = expertArr.experts.filter((ele: any) => {
       return ele._id === userId; // optional chaining for user
     });
-    setTotalUsers(expertDetails.experts.length);
+    setTotalUsers(expertArr.experts.length);
     setUserDetails(filteredUsers);
-  }, [expertDetails, user?.email]);
+  }, [expertArr, user?.email]);
   //console.log("the review level====",reviewLevel)
 
   return (
@@ -193,6 +194,23 @@ export const ExpertDashboard = ({
                   </p>
                 </div>
                 <ThumbsDown className="w-8 h-8 text-chart-3 opacity-60 text-green-400" />
+              </div>
+            </CardContent>
+          </Card>
+          {/*Working hours card */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Working Hours</p>
+                  <p className="text-3xl font-bold text-foreground">
+                    { 'N/A'}
+                  </p>
+                  <p className="text-xs text-green-600 mt-2 font-medium">
+                    Total Working Hours Per Week
+                  </p>
+                </div>
+                <Clock className="w-8 h-8 text-chart-3 opacity-60 text-green-400" />
               </div>
             </CardContent>
           </Card>
