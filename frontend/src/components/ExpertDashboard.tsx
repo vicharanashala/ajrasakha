@@ -75,7 +75,7 @@ export const ExpertDashboard = ({
     const filteredUsers = expertArr.experts.filter((ele: any) => {
       return ele._id === userId; // optional chaining for user
     });
-    setTotalUsers(expertArr.experts.length);
+    setTotalUsers(expertArr.totalExperts);
     setUserDetails(filteredUsers);
   }, [expertArr, user?.email]);
   //console.log("the review level====",reviewLevel)
