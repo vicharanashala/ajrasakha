@@ -905,8 +905,6 @@ const matchStage = selectedHistoryId
     let {userId,startTime,endTime}=query
     const reviewerId = new ObjectId(userId);
     const pipeline = [
-      
-
       // 1) Safe fields
       {
         $addFields: {
@@ -914,14 +912,14 @@ const matchStage = selectedHistoryId
           historyArr: { $ifNull: ["$history", []] }
         }
       },
-  
+    
       // 2) Compute history length
       {
         $addFields: {
           historyLen: { $size: "$historyArr" }
         }
       },
-  
+    
       // 3) Slice history excluding 0th index
       {
         $addFields: {
@@ -934,7 +932,7 @@ const matchStage = selectedHistoryId
           }
         }
       },
-  
+    
       // 4) Check if reviewer has in-review entry in history[1..]
       {
         $addFields: {
@@ -959,7 +957,7 @@ const matchStage = selectedHistoryId
           }
         }
       },
-  
+    
       // 5) Determine Author or Level (Level = historyLen - 1)
       {
         $addFields: {
@@ -974,7 +972,7 @@ const matchStage = selectedHistoryId
               { $and: [ { $eq: ["$hasInReviewEntry", true] }, { $gt: ["$historyLen", 1] } ] },
               { $concat: [
                   "Level ",
-                  { $toString: { $subtract: ["$historyLen", 1] } } // subtract 1 for 0th index
+                  { $toString: { $subtract: ["$historyLen", 1] } }
                 ]
               },
               null
@@ -982,7 +980,7 @@ const matchStage = selectedHistoryId
           }
         }
       },
-  
+    
       // 6) Final Review_level
       {
         $addFields: {
@@ -995,27 +993,70 @@ const matchStage = selectedHistoryId
           }
         }
       },
-  
+    
       // 7) Keep only documents with Review_level
       { $match: { Review_level: { $ne: null } } },
-  
-      // 8) Group counts by level
+    
+      // 8) **LOOKUP QUESTIONS COLLECTION**
+      {
+        $lookup: {
+          from: "questions",
+          localField: "questionId",
+          foreignField: "_id",
+          as: "questionDetails"
+        }
+      },
+    
+      // 9) **UNWIND QUESTION DETAILS**
+      { 
+        $unwind: { 
+          path: "$questionDetails", 
+          preserveNullAndEmptyArrays: false 
+        } 
+      },
+    
+      // 10) **ADD STATUS FLAGS**
+      {
+        $addFields: {
+          isInReview: { $eq: ["$questionDetails.status", "in-review"] },
+          isDelayed: { $eq: ["$questionDetails.status", "delayed"] }
+        }
+      },
+    
+      // 11) Group counts by level with status breakdown
       {
         $group: {
           _id: "$Review_level",
-          count: { $sum: 1 }
+          count: { $sum: 1 },
+          inReview: { 
+            $sum: { 
+              $cond: [{ $eq: ["$isInReview", true] }, 1, 0] 
+            } 
+          },
+          delayed: { 
+            $sum: { 
+              $cond: [{ $eq: ["$isDelayed", true] }, 1, 0] 
+            } 
+          }
         }
       },
-  
-      // 9) Collect actual results into an array
+    
+      // 12) Collect actual results into an array
       {
         $group: {
           _id: null,
-          actual: { $push: { Review_level: "$_id", count: "$count" } }
+          actual: { 
+            $push: { 
+              Review_level: "$_id", 
+              count: "$count",
+              inReview: "$inReview",
+              delayed: "$delayed"
+            } 
+          }
         }
       },
-  
-      // 10) Merge with static levels to ensure missing levels show 0, including Level 1
+    
+      // 13) Merge with static levels to ensure missing levels show 0
       {
         $project: {
           merged: {
@@ -1049,17 +1090,47 @@ const matchStage = selectedHistoryId
                     },
                     in: { $ifNull: ["$$found.count", 0] }
                   }
+                },
+                inReview: {
+                  $let: {
+                    vars: {
+                      found: {
+                        $first: {
+                          $filter: {
+                            input: { $ifNull: ["$actual", []] },
+                            cond: { $eq: ["$$this.Review_level", "$$lvl"] }
+                          }
+                        }
+                      }
+                    },
+                    in: { $ifNull: ["$$found.inReview", 0] }
+                  }
+                },
+                delayed: {
+                  $let: {
+                    vars: {
+                      found: {
+                        $first: {
+                          $filter: {
+                            input: { $ifNull: ["$actual", []] },
+                            cond: { $eq: ["$$this.Review_level", "$$lvl"] }
+                          }
+                        }
+                      }
+                    },
+                    in: { $ifNull: ["$$found.delayed", 0] }
+                  }
                 }
               }
             }
           }
         }
       },
-  
+    
       { $unwind: "$merged" },
       { $replaceRoot: { newRoot: "$merged" } },
-  
-      // Optional: ensure Author comes first (already in map order)
+    
+      // Optional: ensure Author comes first
       { $sort: { Review_level: 1 } }
     ];
     const pipe = [
@@ -1341,9 +1412,6 @@ const matchStage = selectedHistoryId
       { $sort: { levelSort: 1 } },
       { $project: { levelSort: 0 } }
     ];
-    
-    
-    
   
     let pending= await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
     let completed=await this.QuestionSubmissionCollection.aggregate(pipe).toArray();
@@ -1368,6 +1436,8 @@ const matchStage = selectedHistoryId
       return {
         Review_level: c.Review_level,
         pendingcount: c.count,
+        inReviewQuestions:c.inReview,
+        delayedQuestion:c.delayed,
         completedcount: matchCompleted ? matchCompleted.count : 0,
         approvedCount:matchCompleted ? matchCompleted.approvedCount : 0,
         rejectedCount:matchCompleted ? matchCompleted.rejectedCount : 0,

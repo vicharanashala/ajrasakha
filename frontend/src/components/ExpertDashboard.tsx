@@ -6,7 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
-import { ListTodo, Award, ThumbsDown, Loader2, Trophy,Clock ,Target,CheckCircle} from "lucide-react";
+import { ListTodo, Award, ThumbsDown, Loader2, Trophy,Clock ,Target,CheckCircle,AlertCircle} from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useGetReviewLevel } from "@/hooks/api/user/useGetReviewLevel";
 import { useGetAllExperts } from "@/hooks/api/user/useGetAllUsers";
@@ -63,6 +63,7 @@ export const ExpertDashboard = ({
   const totalapproved = levels.reduce((sum, item) => sum + item.approvedCount, 0);
   const totalrejected = levels.reduce((sum, item) => sum + item.rejectedCount, 0);
   const totalmodified = levels.reduce((sum, item) => sum + item.modifiedCount, 0);
+  const totalDelayedQuestions=levels.reduce((sum, item) => sum + item.delayedQuestion, 0)
   const [search, setSearch] = useState("");
 
   const [filter, setFilter] = useState("");
@@ -175,7 +176,7 @@ export const ExpertDashboard = ({
                     Pending Questions To Review
                   </p>
                 </div>
-                <ListTodo className="w-8 h-8 text-chart-1 opacity-60 text-green-400" />
+                <ListTodo className="w-8 h-8 text-chart-1 opacity-60 text-yellow-400" />
               </div>
             </CardContent>
           </Card>
@@ -211,7 +212,24 @@ export const ExpertDashboard = ({
                     Total Rejected Answers
                   </p>
                 </div>
-                <ThumbsDown className="w-8 h-8 text-chart-3 opacity-60 text-green-400" />
+                <ThumbsDown className="w-8 h-8 text-chart-3 opacity-60 text-red-400" />
+              </div>
+            </CardContent>
+          </Card>
+          {/*To display Delayed uestion count */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Delayed Questions</p>
+                  <p className="text-3xl font-bold text-foreground">
+                    { totalDelayedQuestions||0}
+                  </p>
+                  <p className="text-xs text-green-600 mt-2 font-medium">
+                    Count of Delayed Questions
+                  </p>
+                </div>
+                <AlertCircle className="w-8 h-8 text-chart-3 opacity-60 text-red-400" />
               </div>
             </CardContent>
           </Card>
