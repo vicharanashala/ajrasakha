@@ -1,6 +1,7 @@
 import type { IUser,ReviewLevelCount } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { IUsersNameResponse } from "../api/user/useGetAllUsers";
+import { formatDateLocal } from "@/utils/formatDate";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -43,7 +44,20 @@ export class UserService {
    async Getuser(email:string):Promise<IUser| null>{
     return apiFetch<IUser | null>(`${this._baseUrl}/details/${email}`);
   }
-  async getUserReviewLevel(userId:string|undefined): Promise<ReviewLevelCount[] | null> {
-    return apiFetch<ReviewLevelCount[]>(`${this._baseUrl}/review-level/${userId}`);
+  async getUserReviewLevel(userId:string|undefined,startTime:Date|undefined,endTime:Date|undefined): Promise<ReviewLevelCount[] | null> {
+    const params = new URLSearchParams();
+
+    if (startTime) {
+      params.append("startTime", formatDateLocal(startTime));
+    }
+
+    if (endTime) {
+      params.append("endTime", formatDateLocal(endTime));
+    }
+    if(userId)
+    {
+      params.append("userId",userId)
+    }
+    return apiFetch<ReviewLevelCount[]>(`${this._baseUrl}/review-level?${params.toString()}`);
   }
 }

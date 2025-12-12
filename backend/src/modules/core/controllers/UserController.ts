@@ -18,7 +18,7 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {IUser, NotificationRetentionType} from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {UserService} from '../services/UserService.js';
-import {BlockUnblockBody, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, UsersNameResponseDto} from '../classes/validators/UserValidators.js';
+import {BlockUnblockBody, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, UsersNameResponseDto,ExpertReviewLevelDto} from '../classes/validators/UserValidators.js';
 
 @OpenAPI({
   tags: ['users'],
@@ -45,14 +45,13 @@ export class UserController {
     }
     return user;
   }
-  @Get('/review-level/:userId')
+  @Get('/review-level')
   @HttpCode(200)
   @Authorized()
   @OpenAPI({summary: 'Get current user review level'})
-  async getUserReviewLevel(@Params() params:{userId:string}): Promise<any> {
-    
-    const {userId }= params;
-    const result = await this.userService.getUserReviewLevel(userId);
+  async getUserReviewLevel( @QueryParams() query: ExpertReviewLevelDto): Promise<any> {
+   // const {userId }= params;
+    const result = await this.userService.getUserReviewLevel(query);
     if (!result) {
       throw new NotFoundError('not able to find review_levvel odf user');
     }

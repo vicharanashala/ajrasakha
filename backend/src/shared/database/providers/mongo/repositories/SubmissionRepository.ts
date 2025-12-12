@@ -19,6 +19,9 @@ import {USER_VALIDATORS} from '#root/modules/core/classes/validators/UserValidat
 import {HistoryItem} from '#root/modules/core/classes/validators/QuestionValidators.js';
 import {GetHeatMapQuery} from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {getReviewerQueuePosition} from '#root/utils/getReviewerQueuePosition.js';
+import {
+  ExpertReviewLevelDto
+} from '#root/modules/core/classes/validators/UserValidators.js';
 
 export class QuestionSubmissionRepository
   implements IQuestionSubmissionRepository
@@ -897,10 +900,12 @@ const matchStage = selectedHistoryId
     };
   }
   //690f05447360add0cf5aa0f8
-  async getUserReviewLevel(userId): Promise<any> {
+  async getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any> {
     await this.init();
+    let {userId,startTime,endTime}=query
     const reviewerId = new ObjectId(userId);
     const pipeline = [
+      
 
       // 1) Safe fields
       {
@@ -1058,6 +1063,23 @@ const matchStage = selectedHistoryId
       { $sort: { Review_level: 1 } }
     ];
     const pipe = [
+      {
+        $addFields: {
+          history: {
+            $filter: {
+              input: "$history",
+              as: "h",
+              cond: {
+                $and: [
+                  startTime ? { $gte: ["$$h.updatedAt", new Date(startTime)] } : {},
+                  endTime ? { $lte: ["$$h.updatedAt", new Date(endTime)] } : {}
+                ]
+              }
+            }
+          }
+        }
+      },
+      { $match: { history: { $ne: [] } } },
       // 1) Ensure history exists
       {
         $addFields: {
@@ -1078,7 +1100,7 @@ const matchStage = selectedHistoryId
         }
       },
     
-      // 3) Map history[1..] with index and filter completed entries
+      // 3) Map history[1..] with index
       {
         $addFields: {
           completedEntriesWithIndex: {
@@ -1093,6 +1115,8 @@ const matchStage = selectedHistoryId
           }
         }
       },
+    
+      // 4) Filter completed entries (NOT in-review) for this reviewer
       {
         $addFields: {
           completedEntriesWithIndex: {
@@ -1110,7 +1134,20 @@ const matchStage = selectedHistoryId
         }
       },
     
-      // 4) Determine Review_level with Level number starting from 1
+      // 5) Extract reviewEntry for counting
+      {
+        $addFields: {
+          reviewEntry: {
+            $cond: [
+              "$isAuthor",
+              { $arrayElemAt: ["$historyArr", 0] },
+              { $arrayElemAt: ["$completedEntriesWithIndex.entry", 0] }
+            ]
+          }
+        }
+      },
+    
+      // 6) Determine Review_level with Level number starting from 1
       {
         $addFields: {
           Review_level: {
@@ -1136,26 +1173,52 @@ const matchStage = selectedHistoryId
         }
       },
     
-      // 5) Keep only documents with Review_level
+      // 7) Add approved/rejected/modified counting
+      {
+        $addFields: {
+          approvedCount: {
+            $cond: [{ $ifNull: ["$reviewEntry.approvedAnswer", false] }, 1, 0]
+          },
+          rejectedCount: {
+            $cond: [{ $ifNull: ["$reviewEntry.rejectedAnswer", false] }, 1, 0]
+          },
+          modifiedCount: {
+            $cond: [{ $ifNull: ["$reviewEntry.modifiedAnswer", false] }, 1, 0]
+          }
+        }
+      },
+    
+      // 8) Keep only documents with Review_level
       { $match: { Review_level: { $ne: null } } },
     
-      // 6) Group counts by Review_level
+      // 9) Group counts by Review_level
       {
         $group: {
           _id: "$Review_level",
-          count: { $sum: 1 }
+          count: { $sum: 1 },
+          approvedCount: { $sum: "$approvedCount" },
+          rejectedCount: { $sum: "$rejectedCount" },
+          modifiedCount: { $sum: "$modifiedCount" }
         }
       },
     
-      // 7) Collect into array
+      // 10) Collect into array
       {
         $group: {
           _id: null,
-          actual: { $push: { Review_level: "$_id", count: "$count" } }
+          actual: {
+            $push: {
+              Review_level: "$_id",
+              count: "$count",
+              approvedCount: "$approvedCount",
+              rejectedCount: "$rejectedCount",
+              modifiedCount: "$modifiedCount"
+            }
+          }
         }
       },
     
-      // 8) Merge with fixed levels to fill missing with 0
+      // 11) Merge with fixed levels to fill missing with 0
       {
         $project: {
           merged: {
@@ -1189,6 +1252,69 @@ const matchStage = selectedHistoryId
                     },
                     in: { $ifNull: ["$$found.count", 0] }
                   }
+                },
+                approvedCount: {
+                  $cond: [
+                    { $eq: ["$$lvl", "Author"] },
+                    0,
+                    {
+                      $let: {
+                        vars: {
+                          found: {
+                            $first: {
+                              $filter: {
+                                input: { $ifNull: ["$actual", []] },
+                                cond: { $eq: ["$$this.Review_level", "$$lvl"] }
+                              }
+                            }
+                          }
+                        },
+                        in: { $ifNull: ["$$found.approvedCount", 0] }
+                      }
+                    }
+                  ]
+                },
+                rejectedCount: {
+                  $cond: [
+                    { $eq: ["$$lvl", "Author"] },
+                    0,
+                    {
+                      $let: {
+                        vars: {
+                          found: {
+                            $first: {
+                              $filter: {
+                                input: { $ifNull: ["$actual", []] },
+                                cond: { $eq: ["$$this.Review_level", "$$lvl"] }
+                              }
+                            }
+                          }
+                        },
+                        in: { $ifNull: ["$$found.rejectedCount", 0] }
+                      }
+                    }
+                  ]
+                },
+                modifiedCount: {
+                  $cond: [
+                    { $eq: ["$$lvl", "Author"] },
+                    0,
+                    {
+                      $let: {
+                        vars: {
+                          found: {
+                            $first: {
+                              $filter: {
+                                input: { $ifNull: ["$actual", []] },
+                                cond: { $eq: ["$$this.Review_level", "$$lvl"] }
+                              }
+                            }
+                          }
+                        },
+                        in: { $ifNull: ["$$found.modifiedCount", 0] }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -1196,14 +1322,25 @@ const matchStage = selectedHistoryId
         }
       },
     
-      // 9) Unwind merged array
+      // 12) Unwind merged array
       { $unwind: "$merged" },
       { $replaceRoot: { newRoot: "$merged" } },
     
-      // 10) Optional: keep order
-      { $sort: { Review_level: 1 } }
+      // 13) Sort Author first, then Levels numerically
+      {
+        $addFields: {
+          levelSort: {
+            $cond: [
+              { $eq: ["$Review_level", "Author"] },
+              0,
+              { $toInt: { $substr: ["$Review_level", 6, -1] } }
+            ]
+          }
+        }
+      },
+      { $sort: { levelSort: 1 } },
+      { $project: { levelSort: 0 } }
     ];
-    
     
     
     
@@ -1232,6 +1369,9 @@ const matchStage = selectedHistoryId
         Review_level: c.Review_level,
         pendingcount: c.count,
         completedcount: matchCompleted ? matchCompleted.count : 0,
+        approvedCount:matchCompleted ? matchCompleted.approvedCount : 0,
+        rejectedCount:matchCompleted ? matchCompleted.rejectedCount : 0,
+        modifiedCount:matchCompleted ? matchCompleted.modifiedCount : 0,
       };
     });
    

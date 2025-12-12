@@ -85,7 +85,19 @@ class BlockUnblockBody{
   @IsOptional()
   userId:string
 }
+class ExpertReviewLevelDto{
+  @IsOptional()
+  userId:string
+
+  
+  @IsOptional()
+  startTime?: string;
+
+ 
+  @IsOptional()
+  endTime?: string;
+}
 
 export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive,BlockUnblockBody];
 
-export {PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive,BlockUnblockBody};
+export {PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive,BlockUnblockBody,ExpertReviewLevelDto};

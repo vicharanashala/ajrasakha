@@ -8,6 +8,7 @@ import {ClientSession} from 'mongodb';
 import {
   PreferenceDto,
   UsersNameResponseDto,
+  ExpertReviewLevelDto
 } from '../classes/validators/UserValidators.js';
 import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
@@ -51,17 +52,17 @@ export class UserService extends BaseService {
       );
     }
   }
-  async getUserReviewLevel(userId: string): Promise<any> {
+  async getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any> {
     try {
-      if (!userId) throw new NotFoundError('User ID is required');
+      if (!query.userId) throw new NotFoundError('User ID is required');
 
       return this._withTransaction(async (session: ClientSession) => {
-        const result= await this.questionSubmissionRepo.getUserReviewLevel(userId)
+        const result= await this.questionSubmissionRepo.getUserReviewLevel(query)
         return result
       });
     } catch (error) {
       throw new InternalServerError(
-        `Failed to fetch user review-level with ID ${userId}: ${error}`,
+        `Failed to fetch user review-level with ID ${query.userId}: ${error}`,
       );
     }
   }

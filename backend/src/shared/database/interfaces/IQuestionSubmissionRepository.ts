@@ -6,6 +6,9 @@ import {
   ISubmissionHistory,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
+import {
+  ExpertReviewLevelDto
+} from '#root/modules/core/classes/validators/UserValidators.js';
 
 export interface IQuestionSubmissionRepository {
   /**
@@ -126,5 +129,5 @@ export interface IQuestionSubmissionRepository {
     session?: ClientSession,
     selectedHistoryId?:string|undefined
   );
-  getUserReviewLevel(userId): Promise<any >
+  getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any >
 }
