@@ -50,7 +50,9 @@ export interface ReviewLevelCount {
   completedcount:number;
   approvedCount:number;
   rejectedCount:number;
-  modifiedCount:number
+  modifiedCount:number;
+  inReviewQuestions:number;
+  delayedQuestion:number;
 
 }
 
