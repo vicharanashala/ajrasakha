@@ -6,7 +6,7 @@ import cron from 'node-cron';
 
 // cron.schedule('* * * * *', async () => {
 cron.schedule(
-  '0 8,20 * * *',
+  '0 8,19 * * *',
   async () => {
     console.log('🚀 Cron Job Started: Creating MongoDB Backup...');
 
