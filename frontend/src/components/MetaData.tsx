@@ -18,6 +18,7 @@ export const DOMAINS = [
   "Varieties",
   "Water Management",
   "Weed Management",
+  "Market Information"
 ];
 export const STATES = [
   "Andhra Pradesh",
