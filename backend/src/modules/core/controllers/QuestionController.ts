@@ -284,17 +284,6 @@ export class QuestionController {
     );
   }
 
-  @Delete('/:questionId')
-  @HttpCode(200)
-  @Authorized()
-  @OpenAPI({summary: 'Delete a question by ID'})
-  async deleteQuestion(
-    @Params() params: QuestionIdParam,
-  ): Promise<{deletedCount: number}> {
-    const {questionId} = params;
-    return this.questionService.deleteQuestion(questionId);
-  }
-
   @Delete('/bulk')
   @HttpCode(200)
   @Authorized()
@@ -304,6 +293,17 @@ export class QuestionController {
   ): Promise<{deletedCount: number}> {
     const {questionIds} = body;
     return this.questionService.bulkDeleteQuestions(questionIds);
+  }
+
+  @Delete('/:questionId')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Delete a question by ID'})
+  async deleteQuestion(
+    @Params() params: QuestionIdParam,
+  ): Promise<{deletedCount: number}> {
+    const {questionId} = params;
+    return this.questionService.deleteQuestion(questionId);
   }
 
   /////////////////////////////////////////////////// FOR BACKGROUND JOBS ///////////////////////////////////////////////
