@@ -90,6 +90,7 @@ import {
 } from "./atoms/tooltip";
 
 import { STATES, CROPS, DOMAINS, SEASONS } from "./MetaData";
+import { useBulkDeleteQuestions } from "@/hooks/api/question/useBulkDeleteQuestions";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -148,6 +149,9 @@ export const QuestionsTable = ({
 
   const { mutateAsync: updateQuestion, isPending: updatingQuestion } =
     useUpdateQuestion();
+
+  const { mutate: bulkDeleteQuestions, isPending: bulkDeletingQuestions } =
+    useBulkDeleteQuestions();
 
   const handleUpdateQuestion = async (
     mode: "add" | "edit",
@@ -512,17 +516,13 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
         {priorityBadge}
       </TableCell>
 
-      {/* <TableCell className="align-middle">
-        {q.review_level_number?.toString() == "Author"
-          ? q.review_level_number
-          : `Level ${q.review_level_number}`}
-      </TableCell> */}
 
       {/* Details */}
       <TableCell className="align-middle">
         {" "}
         {truncate(q.details.state, 10)}
       </TableCell>
+      
       <TableCell className="align-middle">
         {truncate(q.details.crop, 10)}
       </TableCell>
