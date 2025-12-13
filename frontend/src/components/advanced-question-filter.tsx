@@ -53,7 +53,7 @@ import {
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 import type { IMyPreference } from "@/types";
-import { CROPS, STATES, DOMAINS,Review_Level } from "@/components/MetaData";
+import { CROPS, STATES, DOMAINS, Review_Level } from "@/components/MetaData";
 import { Popover, PopoverContent, PopoverTrigger } from "./atoms/popover";
 import { format } from "date-fns";
 export { STATES, CROPS, DOMAINS };
@@ -76,17 +76,17 @@ export type QuestionTimeRange = {
   startDate: Date | undefined;
   endDate: Date | undefined;
 };
-export type ReviewLevel="all"
-                |"Level 1"
-                |"Level 2"
-                |"Level 3"
-                |"Level 4"
-                |"Level 5"
-                |"Level 6"
-                |"Level 7"
-                |"Level 8"
-                |"Level 9"
-                
+export type ReviewLevel =
+  | "all"
+  | "Level 1"
+  | "Level 2"
+  | "Level 3"
+  | "Level 4"
+  | "Level 5"
+  | "Level 6"
+  | "Level 7"
+  | "Level 8"
+  | "Level 9";
 
 export type AdvanceFilterValues = {
   status: QuestionFilterStatus;
@@ -100,7 +100,7 @@ export type AdvanceFilterValues = {
   priority: QuestionPriorityFilter;
   startTime?: Date | undefined; // Use a specific name like startTime/endTime
   endTime?: Date | undefined;
-  review_level?:string
+  review_level?: ReviewLevel;
 };
 
 // Define the props for your new component
@@ -620,8 +620,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   </SelectContent>
                 </Select>
               </div>
-
-              
             </div>
 
             <Separator />
@@ -722,7 +720,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   priority: "all",
                   user: "all",
                   domain: "all",
-                  review_level:"all"
+                  review_level: "all",
                 });
                 onReset();
               }}

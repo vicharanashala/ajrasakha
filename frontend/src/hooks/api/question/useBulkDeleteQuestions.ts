@@ -21,7 +21,6 @@ export const useBulkDeleteQuestions = () => {
     },
     onError: (error: any) => {
       toast.error("Failed to delete questions");
-      console.error("Bulk delete questions error:", error);
     },
   });
 };

@@ -12,9 +12,11 @@ import {
   type QuestionFilterStatus,
   type QuestionPriorityFilter,
   type QuestionSourceFilter,
-  type ReviewLevel
+  type ReviewLevel,
 } from "./advanced-question-filter";
 import { useDebounce } from "@/hooks/ui/useDebounce";
+import { useBulkDeleteQuestions } from "@/hooks/api/question/useBulkDeleteQuestions";
+import { toast } from "sonner";
 
 export const QuestionsPage = ({
   currentUser,
@@ -33,7 +35,7 @@ export const QuestionsPage = ({
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
   const [startTime, setStartTime] = useState<Date | undefined>(undefined);
   const [endTime, setEndTime] = useState<Date | undefined>(undefined);
-  const [review_level,setReviewLevel]=useState<ReviewLevel>("all")
+  const [review_level, setReviewLevel] = useState<ReviewLevel>("all");
 
   // const observerRef = useRef<IntersectionObserver | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -49,7 +51,14 @@ export const QuestionsPage = ({
   const [isBulkUpload, setIsBulkUpload] = useState(false);
   const debouncedSearch = useDebounce(search);
 
-  const LIMIT = 12;
+  // for Select mulitple questions and bulk delete
+  const [isSelectionModeOn, setIsSelectionModeOn] = useState(false);
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+
+  const { mutateAsync: bulkDeleteQuestions, isPending: bulkDeletingQuestions } =
+    useBulkDeleteQuestions();
+
+  const LIMIT = 11;
   const filter = useMemo(
     () => ({
       status,
@@ -77,17 +86,10 @@ export const QuestionsPage = ({
       user,
       startTime,
       endTime,
-      review_level
+      review_level,
     ]
   );
-  // const {
-  //   data,
-  //   fetchNextPage,
-  //   hasNextPage,
-  //   isFetchingNextPage,
-  //   isLoading,
-  //   refetch,
-  // } = useGetAllDetailedQuestions(LIMIT, filter, search);
+
   const {
     data: questionData,
     isLoading,
@@ -111,38 +113,6 @@ export const QuestionsPage = ({
       setSelectedQuestionId("");
     }
   }, [filter, debouncedSearch]);
-  // const questions = data?.pages.flatMap((page) => page ?? []) ?? [];
-
-  // const lastElementRef = useCallback(
-  //   (node: HTMLElement | null) => {
-  //     if (isFetchingNextPage) return;
-
-  //     if (observerRef.current) observerRef.current.disconnect();
-
-  //     observerRef.current = new IntersectionObserver(
-  //       (entries) => {
-  //         if (entries[0].isIntersecting && hasNextPage) {
-  //           fetchNextPage();
-  //         }
-  //       },
-  //       {
-  //         root: document.querySelector(".overflow-y-auto"),
-  //         rootMargin: "0px",
-  //         threshold: 1.0,
-  //       }
-  //     );
-
-  //     if (node) observerRef.current.observe(node);
-  //   },
-  //   [isFetchingNextPage, hasNextPage, fetchNextPage]
-  // );
-
-  // useEffect(() => {
-  //   if (observerRef.current) {
-  //     observerRef.current.disconnect();
-  //   }
-  //   refetch();
-  // }, [filter, refetch]);
 
   useEffect(() => {
     if (debouncedSearch === "") return;
@@ -161,7 +131,7 @@ export const QuestionsPage = ({
     dateRange?: QuestionDateRangeFilter;
     startTime?: Date | undefined;
     endTime?: Date | undefined;
-    review_level?:ReviewLevel
+    review_level?: ReviewLevel;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -174,7 +144,7 @@ export const QuestionsPage = ({
     if (next.user !== undefined) setUser(next.user);
     if (next.startTime !== undefined) setStartTime(next.startTime);
     if (next.endTime !== undefined) setEndTime(next.endTime);
-    if(next.review_level!== undefined) setReviewLevel(next.review_level)
+    if (next.review_level !== undefined) setReviewLevel(next.review_level);
   };
 
   const onReset = () => {
@@ -187,7 +157,7 @@ export const QuestionsPage = ({
     setPriority("all");
     setDomain("all");
     setUser("all");
-    setReviewLevel('all')
+    setReviewLevel("all");
   };
 
   const handleViewMore = (questoinId: string) => {
@@ -203,6 +173,22 @@ export const QuestionsPage = ({
     }
     setSelectedQuestionId("");
   };
+
+  const handleBulkDelete = async () => {
+    if (!selectedQuestionIds || selectedQuestionIds.length <= 0) {
+      toast.error("No questions found to delete. Please try again!");
+      return;
+    }
+
+    try {
+      await bulkDeleteQuestions(selectedQuestionIds);
+      setSelectedQuestionIds([]);
+      setIsSelectionModeOn(false);
+    } catch (error) {
+      console.error("Bulk delete error:", error);
+    }
+  };
+
   return (
     <main className="mx-auto w-full p-4 md:p-6 space-y-6 ">
       {selectedQuestionId && questionDetails ? (
@@ -238,6 +224,12 @@ export const QuestionsPage = ({
             }}
             totalQuestions={questionData?.totalCount || 0}
             userRole={currentUser?.role!}
+            isSelectionModeOn={isSelectionModeOn}
+            handleBulkDelete={handleBulkDelete}
+            selectedQuestionIds={selectedQuestionIds}
+            setIsSelectionModeOn={setIsSelectionModeOn}
+            setSelectedQuestionIds={setSelectedQuestionIds}
+            bulkDeletingQuestions={bulkDeletingQuestions}
           />
 
           <QuestionsTable
@@ -254,6 +246,9 @@ export const QuestionsPage = ({
             isLoading={isLoading || isRefreshing}
             isBulkUpload={isBulkUpload}
             uploadedQuestionsCount={uploadedQuestionsCount}
+            selectedQuestionIds={selectedQuestionIds}
+            setIsSelectionModeOn={setIsSelectionModeOn}
+            setSelectedQuestionIds={setSelectedQuestionIds}
           />
         </>
       )}
