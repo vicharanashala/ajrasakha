@@ -31,6 +31,7 @@ import {ContextIdParam} from '../classes/validators/ContextValidators.js';
 import {
   AddQuestionBodyDto,
   AllocateExpertsRequest,
+  BulkDeleteQuestionDto,
   GeneratedQuestionResponse,
   GenerateQuestionsBody,
   GetDetailedQuestionsQuery,
@@ -294,6 +295,19 @@ export class QuestionController {
     return this.questionService.deleteQuestion(questionId);
   }
 
+  @Delete('/bulk')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Bulk delete questions'})
+  async bulkDeleteQuestions(
+    @Body() body: BulkDeleteQuestionDto,
+  ): Promise<{deletedCount: number}> {
+    const {questionIds} = body;
+    return this.questionService.bulkDeleteQuestions(questionIds);
+  }
+
+  /////////////////////////////////////////////////// FOR BACKGROUND JOBS ///////////////////////////////////////////////
+
   @Get('/background-status')
   getAllJobs() {
     return getBackgroundJobs();
@@ -305,4 +319,6 @@ export class QuestionController {
     if (!job) return {message: 'Job not found'};
     return job;
   }
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }

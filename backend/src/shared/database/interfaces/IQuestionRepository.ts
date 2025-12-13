@@ -92,6 +92,17 @@ export interface IQuestionRepository {
     userId: string,
     isExpert: boolean,
   ): Promise<any>;
+  /**
+   * Retrieves all questions for a specific context.
+   * @param questionId - The ID of the question.
+   * @param userId - The ID of the user.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to an array of questions.
+   */
+  bulkDeleteByIds(
+    questionIds: string[],
+    session?:ClientSession
+  ): Promise<{ deletedCount: number }>;
 
   /**
    * Retrieves all questions that have not been answered yet.

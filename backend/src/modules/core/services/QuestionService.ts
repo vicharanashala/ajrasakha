@@ -1145,6 +1145,12 @@ export class QuestionService extends BaseService {
     }
   }
 
+  async bulkDeleteQuestions(questionIds: string[]) {
+    return this._withTransaction(async (session: ClientSession) => {
+      return this.questionRepo.bulkDeleteByIds(questionIds, session);
+    });
+  }
+
   async getQuestionFullData(
     questionId: string,
     userId: string,

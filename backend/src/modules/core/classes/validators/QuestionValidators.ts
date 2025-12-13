@@ -11,6 +11,7 @@ import {
   MinLength,
   Max,
   ValidateNested,
+  ArrayNotEmpty,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 import {ObjectId} from 'mongodb';
@@ -452,6 +453,13 @@ export interface IQuestionAnalysis {
   message: string;
 }
 
+class BulkDeleteQuestionDto {
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsMongoId({ each: true })
+  questionIds: string[];
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,
@@ -464,6 +472,7 @@ export const QUESTION_VALIDATORS = [
   RemoveAllocateBody,
   UpdatedBy,
   HistoryItem,
+  BulkDeleteQuestionDto
 ];
 
 export {
@@ -479,4 +488,5 @@ export {
   RemoveAllocateBody,
   UpdatedBy,
   HistoryItem,
+  BulkDeleteQuestionDto
 };
