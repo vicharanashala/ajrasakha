@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
 import {
@@ -24,6 +31,7 @@ import {
   Loader2,
   MessageSquareText,
   MoreVertical,
+  MousePointer,
   PaperclipIcon,
   PencilLine,
   Plus,
@@ -31,6 +39,7 @@ import {
   RefreshCcw,
   Save,
   Search,
+  Square,
   Trash,
   Upload,
   X,
@@ -91,18 +100,32 @@ import {
 
 import { STATES, CROPS, DOMAINS, SEASONS } from "./MetaData";
 import { useBulkDeleteQuestions } from "@/hooks/api/question/useBulkDeleteQuestions";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "./atoms/context-menu";
+import { Checkbox } from "./atoms/checkbox";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 };
 
+type DetailField = keyof NonNullable<IDetailedQuestion["details"]>;
+const OPTIONS: Partial<Record<DetailField, string[]>> = {
+  state: STATES,
+
+  crop: CROPS,
+  season: SEASONS,
+  domain: DOMAINS,
+};
+
 type QuestionsTableProps = {
   items?: IDetailedQuestion[] | null;
   onViewMore: (questionId: string) => void;
-  // hasMore?: boolean;
-  // isLoadingMore?: boolean;
-  // lastElementRef?: (node: HTMLDivElement | null) => void;
   currentPage: number;
   setCurrentPage: (val: number) => void;
   isLoading?: boolean;
@@ -111,14 +134,9 @@ type QuestionsTableProps = {
   limit: number;
   uploadedQuestionsCount: number;
   userRole?: UserRole;
-};
-type DetailField = keyof NonNullable<IDetailedQuestion["details"]>;
-const OPTIONS: Partial<Record<DetailField, string[]>> = {
-  state: STATES,
-
-  crop: CROPS,
-  season: SEASONS,
-  domain: DOMAINS,
+  setIsSelectionModeOn: (value: boolean) => void;
+  selectedQuestionIds: string[];
+  setSelectedQuestionIds: Dispatch<SetStateAction<string[]>>;
 };
 
 export const QuestionsTable = ({
@@ -132,6 +150,9 @@ export const QuestionsTable = ({
   totalPages,
   uploadedQuestionsCount,
   isBulkUpload,
+  setIsSelectionModeOn,
+  selectedQuestionIds,
+  setSelectedQuestionIds,
 }: QuestionsTableProps) => {
   const [editOpen, setEditOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
@@ -149,9 +170,6 @@ export const QuestionsTable = ({
 
   const { mutateAsync: updateQuestion, isPending: updatingQuestion } =
     useUpdateQuestion();
-
-  const { mutate: bulkDeleteQuestions, isPending: bulkDeletingQuestions } =
-    useBulkDeleteQuestions();
 
   const handleUpdateQuestion = async (
     mode: "add" | "edit",
@@ -214,12 +232,35 @@ export const QuestionsTable = ({
     }
   };
 
-  const handleDelete = async () => {
-    try {
-      await deleteQuestion(questionIdToDelete);
-    } catch (error) {
-      console.error("Error: ", error);
+  const handleDelete = async (questionId?: string) => {
+    const idToDelete = questionId ?? questionIdToDelete;
+
+    if (!idToDelete) {
+      console.warn("No question ID provided for deletion");
+      return;
     }
+
+    try {
+      await deleteQuestion(idToDelete);
+    } catch (error) {
+      console.error("Error deleting question:", error);
+    }
+  };
+
+  const handleQuestionsSelection = (questionId: string) => {
+    setSelectedQuestionIds((prev) => {
+      let next: string[];
+
+      if (prev.includes(questionId)) {
+        next = prev.filter((id) => id !== questionId);
+      } else {
+        next = [...prev, questionId];
+      }
+
+      setIsSelectionModeOn(next.length > 0);
+
+      return next;
+    });
   };
 
   return (
@@ -238,20 +279,21 @@ export const QuestionsTable = ({
 
       <div className="rounded-lg border bg-card min-h-[55vh] ">
         <div className="hidden md:block overflow-x-auto">
-          <Table className="min-w-[800px]">
+          <Table className="min-w-[800px]  table-fixed">
             <TableHeader className="bg-card sticky top-0 z-10">
               <TableRow>
                 <TableHead className="text-center">Sl.No</TableHead>
-                <TableHead className="w-[35%] text-center">Question</TableHead>
+                <TableHead className="w-[25%] text-center">Question</TableHead>
                 <TableHead className="text-center">Priority</TableHead>
                 <TableHead className="text-center">State</TableHead>
                 <TableHead className="text-center">Crop</TableHead>
+                <TableHead className="text-center">Domain</TableHead>
                 <TableHead className="text-center">Source</TableHead>
                 <TableHead className="text-center">Status</TableHead>
                 <TableHead className="text-center">Answers</TableHead>
                 <TableHead className="text-center">Review Level</TableHead>
                 <TableHead className="text-center">Created</TableHead>
-                <TableHead className="text-center">Action</TableHead>
+                {/* <TableHead className="text-center">Action</TableHead> */}
               </TableRow>
             </TableHeader>
 
@@ -293,6 +335,10 @@ export const QuestionsTable = ({
                     updatingQuestion={updatingQuestion}
                     userRole={userRole!}
                     key={q._id}
+                    handleQuestionsSelection={handleQuestionsSelection}
+                    isSelected={!!q._id && selectedQuestionIds.includes(q._id)}
+                    setIsSelectionModeOn={setIsSelectionModeOn}
+                    selectedQuestionIds={selectedQuestionIds}
                   />
                 ))
               )}
@@ -355,14 +401,19 @@ interface QuestionRowProps {
   totalPages: number;
   userRole: UserRole;
   updatingQuestion: boolean;
+  setIsSelectionModeOn?: (val: boolean) => void;
+  handleQuestionsSelection?: (questionId: string) => void;
+  isSelected?: boolean;
   deletingQuestion: boolean;
   setEditOpen: (val: boolean) => void;
   setSelectedQuestion: (q: any) => void;
+  selectedQuestionIds?: string[];
   setQuestionIdToDelete: (id: string) => void;
-  handleDelete: () => Promise<void>;
+  handleDelete: (questionId?: string) => Promise<void>;
   setUpdatedData: React.Dispatch<
     React.SetStateAction<IDetailedQuestion | null>
   >;
+
   updateQuestion: (
     mode: "add" | "edit",
     entityId?: string,
@@ -384,9 +435,12 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   deletingQuestion,
   setEditOpen,
   setSelectedQuestion,
-  setQuestionIdToDelete,
   handleDelete,
   onViewMore,
+  setIsSelectionModeOn,
+  isSelected,
+  handleQuestionsSelection,
+  selectedQuestionIds,
 }) => {
   const uploadedCountRef = useRef(uploadedQuestionsCount);
 
@@ -462,173 +516,215 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
     );
   }, [q.status, timer]);
 
+  const hasSelectedQuestions =
+    selectedQuestionIds && selectedQuestionIds.length > 0;
+
   return (
-    <TableRow key={q._id} className="text-center">
-      {/* Serial Number */}
-      <TableCell className="align-middle text-center" title={idx.toString()}>
-        {(currentPage - 1) * limit + idx + 1}
-      </TableCell>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <TableRow
+          key={q._id}
+          className={`text-center transition-colors ${
+            isSelected ? "bg-primary/10" : "hover:bg-muted/50"
+          }`}
+          onClick={() => {
+            if (!q._id || !hasSelectedQuestions) return;
+            handleQuestionsSelection?.(q._id);
+          }}
+        >
+          {/* Serial Number */}
+          <TableCell
+            className="align-middle text-center p-4"
+            title={idx.toString()}
+          >
+            {hasSelectedQuestions ? (
+              <Checkbox
+                checked={q._id ? selectedQuestionIds.includes(q._id) : false}
+                onCheckedChange={() => {
+                  if (!q._id) return;
+                  handleQuestionsSelection?.(q._id);
+                }}
+              />
+            ) : (
+              (currentPage - 1) * limit + idx + 1
+            )}
+          </TableCell>
 
-      {/* Question Text */}
-      <TableCell className="text-start ps-3 w-[35%]" title={q.question}>
-        <div className="flex flex-col gap-1">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className={`cursor-pointer ${
-                    isClickable
-                      ? "hover:underline"
-                      : "opacity-50 cursor-not-allowed"
-                  }`}
-                  onClick={() => {
-                    if (!isClickable) return;
-                    onViewMore(q._id?.toString() || "");
-                  }}
-                >
-                  {truncate(q.question, 60)}
-                </span>
-              </TooltipTrigger>
-              {!isClickable && (
-                <TooltipContent side="top">
-                  <p>
-                    The question is currently being processed. Expert allocation
-                    is underway and may take{" "}
-                    {delayMinutes < 1
-                      ? "less than 1 minute"
-                      : `up to ${Math.ceil(delayMinutes)} ${
-                          Math.ceil(delayMinutes) === 1 ? "minute" : "minutes"
-                        }`}{" "}
-                    to complete.
-                  </p>
-                </TooltipContent>
+          {/* Question Text */}
+          <TableCell className="text-start ps-3 " title={q.question}>
+            <div className="flex flex-col gap-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className={`cursor-pointer ${
+                        isClickable
+                          ? hasSelectedQuestions
+                            ? ""
+                            : "hover:underline"
+                          : "opacity-50 cursor-not-allowed"
+                      }`}
+                      onClick={() => {
+                        if (!isClickable || hasSelectedQuestions) return;
+                        onViewMore(q._id?.toString() || "");
+                      }}
+                    >
+                      {truncate(q.question, 60)}
+                    </span>
+                  </TooltipTrigger>
+                  {!isClickable && (
+                    <TooltipContent side="top">
+                      <p>
+                        The question is currently being processed. Expert
+                        allocation is underway and may take{" "}
+                        {delayMinutes < 1
+                          ? "less than 1 minute"
+                          : `up to ${Math.ceil(delayMinutes)} ${
+                              Math.ceil(delayMinutes) === 1
+                                ? "minute"
+                                : "minutes"
+                            }`}{" "}
+                        to complete.
+                      </p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+              {q.status !== "delayed" && (
+                <TimerDisplay timer={timer} status={q.status} />
               )}
-            </Tooltip>
-          </TooltipProvider>
-          {q.status !== "delayed" && (
-            <TimerDisplay timer={timer} status={q.status} />
-          )}
+            </div>
+          </TableCell>
+
+          {/* Priority */}
+          <TableCell className="align-middle text-center">
+            {priorityBadge}
+          </TableCell>
+
+          {/* Details */}
+          <TableCell className="align-middle">
+            {" "}
+            {truncate(q.details.state, 10)}
+          </TableCell>
+
+          <TableCell className="align-middle">
+            {truncate(q.details.crop, 10)}
+          </TableCell>
+
+          <TableCell className="align-middle">
+            {truncate(q.details.domain, 12)}
+          </TableCell>
+
+          {/* Source */}
+          <TableCell className="align-middle">
+            <Badge variant="outline">{q.source}</Badge>
+          </TableCell>
+
+          {/* Status */}
+          <TableCell className="align-middle">{statusBadge}</TableCell>
+
+          {/* Total Answers */}
+          <TableCell className="align-middle">{q.totalAnswersCount}</TableCell>
+
+          <TableCell className="align-middle">
+            {q.review_level_number?.toString() == "Author"
+              ? q.review_level_number
+              : `Level ${q.review_level_number}`}
+          </TableCell>
+
+          <TableCell className="align-middle">
+            {formatDate(new Date(q.createdAt!), false)}
+          </TableCell>
+        </TableRow>
+      </ContextMenuTrigger>
+
+      {/* RIGHT CLICK MENU */}
+      <ContextMenuContent className="w-56 p-2">
+        {/* Selected Question Number */}
+        <div className="mb-2 px-2 py-1 rounded-md border border-transparent shadow-sm text-sm font-semibold ">
+          Question #{(currentPage - 1) * limit + idx + 1}
         </div>
-      </TableCell>
+        {userRole !== "expert" && !isSelected && (
+          <>
+            <ContextMenuSeparator />
 
-      {/* Priority */}
-      <TableCell className="align-middle text-center">
-        {priorityBadge}
-      </TableCell>
+            <ContextMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                if (!q._id) return;
 
+                setIsSelectionModeOn?.(true);
+                handleQuestionsSelection?.(q._id);
+              }}
+            >
+              {/* <div className="flex h-4 w-4 items-center justify-center rounded border-2 border-primary/40 bg-primary/5 mr-2.5"> */}
+              <Square className="h-2.5 w-2.5 text-primary" />
+              {/* </div> */}
+              <span className="font-medium ms-2">Select Question</span>
+            </ContextMenuItem>
+          </>
+        )}
+        {/* Actions */}
+        <ContextMenuItem onClick={() => onViewMore(q._id?.toString() || "")}>
+          <Eye className="w-4 h-4 mr-2 text-primary" />
+          View
+        </ContextMenuItem>
 
-      {/* Details */}
-      <TableCell className="align-middle">
-        {" "}
-        {truncate(q.details.state, 10)}
-      </TableCell>
-      
-      <TableCell className="align-middle">
-        {truncate(q.details.crop, 10)}
-      </TableCell>
+        <ContextMenuSeparator />
 
-      {/* Source */}
-      <TableCell className="align-middle">
-        <Badge variant="outline">{q.source}</Badge>
-      </TableCell>
+        {userRole === "expert" ? (
+          <ContextMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              setSelectedQuestion(q);
+              setEditOpen(true);
+            }}
+          >
+            <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
+            Raise Flag
+          </ContextMenuItem>
+        ) : (
+          <>
+            <ContextMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                setSelectedQuestion(q);
+                setEditOpen(true);
+              }}
+            >
+              <Edit className="w-4 h-4 mr-2 text-blue-500" />
+              {updatingQuestion ? "Editing..." : "Edit"}
+            </ContextMenuItem>
 
-      {/* Status */}
-      <TableCell className="align-middle">{statusBadge}</TableCell>
+            <ContextMenuSeparator />
 
-      {/* Total Answers */}
-      <TableCell className="align-middle">{q.totalAnswersCount}</TableCell>
-
-      <TableCell className="align-middle">
-        {q.review_level_number?.toString() == "Author"
-          ? q.review_level_number
-          : `Level ${q.review_level_number}`}
-      </TableCell>
-
-      <TableCell className="align-middle">
-        {formatDate(new Date(q.createdAt!), false)}
-      </TableCell>
-
-      {/* Actions */}
-      <TableCell className="align-middle">
-        <div className="flex justify-center">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                size="sm"
-                variant="outline"
-                className="p-1"
-                disabled={!isClickable}
-              >
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-
-            <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem
-                onClick={() => onViewMore(q._id?.toString() || "")}
-                className="hover:bg-primary/10"
-              >
-                <Eye className="w-4 h-4 mr-2 text-primary" />
-                View
-              </DropdownMenuItem>
-
-              <DropdownMenuSeparator />
-
-              {userRole === "expert" ? (
-                <DropdownMenuItem
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    setSelectedQuestion(q);
-                    setEditOpen(true);
-                  }}
-                >
-                  <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
-                  Raise Flag
-                </DropdownMenuItem>
-              ) : (
-                <>
-                  <DropdownMenuItem
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setSelectedQuestion(q);
-                      setEditOpen(true);
-                    }}
-                  >
-                    <Edit className="w-4 h-4 mr-2 text-blue-500" />
-                    {updatingQuestion ? "Editing..." : "Edit"}
-                  </DropdownMenuItem>
-
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuItem
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setQuestionIdToDelete(q._id!);
-                    }}
-                  >
-                    <ConfirmationModal
-                      title="Delete Question Permanently?"
-                      description="Are you sure you want to delete this question? This action is irreversible and will also remove all related data, including submissions, answers, and flag requests."
-                      confirmText="Delete"
-                      cancelText="Cancel"
-                      isLoading={deletingQuestion}
-                      type="delete"
-                      onConfirm={handleDelete}
-                      trigger={
-                        <button className="flex justify-center items-center gap-2">
-                          <Trash className="w-4 h-4 mr-2 text-red-500" />
-                          {deletingQuestion ? "Deleting..." : "Delete"}
-                        </button>
-                      }
-                    />
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </TableCell>
-    </TableRow>
+            <ContextMenuItem onSelect={(e) => e.preventDefault()}>
+              <ConfirmationModal
+                title="Delete Question Permanently?"
+                description="Are you sure you want to delete this question? This action is irreversible."
+                confirmText="Delete"
+                cancelText="Cancel"
+                isLoading={deletingQuestion}
+                type="delete"
+                onConfirm={() => {
+                  if (!q || !q._id) {
+                    toast.error("Question id not founded");
+                    return;
+                  }
+                  handleDelete(q._id!);
+                }}
+                trigger={
+                  <div className="flex items-center gap-2 ">
+                    <Trash className="w-4 h-4 text-red-600" />
+                    {deletingQuestion ? "Deleting..." : "Delete"}
+                  </div>
+                }
+              />
+            </ContextMenuItem>
+          </>
+        )}
+      </ContextMenuContent>
+    </ContextMenu>
   );
 };
 
@@ -829,7 +925,7 @@ const MobileQuestionCard: React.FC<QuestionRowProps> = ({
                     cancelText="Cancel"
                     isLoading={deletingQuestion}
                     type="delete"
-                    onConfirm={handleDelete}
+                    onConfirm={() => handleDelete()}
                     trigger={
                       <button className="flex w-full items-center">
                         <Trash className="w-4 h-4 mr-2 text-red-500" />
@@ -1373,10 +1469,15 @@ type QuestionsFiltersProps = {
   setSearch: (val: string) => void;
   setUploadedQuestionsCount: (val: number) => void;
   setIsBulkUpload: (val: boolean) => void;
-
   refetch: () => void;
   totalQuestions: number;
   userRole: UserRole;
+  isSelectionModeOn: boolean;
+  bulkDeletingQuestions: boolean;
+  handleBulkDelete: () => void;
+  selectedQuestionIds: string[];
+  setIsSelectionModeOn: (value: boolean) => void;
+  setSelectedQuestionIds: (value: string[]) => void;
 };
 
 export const QuestionsFilters = ({
@@ -1391,6 +1492,12 @@ export const QuestionsFilters = ({
   refetch,
   totalQuestions,
   userRole,
+  isSelectionModeOn,
+  handleBulkDelete,
+  selectedQuestionIds,
+  setSelectedQuestionIds,
+  setIsSelectionModeOn,
+  bulkDeletingQuestions,
 }: QuestionsFiltersProps) => {
   const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
     {
@@ -1550,84 +1657,6 @@ export const QuestionsFilters = ({
   ).length;
 
   return (
-    // <div className="flex flex-wrap items-center justify-between w-full p-4 gap-3 border-b bg-card rounded">
-    //   <AddOrEditQuestionDialog
-    //     open={addOpen}
-    //     setOpen={setAddOpen}
-    //     setUpdatedData={setUpdatedData}
-    //     updatedData={updatedData}
-    //     onSave={handleAddQuestion}
-    //     userRole={userRole!}
-    //     isLoadingAction={addingQuestion}
-    //     mode="add"
-    //   />
-
-    //   <div className="flex-1 min-w-[200px] max-w-[400px]">
-    //     <div className="relative w-full">
-    //       {/* Search Icon */}
-    //       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-
-    //       {/* Input Field */}
-    //       <Input
-    //         placeholder="Search questions by id, state, crops..."
-    //         value={search}
-    //         onChange={(e) => {
-    //           if (userRole !== "expert") onReset(); // Reset filters on search change for non-experts
-    //           setSearch(e.target.value);
-    //         }}
-    //         className="pl-9 pr-9 bg-background"
-    //       />
-
-    //       {search && (
-    //         <button
-    //           onClick={() => setSearch("")}
-    //           className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-    //         >
-    //           <X className="h-4 w-4" />
-    //         </button>
-    //       )}
-    //     </div>
-    //   </div>
-
-    //   <div className="flex flex-wrap gap-2 items-center justify-end w-full sm:w-auto">
-    //     <AdvanceFilterDialog
-    //       advanceFilter={advanceFilter}
-    //       setAdvanceFilterValues={setAdvanceFilterValues}
-    //       handleDialogChange={handleDialogChange}
-    //       handleApplyFilters={handleApplyFilters}
-    //       normalizedStates={states}
-    //       crops={crops}
-    //       activeFiltersCount={activeFiltersCount}
-    //       onReset={onReset}
-    //       isForQA={false}
-    //     />
-
-    //     <Button
-    //       variant="outline"
-    //       size="icon"
-    //       className="flex-none w-12 p-3 sm:w-auto"
-    //       onClick={refetch}
-    //     >
-    //       <RefreshCcw className="h-4 w-4" />
-    //     </Button>
-
-    //     {userRole !== "expert" && (
-    //       <Button
-    //         variant="default"
-    //         size="sm"
-    //         className="flex items-center gap-2"
-    //         onClick={() => setAddOpen(true)}
-    //       >
-    //         <Plus className="h-4 w-4" />
-    //         Add Question
-    //       </Button>
-    //     )}
-
-    //     <span className="ml-4 text-sm text-muted-foreground">
-    //       Total Questions: {totalQuestions}
-    //     </span>
-    //   </div>
-    // </div>
     <div className="w-full p-4 border-b bg-card ms-2 md:ms-0  rounded flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
       {/* Add Dialog (No change) */}
       <AddOrEditQuestionDialog
@@ -1702,8 +1731,57 @@ export const QuestionsFilters = ({
           </Button>
         )}
 
-        <span className="text-sm text-muted-foreground whitespace-nowrap hidden md:block">
-          Total Questions: {totalQuestions}
+        {
+          isSelectionModeOn && (
+            <div className="hidden md:flex items-center gap-4 whitespace-nowrap">
+              {/* Bulk delete with count */}
+              <ConfirmationModal
+                title="Delete Selected Questions?"
+                description={`Are you sure you want to delete ${
+                  selectedQuestionIds.length
+                } selected question${
+                  selectedQuestionIds.length > 1 ? "s" : ""
+                }? This action is irreversible.`}
+                confirmText="Delete"
+                cancelText="Cancel"
+                isLoading={bulkDeletingQuestions}
+                type="delete"
+                onConfirm={handleBulkDelete}
+                trigger={
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={selectedQuestionIds.length === 0}
+                    className="flex items-center gap-2 transition-all"
+                  >
+                    <Trash className="h-4 w-4" /> Delete (
+                    {selectedQuestionIds.length})
+                  </Button>
+                }
+              />
+
+              {/* Cancel selection */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsSelectionModeOn(false);
+                  setSelectedQuestionIds([]);
+                }}
+                className="flex items-center gap-2 transition-all"
+              >
+                Cancel
+              </Button>
+            </div>
+          )
+          // ) : (
+          //   <span className="hidden md:block text-sm text-muted-foreground whitespace-nowrap">
+          //     Total: {totalQuestions}
+          //   </span>
+          // )
+        }
+        <span className="hidden md:block text-sm text-muted-foreground whitespace-nowrap">
+          Total: {totalQuestions}
         </span>
       </div>
     </div>
