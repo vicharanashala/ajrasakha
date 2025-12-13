@@ -454,9 +454,6 @@ export interface IQuestionAnalysis {
 }
 
 class BulkDeleteQuestionDto {
-  @IsArray()
-  @ArrayNotEmpty()
-  @IsMongoId({ each: true })
   questionIds: string[];
 }
 

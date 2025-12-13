@@ -1882,8 +1882,10 @@ export class QuestionRepository implements IQuestionRepository {
     session?: ClientSession,
   ): Promise<{deletedCount: number}> {
     await this.init();
+
+    const objectIds = questionIds.map(id => new ObjectId(id));
     const result = await this.QuestionCollection.deleteMany(
-      {_id: {$in: questionIds}},
+      {_id: {$in: objectIds}},
       {session},
     );
 
