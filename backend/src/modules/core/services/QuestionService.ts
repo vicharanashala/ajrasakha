@@ -1079,75 +1079,177 @@ export class QuestionService extends BaseService {
     }
   }
 
-  async deleteQuestion(questionId: string): Promise<{deletedCount: number}> {
-    try {
-      return this._withTransaction(async (session: ClientSession) => {
-        const question = await this.questionRepo.getById(questionId, session);
-        if (!question) {
-          throw new BadRequestError(`Question with ID ${questionId} not found`);
-        }
-        await this.answerRepo.deleteByQuestionId(questionId, session);
+  // async deleteQuestion(
+  //   questionId: string,
+  //   session?: ClientSession,
+  // ): Promise<{deletedCount: number}> {
+  //   try {
+  //     return this._withTransaction(
+  //       async (transactionSession: ClientSession) => {
 
-        const questionSubmission =
-          await this.questionSubmissionRepo.getByQuestionId(
-            questionId,
-            session,
+  //         const question = await this.questionRepo.getById(questionId, session);
+  //         if (!question) {
+  //           throw new BadRequestError(
+  //             `Question with ID ${questionId} not found`,
+  //           );
+  //         }
+  //         await this.answerRepo.deleteByQuestionId(questionId, session);
+
+  //         const questionSubmission =
+  //           await this.questionSubmissionRepo.getByQuestionId(
+  //             questionId,
+  //             session,
+  //           );
+
+  //         const history = questionSubmission?.history || [];
+  //         if (history && history.length > 0) {
+  //           // Get the last history entry
+  //           const lastHistoryEntry = history[history.length - 1];
+
+  //           if (!lastHistoryEntry) {
+  //             throw new BadRequestError(
+  //               `Invalid submission history for question ID: ${questionId}`,
+  //             );
+  //           }
+
+  //           // Check if the last entry is still under review and no answer provided yet
+  //           const isUnderReviewWithoutAnswer =
+  //             lastHistoryEntry.status === 'in-review' &&
+  //             !lastHistoryEntry.answer;
+  //           if (isUnderReviewWithoutAnswer) {
+  //             const IS_INCREMENT = false;
+  //             const expertId = lastHistoryEntry.updatedBy?.toString();
+  //             if (!expertId) {
+  //               throw new BadRequestError(
+  //                 `Expert ID missing in the last history entry for question ID: ${questionId}`,
+  //               );
+  //             }
+
+  //             await this.userRepo.updateReputationScore(
+  //               expertId,
+  //               IS_INCREMENT,
+  //               session,
+  //             );
+  //           }
+  //         } else {
+  //           const IS_INCREMENT = false;
+  //           const expertId = questionSubmission?.queue[0]?.toString();
+  //           await this.userRepo.updateReputationScore(
+  //             expertId,
+  //             IS_INCREMENT,
+  //             session,
+  //           );
+  //         }
+
+  //         await this.questionSubmissionRepo.deleteByQuestionId(
+  //           questionId,
+  //           session,
+  //         );
+  //         await this.requestRepository.deleteByEntityId(questionId, session);
+  //         return this.questionRepo.deleteQuestion(questionId, session);
+  //       },
+  //     );
+  //   } catch (error) {
+  //     throw new InternalServerError(`Failed to delete question: ${error}`);
+  //   }
+  // }
+
+  async deleteQuestion(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<{deletedCount: number}> {
+    const execute = async (activeSession: ClientSession) => {
+      const question = await this.questionRepo.getById(
+        questionId,
+        activeSession,
+      );
+      if (!question) {
+        throw new BadRequestError(`Question with ID ${questionId} not found`);
+      }
+
+      // Delete all answers for this question
+      await this.answerRepo.deleteByQuestionId(questionId, activeSession);
+
+      // Fetch the submission to check history/queue
+      const questionSubmission =
+        await this.questionSubmissionRepo.getByQuestionId(
+          questionId,
+          activeSession,
+        );
+
+      const history = questionSubmission?.history || [];
+      if (history.length > 0) {
+        const lastHistoryEntry = history[history.length - 1];
+        if (!lastHistoryEntry) {
+          throw new BadRequestError(
+            `Invalid submission history for question ID: ${questionId}`,
           );
+        }
 
-        const history = questionSubmission?.history || [];
-        if (history && history.length > 0) {
-          // Get the last history entry
-          const lastHistoryEntry = history[history.length - 1];
+        const isUnderReviewWithoutAnswer =
+          lastHistoryEntry.status === 'in-review' && !lastHistoryEntry.answer;
 
-          if (!lastHistoryEntry) {
-            throw new BadRequestError(
-              `Invalid submission history for question ID: ${questionId}`,
-            );
-          }
-
-          // Check if the last entry is still under review and no answer provided yet
-          const isUnderReviewWithoutAnswer =
-            lastHistoryEntry.status === 'in-review' && !lastHistoryEntry.answer;
-          if (isUnderReviewWithoutAnswer) {
-            const IS_INCREMENT = false;
-            const expertId = lastHistoryEntry.updatedBy?.toString();
-            if (!expertId) {
-              throw new BadRequestError(
-                `Expert ID missing in the last history entry for question ID: ${questionId}`,
-              );
-            }
-
-            await this.userRepo.updateReputationScore(
-              expertId,
-              IS_INCREMENT,
-              session,
-            );
-          }
-        } else {
+        if (isUnderReviewWithoutAnswer) {
           const IS_INCREMENT = false;
-          const expertId = questionSubmission?.queue[0]?.toString();
+          const expertId = lastHistoryEntry.updatedBy?.toString();
+          if (!expertId) {
+            throw new BadRequestError(
+              `Expert ID missing in the last history entry for question ID: ${questionId}`,
+            );
+          }
+
           await this.userRepo.updateReputationScore(
             expertId,
             IS_INCREMENT,
-            session,
+            activeSession,
           );
         }
+      } else {
+        const IS_INCREMENT = false;
+        const expertId = questionSubmission?.queue?.[0]?.toString();
+        if (expertId) {
+          await this.userRepo.updateReputationScore(
+            expertId,
+            IS_INCREMENT,
+            activeSession,
+          );
+        }
+      }
 
-        await this.questionSubmissionRepo.deleteByQuestionId(
-          questionId,
-          session,
-        );
-        await this.requestRepository.deleteByEntityId(questionId, session);
-        return this.questionRepo.deleteQuestion(questionId, session);
-      });
-    } catch (error) {
-      throw new InternalServerError(`Failed to delete question: ${error}`);
+      // Delete submissions and requests related to this question
+      await this.questionSubmissionRepo.deleteByQuestionId(
+        questionId,
+        activeSession,
+      );
+      await this.requestRepository.deleteByEntityId(questionId, activeSession);
+
+      // Finally, delete the question itself
+      return this.questionRepo.deleteQuestion(questionId, activeSession);
+    };
+
+    if (session) {
+      return execute(session);
     }
+
+    return this._withTransaction(async (transactionSession: ClientSession) =>
+      execute(transactionSession),
+    );
   }
 
   async bulkDeleteQuestions(questionIds: string[]) {
     return this._withTransaction(async (session: ClientSession) => {
-      return this.questionRepo.bulkDeleteByIds(questionIds, session);
+      if (!questionIds || questionIds.length === 0) {
+        throw new BadRequestError('No question IDs found to delete!');
+      }
+
+      let deletedCount = 0;
+
+      for (const id of questionIds) {
+        const res = await this.deleteQuestion(id, session);
+        deletedCount += res.deletedCount ?? 0;
+      }
+
+      return {deletedCount};
     });
   }
 
