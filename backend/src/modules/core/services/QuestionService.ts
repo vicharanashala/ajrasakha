@@ -801,7 +801,7 @@ export class QuestionService extends BaseService {
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
 
-        if (question.status !== 'open' && question.status !== 'delayed'&& question.status !== 'in-review') {
+        if (question.status !== 'open' && question.status !== 'delayed') {
           console.log(
             'This question is currently being in reviewe or has been closed. Please check back later!',
           );

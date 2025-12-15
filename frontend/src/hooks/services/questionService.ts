@@ -199,7 +199,7 @@ export class QuestionService {
 
   ): Promise<IDetailedQuestion | null> {
     return apiFetch<IDetailedQuestion>(
-      `${this._reRouteUrl}/${questionId}/allocate-experts`,
+      `${this._reRouteUrl}/${questionId}/allocate-reroute-experts`,
       {
         method: "POST",
         body: JSON.stringify({ expertId,

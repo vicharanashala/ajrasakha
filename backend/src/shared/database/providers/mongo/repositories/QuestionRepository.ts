@@ -698,7 +698,7 @@ if (review_level && review_level !== 'all') {
       );
 
       const filter: any = {
-        status: {$in: ['open', 'delayed','in-review']},
+        status: {$in: ['open', 'delayed']},
         _id: {$in: questionIdsToAttempt},
       };
 
