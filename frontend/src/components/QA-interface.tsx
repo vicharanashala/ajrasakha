@@ -99,6 +99,13 @@ import {
   AccordionTrigger,
 } from "./atoms/accordion";
 import { renderModificationDiff } from "./question-details";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/atoms/select";
 
 export type QuestionFilter =
   | "newest"
@@ -112,6 +119,9 @@ export const QAInterface = ({
   autoSelectQuestionId: string | null;
   onManualSelect: (id: string | null) => void;
 }) => {
+  const [actionType, setActionType] = useState<"allocated" | "reroute">(
+    "allocated"
+  );
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
   const [newAnswer, setNewAnswer] = useState<string>("");
   const [isFinalAnswer, setIsFinalAnswer] = useState<boolean>(false);
@@ -181,7 +191,7 @@ export const QAInterface = ({
     hasNextPage,
     isFetchingNextPage,
     refetch,
-  } = useGetAllocatedQuestions(LIMIT, filter, preferences);
+  } = useGetAllocatedQuestions(LIMIT, filter, preferences,actionType);
   const { data: exactQuestionPage, isLoading: isLoading } =
     useGetAllocatedQuestionPage(autoSelectQuestionId!);
 
@@ -519,6 +529,10 @@ export const QAInterface = ({
   // if(isLoadingTargetQuestion){
   //   return <Spinner/>
   // }
+
+const handleActionChange = (value: string) => {
+  setActionType(value as "allocated" | "reroute");
+};
   return (
     <div className=" mx-auto px-4 md:px-6 bg-transparent py-4 ">
       <div className="flex flex-col space-y-6">
@@ -548,16 +562,28 @@ export const QAInterface = ({
                   </Tooltip>
                 </div>
               </TooltipProvider>
+              <div className="flex ">
+              <Select value={actionType} onValueChange={handleActionChange} >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select action" />
+              </SelectTrigger>
+
+              <SelectContent>
+                <SelectItem value="allocated">Allocated</SelectItem>
+                <SelectItem value="reroute">Reroute</SelectItem>
+              </SelectContent>
+            </Select>
 
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => refetch()}
-                className="h-9 px-3 bg-transparent hidden md:block"
+                className="h-9 px-3 bg-transparent hidden md:block ml-3"
               >
                 <RefreshCw className="w-4 h-4" />
                 <span className="sr-only">Refresh</span>
               </Button>
+              </div>
             </CardHeader>
             {isQuestionsLoading || isLoadingTargetQuestion ? (
               <div className="h-full flex flex-col items-center justify-center text-center space-y-4 px-6">

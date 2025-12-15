@@ -60,7 +60,8 @@ export class QuestionService {
     pageParam: number,
     limit: number,
     filter: QuestionFilter,
-    preferences: AdvanceFilterValues
+    preferences: AdvanceFilterValues,
+    actionType:string
   ): Promise<IQuestion[] | null> {
     const params = new URLSearchParams({
       page: pageParam.toString(),
@@ -91,10 +92,19 @@ export class QuestionService {
 
     if (preferences.dateRange && preferences.dateRange !== "all")
       params.append("dateRange", preferences.dateRange);
+      if(actionType=="allocated")
+      {
+        return apiFetch<IQuestion[] | null>(
+          `${this._baseUrl}/allocated?${params.toString()}`
+        );
+      }
+      else{
+        return apiFetch<IQuestion[] | null>(
+          `${this._reRouteUrl}/allocated?${params.toString()}`
+        );
+      }
 
-    return apiFetch<IQuestion[] | null>(
-      `${this._baseUrl}/allocated?${params.toString()}`
-    );
+   
   }
 
   async getQuestionById(id: string): Promise<IQuestion | null> {

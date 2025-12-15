@@ -1907,7 +1907,7 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRo
               <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
               <DialogTrigger asChild>
                 <Button variant="default" className="gap-2 w-full sm:w-auto">
-                  <UserPlus className="w-4 h-4" />
+                  <Send className="w-4 h-4" />
                   Re Route
                 </Button>
               </DialogTrigger>

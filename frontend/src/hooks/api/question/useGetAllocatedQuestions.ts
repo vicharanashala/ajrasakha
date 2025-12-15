@@ -7,16 +7,19 @@ const questionService = new QuestionService();
 export const useGetAllocatedQuestions = (
   limit: number,
   filter: QuestionFilter,
-  preferences: AdvanceFilterValues
+  preferences: AdvanceFilterValues,
+  actionType:string
 ) => {
   return useInfiniteQuery({
-    queryKey: ["questions", limit, filter, preferences],
+    queryKey: ["questions", limit, filter, preferences,actionType],
     queryFn: async ({ pageParam }) => {
       return await questionService.useGetAllocatedQuestions(
         pageParam,
         limit,
         filter,
-        preferences
+        preferences,
+        actionType
+
       );
     },
     initialPageParam: 1,
