@@ -227,7 +227,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed"|"re-routed";
 export type ReRouteStatus="pending" | "expert_rejected" | "expert_completed" | "moderator_rejected"|"moderator_approved";
 export interface ResponseDto {
   id: string;
