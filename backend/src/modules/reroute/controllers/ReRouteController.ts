@@ -24,6 +24,7 @@ import {
   IQuestion,
   IQuestionSubmission,
   IUser,
+  RerouteStatus,
 } from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 
@@ -43,6 +44,7 @@ import {
   getJobById,
   startBackgroundProcessing,
 } from '#root/workers/workerManager.js';
+import { ROUTE_TYPES } from '../types.js';
 
 @OpenAPI({
   tags: ['reroute'],
@@ -52,20 +54,20 @@ import {
 @JsonController('/reroute')
 export class ReRouteController {
   constructor(
-    @inject(GLOBAL_TYPES.QuestionService)
+    @inject(ROUTE_TYPES.ReRouteService)
     private readonly reRouteService: ReRouteService,
   ) {}
 
-  @Get('/allocat')
-  @HttpCode(200)
-  @Authorized()
-  @OpenAPI({summary: 'Get questions by context ID'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async getByContextId(@Params() params: ContextIdParam): Promise<any> {
-    const {contextId} = params;
-    console.log("the reroute calling====",)
-    return this.reRouteService.addrerouteAnswer();
-  }
+  // @Get('/allocat')
+  // @HttpCode(200)
+  // @Authorized()
+  // @OpenAPI({summary: 'Get questions by context ID'})
+  // @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  // async getByContextId(@Params() params: ContextIdParam): Promise<any> {
+  //   const {contextId} = params;
+  //   console.log("the reroute calling====",)
+  //   return this.reRouteService.addrerouteAnswer();
+  // }
 
   @Post('/:questionId/allocate-reroute-experts')
   @HttpCode(200)
@@ -76,16 +78,12 @@ export class ReRouteController {
     @Params() params: QuestionIdParam,
     @Body() body: AllocateReRouteExpertsRequest,
     @CurrentUser() user: IUser,
-  ) {
+  ):Promise<{message:string}> {
     const {_id: userId} = user;
     const {questionId} = params;
     const {expertId,answerId,moderatorId,comment,status} = body;
-    console.log("the body coming====",body)
-   /* return await this.questionService.allocateExperts(
-      userId.toString(),
-      questionId,
-      experts,
-    );*/
+    await this.reRouteService.addrerouteAnswer(questionId,expertId,answerId,moderatorId,comment,status as RerouteStatus)
+    return {message:"Re routed succesfully"}
   }
 
 }

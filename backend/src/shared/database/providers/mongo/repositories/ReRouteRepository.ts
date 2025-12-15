@@ -8,7 +8,8 @@ import {
   IReview,
   IUser,
   QuestionStatus,
-  IReroute
+  IReroute,
+  IRerouteHistory
 } from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
@@ -38,52 +39,53 @@ export class ReRouteRepository implements IReRouteRepository {
   }
 
   async addrerouteAnswer(
-    userId?: string,
-    contextId?: string,
-    question?: string,
+    payload:IReroute,
     session?: ClientSession,
-  ): Promise<IQuestion> {
+  ): Promise<string> {
     try {
       await this.init();
-
-   
-      const rerouteDoc: IReroute = {
-        _id: new ObjectId("665f1b2a9c1a4e8f0a111111"),
-      
-        answerId: new ObjectId("665f1b2a9c1a4e8f0a222222"),
-        questionId: new ObjectId("665f1b2a9c1a4e8f0a333333"),
-      
-        reroutes: [
-          {
-            reroutedBy: new ObjectId("665f1b2a9c1a4e8f0a444444"),
-            reroutedTo: new ObjectId("665f1b2a9c1a4e8f0a555555"),
-            reroutedAt: new Date("2025-01-15T10:00:00Z"),
-      
-            status: "pending",
-            comment: "Please review this answer",
-      
-            updatedAt: new Date("2025-01-15T10:00:00Z"),
-          },
-        ],
-      
-        createdAt: new Date("2025-01-15T10:00:00Z"),
-        updatedAt: new Date("2025-01-15T10:00:00Z"),
-      };
-
-      
-       
-      const result = await this.ReRouteCollection.insertOne(rerouteDoc, {
-        session,
-      });
-
-      return null;
+      const result = await this.ReRouteCollection.insertOne(payload,session)
+      return result.insertedId.toString()
     } catch (error) {
       throw new InternalServerError(`Error while adding question: ${error}`);
     }
   }
 
- 
+  async pushRerouteHistory(
+  rerouteId: string,
+  history: IRerouteHistory,
+  updatedAt: Date,
+  session?: ClientSession,
+): Promise<void> {
+  try {
+    await this.init();
 
+    await this.ReRouteCollection.updateOne(
+      { _id: new ObjectId(rerouteId) },
+      {
+        $push: { reroutes: history },
+        $set: { updatedAt },
+      },
+      { session },
+    );
+  } catch (error) {
+    throw new InternalServerError(
+      `Error while pushing reroute history: ${error}`,
+    );
+  }
+}
+
+
+ 
+  async findByQuestionId(questionId: string, session?: ClientSession): Promise<IReroute> {
+    try {
+      await this.init()
+      const reroute = await this.ReRouteCollection.findOne({questionId:new ObjectId(questionId)})
+      return reroute
+    } catch (error) {
+      throw new InternalServerError(`Error while Finding Reroute: ${error}`);
+    }
+  }
   
  
 

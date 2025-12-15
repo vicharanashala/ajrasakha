@@ -12,6 +12,8 @@ import {
 } from '#root/modules/core/classes/validators/QuestionValidators.js';
 import {
   IQuestion,
+  IReroute,
+  IRerouteHistory,
   IUser,
   QuestionStatus,
 } from '#root/shared/interfaces/models.js';
@@ -30,5 +32,12 @@ export interface IReRouteRepository {
    * @returns A promise that resolves to an object containing the number of inserted questions.
    */
  
-  addrerouteAnswer()
+  addrerouteAnswer(payload:IReroute,session?:ClientSession):Promise<string>
+  findByQuestionId(questionId:string,session?:ClientSession):Promise<IReroute>
+  pushRerouteHistory(
+    rerouteId: string,
+    history: IRerouteHistory,
+    updatedAt: Date,
+    session?: ClientSession,
+  ): Promise<void>
 }

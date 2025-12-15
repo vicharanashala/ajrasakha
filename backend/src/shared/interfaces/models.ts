@@ -1,7 +1,7 @@
 import {ObjectId} from 'mongodb';
 
 export type UserRole = 'admin' | 'moderator' | 'expert';
-export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed';
 export interface IPreference {
   state: string;
   crop: string;
@@ -81,6 +81,7 @@ export interface IAnswer {
   approvedBy?: string | ObjectId;
   status?: string;
   answer: string;
+  reRouted?:boolean;
   modifications?:PreviousAnswersItem[];
   sources: SourceItem[];
   embedding: number[];
@@ -195,7 +196,8 @@ export type INotificationType =
   | 'comment'
   | 'flag_response'
   | 'review_rejected'
-  | 'review_modified';
+  | 'review_modified'
+  | 're-routed';
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;
@@ -235,7 +237,7 @@ export type RerouteStatus =
     reroutedBy: ObjectId|string;        // Moderator
     reroutedTo: ObjectId |string;        // Expert
     reroutedAt: Date|string;
-  
+    answerId?: ObjectId | string
     status: RerouteStatus;
   
     rejectionReason?: string;    // Only when expert rejects

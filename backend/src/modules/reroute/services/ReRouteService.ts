@@ -10,6 +10,9 @@ import {
   IAnswer,
   INotificationType,
   IQuestionPriority,
+  IReroute,
+  RerouteStatus,
+  IRerouteHistory,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -19,47 +22,111 @@ import {
 } from 'routing-controllers';
 
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
-import {IReRouteRepository}from '#root/shared/database/interfaces/IReRouteRepository.js'
-
+import {IReRouteRepository} from '#root/shared/database/interfaces/IReRouteRepository.js';
+import {timeStamp} from 'console';
+import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
+import {NotificationService} from '#root/modules/core/index.js';
 
 @injectable()
 export class ReRouteService extends BaseService {
   constructor(
-  
-
-    
-
-
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
 
     @inject(GLOBAL_TYPES.ReRouteRepository)
     private readonly reRouteRepository: IReRouteRepository,
-    
+
+    @inject(GLOBAL_TYPES.UserRepository)
+    private readonly userRepo: IUserRepository,
+
+    @inject(GLOBAL_TYPES.NotificationService)
+    private readonly notificationService: NotificationService,
+
+    @inject(GLOBAL_TYPES.QuestionRepository)
+    private readonly questionRepo: IQuestionRepository,
   ) {
     super(mongoDatabase);
   }
 
   async addrerouteAnswer(
-    userId?: string,
-    contextId?: string,
-    questions?: string[],
-    session?: ClientSession,
+    questionId: string,
+    expertId: string,
+    answerId: string,
+    moderatorId: string,
+    comment: string,
+    status: RerouteStatus,
   ) {
     try {
-      await this.reRouteRepository.addrerouteAnswer(
-        
-      );
-
-     
-
-      
+      return await this._withTransaction(async (session: ClientSession) => {
+        const expert = await this.userRepo.findById(expertId.toString());
+        if (!expert) {
+          throw new NotFoundError('Expert not found');
+        }
+        const now = new Date();
+        const existingReRoute = await this.reRouteRepository.findByQuestionId(
+          questionId,
+          session,
+        );
+        const rerouteHistory: IRerouteHistory = {
+          reroutedBy: new ObjectId(moderatorId),
+          reroutedTo: new ObjectId(expertId),
+          reroutedAt: now,
+          answerId: null,
+          status,
+          comment,
+          updatedAt: now,
+        };
+        const isIncrement = true;
+        const message = 'Moderator has been re routed a review for you';
+        const title = 'Re route review assigned';
+        const entityId = questionId.toString();
+        const userId = expertId.toString();
+        const type = 're-routed';
+        if (!existingReRoute) {
+          const payload: IReroute = {
+            answerId: new ObjectId(answerId),
+            questionId: new ObjectId(questionId),
+            reroutes: [rerouteHistory],
+            createdAt: now,
+            updatedAt: now,
+          };
+          await this.reRouteRepository.addrerouteAnswer(payload, session);
+        } else {
+          const lastExpert = existingReRoute.reroutes.at(-1).reroutedTo;
+          if (lastExpert.toString() === expertId.toString()) {
+            throw new BadRequestError('Cannot assign to same expert');
+          }
+          await this.reRouteRepository.pushRerouteHistory(
+            existingReRoute._id.toString(),
+            rerouteHistory,
+            now,
+            session,
+          );
+        }
+        const updateWorkload = this.userRepo.updateReputationScore(
+          expertId.toString(),
+          isIncrement,
+          session,
+        );
+        const sendNotification = this.notificationService.saveTheNotifications(
+          message,
+          title,
+          entityId,
+          userId,
+          type,
+          session,
+        );
+        const updateQuestion = this.questionRepo.updateQuestionStatus(
+          questionId.toString(),
+          're-routed',
+          null,
+          session,
+        );
+        await Promise.all([updateWorkload, sendNotification, updateQuestion]);
+        return;
+      });
     } catch (error) {
       throw new InternalServerError(`Failed to add questions: ${error}`);
     }
   }
-
- 
-
-  
 }
