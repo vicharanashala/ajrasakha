@@ -20,6 +20,7 @@ import {
   InternalServerError,
   NotFoundError,
 } from 'routing-controllers';
+import { GetDetailedQuestionsQuery } from '#root/modules/core/classes/validators/QuestionValidators.js';
 
 
 
@@ -87,7 +88,7 @@ export class ReRouteRepository implements IReRouteRepository {
     }
   }
   
- async getAllocatedQuestions(userId: string, session?: ClientSession) {
+ async getAllocatedQuestions(userId: string,query:GetDetailedQuestionsQuery, session?: ClientSession) {
    try {
     await this.init()
     const result =await this.ReRouteCollection.aggregate([

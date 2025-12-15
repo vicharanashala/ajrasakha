@@ -99,7 +99,7 @@ export class ReRouteController {
   ): Promise<any[]> {
     const userId = user._id.toString();
     console.log("the reoute coming from allocation")
-   return this.reRouteService.getAllocatedQuestions(userId);
+   return this.reRouteService.getAllocatedQuestions(userId,query);
   }
 
 }

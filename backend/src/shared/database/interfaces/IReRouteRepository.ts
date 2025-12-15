@@ -40,5 +40,5 @@ export interface IReRouteRepository {
     updatedAt: Date,
     session?: ClientSession,
   ): Promise<void>
-  getAllocatedQuestions(userId:string,session?:ClientSession)
+  getAllocatedQuestions(userId:string,query:GetDetailedQuestionsQuery,session?:ClientSession)
 }

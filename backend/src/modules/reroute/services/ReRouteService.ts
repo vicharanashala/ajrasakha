@@ -26,6 +26,7 @@ import {IReRouteRepository} from '#root/shared/database/interfaces/IReRouteRepos
 import {timeStamp} from 'console';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {NotificationService} from '#root/modules/core/index.js';
+import { GetDetailedQuestionsQuery } from '../classes/validators/QuestionValidators.js';
 
 @injectable()
 export class ReRouteService extends BaseService {
@@ -131,13 +132,13 @@ export class ReRouteService extends BaseService {
   }
 
 
-  async getAllocatedQuestions(userId:string){
+  async getAllocatedQuestions(userId:string,query:GetDetailedQuestionsQuery){
     return await this._withTransaction(async (session:ClientSession) => {
       const expert = await this.userRepo.findById(userId.toString());
         if (!expert) {
           throw new NotFoundError('Expert not found');
         }
-        return await this.reRouteRepository.getAllocatedQuestions(userId.toString(),session)
+        return await this.reRouteRepository.getAllocatedQuestions(userId.toString(),query,session)
     })
   }
 }
