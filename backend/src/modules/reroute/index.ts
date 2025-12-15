@@ -18,7 +18,7 @@ import { NOTIFICATION_VALIDATORS } from './classes/validators/NotificationValida
 import {ReRouteController} from './controllers/ReRouteController.js'
 
 // Export names that loadAppModules expects
-export const coreModuleControllers: Function[] = [
+export const rerouteModuleControllers: Function[] = [
   
   ReRouteController
 ];
@@ -30,7 +30,7 @@ export const rerouteContainerModules: ContainerModule[] = [
 ];
 
 // This sets up Inversify bindings for the anomaly module
-export async function setupCoreContainer(): Promise<void> {
+export async function setupRerouteContainer(): Promise<void> {
   const container = new Container();
   await container.load(...rerouteContainerModules);
   const inversifyAdapter = new InversifyAdapter(container);

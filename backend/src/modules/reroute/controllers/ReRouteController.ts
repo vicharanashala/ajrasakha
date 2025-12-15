@@ -80,9 +80,9 @@ export class ReRouteController {
     @Body() body: any,
     @CurrentUser() user: IUser,
   ) {
-    const {_id: userId} = user;
-    const {questionId} = params;
-    const {expertId} = body;
+    //const {_id: userId} = user;
+   // const {questionId} = params;
+   // const {expertId} = body;
     console.log("the body coming====",body)
    /* return await this.questionService.allocateExperts(
       userId.toString(),
