@@ -1767,8 +1767,7 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRo
       toast.error("Comments are required.");
       return;
     }
-    console.log("the answer id====",props.answer?._id)
-    console.log("the expert id coming===",)
+   
     try {
       
       await allocateExpert({
@@ -1815,7 +1814,7 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRo
             </Badge>
           )}
           {!isRejected &&
-            props.questionStatus !== "in-review" &&
+            props.questionStatus !== "in-review" &&props.questionStatus !== "re-routed"&&
             props.questionStatus !== "closed" && (
               <Badge
                 className="
@@ -1832,7 +1831,7 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRo
         </div>
         <div className="flex items-center justify-center gap-2">
           {props.userRole !== "expert" &&
-            props.questionStatus === "in-review" &&
+            (props.questionStatus === "in-review"||props.questionStatus === "re-routed") &&
             props.lastAnswerId === props.answer?._id && (
               <Dialog open={editOpen} onOpenChange={setEditOpen}>
                 <DialogTrigger asChild>
@@ -1902,7 +1901,7 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRo
               </Dialog>
             )}
             {props.userRole !== "expert" &&
-            props.questionStatus === "in-review" &&
+           ( props.questionStatus === "in-review"||props.questionStatus === "re-routed") &&
             props.lastAnswerId === props.answer?._id && (
               <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
               <DialogTrigger asChild>
