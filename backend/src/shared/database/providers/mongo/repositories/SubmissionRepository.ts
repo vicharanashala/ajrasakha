@@ -1133,6 +1133,14 @@ const matchStage = selectedHistoryId
       // Optional: ensure Author comes first
       { $sort: { Review_level: 1 } }
     ];
+    console.log(startTime,endTime)
+    const start = startTime
+  ? new Date(`${startTime}T00:00:00.000Z`)
+  : null;
+
+const end = endTime
+  ? new Date(`${endTime}T23:59:59.999Z`)
+  : null;
     const pipe = [
       {
         $addFields: {
@@ -1142,8 +1150,12 @@ const matchStage = selectedHistoryId
               as: "h",
               cond: {
                 $and: [
-                  startTime ? { $gte: ["$$h.updatedAt", new Date(startTime)] } : {},
-                  endTime ? { $lte: ["$$h.updatedAt", new Date(endTime)] } : {}
+                  ...(start
+                    ? [{ $gte: ["$$h.updatedAt", start] }]
+                    : []),
+                  ...(end
+                    ? [{ $lte: ["$$h.updatedAt", end] }]
+                    : []),
                 ]
               }
             }
