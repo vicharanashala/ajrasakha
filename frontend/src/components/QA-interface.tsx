@@ -569,8 +569,8 @@ const handleActionChange = (value: string) => {
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="allocated">Allocated</SelectItem>
-                <SelectItem value="reroute">Reroute</SelectItem>
+                <SelectItem value="allocated">Allocated Questions</SelectItem>
+                <SelectItem value="reroute">ReRouted Questions</SelectItem>
               </SelectContent>
             </Select>
 
