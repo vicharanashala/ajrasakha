@@ -225,3 +225,34 @@ export interface IReviewerHeatmapRow {
   reviewerName: string;
   counts: Record<string, number>;
 }
+export type RerouteStatus =
+  | 'pending'
+  | 'expert_rejected'
+  | 'expert_completed'
+  | 'moderator_rejected'
+  | 'moderator_approved';
+  export interface IRerouteHistory {
+    reroutedBy: ObjectId|string;        // Moderator
+    reroutedTo: ObjectId |string;        // Expert
+    reroutedAt: Date|string;
+  
+    status: RerouteStatus;
+  
+    rejectionReason?: string;    // Only when expert rejects
+    comment?: string;            // Mandatory when moderator reroutes
+  
+    updatedAt: Date|string;             // Updated on every status change
+  }
+  export interface IReroute {
+    _id?: ObjectId|string;
+  
+    answerId: ObjectId|string;          // Which answer is being rerouted
+    questionId: ObjectId|string;
+  
+    reroutes: IRerouteHistory[]; // Timeline of reroutes
+  
+    createdAt: Date|string;
+    updatedAt: Date|string;
+  }
+    
+

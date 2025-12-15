@@ -7,6 +7,7 @@ const TYPES = {
   AnswerController: Symbol.for('AnswerController'),
   ContextController: Symbol.for('ContextController'),
   RequestController: Symbol.for('RequestController'),
+  ReRouteController:Symbol.for('ReRouteController'),
 
   // Services
   UserService: Symbol.for('UserService'),
@@ -18,6 +19,7 @@ const TYPES = {
   SarvamService: Symbol.for('SarvamService'),
   NotificationService: Symbol.for('NotificationService'),
   PerformanceService: Symbol.for('PerformanceService'),
+  ReRouteService:Symbol.for('ReRouteService'),
 
   // Repositories
   RequestRepository: Symbol.for('RequestRepository'),
@@ -28,6 +30,7 @@ const TYPES = {
   UserRepository: Symbol.for('userRepository'),
   NotificationRepository: Symbol.for('NotificationRepository'),
   ReviewRepository: Symbol.for('ReviewRepository'),
+  ReRouteRepository:Symbol.for("ReRouteRepository"),
 
   // Constants
   uri: Symbol.for('dbURI'),
