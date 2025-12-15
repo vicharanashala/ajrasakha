@@ -149,6 +149,9 @@ export class ReRouteRepository implements IReRouteRepository {
                 _id: { $toString: '$_id' },
                 question: 1,
                 status: 1,
+                details:1,
+                createdAt:1,
+                priority:1
               },
             },
           ],
@@ -193,6 +196,12 @@ export class ReRouteRepository implements IReRouteRepository {
           moderator: 1,
 
           question: 1,
+          text:'$question.question',
+          status: "$question.status",
+                details:"$question.details",
+                createdAt:"$question.createdAt",
+                priority:"$question.priority",
+                id:"$question._id",
 
           answer: {
             _id: { $toString: '$answer._id' },

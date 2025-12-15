@@ -140,4 +140,35 @@ export class ReRouteService extends BaseService {
         return await this.reRouteRepository.getAllocatedQuestions(userId.toString(),session)
     })
   }
+  async getQuestionById(questionId: string){
+    try {
+      return this._withTransaction(async (session: ClientSession) => {
+        const currentQuestion = await this.questionRepo.getById(questionId);
+
+        if (!currentQuestion)
+          throw new NotFoundError(
+            `Failed to find question with id: ${questionId}`,
+          );
+
+        // const currentAnswers = await this.answerRepo.getByQuestionId(
+        //   questionId,
+        //   session,
+        // );
+
+           
+       
+          // currentAnswers: currentAnswers.map(currentAnswer => ({
+          //   id: currentAnswer._id.toString(),
+          //   answer: currentAnswer.answer,
+          //   isFinalAnswer: currentAnswer.isFinalAnswer,
+          //   createdAt: currentAnswer.createdAt,
+          // })),
+        return null
+      });
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get unanswered questions: ${error}`,
+      );
+    }
+  }
 }

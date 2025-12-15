@@ -98,8 +98,23 @@ export class ReRouteController {
     @CurrentUser() user: IUser,
   ): Promise<any[]> {
     const userId = user._id.toString();
-    console.log("the reoute coming from allocation")
+    
    return this.reRouteService.getAllocatedQuestions(userId);
+  }
+
+  @Get('/:questionId')
+  @HttpCode(200)
+  @Authorized()
+  @ResponseSchema(QuestionResponse)
+  @OpenAPI({summary: 'Get selected question by ID'})
+  async getQuestionById(
+    @Params() params: QuestionIdParam,
+    @Body() updates: Partial<QuestionResponse>,
+  ): Promise<any[]> {
+    const {questionId} = params;
+    console.log("the question id coming====",questionId)
+   // return null
+    return this.reRouteService.getQuestionById(questionId);
   }
 
 }

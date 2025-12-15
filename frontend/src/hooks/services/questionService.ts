@@ -107,8 +107,16 @@ export class QuestionService {
    
   }
 
-  async getQuestionById(id: string): Promise<IQuestion | null> {
-    return apiFetch<IQuestion | null>(`${this._baseUrl}/${id}`);
+  async getQuestionById(id: string,actionType:string): Promise<IQuestion | null> {
+    if(actionType=="allocated")
+      {
+        return apiFetch<IQuestion | null>(`${this._baseUrl}/${id}`);
+      }
+      else{
+        return apiFetch<IQuestion | null>(`${this._reRouteUrl}/${id}`);
+      }
+
+    
   }
 
   async getQuestionFullDataById(
