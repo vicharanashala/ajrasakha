@@ -569,7 +569,7 @@ export class QuestionRepository implements IQuestionRepository {
         .toArray();*/
       result = await this.QuestionCollection.aggregate([
         {$match: filter},
-        {$sort: {createdAt: -1}},
+        {$sort: {createdAt: -1, _id: -1}},
         {$skip: (page - 1) * limit},
         {$limit: limit},
 
