@@ -5,6 +5,7 @@ import type {
   ISubmissionHistory,
   IUser,
   QuestionStatus,
+  ReRouteStatus,
   SourceItem,
   UserRole,
 } from "@/types";
@@ -84,6 +85,7 @@ import { Label } from "./atoms/label";
 import { Switch } from "./atoms/switch";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { useAllocateExpert } from "@/hooks/api/question/useAllocateExperts";
+import {useGetReRouteAllocation} from '@/hooks/api/question/useGetReRouteAllocation'
 import { useToggleAutoAllocateQuestion } from "@/hooks/api/question/useToggleAutoAllocateQuestion";
 import { useRemoveAllocation } from "@/hooks/api/question/useRemoveAllocation";
 import { ConfirmationModal } from "./confirmation-modal";
@@ -135,6 +137,7 @@ export const QuestionDetails = ({
   currentUser,
   goBack,
 }: QuestionDetailProps) => {
+ 
   const answers = useMemo(
     () => flattenAnswers(question?.submission),
     [question.submission]
@@ -633,7 +636,7 @@ export const QuestionDetails = ({
             answerVisibleCount={answerVisibleCount}
             answers={answers}
             commentRef={commentRef}
-            currentUserId={currentUserId}
+            currentUserId={currentUserId||currentUser._id?.toString()}
             question={question}
             userRole={currentUser.role}
             queue={question.submission.queue}
@@ -1531,7 +1534,7 @@ const AllocationTimeline = ({
 
 interface IAnswerTimelineProps {
   answers: IAnswer[];
-  currentUserId: string;
+  currentUserId: string |undefined;
   question: IQuestionFullData;
   answerVisibleCount: number;
   commentRef: React.RefObject<HTMLDivElement>;
@@ -1614,7 +1617,7 @@ export const AnswerTimeline = ({
 
 interface AnswerItemProps {
   answer: IAnswer;
-  currentUserId: string;
+  currentUserId: string|undefined;
   submissionData?: ISubmissionHistory;
   questionId: string;
   lastAnswerId: string;
@@ -1625,6 +1628,7 @@ interface AnswerItemProps {
 }
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
+ 
   const [sources, setSources] = useState<SourceItem[]>(props.answer.sources);
   const isMine = props.answer.authorId === props.currentUserId;
   // const [comment, setComment] = useState("");
@@ -1724,12 +1728,13 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     props.submissionData && props.submissionData.status === "rejected";
     
     const { data: usersData, isLoading: isUsersLoading } = useGetAllUsers();
-const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useAllocateExpert();
+const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRouteAllocation();
     
     const [searchTerm, setSearchTerm] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const expertsIdsInQueue = new Set(props.queue?.map((expert) => expert._id));
     const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
+    const [comment, setComment] = useState("");
 
   const experts =
     usersData?.users.filter(
@@ -1753,11 +1758,26 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useAllocat
   };
 
   const handleSubmit = async () => {
+    if (selectedExperts.length === 0) {
+      toast.error("Please select an expert.");
+      return;
+    }
+  
+    if (!comment.trim()) {
+      toast.error("Comments are required.");
+      return;
+    }
+    console.log("the answer id====",props.answer?._id)
+    console.log("the expert id coming===",)
     try {
       
       await allocateExpert({
         questionId: props.questionId,
-        experts: selectedExperts,
+        experts: selectedExperts[0],
+        moderatorId:props.currentUserId,
+        answerId:props.answer?._id,
+        comment: comment.trim(),
+        status: "pending" as ReRouteStatus,
       });
       setSelectedExperts([]);
       setIsModalOpen(false);
@@ -1888,7 +1908,7 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useAllocat
               <DialogTrigger asChild>
                 <Button variant="default" className="gap-2 w-full sm:w-auto">
                   <UserPlus className="w-4 h-4" />
-                  Reject
+                  Re Route
                 </Button>
               </DialogTrigger>
 
@@ -1904,6 +1924,19 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useAllocat
                         p-4                       
                       "
               >
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="reject-comment">
+                  Comments <span className="text-red-500">*</span>
+                </Label>
+                <Textarea
+                  id="reject-comment"
+                  placeholder="Enter reason for rejection..."
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  className="min-h-[100px]"
+                  required
+                />
+              </div>
                 <DialogHeader className="space-y-4">
                   <DialogTitle className="flex items-center gap-3 text-lg font-semibold">
                     <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -1982,7 +2015,11 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useAllocat
                             onCheckedChange={() =>
                               handleSelectExpert(expert._id)
                             }
-                            disabled={expert.isBlocked}
+                            disabled={
+                              expert.isBlocked ||
+                              (selectedExperts.length > 0 &&
+                                !selectedExperts.includes(expert._id))
+                            }
                             className="mt-1"
                           />
                           {/* {expert.isBlocked ? 'Blocked' : ''} */}
@@ -2035,7 +2072,10 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useAllocat
                   >
                     Cancel
                   </Button>
-                  <Button onClick={handleSubmit} >
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={selectedExperts.length === 0 || !comment.trim()}
+                  >
                     {`Submit (${selectedExperts.length} selected)`}
                   </Button>
                 </DialogFooter>

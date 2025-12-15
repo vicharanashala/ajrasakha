@@ -14,6 +14,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
+  private _reRouteUrl = `${API_BASE_URL}/reroute`;
 
   async useGetAllDetailedQuestions(
     pageParam: number,
@@ -185,6 +186,27 @@ export class QuestionService {
       {
         method: "POST",
         body: JSON.stringify({ experts }),
+      }
+    );
+  }
+  async allocateReRouteExperts(
+    questionId: string,
+    expertId: string,
+    moderatorId?:string,
+    answerId?:string,
+    comment?:string,
+    status?:string
+
+  ): Promise<IDetailedQuestion | null> {
+    return apiFetch<IDetailedQuestion>(
+      `${this._reRouteUrl}/${questionId}/allocate-experts`,
+      {
+        method: "POST",
+        body: JSON.stringify({ expertId,
+          moderatorId,
+          answerId,
+          comment,
+        status }),
       }
     );
   }

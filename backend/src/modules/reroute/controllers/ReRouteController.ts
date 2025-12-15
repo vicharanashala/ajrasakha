@@ -48,7 +48,7 @@ import {
 } from '#root/workers/workerManager.js';
 
 @OpenAPI({
-  tags: ['questions'],
+  tags: ['reroute'],
   description: 'Operations for managing questions',
 })
 @injectable()
@@ -59,14 +59,36 @@ export class ReRouteController {
     private readonly reRouteService: ReRouteService,
   ) {}
 
-  @Get('/allocate')
+  @Get('/allocat')
   @HttpCode(200)
   @Authorized()
   @OpenAPI({summary: 'Get questions by context ID'})
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async getByContextId(@Params() params: ContextIdParam): Promise<any> {
     const {contextId} = params;
+    console.log("the reroute calling====",)
     return this.reRouteService.addrerouteAnswer();
+  }
+
+  @Post('/:questionId/allocate-experts')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Manually allocate experts to a selected question'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async allocateExperts(
+    @Params() params: QuestionIdParam,
+    @Body() body: any,
+    @CurrentUser() user: IUser,
+  ) {
+    const {_id: userId} = user;
+    const {questionId} = params;
+    const {expertId} = body;
+    console.log("the body coming====",body)
+   /* return await this.questionService.allocateExperts(
+      userId.toString(),
+      questionId,
+      experts,
+    );*/
   }
 
 }

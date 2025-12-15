@@ -3,7 +3,7 @@ import {Container, ContainerModule} from 'inversify';
 import {InversifyAdapter} from '#root/inversify-adapter.js';
 import {useContainer} from 'class-validator';
 
-import {coreContainerModule} from './container.js';
+import {rerouteContainerModule} from './container.js';
 import {QUESTION_VALIDATORS} from './classes/validators/QuestionValidators.js';
 import {ANSWER_VALIDATORS} from './classes/validators/AnswerValidators.js';
 import {CONTEXT_VALIDATORS} from './classes/validators/ContextValidators.js';
@@ -24,20 +24,20 @@ export const coreModuleControllers: Function[] = [
 ];
 
 // Export container modules for loadAppModules
-export const coreContainerModules: ContainerModule[] = [
-  coreContainerModule,
+export const rerouteContainerModules: ContainerModule[] = [
+  rerouteContainerModule,
   sharedContainerModule,
 ];
 
 // This sets up Inversify bindings for the anomaly module
 export async function setupCoreContainer(): Promise<void> {
   const container = new Container();
-  await container.load(...coreContainerModules);
+  await container.load(...rerouteContainerModules);
   const inversifyAdapter = new InversifyAdapter(container);
   useContainer(inversifyAdapter);
 }
 
-export const coreModuleValidators: Function[] = [
+export const rerouteModuleValidators: Function[] = [
   ...QUESTION_VALIDATORS,
   ...ANSWER_VALIDATORS,
   ...CONTEXT_VALIDATORS,
