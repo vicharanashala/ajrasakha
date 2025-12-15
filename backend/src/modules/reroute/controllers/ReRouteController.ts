@@ -32,7 +32,9 @@ import {ContextIdParam} from '../classes/validators/ContextValidators.js';
 import {
   
   QuestionIdParam,
-  AllocateReRouteExpertsRequest
+  AllocateReRouteExpertsRequest,
+  QuestionResponse,
+  GetDetailedQuestionsQuery
   
   
 } from '../classes/validators/QuestionValidators.js';
@@ -86,6 +88,20 @@ export class ReRouteController {
       questionId,
       experts,
     );*/
+  }
+  @Get('/allocated')
+  @HttpCode(200)
+  @ResponseSchema(QuestionResponse, {isArray: true})
+  @Authorized()
+  @OpenAPI({summary: 'Get all open status questions'})
+  async getAllocatedQuestions(
+    @QueryParams()
+    query: GetDetailedQuestionsQuery,
+    @CurrentUser() user: IUser,
+  ): Promise<any> {
+    const userId = user._id.toString();
+    console.log("the reoute coming from allocation")
+   // return this.reRouteService.getAllocatedQuestions(userId, query);
   }
 
 }
