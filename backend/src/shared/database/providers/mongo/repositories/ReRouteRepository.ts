@@ -87,19 +87,33 @@ export class ReRouteRepository implements IReRouteRepository {
       throw new InternalServerError(`Error while Finding Reroute: ${error}`);
     }
   }
-  
- async getAllocatedQuestions(userId: string,query:GetDetailedQuestionsQuery, session?: ClientSession) {
-   try {
-    await this.init()
-    const result =await this.ReRouteCollection.aggregate([
-      // 1️⃣ Match reroutes where expert exists
+
+async getAllocatedQuestions(
+  userId: string,
+  query: GetDetailedQuestionsQuery,
+  session?: ClientSession,
+) {
+  try {
+    await this.init();
+
+    const safePage = query.page && query.page > 0 ? query.page : 1;
+    const safeLimit = query.limit && query.limit > 0 ? query.limit : 10;
+    const skip = (safePage - 1) * safeLimit;
+
+    const sortStage =
+      query.filter === 'oldest'
+        ? { 'latestReroute.reroutedAt': 1 }
+        : { 'latestReroute.reroutedAt': -1 }; // newest default
+
+    const pipeline = [
+      // 1️⃣ Match reroutes assigned to expert
       {
         $match: {
           'reroutes.reroutedTo': new ObjectId(userId),
         },
       },
 
-      // 2️⃣ Extract latest reroute for this expert
+      // 2️⃣ Get latest reroute for this expert
       {
         $addFields: {
           latestReroute: {
@@ -116,116 +130,130 @@ export class ReRouteRepository implements IReRouteRepository {
         },
       },
 
-      // 3️⃣ Lookup moderator
+      // 3️⃣ Sort
+      { $sort: sortStage },
+
+      // 4️⃣ Facet → data + totalCount
       {
-        $lookup: {
-          from: 'users',
-          localField: 'latestReroute.reroutedBy',
-          foreignField: '_id',
-          as: 'moderator',
-          pipeline: [
+        $facet: {
+          data: [
+            { $skip: skip },
+            { $limit: safeLimit },
+
+            // Lookup moderator
             {
-              $project: {
-                _id: { $toString: '$_id' },
-                email: 1,
-                firstName: 1,
-                lastName: 1,
+              $lookup: {
+                from: 'users',
+                localField: 'latestReroute.reroutedBy',
+                foreignField: '_id',
+                as: 'moderator',
+                pipeline: [
+                  {
+                    $project: {
+                      _id: { $toString: '$_id' },
+                      email: 1,
+                      firstName: 1,
+                      lastName: 1,
+                    },
+                  },
+                ],
               },
             },
-          ],
-        },
-      },
-      { $unwind: '$moderator' },
+            { $unwind: '$moderator' },
 
-      // 4️⃣ Lookup question
-      {
-        $lookup: {
-          from: 'questions',
-          localField: 'questionId',
-          foreignField: '_id',
-          as: 'question',
-          pipeline: [
+            // Lookup question
+            {
+              $lookup: {
+                from: 'questions',
+                localField: 'questionId',
+                foreignField: '_id',
+                as: 'question',
+                pipeline: [
+                  {
+                    $project: {
+                      _id: { $toString: '$_id' },
+                      question: 1,
+                      status: 1,
+                    },
+                  },
+                ],
+              },
+            },
+            { $unwind: '$question' },
+
+            // Lookup answer
+            {
+              $lookup: {
+                from: 'answers',
+                localField: 'answerId',
+                foreignField: '_id',
+                as: 'answer',
+              },
+            },
+            { $unwind: '$answer' },
+
+            // Final projection
             {
               $project: {
-                _id: { $toString: '$_id' },
+                _id: 0,
+                rerouteId: { $toString: '$_id' },
+
+                reroute: {
+                  status: '$latestReroute.status',
+                  comment: '$latestReroute.comment',
+                  reroutedAt: '$latestReroute.reroutedAt',
+                  updatedAt: '$latestReroute.updatedAt',
+                  reroutedBy: { $toString: '$latestReroute.reroutedBy' },
+                  reroutedTo: { $toString: '$latestReroute.reroutedTo' },
+                },
+
+                moderator: 1,
                 question: 1,
-                status: 1,
+
+                answer: {
+                  _id: { $toString: '$answer._id' },
+                  questionId: { $toString: '$answer.questionId' },
+                  authorId: { $toString: '$answer.authorId' },
+                  answerIteration: 1,
+                  approvalCount: 1,
+                  isFinalAnswer: 1,
+                  remarks: 1,
+                  status: 1,
+                  answer: 1,
+                  reRouted: 1,
+                  modifications: 1,
+                  sources: 1,
+                  createdAt: 1,
+                  updatedAt: 1,
+                },
               },
             },
           ],
+
+          totalCount: [{ $count: 'count' }],
         },
       },
-      { $unwind: '$question' },
+    ];
 
-      // 5️⃣ Lookup answer (FULL document)
-      {
-        $lookup: {
-          from: 'answers',
-          localField: 'answerId',
-          foreignField: '_id',
-          as: 'answer',
-        },
-      },
-      { $unwind: '$answer' },
+    const [aggResult] = await this.ReRouteCollection
+      .aggregate(pipeline, { session })
+      .toArray();
 
-      // 6️⃣ Final projection (convert remaining ObjectIds)
-      {
-        $project: {
-          _id: 0,
+    const totalCount = aggResult?.totalCount?.[0]?.count ?? 0;
 
-          rerouteId: { $toString: '$_id' },
-
-          reroute: {
-            status: '$latestReroute.status',
-            comment: '$latestReroute.comment',
-            reroutedAt: '$latestReroute.reroutedAt',
-            updatedAt: '$latestReroute.updatedAt',
-            reroutedBy: { $toString: '$latestReroute.reroutedBy' },
-            reroutedTo: { $toString: '$latestReroute.reroutedTo' },
-            answerId: {
-              $cond: [
-                { $ifNull: ['$latestReroute.answerId', false] },
-                { $toString: '$latestReroute.answerId' },
-                null,
-              ],
-            },
-          },
-
-          moderator: 1,
-
-          question: 1,
-
-          answer: {
-            _id: { $toString: '$answer._id' },
-            questionId: { $toString: '$answer.questionId' },
-            authorId: { $toString: '$answer.authorId' },
-            answerIteration: 1,
-            approvalCount: 1,
-            isFinalAnswer: 1,
-            remarks: 1,
-            approvedBy: {
-              $cond: [
-                { $ifNull: ['$answer.approvedBy', false] },
-                { $toString: '$answer.approvedBy' },
-                null,
-              ],
-            },
-            status: 1,
-            answer: 1,
-            reRouted: 1,
-            modifications: 1,
-            sources: 1,
-            createdAt: 1,
-            updatedAt: 1,
-          },
-        },
-      },
-    ]).toArray()
-    return result
-   } catch (error) {
-    throw new InternalServerError(`Error while Fetching Questions: ${error}`);
-   }
- }
+    return {
+      totalCount,
+      page: safePage,
+      totalPages: Math.ceil(totalCount / safeLimit),
+      // limit: safeLimit,
+      data: aggResult?.data ?? [],
+    };
+  } catch (error) {
+    throw new InternalServerError(
+      `Error while Fetching Questions: ${error}`,
+    );
+  }
+}
 
   
 
