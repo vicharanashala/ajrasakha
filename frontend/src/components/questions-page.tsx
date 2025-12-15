@@ -190,7 +190,7 @@ export const QuestionsPage = ({
   };
 
   return (
-    <main className="mx-auto w-full p-4 md:p-6 space-y-6 ">
+    <main className={"mx-auto w-full p-4 md:p-6 space-y-6"}>
       {selectedQuestionId && questionDetails ? (
         <>
           <QuestionDetails
@@ -243,7 +243,7 @@ export const QuestionsPage = ({
             // isLoadingMore={isFetchingNextPage}
             // lastElementRef={lastElementRef}
             totalPages={questionData?.totalPages || 0}
-            isLoading={isLoading || isRefreshing}
+            isLoading={isLoading || isRefreshing || bulkDeletingQuestions}
             isBulkUpload={isBulkUpload}
             uploadedQuestionsCount={uploadedQuestionsCount}
             selectedQuestionIds={selectedQuestionIds}

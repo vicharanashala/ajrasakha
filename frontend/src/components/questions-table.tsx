@@ -660,7 +660,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
               {/* <div className="flex h-4 w-4 items-center justify-center rounded border-2 border-primary/40 bg-primary/5 mr-2.5"> */}
               <Square className="h-2.5 w-2.5 text-primary" />
               {/* </div> */}
-              <span className="font-medium ms-2">Select Question</span>
+              <span className=" ms-2">Select</span>
             </ContextMenuItem>
           </>
         )}
@@ -715,7 +715,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
                 }}
                 trigger={
                   <div className="flex items-center gap-2 ">
-                    <Trash className="w-4 h-4 text-red-600" />
+                    <Trash className="w-4 h-4 text-red-600 mr-2" />
                     {deletingQuestion ? "Deleting..." : "Delete"}
                   </div>
                 }
@@ -1751,11 +1751,15 @@ export const QuestionsFilters = ({
                   <Button
                     variant="destructive"
                     size="sm"
-                    disabled={selectedQuestionIds.length === 0}
+                    disabled={
+                      selectedQuestionIds.length === 0 || bulkDeletingQuestions
+                    }
                     className="flex items-center gap-2 transition-all"
                   >
-                    <Trash className="h-4 w-4" /> Delete (
-                    {selectedQuestionIds.length})
+                    <Trash className="h-4 w-4" />
+                    {bulkDeletingQuestions
+                      ? `Deleting (${selectedQuestionIds.length})...`
+                      : `Delete (${selectedQuestionIds.length})`}
                   </Button>
                 }
               />
