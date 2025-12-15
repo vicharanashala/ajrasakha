@@ -53,7 +53,7 @@ import { ROUTE_TYPES } from '../types.js';
   description: 'Operations for managing questions',
 })
 @injectable()
-@JsonController('/reroute')
+@JsonController('/reroute',{ transformResponse: false })
 export class ReRouteController {
   constructor(
     @inject(ROUTE_TYPES.ReRouteService)
@@ -89,17 +89,17 @@ export class ReRouteController {
   }
   @Get('/allocated')
   @HttpCode(200)
-  @ResponseSchema(QuestionResponse, {isArray: true})
+  // @ResponseSchema(QuestionResponse, {isArray: true})
   @Authorized()
   @OpenAPI({summary: 'Get all open status questions'})
   async getAllocatedQuestions(
     @QueryParams()
     query: GetDetailedQuestionsQuery,
     @CurrentUser() user: IUser,
-  ): Promise<any> {
+  ): Promise<any[]> {
     const userId = user._id.toString();
     console.log("the reoute coming from allocation")
-   // return this.reRouteService.getAllocatedQuestions(userId, query);
+   return this.reRouteService.getAllocatedQuestions(userId);
   }
 
 }

@@ -129,4 +129,15 @@ export class ReRouteService extends BaseService {
       throw new InternalServerError(`Failed to add questions: ${error}`);
     }
   }
+
+
+  async getAllocatedQuestions(userId:string){
+    return await this._withTransaction(async (session:ClientSession) => {
+      const expert = await this.userRepo.findById(userId.toString());
+        if (!expert) {
+          throw new NotFoundError('Expert not found');
+        }
+        return await this.reRouteRepository.getAllocatedQuestions(userId.toString(),session)
+    })
+  }
 }
