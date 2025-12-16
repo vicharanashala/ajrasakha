@@ -1274,7 +1274,6 @@ if (review_level && review_level !== 'all') {
     session?: ClientSession,
   ): Promise<void> {
     await this.init();
-    console.log("the status coming====",status)
     const update: any = {status, updatedAt: new Date()};
     if (errorMessage) update.errorMessage = errorMessage;
     await this.QuestionCollection.updateOne(
