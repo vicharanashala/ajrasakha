@@ -256,10 +256,10 @@ export const QuestionsTable = ({
       } else {
         next = [...prev, questionId];
       }
-      if (prev.length >= 50) {
-        toast.warning("You can select only up to 50 questions");
-        return prev;
-      }
+      // if (prev.length >= 50) {
+      //   toast.warning("You can select only up to 50 questions");
+      //   return prev;
+      // }
       setIsSelectionModeOn(next.length > 0);
 
       return next;
