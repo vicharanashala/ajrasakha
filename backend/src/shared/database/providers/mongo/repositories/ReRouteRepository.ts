@@ -258,4 +258,44 @@ export class ReRouteRepository implements IReRouteRepository {
       throw new InternalServerError(`Error while Fetching Questions: ${error}`);
     }
   }
+
+
+  async rejectRerouteRequest(rerouteId:string,reason:string,session?:ClientSession):Promise<number>{
+    try {
+      await this.init()
+      const reroute = await this.ReRouteCollection.findOne({_id:new ObjectId(rerouteId)},{session})
+      if(!reroute){
+        throw new NotFoundError("Re route not found")
+      }
+    const latestReroute = await this.ReRouteCollection.findOne(
+  { _id: new ObjectId(rerouteId) },
+  { projection: { reroutes: { $slice: -1 } },session },
+);
+const last = latestReroute?.reroutes?.[0];
+if (!last){
+  if(!reroute){
+        throw new NotFoundError("Last Re route not found")
+      }
 }
+const result=await this.ReRouteCollection.updateOne(
+  {
+    _id: new ObjectId(rerouteId),
+    "reroutes.updatedAt": last.updatedAt,
+  },
+  {
+    $set: {
+      "reroutes.$.status": 'expert_rejected',
+      "reroutes.$.updatedAt": new Date(),
+      "reroutes.$.rejectionReason":reason,
+      updatedAt: new Date(),
+    },
+  },{session})
+  return result.modifiedCount
+    } catch (error) {
+      throw new InternalServerError(`Error while Rejecting re-route request: ${error}`);
+    }
+  }
+}
+
+
+

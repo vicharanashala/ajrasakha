@@ -172,4 +172,26 @@ export class ReRouteService extends BaseService {
       );
     }
   }
+
+
+  async rejectRerouteRequest(rerouteId:string,questionId:string,expertId:string,moderatorId:string,reason:string){
+    try {
+      return await this._withTransaction(async (session:ClientSession) => {
+        await this.reRouteRepository.rejectRerouteRequest(rerouteId,reason,session)
+        const user = await this.userRepo.findById(expertId,session)
+        const isIncrement=false
+        const title="Re Route request rejected"
+        const type:INotificationType='re-routed'
+        const message = `The expert ${user.email} has been rejected the re route request you sent`
+        const updateReputation= this.userRepo.updateReputationScore(expertId.toString(),isIncrement,session)
+        const sendNotification=this.notificationService.saveTheNotifications(message,title,questionId.toString(),moderatorId.toString(),type,session)
+        await Promise.all([updateReputation,sendNotification])
+        return
+      })
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to reject request: ${error}`,
+      );
+    }
+  }
 }

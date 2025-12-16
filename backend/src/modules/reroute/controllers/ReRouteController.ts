@@ -47,6 +47,7 @@ import {
   startBackgroundProcessing,
 } from '#root/workers/workerManager.js';
 import { ROUTE_TYPES } from '../types.js';
+import { RerouteIdParam } from '../classes/validators/RerouteValidator.js';
 
 @OpenAPI({
   tags: ['reroute'],
@@ -116,4 +117,22 @@ export class ReRouteController {
     return this.reRouteService.getQuestionById(questionId);
   }
 
+
+
+  @Patch('/:rerouteId/:questionId')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Expert can reject the re-route request'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async expertRejected(
+    @Params() params: RerouteIdParam,
+    @Body() body: {reason:string,expertId:string,moderatorId:string},
+    @CurrentUser() user: IUser,
+  ):Promise<{message:string}> {
+    console.log("reached ")
+    const {rerouteId,questionId} = params;
+    const {reason,expertId,moderatorId} = body
+    await this.reRouteService.rejectRerouteRequest(rerouteId,questionId,expertId,moderatorId,reason)
+    return {message:"Rejected the request succesfully"}
+  }
 }
