@@ -107,9 +107,15 @@ export class ReRouteRepository implements IReRouteRepository {
         // 1️⃣ Match reroutes assigned to expert
         {
           $match: {
-            'reroutes.reroutedTo': new ObjectId(userId),
+            reroutes: {
+              $elemMatch: {
+                reroutedTo: new ObjectId(userId),
+                status: "pending",
+              },
+            },
           },
         },
+
 
         // 2️⃣ Get latest reroute for this expert
         {
