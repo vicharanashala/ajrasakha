@@ -3,6 +3,7 @@ import type {
   IDetailedQuestionResponse,
   IQuestion,
   QuestionFullDataResponse,
+  RejectReRoutePayload
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { QuestionFilter } from "@/components/QA-interface";
@@ -118,6 +119,15 @@ export class QuestionService {
 
     
   }
+  async rejectRerouteRequest(payload: RejectReRoutePayload) {
+  const { rerouteId, questionId, ...body } = payload;
+
+  return apiFetch<void>(`${this._reRouteUrl}/${rerouteId}/${questionId}`,{
+    body:JSON.stringify(body),
+    method:"PATCH"
+  })
+ 
+}
 
   async getQuestionFullDataById(
     id: string

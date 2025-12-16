@@ -156,6 +156,12 @@ export interface IQuestion {
     createdAt: string;
   }[];
 }
+export interface RejectReRoutePayload {
+  reason: string;
+  rerouteId: string;
+  questionId: string;
+  moderatorId: string;
+}
 
 export interface ISubmissions {
   id: string;

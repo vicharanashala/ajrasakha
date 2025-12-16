@@ -127,11 +127,12 @@ export class ReRouteController {
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async expertRejected(
     @Params() params: RerouteIdParam,
-    @Body() body: {reason:string,expertId:string,moderatorId:string},
+    @Body() body: {reason:string,moderatorId:string},
     @CurrentUser() user: IUser,
   ):Promise<{message:string}> {
+    const expertId = user._id.toString();
     const {rerouteId,questionId} = params;
-    const {reason,expertId,moderatorId} = body
+    const {reason,moderatorId} = body
     await this.reRouteService.rejectRerouteRequest(rerouteId,questionId,expertId,moderatorId,reason)
     return {message:"Rejected the request succesfully"}
   }

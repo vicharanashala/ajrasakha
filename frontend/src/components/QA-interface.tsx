@@ -49,6 +49,7 @@ import {
   useGetAllocatedQuestionPage,
   useGetAllocatedQuestions,
 } from "@/hooks/api/question/useGetAllocatedQuestions";
+import {useReRouteRejectQuestion} from '@/hooks/api/question/useReRouteRejectQuestion'
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
 import { toast } from "sonner";
 import {
@@ -1661,7 +1662,7 @@ export const ReRouteResponseTimeline = ({
   selectedQuestion
 }: // SourceUrlManager,
 ReRouteResponseTimelineProps) => {
-  console.log("the questions coming===",questions,selectedQuestionData,selectedQuestion)
+
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejectionSubmitted, setIsRejectionSubmitted] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
@@ -1721,6 +1722,7 @@ ReRouteResponseTimelineProps) => {
   //   setUrlOpen(true);
   // };
   const [editedAnswer, setEditedAnswer] = useState(newAnswer);
+  
   const handleSubmitAnswer = async(answer: string) => {
     console.log("Final Answer:", answer);
     const payload = {
@@ -1741,6 +1743,46 @@ ReRouteResponseTimelineProps) => {
     // call API / mutation here
     // submitAnswerMutation.mutate(answer);
   };
+  interface RejectReRoutePayload {
+    reason: string;
+    rerouteId: string;
+    questionId: string;
+    moderatorId: string;
+  }
+  const { rejectReRoute, isRejecting } = useReRouteRejectQuestion();
+  const handleRejectReRouteAnswer = async(reason: string) => {
+    if (reason.trim() === "") {
+        toast.error("No reason provided for rejection");
+          return;
+        }
+        if (reason.length < 8) {
+          toast.error("Rejection reason must be atleast 8 letters");
+          return;
+        }
+    
+    if (!selectedQuestionData?.history?.length) {
+      console.warn("Selected question data not ready");
+      return;
+    }
+  
+    const h = selectedQuestionData.history[0];
+    try {
+    await rejectReRoute({
+        reason,
+        rerouteId: h.rerouteId,
+        questionId: h.question._id,
+        moderatorId: h.moderator._id,
+      });
+     toast.success("You have successfully rejected the Re Route Question");
+    } catch (error) {
+      console.error("Failed to reject reroute question:", error);
+    }
+
+  
+    // 🔥 call mutation / API here
+    // rejectReRouteMutation.mutate(payload);
+  };
+  
   const { mutateAsync: respondQuestion, isPending: isResponding } =
   useReviewAnswer();
   
@@ -1954,20 +1996,20 @@ ReRouteResponseTimelineProps) => {
         </CardContent>
       </Card>
       <Dialog open={isModifyDialogOpen} onOpenChange={setIsModifyDialogOpen}>
-  <DialogContent className="max-w-lg">
-    <DialogHeader>
-      <DialogTitle>Create Answer</DialogTitle>
-    </DialogHeader>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Create Answer</DialogTitle>
+            </DialogHeader>
 
-    {/* Editable Answer */}
-    <Textarea
-      value={editedAnswer}
-      onChange={(e) => setEditedAnswer(e.target.value)}
-      rows={6}
-      className="mt-2"
-      placeholder="Write your answer..."
-    />
-    <div className="bg-card border border-border rounded-xl p-6 shadow-sm mt-3 md:mt-6">
+            {/* Editable Answer */}
+            <Textarea
+              value={editedAnswer}
+              onChange={(e) => setEditedAnswer(e.target.value)}
+              rows={6}
+              className="mt-2"
+              placeholder="Write your answer..."
+            />
+            <div className="bg-card border border-border rounded-xl p-6 shadow-sm mt-3 md:mt-6">
                           <SourceUrlManager
                             sources={sources}
                             onSourcesChange={setSources}
@@ -2006,8 +2048,42 @@ ReRouteResponseTimelineProps) => {
       </Button>
     </DialogFooter>
   </DialogContent>
-</Dialog>
+      </Dialog>
+      <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Rejection Reason *</DialogTitle>
+            </DialogHeader>
+            <Textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              rows={6}
+              className="mt-2"
+              placeholder="Write your reason..."
+            />
 
+           <DialogFooter className="mt-4 gap-2">
+      {/* Cancel */}
+      <Button
+        variant="outline"
+        onClick={() => setIsRejectDialogOpen(false)}
+      >
+        Cancel
+      </Button>
+
+      {/* Submit */}
+      <Button
+       disabled={rejectionReason.length<8}
+        onClick={() => {
+          handleRejectReRouteAnswer(rejectionReason);
+          setIsRejectDialogOpen(false);
+        }}
+      >
+        {isSubmittingAnswer ? "Submitting..." : "Submit"}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+      </Dialog>
 
       
      
