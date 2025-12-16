@@ -1,5 +1,4 @@
-
-import {IReRouteRepository} from '#root/shared/database/interfaces/IReRouteRepository.js'
+import {IReRouteRepository} from '#root/shared/database/interfaces/IReRouteRepository.js';
 import {
   IAnswer,
   IContext,
@@ -9,7 +8,7 @@ import {
   IUser,
   QuestionStatus,
   IReroute,
-  IRerouteHistory
+  IRerouteHistory,
 } from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
@@ -20,13 +19,9 @@ import {
   InternalServerError,
   NotFoundError,
 } from 'routing-controllers';
-import { GetDetailedQuestionsQuery } from '#root/modules/core/classes/validators/QuestionValidators.js';
-
-
-
+import {GetDetailedQuestionsQuery} from '#root/modules/core/classes/validators/QuestionValidators.js';
 
 export class ReRouteRepository implements IReRouteRepository {
- 
   private ReRouteCollection: Collection<IReroute>;
 
   constructor(
@@ -35,227 +30,232 @@ export class ReRouteRepository implements IReRouteRepository {
   ) {}
 
   private async init() {
-    
     this.ReRouteCollection = await this.db.getCollection<IReroute>('reroute');
   }
 
   async addrerouteAnswer(
-    payload:IReroute,
+    payload: IReroute,
     session?: ClientSession,
   ): Promise<string> {
     try {
       await this.init();
-      const result = await this.ReRouteCollection.insertOne(payload,session)
-      return result.insertedId.toString()
+      const result = await this.ReRouteCollection.insertOne(payload, session);
+      return result.insertedId.toString();
     } catch (error) {
       throw new InternalServerError(`Error while adding question: ${error}`);
     }
   }
 
   async pushRerouteHistory(
-  rerouteId: string,
-  history: IRerouteHistory,
-  updatedAt: Date,
-  session?: ClientSession,
-): Promise<void> {
-  try {
-    await this.init();
-
-    await this.ReRouteCollection.updateOne(
-      { _id: new ObjectId(rerouteId) },
-      {
-        $push: { reroutes: history },
-        $set: { updatedAt },
-      },
-      { session },
-    );
-  } catch (error) {
-    throw new InternalServerError(
-      `Error while pushing reroute history: ${error}`,
-    );
-  }
-}
-
-
- 
-  async findByQuestionId(questionId: string, session?: ClientSession): Promise<IReroute> {
+    rerouteId: string,
+    history: IRerouteHistory,
+    updatedAt: Date,
+    session?: ClientSession,
+  ): Promise<void> {
     try {
-      await this.init()
-      const reroute = await this.ReRouteCollection.findOne({questionId:new ObjectId(questionId)})
-      return reroute
+      await this.init();
+
+      await this.ReRouteCollection.updateOne(
+        {_id: new ObjectId(rerouteId)},
+        {
+          $push: {reroutes: history},
+          $set: {updatedAt},
+        },
+        {session},
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while pushing reroute history: ${error}`,
+      );
+    }
+  }
+
+  async findByQuestionId(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<IReroute> {
+    try {
+      await this.init();
+      const reroute = await this.ReRouteCollection.findOne({
+        questionId: new ObjectId(questionId),
+      });
+      return reroute;
     } catch (error) {
       throw new InternalServerError(`Error while Finding Reroute: ${error}`);
     }
   }
 
-async getAllocatedQuestions(
-  userId: string,
-  query: GetDetailedQuestionsQuery,
-  session?: ClientSession,
-) {
-  try {
-    await this.init();
+  async getAllocatedQuestions(
+    userId: string,
+    query: GetDetailedQuestionsQuery,
+    session?: ClientSession,
+  ) {
+    try {
+      await this.init();
 
-    const safePage = query.page && query.page > 0 ? query.page : 1;
-    const safeLimit = query.limit && query.limit > 0 ? query.limit : 10;
-    const skip = (safePage - 1) * safeLimit;
+      const safePage = query.page && query.page > 0 ? query.page : 1;
+      const safeLimit = query.limit && query.limit > 0 ? query.limit : 10;
+      const skip = (safePage - 1) * safeLimit;
 
-    const sortStage =
-      query.filter === 'oldest'
-        ? { 'latestReroute.reroutedAt': 1 }
-        : { 'latestReroute.reroutedAt': -1 }; // newest default
+      const sortStage =
+        query.filter === 'oldest'
+          ? {'latestReroute.reroutedAt': 1}
+          : {'latestReroute.reroutedAt': -1}; // newest default
 
-    const pipeline = [
-      // 1️⃣ Match reroutes assigned to expert
-      {
-        $match: {
-          'reroutes.reroutedTo': new ObjectId(userId),
+      const pipeline = [
+        // 1️⃣ Match reroutes assigned to expert
+        {
+          $match: {
+            'reroutes.reroutedTo': new ObjectId(userId),
+          },
         },
-      },
 
-      // 2️⃣ Get latest reroute for this expert
-      {
-        $addFields: {
-          latestReroute: {
-            $last: {
-              $filter: {
-                input: '$reroutes',
-                as: 'r',
-                cond: {
-                  $eq: ['$$r.reroutedTo', new ObjectId(userId)],
+        // 2️⃣ Get latest reroute for this expert
+        {
+          $addFields: {
+            latestReroute: {
+              $last: {
+                $filter: {
+                  input: '$reroutes',
+                  as: 'r',
+                  cond: {
+                    $eq: ['$$r.reroutedTo', new ObjectId(userId)],
+                  },
                 },
               },
             },
           },
         },
-      },
 
-      // 3️⃣ Sort
-      { $sort: sortStage },
+        // 3️⃣ Sort
+        {$sort: sortStage},
 
-      // 4️⃣ Facet → data + totalCount
-      {
-        $facet: {
-          data: [
-            { $skip: skip },
-            { $limit: safeLimit },
+        // 4️⃣ Facet → data + totalCount
+        {
+          $facet: {
+            data: [
+              {$skip: skip},
+              {$limit: safeLimit},
 
-            // Lookup moderator
-            {
-              $lookup: {
-                from: 'users',
-                localField: 'latestReroute.reroutedBy',
-                foreignField: '_id',
-                as: 'moderator',
-                pipeline: [
-                  {
-                    $project: {
-                      _id: { $toString: '$_id' },
-                      email: 1,
-                      firstName: 1,
-                      lastName: 1,
+              // Lookup moderator
+              {
+                $lookup: {
+                  from: 'users',
+                  localField: 'latestReroute.reroutedBy',
+                  foreignField: '_id',
+                  as: 'moderator',
+                  pipeline: [
+                    {
+                      $project: {
+                        _id: {$toString: '$_id'},
+                        email: 1,
+                        firstName: 1,
+                        lastName: 1,
+                      },
                     },
-                  },
-                ],
-              },
-            },
-            { $unwind: '$moderator' },
-
-            // Lookup question
-            {
-              $lookup: {
-                from: 'questions',
-                localField: 'questionId',
-                foreignField: '_id',
-                as: 'question',
-                pipeline: [
-                  {
-                    $project: {
-                      _id: { $toString: '$_id' },
-                      question: 1,
-                      status: 1,
-                    },
-                  },
-                ],
-              },
-            },
-            { $unwind: '$question' },
-
-            // Lookup answer
-            {
-              $lookup: {
-                from: 'answers',
-                localField: 'answerId',
-                foreignField: '_id',
-                as: 'answer',
-              },
-            },
-            { $unwind: '$answer' },
-
-            // Final projection
-            {
-              $project: {
-                _id: 0,
-                rerouteId: { $toString: '$_id' },
-
-                reroute: {
-                  status: '$latestReroute.status',
-                  comment: '$latestReroute.comment',
-                  reroutedAt: '$latestReroute.reroutedAt',
-                  updatedAt: '$latestReroute.updatedAt',
-                  reroutedBy: { $toString: '$latestReroute.reroutedBy' },
-                  reroutedTo: { $toString: '$latestReroute.reroutedTo' },
-                },
-
-                moderator: 1,
-                question: 1,
-
-                answer: {
-                  _id: { $toString: '$answer._id' },
-                  questionId: { $toString: '$answer.questionId' },
-                  authorId: { $toString: '$answer.authorId' },
-                  answerIteration: 1,
-                  approvalCount: 1,
-                  isFinalAnswer: 1,
-                  remarks: 1,
-                  status: 1,
-                  answer: 1,
-                  reRouted: 1,
-                  modifications: 1,
-                  sources: 1,
-                  createdAt: 1,
-                  updatedAt: 1,
+                  ],
                 },
               },
-            },
-          ],
+              {$unwind: '$moderator'},
 
-          totalCount: [{ $count: 'count' }],
+              // Lookup question
+              {
+                $lookup: {
+                  from: 'questions',
+                  localField: 'questionId',
+                  foreignField: '_id',
+                  as: 'question',
+                  pipeline: [
+                    {
+                      $project: {
+                        _id: {$toString: '$_id'},
+                        question: 1,
+                        status: 1,
+                        details: 1,
+                        createdAt: 1,
+                        priority: 1,
+                      },
+                    },
+                  ],
+                },
+              },
+              {$unwind: '$question'},
+
+              // Lookup answer
+              {
+                $lookup: {
+                  from: 'answers',
+                  localField: 'answerId',
+                  foreignField: '_id',
+                  as: 'answer',
+                },
+              },
+              {$unwind: '$answer'},
+
+              // Final projection
+              {
+                $project: {
+                  _id: 0,
+                  rerouteId: {$toString: '$_id'},
+
+                  reroute: {
+                    status: '$latestReroute.status',
+                    comment: '$latestReroute.comment',
+                    reroutedAt: '$latestReroute.reroutedAt',
+                    updatedAt: '$latestReroute.updatedAt',
+                    reroutedBy: {$toString: '$latestReroute.reroutedBy'},
+                    reroutedTo: {$toString: '$latestReroute.reroutedTo'},
+                  },
+
+                  moderator: 1,
+                  question: 1,
+                  text:'$question.question',
+ status: "$question.status",
+ details:"$question.details",
+ createdAt:"$question.createdAt",
+ priority:"$question.priority",
+ id:"$question._id",
+
+                  answer: {
+                    _id: {$toString: '$answer._id'},
+                    questionId: {$toString: '$answer.questionId'},
+                    authorId: {$toString: '$answer.authorId'},
+                    answerIteration: 1,
+                    approvalCount: 1,
+                    isFinalAnswer: 1,
+                    remarks: 1,
+                    status: 1,
+                    answer: 1,
+                    reRouted: 1,
+                    modifications: 1,
+                    sources: 1,
+                    createdAt: 1,
+                    updatedAt: 1,
+                  },
+                },
+              },
+            ],
+
+            totalCount: [{$count: 'count'}],
+          },
         },
-      },
-    ];
+      ];
 
-    const [aggResult] = await this.ReRouteCollection
-      .aggregate(pipeline, { session })
-      .toArray();
+      const [aggResult] = await this.ReRouteCollection.aggregate(pipeline, {
+        session,
+      }).toArray();
 
-    const totalCount = aggResult?.totalCount?.[0]?.count ?? 0;
+      const totalCount = aggResult?.totalCount?.[0]?.count ?? 0;
 
-    return {
-      totalCount,
-      page: safePage,
-      totalPages: Math.ceil(totalCount / safeLimit),
-      // limit: safeLimit,
-      data: aggResult?.data ?? [],
-    };
-  } catch (error) {
-    throw new InternalServerError(
-      `Error while Fetching Questions: ${error}`,
-    );
+      return {
+        totalCount,
+        page: safePage,
+        totalPages: Math.ceil(totalCount / safeLimit),
+        // limit: safeLimit,
+        data: aggResult?.data ?? [],
+      };
+    } catch (error) {
+      throw new InternalServerError(`Error while Fetching Questions: ${error}`);
+    }
   }
-}
-
-  
-
- 
 }
