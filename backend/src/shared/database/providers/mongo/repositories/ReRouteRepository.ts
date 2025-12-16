@@ -665,7 +665,7 @@ export class ReRouteRepository implements IReRouteRepository {
   const updateSet: Record<string, any> = {
     [`reroutes.${latestIndex}.status`]: status,
     [`reroutes.${latestIndex}.updatedAt`]: new Date(),
-    [`reroutes.${latestIndex}.answerId`]: answerId,
+    [`reroutes.${latestIndex}.answerId`]: new ObjectId(answerId),
     updatedAt: new Date(),
   };
 
