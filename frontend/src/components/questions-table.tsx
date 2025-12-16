@@ -442,6 +442,8 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   handleQuestionsSelection,
   selectedQuestionIds,
 }) => {
+  // To track cont
+
   const uploadedCountRef = useRef(uploadedQuestionsCount);
 
   const DURATION_HOURS = 4;
@@ -675,9 +677,12 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
         {userRole === "expert" ? (
           <ContextMenuItem
             onSelect={(e) => {
-              e.preventDefault();
-              setSelectedQuestion(q);
-              setEditOpen(true);
+              // SetTimeout is essential becuase it will resolve the UI Overlay conflicts happening due to edit modal being opened before closing the context menu
+              setTimeout(() => {
+                e.preventDefault();
+                setSelectedQuestion(q);
+                setEditOpen(true);
+              }, 0);
             }}
           >
             <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
@@ -686,10 +691,18 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
         ) : (
           <>
             <ContextMenuItem
+              // onSelect={(e) => {
+              //   e.preventDefault();
+              //   setSelectedQuestion(q);
+              //   setEditOpen(true);
+              // }}
               onSelect={(e) => {
-                e.preventDefault();
-                setSelectedQuestion(q);
-                setEditOpen(true);
+                // SetTimeout is essential becuase it will resolve the UI Overlay conflicts happening due to edit modal being opened before closing the context menu
+                setTimeout(() => {
+                  e.preventDefault();
+                  setSelectedQuestion(q);
+                  setEditOpen(true);
+                }, 0);
               }}
             >
               <Edit className="w-4 h-4 mr-2 text-blue-500" />
