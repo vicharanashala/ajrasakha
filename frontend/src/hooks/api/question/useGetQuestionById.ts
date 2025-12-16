@@ -9,6 +9,7 @@ export const useGetQuestionById = (questionId: string | null,actionType:string) 
     queryKey: ["question", questionId,actionType],
     queryFn: async () => {
       if (!questionId) throw new Error("Question ID is required");
+      console.log("the question id coming===*****",questionId)
       return await questionService.getQuestionById(questionId,actionType);
     },
 

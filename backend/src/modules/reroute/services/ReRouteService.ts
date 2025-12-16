@@ -141,7 +141,7 @@ export class ReRouteService extends BaseService {
         return await this.reRouteRepository.getAllocatedQuestions(userId.toString(),query,session)
     })
   }
-  async getQuestionById(questionId: string){
+  async getQuestionById(questionId: string,userId:string){
     try {
       return this._withTransaction(async (session: ClientSession) => {
         const currentQuestion = await this.questionRepo.getById(questionId);
@@ -150,6 +150,35 @@ export class ReRouteService extends BaseService {
           throw new NotFoundError(
             `Failed to find question with id: ${questionId}`,
           );
+          let result= await this.reRouteRepository.getAllocatedQuestionsByID(questionId,userId,session)
+          
+          
+
+        // Only author needs to see ai initial answer
+        let aiInitialAnswer = '';
+
+        
+
+        return {
+          id: currentQuestion._id.toString(),
+          text: currentQuestion.question,
+          source: currentQuestion.source,
+          details: currentQuestion.details,
+          status: currentQuestion.status,
+          priority: currentQuestion.priority,
+          aiInitialAnswer,
+          createdAt: new Date(currentQuestion.createdAt).toLocaleString(),
+          updatedAt: new Date(currentQuestion.updatedAt).toLocaleString(),
+          totalAnswersCount: currentQuestion.totalAnswersCount,
+          history: result,
+          // currentAnswers: currentAnswers.map(currentAnswer => ({
+          //   id: currentAnswer._id.toString(),
+          //   answer: currentAnswer.answer,
+          //   isFinalAnswer: currentAnswer.isFinalAnswer,
+          //   createdAt: currentAnswer.createdAt,
+          // })),
+        };
+      });
 
         // const currentAnswers = await this.answerRepo.getByQuestionId(
         //   questionId,
@@ -164,8 +193,8 @@ export class ReRouteService extends BaseService {
           //   isFinalAnswer: currentAnswer.isFinalAnswer,
           //   createdAt: currentAnswer.createdAt,
           // })),
-        return null
-      });
+        
+      
     } catch (error) {
       throw new InternalServerError(
         `Failed to get unanswered questions: ${error}`,
