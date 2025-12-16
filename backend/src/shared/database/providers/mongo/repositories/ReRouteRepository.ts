@@ -9,6 +9,7 @@ import {
   QuestionStatus,
   IReroute,
   IRerouteHistory,
+  RerouteStatus,
 } from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
@@ -472,12 +473,7 @@ export class ReRouteRepository implements IReRouteRepository {
   ): Promise<any[]> {
     try {
       await this.init();
-
-      
-      console.log("the question id coming===",questionId)
-
       const result =await this.ReRouteCollection.aggregate([
-        // 1️⃣ Match reroutes where expert exists
         {
         $match: {
         'questionId': new ObjectId(questionId),
@@ -625,5 +621,67 @@ export class ReRouteRepository implements IReRouteRepository {
       
       };
     
-  
+  async updateStatus(questionId:string,expertId:string,status:RerouteStatus,answerId?:string,session?:ClientSession){
+    try {
+      await this.init()
+  const questionObjectId = new ObjectId(questionId);
+  const expertObjectId = new ObjectId(expertId);
+
+  /**
+   * Step 1: Fetch only reroutes for this question
+   */
+  const rerouteDoc = await this.ReRouteCollection.findOne(
+    {
+      questionId: questionObjectId,
+      'reroutes.reroutedTo': expertObjectId,
+    },
+    {
+      projection: { reroutes: 1 },session
+    },
+  );
+
+  if (!rerouteDoc || !rerouteDoc.reroutes?.length) {
+    throw new Error('No reroute found for this expert and question');
+  }
+   let latestIndex = -1;
+  let latestTime = 0;
+
+  rerouteDoc.reroutes.forEach((reroute: any, index: number) => {
+    if (String(reroute.reroutedTo) !== String(expertObjectId)) return;
+
+    const time = new Date(
+      reroute.reroutedAt ?? reroute.updatedAt,
+    ).getTime();
+
+    if (time > latestTime) {
+      latestTime = time;
+      latestIndex = index;
+    }
+  });
+
+  if (latestIndex === -1) {
+    throw new Error('No matching reroute history found');
+  }
+  const updateSet: Record<string, any> = {
+    [`reroutes.${latestIndex}.status`]: status,
+    [`reroutes.${latestIndex}.updatedAt`]: new Date(),
+    [`reroutes.${latestIndex}.answerId`]: answerId,
+    updatedAt: new Date(),
+  };
+
+
+  const result = await this.ReRouteCollection.updateOne(
+    { questionId: questionObjectId },
+    { $set: updateSet },
+    {session}
+  );
+
+  if (result.matchedCount === 0) {
+    throw new Error('Failed to update reroute status');
+  }
+  return result
+    } catch (error) {
+      throw new InternalServerError('eroor while fetching question details');
+    }
+  }
 }

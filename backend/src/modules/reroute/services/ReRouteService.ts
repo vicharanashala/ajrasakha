@@ -21,9 +21,7 @@ import {
   UnauthorizedError,
 } from 'routing-controllers';
 
-import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
 import {IReRouteRepository} from '#root/shared/database/interfaces/IReRouteRepository.js';
-import {timeStamp} from 'console';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {NotificationService} from '#root/modules/core/index.js';
 import { GetDetailedQuestionsQuery } from '../classes/validators/QuestionValidators.js';

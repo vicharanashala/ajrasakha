@@ -54,10 +54,10 @@ export class AnswerRepository implements IAnswerRepository {
     session?: ClientSession,
     status?: string,
     remarks?: string,
+    type?:string,
   ): Promise<{insertedId: string}> {
     try {
       await this.init();
-
       if (!questionId || !isValidObjectId(questionId)) {
         throw new BadRequestError('Invalid or missing questionId');
       }
@@ -78,11 +78,11 @@ export class AnswerRepository implements IAnswerRepository {
         remarks,
         status,
         embedding,
+        reRouted:type ? true : false,
         sources,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-
       const result = await this.AnswerCollection.insertOne(doc, {session});
 
       return {insertedId: result.insertedId.toString()};

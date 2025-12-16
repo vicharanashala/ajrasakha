@@ -41,6 +41,7 @@ import {notifyUser} from '#root/utils/pushNotification.js';
 import {NotificationService} from './NotificationService.js';
 import {IReviewRepository} from '#root/shared/database/interfaces/IReviewRepository.js';
 import {appConfig} from '#root/config/app.js';
+import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
 
 @injectable()
 export class AnswerService extends BaseService {
@@ -72,6 +73,9 @@ export class AnswerService extends BaseService {
     @inject(GLOBAL_TYPES.NotificationRepository)
     private readonly notificationRepository: INotificationRepository,
 
+    @inject(GLOBAL_TYPES.ReRouteRepository)
+    private readonly reRouteRepository: IReRouteRepository,
+
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
   ) {
@@ -86,6 +90,7 @@ export class AnswerService extends BaseService {
     session?: ClientSession,
     status?: string,
     remarks?: string,
+    type?:string,
   ): Promise<{insertedId: string; isFinalAnswer: boolean}> {
     const execute = async (activeSession: ClientSession) => {
       const question = await this.questionRepo.getById(
@@ -133,6 +138,7 @@ export class AnswerService extends BaseService {
         activeSession,
         status,
         remarks,
+        type
       );
 
       await this.questionRepo.updateQuestion(
@@ -195,8 +201,8 @@ export class AnswerService extends BaseService {
           modifiedAnswer,
           reasonForModification,
           remarks,
+          type
         } = body;
-
         // -----------------------------------------------------------
         // 3. Validate Question
         // -----------------------------------------------------------
@@ -206,6 +212,32 @@ export class AnswerService extends BaseService {
         if (!question) {
           throw new NotFoundError(`Failed to find question. Please try again.`);
         }
+
+        //check if it is re-routed
+        if(type){
+          const intialStatus = 'in-review' as IAnswer['status'];
+          const isIncrement=false
+          const message="Expert created an answer for the re-routed question"
+          const title="New answer for re-routed Question"
+          const type:INotificationType='re-routed'
+          const {insertedId: answerId} = await this.addAnswer(
+            questionId,
+            userId,
+            answer,
+            sources,
+            session,
+            intialStatus,
+            remarks,
+            type
+          );
+          const reroute = await this.reRouteRepository.findByQuestionId(questionId.toString(),session)
+          const moderatorId = reroute.reroutes[0].reroutedBy.toString()
+          await this.userRepo.updateReputationScore(userId.toString(),isIncrement,session)
+          await this.reRouteRepository.updateStatus(questionId.toString(),userId.toString(),'expert_completed',answerId,session)
+          await this.notificationService.saveTheNotifications(message,title,questionId,moderatorId,type,session)
+          return
+        }
+
 
         // -----------------------------------------------------------
         // 4. Validate Submission Document

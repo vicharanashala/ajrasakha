@@ -32,6 +32,7 @@ export interface IAnswerRepository {
     session?: ClientSession,
     status?: string,
     remarks?: string,
+    type?:string,
   ): Promise<{insertedId: string}>;
 
   /**
