@@ -26,7 +26,7 @@ import Spinner from "./atoms/spinner";
 import { ExpertDashboard } from "./ExpertDashboard";
 
 export const PlaygroundPage = () => {
-  const { data: user, isLoading } = useGetCurrentUser();
+  const { data: user, isLoading } = useGetCurrentUser({});
   const userId = user?._id?.toString();
   const navigate = useNavigate();
   const {

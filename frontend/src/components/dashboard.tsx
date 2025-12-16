@@ -22,7 +22,6 @@ import { DashboardClock } from "./dashboard/dashboard-clock";
 import { Spinner } from "./atoms/spinner";
 import { DateRangeFilter } from "./DateRangeFilter";
 
-
 //     { name: "Experts", value: 32 },
 //     { name: "Moderators", value: 8 },
 //   ],
@@ -310,12 +309,20 @@ export const Dashboard = () => {
     <main
       className={`min-h-screen bg-background ${isLoading ? "opacity-40" : ""}`}
     >
+      {/* <Snowfall /> */}
+      <HolidayBanner />
       <div className="mx-auto p-6">
         <div className="mb-8 flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">
+            {/* <h1 className="text-3xl font-bold text-foreground">
               Moderator Dashboard
-            </h1>
+            </h1> */}
+            <div className="relative inline-block">
+              <ChristmasCap className="absolute -top-14 -left-4 w-20 h-18 -rotate-6 z-10" />
+              <h1 className="text-3xl font-bold text-foreground pt-2 pl-6">
+                Moderator Dashboard
+              </h1>
+            </div>
             <p className="text-muted-foreground mt-1">
               Monitor content moderation and expert performance
             </p>
@@ -393,5 +400,100 @@ export const Dashboard = () => {
         </div>
       </div>
     </main>
+  );
+};
+
+const ChristmasCap = ({ className = "" }: { className?: string }) => {
+  return (
+    <svg
+      viewBox="0 0 120 100"
+      className={className}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Hat body - main triangular shape */}
+      <path
+        d="M20 85 Q30 50 50 40 Q70 30 90 35 Q105 40 105 55 L105 85 Z"
+        fill="#DC2626"
+        stroke="#B91C1C"
+        strokeWidth="2"
+      />
+      {/* Drooping tail/tip */}
+      <path
+        d="M50 40 Q35 35 25 45 Q15 55 10 70 Q8 80 15 85"
+        fill="#DC2626"
+        stroke="#B91C1C"
+        strokeWidth="2"
+      />
+      {/* White fur trim at bottom */}
+      <ellipse cx="62" cy="85" rx="50" ry="12" fill="#F5F5F4" />
+      <ellipse cx="62" cy="85" rx="47" ry="9" fill="#FAFAF9" />
+      {/* Pompom at the end of tail */}
+      <circle cx="15" cy="82" r="14" fill="#FAFAF9" />
+      <circle cx="13" cy="80" r="11" fill="white" />
+      {/* Highlight on hat */}
+      <path
+        d="M55 50 Q70 42 85 48"
+        stroke="#EF4444"
+        strokeWidth="4"
+        strokeLinecap="round"
+        opacity="0.5"
+      />
+    </svg>
+  );
+};
+
+const HolidayBanner = () => {
+  return (
+    <div className="w-full bg-gradient-to-r from-christmas-pine via-christmas-green to-christmas-pine py-2 px-4">
+      <div className="flex items-center justify-center gap-3">
+        <span className="text-christmas-gold shimmer-gold">✦</span>
+        <p className="text-sm font-medium text-primary-foreground tracking-wide">
+          Season's Greetings from the Moderation Team
+        </p>
+        <span className="text-christmas-gold shimmer-gold">✦</span>
+      </div>
+    </div>
+  );
+};
+
+interface Snowflake {
+  id: number;
+  left: number;
+  delay: number;
+  duration: number;
+  size: number;
+}
+const Snowfall = () => {
+  const [snowflakes, setSnowflakes] = useState<Snowflake[]>([]);
+
+  useEffect(() => {
+    const flakes: Snowflake[] = Array.from({ length: 25 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 10,
+      duration: 10 + Math.random() * 15,
+      size: 0.6 + Math.random() * 0.8,
+    }));
+    setSnowflakes(flakes);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden z-50">
+      {snowflakes.map((flake) => (
+        <span
+          key={flake.id}
+          className="snowflake"
+          style={{
+            left: `${flake.left}%`,
+            animationDelay: `${flake.delay}s`,
+            animationDuration: `${flake.duration}s`,
+            fontSize: `${flake.size}rem`,
+          }}
+        >
+          ❄
+        </span>
+      ))}
+    </div>
   );
 };

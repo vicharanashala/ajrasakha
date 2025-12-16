@@ -316,3 +316,45 @@ code {
     @apply overflow-y-scroll md:overflow-hidden;
   }
 }
+
+
+/*  Snowfall animation */ 
+@keyframes snowfall {
+  0% {
+    transform: translateY(-10px) translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) translateX(20px);
+    opacity: 0;
+  }
+}
+
+@keyframes shimmer {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.snowflake {
+  position: fixed;
+  top: -10px;
+  color: hsl(var(--christmas-gold) / 0.4);
+  font-size: 1rem;
+  pointer-events: none;
+  animation: snowfall linear infinite;
+  z-index: 50;
+}
+
+.shimmer-gold {
+  animation: shimmer 3s ease-in-out infinite;
+}
