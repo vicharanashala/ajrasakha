@@ -194,4 +194,10 @@ export class ReRouteService extends BaseService {
       );
     }
   }
+
+  async getRerouteHistory(answerId:string){
+    return await this._withTransaction(async (session:ClientSession) => {
+      return await this.reRouteRepository.getRerouteHistory(answerId,session)
+    })
+  }
 }

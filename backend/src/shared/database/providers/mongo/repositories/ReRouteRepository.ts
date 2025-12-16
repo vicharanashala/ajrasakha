@@ -209,12 +209,12 @@ export class ReRouteRepository implements IReRouteRepository {
 
                   moderator: 1,
                   question: 1,
-                  text:'$question.question',
- status: "$question.status",
- details:"$question.details",
- createdAt:"$question.createdAt",
- priority:"$question.priority",
- id:"$question._id",
+                  text: '$question.question',
+                  status: '$question.status',
+                  details: '$question.details',
+                  createdAt: '$question.createdAt',
+                  priority: '$question.priority',
+                  id: '$question._id',
 
                   answer: {
                     _id: {$toString: '$answer._id'},
@@ -259,43 +259,209 @@ export class ReRouteRepository implements IReRouteRepository {
     }
   }
 
-
-  async rejectRerouteRequest(rerouteId:string,reason:string,session?:ClientSession):Promise<number>{
+  async rejectRerouteRequest(
+    rerouteId: string,
+    reason: string,
+    session?: ClientSession,
+  ): Promise<number> {
     try {
-      await this.init()
-      const reroute = await this.ReRouteCollection.findOne({_id:new ObjectId(rerouteId)},{session})
-      if(!reroute){
-        throw new NotFoundError("Re route not found")
+      await this.init();
+      const reroute = await this.ReRouteCollection.findOne(
+        {_id: new ObjectId(rerouteId)},
+        {session},
+      );
+      if (!reroute) {
+        throw new NotFoundError('Re route not found');
       }
-    const latestReroute = await this.ReRouteCollection.findOne(
-  { _id: new ObjectId(rerouteId) },
-  { projection: { reroutes: { $slice: -1 } },session },
-);
-const last = latestReroute?.reroutes?.[0];
-if (!last){
-  if(!reroute){
-        throw new NotFoundError("Last Re route not found")
+      const latestReroute = await this.ReRouteCollection.findOne(
+        {_id: new ObjectId(rerouteId)},
+        {projection: {reroutes: {$slice: -1}}, session},
+      );
+      const last = latestReroute?.reroutes?.[0];
+      if (!last) {
+        if (!reroute) {
+          throw new NotFoundError('Last Re route not found');
+        }
       }
-}
-const result=await this.ReRouteCollection.updateOne(
-  {
-    _id: new ObjectId(rerouteId),
-    "reroutes.updatedAt": last.updatedAt,
-  },
-  {
-    $set: {
-      "reroutes.$.status": 'expert_rejected',
-      "reroutes.$.updatedAt": new Date(),
-      "reroutes.$.rejectionReason":reason,
-      updatedAt: new Date(),
-    },
-  },{session})
-  return result.modifiedCount
+      const result = await this.ReRouteCollection.updateOne(
+        {
+          _id: new ObjectId(rerouteId),
+          'reroutes.updatedAt': last.updatedAt,
+        },
+        {
+          $set: {
+            'reroutes.$.status': 'expert_rejected',
+            'reroutes.$.updatedAt': new Date(),
+            'reroutes.$.rejectionReason': reason,
+            updatedAt: new Date(),
+          },
+        },
+        {session},
+      );
+      return result.modifiedCount;
     } catch (error) {
-      throw new InternalServerError(`Error while Rejecting re-route request: ${error}`);
+      throw new InternalServerError(
+        `Error while Rejecting re-route request: ${error}`,
+      );
+    }
+  }
+
+  async getRerouteHistory(answerId: string, session?: ClientSession) {
+    try {
+      await this.init();
+      const pipeline = [
+        // 1️⃣ Match reroute
+        {
+  $match: {
+    $or: [
+      { answerId: new ObjectId(answerId) },
+      { answerId: answerId },
+    ],
+  },
+},
+
+        // 2️⃣ Lookup Question
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
+        {$unwind: '$question'},
+
+        // 3️⃣ Unwind reroutes array
+        {
+          $unwind: '$reroutes',
+        },
+
+        // 4️⃣ Lookup Moderator (reroutedBy)
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'reroutes.reroutedBy',
+            foreignField: '_id',
+            as: 'reroutedByUser',
+          },
+        },
+        {
+          $unwind: {
+            path: '$reroutedByUser',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+
+        // 5️⃣ Lookup Expert (reroutedTo)
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'reroutes.reroutedTo',
+            foreignField: '_id',
+            as: 'reroutedToUser',
+          },
+        },
+        {
+          $unwind: {
+            path: '$reroutedToUser',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+
+        // 6️⃣ Lookup Answer (optional)
+        {
+          $lookup: {
+            from: 'answers',
+            localField: 'reroutes.answerId',
+            foreignField: '_id',
+            as: 'answer',
+          },
+        },
+        {
+          $unwind: {
+            path: '$answer',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+
+        // 7️⃣ Group back reroutes
+        {
+          $group: {
+            _id: '$_id',
+            question: {$first: '$question'},
+            answerId: {$first: '$answerId'},
+            questionId: {$first: '$questionId'},
+            createdAt: {$first: '$createdAt'},
+            updatedAt: {$first: '$updatedAt'},
+
+            reroutes: {
+              $push: {
+                reroutedAt: '$reroutes.reroutedAt',
+                status: '$reroutes.status',
+                rejectionReason: '$reroutes.rejectionReason',
+                comment: '$reroutes.comment',
+                updatedAt: '$reroutes.updatedAt',
+
+                reroutedBy: {
+                  _id: {$toString: '$reroutedByUser._id'},
+                  email: '$reroutedByUser.email',
+                  firstName: '$reroutedByUser.firstName',
+                  lastName: '$reroutedByUser.lastName',
+                  role: '$reroutedByUser.role',
+                  reputation_score: '$reroutedByUser.reputation_score',
+                },
+
+                reroutedTo: {
+                  _id: {$toString: '$reroutedToUser._id'},
+                  email: '$reroutedToUser.email',
+                  firstName: '$reroutedToUser.firstName',
+                  lastName: '$reroutedToUser.lastName',
+                  role: '$reroutedToUser.role',
+                  reputation_score: '$reroutedToUser.reputation_score',
+                },
+
+                answer: {
+                  _id: {$toString: '$answer._id'},
+                  answer: '$answer.answer',
+                  status: '$answer.status',
+                  isFinalAnswer: '$answer.isFinalAnswer',
+                  sources: '$answer.sources',
+                  createdAt: '$answer.createdAt',
+                },
+              },
+            },
+          },
+        },
+
+        // 8️⃣ Final shape + ObjectId → string
+        {
+          $project: {
+            _id: {$toString: '$_id'},
+            questionId: {$toString: '$questionId'},
+            createdAt: 1,
+            updatedAt: 1,
+
+            question: {
+              _id: {$toString: '$question._id'},
+              question: '$question.question',
+              text: '$question.text',
+              priority: '$question.priority',
+              status: '$question.status',
+              details: '$question.details',
+              totalAnswersCount: '$question.totalAnswersCount',
+              createdAt: '$question.createdAt',
+            },
+
+            reroutes: 1,
+          },
+        },
+      ];
+      const result = await this.ReRouteCollection.aggregate(pipeline, {
+        session,
+      }).toArray();
+      return result;
+    } catch (error) {
+      throw new InternalServerError(`Error while loading re-routes: ${error}`);
     }
   }
 }
-
-
-

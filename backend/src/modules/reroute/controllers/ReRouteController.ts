@@ -92,7 +92,7 @@ export class ReRouteController {
   @HttpCode(200)
   // @ResponseSchema(QuestionResponse, {isArray: true})
   @Authorized()
-  @OpenAPI({summary: 'Get all open status questions'})
+  @OpenAPI({summary: 'Get all re-routed allocated'})
   async getAllocatedQuestions(
     @QueryParams()
     query: GetDetailedQuestionsQuery,
@@ -129,10 +129,21 @@ export class ReRouteController {
     @Body() body: {reason:string,expertId:string,moderatorId:string},
     @CurrentUser() user: IUser,
   ):Promise<{message:string}> {
-    console.log("reached ")
     const {rerouteId,questionId} = params;
     const {reason,expertId,moderatorId} = body
     await this.reRouteService.rejectRerouteRequest(rerouteId,questionId,expertId,moderatorId,reason)
     return {message:"Rejected the request succesfully"}
+  }
+
+  @Get('/:answerId/history')
+  @HttpCode(200)
+  @Authorized()
+  @ResponseSchema(QuestionResponse)
+  @OpenAPI({summary: 'Get selected question by ID'})
+  async getRerouteHistory(
+    @Params() params: {answerId:string},
+  ){
+    const {answerId} =params
+    return await this.reRouteService.getRerouteHistory(answerId)
   }
 }
