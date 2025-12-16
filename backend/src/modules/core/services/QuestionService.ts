@@ -1241,6 +1241,9 @@ export class QuestionService extends BaseService {
       if (!questionIds || questionIds.length === 0) {
         throw new BadRequestError('No question IDs found to delete!');
       }
+      if (questionIds.length > 50) {
+        throw new BadRequestError('You can select a maximum of 50 questions');
+      }
 
       let deletedCount = 0;
 
