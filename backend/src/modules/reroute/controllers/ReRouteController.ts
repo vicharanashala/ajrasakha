@@ -98,13 +98,7 @@ export class ReRouteController {
     @CurrentUser() user: IUser,
   ): Promise<any[]> {
     const userId = user._id.toString();
-<<<<<<< HEAD
-    console.log("the reoute coming from allocation")
    return this.reRouteService.getAllocatedQuestions(userId,query);
-=======
-    
-   return this.reRouteService.getAllocatedQuestions(userId);
->>>>>>> b0b11c6581a532b697f5f7298fa924f9e5709cad
   }
 
   @Get('/:questionId')
