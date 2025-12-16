@@ -256,7 +256,10 @@ export const QuestionsTable = ({
       } else {
         next = [...prev, questionId];
       }
-
+      if (prev.length >= 50) {
+        toast.warning("You can select only up to 50 questions");
+        return prev;
+      }
       setIsSelectionModeOn(next.length > 0);
 
       return next;
@@ -571,7 +574,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
                         onViewMore(q._id?.toString() || "");
                       }}
                     >
-                      {truncate(q.question, 60)}
+                      {truncate(q.question, 50)}
                     </span>
                   </TooltipTrigger>
                   {!isClickable && (
