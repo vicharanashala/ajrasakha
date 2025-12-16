@@ -38,6 +38,7 @@ import {
   Zap,
   Cpu,
   Brain,
+  ArrowUpRight
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { RadioGroup, RadioGroupItem } from "./atoms/radio-group";
@@ -196,9 +197,18 @@ export const QAInterface = ({
     useGetAllocatedQuestionPage(autoSelectQuestionId!);
 
   // const questions = questionPages?.pages.flat() || [];
+  /*const questions = useMemo(() => {
+     return questionPages?.pages.flat() || [];
+     }, [questionPages]);*/
   const questions = useMemo(() => {
-    return questionPages?.pages.flat() || [];
-  }, [questionPages]);
+    if (!questionPages?.pages) return [];
+  
+    if (actionType === "allocated") {
+      return questionPages.pages.flat();
+    }
+  
+    return questionPages.pages[0]?.data?.flat() || [];
+  }, [questionPages, actionType]);
 
   const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
     useGetQuestionById(selectedQuestion,actionType);
@@ -258,10 +268,12 @@ export const QAInterface = ({
     if (savedSelected && questions.some((q) => q?.id === savedSelected)) {
       setSelectedQuestion(savedSelected);
     } else {
+      console.log("the questions coming===",questions)
       const firstId = questions[0]?.id ?? null;
       setSelectedQuestion(firstId);
+      console.log("the selected question coming===",questions[0]?.id)
     }
-  }, [isLoading, questions, autoSelectQuestionId]);
+  }, [isLoading, questions, autoSelectQuestionId,actionType]);
 
   useEffect(() => {
     if (!selectedQuestion) return;
@@ -1050,7 +1062,8 @@ const handleActionChange = (value: string) => {
             {questions &&
             questions.length != 0 && actionType=="reroute" &&
             selectedQuestionData &&
-            selectedQuestionData?.history?.length > 0 && (
+            
+             (
               <ReRouteResponseTimeline
                 SourceUrlManager={SourceUrlManager}
                 handleReset={handleReset}
@@ -1065,6 +1078,8 @@ const handleActionChange = (value: string) => {
                 sources={sources}
                 remarks={remarks}
                 setRemarks={setRemarks}
+                questions={questions}
+                selectedQuestion={selectedQuestion}
               />
             )}
         </div>
@@ -1625,6 +1640,8 @@ interface ReRouteResponseTimelineProps {
   SourceUrlManager: React.ComponentType<any>;
   remarks: string;
   setRemarks: (value: string) => void;
+  questions:any
+  selectedQuestion:string
 }
 
 export const ReRouteResponseTimeline = ({
@@ -1640,8 +1657,11 @@ export const ReRouteResponseTimeline = ({
   handleReset,
   remarks,
   setRemarks,
+  questions,
+  selectedQuestion
 }: // SourceUrlManager,
-ResponseTimelineProps) => {
+ReRouteResponseTimelineProps) => {
+  console.log("the questions coming===",questions,selectedQuestionData,selectedQuestion)
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejectionSubmitted, setIsRejectionSubmitted] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
@@ -1690,88 +1710,40 @@ ResponseTimelineProps) => {
   }, [currentReviewingAnswer]);
 
   // const handleCopy = async (url: string, index: number) => {
-  //   try {
-  //     await navigator.clipboard.writeText(url);
-  //     setCopiedIndex(index);
-  //     setTimeout(() => setCopiedIndex(null), 1500);
-  //   } catch (err) {
-  //     console.error("Failed to copy: ", err);
-  //   }
-  // };
 
-  // const handleRejectOrModify = (type: "reject" | "modify") => {
-  //   if (rejectionReason.trim() === "") {
-  //     toast.error("No reason provided for rejection");
-  //     return;
-  //   }
-  //   if (rejectionReason.length < 8) {
-  //     toast.error("Rejection reason must be atleast 8 letters");
-  //     return;
-  //   }
+  
 
-  //   if (!currentReviewingAnswer) {
-  //     toast.error(
-  //       "Unable to locate the current review answer. Please refresh and try again."
-  //     );
-  //     return;
-  //   }
-
-  //   const reviewAnswerId = currentReviewingAnswer._id?.toString();
-
-  //   handleSubmit("rejected", reviewAnswerId, rejectionReason);
-  // };
-
-  const handleRejectOrModify = (type: "reject" | "modify") => {
-    const actionLabel = type === "reject" ? "rejection" : "modification";
-
-    if (!rejectionReason.trim()) {
-      toast.error(`Please provide a reason for the ${actionLabel}.`);
-      return;
-    }
-
-    if (rejectionReason.trim().length < 8) {
-      toast.error(
-        `${
-          actionLabel.charAt(0).toUpperCase() + actionLabel.slice(1)
-        } reason must be at least 8 characters.`
-      );
-      return;
-    }
-
-    if (!currentReviewingAnswer || !currentReviewingAnswer._id) {
-      toast.error(
-        "Unable to locate the current reviewing answer. Please refresh and try again."
-      );
-      return;
-    }
-
-    const reviewAnswerId = currentReviewingAnswer._id.toString();
-
-    handleSubmit(
-      type === "reject" ? "rejected" : "modified",
-      checklist,
-      reviewAnswerId,
-      rejectionReason
-    );
-  };
-
-  const handleAccept = () => {
-    if (!currentReviewingAnswer) {
-      toast.error(
-        "Unable to locate the current review answer. Please refresh and try again."
-      );
-      return;
-    }
-
-    const reviewAnswerId = currentReviewingAnswer._id?.toString();
-
-    handleSubmit("accepted", checklist, reviewAnswerId);
-  };
+ 
+  
 
   // const handleOpenUrl = (url: string) => {
   //   setSelectedUrl(url);
   //   setUrlOpen(true);
   // };
+  const [editedAnswer, setEditedAnswer] = useState(newAnswer);
+  const handleSubmitAnswer = async(answer: string) => {
+    console.log("Final Answer:", answer);
+    const payload = {
+      questionId: selectedQuestion,
+      
+    } as IReviewAnswerPayload;
+    payload.answer = answer;
+    payload.sources = sources;
+    payload.type="re-roted"
+    
+    try {
+      await respondQuestion(payload);
+     toast.success("Your response has been submitted. Thank you!");
+    } catch (error) {
+      console.error("Failed to submit:", error);
+    }
+  
+    // call API / mutation here
+    // submitAnswerMutation.mutate(answer);
+  };
+  const { mutateAsync: respondQuestion, isPending: isResponding } =
+  useReviewAnswer();
+  
 
   if (isSelectedQuestionLoading) {
     return (
@@ -1817,77 +1789,228 @@ ResponseTimelineProps) => {
 
         <CardContent className="p-6 py-4 flex-1 flex flex-col overflow-hidden">
           <ScrollArea className="flex-1 pe-4">
-            <ReviewHistoryTimeline
-              history={history}
-              isSubmittingAnswer={isSubmittingAnswer}
-              rejectionReason={rejectionReason}
-              isRejectionSubmitted={isRejectionSubmitted}
-              checklist={checklist}
-              setChecklist={setChecklist}
-              setIsRejectDialogOpen={setIsRejectDialogOpen}
-              setIsModifyDialogOpen={setIsModifyDialogOpen}
-              handleAccept={handleAccept}
-              questionId={questionId}
-            />
+          <div className="flex flex-col w-full">
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <Label className="text-sm font-medium text-muted-foreground">
+                            Current Query:
+                          </Label>
+                          {/* <QuestionDetailsDialog
+                            question={selectedQuestionData}
+                          /> */}
+                        </div>
+
+                        <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words mb-3">
+                          {selectedQuestionData.text}
+                        </p>
+                      </div>
+                       <div className="flex flex-col w-full">
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <Label className="text-sm font-medium text-muted-foreground">
+                            Re Routed By:
+                          </Label>
+                          {/* <QuestionDetailsDialog
+                            question={selectedQuestionData}
+                          /> */}
+                        </div>
+
+                        <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words mb-3">
+                          {selectedQuestionData.history[0].moderator.firstName}{`(${selectedQuestionData.history[0].moderator.email})`}
+                        </p>
+                      </div>
+                      <div className="flex flex-col w-full">
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <Label className="text-sm font-medium text-muted-foreground">
+                            Comments From Moderator:
+                          </Label>
+                          {/* <QuestionDetailsDialog
+                            question={selectedQuestionData}
+                          /> */}
+                        </div>
+
+                        <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words mb-3">
+                          {selectedQuestionData.history[0].reroute.comment}
+                        </p>
+                      </div>
+                      <div>
+                    <p className="text-sm font-medium text-foreground mb-3">
+                      Answer Content
+                    </p>
+                    <div className="rounded-lg border bg-muted/30 h-[30vh] mb-3 ">
+                      <ScrollArea className="h-full">
+                        <div className="p-4">
+                          <p className=" text-foreground">
+                            {newAnswer}
+                          </p>
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+                     
+                      
+                      {selectedQuestionData.history[0].answer.sources?.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-foreground mb-3">
+                        Source URLs
+                      </p>
+
+                      <div className="space-y-2">
+                        {selectedQuestionData.history[0].answer.sources.map((source, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between rounded-lg border bg-muted/30 p-2 pr-3"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span
+                                    className="text-sm truncate max-w-[260px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                                    onClick={() =>
+                                      window.open(source.source, "_blank")
+                                    }
+                                  >
+                                    {source.source}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>{source.source}</TooltipContent>
+                              </Tooltip>
+
+                              {source.page && (
+                                <>
+                                  <span className="text-muted-foreground">
+                                    •
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    page {source.page}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                            <a
+                              href={source.source}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1 rounded hover:bg-muted/20 dark:hover:bg-muted/50 transition-colors"
+                            >
+                              <ArrowUpRight className="w-4 h-4 text-foreground/80" />
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+
+                     <div className="mt-10">
+                     <Button
+                          size="sm"
+                          disabled={isSubmittingAnswer}
+                          className="gap-1 h-8 px-3 text-xs bg-green-600 dark:bg-green-900 text-white hover:bg-green-600"
+                          onClick={() => {setIsModifyDialogOpen(true);
+                            setEditedAnswer(newAnswer)}}
+                        >
+                          {isSubmittingAnswer &&
+                          rejectionReason &&
+                          isRejectionSubmitted ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Creating...
+                            </>
+                          ) : (
+                            <>
+                              <Pencil className="w-3 h-3" />
+                              Create Answer
+                            </>
+                          )}
+                        </Button>
+                       <Button
+                          size="sm"
+                          disabled={isSubmittingAnswer}
+                          onClick={() => setIsRejectDialogOpen(true)}
+                          variant="destructive"
+                          className="gap-1 h-8 px-3 text-xs ml-10"
+                        >
+                          {isSubmittingAnswer &&
+                          rejectionReason &&
+                          isRejectionSubmitted ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Rejecting...
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="w-3 h-3" />
+                              Reject
+                            </>
+                          )}
+                        </Button>
+
+
+                       
+                     </div>
+                   
+
+
           </ScrollArea>
         </CardContent>
       </Card>
+      <Dialog open={isModifyDialogOpen} onOpenChange={setIsModifyDialogOpen}>
+  <DialogContent className="max-w-lg">
+    <DialogHeader>
+      <DialogTitle>Create Answer</DialogTitle>
+    </DialogHeader>
 
-      <ReviewResponseDialog
-        isOpen={isRejectDialogOpen}
-        onOpenChange={setIsRejectDialogOpen}
-        type="reject"
-        title="Reject Response"
-        icon={<XCircle className="w-5 h-5 text-red-500 dark:text-red-700" />}
-        reasonLabel="Reason for Rejection"
-        submitReasonText="Submit Reason"
-        checklist={checklist}
-        onChecklistChange={setChecklist}
-        rejectionReason={rejectionReason}
-        setRejectionReason={setRejectionReason}
-        isStageSubmitted={isRejectionSubmitted}
-        setIsStageSubmitted={setIsRejectionSubmitted}
-        newAnswer={newAnswer}
-        setNewAnswer={setNewAnswer}
-        selectedQuestionData={selectedQuestionData}
-        isSubmitting={isSubmittingAnswer}
-        handleSubmit={handleRejectOrModify}
-        handleReset={handleReset}
-        sources={sources}
-        setSources={setSources}
-        confirmOpen={isRejecConfirmationOpen}
-        setConfirmOpen={setIsRejecConfirmationOpen}
-        remarks={remarks}
-        setRemarks={setRemarks}
-      />
+    {/* Editable Answer */}
+    <Textarea
+      value={editedAnswer}
+      onChange={(e) => setEditedAnswer(e.target.value)}
+      rows={6}
+      className="mt-2"
+      placeholder="Write your answer..."
+    />
+    <div className="bg-card border border-border rounded-xl p-6 shadow-sm mt-3 md:mt-6">
+                          <SourceUrlManager
+                            sources={sources}
+                            onSourcesChange={setSources}
+                          />
 
-      <ReviewResponseDialog
-        isOpen={isModifyDialogOpen}
-        onOpenChange={setIsModifyDialogOpen}
-        title="Modify Response"
-        type="modify"
-        icon={<Pencil className="w-5 h-5 text-blue-500 dark:text-blue-400" />}
-        reasonLabel="Reason for Modification"
-        submitReasonText="Proceed"
-        checklist={checklist}
-        onChecklistChange={setChecklist}
-        rejectionReason={rejectionReason}
-        setRejectionReason={setRejectionReason}
-        isStageSubmitted={isRejectionSubmitted}
-        setIsStageSubmitted={setIsRejectionSubmitted}
-        newAnswer={newAnswer}
-        setNewAnswer={setNewAnswer}
-        selectedQuestionData={selectedQuestionData}
-        isSubmitting={isSubmittingAnswer}
-        handleSubmit={handleRejectOrModify}
-        handleReset={handleReset}
-        sources={sources}
-        setSources={setSources}
-        confirmOpen={isRejecConfirmationOpen}
-        setConfirmOpen={setIsRejecConfirmationOpen}
-        remarks={remarks}
-        setRemarks={setRemarks}
-      />
+                          {sources.length > 0 && (
+                            <div className="mt-6 pt-6 border-t border-border">
+                              <p className="text-sm text-muted-foreground">
+                                {sources.length}{" "}
+                                {sources.length === 1 ? "source" : "sources"}{" "}
+                                added
+                              </p>
+                            </div>
+                          )}
+                        </div>
+     
+
+    <DialogFooter className="mt-4 gap-2">
+      {/* Cancel */}
+      <Button
+        variant="outline"
+        onClick={() => setIsModifyDialogOpen(false)}
+      >
+        Cancel
+      </Button>
+
+      {/* Submit */}
+      <Button
+        disabled={!editedAnswer.trim() || isSubmittingAnswer}
+        onClick={() => {
+          handleSubmitAnswer(editedAnswer);
+          setIsModifyDialogOpen(false);
+        }}
+      >
+        {isSubmittingAnswer ? "Submitting..." : "Submit"}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+
+
+      
+     
     </div>
   );
 };

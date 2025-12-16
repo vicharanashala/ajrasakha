@@ -109,12 +109,13 @@ export class ReRouteController {
   @OpenAPI({summary: 'Get selected question by ID'})
   async getQuestionById(
     @Params() params: QuestionIdParam,
-    @Body() updates: Partial<QuestionResponse>,
-  ): Promise<any[]> {
+    @Body() updates: any,
+    @CurrentUser() user: IUser
+  ): Promise<any> {
     const {questionId} = params;
-    console.log("the question id coming====",questionId)
+    const userId = user._id.toString();
    // return null
-    return this.reRouteService.getQuestionById(questionId);
+    return this.reRouteService.getQuestionById(questionId,userId);
   }
 
 

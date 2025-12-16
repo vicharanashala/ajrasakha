@@ -43,4 +43,5 @@ export interface IReRouteRepository {
   getAllocatedQuestions(userId:string,query:GetDetailedQuestionsQuery,session?:ClientSession)
   rejectRerouteRequest(rerouteId:string,reason:string,session?:ClientSession):Promise<number>
   getRerouteHistory(answerId: string, session?: ClientSession)
+  getAllocatedQuestionsByID(questionId?:string,userId?:string,session?:ClientSession)
 }
