@@ -31,7 +31,7 @@ import {
 import { DashboardClock } from "./dashboard/dashboard-clock";
 import { Button } from "./atoms/button";
 import { DateRangeFilter } from "./DateRangeFilter";
-import { ChristmasCap, Snowfall } from "./dashboard";
+import { ChristmasCap, HolidayBanner, Snowfall } from "./dashboard";
 import { useTheme } from "next-themes";
 import { Label } from "./atoms/label";
 import { Switch } from "./atoms/switch";
@@ -149,6 +149,7 @@ export const ExpertDashboard = ({
       className={`min-h-screen bg-background ${isLoading ? "opacity-40" : ""}`}
     >
       {theme == "dark" && animationsEnabled && <Snowfall />}
+      {/* <HolidayBanner /> */}
 
       {expertId ? (
         <div className="flex justify-end">
@@ -180,18 +181,20 @@ export const ExpertDashboard = ({
       <div className="mx-auto p-6">
         <div className="mb-8 flex justify-between items-center">
           <div>
-            {/* {expertId ?  */}
             <h1 className="text-3xl font-bold text-foreground">
               Expert {expertId ? "Performance" : "Dashboard"}
             </h1>
-            {/* // : 
-            // <div className="relative inline-block">
-            //   <ChristmasCap className="absolute -top-13 -left-4 w-20 h-18 -rotate-6 z-10" />
-            //   <h1 className="text-3xl font-bold text-foreground pt-2 pl-6">
-            //     Expert Dashboard
-            //   </h1>
-            // </div> */}
-            {/* } */}
+            {/* {expertId ? 
+            <h1 className="text-3xl font-bold text-foreground">
+              Expert {expertId ? "Performance" : "Dashboard"}
+            </h1> : 
+             <div className="relative inline-block">
+               <ChristmasCap className="absolute -top-13 -left-4 w-14 h-14 -rotate-6 z-10" />
+               <h1 className="text-3xl font-bold text-foreground pt-2 pl-6">
+                 Expert Dashboard
+               </h1>
+             </div> 
+            } */}
             <p className="text-muted-foreground mt-1">
               Monitor expert performance of : {userDetails?.[0]?.firstName}
             </p>
