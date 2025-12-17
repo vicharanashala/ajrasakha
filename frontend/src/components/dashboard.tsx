@@ -577,7 +577,7 @@ export const ChristmasCap = ({ className = "" }: { className?: string }) => {
 //   );
 // };
 
-const HolidayBanner = () => {
+export const HolidayBanner = () => {
   return (
     <div className="w-full bg-gradient-to-r from-christmas-pine via-christmas-green to-christmas-pine py-2 px-4">
       <div className="flex items-center justify-center gap-3">
