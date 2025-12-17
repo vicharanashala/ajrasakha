@@ -4,7 +4,7 @@ import type { IRerouteHistoryResponse } from "@/types";
 
 const questionService = new QuestionService();
 
-export const useGetReRoutedQuestionFullData = (questionId: string | null) => {
+export const useGetReRoutedQuestionFullData = (questionId: string | null|undefined) => {
   const { data, isLoading, error, refetch } = useQuery<
   IRerouteHistoryResponse | null,
     Error

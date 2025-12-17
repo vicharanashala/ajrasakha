@@ -531,6 +531,19 @@ export interface IQuestionDetails {
   createdAt: string;
   details: IQuestionDetailsMeta;
 }
+export interface Answer {
+  _id: string | null;
+  answer?: string;
+  status?: string;
+  isFinalAnswer?: boolean;
+  sources?: Source[];
+  createdAt?: string;
+}
+
+export interface Source {
+  source: string;
+  page: string | null;
+}
 
 // ---------------------
 // Reroute Entry
@@ -542,9 +555,7 @@ export interface IReroute {
   updatedAt: string;
   reroutedBy: IUserReRoute;
   reroutedTo: IUserReRoute;
-  answer: {
-    _id: string | null;
-  };
+  answer: Answer
 }
 
 // ---------------------

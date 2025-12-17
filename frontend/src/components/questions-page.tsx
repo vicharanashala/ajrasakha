@@ -98,12 +98,7 @@ export const QuestionsPage = ({
     refetch: refechSelectedQuestion,
     isLoading: isLoadingSelectedQuestion,
   } = useGetQuestionFullDataById(selectedQuestionId);
-  const {
-    data: reroutequestionDetails,
-    refetch: refechrerouteSelectedQuestion,
-    isLoading: isLoadingrerouteSelectedQuestion,
-  } = useGetReRoutedQuestionFullData(selectedQuestionId);
-  
+ 
   useEffect(() => {
     if (autoOpenQuestionId && autoOpenQuestionId !== selectedQuestionId) {
       setSelectedQuestionId(autoOpenQuestionId);
@@ -220,7 +215,7 @@ export const QuestionsPage = ({
             // goBack={() => setSelectedQuestionId("")}
             goBack={goBack}
             currentUser={currentUser!}
-            rerouteQuestion={reroutequestionDetails}
+           
           />
         </>
       ) : (
