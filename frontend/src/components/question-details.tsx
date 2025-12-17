@@ -8,6 +8,7 @@ import type {
   ReRouteStatus,
   SourceItem,
   UserRole,
+  IRerouteHistoryResponse
 } from "@/types";
 import {
   forwardRef,
@@ -111,6 +112,7 @@ interface QuestionDetailProps {
   refetchAnswers: () => void;
   isRefetching: boolean;
   currentUser: IUser;
+  rerouteQuestion?:IRerouteHistoryResponse[]
 }
 
 const flattenAnswers = (submission: ISubmission): IAnswer[] => {
@@ -136,7 +138,10 @@ export const QuestionDetails = ({
   isRefetching,
   currentUser,
   goBack,
+  rerouteQuestion
 }: QuestionDetailProps) => {
+  //console.log("the question details====",question)
+ // console.log("reroutedetail====",rerouteQuestion)
  
   const answers = useMemo(
     () => flattenAnswers(question?.submission),
@@ -640,6 +645,7 @@ export const QuestionDetails = ({
             question={question}
             userRole={currentUser.role}
             queue={question.submission.queue}
+            rerouteQuestion={rerouteQuestion}
         
           />
           {answerVisibleCount < answers.length && (
@@ -1540,6 +1546,7 @@ interface IAnswerTimelineProps {
   commentRef: React.RefObject<HTMLDivElement>;
   userRole: UserRole;
   queue: ISubmission["queue"];
+  rerouteQuestion?:IRerouteHistoryResponse[]
 }
 
 export const AnswerTimeline = ({
@@ -1549,7 +1556,8 @@ export const AnswerTimeline = ({
   answerVisibleCount,
   commentRef,
   userRole,
-  queue
+  queue,
+  rerouteQuestion
 }: IAnswerTimelineProps) => {
   // map answers to timeline events
   const events = answers.slice(0, answerVisibleCount).map((ans) => {
@@ -1607,6 +1615,7 @@ export const AnswerTimeline = ({
               ref={commentRef}
               userRole={userRole}
               queue={queue}
+              rerouteQuestion={rerouteQuestion}
             />
           </div>
         )}
@@ -1625,10 +1634,12 @@ interface AnswerItemProps {
   userRole: UserRole;
   questionStatus: QuestionStatus;
   queue: ISubmission["queue"];
+  rerouteQuestion?:IRerouteHistoryResponse[]
 }
 
+
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
- 
+  console.log("the reroute answers======",props.rerouteQuestion)
   const [sources, setSources] = useState<SourceItem[]>(props.answer.sources);
   const isMine = props.answer.authorId === props.currentUserId;
   // const [comment, setComment] = useState("");
@@ -1732,10 +1743,22 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRo
     
     const [searchTerm, setSearchTerm] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const expertsIdsInQueue = new Set(props.queue?.map((expert) => expert._id));
+  //  const expertsIdsInQueue = new Set(props.queue?.map((expert) => expert._id));
     const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
     const [comment, setComment] = useState("");
-
+    const reroutedExpertIds =
+    props.rerouteQuestion
+      ?.flatMap(item => item.reroutes.map(r => r.reroutedTo._id))
+      ?? [];
+      const expertsIdsInQueue = new Set<string>([
+        ...(props.queue?.map(expert => expert._id) ?? []),
+        ...reroutedExpertIds,
+      ]);
+      const lastReroutedTo =
+      props.rerouteQuestion?.[0]?.reroutes?.length
+    ? props.rerouteQuestion[0].reroutes[props.rerouteQuestion[0].reroutes.length - 1]
+    : null;
+    console.log("the last rerout user===",lastReroutedTo)
   const experts =
     usersData?.users.filter(
       (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id)
@@ -1835,7 +1858,15 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRo
             props.lastAnswerId === props.answer?._id && (
               <Dialog open={editOpen} onOpenChange={setEditOpen}>
                 <DialogTrigger asChild>
-                  <button className="bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded">
+                  <button 
+                  disabled={lastReroutedTo?.status === "pending"}
+                  className={`bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded
+                    ${lastReroutedTo?.status === "pending"
+                      ? "opacity-50 cursor-not-allowed"
+                      : "hover:bg-primary/90"}
+                  `}
+                  
+                  >
                     <CheckCircle2 className="h-4 w-4" />
                     Approve Answer
                   </button>
@@ -1905,10 +1936,19 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRo
             props.lastAnswerId === props.answer?._id && (
               <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
               <DialogTrigger asChild>
-                <Button variant="default" className="gap-2 w-full sm:w-auto">
-                  <Send className="w-4 h-4" />
-                  Re Route
-                </Button>
+              <button 
+                  disabled={lastReroutedTo?.status === "pending"}
+                  className={`bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded
+                    ${lastReroutedTo?.status === "pending"
+                      ? "opacity-50 cursor-not-allowed"
+                      : "hover:bg-primary/90"}
+                  `}
+                  
+                  >
+                    <Send className="h-4 w-4" />
+                    Re Route
+                  </button>
+                
               </DialogTrigger>
 
               <DialogContent

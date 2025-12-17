@@ -3,7 +3,8 @@ import type {
   IDetailedQuestionResponse,
   IQuestion,
   QuestionFullDataResponse,
-  RejectReRoutePayload
+  RejectReRoutePayload,
+  IRerouteHistoryResponse
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { QuestionFilter } from "@/components/QA-interface";
@@ -134,6 +135,13 @@ export class QuestionService {
   ): Promise<QuestionFullDataResponse | null> {
     return apiFetch<QuestionFullDataResponse | null>(
       `${this._baseUrl}/${id}/full`
+    );
+  }
+  async getReRoutedQuestionFullDataById(
+    answerId: string
+  ): Promise< IRerouteHistoryResponse| null> {
+    return apiFetch<IRerouteHistoryResponse | null>(
+      `${this._reRouteUrl}/${answerId}/history`
     );
   }
 

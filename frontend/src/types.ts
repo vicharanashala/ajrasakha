@@ -490,3 +490,77 @@ export interface INotification {
   createdAt: string;
   updatedAt: string;
 }
+// =====================
+// Reroute History Types
+// =====================
+
+
+export type RerouteStatus ="pending" | "expert_rejected" | "expert_completed" | "moderator_rejected"|"moderator_approved"
+
+
+// ---------------------
+// User (Moderator / Expert)
+// ---------------------
+export interface IUserReRoute {
+  _id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  reputation_score: number;
+}
+
+// ---------------------
+// Question Details
+// ---------------------
+export interface IQuestionDetailsMeta {
+  state: string;
+  district: string;
+  crop: string;
+  season: string;
+  domain: string;
+}
+
+export interface IQuestionDetails {
+  _id: string;
+  question: string;
+  text: string;
+  priority: QuestionPriority;
+  status: QuestionStatus;
+  totalAnswersCount: number;
+  createdAt: string;
+  details: IQuestionDetailsMeta;
+}
+
+// ---------------------
+// Reroute Entry
+// ---------------------
+export interface IReroute {
+  reroutedAt: string;
+  status: RerouteStatus;
+  comment: string;
+  updatedAt: string;
+  reroutedBy: IUserReRoute;
+  reroutedTo: IUserReRoute;
+  answer: {
+    _id: string | null;
+  };
+}
+
+// ---------------------
+// Main API Response
+// ---------------------
+export interface IRerouteHistoryResponse {
+  _id: string;
+  questionId: string;
+  createdAt: string;
+  updatedAt: string;
+  question: IQuestionDetails;
+  reroutes: IReroute[];
+}
+
+// ---------------------
+// API returns an array
+// ---------------------
+export type RerouteHistoryApiResponse = IRerouteHistoryResponse[];
+

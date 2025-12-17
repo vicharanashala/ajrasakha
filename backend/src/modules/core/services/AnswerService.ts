@@ -111,7 +111,7 @@ export class AnswerService extends BaseService {
         activeSession,
       );
       if (isAlreadyResponded) {
-        throw new BadRequestError('You’ve already submitted an answer!');
+       // throw new BadRequestError('You’ve already submitted an answer!');
       }
 
       let isFinalAnswer = false;

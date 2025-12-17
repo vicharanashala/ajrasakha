@@ -2,6 +2,7 @@ import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetail
 import { QuestionsFilters, QuestionsTable } from "./questions-table";
 import { useEffect, useMemo, useState } from "react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
+import {useGetReRoutedQuestionFullData} from '@/hooks/api/question/useGetReRoutedQuestionFullData'
 import { QuestionDetails } from "./question-details";
 import type { IUser } from "@/types";
 import {
@@ -97,6 +98,12 @@ export const QuestionsPage = ({
     refetch: refechSelectedQuestion,
     isLoading: isLoadingSelectedQuestion,
   } = useGetQuestionFullDataById(selectedQuestionId);
+  const {
+    data: reroutequestionDetails,
+    refetch: refechrerouteSelectedQuestion,
+    isLoading: isLoadingrerouteSelectedQuestion,
+  } = useGetReRoutedQuestionFullData(selectedQuestionId);
+  
   useEffect(() => {
     if (autoOpenQuestionId && autoOpenQuestionId !== selectedQuestionId) {
       setSelectedQuestionId(autoOpenQuestionId);
@@ -213,6 +220,7 @@ export const QuestionsPage = ({
             // goBack={() => setSelectedQuestionId("")}
             goBack={goBack}
             currentUser={currentUser!}
+            rerouteQuestion={reroutequestionDetails}
           />
         </>
       ) : (
