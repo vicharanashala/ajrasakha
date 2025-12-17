@@ -2,7 +2,7 @@ import {emailConfig} from '#root/config/mail.js';
 import nodemailer from 'nodemailer';
 
 export async function sendEmailNotification(
-  email: string,
+  email: string | string[],
   title: string,
   message: string,
   html?: string,
