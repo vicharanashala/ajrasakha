@@ -227,4 +227,10 @@ export class ReRouteService extends BaseService {
       return await this.reRouteRepository.getRerouteHistory(answerId,session)
     })
   }
+
+  async moderatorReject(questionId:string,expertId:string,status:RerouteStatus,reason:string){
+    return await this._withTransaction(async (session:ClientSession) => {
+      return await this.reRouteRepository.updateStatus(questionId.toString(),expertId.toString(),status,undefined,reason,session)
+    })
+  }
 }

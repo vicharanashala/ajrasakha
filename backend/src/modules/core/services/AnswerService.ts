@@ -233,7 +233,7 @@ export class AnswerService extends BaseService {
           const reroute = await this.reRouteRepository.findByQuestionId(questionId.toString(),session)
           const moderatorId = reroute.reroutes[0].reroutedBy.toString()
           await this.userRepo.updateReputationScore(userId.toString(),isIncrement,session)
-          await this.reRouteRepository.updateStatus(questionId.toString(),userId.toString(),'expert_completed',answerId,session)
+          await this.reRouteRepository.updateStatus(questionId.toString(),userId.toString(),'expert_completed',answerId,undefined,session)
           await this.notificationService.saveTheNotifications(message,title,questionId,moderatorId,type,session)
           return
         }

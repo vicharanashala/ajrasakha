@@ -239,7 +239,7 @@ export type RerouteStatus =
     reroutedAt: Date|string;
     answerId?: ObjectId | string
     status: RerouteStatus;
-  
+    moderatorRejectionReason?:string;
     rejectionReason?: string;    // Only when expert rejects
     comment?: string;            // Mandatory when moderator reroutes
   

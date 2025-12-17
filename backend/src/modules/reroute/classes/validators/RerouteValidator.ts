@@ -19,6 +19,25 @@ class RerouteIdParam {
   questionId: string;
 }
 
-export const USER_VALIDATORS = [RerouteIdParam];
+class ModeratorRejectParam {
+  @JSONSchema({
+    description: 'MongoDB ObjectId of the question',
+    example: '650e9c0f5f1b2c00sdf2f4d9e',
+    type: 'string',
+  })
+  @IsMongoId()
+  expertId: string;
 
-export {RerouteIdParam};
+  @JSONSchema({
+    description: 'MongoDB ObjectId of the question',
+    example: '650e9c0f5f1b2c00sdf2f4d9e',
+    type: 'string',
+  })
+  @IsMongoId()
+  questionId: string;
+}
+
+
+export const USER_VALIDATORS = [RerouteIdParam,ModeratorRejectParam];
+
+export {RerouteIdParam,ModeratorRejectParam};

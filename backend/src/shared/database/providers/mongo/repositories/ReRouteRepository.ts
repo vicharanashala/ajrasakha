@@ -627,7 +627,7 @@ export class ReRouteRepository implements IReRouteRepository {
       
       };
     
-  async updateStatus(questionId:string,expertId:string,status:RerouteStatus,answerId?:string,session?:ClientSession){
+  async updateStatus(questionId:string,expertId:string,status:RerouteStatus,answerId?:string,moderatorRejectedReason?:string,session?:ClientSession){
     try {
       await this.init()
   const questionObjectId = new ObjectId(questionId);
@@ -668,13 +668,17 @@ export class ReRouteRepository implements IReRouteRepository {
   if (latestIndex === -1) {
     throw new Error('No matching reroute history found');
   }
-  const updateSet: Record<string, any> = {
+  let updateSet: Record<string, any> = {
     [`reroutes.${latestIndex}.status`]: status,
     [`reroutes.${latestIndex}.updatedAt`]: new Date(),
-    [`reroutes.${latestIndex}.answerId`]: new ObjectId(answerId),
     updatedAt: new Date(),
   };
-
+  if(answerId){
+    updateSet[`reroutes.${latestIndex}.answerId`]= new ObjectId(answerId)
+  }
+  if(moderatorRejectedReason){
+    updateSet[`reroutes.${latestIndex}.moderatorRejectionReason`]= moderatorRejectedReason
+  }
 
   const result = await this.ReRouteCollection.updateOne(
     { questionId: questionObjectId },
