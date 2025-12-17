@@ -21,7 +21,7 @@ import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 import { MobileSidebar } from "./mobile-sidebar";
 import { HoverCard } from "./atoms/hover-card";
 import { UserManagement } from "./user-management";
-import { Dashboard } from "./dashboard";
+import { ChristmasCap, Dashboard } from "./dashboard";
 import Spinner from "./atoms/spinner";
 import { ExpertDashboard } from "./ExpertDashboard";
 
@@ -50,7 +50,7 @@ export const PlaygroundPage = () => {
       if (selectedRequestId) {
         calculatedTab = "request_queue";
       } else {
-      /* else if(selectedExpertId)
+        /* else if(selectedExpertId)
       {
         calculatedTab = "expertPerformance";
       }*/
@@ -249,7 +249,29 @@ export const PlaygroundPage = () => {
         <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="mx-auto flex items-center justify-between gap-4 px-4 py-3">
             {/* Logo */}
-            <div className="flex items-center gap-3 shrink-0">
+            {/* <div className="flex items-center gap-3 shrink-0">
+              <img
+                src="/annam-logo.png"
+                alt="Annam Logo"
+                className="h-10 w-auto md:h-14"
+              />
+            </div> */}
+            <div className="relative flex items-center gap-3 shrink-0">
+              {/* Christmas Cap */}
+              <ChristmasCap
+                className="
+                  absolute
+                  -top-1
+                  -left-4.5
+                  w-10
+                  h-10
+                  rotate-[-30deg]
+                  text-black/30
+                  pointer-events-none
+                  z-10
+                "
+              />
+              {/* Logo */}
               <img
                 src="/annam-logo.png"
                 alt="Annam Logo"
