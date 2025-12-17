@@ -6,9 +6,8 @@ import {
   ISubmissionHistory,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
-import {
-  ExpertReviewLevelDto
-} from '#root/modules/core/classes/validators/UserValidators.js';
+import {ExpertReviewLevelDto} from '#root/modules/core/classes/validators/UserValidators.js';
+import {IReviewWiseStats} from '#root/utils/getDailyStats.js';
 
 export interface IQuestionSubmissionRepository {
   /**
@@ -104,6 +103,11 @@ export interface IQuestionSubmissionRepository {
   ): Promise<IQuestionSubmission | null>;
 
   /**
+   * to get count of what level review level passed
+   */
+  getReviewWiseCount(): Promise<IReviewWiseStats>;
+
+  /**
    * @param questionId
    * @param session Optional MongoDB session for transaction
    */
@@ -127,7 +131,7 @@ export interface IQuestionSubmissionRepository {
     limit: number,
     dateRange?: {from: string; to: string},
     session?: ClientSession,
-    selectedHistoryId?:string|undefined
+    selectedHistoryId?: string | undefined,
   );
-  getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any >
+  getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any>;
 }

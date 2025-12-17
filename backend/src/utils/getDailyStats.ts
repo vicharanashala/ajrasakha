@@ -1,11 +1,30 @@
 import {getContainer} from '#root/bootstrap/loadModules.js';
 import {CORE_TYPES} from '#root/modules/core/types.js';
 import {QuestionRepository} from '#root/shared/database/providers/mongo/repositories/QuestionRepository.js';
+import {QuestionSubmissionRepository} from '#root/shared/database/providers/mongo/repositories/SubmissionRepository.js';
 
+export interface IReviewWiseStats {
+  authorLevel: number;
+  levelOne: number;
+  levelTwo: number;
+  levelThree: number;
+  levelFour: number;
+  levelFive: number;
+  levelSix: number;
+  levelSeven: number;
+  levelEight: number;
+  levelNine: number;
+}
 export interface DailyStats {
-  total: number;
-  waiting: number;
-  totalGolden: number;
+  totalQuestions: number;
+  totalInReviewQuestions: number;
+  totalClosedQuestions: number;
+  totalQuestionsUnderExpertReview: number;
+  moderatorApprovalRate: number;
+
+  reviewWiseCount: IReviewWiseStats;
+
+  // Today Stats
   todayAdded: number;
   todayGolden: number;
   chatbot: number;
@@ -17,30 +36,57 @@ export const getDailyStats = async (): Promise<DailyStats> => {
   const questionRepository = container.get<QuestionRepository>(
     CORE_TYPES.QuestionRepository,
   );
+  const questionSubmissionRepository =
+    container.get<QuestionSubmissionRepository>(
+      CORE_TYPES.QuestionSubmissionRepository,
+    );
 
-  const questions = await questionRepository.getAll();
-  const inReview = await questionRepository.getByStatus('in-review');
-  const closed = await questionRepository.getByStatus('closed');
+  const allQuestions = await questionRepository.getAll();
 
-  const total = questions.length;
-  const waiting = inReview.length;
-  const totalGolden = closed.length;
+  ////////////////////////////////////////// TOTAL QUESTIONS STATS ////////////////////////////////////////////
+
+  // Total Question length
+  const totalQuestions = allQuestions.length || 0;
+  // Moderator approval rate and count of closed & in-review questions
+  const {
+    approvalRate: moderatorApprovalRate,
+    approved: totalClosedQuestions,
+    pending: totalInReviewQuestions,
+  } = await questionRepository.getModeratorApprovalRate('');
+
+  // Total question under expert review
+  const totalQuestionsUnderExpertReview =
+    (totalQuestions || 0) -
+    (totalClosedQuestions || 0 + totalInReviewQuestions || 0);
+
+  ////////////////////////////////////////// REVIEW LEVEL WISE STATS ////////////////////////////////////////////
+
+  const reviewWiseCount =
+    await questionSubmissionRepository.getReviewWiseCount();
+
+  ////////////////////////////////////////// TODAY STATS ////////////////////////////////////////////////////////
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
-  const today = questions.filter(q => new Date(q.createdAt) >= todayStart);
+  const today = allQuestions.filter(q => new Date(q.createdAt) >= todayStart);
 
-  const todayGolden = questions.filter(
+  const todayGolden = allQuestions.filter(
     q => new Date(q.closedAt) >= todayStart,
   ).length;
   const chatbot = today.filter(q => q.source === 'AJRASAKHA').length;
   const manual = today.length - chatbot;
 
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
   return {
-    total,
-    waiting,
-    totalGolden,
+    totalQuestions,
+    totalInReviewQuestions,
+    totalClosedQuestions,
+    totalQuestionsUnderExpertReview,
+    moderatorApprovalRate,
+    reviewWiseCount,
+
     todayAdded: today.length,
     todayGolden,
     chatbot,
