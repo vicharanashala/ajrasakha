@@ -19,9 +19,8 @@ import {USER_VALIDATORS} from '#root/modules/core/classes/validators/UserValidat
 import {HistoryItem} from '#root/modules/core/classes/validators/QuestionValidators.js';
 import {GetHeatMapQuery} from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {getReviewerQueuePosition} from '#root/utils/getReviewerQueuePosition.js';
-import {
-  ExpertReviewLevelDto
-} from '#root/modules/core/classes/validators/UserValidators.js';
+import {ExpertReviewLevelDto} from '#root/modules/core/classes/validators/UserValidators.js';
+import {IReviewWiseStats} from '#root/utils/getDailyStats.js';
 
 export class QuestionSubmissionRepository
   implements IQuestionSubmissionRepository
@@ -630,7 +629,7 @@ export class QuestionSubmissionRepository
     limit = 20,
     dateRange?: {from?: string; to?: string},
     session?: ClientSession,
-    selectedHistoryId?:string
+    selectedHistoryId?: string,
   ): Promise<any> {
     await this.init();
 
@@ -647,21 +646,21 @@ export class QuestionSubmissionRepository
     if (fromDate) dateFilter.$gte = fromDate;
     if (toDate) dateFilter.$lte = toDate;
 
-const matchStage = selectedHistoryId
-    ? {
-        $match: {
-          questionId: new ObjectId(selectedHistoryId),
-        },
-      }
-    : {
-        $match: {
-          "history.updatedBy": userObjId,
-        },
-      };
+    const matchStage = selectedHistoryId
+      ? {
+          $match: {
+            questionId: new ObjectId(selectedHistoryId),
+          },
+        }
+      : {
+          $match: {
+            'history.updatedBy': userObjId,
+          },
+        };
     const pipeline: any[] = [
       // Match only user activities
-     // {$match: {'history.updatedBy': userObjId}},
-     matchStage,
+      // {$match: {'history.updatedBy': userObjId}},
+      matchStage,
 
       // Explode history entries
       {
@@ -902,37 +901,37 @@ const matchStage = selectedHistoryId
   //690f05447360add0cf5aa0f8
   async getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any> {
     await this.init();
-    let {userId,startTime,endTime}=query
+    let {userId, startTime, endTime} = query;
     const reviewerId = new ObjectId(userId);
     const pipeline = [
       // 1) Safe fields
       {
         $addFields: {
-          queueIndex: { $indexOfArray: ["$queue", reviewerId] },
-          historyArr: { $ifNull: ["$history", []] }
-        }
+          queueIndex: {$indexOfArray: ['$queue', reviewerId]},
+          historyArr: {$ifNull: ['$history', []]},
+        },
       },
-    
+
       // 2) Compute history length
       {
         $addFields: {
-          historyLen: { $size: "$historyArr" }
-        }
+          historyLen: {$size: '$historyArr'},
+        },
       },
-    
+
       // 3) Slice history excluding 0th index
       {
         $addFields: {
           historyExceptFirst: {
             $cond: [
-              { $gt: ["$historyLen", 1] },
-              { $slice: ["$historyArr", 1, { $subtract: ["$historyLen", 1] }] },
-              []
-            ]
-          }
-        }
+              {$gt: ['$historyLen', 1]},
+              {$slice: ['$historyArr', 1, {$subtract: ['$historyLen', 1]}]},
+              [],
+            ],
+          },
+        },
       },
-    
+
       // 4) Check if reviewer has in-review entry in history[1..]
       {
         $addFields: {
@@ -941,155 +940,154 @@ const matchStage = selectedHistoryId
               {
                 $size: {
                   $filter: {
-                    input: "$historyExceptFirst",
-                    as: "h",
+                    input: '$historyExceptFirst',
+                    as: 'h',
                     cond: {
                       $and: [
-                        { $eq: ["$$h.updatedBy", reviewerId] },
-                        { $eq: ["$$h.status", "in-review"] }
-                      ]
-                    }
-                  }
-                }
+                        {$eq: ['$$h.updatedBy', reviewerId]},
+                        {$eq: ['$$h.status', 'in-review']},
+                      ],
+                    },
+                  },
+                },
               },
-              0
-            ]
-          }
-        }
+              0,
+            ],
+          },
+        },
       },
-    
+
       // 5) Determine Author or Level (Level = historyLen - 1)
       {
         $addFields: {
           isAuthor: {
-            $and: [
-              { $eq: ["$queueIndex", 0] },
-              { $eq: ["$historyLen", 0] }
-            ]
+            $and: [{$eq: ['$queueIndex', 0]}, {$eq: ['$historyLen', 0]}],
           },
           computedLevel: {
             $cond: [
-              { $and: [ { $eq: ["$hasInReviewEntry", true] }, { $gt: ["$historyLen", 1] } ] },
-              { $concat: [
-                  "Level ",
-                  { $toString: { $subtract: ["$historyLen", 1] } }
-                ]
+              {
+                $and: [
+                  {$eq: ['$hasInReviewEntry', true]},
+                  {$gt: ['$historyLen', 1]},
+                ],
               },
-              null
-            ]
-          }
-        }
+              {
+                $concat: [
+                  'Level ',
+                  {$toString: {$subtract: ['$historyLen', 1]}},
+                ],
+              },
+              null,
+            ],
+          },
+        },
       },
-    
+
       // 6) Final Review_level
       {
         $addFields: {
           Review_level: {
-            $cond: [
-              { $eq: ["$isAuthor", true] },
-              "Author",
-              "$computedLevel"
-            ]
-          }
-        }
+            $cond: [{$eq: ['$isAuthor', true]}, 'Author', '$computedLevel'],
+          },
+        },
       },
-    
+
       // 7) Keep only documents with Review_level
-      { $match: { Review_level: { $ne: null } } },
-    
+      {$match: {Review_level: {$ne: null}}},
+
       // 8) **LOOKUP QUESTIONS COLLECTION**
       {
         $lookup: {
-          from: "questions",
-          localField: "questionId",
-          foreignField: "_id",
-          as: "questionDetails"
-        }
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'questionDetails',
+        },
       },
-    
+
       // 9) **UNWIND QUESTION DETAILS**
-      { 
-        $unwind: { 
-          path: "$questionDetails", 
-          preserveNullAndEmptyArrays: false 
-        } 
+      {
+        $unwind: {
+          path: '$questionDetails',
+          preserveNullAndEmptyArrays: false,
+        },
       },
-    
+
       // 10) **ADD STATUS FLAGS**
       {
         $addFields: {
-          isInReview: { $eq: ["$questionDetails.status", "in-review"] },
-          isDelayed: { $eq: ["$questionDetails.status", "delayed"] }
-        }
+          isInReview: {$eq: ['$questionDetails.status', 'in-review']},
+          isDelayed: {$eq: ['$questionDetails.status', 'delayed']},
+        },
       },
-    
+
       // 11) Group counts by level with status breakdown
       {
         $group: {
-          _id: "$Review_level",
-          count: { $sum: 1 },
-          inReview: { 
-            $sum: { 
-              $cond: [{ $eq: ["$isInReview", true] }, 1, 0] 
-            } 
+          _id: '$Review_level',
+          count: {$sum: 1},
+          inReview: {
+            $sum: {
+              $cond: [{$eq: ['$isInReview', true]}, 1, 0],
+            },
           },
-          delayed: { 
-            $sum: { 
-              $cond: [{ $eq: ["$isDelayed", true] }, 1, 0] 
-            } 
-          }
-        }
+          delayed: {
+            $sum: {
+              $cond: [{$eq: ['$isDelayed', true]}, 1, 0],
+            },
+          },
+        },
       },
-    
+
       // 12) Collect actual results into an array
       {
         $group: {
           _id: null,
-          actual: { 
-            $push: { 
-              Review_level: "$_id", 
-              count: "$count",
-              inReview: "$inReview",
-              delayed: "$delayed"
-            } 
-          }
-        }
+          actual: {
+            $push: {
+              Review_level: '$_id',
+              count: '$count',
+              inReview: '$inReview',
+              delayed: '$delayed',
+            },
+          },
+        },
       },
-    
+
       // 13) Merge with static levels to ensure missing levels show 0
       {
         $project: {
           merged: {
             $map: {
               input: [
-                "Author",
-                "Level 1",
-                "Level 2",
-                "Level 3",
-                "Level 4",
-                "Level 5",
-                "Level 6",
-                "Level 7",
-                "Level 8",
-                "Level 9"
+                'Author',
+                'Level 1',
+                'Level 2',
+                'Level 3',
+                'Level 4',
+                'Level 5',
+                'Level 6',
+                'Level 7',
+                'Level 8',
+                'Level 9',
               ],
-              as: "lvl",
+              as: 'lvl',
               in: {
-                Review_level: "$$lvl",
+                Review_level: '$$lvl',
                 count: {
                   $let: {
                     vars: {
                       found: {
                         $first: {
                           $filter: {
-                            input: { $ifNull: ["$actual", []] },
-                            cond: { $eq: ["$$this.Review_level", "$$lvl"] }
-                          }
-                        }
-                      }
+                            input: {$ifNull: ['$actual', []]},
+                            cond: {$eq: ['$$this.Review_level', '$$lvl']},
+                          },
+                        },
+                      },
                     },
-                    in: { $ifNull: ["$$found.count", 0] }
-                  }
+                    in: {$ifNull: ['$$found.count', 0]},
+                  },
                 },
                 inReview: {
                   $let: {
@@ -1097,14 +1095,14 @@ const matchStage = selectedHistoryId
                       found: {
                         $first: {
                           $filter: {
-                            input: { $ifNull: ["$actual", []] },
-                            cond: { $eq: ["$$this.Review_level", "$$lvl"] }
-                          }
-                        }
-                      }
+                            input: {$ifNull: ['$actual', []]},
+                            cond: {$eq: ['$$this.Review_level', '$$lvl']},
+                          },
+                        },
+                      },
                     },
-                    in: { $ifNull: ["$$found.inReview", 0] }
-                  }
+                    in: {$ifNull: ['$$found.inReview', 0]},
+                  },
                 },
                 delayed: {
                   $let: {
@@ -1112,233 +1110,227 @@ const matchStage = selectedHistoryId
                       found: {
                         $first: {
                           $filter: {
-                            input: { $ifNull: ["$actual", []] },
-                            cond: { $eq: ["$$this.Review_level", "$$lvl"] }
-                          }
-                        }
-                      }
+                            input: {$ifNull: ['$actual', []]},
+                            cond: {$eq: ['$$this.Review_level', '$$lvl']},
+                          },
+                        },
+                      },
                     },
-                    in: { $ifNull: ["$$found.delayed", 0] }
-                  }
-                }
-              }
-            }
-          }
-        }
+                    in: {$ifNull: ['$$found.delayed', 0]},
+                  },
+                },
+              },
+            },
+          },
+        },
       },
-    
-      { $unwind: "$merged" },
-      { $replaceRoot: { newRoot: "$merged" } },
-    
-      // Optional: ensure Author comes first
-      { $sort: { Review_level: 1 } }
-    ];
-    console.log(startTime,endTime)
-    const start = startTime
-  ? new Date(`${startTime}T00:00:00.000Z`)
-  : null;
 
-const end = endTime
-  ? new Date(`${endTime}T23:59:59.999Z`)
-  : null;
+      {$unwind: '$merged'},
+      {$replaceRoot: {newRoot: '$merged'}},
+
+      // Optional: ensure Author comes first
+      {$sort: {Review_level: 1}},
+    ];
+    console.log(startTime, endTime);
+    const start = startTime ? new Date(`${startTime}T00:00:00.000Z`) : null;
+
+    const end = endTime ? new Date(`${endTime}T23:59:59.999Z`) : null;
     const pipe = [
       {
         $addFields: {
           history: {
             $filter: {
-              input: "$history",
-              as: "h",
+              input: '$history',
+              as: 'h',
               cond: {
                 $and: [
-                  ...(start
-                    ? [{ $gte: ["$$h.updatedAt", start] }]
-                    : []),
-                  ...(end
-                    ? [{ $lte: ["$$h.updatedAt", end] }]
-                    : []),
-                ]
-              }
-            }
-          }
-        }
+                  ...(start ? [{$gte: ['$$h.updatedAt', start]}] : []),
+                  ...(end ? [{$lte: ['$$h.updatedAt', end]}] : []),
+                ],
+              },
+            },
+          },
+        },
       },
-      { $match: { history: { $ne: [] } } },
+      {$match: {history: {$ne: []}}},
       // 1) Ensure history exists
       {
         $addFields: {
-          historyArr: { $ifNull: ["$history", []] },
-          historyLen: { $size: { $ifNull: ["$history", []] } }
-        }
+          historyArr: {$ifNull: ['$history', []]},
+          historyLen: {$size: {$ifNull: ['$history', []]}},
+        },
       },
-    
+
       // 2) Check if reviewer is Author (history[0])
       {
         $addFields: {
           isAuthor: {
             $and: [
-              { $gt: ["$historyLen", 0] },
-              { $eq: [{ $arrayElemAt: ["$historyArr.updatedBy", 0] }, reviewerId] }
-            ]
-          }
-        }
+              {$gt: ['$historyLen', 0]},
+              {$eq: [{$arrayElemAt: ['$historyArr.updatedBy', 0]}, reviewerId]},
+            ],
+          },
+        },
       },
-    
+
       // 3) Map history[1..] with index
       {
         $addFields: {
           completedEntriesWithIndex: {
             $map: {
-              input: { $range: [1, { $size: "$historyArr" }] }, // indices 1..N
-              as: "i",
+              input: {$range: [1, {$size: '$historyArr'}]}, // indices 1..N
+              as: 'i',
               in: {
-                index: "$$i",
-                entry: { $arrayElemAt: ["$historyArr", "$$i"] }
-              }
-            }
-          }
-        }
+                index: '$$i',
+                entry: {$arrayElemAt: ['$historyArr', '$$i']},
+              },
+            },
+          },
+        },
       },
-    
+
       // 4) Filter completed entries (NOT in-review) for this reviewer
       {
         $addFields: {
           completedEntriesWithIndex: {
             $filter: {
-              input: "$completedEntriesWithIndex",
-              as: "x",
+              input: '$completedEntriesWithIndex',
+              as: 'x',
               cond: {
                 $and: [
-                  { $eq: ["$$x.entry.updatedBy", reviewerId] },
-                  { $ne: ["$$x.entry.status", "in-review"] }
-                ]
-              }
-            }
-          }
-        }
+                  {$eq: ['$$x.entry.updatedBy', reviewerId]},
+                  {$ne: ['$$x.entry.status', 'in-review']},
+                ],
+              },
+            },
+          },
+        },
       },
-    
+
       // 5) Extract reviewEntry for counting
       {
         $addFields: {
           reviewEntry: {
             $cond: [
-              "$isAuthor",
-              { $arrayElemAt: ["$historyArr", 0] },
-              { $arrayElemAt: ["$completedEntriesWithIndex.entry", 0] }
-            ]
-          }
-        }
+              '$isAuthor',
+              {$arrayElemAt: ['$historyArr', 0]},
+              {$arrayElemAt: ['$completedEntriesWithIndex.entry', 0]},
+            ],
+          },
+        },
       },
-    
+
       // 6) Determine Review_level with Level number starting from 1
       {
         $addFields: {
           Review_level: {
             $cond: [
-              { $eq: ["$isAuthor", true] },
-              "Author",
+              {$eq: ['$isAuthor', true]},
+              'Author',
               {
                 $cond: [
-                  { $gt: [{ $size: "$completedEntriesWithIndex" }, 0] },
+                  {$gt: [{$size: '$completedEntriesWithIndex'}, 0]},
                   {
                     $concat: [
-                      "Level ",
+                      'Level ',
                       {
-                        $toString: { $arrayElemAt: ["$completedEntriesWithIndex.index", 0] }
-                      }
-                    ]
+                        $toString: {
+                          $arrayElemAt: ['$completedEntriesWithIndex.index', 0],
+                        },
+                      },
+                    ],
                   },
-                  null
-                ]
-              }
-            ]
-          }
-        }
+                  null,
+                ],
+              },
+            ],
+          },
+        },
       },
-    
+
       // 7) Add approved/rejected/modified counting
       {
         $addFields: {
           approvedCount: {
-            $cond: [{ $ifNull: ["$reviewEntry.approvedAnswer", false] }, 1, 0]
+            $cond: [{$ifNull: ['$reviewEntry.approvedAnswer', false]}, 1, 0],
           },
           rejectedCount: {
-            $cond: [{ $ifNull: ["$reviewEntry.rejectedAnswer", false] }, 1, 0]
+            $cond: [{$ifNull: ['$reviewEntry.rejectedAnswer', false]}, 1, 0],
           },
           modifiedCount: {
-            $cond: [{ $ifNull: ["$reviewEntry.modifiedAnswer", false] }, 1, 0]
-          }
-        }
+            $cond: [{$ifNull: ['$reviewEntry.modifiedAnswer', false]}, 1, 0],
+          },
+        },
       },
-    
+
       // 8) Keep only documents with Review_level
-      { $match: { Review_level: { $ne: null } } },
-    
+      {$match: {Review_level: {$ne: null}}},
+
       // 9) Group counts by Review_level
       {
         $group: {
-          _id: "$Review_level",
-          count: { $sum: 1 },
-          approvedCount: { $sum: "$approvedCount" },
-          rejectedCount: { $sum: "$rejectedCount" },
-          modifiedCount: { $sum: "$modifiedCount" }
-        }
+          _id: '$Review_level',
+          count: {$sum: 1},
+          approvedCount: {$sum: '$approvedCount'},
+          rejectedCount: {$sum: '$rejectedCount'},
+          modifiedCount: {$sum: '$modifiedCount'},
+        },
       },
-    
+
       // 10) Collect into array
       {
         $group: {
           _id: null,
           actual: {
             $push: {
-              Review_level: "$_id",
-              count: "$count",
-              approvedCount: "$approvedCount",
-              rejectedCount: "$rejectedCount",
-              modifiedCount: "$modifiedCount"
-            }
-          }
-        }
+              Review_level: '$_id',
+              count: '$count',
+              approvedCount: '$approvedCount',
+              rejectedCount: '$rejectedCount',
+              modifiedCount: '$modifiedCount',
+            },
+          },
+        },
       },
-    
+
       // 11) Merge with fixed levels to fill missing with 0
       {
         $project: {
           merged: {
             $map: {
               input: [
-                "Author",
-                "Level 1",
-                "Level 2",
-                "Level 3",
-                "Level 4",
-                "Level 5",
-                "Level 6",
-                "Level 7",
-                "Level 8",
-                "Level 9"
+                'Author',
+                'Level 1',
+                'Level 2',
+                'Level 3',
+                'Level 4',
+                'Level 5',
+                'Level 6',
+                'Level 7',
+                'Level 8',
+                'Level 9',
               ],
-              as: "lvl",
+              as: 'lvl',
               in: {
-                Review_level: "$$lvl",
+                Review_level: '$$lvl',
                 count: {
                   $let: {
                     vars: {
                       found: {
                         $first: {
                           $filter: {
-                            input: { $ifNull: ["$actual", []] },
-                            cond: { $eq: ["$$this.Review_level", "$$lvl"] }
-                          }
-                        }
-                      }
+                            input: {$ifNull: ['$actual', []]},
+                            cond: {$eq: ['$$this.Review_level', '$$lvl']},
+                          },
+                        },
+                      },
                     },
-                    in: { $ifNull: ["$$found.count", 0] }
-                  }
+                    in: {$ifNull: ['$$found.count', 0]},
+                  },
                 },
                 approvedCount: {
                   $cond: [
-                    { $eq: ["$$lvl", "Author"] },
+                    {$eq: ['$$lvl', 'Author']},
                     0,
                     {
                       $let: {
@@ -1346,20 +1338,20 @@ const end = endTime
                           found: {
                             $first: {
                               $filter: {
-                                input: { $ifNull: ["$actual", []] },
-                                cond: { $eq: ["$$this.Review_level", "$$lvl"] }
-                              }
-                            }
-                          }
+                                input: {$ifNull: ['$actual', []]},
+                                cond: {$eq: ['$$this.Review_level', '$$lvl']},
+                              },
+                            },
+                          },
                         },
-                        in: { $ifNull: ["$$found.approvedCount", 0] }
-                      }
-                    }
-                  ]
+                        in: {$ifNull: ['$$found.approvedCount', 0]},
+                      },
+                    },
+                  ],
                 },
                 rejectedCount: {
                   $cond: [
-                    { $eq: ["$$lvl", "Author"] },
+                    {$eq: ['$$lvl', 'Author']},
                     0,
                     {
                       $let: {
@@ -1367,20 +1359,20 @@ const end = endTime
                           found: {
                             $first: {
                               $filter: {
-                                input: { $ifNull: ["$actual", []] },
-                                cond: { $eq: ["$$this.Review_level", "$$lvl"] }
-                              }
-                            }
-                          }
+                                input: {$ifNull: ['$actual', []]},
+                                cond: {$eq: ['$$this.Review_level', '$$lvl']},
+                              },
+                            },
+                          },
                         },
-                        in: { $ifNull: ["$$found.rejectedCount", 0] }
-                      }
-                    }
-                  ]
+                        in: {$ifNull: ['$$found.rejectedCount', 0]},
+                      },
+                    },
+                  ],
                 },
                 modifiedCount: {
                   $cond: [
-                    { $eq: ["$$lvl", "Author"] },
+                    {$eq: ['$$lvl', 'Author']},
                     0,
                     {
                       $let: {
@@ -1388,77 +1380,201 @@ const end = endTime
                           found: {
                             $first: {
                               $filter: {
-                                input: { $ifNull: ["$actual", []] },
-                                cond: { $eq: ["$$this.Review_level", "$$lvl"] }
-                              }
-                            }
-                          }
+                                input: {$ifNull: ['$actual', []]},
+                                cond: {$eq: ['$$this.Review_level', '$$lvl']},
+                              },
+                            },
+                          },
                         },
-                        in: { $ifNull: ["$$found.modifiedCount", 0] }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        }
+                        in: {$ifNull: ['$$found.modifiedCount', 0]},
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
       },
-    
+
       // 12) Unwind merged array
-      { $unwind: "$merged" },
-      { $replaceRoot: { newRoot: "$merged" } },
-    
+      {$unwind: '$merged'},
+      {$replaceRoot: {newRoot: '$merged'}},
+
       // 13) Sort Author first, then Levels numerically
       {
         $addFields: {
           levelSort: {
             $cond: [
-              { $eq: ["$Review_level", "Author"] },
+              {$eq: ['$Review_level', 'Author']},
               0,
-              { $toInt: { $substr: ["$Review_level", 6, -1] } }
-            ]
-          }
-        }
+              {$toInt: {$substr: ['$Review_level', 6, -1]}},
+            ],
+          },
+        },
       },
-      { $sort: { levelSort: 1 } },
-      { $project: { levelSort: 0 } }
+      {$sort: {levelSort: 1}},
+      {$project: {levelSort: 0}},
     ];
-  
-    let pending= await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
-    let completed=await this.QuestionSubmissionCollection.aggregate(pipe).toArray();
-    if(pending.length==0)
-    {
-      pending= [{ Review_level: 'Author', count: 0 },
-         { Review_level: 'Level 1', count: 0 },
-         { Review_level: 'Level 2', count: 0 },
-       { Review_level: 'Level 3', count: 0 },
-       { Review_level: 'Level 4', count: 0 },
-         { Review_level: 'Level 5', count: 0 },
-      { Review_level: 'Level 6', count: 0 },
-         { Review_level: 'Level 7', count: 0 },
-        { Review_level: 'Level 8', count: 0 },
-        { Review_level: 'Level 9', count: 0 }
-       ]
+
+    let pending = await this.QuestionSubmissionCollection.aggregate(
+      pipeline,
+    ).toArray();
+    let completed = await this.QuestionSubmissionCollection.aggregate(
+      pipe,
+    ).toArray();
+    if (pending.length == 0) {
+      pending = [
+        {Review_level: 'Author', count: 0},
+        {Review_level: 'Level 1', count: 0},
+        {Review_level: 'Level 2', count: 0},
+        {Review_level: 'Level 3', count: 0},
+        {Review_level: 'Level 4', count: 0},
+        {Review_level: 'Level 5', count: 0},
+        {Review_level: 'Level 6', count: 0},
+        {Review_level: 'Level 7', count: 0},
+        {Review_level: 'Level 8', count: 0},
+        {Review_level: 'Level 9', count: 0},
+      ];
     }
-    
+
     const merged = pending.map(c => {
-      const matchCompleted = completed.find(p => p.Review_level === c.Review_level);
-    
+      const matchCompleted = completed.find(
+        p => p.Review_level === c.Review_level,
+      );
+
       return {
         Review_level: c.Review_level,
         pendingcount: c.count,
-        inReviewQuestions:c.inReview,
-        delayedQuestion:c.delayed,
+        inReviewQuestions: c.inReview,
+        delayedQuestion: c.delayed,
         completedcount: matchCompleted ? matchCompleted.count : 0,
-        approvedCount:matchCompleted ? matchCompleted.approvedCount : 0,
-        rejectedCount:matchCompleted ? matchCompleted.rejectedCount : 0,
-        modifiedCount:matchCompleted ? matchCompleted.modifiedCount : 0,
+        approvedCount: matchCompleted ? matchCompleted.approvedCount : 0,
+        rejectedCount: matchCompleted ? matchCompleted.rejectedCount : 0,
+        modifiedCount: matchCompleted ? matchCompleted.modifiedCount : 0,
       };
     });
-   
+
     return merged;
   }
-  
-  
+
+  async getReviewWiseCount(): Promise<IReviewWiseStats> {
+    await this.init();
+    const [result] =
+      await this.QuestionSubmissionCollection.aggregate<IReviewWiseStats>([
+        {
+          $addFields: {
+            historyLength: {$size: '$history'},
+          },
+        },
+
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
+
+        {$unwind: '$question'},
+
+        {
+          $group: {
+            _id: null,
+
+            authorLevel: {
+              $sum: {$cond: [{$gte: ['$historyLength', 1]}, 1, 0]},
+            },
+
+            levelOne: {
+              $sum: {$cond: [{$gte: ['$historyLength', 3]}, 1, 0]},
+            },
+
+            levelTwo: {
+              $sum: {$cond: [{$gte: ['$historyLength', 4]}, 1, 0]},
+            },
+
+            levelThree: {
+              $sum: {$cond: [{$gte: ['$historyLength', 5]}, 1, 0]},
+            },
+
+            levelFour: {
+              $sum: {$cond: [{$gte: ['$historyLength', 6]}, 1, 0]},
+            },
+
+            levelFive: {
+              $sum: {$cond: [{$gte: ['$historyLength', 7]}, 1, 0]},
+            },
+
+            levelSix: {
+              $sum: {$cond: [{$gte: ['$historyLength', 8]}, 1, 0]},
+            },
+
+            levelSeven: {
+              $sum: {$cond: [{$gte: ['$historyLength', 9]}, 1, 0]},
+            },
+
+            levelEight: {
+              $sum: {$cond: [{$gte: ['$historyLength', 10]}, 1, 0]},
+            },
+
+            levelNineEligible: {
+              $sum: {
+                $cond: [{$gte: ['$historyLength', 8]}, 1, 0],
+              },
+            },
+
+            levelNineInReview: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$gte: ['$historyLength', 8]},
+                      {$eq: ['$question.status', 'in-review']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+
+        {
+          $project: {
+            _id: 0,
+            authorLevel: 1,
+            levelOne: 1,
+            levelTwo: 1,
+            levelThree: 1,
+            levelFour: 1,
+            levelFive: 1,
+            levelSix: 1,
+            levelSeven: 1,
+            levelEight: 1,
+
+            levelNine: {
+              $subtract: ['$levelNineEligible', '$levelNineInReview'],
+            },
+          },
+        },
+      ]).toArray();
+
+    return (
+      result ?? {
+        authorLevel: 0,
+        levelOne: 0,
+        levelTwo: 0,
+        levelThree: 0,
+        levelFour: 0,
+        levelFive: 0,
+        levelSix: 0,
+        levelSeven: 0,
+        levelEight: 0,
+        levelNine: 0,
+      }
+    );
+  }
 }

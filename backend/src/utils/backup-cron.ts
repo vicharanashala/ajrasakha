@@ -49,7 +49,7 @@ export const createLocalBackup = async (mongoUri: string, dbName: string) => {
       `⚠️ Backup for today (${timestamp}) already exists. Skipping upload.`,
     );
     await sendStatsEmail();
-    return;
+    return; 
   }
 
   const tempDir = path.join(process.cwd(), 'temp_db_backup');
