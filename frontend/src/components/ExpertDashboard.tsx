@@ -6,7 +6,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
-import { ListTodo, Award, ThumbsDown, Loader2, Trophy,Clock ,Target,CheckCircle,AlertCircle} from "lucide-react";
+import {
+  ListTodo,
+  Award,
+  ThumbsDown,
+  Loader2,
+  Trophy,
+  Clock,
+  Target,
+  CheckCircle,
+  AlertCircle,
+} from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useGetReviewLevel } from "@/hooks/api/user/useGetReviewLevel";
 import { useGetAllExperts } from "@/hooks/api/user/useGetAllUsers";
@@ -21,6 +31,10 @@ import {
 import { DashboardClock } from "./dashboard/dashboard-clock";
 import { Button } from "./atoms/button";
 import { DateRangeFilter } from "./DateRangeFilter";
+import { ChristmasCap, Snowfall } from "./dashboard";
+import { useTheme } from "next-themes";
+import { Label } from "./atoms/label";
+import { Switch } from "./atoms/switch";
 interface ExpertDashboardProps {
   expertId?: string | null;
   goBack?: () => void;
@@ -38,13 +52,29 @@ export const ExpertDashboard = ({
   rankPosition,
   expertDetailsList,
 }: ExpertDashboardProps) => {
+  /////////////////////////////////////////////////////////////////////////
+  const { theme } = useTheme();
+
+  const ANIMATIONS_KEY = "animationsEnabled";
+
+  const [animationsEnabled, setAnimationsEnabled] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true; // SSR safety
+    const stored = localStorage.getItem(ANIMATIONS_KEY);
+    return stored ? JSON.parse(stored) : true; // default ON
+  });
+
+  useEffect(() => {
+    localStorage.setItem(ANIMATIONS_KEY, JSON.stringify(animationsEnabled));
+  }, [animationsEnabled]);
+  ///////////////////////////////////////////////////////////////////////////
+
   const shouldFetch = !expertDetailsList;
   const [expertDate, setExpertDate] = useState<DateRange>({
     startTime: undefined,
     endTime: undefined,
   });
 
-  const { data: user, isLoading } = useGetCurrentUser({enabled: shouldFetch });
+  const { data: user, isLoading } = useGetCurrentUser({ enabled: shouldFetch });
   let userId: string | undefined;
 
   if (expertId) {
@@ -53,17 +83,32 @@ export const ExpertDashboard = ({
     userId = user?._id?.toString();
   }
   const { data: reviewLevel, isLoading: isLoadingReviewLevel } =
-    useGetReviewLevel(userId,{ startTime: expertDate.startTime, endTime: expertDate.endTime });
+    useGetReviewLevel(userId, {
+      startTime: expertDate.startTime,
+      endTime: expertDate.endTime,
+    });
   const levels = reviewLevel || [];
   const totalPending = levels.reduce((sum, item) => sum + item.pendingcount, 0);
   const totalCompleted = levels.reduce(
     (sum, item) => sum + item.completedcount,
     0
   );
-  const totalapproved = levels.reduce((sum, item) => sum + item.approvedCount, 0);
-  const totalrejected = levels.reduce((sum, item) => sum + item.rejectedCount, 0);
-  const totalmodified = levels.reduce((sum, item) => sum + item.modifiedCount, 0);
-  const totalDelayedQuestions=levels.reduce((sum, item) => sum + item.delayedQuestion, 0)
+  const totalapproved = levels.reduce(
+    (sum, item) => sum + item.approvedCount,
+    0
+  );
+  const totalrejected = levels.reduce(
+    (sum, item) => sum + item.rejectedCount,
+    0
+  );
+  const totalmodified = levels.reduce(
+    (sum, item) => sum + item.modifiedCount,
+    0
+  );
+  const totalDelayedQuestions = levels.reduce(
+    (sum, item) => sum + item.delayedQuestion,
+    0
+  );
   const [search, setSearch] = useState("");
 
   const [filter, setFilter] = useState("");
@@ -71,14 +116,14 @@ export const ExpertDashboard = ({
   const [selectedSort, setSelectedSort] = useState("");
   const [page, setPage] = useState(1);
   const LIMIT = 500;
-  
+
   const { data: expertDetails, isLoading: isloadingRank } = useGetAllExperts(
     page,
     LIMIT,
     search,
     selectedSort,
     filter,
-     {enabled: shouldFetch }
+    { enabled: shouldFetch }
   );
   const [userDetails, setUserDetails] = useState<any[]>([]);
   const [totalUsers, setTotalUsers] = useState<number>(0);
@@ -91,7 +136,7 @@ export const ExpertDashboard = ({
     setTotalUsers(expertArr.totalExperts);
     setUserDetails(filteredUsers);
   }, [expertArr, user?.email]);
-  
+
   const handleDateChange = (key: string, value?: Date) => {
     setExpertDate((prev) => ({
       ...prev,
@@ -103,6 +148,8 @@ export const ExpertDashboard = ({
     <main
       className={`min-h-screen bg-background ${isLoading ? "opacity-40" : ""}`}
     >
+      {theme == "dark" && animationsEnabled && <Snowfall />}
+
       {expertId ? (
         <div className="flex justify-end">
           <Button
@@ -133,15 +180,48 @@ export const ExpertDashboard = ({
       <div className="mx-auto p-6">
         <div className="mb-8 flex justify-between items-center">
           <div>
+            {/* {expertId ?  */}
             <h1 className="text-3xl font-bold text-foreground">
-              Expert {expertId ? "Performance": "Dashboard"}
+              Expert {expertId ? "Performance" : "Dashboard"}
             </h1>
+            {/* // : 
+            // <div className="relative inline-block">
+            //   <ChristmasCap className="absolute -top-13 -left-4 w-20 h-18 -rotate-6 z-10" />
+            //   <h1 className="text-3xl font-bold text-foreground pt-2 pl-6">
+            //     Expert Dashboard
+            //   </h1>
+            // </div> */}
+            {/* } */}
             <p className="text-muted-foreground mt-1">
               Monitor expert performance of : {userDetails?.[0]?.firstName}
             </p>
           </div>
 
-          <DashboardClock />
+          {/* <DashboardClock /> */}
+
+          <div className="flex items-center gap-4">
+            {/* ANIMATION SWITCH */}
+            {theme == "dark" && (
+              <div className="flex items-center gap-2">
+                <Label
+                  htmlFor="animations-toggle"
+                  className="text-sm text-muted-foreground cursor-pointer select-none"
+                >
+                  {animationsEnabled ? "Animations On" : "Animations Off"}
+                </Label>
+
+                <Switch
+                  id="animations-toggle"
+                  checked={animationsEnabled}
+                  onCheckedChange={setAnimationsEnabled}
+                  className="scale-100 data-[state=checked]:bg-primary"
+                />
+              </div>
+            )}
+
+            {/* CLOCK */}
+            <DashboardClock />
+          </div>
         </div>
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -221,9 +301,11 @@ export const ExpertDashboard = ({
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Delayed Questions</p>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Delayed Questions
+                  </p>
                   <p className="text-3xl font-bold text-foreground">
-                    { totalDelayedQuestions||0}
+                    {totalDelayedQuestions || 0}
                   </p>
                   <p className="text-xs text-green-600 mt-2 font-medium">
                     Count of Delayed Questions
@@ -238,10 +320,10 @@ export const ExpertDashboard = ({
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Working Hours</p>
-                  <p className="text-3xl font-bold text-foreground">
-                    { 'N/A'}
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Working Hours
                   </p>
+                  <p className="text-3xl font-bold text-foreground">{"N/A"}</p>
                   <p className="text-xs text-green-600 mt-2 font-medium">
                     Total Working Hours Per Week
                   </p>
@@ -255,10 +337,10 @@ export const ExpertDashboard = ({
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">QA Target</p>
-                  <p className="text-3xl font-bold text-foreground">
-                    { 'N/A'}
+                  <p className="text-xs text-muted-foreground mb-1">
+                    QA Target
                   </p>
+                  <p className="text-3xl font-bold text-foreground">{"N/A"}</p>
                   <p className="text-xs text-green-600 mt-2 font-medium">
                     Target For 1 month
                   </p>
@@ -272,10 +354,10 @@ export const ExpertDashboard = ({
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">QA Completed</p>
-                  <p className="text-3xl font-bold text-foreground">
-                    { 'N/A'}
+                  <p className="text-xs text-muted-foreground mb-1">
+                    QA Completed
                   </p>
+                  <p className="text-3xl font-bold text-foreground">{"N/A"}</p>
                   <p className="text-xs text-green-600 mt-2 font-medium">
                     Completed Task
                   </p>
@@ -284,19 +366,18 @@ export const ExpertDashboard = ({
               </div>
             </CardContent>
           </Card>
-
         </div>
         {/*summary of review level */}
         <Card className="mt-10">
           <div className="flex justify-between  ml-5 mr-5">
-          <h1 className="text-1xl font-bold text-foreground mt-0 mb-3">
-            Summary of Pending Tasks by Review Level
-          </h1>
-          <DateRangeFilter
-                    advanceFilter={expertDate}
-                    handleDialogChange={handleDateChange}
-                  />
-                  </div>
+            <h1 className="text-1xl font-bold text-foreground mt-0 mb-3">
+              Summary of Pending Tasks by Review Level
+            </h1>
+            <DateRangeFilter
+              advanceFilter={expertDate}
+              handleDialogChange={handleDateChange}
+            />
+          </div>
 
           <div className="rounded-lg border bg-card overflow-x-auto min-h-[55vh] ml-5 mr-5">
             <Table className="min-w-[800px]">
@@ -307,7 +388,7 @@ export const ExpertDashboard = ({
                     Review Level
                   </TableHead>
                   <TableHead className="text-center w-52">
-                     Pending Tasks({totalPending})
+                    Pending Tasks({totalPending})
                   </TableHead>
                   <TableHead className="text-center w-52">
                     Approved Answers({totalapproved})
@@ -319,7 +400,7 @@ export const ExpertDashboard = ({
                     Modified Answers({totalmodified})
                   </TableHead>
                   <TableHead className="text-center w-52">
-                     Completed Tasks({totalCompleted})
+                    Completed Tasks({totalCompleted})
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -354,13 +435,13 @@ export const ExpertDashboard = ({
                         {level.pendingcount}
                       </TableCell>
                       <TableCell className="align-middle w-36">
-                        {ind===0?'N/A':level.approvedCount}
+                        {ind === 0 ? "N/A" : level.approvedCount}
                       </TableCell>
                       <TableCell className="align-middle w-36">
-                        {ind===0?'N/A':level.rejectedCount}
+                        {ind === 0 ? "N/A" : level.rejectedCount}
                       </TableCell>
                       <TableCell className="align-middle w-36">
-                        {ind===0?'N/A':level.modifiedCount}
+                        {ind === 0 ? "N/A" : level.modifiedCount}
                       </TableCell>
                       <TableCell className="align-middle w-36">
                         {level.completedcount}
