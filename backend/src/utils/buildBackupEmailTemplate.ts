@@ -368,7 +368,7 @@ export const buildReviewWiseStatsTable = (
   <div style="border: 1px solid #e5e7eb;">
     <div style="background-color: #f9fafb; padding: 16px 20px; border-bottom: 2px solid #047857;">
       <h2 style="margin: 0; font-size: 16px; font-weight: 600; color: #1f2937;">
-        Review Stage Distribution
+        Review Stage Distribution (Questions Passed at Each Level)
       </h2>
     </div>
     
