@@ -1521,7 +1521,7 @@ export class QuestionSubmissionRepository
 
             levelNineEligible: {
               $sum: {
-                $cond: [{$gte: ['$historyLength', 8]}, 1, 0],
+                $cond: [{$gte: ['$historyLength', 10]}, 1, 0],
               },
             },
 
@@ -1530,7 +1530,7 @@ export class QuestionSubmissionRepository
                 $cond: [
                   {
                     $and: [
-                      {$gte: ['$historyLength', 8]},
+                      {$gte: ['$historyLength', 10]},
                       {$eq: ['$question.status', 'in-review']},
                     ],
                   },
