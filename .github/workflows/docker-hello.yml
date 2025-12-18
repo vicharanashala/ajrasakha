@@ -13,7 +13,7 @@ jobs:
         with:
           oauth-client-id:  ${{ secrets.TS_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_SECRET }}
-          tags: ci-cd
+          tags: tag:ci-cd
 
       - name: Setup SSH
         run: |
