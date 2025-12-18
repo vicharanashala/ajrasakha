@@ -81,6 +81,7 @@ import type {
   IQuestion,
   IReviewParmeters,
   SourceItem,
+  QuestionRerouteRepo
 } from "@/types";
 import { ScrollArea } from "./atoms/scroll-area";
 import { ExpandableText } from "./expandable-text";
@@ -1098,7 +1099,7 @@ const handleActionChange = (value: string) => {
 };
 
 type QuestionDetailsDialogProps = {
-  question: IQuestion;
+  question: IQuestion|QuestionRerouteRepo;
   buttonLabel?: string;
 };
 
@@ -1632,7 +1633,7 @@ ResponseTimelineProps) => {
 };
 interface ReRouteResponseTimelineProps {
   isSelectedQuestionLoading: boolean;
-  selectedQuestionData: IQuestion;
+  selectedQuestionData: QuestionRerouteRepo;
   newAnswer: string;
   setNewAnswer: (value: string) => void;
   sources: SourceItem[];
@@ -1650,7 +1651,7 @@ interface ReRouteResponseTimelineProps {
   remarks: string;
   setRemarks: (value: string) => void;
   questions:any
-  selectedQuestion:string
+  selectedQuestion:string|null
 }
 
 export const ReRouteResponseTimeline = ({
@@ -1694,7 +1695,7 @@ ReRouteResponseTimelineProps) => {
 
   const history = selectedQuestionData?.history || [];
 
-  const currentReviewingAnswer =
+  /*const currentReviewingAnswer =
     history && Array.isArray(history)
       ? [...history]
           .reverse()
@@ -1716,7 +1717,7 @@ ReRouteResponseTimelineProps) => {
       setNewAnswer(currentReviewingAnswer.answer);
       setSources(currentReviewingAnswer.sources);
     }
-  }, [currentReviewingAnswer]);
+  }, [currentReviewingAnswer]);*/
 
   // const handleCopy = async (url: string, index: number) => {
 

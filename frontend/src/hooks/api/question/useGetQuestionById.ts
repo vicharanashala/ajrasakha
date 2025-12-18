@@ -12,7 +12,8 @@ export const useGetQuestionById = (questionId: string | null,actionType:string) 
       return await questionService.getQuestionById(questionId,actionType);
     },
 
-    enabled: !!questionId,
+    enabled: !!questionId && !!actionType
+    
   });
 
   return { data, isLoading, error };

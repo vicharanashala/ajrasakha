@@ -652,7 +652,7 @@ export interface QuestionRerouteRepo {
   details: QuestionDetailsRerouteRepo;
   status: QuestionStatus;
   priority: Priority;
-  aiInitialAnswer: string;
+  aiInitialAnswer?: string;
   createdAt: string;
   updatedAt: string;
   totalAnswersCount: number;
