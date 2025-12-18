@@ -25,6 +25,15 @@ class QuestionIdParam {
   })
   @IsMongoId()
   questionId: string;
+  
+  @JSONSchema({
+    description: 'action type',
+    example: 'reroute',
+    type: 'string',
+  })
+ @IsOptional()
+  @IsString()
+  actionType: string;
 }
 class AllocateReRouteExpertsRequest {
   @JSONSchema({

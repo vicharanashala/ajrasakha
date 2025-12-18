@@ -554,6 +554,7 @@ export const QAInterface = ({
 
 const handleActionChange = (value: string) => {
   setActionType(value as "allocated" | "reroute");
+  setSelectedQuestion(null);
 };
   return (
     <div className=" mx-auto px-4 md:px-6 bg-transparent py-4 ">
@@ -1633,7 +1634,7 @@ ResponseTimelineProps) => {
 };
 interface ReRouteResponseTimelineProps {
   isSelectedQuestionLoading: boolean;
-  selectedQuestionData: QuestionRerouteRepo;
+  selectedQuestionData: IQuestion;
   newAnswer: string;
   setNewAnswer: (value: string) => void;
   sources: SourceItem[];
@@ -1773,7 +1774,14 @@ ReRouteResponseTimelineProps) => {
       return;
     }
   
-    const h = selectedQuestionData.history[0];
+    
+    const h = selectedQuestionData.history?.[0];
+
+if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.reroutedTo) {
+  console.error("Required data is missing for rejectReRoute");
+  return;
+}
+
     try {
     await rejectReRoute({
         reason,
@@ -1883,23 +1891,27 @@ ReRouteResponseTimelineProps) => {
                         </p>
                       </div>
                       <div>
-                    <p className="text-sm font-medium text-foreground mb-3">
+                    
+                  </div>
+                     
+                      
+                      { selectedQuestionData?.history &&
+                      selectedQuestionData.history.length > 0 &&
+                      selectedQuestionData.history[0].answer?.sources &&
+                      selectedQuestionData.history[0].answer!.sources.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-foreground mb-3">
                       Answer Content
                     </p>
                     <div className="rounded-lg border bg-muted/30 h-[30vh] mb-3 ">
                       <ScrollArea className="h-full">
                         <div className="p-4">
                           <p className=" text-foreground">
-                            {newAnswer}
+                            {selectedQuestionData.history[0].answer.answer}
                           </p>
                         </div>
                       </ScrollArea>
                     </div>
-                  </div>
-                     
-                      
-                      {selectedQuestionData.history[0].answer?.sources?.length > 0 && (
-                    <div>
                       <p className="text-sm font-medium text-foreground mb-3">
                         Source URLs
                       </p>
@@ -2239,7 +2251,7 @@ export const ReviewHistoryTimeline = ({
 
                       {/* DATE */}
                       <span className="text-xs text-muted-foreground flex-shrink-0 ml-auto">
-                        {formatDate(item.createdAt)}
+                        {item.createdAt ? formatDate(item.createdAt) : "—"}
                       </span>
 
                       {/* AUTHOR BADGE */}

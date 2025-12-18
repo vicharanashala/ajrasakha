@@ -102,7 +102,7 @@ export class ReRouteController {
    return this.reRouteService.getAllocatedQuestions(userId,query);
   }
 
-  @Get('/:questionId')
+  @Get('/:actionType/:questionId')
   @HttpCode(200)
   @Authorized()
   @ResponseSchema(QuestionResponse)
@@ -112,9 +112,13 @@ export class ReRouteController {
     @Body() updates: any,
     @CurrentUser() user: IUser
   ): Promise<any> {
-    const {questionId} = params;
+    const {questionId,actionType} = params;
     const userId = user._id.toString();
    // return null
+   if(actionType!="reroute")
+   {
+    return null
+   }
     return this.reRouteService.getQuestionById(questionId,userId);
   }
 

@@ -122,7 +122,7 @@ export class QuestionService {
         return apiFetch<IQuestion | null>(`${this._baseUrl}/${id}`);
       }
       else{
-        return apiFetch<IQuestion | null>(`${this._reRouteUrl}/${id}`);
+        return apiFetch<IQuestion | null>(`${this._reRouteUrl}/${actionType}/${id}`);
       }
 
     

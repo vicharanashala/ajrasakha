@@ -123,8 +123,21 @@ export interface HistoryItem {
   // If an expert is modifying, it store the modified answer id
   modifiedAnswer?: string;
   // timestamp
-  createdAt: Date;
-  updatedAt: Date;
+ 
+  moderator?: ModeratorRerouteRepo;
+  question?: QuestionEntityRerouteRepo;
+ 
+  rerouteId?: string;
+  reroute?: RerouteRerouteRepo;
+  text?: string;
+  
+  details?: QuestionDetailsRerouteRepo;
+  createdAt?: Date;
+  priority?: Priority;
+  id?: string;
+ 
+  updatedAt?:Date,
+ 
 }
 
 export type QuestionPriority = "low" | "medium" | "high";
@@ -666,17 +679,17 @@ export interface QuestionRerouteRepo {
 ========================= */
 
 export interface QuestionHistoryRerouteRepo {
-  moderator: ModeratorRerouteRepo;
-  question: QuestionEntityRerouteRepo;
-  answer: AnswerRerouteRepo;
-  rerouteId: string;
-  reroute: RerouteRerouteRepo;
-  text: string;
-  status: QuestionStatus;
-  details: QuestionDetailsRerouteRepo;
-  createdAt: string;
-  priority: Priority;
-  id: string;
+  moderator?: ModeratorRerouteRepo;
+  question?: QuestionEntityRerouteRepo;
+  answer?: AnswerRerouteRepo;
+  rerouteId?: string;
+  reroute?: RerouteRerouteRepo;
+  text?: string;
+  status?: QuestionStatus;
+  details?: QuestionDetailsRerouteRepo;
+  createdAt?: string;
+  priority?: Priority;
+  id?: string;
  
   updatedAt?:Date,
   updatedBy?: {
