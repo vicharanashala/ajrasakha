@@ -557,7 +557,8 @@ export interface IReroute {
   updatedAt: string;
   reroutedBy: IUserReRoute;
   reroutedTo: IUserReRoute;
-  answer: Answer
+  answer: Answer;
+  rejectionReason?:string
 }
 
 // ---------------------

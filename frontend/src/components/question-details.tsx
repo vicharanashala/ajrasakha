@@ -662,7 +662,7 @@ export const QuestionDetails = ({
             question={question}
             userRole={currentUser.role}
             queue={question.submission.queue}
-            rerouteQuestion={reroutequestionDetails}
+            rerouteQuestion={reroutequestionDetails ?? undefined}
         
           />
           {answerVisibleCount < answers.length && (
@@ -1557,18 +1557,19 @@ const AllocationTimeline = ({
 };
 interface RerouteTimelineProps{
   currentUser: IUser;
-  rerouteData?: IRerouteHistoryResponse;
+  rerouteData: IRerouteHistoryResponse[];
 }
 const RerouteTimeline = ({ currentUser,rerouteData }:RerouteTimelineProps) => {
   
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
   const [flippedId, setFlippedId] = useState("");
-  const [hoverTimeout, setHoverTimeout] = useState(null);
+  const [hoverTimeout, setHoverTimeout] =
+  useState<ReturnType<typeof setTimeout> | null>(null);
   
   const INITIAL_DISPLAY_COUNT = 12;
 
-  const handleMouseEnter = (id) => {
+  const handleMouseEnter = (id:string) => {
     const timeout = setTimeout(() => {
       setFlippedId(id);
       setIsFlipped(true);
@@ -1599,7 +1600,7 @@ const RerouteTimeline = ({ currentUser,rerouteData }:RerouteTimelineProps) => {
     : reroutes.slice(0, INITIAL_DISPLAY_COUNT);
   const hasMore = reroutes.length > INITIAL_DISPLAY_COUNT;
 
-  const getStatusInfo = (status) => {
+  const getStatusInfo = (status:string) => {
     switch (status) {
       case "expert_completed":
         return {
@@ -1670,12 +1671,19 @@ const RerouteTimeline = ({ currentUser,rerouteData }:RerouteTimelineProps) => {
     }
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
+  const formatDate = (dateString?: string | Date | null): string => {
+    if (!dateString) return "";
+  
+    const date = typeof dateString === "string"
+      ? new Date(dateString)
+      : dateString;
+  
+    if (isNaN(date.getTime())) return "";
+  
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
@@ -2160,12 +2168,22 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRo
           toast.error("Rejection reason must be atleast 8 letters");
           return;
         }
+        const rerouteQuestion = props.rerouteQuestion;
+
+if (!rerouteQuestion || rerouteQuestion.length === 0) {
+  console.warn("No reroute question available");
+  return;
+}
+if (!lastReroutedTo) {
+  console.warn("No reroute info found");
+  return;
+}
     
-    let questionId=props?.rerouteQuestion[0]?.questionId
-  let rerouteId=props?.rerouteQuestion[0]?._id
-  let moderatorId=lastReroutedTo?.reroutedTo._id
-  let userId=lastReroutedTo?.reroutedTo._id
-    //const h = selectedQuestionData.history[0];
+const questionId = rerouteQuestion[0].questionId;
+const rerouteId = rerouteQuestion[0]._id;
+const moderatorId = lastReroutedTo.reroutedTo._id;
+const userId = lastReroutedTo.reroutedTo._id;
+
     try {
     await rejectReRoute({
         reason,

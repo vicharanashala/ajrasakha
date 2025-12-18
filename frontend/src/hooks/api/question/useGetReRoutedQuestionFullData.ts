@@ -6,7 +6,7 @@ const questionService = new QuestionService();
 
 export const useGetReRoutedQuestionFullData = (questionId: string | null|undefined) => {
   const { data, isLoading, error, refetch } = useQuery<
-  IRerouteHistoryResponse | null,
+  IRerouteHistoryResponse[] | null,
     Error
   >({
     queryKey: ["rerouted_question_full_data", questionId],

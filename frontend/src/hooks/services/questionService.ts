@@ -146,8 +146,8 @@ export class QuestionService {
   }
   async getReRoutedQuestionFullDataById(
     answerId: string
-  ): Promise< IRerouteHistoryResponse| null> {
-    return apiFetch<IRerouteHistoryResponse | null>(
+  ): Promise< IRerouteHistoryResponse[]| null> {
+    return apiFetch<IRerouteHistoryResponse[] | null>(
       `${this._reRouteUrl}/${answerId}/history`
     );
   }
