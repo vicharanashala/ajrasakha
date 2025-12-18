@@ -1968,7 +1968,7 @@ ReRouteResponseTimelineProps) => {
                           ) : (
                             <>
                               <Pencil className="w-3 h-3" />
-                              Create Answer
+                              Modify Answer
                             </>
                           )}
                         </Button>
@@ -2014,7 +2014,7 @@ ReRouteResponseTimelineProps) => {
               value={editedAnswer}
               onChange={(e) => setEditedAnswer(e.target.value)}
               rows={6}
-              className="mt-2"
+              className="mt-2 h-[30vh]"
               placeholder="Write your answer..."
             />
             <div className="bg-card border border-border rounded-xl p-6 shadow-sm mt-3 md:mt-6">
