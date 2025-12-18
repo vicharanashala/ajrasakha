@@ -2513,7 +2513,7 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRo
                   
                   >
                     <XCircle className="w-3 h-3" />
-                              Reject
+                              Reject ReRoute
                             
                   </button>
                   </DialogTrigger>
