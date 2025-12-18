@@ -65,7 +65,7 @@ export class QuestionService {
     filter: QuestionFilter,
     preferences: AdvanceFilterValues,
     actionType:string,
-    autoSelectQuestionId?:string
+    autoSelectQuestionId?:string|null
   ): Promise<IQuestion[] | ReroutedQuestionItem[] |null> {
     const params = new URLSearchParams({
       page: pageParam.toString(),
