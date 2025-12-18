@@ -5,6 +5,7 @@ import {
   SourceItem,
   IQuestionSubmission,
   PreviousAnswersItem,
+  IReroute
 } from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
@@ -26,6 +27,7 @@ export class AnswerRepository implements IAnswerRepository {
   private QuestionCollection: Collection<IQuestion>;
   private usersCollection!: Collection<IUser>;
   private QuestionSubmissionCollection: Collection<IQuestionSubmission>;
+  private ReRouteCollection: Collection<IReroute>;
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
@@ -41,6 +43,7 @@ export class AnswerRepository implements IAnswerRepository {
     this.QuestionSubmissionCollection =
       await this.db.getCollection<IQuestionSubmission>('question_submissions');
     await this.db.getCollection<IQuestionSubmission>('question_submissions');
+    this.ReRouteCollection = await this.db.getCollection<IReroute>('reroute');
   }
 
   async addAnswer(
@@ -1277,122 +1280,268 @@ export class AnswerRepository implements IAnswerRepository {
     moderatorId: string,
     page: number,
     limit: number,
-    dateRange?: {from?: string; to?: string},
+    dateRange?: { from?: string; to?: string },
+    selectedHistoryId?:string,
     session?: ClientSession,
   ) {
     await this.init();
+  
     const safePage = Math.max(1, page);
     const safeLimit = Math.max(1, limit);
     const skip = (safePage - 1) * safeLimit;
-
+  
     const fromDate = dateRange?.from ? new Date(dateRange.from) : null;
     const toDate = dateRange?.to ? new Date(dateRange.to) : null;
-
+  
     const dateFilter: any = {};
     if (fromDate) dateFilter.$gte = fromDate;
     if (toDate) dateFilter.$lte = toDate;
+  
+    let rerouteMatchStage: any;
 
-    const matchStage: any = {
-      approvedBy: new ObjectId(moderatorId),
+if (selectedHistoryId) {
+  // If selectedHistoryId is provided, match that specific question
+  rerouteMatchStage = {
+    questionId: new ObjectId(selectedHistoryId),
     };
-
-    if (Object.keys(dateFilter).length > 0) {
-      matchStage.updatedAt = dateFilter;
-    }
-
-    const pipeline = [
-      {$match: matchStage},
-
-      {$sort: {updatedAt: -1}},
-
+} else {
+  // Otherwise, match all questions where moderator has rerouted
+  rerouteMatchStage = {
+    reroutes: {
+      $elemMatch: {
+        reroutedBy: new ObjectId(moderatorId),
+      },
+    },
+  };
+}
+    // Pipeline 1: Get Rerouted Questions
+    const reroutePipeline = [
       {
-        $facet: {
-          filtered: [
-            {$skip: skip},
-            {$limit: safeLimit},
-
-            // Populate Question
-            {
-              $lookup: {
-                from: 'questions',
-                localField: 'questionId',
-                foreignField: '_id',
-                as: 'questionDoc',
-              },
-            },
-            {$unwind: {path: '$questionDoc', preserveNullAndEmptyArrays: true}},
-
-            // Populate Author
-            {
-              $lookup: {
-                from: 'users',
-                localField: 'authorId',
-                foreignField: '_id',
-                as: 'authorDoc',
-              },
-            },
-            {$unwind: {path: '$authorDoc', preserveNullAndEmptyArrays: true}},
-
-            {
-              $project: {
-                // _id: 1,
-                _id: {$toString: '$_id'},
-                action: 'finalized',
-                createdAt: '$createdAt',
-                updatedAt: '$updatedAt',
-
-                question: {
-                  // _id: "$questionDoc._id",
-                  _id: {$toString: '$questionDoc._id'},
-                  question: '$questionDoc.question',
-                },
-
-                answer: {
-                  // _id: "$_id",
-                  _id: {$toString: '$_id'},
-                  answer: '$answer',
-                },
-
-                author: {
-                  // _id: "$authorDoc._id",
-                  _id: {$toString: '$authorDoc._id'},
-                  name: {
-                    $concat: [
-                      '$authorDoc.firstName',
-                      ' ',
-                      '$authorDoc.lastName',
-                    ],
-                  },
-                  email: '$authorDoc.email',
+        $match: rerouteMatchStage,
+      },
+      {
+        $addFields: {
+          moderatorReroute: {
+            $first: {
+              $filter: {
+                input: "$reroutes",
+                as: "r",
+                cond: {
+                  $eq: ["$$r.reroutedBy", new ObjectId(moderatorId)],
                 },
               },
             },
-          ],
-
-          totalCount: [{$count: 'count'}],
+          },
         },
       },
-
+      ...(Object.keys(dateFilter).length > 0
+        ? [
+            {
+              $match: {
+                "moderatorReroute.updatedAt": dateFilter,
+              },
+            },
+          ]
+        : []),
+      {
+        $lookup: {
+          from: "questions",
+          localField: "questionId",
+          foreignField: "_id",
+          as: "questionDoc",
+        },
+      },
+      { $unwind: "$questionDoc" },
+      {
+        $match: {
+          "questionDoc.status": "re-routed",
+        },
+      },
+      {
+        $lookup: {
+          from: "answers",
+          localField: "answerId",
+          foreignField: "_id",
+          as: "answerDoc",
+        },
+      },
+      {
+        $unwind: {
+          path: "$answerDoc",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "answerDoc.authorId",
+          foreignField: "_id",
+          as: "authorDoc",
+        },
+      },
+      {
+        $unwind: {
+          path: "$authorDoc",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
       {
         $project: {
-          data: '$filtered',
-          totalCount: {$ifNull: [{$arrayElemAt: ['$totalCount.count', 0]}, 0]},
+          _id: 0,
+          action: "rerouted",
+          createdAt: "$moderatorReroute.reroutedAt",
+          updatedAt: "$moderatorReroute.updatedAt",
+          question: {
+            _id: { $toString: "$questionDoc._id" },
+            question: "$questionDoc.question",
+            status: "$questionDoc.status",
+          },
+          answer: {
+            $cond: {
+              if: { $ifNull: ["$answerDoc._id", false] },
+              then: {
+                _id: { $toString: "$answerDoc._id" },
+                answer: "$answerDoc.answer",
+                status: "$answerDoc.status",
+                isFinalAnswer: "$answerDoc.isFinalAnswer",
+                sources: "$answerDoc.sources",
+                createdAt: "$answerDoc.createdAt",
+              },
+              else: {
+                _id: null,
+              },
+            },
+          },
+          author: {
+            $cond: {
+              if: { $ifNull: ["$authorDoc._id", false] },
+              then: {
+                _id: { $toString: "$authorDoc._id" },
+                name: {
+                  $concat: [
+                    { $ifNull: ["$authorDoc.firstName", ""] },
+                    " ",
+                    { $ifNull: ["$authorDoc.lastName", ""] },
+                  ],
+                },
+                email: "$authorDoc.email",
+              },
+              else: {
+                _id: null,
+                name: null,
+                email: null,
+              },
+            },
+          },
+          reroute: {
+            status: "$moderatorReroute.status",
+            comment: "$moderatorReroute.comment",
+          },
         },
       },
     ];
-
-    const [result] = await this.AnswerCollection.aggregate(pipeline, {
-      session,
-    }).toArray();
-
+  
+    // Pipeline 2: Get Finalized Answers
+    const matchStage: any = {
+      approvedBy: new ObjectId(moderatorId),
+    };
+  
+    if (Object.keys(dateFilter).length > 0) {
+      matchStage.updatedAt = dateFilter;
+    }
+  
+    const finalizedPipeline = [
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: "questions",
+          localField: "questionId",
+          foreignField: "_id",
+          as: "questionDoc",
+        },
+      },
+      { $unwind: { path: "$questionDoc", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "authorId",
+          foreignField: "_id",
+          as: "authorDoc",
+        },
+      },
+      { $unwind: { path: "$authorDoc", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 0,
+          action: "finalized",
+          createdAt: "$createdAt",
+          updatedAt: "$updatedAt",
+          question: {
+            _id: { $toString: "$questionDoc._id" },
+            question: "$questionDoc.question",
+            status: "$questionDoc.status",
+          },
+          answer: {
+            _id: { $toString: "$_id" },
+            answer: "$answer",
+            status: "$status",
+            isFinalAnswer: "$isFinalAnswer",
+            sources: "$sources",
+            createdAt: "$createdAt",
+          },
+          author: {
+            _id: { $toString: "$authorDoc._id" },
+            name: {
+              $concat: [
+                { $ifNull: ["$authorDoc.firstName", ""] },
+                " ",
+                { $ifNull: ["$authorDoc.lastName", ""] },
+              ],
+            },
+            email: "$authorDoc.email",
+          },
+          reroute: null, // No reroute info for finalized answers
+        },
+      },
+    ];
+    let rerouteResults: any[] = [];
+    let finalizedResults: any[] = [];
+    
+    if (selectedHistoryId) {
+      // ✅ Only reroute history
+      rerouteResults = await this.ReRouteCollection
+        .aggregate(reroutePipeline, { session })
+        .toArray();
+    } else {
+      // ✅ Both histories in parallel
+      const results = await Promise.all([
+        this.ReRouteCollection.aggregate(reroutePipeline, { session }).toArray(),
+        this.AnswerCollection.aggregate(finalizedPipeline, { session }).toArray(),
+      ]);
+    
+      [rerouteResults, finalizedResults] = results;
+    }
+    // Execute both pipelines in parallel
+   
+  
+    // Combine and sort by updatedAt
+    const combinedData = [...rerouteResults, ...finalizedResults].sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+  
+    // Apply pagination to combined results
+    const totalCount = combinedData.length;
+    const paginatedData = combinedData.slice(skip, skip + safeLimit);
+  
     return {
-      totalCount: result?.totalCount ?? 0,
+      totalCount,
       page: safePage,
-      totalPages: Math.ceil((result?.totalCount ?? 0) / safeLimit),
+      totalPages: Math.ceil(totalCount / safeLimit),
       limit: safeLimit,
-      data: result?.data ?? [],
+      data: paginatedData,
     };
   }
+  
 
 
   async resetApprovalCount(

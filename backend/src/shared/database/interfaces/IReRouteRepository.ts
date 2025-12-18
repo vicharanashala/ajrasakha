@@ -42,7 +42,7 @@ export interface IReRouteRepository {
     session?: ClientSession,
   ): Promise<void>
   getAllocatedQuestions(userId:string,query:GetDetailedQuestionsQuery,session?:ClientSession)
-  rejectRerouteRequest(rerouteId:string,reason:string,session?:ClientSession):Promise<number>
+  rejectRerouteRequest(rerouteId:string,reason:string,role:string,session?:ClientSession):Promise<number>
   getRerouteHistory(answerId: string, session?: ClientSession)
   getAllocatedQuestionsByID(questionId?:string,userId?:string,session?:ClientSession)
   updateStatus(questionId:string,expertId:string,status:RerouteStatus,answerId?:string,moderatorRejectedReason?:string,session?:ClientSession)

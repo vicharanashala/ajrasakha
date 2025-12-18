@@ -219,7 +219,7 @@ export class AnswerService extends BaseService {
           const isIncrement=false
           const message="Expert created an answer for the re-routed question"
           const title="New answer for re-routed Question"
-          const type:INotificationType='re-routed'
+          const type:INotificationType='re-routed-answer-created'
           const {insertedId: answerId} = await this.addAnswer(
             questionId,
             userId,
@@ -1210,6 +1210,7 @@ export class AnswerService extends BaseService {
           page,
           limit,
           dateRange,
+          selectedHistoryId,
           session,
         );
       }
@@ -1263,7 +1264,7 @@ export class AnswerService extends BaseService {
         throw new BadRequestError(`Question with ID ${questionId} not found`);
       }
 
-      if (question.status !== 'in-review') {
+      if (question.status !== 'in-review' && question.status !=="re-routed" ) {
         throw new BadRequestError(
           `Cant't edit this answer:${answerId}, currently question is not in review!`,
         );

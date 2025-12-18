@@ -217,6 +217,7 @@ export interface IAnswerRepository {
   page: number,
   limit: number,
   dateRange?: { from?: string; to?: string },
+  selectedHistoryId?:string,
   session?:ClientSession
 ) 
 }

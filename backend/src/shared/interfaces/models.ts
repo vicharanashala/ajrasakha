@@ -197,7 +197,10 @@ export type INotificationType =
   | 'flag_response'
   | 'review_rejected'
   | 'review_modified'
-  | 're-routed';
+  | 're-routed'
+  | 're-routed-rejected-expert'
+  |'re-routed-rejected-moderator'
+  |'re-routed-answer-created'
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;

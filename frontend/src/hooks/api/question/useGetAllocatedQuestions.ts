@@ -8,7 +8,8 @@ export const useGetAllocatedQuestions = (
   limit: number,
   filter: QuestionFilter,
   preferences: AdvanceFilterValues,
-  actionType:string
+  actionType:string,
+  autoSelectQuestionId?:string|undefined
 ) => {
   return useInfiniteQuery({
     queryKey: ["questions", limit, filter, preferences,actionType],
@@ -18,7 +19,8 @@ export const useGetAllocatedQuestions = (
         limit,
         filter,
         preferences,
-        actionType
+        actionType,
+        autoSelectQuestionId
 
       );
     },

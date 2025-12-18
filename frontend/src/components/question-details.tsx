@@ -105,6 +105,7 @@ import {
 } from "./atoms/accordion";
 import { diffWords } from "@/utils/wordDifference";
 import {useGetReRoutedQuestionFullData} from '@/hooks/api/question/useGetReRoutedQuestionFullData'
+import {useReRouteRejectQuestion} from '@/hooks/api/question/useReRouteRejectQuestion'
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -583,8 +584,8 @@ export const QuestionDetails = ({
         currentUser={currentUser}
         question={question}
       />
-      {
-        reroutequestionDetails &&(
+      {reroutequestionDetails&&
+        reroutequestionDetails.length>=1 &&(
           <RerouteTimeline
       
         currentUser={currentUser}
@@ -1559,7 +1560,7 @@ interface RerouteTimelineProps{
   rerouteData?: IRerouteHistoryResponse;
 }
 const RerouteTimeline = ({ currentUser,rerouteData }:RerouteTimelineProps) => {
-  console.log("the reroute time line data===",rerouteData,currentUser)
+  
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
   const [flippedId, setFlippedId] = useState("");
@@ -1833,9 +1834,9 @@ const RerouteTimeline = ({ currentUser,rerouteData }:RerouteTimelineProps) => {
                         <p className="text-[10px] text-gray-500 dark:text-gray-500">
                           {formatDate(reroute.reroutedAt)}
                         </p>
-                        {reroute.comment && (
+                        {reroute.rejectionReason && (
                           <p className="text-[10px] text-gray-500 dark:text-gray-500 italic mt-1">
-                            "{reroute.comment}"
+                            "{reroute.rejectionReason}"
                           </p>
                         )}
                         <div className="h-0.5 w-6 rounded-full bg-gradient-to-r from-blue-400/20 to-blue-400/60" />
@@ -2147,6 +2148,43 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRo
       );
     }
   };
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const { rejectReRoute, isRejecting } = useReRouteRejectQuestion();
+  const handleRejectReRouteAnswer = async(reason: string) => {
+    if (reason.trim() === "") {
+        toast.error("No reason provided for rejection");
+          return;
+        }
+        if (reason.length < 8) {
+          toast.error("Rejection reason must be atleast 8 letters");
+          return;
+        }
+    
+    let questionId=props?.rerouteQuestion[0]?.questionId
+  let rerouteId=props?.rerouteQuestion[0]?._id
+  let moderatorId=lastReroutedTo?.reroutedTo._id
+  let userId=lastReroutedTo?.reroutedTo._id
+    //const h = selectedQuestionData.history[0];
+    try {
+    await rejectReRoute({
+        reason,
+        rerouteId: rerouteId,
+        questionId: questionId,
+        moderatorId: moderatorId,
+        expertId:userId,
+        role:'moderator'
+
+      });
+     toast.success("You have successfully rejected the Re Route Question");
+    } catch (error) {
+      console.error("Failed to reject reroute question:", error);
+    }
+
+  
+    // 🔥 call mutation / API here
+    // rejectReRouteMutation.mutate(payload);
+  };
 
   const handleCancel = () => {
     setSelectedExperts([]);
@@ -2296,7 +2334,8 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRo
                         lg:max-w-6xl             
                         max-h-[85vh]             
                         min-h-[60vh]             
-                        overflow-hidden           
+                        h-[85vh]              /* 🔑 fixed height */
+                        flex flex-col        
                         p-4                       
                       "
               >
@@ -2456,6 +2495,66 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRo
                   </Button>
                 </DialogFooter>
               </DialogContent>
+            </Dialog>
+            )}
+            
+             {props.userRole !== "expert" &&
+           ( props.questionStatus === "in-review"||props.questionStatus === "re-routed") &&
+            props.lastAnswerId === props.answer?._id && lastReroutedTo?.status == "pending"&& (
+              <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+              <DialogTrigger asChild>
+              <button 
+                  disabled={lastReroutedTo?.status != "pending"}
+                  className={`bg-red-400 text-primary-foreground flex items-center gap-2 px-2 py-2 rounded
+                    ${lastReroutedTo?.status != "pending"
+                      ? "opacity-50 cursor-not-allowed"
+                      : "hover:bg-red/90"}
+                  `}
+                  
+                  >
+                    <XCircle className="w-3 h-3" />
+                              Reject
+                            
+                  </button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Rejection Reason *</DialogTitle>
+            </DialogHeader>
+            <Textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              rows={6}
+              className="mt-2"
+              placeholder="Write your reason..."
+            />
+
+           <DialogFooter className="mt-4 gap-2">
+      {/* Cancel */}
+      <Button
+        variant="outline"
+        onClick={() => setIsRejectDialogOpen(false)}
+      >
+        Cancel
+      </Button>
+
+      {/* Submit */}
+      <Button
+       disabled={rejectionReason.length<8}
+        onClick={() => {
+          handleRejectReRouteAnswer(rejectionReason);
+          setIsRejectDialogOpen(false);
+        }}
+      >
+        { "Submit"}
+      </Button>
+    </DialogFooter>
+    </DialogContent>
+  
+                
+             
+
+              
             </Dialog>
             )}
           {props.answer?.approvalCount !== undefined &&

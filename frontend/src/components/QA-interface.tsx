@@ -117,13 +117,23 @@ export type QuestionFilter =
 export const QAInterface = ({
   autoSelectQuestionId,
   onManualSelect,
+  selectQuestionType
 }: {
   autoSelectQuestionId: string | null;
   onManualSelect: (id: string | null) => void;
+  selectQuestionType:string|null
 }) => {
+  
   const [actionType, setActionType] = useState<"allocated" | "reroute">(
     "allocated"
   );
+  useEffect(()=>{
+    if(selectQuestionType=="re-routed")
+    {
+      setActionType("reroute")
+    }
+  },[selectQuestionType])
+  
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
   const [newAnswer, setNewAnswer] = useState<string>("");
   const [isFinalAnswer, setIsFinalAnswer] = useState<boolean>(false);
@@ -193,7 +203,7 @@ export const QAInterface = ({
     hasNextPage,
     isFetchingNextPage,
     refetch,
-  } = useGetAllocatedQuestions(LIMIT, filter, preferences,actionType);
+  } = useGetAllocatedQuestions(LIMIT, filter, preferences,actionType,autoSelectQuestionId);
   const { data: exactQuestionPage, isLoading: isLoading } =
     useGetAllocatedQuestionPage(autoSelectQuestionId!);
 
@@ -208,7 +218,7 @@ export const QAInterface = ({
       return questionPages.pages.flat();
     }
   
-    return questionPages.pages[0]?.data?.flat() || [];
+    return questionPages.pages.flat() || [];
   }, [questionPages, actionType]);
 
   const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
@@ -269,10 +279,8 @@ export const QAInterface = ({
     if (savedSelected && questions.some((q) => q?.id === savedSelected)) {
       setSelectedQuestion(savedSelected);
     } else {
-      console.log("the questions coming===",questions)
       const firstId = questions[0]?.id ?? null;
       setSelectedQuestion(firstId);
-      console.log("the selected question coming===",questions[0]?.id)
     }
   }, [isLoading, questions, autoSelectQuestionId,actionType]);
 
@@ -1062,7 +1070,7 @@ const handleActionChange = (value: string) => {
             )}
             {questions &&
             questions.length != 0 && actionType=="reroute" &&
-            selectedQuestionData &&
+            selectedQuestionData &&selectedQuestionData?.history?.length > 0 &&
             
              (
               <ReRouteResponseTimeline
@@ -1724,7 +1732,6 @@ ReRouteResponseTimelineProps) => {
   const [editedAnswer, setEditedAnswer] = useState(newAnswer);
   
   const handleSubmitAnswer = async(answer: string) => {
-    console.log("Final Answer:", answer);
     const payload = {
       questionId: selectedQuestion,
       
@@ -1772,6 +1779,8 @@ ReRouteResponseTimelineProps) => {
         rerouteId: h.rerouteId,
         questionId: h.question._id,
         moderatorId: h.moderator._id,
+        expertId:h.reroute.reroutedTo,
+        role:"expert"
       });
      toast.success("You have successfully rejected the Re Route Question");
     } catch (error) {
@@ -1786,7 +1795,6 @@ ReRouteResponseTimelineProps) => {
   const { mutateAsync: respondQuestion, isPending: isResponding } =
   useReviewAnswer();
   
-
   if (isSelectedQuestionLoading) {
     return (
       <div className="h-full flex flex-col items-center justify-center">
@@ -1856,7 +1864,7 @@ ReRouteResponseTimelineProps) => {
                         </div>
 
                         <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words mb-3">
-                          {selectedQuestionData.history[0].moderator.firstName}{`(${selectedQuestionData.history[0].moderator.email})`}
+                          {selectedQuestionData?.history[0]?.moderator?.firstName}{`(${selectedQuestionData.history[0].moderator?.email})`}
                         </p>
                       </div>
                       <div className="flex flex-col w-full">
@@ -1870,7 +1878,7 @@ ReRouteResponseTimelineProps) => {
                         </div>
 
                         <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words mb-3">
-                          {selectedQuestionData.history[0].reroute.comment}
+                          {selectedQuestionData.history[0].reroute?.comment}
                         </p>
                       </div>
                       <div>
@@ -1889,14 +1897,14 @@ ReRouteResponseTimelineProps) => {
                   </div>
                      
                       
-                      {selectedQuestionData.history[0].answer.sources?.length > 0 && (
+                      {selectedQuestionData.history[0].answer?.sources?.length > 0 && (
                     <div>
                       <p className="text-sm font-medium text-foreground mb-3">
                         Source URLs
                       </p>
 
                       <div className="space-y-2">
-                        {selectedQuestionData.history[0].answer.sources.map((source, idx) => (
+                        {selectedQuestionData.history[0].answer?.sources.map((source, idx) => (
                           <div
                             key={idx}
                             className="flex items-center justify-between rounded-lg border bg-muted/30 p-2 pr-3"
@@ -2324,13 +2332,13 @@ export const ReviewHistoryTimeline = ({
                               : "Rejection Note: "}
                           </span>
 
-                          <p className="text-foreground">
+                          <div className="text-foreground">
                             {/* {item.review.reason} */}
                             <ExpandableText
                               text={item.review.reason}
                               maxLength={0}
                             />
-                          </p>
+                          </div>
                         </div>
                       )}
 

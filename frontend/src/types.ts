@@ -574,4 +574,71 @@ export interface IRerouteHistoryResponse {
 // API returns an array
 // ---------------------
 export type RerouteHistoryApiResponse = IRerouteHistoryResponse[];
+type Priority = "high" | "medium" | "low";
 
+ export interface ReroutedQuestionItem {
+  id: string;
+  text: string;
+  status: QuestionStatus;
+  priority: Priority;
+  createdAt: string;
+  updatedAt: string;
+  totalAnswersCount: number;
+  moderator: Moderator;
+  question: Question;
+  answer: AnswerReRoute;
+  reroute: Reroute;
+  details: QuestionDetailsReRoute;
+}
+
+interface Moderator {
+  _id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+}
+
+interface Question {
+  _id: string;
+  question: string;
+  priority: Priority;
+  status: QuestionStatus;
+  details: QuestionDetailsReRoute;
+  createdAt: string;
+}
+
+interface QuestionDetailsReRoute {
+  state: string;
+  district: string;
+  crop: string;
+  season: string;
+  domain: string;
+}
+
+interface AnswerReRoute {
+  _id: string;
+  answer: string;
+  isFinalAnswer: boolean;
+  answerIteration: number;
+  approvalCount: number;
+  remarks: string;
+  status: string;
+  reRouted: boolean;
+  sources: AnswerSource[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AnswerSource {
+  source: string;
+  page: number | null;
+}
+
+interface Reroute {
+  status: RerouteStatus;
+  comment: string;
+  reroutedAt: string;
+  updatedAt: string;
+  reroutedBy: string;
+  reroutedTo: string;
+}

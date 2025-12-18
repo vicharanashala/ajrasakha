@@ -246,6 +246,15 @@ class GetDetailedQuestionsQuery {
   domain?: string;
 
   @JSONSchema({
+    description: 'autoSelectQuestionId',
+    example: '1234567890',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  autoSelectQuestionId?: string;
+
+  @JSONSchema({
     description: 'Filter based on userId',
     example: '1234567890',
     type: 'string',

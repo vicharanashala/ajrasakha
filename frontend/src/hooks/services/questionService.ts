@@ -4,7 +4,8 @@ import type {
   IQuestion,
   QuestionFullDataResponse,
   RejectReRoutePayload,
-  IRerouteHistoryResponse
+  IRerouteHistoryResponse,
+  ReroutedQuestionItem
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { QuestionFilter } from "@/components/QA-interface";
@@ -63,8 +64,9 @@ export class QuestionService {
     limit: number,
     filter: QuestionFilter,
     preferences: AdvanceFilterValues,
-    actionType:string
-  ): Promise<IQuestion[] | null> {
+    actionType:string,
+    autoSelectQuestionId?:string
+  ): Promise<IQuestion[] | ReroutedQuestionItem[] |null> {
     const params = new URLSearchParams({
       page: pageParam.toString(),
       limit: limit.toString(),
@@ -91,6 +93,11 @@ export class QuestionService {
       params.append("answersCountMin", String(min));
       params.append("answersCountMax", String(max));
     }
+    if(autoSelectQuestionId)
+    {
+      params.append("autoSelectQuestionId", autoSelectQuestionId);
+
+    }
 
     if (preferences.dateRange && preferences.dateRange !== "all")
       params.append("dateRange", preferences.dateRange);
@@ -101,7 +108,7 @@ export class QuestionService {
         );
       }
       else{
-        return apiFetch<IQuestion[] | null>(
+        return apiFetch<ReroutedQuestionItem[]| null>(
           `${this._reRouteUrl}/allocated?${params.toString()}`
         );
       }

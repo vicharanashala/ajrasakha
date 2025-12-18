@@ -201,18 +201,33 @@ export class ReRouteService extends BaseService {
   }
 
 
-  async rejectRerouteRequest(rerouteId:string,questionId:string,expertId:string,moderatorId:string,reason:string){
+  async rejectRerouteRequest(rerouteId:string,questionId:string,expertId:string,moderatorId:string,reason:string,role:string){
     try {
       return await this._withTransaction(async (session:ClientSession) => {
-        await this.reRouteRepository.rejectRerouteRequest(rerouteId,reason,session)
-        const user = await this.userRepo.findById(expertId,session)
-        const isIncrement=false
-        const title="Re Route request rejected"
-        const type:INotificationType='re-routed'
-        const message = `The expert ${user.email} has been rejected the re route request you sent`
-        const updateReputation= this.userRepo.updateReputationScore(expertId.toString(),isIncrement,session)
-        const sendNotification=this.notificationService.saveTheNotifications(message,title,questionId.toString(),moderatorId.toString(),type,session)
-        await Promise.all([updateReputation,sendNotification])
+        await this.reRouteRepository.rejectRerouteRequest(rerouteId,reason,role,session)
+        if(role=="expert")
+        {
+          const user = await this.userRepo.findById(expertId,session)
+          const isIncrement=false
+          const title="Re Route request rejected"
+          const type:INotificationType='re-routed-rejected-expert'
+          const message = `The expert ${user.email} has been rejected the re route request you sent`
+          const updateReputation= this.userRepo.updateReputationScore(expertId.toString(),isIncrement,session)
+          const sendNotification=this.notificationService.saveTheNotifications(message,title,questionId.toString(),moderatorId.toString(),type,session)
+          await Promise.all([updateReputation,sendNotification])
+        }
+        else{
+          const user = await this.userRepo.findById(moderatorId,session)
+          const isIncrement=false
+          const title="Re Route request rejected"
+          const type:INotificationType='re-routed-rejected-moderator'
+          const message = `The moderator ${user.email} has been rejected the re route request which sent to you`
+          const updateReputation= this.userRepo.updateReputationScore(expertId.toString(),isIncrement,session)
+          const sendNotification=this.notificationService.saveTheNotifications(message,title,questionId.toString(),expertId.toString(),type,session)
+          await Promise.all([updateReputation,sendNotification])
+
+        }
+        
         return
       })
     } catch (error) {

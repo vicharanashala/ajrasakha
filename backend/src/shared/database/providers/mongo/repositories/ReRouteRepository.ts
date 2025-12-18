@@ -20,7 +20,7 @@ import {
   InternalServerError,
   NotFoundError,
 } from 'routing-controllers';
-import {GetDetailedQuestionsQuery} from '#root/modules/core/classes/validators/QuestionValidators.js';
+import {GetDetailedQuestionsQuery} from '#root/modules/reroute/classes/validators/QuestionValidators.js'
 
 export class ReRouteRepository implements IReRouteRepository {
   private ReRouteCollection: Collection<IReroute>;
@@ -93,6 +93,7 @@ export class ReRouteRepository implements IReRouteRepository {
   ) {
     try {
       await this.init();
+      console.log(query.autoSelectQuestionId)
 
       const safePage = query.page && query.page > 0 ? query.page : 1;
       const safeLimit = query.limit && query.limit > 0 ? query.limit : 10;
@@ -102,19 +103,25 @@ export class ReRouteRepository implements IReRouteRepository {
         query.filter === 'oldest'
           ? {'latestReroute.reroutedAt': 1}
           : {'latestReroute.reroutedAt': -1}; // newest default
-
-      const pipeline = [
-        // 1️⃣ Match reroutes assigned to expert
-        {
-          $match: {
+          const matchStage: any = {
             reroutes: {
               $elemMatch: {
                 reroutedTo: new ObjectId(userId),
                 status: "pending",
               },
             },
-          },
+          };
+          
+          // 🔑 If auto-selected question ID exists
+          if (query.autoSelectQuestionId) {
+            matchStage.questionId = new ObjectId(query.autoSelectQuestionId);
+          }
+      const pipeline = [
+        // 1️⃣ Match reroutes assigned to expert
+        {
+          $match: matchStage,
         },
+      
 
 
         // 2️⃣ Get latest reroute for this expert
@@ -222,7 +229,8 @@ export class ReRouteRepository implements IReRouteRepository {
                   createdAt: '$question.createdAt',
                   priority: '$question.priority',
                   id: '$question._id',
-
+                  updatedAt:'$updatedAt',
+                  totalAnswersCount:'$answer.answerIteration',
                   answer: {
                     _id: {$toString: '$answer._id'},
                     questionId: {$toString: '$answer.questionId'},
@@ -253,14 +261,15 @@ export class ReRouteRepository implements IReRouteRepository {
       }).toArray();
 
       const totalCount = aggResult?.totalCount?.[0]?.count ?? 0;
+      return aggResult?.data ?? []
 
-      return {
+     /* return {
         totalCount,
         page: safePage,
         totalPages: Math.ceil(totalCount / safeLimit),
         // limit: safeLimit,
         data: aggResult?.data ?? [],
-      };
+      };*/
     } catch (error) {
       throw new InternalServerError(`Error while Fetching Questions: ${error}`);
     }
@@ -269,10 +278,21 @@ export class ReRouteRepository implements IReRouteRepository {
   async rejectRerouteRequest(
     rerouteId: string,
     reason: string,
+    role:string,
     session?: ClientSession,
   ): Promise<number> {
     try {
       await this.init();
+      let status
+      console.log("the role coming====",role)
+      if(role=="expert")
+      {
+        status="expert_rejected"
+
+      }
+      else{
+        status="moderator_rejected"
+      }
       const reroute = await this.ReRouteCollection.findOne(
         {_id: new ObjectId(rerouteId)},
         {session},
@@ -297,7 +317,7 @@ export class ReRouteRepository implements IReRouteRepository {
         },
         {
           $set: {
-            'reroutes.$.status': 'expert_rejected',
+            'reroutes.$.status': status,
             'reroutes.$.updatedAt': new Date(),
             'reroutes.$.rejectionReason': reason,
             updatedAt: new Date(),

@@ -114,6 +114,8 @@ const ViewContextModal = ({
     finalized: "Finalized Answer",
     rejected: "Rejected Answer",
     modified: "Modified Answer",
+    rerouted:"ReRoute Answer"
+
   };
 
   return (
@@ -139,11 +141,29 @@ const ViewContextModal = ({
             </div>
 
             {/* ====================== CREATED ANSWER ====================== */}
-            {item.action === "author" && createdAnswer && (
+            {(item.action === "author") && createdAnswer && (
               <div>
                 <p className="text-sm font-medium mb-1">Submitted Answer</p>
                 <div className="rounded-lg border bg-muted/30 p-3">
                   {createdAnswer}
+                </div>
+              </div>
+            )}
+            {/* ====================== ReRouted ANSWER ====================== */}
+            {(item.action === "rerouted") && createdAnswer && (
+              <div>
+                <p className="text-sm font-medium mb-1">ReRouted Answer</p>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  {createdAnswer}
+                </div>
+              </div>
+            )}
+            {/* ====================== AUTHOR (FOR Rerouted) ====================== */}
+            {item.action === "rerouted" && authorEmail && (
+              <div>
+                <p className="text-sm font-medium mb-1">Author</p>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  {authorEmail}
                 </div>
               </div>
             )}
