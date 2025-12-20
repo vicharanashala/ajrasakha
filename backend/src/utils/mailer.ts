@@ -9,12 +9,21 @@ export async function sendEmailNotification(
 ) {
   const user = emailConfig.EMAIL_USER;
   const pass = emailConfig.EMAIL_PASS;
+  // const transporter = nodemailer.createTransport({
+  //   service: 'gmail',
+  //   auth: {user, pass},
+  // });
   const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {user, pass},
+    host: 'smtp.zoho.in',
+    port: 465,
+    secure: true,
+    auth: {
+      user,
+      pass,
+    },
   });
   await transporter.sendMail({
-    from: process.env.EMAIL,
+    from: `"Review System Report" <${user}>`,
     to: email,
     subject: title,
     // text: message,
