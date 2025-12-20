@@ -128,7 +128,6 @@ export const QAInterface = ({
   const [actionType, setActionType] = useState<"allocated" | "reroute">(
     "reroute"
   );
-  console.log("the selectQuestionType====",selectQuestionType)
   useEffect(()=>{
     if (!selectQuestionType) return
     if(selectQuestionType=="re-routed")
@@ -218,7 +217,6 @@ export const QAInterface = ({
      return questionPages?.pages.flat() || [];
      }, [questionPages]);*/
   const questions = useMemo(() => {
-    console.log("actiontypr======",actionType)
     if (!questionPages?.pages) return [];
     return questionPages.pages.flat();
   }, [questionPages, actionType]);
@@ -1085,6 +1083,7 @@ const handleActionChange = (value: string) => {
                 sources={sources}
                 remarks={remarks}
                 setRemarks={setRemarks}
+                setSelectedQuestion={setSelectedQuestion}
               />
             )}
             {questions &&
@@ -1108,6 +1107,7 @@ const handleActionChange = (value: string) => {
                 setRemarks={setRemarks}
                 questions={questions}
                 selectedQuestion={selectedQuestion}
+                setSelectedQuestion={setSelectedQuestion}
               />
             )}
         </div>
@@ -1383,6 +1383,7 @@ interface ResponseTimelineProps {
   SourceUrlManager: React.ComponentType<any>;
   remarks: string;
   setRemarks: (value: string) => void;
+  setSelectedQuestion:(value: string|null) => void;
 }
 
 export const ResponseTimeline = ({
@@ -1398,6 +1399,7 @@ export const ResponseTimeline = ({
   handleReset,
   remarks,
   setRemarks,
+  setSelectedQuestion
 }: // SourceUrlManager,
 ResponseTimelineProps) => {
   const [rejectionReason, setRejectionReason] = useState("");
@@ -1586,6 +1588,7 @@ ResponseTimelineProps) => {
               setIsModifyDialogOpen={setIsModifyDialogOpen}
               handleAccept={handleAccept}
               questionId={questionId}
+              setSelectedQuestion={setSelectedQuestion}
             />
           </ScrollArea>
         </CardContent>
@@ -1669,7 +1672,8 @@ interface ReRouteResponseTimelineProps {
   remarks: string;
   setRemarks: (value: string) => void;
   questions:any
-  selectedQuestion:string|null
+  selectedQuestion:string|null,
+  setSelectedQuestion:(value: string|null) => void;
 }
 export const ReRouteResponseTimeline = ({
   isSelectedQuestionLoading,
@@ -1684,7 +1688,8 @@ export const ReRouteResponseTimeline = ({
   handleReset,
   remarks,
   setRemarks,
-  questions
+  questions,
+  setSelectedQuestion
 }: // SourceUrlManager,
 ReRouteResponseTimelineProps) => {
   
@@ -1906,6 +1911,7 @@ ReRouteResponseTimelineProps) => {
               handleAccept={handleAccept}
               questionId={questionId}
               selectedQuestionData={selectedQuestionData}
+              setSelectedQuestion={setSelectedQuestion}
             />
           </ScrollArea>
         </CardContent>
@@ -1984,6 +1990,7 @@ interface ReviewHistoryTimelineProps {
   handleAccept: () => void;
   questionId: string;
   selectedQuestionData?:IQuestion
+  setSelectedQuestion:(value: string|null) => void;
 }
 export const parameterLabels: Record<keyof IReviewParmeters, string> = {
   contextRelevance: "Context Relevance",
@@ -2004,7 +2011,8 @@ export const ReviewHistoryTimeline = ({
   setIsModifyDialogOpen,
   handleAccept,
   questionId,
-  selectedQuestionData
+  selectedQuestionData,
+  setSelectedQuestion
 }: ReviewHistoryTimelineProps) => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [rejectReRouteReason,setRejectReRouteReason]=useState('')
@@ -2103,7 +2111,7 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
 }
 
     try {
-    await rejectReRoute({
+   let result= await rejectReRoute({
         reason,
         rerouteId: h.rerouteId,
         questionId: h.question._id,
@@ -2111,8 +2119,11 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
         expertId:h.reroute.reroutedTo,
         role:"expert"
       });
+      console.log("the result coming=====")
+     // setSelectedQuestion(null);
      toast.success("You have successfully rejected the Re Route Question");
     } catch (error) {
+      console.log("the eroor coming====",error)
       console.error("Failed to reject reroute question:", error);
     }
 };
@@ -2589,7 +2600,7 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
               value={rejectReRouteReason}
               onChange={(e) => setRejectReRouteReason(e.target.value)}
               rows={6}
-              className="mt-2"
+              className="mt-2 h-[30vh]"
               placeholder="Write your reason..."
             />
 

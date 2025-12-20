@@ -871,6 +871,10 @@ export class AnswerService extends BaseService {
         let review_answerId
         if (status === 'accepted') {
           review_answerId = approvedAnswer
+          const approvalCount = await this.incrementApprovalCount(
+            review_answerId,
+            session,
+          );
           
           await this.reRouteRepository.updateStatus(questionId.toString(),userId.toString(),"approved",review_answerId,undefined,session)
 

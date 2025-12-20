@@ -92,9 +92,15 @@ export class ReRouteService extends BaseService {
           await this.reRouteRepository.addrerouteAnswer(payload, session);
         } else {
           const lastExpert = existingReRoute.reroutes.at(-1).reroutedTo;
+          const lastStatus=existingReRoute.reroutes.at(-1).status
+         
           if (lastExpert.toString() === expertId.toString()) {
             throw new BadRequestError('Cannot assign to same expert');
           }
+          if (lastStatus=="pending") {
+            throw new BadRequestError('The answer is in review state you can not assign new expert');
+          }
+
           await this.reRouteRepository.pushRerouteHistory(
             answerId,
             existingReRoute._id.toString(),
@@ -205,7 +211,18 @@ export class ReRouteService extends BaseService {
   async rejectRerouteRequest(rerouteId:string,questionId:string,expertId:string,moderatorId:string,reason:string,role:string){
     try {
       return await this._withTransaction(async (session:ClientSession) => {
+        const existingReRoute = await this.reRouteRepository.findByQuestionId(
+          questionId,
+          session,
+        );
+        const lastStatus=existingReRoute.reroutes.at(-1).status
+       
+        if (lastStatus=="expert_rejected") {
+          throw new BadRequestError('You have already submitted the response please refresh the page');
+          
+        }
         await this.reRouteRepository.rejectRerouteRequest(rerouteId,reason,role,session)
+        
         if(role=="expert")
         {
           const user = await this.userRepo.findById(expertId,session)

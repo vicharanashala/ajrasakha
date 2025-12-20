@@ -2594,7 +2594,7 @@ const userId = lastReroutedTo.reroutedTo._id;
               <DialogTrigger asChild>
               <button 
                   disabled={lastReroutedTo?.status != "pending"}
-                  className={`bg-red-400 text-primary-foreground flex items-center gap-2 px-2 py-2 rounded
+                  className={`bg-red-400 text-primary-foreground flex items-center gap-2 px-2 py-2 rounded bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 shadow-red-100/50
                     ${lastReroutedTo?.status != "pending"
                       ? "opacity-50 cursor-not-allowed"
                       : "hover:bg-red/90"}
@@ -2613,8 +2613,8 @@ const userId = lastReroutedTo.reroutedTo._id;
             <Textarea
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
-              rows={6}
-              className="mt-2"
+              rows={10}
+              className="mt-2 h-[30vh]"
               placeholder="Write your reason..."
             />
 
