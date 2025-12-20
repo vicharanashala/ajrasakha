@@ -111,7 +111,7 @@ export interface HistoryItem {
   // reviewed => if an expert reviewed (accpeted/rejected) the previous answer
   // approved => After three consecutive approvals fo an answer
   // rejected => If any expert rejects an answer, so that history status would be rejected and rejected person doc status would be reviewed
-  status?: "in-review" | "reviewed" | "approved" | "rejected";
+  status?: "in-review" | "reviewed" | "approved" | "rejected"|"re-routed";
   // rejection reason
   reasonForRejection?: string;
   // If an expert is approving, it store the approved answer id
@@ -249,7 +249,7 @@ export type SupportedLanguage =
   | "sd-IN";
 
 export type QuestionStatus = "open" | "in-review" | "closed" | "delayed"|"re-routed";
-export type ReRouteStatus="pending" | "expert_rejected" | "expert_completed" | "moderator_rejected"|"moderator_approved";
+export type ReRouteStatus="pending" | "expert_rejected" | "expert_completed" | "moderator_rejected"|"moderator_approved"|"approved"|"rejected"|"modified"|"in-review";
 export interface ResponseDto {
   id: string;
   answer: string;
@@ -380,6 +380,7 @@ export interface ISubmissionHistory {
 
   modifiedAnswer: string;
   reasonForLastModification: string;
+  isReroute?:boolean
 }
 
 export interface ISubmission {
@@ -510,7 +511,7 @@ export interface INotification {
 // =====================
 
 
-export type RerouteStatus ="pending" | "expert_rejected" | "expert_completed" | "moderator_rejected"|"moderator_approved"
+export type RerouteStatus ="pending" | "expert_rejected" | "expert_completed" | "moderator_rejected"|"moderator_approved"|"approved"|"rejected"|"modified"|"in-review";
 
 
 // ---------------------

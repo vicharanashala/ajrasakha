@@ -62,6 +62,10 @@ export class AnswerController {
     @CurrentUser() user: IUser,
   ): Promise<{message: string}> {
     const userId = user._id.toString();
+    if(body.type=="reroute")
+    {
+      return this.answerService.reRouteReviewAnswer(userId, body)
+    }
     return this.answerService.reviewAnswer(userId, body);
   }
 

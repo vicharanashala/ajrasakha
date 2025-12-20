@@ -48,6 +48,7 @@ export class ReRouteRepository implements IReRouteRepository {
   }
 
   async pushRerouteHistory(
+    answerId:string,
     rerouteId: string,
     history: IRerouteHistory,
     updatedAt: Date,
@@ -60,7 +61,9 @@ export class ReRouteRepository implements IReRouteRepository {
         {_id: new ObjectId(rerouteId)},
         {
           $push: {reroutes: history},
-          $set: {updatedAt},
+          $set: {updatedAt,
+            answerId: new ObjectId(answerId),
+          },
         },
         {session},
       );
@@ -284,7 +287,6 @@ export class ReRouteRepository implements IReRouteRepository {
     try {
       await this.init();
       let status
-      console.log("the role coming====",role)
       if(role=="expert")
       {
         status="expert_rejected"
@@ -341,8 +343,8 @@ export class ReRouteRepository implements IReRouteRepository {
         {
   $match: {
     $or: [
-      { answerId: new ObjectId(answerId) },
-      { answerId: answerId },
+      { questionId: new ObjectId(answerId) },
+      { questionId: answerId },
     ],
   },
 },
@@ -612,7 +614,8 @@ export class ReRouteRepository implements IReRouteRepository {
         id:"$question._id",
          
         answer: {
-        id: { $toString: '$answer.id' },
+        id: { $toString: '$answer._id' },
+        _id: { $toString: '$answer._id' },
         questionId: { $toString: '$answer.questionId' },
         authorId: { $toString: '$answer.authorId' },
         answerIteration: 1,

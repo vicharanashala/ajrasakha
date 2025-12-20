@@ -36,6 +36,7 @@ export interface IReRouteRepository {
   addrerouteAnswer(payload:IReroute,session?:ClientSession):Promise<string>
   findByQuestionId(questionId:string,session?:ClientSession):Promise<IReroute>
   pushRerouteHistory(
+    answerId:string,
     rerouteId: string,
     history: IRerouteHistory,
     updatedAt: Date,

@@ -167,7 +167,7 @@ export const QuestionDetails = ({
     data: reroutequestionDetails,
     refetch: refechrerouteSelectedQuestion,
     isLoading: isLoadingrerouteSelectedQuestion,
-  } = useGetReRoutedQuestionFullData(answers[0]?._id);
+  } = useGetReRoutedQuestionFullData(question?._id);
 
   return (
     <main className="mx-auto p-6 pt-0 grid gap-6">
@@ -1635,6 +1635,50 @@ const RerouteTimeline = ({ currentUser,rerouteData }:RerouteTimelineProps) => {
             iconBg: "bg-yellow-200 dark:bg-yellow-800/40",
           }
         };
+        case "approved":
+          return {
+            label: "Approved",
+            icon: CheckCircle2,
+            styles: {
+              container: "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 shadow-green-100/50",
+              icon: "text-green-700 dark:text-green-400",
+              badge: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700",
+              iconBg: "bg-green-200 dark:bg-green-800/40",
+            }
+          };
+      case "rejected":
+        return {
+          label: "Rejected",
+          icon: AlertCircle,
+          styles: {
+            container: "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 shadow-red-100/50",
+            icon: "text-red-700 dark:text-red-400",
+            badge: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-700",
+            iconBg: "bg-red-200 dark:bg-red-800/40",
+          }
+        };
+      case "modified":
+        return {
+          label: "Modified",
+          icon: RefreshCcw,
+          styles: {
+            container: "bg-orange-100 dark:bg-orange-900/30 border-orange-300 dark:border-orange-700 shadow-orange-100/50",
+            icon: "text-orange-700 dark:text-orange-400",
+            badge: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700",
+            iconBg: "bg-orange-200 dark:bg-orange-800/40",
+          }
+        };
+      case "waiting":
+        return {
+          label: "Waiting",
+          icon: RefreshCcw,
+          styles: {
+            container: "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 shadow-blue-100/50",
+            icon: "text-blue-700 dark:text-blue-400",
+            badge: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-700",
+            iconBg: "bg-blue-200 dark:bg-blue-800/40",
+          }
+        };
       case "expert_rejected":
         return {
           label: "Expert Rejected",
@@ -1983,8 +2027,6 @@ interface AnswerItemProps {
 }
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
- 
- 
   const [sources, setSources] = useState<SourceItem[]>(props.answer.sources);
   const isMine = props.answer.authorId === props.currentUserId;
   // const [comment, setComment] = useState("");
@@ -2095,14 +2137,16 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRo
     props.rerouteQuestion
       ?.flatMap(item => item.reroutes.map(r => r.reroutedTo._id))
       ?? [];
-      const expertsIdsInQueue = new Set<string>([
+     /* const expertsIdsInQueue = new Set<string>([
         ...(props.queue?.map(expert => expert._id) ?? []),
         ...reroutedExpertIds,
-      ]);
+      ]);*/
+      const expertsIdsInQueue = new Set<string>([ ...reroutedExpertIds ])
       const lastReroutedTo =
       props.rerouteQuestion?.[0]?.reroutes?.length
     ? props.rerouteQuestion[0].reroutes[props.rerouteQuestion[0].reroutes.length - 1]
     : null;
+   // console.log("the submission data====",props.submissionData)
     
   const experts =
     usersData?.users.filter(
@@ -2223,14 +2267,41 @@ const userId = lastReroutedTo.reroutedTo._id;
               Final
             </Badge>
           )}
-          {isRejected && (
+          {props?.submissionData?.rejectedAnswer&& (
             <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
               <XCircle className="w-3 h-3 mr-1" />
               Rejected
             </Badge>
           )}
-          {!isRejected &&
-            props.questionStatus !== "in-review" &&props.questionStatus !== "re-routed"&&
+          {isRejected &&!props.submissionData?.isReroute && (
+            <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
+              <XCircle className="w-3 h-3 mr-1" />
+              Rejected
+            </Badge>
+          )}
+          {props.submissionData?.isReroute && props.submissionData?.status=="rejected" && props.lastAnswerId != props.answer?._id&& (
+            <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
+              <XCircle className="w-3 h-3 mr-1" />
+              Rejected
+            </Badge>
+          )} 
+          {
+           ( props.questionStatus === "in-review"||props.questionStatus === "re-routed") &&
+            props.lastAnswerId === props.answer?._id &&
+             (
+              <Badge
+                className="
+      bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100
+      dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 dark:hover:bg-amber-900
+    "
+              >
+                <Clock className="w-3 h-3 mr-1 opacity-80" />
+                In Review
+              </Badge>
+            )}
+          
+             {!isRejected &&!props?.submissionData?.rejectedAnswer&&
+            props.questionStatus !== "in-review" &&
             props.questionStatus !== "closed" && (
               <Badge
                 className="
@@ -2592,7 +2663,7 @@ const userId = lastReroutedTo.reroutedTo._id;
             >
               <DialogHeader className="pb-4 border-b">
                 <DialogTitle className="text-xl font-semibold">
-                  Answer Details
+                  Answer Details:{props?.submissionData?.isReroute?"ReRouted":"Allocated"}
                 </DialogTitle>
               </DialogHeader>
 
@@ -2630,7 +2701,7 @@ const userId = lastReroutedTo.reroutedTo._id;
                           </Badge>
                         )}
                         {!isRejected &&
-                          props.questionStatus !== "in-review" && (
+                          props.questionStatus !== "in-review"&&props.questionStatus !== "re-routed" && (
                             <Badge
                               className="
       bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100
@@ -2930,7 +3001,7 @@ const userId = lastReroutedTo.reroutedTo._id;
                       </div>
                     </div>
                   )}
-            {props.rerouteQuestion && props.rerouteQuestion?.[0]?.reroutes?.length > 0 && (
+            {/*props.rerouteQuestion && props.rerouteQuestion?.[0]?.reroutes?.length > 0 && (
             <div className="space-y-3">
               {props.rerouteQuestion[0].reroutes.map((reroute, index) => {
                  if (!reroute?.answer?.answer) return null;
@@ -3026,7 +3097,7 @@ const userId = lastReroutedTo.reroutedTo._id;
                  )
                               })}
   </div>
-)}
+                            )*/}
 
                 </div>
               </ScrollArea>

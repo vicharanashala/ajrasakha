@@ -126,12 +126,17 @@ export const QAInterface = ({
 }) => {
   
   const [actionType, setActionType] = useState<"allocated" | "reroute">(
-    "allocated"
+    "reroute"
   );
+  console.log("the selectQuestionType====",selectQuestionType)
   useEffect(()=>{
+    if (!selectQuestionType) return
     if(selectQuestionType=="re-routed")
     {
       setActionType("reroute")
+    }
+    else{
+      setActionType("allocated")
     }
   },[selectQuestionType])
   
@@ -213,14 +218,26 @@ export const QAInterface = ({
      return questionPages?.pages.flat() || [];
      }, [questionPages]);*/
   const questions = useMemo(() => {
+    console.log("actiontypr======",actionType)
     if (!questionPages?.pages) return [];
-  
-    if (actionType === "allocated") {
-      return questionPages.pages.flat();
-    }
-  
-    return questionPages.pages.flat() || [];
+    return questionPages.pages.flat();
   }, [questionPages, actionType]);
+  const didInit = useRef(false);
+
+  useEffect(() => {
+    // wait until data is loaded
+    if (!questionPages?.pages) return;
+  
+    // run ONLY once
+    if (didInit.current) return;
+    didInit.current = true;
+  
+    if (questions.length === 0) {
+      setActionType("allocated");
+    }
+  }, [questionPages, questions]);
+  
+  
 
   const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
     useGetQuestionById(selectedQuestion,actionType);
@@ -327,7 +344,7 @@ export const QAInterface = ({
         },
       };
     });
-  }, [newAnswer, sources, remarks, selectedQuestion]);
+  }, [newAnswer, sources, remarks, selectedQuestion,actionType]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -454,7 +471,6 @@ export const QAInterface = ({
     if (!newAnswer && !draft?.answer) {
       setNewAnswer(selectedQuestionData.aiInitialAnswer);
     }
-
     const isAiAnswer =
       newAnswer.trim() === selectedQuestionData.aiInitialAnswer.trim();
 
@@ -520,6 +536,7 @@ export const QAInterface = ({
       payload.answer = newAnswer;
       payload.sources = sources;
     }
+    payload.type=actionType
 
     try {
       await respondQuestion(payload);
@@ -1654,7 +1671,6 @@ interface ReRouteResponseTimelineProps {
   questions:any
   selectedQuestion:string|null
 }
-
 export const ReRouteResponseTimeline = ({
   isSelectedQuestionLoading,
   selectedQuestionData,
@@ -1668,11 +1684,10 @@ export const ReRouteResponseTimeline = ({
   handleReset,
   remarks,
   setRemarks,
-  questions,
-  selectedQuestion
+  questions
 }: // SourceUrlManager,
 ReRouteResponseTimelineProps) => {
-
+  
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejectionSubmitted, setIsRejectionSubmitted] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
@@ -1696,7 +1711,7 @@ ReRouteResponseTimelineProps) => {
 
   const history = selectedQuestionData?.history || [];
 
-  /*const currentReviewingAnswer =
+  const currentReviewingAnswer =
     history && Array.isArray(history)
       ? [...history]
           .reverse()
@@ -1718,92 +1733,93 @@ ReRouteResponseTimelineProps) => {
       setNewAnswer(currentReviewingAnswer.answer);
       setSources(currentReviewingAnswer.sources);
     }
-  }, [currentReviewingAnswer]);*/
+  }, [currentReviewingAnswer]);
 
   // const handleCopy = async (url: string, index: number) => {
+  //   try {
+  //     await navigator.clipboard.writeText(url);
+  //     setCopiedIndex(index);
+  //     setTimeout(() => setCopiedIndex(null), 1500);
+  //   } catch (err) {
+  //     console.error("Failed to copy: ", err);
+  //   }
+  // };
 
-  
+  // const handleRejectOrModify = (type: "reject" | "modify") => {
+  //   if (rejectionReason.trim() === "") {
+  //     toast.error("No reason provided for rejection");
+  //     return;
+  //   }
+  //   if (rejectionReason.length < 8) {
+  //     toast.error("Rejection reason must be atleast 8 letters");
+  //     return;
+  //   }
 
- 
-  
+  //   if (!currentReviewingAnswer) {
+  //     toast.error(
+  //       "Unable to locate the current review answer. Please refresh and try again."
+  //     );
+  //     return;
+  //   }
+
+  //   const reviewAnswerId = currentReviewingAnswer._id?.toString();
+
+  //   handleSubmit("rejected", reviewAnswerId, rejectionReason);
+  // };
+
+  const handleRejectOrModify = (type: "reject" | "modify") => {
+    console.log("currentReviewingAnswer===",currentReviewingAnswer)
+    const actionLabel = type === "reject" ? "rejection" : "modification";
+
+    if (!rejectionReason.trim()) {
+      toast.error(`Please provide a reason for the ${actionLabel}.`);
+      return;
+    }
+
+    if (rejectionReason.trim().length < 8) {
+      toast.error(
+        `${
+          actionLabel.charAt(0).toUpperCase() + actionLabel.slice(1)
+        } reason must be at least 8 characters.`
+      );
+      return;
+    }
+
+    if (!currentReviewingAnswer || !currentReviewingAnswer._id) {
+      toast.error(
+        "Unable to locate the current reviewing answer. Please refresh and try again."
+      );
+      return;
+    }
+
+    const reviewAnswerId = currentReviewingAnswer._id.toString();
+
+    handleSubmit(
+      type === "reject" ? "rejected" : "modified",
+      checklist,
+      reviewAnswerId,
+      rejectionReason
+    );
+  };
+
+  const handleAccept = () => {
+    if (!currentReviewingAnswer) {
+      toast.error(
+        "Unable to locate the current review answer. Please refresh and try again."
+      );
+      return;
+    }
+
+    const reviewAnswerId = currentReviewingAnswer._id?.toString();
+
+    handleSubmit("accepted", checklist, reviewAnswerId);
+  };
 
   // const handleOpenUrl = (url: string) => {
   //   setSelectedUrl(url);
   //   setUrlOpen(true);
   // };
-  const [editedAnswer, setEditedAnswer] = useState(newAnswer);
-  
-  const handleSubmitAnswer = async(answer: string) => {
-    const payload = {
-      questionId: selectedQuestion,
-      
-    } as IReviewAnswerPayload;
-    payload.answer = answer;
-    payload.sources = sources;
-    payload.type="re-roted"
-    
-    try {
-      await respondQuestion(payload);
-     toast.success("Your response has been submitted. Thank you!");
-    } catch (error) {
-      console.error("Failed to submit:", error);
-    }
-  
-    // call API / mutation here
-    // submitAnswerMutation.mutate(answer);
-  };
-  interface RejectReRoutePayload {
-    reason: string;
-    rerouteId: string;
-    questionId: string;
-    moderatorId: string;
-  }
-  const { rejectReRoute, isRejecting } = useReRouteRejectQuestion();
-  const handleRejectReRouteAnswer = async(reason: string) => {
-    if (reason.trim() === "") {
-        toast.error("No reason provided for rejection");
-          return;
-        }
-        if (reason.length < 8) {
-          toast.error("Rejection reason must be atleast 8 letters");
-          return;
-        }
-    
-    if (!selectedQuestionData?.history?.length) {
-      console.warn("Selected question data not ready");
-      return;
-    }
-  
-    
-    const h = selectedQuestionData.history?.[0];
 
-if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.reroutedTo) {
-  console.error("Required data is missing for rejectReRoute");
-  return;
-}
-
-    try {
-    await rejectReRoute({
-        reason,
-        rerouteId: h.rerouteId,
-        questionId: h.question._id,
-        moderatorId: h.moderator._id,
-        expertId:h.reroute.reroutedTo,
-        role:"expert"
-      });
-     toast.success("You have successfully rejected the Re Route Question");
-    } catch (error) {
-      console.error("Failed to reject reroute question:", error);
-    }
-
-  
-    // 🔥 call mutation / API here
-    // rejectReRouteMutation.mutate(payload);
-  };
-  
-  const { mutateAsync: respondQuestion, isPending: isResponding } =
-  useReviewAnswer();
-  
   if (isSelectedQuestionLoading) {
     return (
       <div className="h-full flex flex-col items-center justify-center">
@@ -1851,20 +1867,6 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
           <div className="flex flex-col w-full">
                         <div className="flex items-center justify-between gap-2 mb-3">
                           <Label className="text-sm font-medium text-muted-foreground">
-                            Current Query:
-                          </Label>
-                          {/* <QuestionDetailsDialog
-                            question={selectedQuestionData}
-                          /> */}
-                        </div>
-
-                        <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words mb-3">
-                          {selectedQuestionData.text}
-                        </p>
-                      </div>
-                       <div className="flex flex-col w-full">
-                        <div className="flex items-center justify-between gap-2 mb-3">
-                          <Label className="text-sm font-medium text-muted-foreground">
                             Re Routed By:
                           </Label>
                           {/* <QuestionDetailsDialog
@@ -1890,227 +1892,85 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                           {selectedQuestionData.history[0].reroute?.comment}
                         </p>
                       </div>
-                      <div>
-                    
-                  </div>
-                     
                       
-                      { selectedQuestionData?.history &&
-                      selectedQuestionData.history.length > 0 &&
-                      selectedQuestionData.history[0].answer?.sources &&
-                      selectedQuestionData.history[0].answer!.sources.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium text-foreground mb-3">
-                      Answer Content
-                    </p>
-                    <div className="rounded-lg border bg-muted/30 h-[30vh] mb-3 ">
-                      <ScrollArea className="h-full">
-                        <div className="p-4">
-                          <p className=" text-foreground">
-                            {selectedQuestionData.history[0].answer.answer}
-                          </p>
-                        </div>
-                      </ScrollArea>
-                    </div>
-                      <p className="text-sm font-medium text-foreground mb-3">
-                        Source URLs
-                      </p>
-
-                      <div className="space-y-2">
-                        {selectedQuestionData.history[0].answer?.sources.map((source, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-center justify-between rounded-lg border bg-muted/30 p-2 pr-3"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span
-                                    className="text-sm truncate max-w-[260px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                                    onClick={() =>
-                                      window.open(source.source, "_blank")
-                                    }
-                                  >
-                                    {source.source}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>{source.source}</TooltipContent>
-                              </Tooltip>
-
-                              {source.page && (
-                                <>
-                                  <span className="text-muted-foreground">
-                                    •
-                                  </span>
-                                  <span className="text-xs text-muted-foreground">
-                                    page {source.page}
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                            <a
-                              href={source.source}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1 rounded hover:bg-muted/20 dark:hover:bg-muted/50 transition-colors"
-                            >
-                              <ArrowUpRight className="w-4 h-4 text-foreground/80" />
-                            </a>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-
-                     <div className="mt-10">
-                     <Button
-                          size="sm"
-                          disabled={isSubmittingAnswer}
-                          className="gap-1 h-8 px-3 text-xs bg-green-600 dark:bg-green-900 text-white hover:bg-green-600"
-                          onClick={() => {setIsModifyDialogOpen(true);
-                            setEditedAnswer(newAnswer)}}
-                        >
-                          {isSubmittingAnswer &&
-                          rejectionReason &&
-                          isRejectionSubmitted ? (
-                            <>
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              Creating...
-                            </>
-                          ) : (
-                            <>
-                              <Pencil className="w-3 h-3" />
-                              Modify Answer
-                            </>
-                          )}
-                        </Button>
-                       <Button
-                          size="sm"
-                          disabled={isSubmittingAnswer}
-                          onClick={() => setIsRejectDialogOpen(true)}
-                          variant="destructive"
-                          className="gap-1 h-8 px-3 text-xs ml-10"
-                        >
-                          {isSubmittingAnswer &&
-                          rejectionReason &&
-                          isRejectionSubmitted ? (
-                            <>
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              Rejecting...
-                            </>
-                          ) : (
-                            <>
-                              <XCircle className="w-3 h-3" />
-                              Reject
-                            </>
-                          )}
-                        </Button>
-
-
-                       
-                     </div>
-                   
-
-
+                    
+            <ReviewHistoryTimeline
+              history={history}
+              isSubmittingAnswer={isSubmittingAnswer}
+              rejectionReason={rejectionReason}
+              isRejectionSubmitted={isRejectionSubmitted}
+              checklist={checklist}
+              setChecklist={setChecklist}
+              setIsRejectDialogOpen={setIsRejectDialogOpen}
+              setIsModifyDialogOpen={setIsModifyDialogOpen}
+              handleAccept={handleAccept}
+              questionId={questionId}
+              selectedQuestionData={selectedQuestionData}
+            />
           </ScrollArea>
         </CardContent>
       </Card>
-      <Dialog open={isModifyDialogOpen} onOpenChange={setIsModifyDialogOpen}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Create Answer</DialogTitle>
-            </DialogHeader>
 
-            {/* Editable Answer */}
-            <Textarea
-              value={editedAnswer}
-              onChange={(e) => setEditedAnswer(e.target.value)}
-              rows={6}
-              className="mt-2 h-[30vh]"
-              placeholder="Write your answer..."
-            />
-            <div className="bg-card border border-border rounded-xl p-6 shadow-sm mt-3 md:mt-6">
-                          <SourceUrlManager
-                            sources={sources}
-                            onSourcesChange={setSources}
-                          />
+      <ReviewResponseDialog
+        isOpen={isRejectDialogOpen}
+        onOpenChange={setIsRejectDialogOpen}
+        type="reject"
+        title="Reject Response"
+        icon={<XCircle className="w-5 h-5 text-red-500 dark:text-red-700" />}
+        reasonLabel="Reason for Rejection"
+        submitReasonText="Submit Reason"
+        checklist={checklist}
+        onChecklistChange={setChecklist}
+        rejectionReason={rejectionReason}
+        setRejectionReason={setRejectionReason}
+        isStageSubmitted={isRejectionSubmitted}
+        setIsStageSubmitted={setIsRejectionSubmitted}
+        newAnswer={newAnswer}
+        setNewAnswer={setNewAnswer}
+        selectedQuestionData={selectedQuestionData}
+        isSubmitting={isSubmittingAnswer}
+        handleSubmit={handleRejectOrModify}
+        handleReset={handleReset}
+        sources={sources}
+        setSources={setSources}
+        confirmOpen={isRejecConfirmationOpen}
+        setConfirmOpen={setIsRejecConfirmationOpen}
+        remarks={remarks}
+        setRemarks={setRemarks}
+      />
 
-                          {sources.length > 0 && (
-                            <div className="mt-6 pt-6 border-t border-border">
-                              <p className="text-sm text-muted-foreground">
-                                {sources.length}{" "}
-                                {sources.length === 1 ? "source" : "sources"}{" "}
-                                added
-                              </p>
-                            </div>
-                          )}
-                        </div>
-     
-
-    <DialogFooter className="mt-4 gap-2">
-      {/* Cancel */}
-      <Button
-        variant="outline"
-        onClick={() => setIsModifyDialogOpen(false)}
-      >
-        Cancel
-      </Button>
-
-      {/* Submit */}
-      <Button
-        disabled={!editedAnswer.trim() || isSubmittingAnswer}
-        onClick={() => {
-          handleSubmitAnswer(editedAnswer);
-          setIsModifyDialogOpen(false);
-        }}
-      >
-        {isSubmittingAnswer ? "Submitting..." : "Submit"}
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-      </Dialog>
-      <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Rejection Reason *</DialogTitle>
-            </DialogHeader>
-            <Textarea
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              rows={6}
-              className="mt-2"
-              placeholder="Write your reason..."
-            />
-
-           <DialogFooter className="mt-4 gap-2">
-      {/* Cancel */}
-      <Button
-        variant="outline"
-        onClick={() => setIsRejectDialogOpen(false)}
-      >
-        Cancel
-      </Button>
-
-      {/* Submit */}
-      <Button
-       disabled={rejectionReason.length<8}
-        onClick={() => {
-          handleRejectReRouteAnswer(rejectionReason);
-          setIsRejectDialogOpen(false);
-        }}
-      >
-        {isSubmittingAnswer ? "Submitting..." : "Submit"}
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-      </Dialog>
-
-      
-     
+      <ReviewResponseDialog
+        isOpen={isModifyDialogOpen}
+        onOpenChange={setIsModifyDialogOpen}
+        title="Modify Response"
+        type="modify"
+        icon={<Pencil className="w-5 h-5 text-blue-500 dark:text-blue-400" />}
+        reasonLabel="Reason for Modification"
+        submitReasonText="Proceed"
+        checklist={checklist}
+        onChecklistChange={setChecklist}
+        rejectionReason={rejectionReason}
+        setRejectionReason={setRejectionReason}
+        isStageSubmitted={isRejectionSubmitted}
+        setIsStageSubmitted={setIsRejectionSubmitted}
+        newAnswer={newAnswer}
+        setNewAnswer={setNewAnswer}
+        selectedQuestionData={selectedQuestionData}
+        isSubmitting={isSubmittingAnswer}
+        handleSubmit={handleRejectOrModify}
+        handleReset={handleReset}
+        sources={sources}
+        setSources={setSources}
+        confirmOpen={isRejecConfirmationOpen}
+        setConfirmOpen={setIsRejecConfirmationOpen}
+        remarks={remarks}
+        setRemarks={setRemarks}
+      />
     </div>
   );
 };
+
+
 
 interface ReviewHistoryTimelineProps {
   history: HistoryItem[];
@@ -2123,6 +1983,7 @@ interface ReviewHistoryTimelineProps {
   setIsModifyDialogOpen: (open: boolean) => void;
   handleAccept: () => void;
   questionId: string;
+  selectedQuestionData?:IQuestion
 }
 export const parameterLabels: Record<keyof IReviewParmeters, string> = {
   contextRelevance: "Context Relevance",
@@ -2143,8 +2004,11 @@ export const ReviewHistoryTimeline = ({
   setIsModifyDialogOpen,
   handleAccept,
   questionId,
+  selectedQuestionData
 }: ReviewHistoryTimelineProps) => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [rejectReRouteReason,setRejectReRouteReason]=useState('')
+  const [rerouteModal,setRerouteModal]=useState(false)
 
   const handleCopy = async (url: string, index: number) => {
     await navigator.clipboard.writeText(url);
@@ -2214,6 +2078,44 @@ export const ReviewHistoryTimeline = ({
       ? item.status.charAt(0).toUpperCase() + item.status.slice(1)
       : "";
   };
+  const { rejectReRoute, isRejecting } = useReRouteRejectQuestion();
+  const handleRejectReRouteAnswer = async(reason: string) => {
+    if (reason.trim() === "") {
+        toast.error("No reason provided for rejection");
+          return;
+        }
+        if (reason.length < 8) {
+          toast.error("Rejection reason must be atleast 8 letters");
+          return;
+        }
+    
+    if (!selectedQuestionData?.history?.length) {
+      console.warn("Selected question data not ready");
+      return;
+    }
+  
+    
+    const h = selectedQuestionData.history?.[0];
+
+if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.reroutedTo) {
+  console.error("Required data is missing for rejectReRoute");
+  return;
+}
+
+    try {
+    await rejectReRoute({
+        reason,
+        rerouteId: h.rerouteId,
+        questionId: h.question._id,
+        moderatorId: h.moderator._id,
+        expertId:h.reroute.reroutedTo,
+        role:"expert"
+      });
+     toast.success("You have successfully rejected the Re Route Question");
+    } catch (error) {
+      console.error("Failed to reject reroute question:", error);
+    }
+};
 
   return (
     <div className="space-y-6">
@@ -2225,7 +2127,7 @@ export const ReviewHistoryTimeline = ({
           (mod) => mod.modifiedBy === item.updatedBy._id
         );
         return (
-          <div key={item.updatedBy._id + index} className="relative">
+          <div key={item.updatedBy?._id + index} className="relative">
             {!isFirst && (
               <div className="absolute left-5 -top-1 bottom-0 h-6 w-0.5 bg-border/50 -translate-y-5" />
             )}
@@ -2246,7 +2148,7 @@ export const ReviewHistoryTimeline = ({
 
                       {/* NAME (TRUNCATE) */}
                       <span className="font-medium truncate max-w-[120px]">
-                        {item.updatedBy.userName}
+                        {item?.updatedBy?.userName||"Author"}
                       </span>
 
                       {/* DATE */}
@@ -2547,7 +2449,7 @@ export const ReviewHistoryTimeline = ({
                           <Separator className="my-2" />
                           <CommentsSection
                             questionId={questionId}
-                            answerId={item.answer._id.toString()}
+                            answerId={item?.answer?._id?.toString()}
                             isMine={isMine}
                           />
                         </div>
@@ -2609,6 +2511,112 @@ export const ReviewHistoryTimeline = ({
                             </>
                           )}
                         </Button>
+                      </div>
+                    )}
+                    {item.answer &&
+                    item.status === "re-routed" && (
+                      <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                        <AcceptReviewDialog
+                          checklist={checklist}
+                          onChecklistChange={setChecklist}
+                          isSubmitting={isSubmittingAnswer}
+                          onConfirm={handleAccept}
+                        />
+
+                        <Button
+                          size="sm"
+                          disabled={isSubmittingAnswer}
+                          onClick={() => setIsRejectDialogOpen(true)}
+                          variant="destructive"
+                          className="gap-1 h-8 px-3 text-xs"
+                        >
+                          {isSubmittingAnswer &&
+                          rejectionReason &&
+                          isRejectionSubmitted ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Rejecting...
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="w-3 h-3" />
+                              Reject
+                            </>
+                          )}
+                        </Button>
+
+
+                        <Button
+                          size="sm"
+                          disabled={isSubmittingAnswer}
+                          className="gap-1 h-8 px-3 text-xs bg-blue-600 dark:bg-blue-900 text-white hover:bg-blue-600"
+                          onClick={() => setIsModifyDialogOpen(true)}
+                        >
+                          {isSubmittingAnswer &&
+                          rejectionReason &&
+                          isRejectionSubmitted ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Modifying...
+                            </>
+                          ) : (
+                            <>
+                              <Pencil className="w-3 h-3" />
+                              Modify
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={isSubmittingAnswer}
+                          onClick={() => setRerouteModal(true)}
+                          variant="destructive"
+                          className="gap-1 h-8 px-3 text-xs "
+                        >
+                         
+                            
+                              <XCircle className="w-3 h-3" />
+                              Reject ReRoute
+                            
+                          
+                        </Button>
+                        <Dialog open={rerouteModal} onOpenChange={setRerouteModal}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Rejection Reason *</DialogTitle>
+            </DialogHeader>
+            <Textarea
+              value={rejectReRouteReason}
+              onChange={(e) => setRejectReRouteReason(e.target.value)}
+              rows={6}
+              className="mt-2"
+              placeholder="Write your reason..."
+            />
+
+           <DialogFooter className="mt-4 gap-2">
+      {/* Cancel */}
+      <Button
+        variant="outline"
+        onClick={() => setRerouteModal(false)}
+      >
+        Cancel
+      </Button>
+
+      {/* Submit */}
+      <Button
+       disabled={rejectReRouteReason.length<8}
+        onClick={() => {
+          handleRejectReRouteAnswer(rejectReRouteReason);
+          setRerouteModal(false);
+        }}
+      >
+        {isSubmittingAnswer ? "Submitting..." : "Submit"}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+      </Dialog>
+
+
                       </div>
                     )}
                 </div>

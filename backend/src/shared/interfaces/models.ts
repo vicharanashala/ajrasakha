@@ -235,7 +235,11 @@ export type RerouteStatus =
   | 'expert_rejected'
   | 'expert_completed'
   | 'moderator_rejected'
-  | 'moderator_approved';
+  | 'moderator_approved'
+  |"approved"
+  |"rejected"
+  |"modified"
+  |"in-review";
   export interface IRerouteHistory {
     reroutedBy: ObjectId|string;        // Moderator
     reroutedTo: ObjectId |string;        // Expert

@@ -70,7 +70,7 @@ export class ReRouteService extends BaseService {
           reroutedBy: new ObjectId(moderatorId),
           reroutedTo: new ObjectId(expertId),
           reroutedAt: now,
-          answerId: null,
+          answerId:  new ObjectId(answerId),
           status,
           comment,
           updatedAt: now,
@@ -96,6 +96,7 @@ export class ReRouteService extends BaseService {
             throw new BadRequestError('Cannot assign to same expert');
           }
           await this.reRouteRepository.pushRerouteHistory(
+            answerId,
             existingReRoute._id.toString(),
             rerouteHistory,
             now,

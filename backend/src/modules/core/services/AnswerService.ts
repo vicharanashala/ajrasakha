@@ -110,7 +110,7 @@ export class AnswerService extends BaseService {
         questionId,
         activeSession,
       );
-      if (isAlreadyResponded) {
+      if (isAlreadyResponded && !type) {
         throw new BadRequestError('You’ve already submitted an answer!');
       }
 
@@ -214,7 +214,7 @@ export class AnswerService extends BaseService {
         }
 
         //check if it is re-routed
-        if(type){
+      /*  if(type){
           const intialStatus = 'in-review' as IAnswer['status'];
           const isIncrement=false
           const message="Expert created an answer for the re-routed question"
@@ -236,7 +236,7 @@ export class AnswerService extends BaseService {
           await this.reRouteRepository.updateStatus(questionId.toString(),userId.toString(),'expert_completed',answerId,undefined,session)
           await this.notificationService.saveTheNotifications(message,title,questionId,moderatorId,type,session)
           return
-        }
+        }*/
 
 
         // -----------------------------------------------------------
@@ -721,6 +721,272 @@ export class AnswerService extends BaseService {
       throw new InternalServerError(`${error}`);
     }
   }
+  async reRouteReviewAnswer(
+    userId: string,
+    body: ReviewAnswerBody,
+  ): Promise<{message: string}> {
+    try {
+      await this._withTransaction(async (session: ClientSession) => {
+        // -----------------------------------------------------------
+        // 1. Validate User
+        // -----------------------------------------------------------
+
+        const user = await this.userRepo.findById(userId, session);
+
+        if (!user) {
+          throw new UnauthorizedError(
+            `Failed to find user. Please re-login the application.`,
+          );
+        }
+
+        if (user.role !== 'expert') {
+          throw new UnauthorizedError(
+            `You are not authorized to perform reviews.`,
+          );
+        }
+        // -----------------------------------------------------------
+        // 2. Extract Body
+        // -----------------------------------------------------------
+
+        const {
+          questionId,
+          status, // accepted | rejected | modified | null (first-answer)
+          answer,
+          approvedAnswer,
+          rejectedAnswer,
+          reasonForRejection,
+          sources,
+          parameters,
+          modifiedAnswer,
+          reasonForModification,
+          remarks,
+          type
+        } = body;
+      
+
+        const question = await this.questionRepo.getById(questionId, session);
+
+        if (!question) {
+          throw new NotFoundError(`Failed to find question. Please try again.`);
+        }
+        const questionSubmission = await this.reRouteRepository.findByQuestionId(questionId.toString(),session)
+        const submissionHistory = questionSubmission.reroutes ?? [];
+        const lastHistory = submissionHistory[submissionHistory.length - 1]
+        const moderatorId = lastHistory.reroutedBy.toString()
+        const lastAnswerId = questionSubmission ?.answerId?.toString();
+        //check if it is re-routed
+       /* if(type=="re-routed"){
+          const intialStatus = 'in-review' as IAnswer['status'];
+          const isIncrement=false
+          const message="Expert created an answer for the re-routed question"
+          const title="New answer for re-routed Question"
+          const type:INotificationType='re-routed-answer-created'
+          const {insertedId: answerId} = await this.addAnswer(
+            questionId,
+            userId,
+            answer,
+            sources,
+            session,
+            intialStatus,
+            remarks,
+            type
+          );
+          const reroute = await this.reRouteRepository.findByQuestionId(questionId.toString(),session)
+          const moderatorId = reroute.reroutes[0].reroutedBy.toString()
+          await this.userRepo.updateReputationScore(userId.toString(),isIncrement,session)
+          await this.reRouteRepository.updateStatus(questionId.toString(),userId.toString(),'expert_completed',answerId,undefined,session)
+          await this.notificationService.saveTheNotifications(message,title,questionId,moderatorId,type,session)
+          return
+        }*/
+        if (!questionSubmission) {
+          throw new NotFoundError(
+            `Failed to find submission details for this question.`,
+          );
+        }
+        if (submissionHistory.length === 0) {
+         
+          
+          throw new UnauthorizedError(
+            'You are not authorized to review this question. It has been assigned to another reviewer.',
+          );
+        
+      } else {
+        // Ongoing review: Reviewer must match last updatedBy
+        const lastHistory = submissionHistory[submissionHistory.length - 1];
+        const assignedReviewer = lastHistory?.reroutedTo?.toString();
+        if (!assignedReviewer) {
+          throw new UnauthorizedError(
+            'Unable to find reviewer info for this question. Please try later.',
+          );
+        }
+
+        if (assignedReviewer !== user._id.toString()) {
+          throw new UnauthorizedError(
+            'This question is currently being reviewed by another expert.',
+          );
+        }
+      }
+
+
+       
+        
+
+       
+        
+
+
+        
+
+
+        let reviewId: ObjectId | null = null;
+
+        if (status) {
+          const reason =
+            status === 'rejected'
+              ? reasonForRejection ?? ''
+              : status === 'modified'
+              ? reasonForModification ?? ''
+              : '';
+
+          const {insertedId} = await this.reviewRepo.createReview(
+            'answer' as ReviewType,
+            status as ReviewAction,
+            questionId,
+            userId,
+            lastAnswerId,
+            reason,
+            parameters,
+            session,
+          );
+
+          if (!insertedId) {
+            throw new InternalServerError(
+              'Failed to create review entry. Please try again.',
+            );
+          }
+
+          reviewId = new ObjectId(insertedId);
+        }
+        
+        let review_answerId
+        if (status === 'accepted') {
+          review_answerId = approvedAnswer
+          
+          await this.reRouteRepository.updateStatus(questionId.toString(),userId.toString(),"approved",review_answerId,undefined,session)
+
+           }
+        
+        if (status === 'rejected') {
+         const answerToReject = await this.answerRepo.getById(rejectedAnswer);
+         
+          if (
+            answerToReject.answer &&
+            answerToReject.answer.trim() === answer.trim()
+          ) {
+            throw new BadRequestError(
+              `The submitted answer is either identical to the existing answer or not provided. Please modify your response before saving.`,
+            );
+          }
+         await this.answerRepo.updateAnswerStatus(rejectedAnswer, {
+            status: 'rejected',
+          });
+    const newStatus =
+            'pending-with-moderator'
+             
+
+          const {insertedId: answerId} = await this.addAnswer(
+            questionId,
+            userId,
+            answer,
+            sources,
+            session,
+            newStatus,
+            remarks,
+            type
+          );
+          review_answerId=answerId
+          await this.reRouteRepository.updateStatus(questionId.toString(),userId.toString(),'rejected',review_answerId,undefined,session)
+        }
+
+        if (status === 'modified') {
+          
+         
+
+          const answerToModify = await this.answerRepo.getById(modifiedAnswer);
+
+          if (
+            answerToModify.answer &&
+            answerToModify.answer.trim() === answer.trim()
+          ) {
+            throw new BadRequestError(
+              `The submitted answer is identical to the existing answer. Please modify your response before saving.`,
+            );
+          }
+
+         
+
+          // 2. Update answer
+          const newStatus =
+            'pending-with-moderator'
+             
+
+          await this.answerRepo.updateAnswer(
+            modifiedAnswer,
+            {answer, sources, status: newStatus},
+            session,
+          );
+
+         
+
+          //update in the modifications array
+          const modificationEntry: PreviousAnswersItem = {
+            oldAnswer: answerToModify.answer,
+            newAnswer: answer,
+            modifiedBy: new ObjectId(userId),
+            modifiedAt: new Date(),
+          };
+          await this.answerRepo.addAnswerModification(
+            modifiedAnswer,
+            modificationEntry,
+            session,
+          );
+          review_answerId = modifiedAnswer
+          await this.reRouteRepository.updateStatus(questionId.toString(),userId.toString(),'modified',review_answerId,undefined,session)
+          
+        }
+      
+
+        const intialStatus = 'in-review' as IAnswer['status'];
+        const isIncrement=false
+        const message="Expert created an answer for the re-routed question"
+        const title="New answer for re-routed Question"
+        const typeNoti:INotificationType='re-routed-answer-created'
+       
+        await this.userRepo.updateReputationScore(userId.toString(),isIncrement,session)
+       
+        await this.notificationService.saveTheNotifications(message,title,questionId,moderatorId,typeNoti,session)
+        
+
+        
+          
+          
+
+         
+
+        
+      
+
+     
+      })
+      return {message: 'Your response recorded successfully, thank you!'};
+  
+  }
+  catch (error) {
+    throw new InternalServerError(
+      `Failed to increment approved count /More ${error}`,
+    );
+  }
+}
   // async reviewAnswer(
   //   userId: string,
   //   body: ReviewAnswerBody,
