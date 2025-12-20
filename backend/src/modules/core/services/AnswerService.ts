@@ -1263,6 +1263,7 @@ answer: ${updates.answer}`;
         'incentive',
         session,
       );
+      
       await this.questionRepo.updateQuestion(
         questionId,
         {
