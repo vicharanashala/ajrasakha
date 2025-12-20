@@ -260,6 +260,8 @@ export const PlaygroundPage = () => {
               {/* Christmas Cap */}
               <ChristmasCap
                 className="
+                  hidden 
+                  md:block
                   absolute
                   -top-1
                   -left-4.5
