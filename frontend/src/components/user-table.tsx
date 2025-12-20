@@ -23,10 +23,7 @@ import { ConfirmationModal } from "./confirmation-modal";
 import { formatDate } from "@/utils/formatDate";
 import { useState } from "react";
 import { useBlockUser } from "@/hooks/api/user/useBlockUser";
-import {
- useNavigateToExpertDashboard
-} from "@/hooks/api/question/useNavigateToQuestion";
-
+import { useNavigateToExpertDashboard } from "@/hooks/api/question/useNavigateToQuestion";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -42,8 +39,8 @@ type UserTableProps = {
   totalPages: number;
   limit: number;
   userRole?: UserRole;
-  setSelectExpertId?:(userId: string) => void
-  setRankPosition?:(rank: number) => void
+  setSelectExpertId?: (userId: string) => void;
+  setRankPosition?: (rank: number) => void;
 };
 
 export const UsersTable = ({
@@ -56,7 +53,7 @@ export const UsersTable = ({
   isLoading,
   totalPages,
   setSelectExpertId,
-  setRankPosition
+  setRankPosition,
 }: UserTableProps) => {
   const [userIdToBlock, setUserIdToBlock] = useState<string>("");
   const [isCurrentlyBlocked, setIsCurrentlyBlocked] = useState<boolean>(false);
@@ -69,11 +66,11 @@ export const UsersTable = ({
 
   return (
     <div>
-         <div className="rounded-lg border bg-card overflow-x-auto min-h-[55vh]">
+      <div className="rounded-lg border bg-card overflow-x-auto min-h-[55vh]">
         <Table className="min-w-[800px]">
           <TableHeader className="bg-card sticky top-0 z-10">
             <TableRow>
-              <TableHead className="text-center w-12">Sl.No</TableHead>
+              <TableHead className="text-center w-12">Rank</TableHead>
               <TableHead className="w-[35%] text-center w-52">
                 Full Name
               </TableHead>
@@ -136,9 +133,6 @@ export const UsersTable = ({
         totalPages={totalPages}
         onPageChange={(page) => setCurrentPage(page)}
       />
-        
-      
-     
     </div>
   );
 };
@@ -154,8 +148,8 @@ interface UserRowProps {
   setIsCurrentlyBlocked: (value: boolean) => void;
   handleBlock: () => Promise<void>;
   onViewMore: (id: string) => void;
-  setSelectExpertId?:(id: string) => void;
-  setRankPosition?:(rank: number) => void
+  setSelectExpertId?: (id: string) => void;
+  setRankPosition?: (rank: number) => void;
 }
 
 const UserRow: React.FC<UserRowProps> = ({
@@ -167,39 +161,73 @@ const UserRow: React.FC<UserRowProps> = ({
   setUserIdToBlock,
   setIsCurrentlyBlocked,
   setSelectExpertId,
-  setRankPosition
+  setRankPosition,
 }) => {
   const isBlocked = u.isBlocked || false;
 
   const { goToExpertDashboard } = useNavigateToExpertDashboard();
-  const handleExpertClick = async (userdetails:any) => {
-    
+  const handleExpertClick = async (userdetails: any) => {
     if (userdetails) {
       setSelectExpertId?.(userdetails._id);
       setRankPosition?.(userdetails.rankPosition); // ✅ safe call
       return;
 
-     // goToExpertDashboard(userId); // enitity_id is questionId
+      // goToExpertDashboard(userId); // enitity_id is questionId
       return;
     }
-
-  }
+  };
   return (
     <TableRow key={String(u._id)} className="text-center">
       {/* Serial Number */}
-      <TableCell className="align-middle w-12" title={idx.toString()}>
+      {/* <TableCell className="align-middle w-12" title={idx.toString()}>
         {(currentPage - 1) * limit + idx + 1}
+      </TableCell> */}
+
+      <TableCell className="align-middle w-12" title={idx.toString()}>
+        {u.rankPosition && u.rankPosition <= 3 ? (
+          <span
+            className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-semibold text-sm border-2 ${
+              u.rankPosition === 1
+                ? `
+    relative overflow-hidden
+    bg-yellow-50 dark:bg-yellow-950
+    border-yellow-400 dark:border-yellow-600
+    text-yellow-900 dark:text-yellow-100
+
+    shadow-[0_0_12px_rgba(250,204,21,0.35)]
+
+    before:absolute before:inset-0 before:rounded-full
+    before:bg-gradient-to-t
+    before:from-white/10
+    before:via-white/30
+    before:to-transparent
+    before:pointer-events-none
+    `
+                : u.rankPosition === 2
+                ? "bg-slate-50 dark:bg-slate-900 border-slate-400 dark:border-slate-500 text-slate-900 dark:text-slate-100"
+                : "bg-orange-50 dark:bg-amber-900/40 border-orange-400 dark:border-amber-500 text-orange-900 dark:text-amber-200"
+            }`}
+          >
+            {u.rankPosition}
+          </span>
+        ) : (
+          <span className="inline-flex items-center justify-center w-8 h-8 text-sm text-muted-foreground">
+            #{u.rankPosition || "—"}
+          </span>
+        )}
       </TableCell>
 
       {/* User name */}
       <TableCell className="align-middle w-36" title={u.firstName}>
         <div>
-        <span
-        className={"hover:underline hover:cursor-pointer"}
-        onClick={()=>{handleExpertClick(u)}}
-        >
-        {truncate(u.firstName + " " + u.lastName, 60)}
-        </span>
+          <span
+            className={"hover:underline hover:cursor-pointer"}
+            onClick={() => {
+              handleExpertClick(u);
+            }}
+          >
+            {truncate(u.firstName + " " + u.lastName, 60)}
+          </span>
         </div>
       </TableCell>
 
@@ -236,10 +264,10 @@ const UserRow: React.FC<UserRowProps> = ({
         {/* {u.totalAnswers_Created || 0} */}
         <Badge variant="outline">{u.totalAnswers_Created || 0}</Badge>
       </TableCell>
-       {/* Rank */}
-       {/* <TableCell className="align-middle w-32"> */}
-        {/* {u.totalAnswers_Created || 0} */}
-        {/* <Badge variant="outline">{u.rankPosition || 0}</Badge> */}
+      {/* Rank */}
+      {/* <TableCell className="align-middle w-32"> */}
+      {/* {u.totalAnswers_Created || 0} */}
+      {/* <Badge variant="outline">{u.rankPosition || 0}</Badge> */}
       {/* </TableCell> */}
 
       {/* Created At */}
