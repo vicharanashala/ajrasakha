@@ -2301,7 +2301,7 @@ const userId = lastReroutedTo.reroutedTo._id;
             )}
           
              {!isRejected &&!props?.submissionData?.rejectedAnswer&&
-            props.questionStatus !== "in-review" &&
+            props.questionStatus !== "in-review" &&props.questionStatus !== "re-routed"&&
             props.questionStatus !== "closed" && (
               <Badge
                 className="
@@ -2693,8 +2693,54 @@ const userId = lastReroutedTo.reroutedTo._id;
                             ? "Final Answer"
                             : "Draft"}
                         </Badge> */}
+                        {props?.submissionData?.rejectedAnswer&& (
+            <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
+              <XCircle className="w-3 h-3 mr-1" />
+              Rejected
+            </Badge>
+          )}
+          {isRejected &&!props.submissionData?.isReroute && (
+            <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
+              <XCircle className="w-3 h-3 mr-1" />
+              Rejected
+            </Badge>
+          )}
+          {props.submissionData?.isReroute && props.submissionData?.status=="rejected" && props.lastAnswerId != props.answer?._id&& (
+            <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
+              <XCircle className="w-3 h-3 mr-1" />
+              Rejected
+            </Badge>
+          )} 
+          {
+           ( props.questionStatus === "in-review"||props.questionStatus === "re-routed") &&
+            props.lastAnswerId === props.answer?._id &&
+             (
+              <Badge
+                className="
+      bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100
+      dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 dark:hover:bg-amber-900
+    "
+              >
+                <Clock className="w-3 h-3 mr-1 opacity-80" />
+                In Review
+              </Badge>
+            )}
+          
+             {!isRejected &&!props?.submissionData?.rejectedAnswer&&
+            props.questionStatus !== "in-review" &&props.questionStatus !== "re-routed"&&
+            props.questionStatus !== "closed" && (
+              <Badge
+                className="
+      bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100
+      dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 dark:hover:bg-amber-900
+    "
+              >
+                <Clock className="w-3 h-3 mr-1 opacity-80" />
+                In Review
+              </Badge>
+            )}
 
-                        {isRejected && (
+                    {/** {isRejected && (
                           <Badge className="bg-rejected text-red-500 dark:text-red-700">
                             <XCircle className="w-3 h-3 mr-1" />
                             Rejected
@@ -2711,7 +2757,7 @@ const userId = lastReroutedTo.reroutedTo._id;
                               <Clock className="w-3 h-3 mr-1 opacity-80" />
                               In Review
                             </Badge>
-                          )}
+                          )}*/}    
                       </div>
 
                       <div className="flex flex-col text-muted-foreground text-xs">
