@@ -20,8 +20,15 @@ export const useReRouteRejectQuestion = () => {
       // ✅ invalidate question data so UI updates
       queryClient.invalidateQueries({
         queryKey: ["question", variables.questionId],
+        
       });
+      queryClient.invalidateQueries({ queryKey: ['allocated-questions'] });
+      queryClient.invalidateQueries({ queryKey: ['reroute-questions'] });
     },
+    onError: (error: any) => {
+      // Re-throw the error so it can be caught in the component
+      throw error;
+    }
   });
 
   return {

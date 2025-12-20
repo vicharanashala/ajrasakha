@@ -249,8 +249,8 @@ export class ReRouteService extends BaseService {
         return
       })
     } catch (error) {
-      throw new InternalServerError(
-        `Failed to reject request: ${error}`,
+      throw new BadRequestError(
+        "You have already submitted the response. Please refresh the page."
       );
     }
   }

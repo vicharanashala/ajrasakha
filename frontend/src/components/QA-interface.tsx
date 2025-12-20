@@ -211,7 +211,7 @@ export const QAInterface = ({
   } = useGetAllocatedQuestions(LIMIT, filter, preferences,actionType,autoSelectQuestionId);
   const { data: exactQuestionPage, isLoading: isLoading } =
     useGetAllocatedQuestionPage(autoSelectQuestionId!);
-
+   
   // const questions = questionPages?.pages.flat() || [];
   /*const questions = useMemo(() => {
      return questionPages?.pages.flat() || [];
@@ -1084,6 +1084,7 @@ const handleActionChange = (value: string) => {
                 remarks={remarks}
                 setRemarks={setRemarks}
                 setSelectedQuestion={setSelectedQuestion}
+                refetchQuestions={refetch}
               />
             )}
             {questions &&
@@ -1108,6 +1109,7 @@ const handleActionChange = (value: string) => {
                 questions={questions}
                 selectedQuestion={selectedQuestion}
                 setSelectedQuestion={setSelectedQuestion}
+                refetchQuestions={refetch}
               />
             )}
         </div>
@@ -1384,6 +1386,7 @@ interface ResponseTimelineProps {
   remarks: string;
   setRemarks: (value: string) => void;
   setSelectedQuestion:(value: string|null) => void;
+  refetchQuestions?: () => void;
 }
 
 export const ResponseTimeline = ({
@@ -1399,7 +1402,8 @@ export const ResponseTimeline = ({
   handleReset,
   remarks,
   setRemarks,
-  setSelectedQuestion
+  setSelectedQuestion,
+  refetchQuestions
 }: // SourceUrlManager,
 ResponseTimelineProps) => {
   const [rejectionReason, setRejectionReason] = useState("");
@@ -1589,6 +1593,7 @@ ResponseTimelineProps) => {
               handleAccept={handleAccept}
               questionId={questionId}
               setSelectedQuestion={setSelectedQuestion}
+              refetchQuestions={refetchQuestions}
             />
           </ScrollArea>
         </CardContent>
@@ -1674,6 +1679,7 @@ interface ReRouteResponseTimelineProps {
   questions:any
   selectedQuestion:string|null,
   setSelectedQuestion:(value: string|null) => void;
+  refetchQuestions?: () => void;
 }
 export const ReRouteResponseTimeline = ({
   isSelectedQuestionLoading,
@@ -1689,7 +1695,8 @@ export const ReRouteResponseTimeline = ({
   remarks,
   setRemarks,
   questions,
-  setSelectedQuestion
+  setSelectedQuestion,
+  refetchQuestions
 }: // SourceUrlManager,
 ReRouteResponseTimelineProps) => {
   
@@ -1912,6 +1919,7 @@ ReRouteResponseTimelineProps) => {
               questionId={questionId}
               selectedQuestionData={selectedQuestionData}
               setSelectedQuestion={setSelectedQuestion}
+              refetchQuestions={refetchQuestions}
             />
           </ScrollArea>
         </CardContent>
@@ -1991,6 +1999,7 @@ interface ReviewHistoryTimelineProps {
   questionId: string;
   selectedQuestionData?:IQuestion
   setSelectedQuestion:(value: string|null) => void;
+  refetchQuestions?: () => void;
 }
 export const parameterLabels: Record<keyof IReviewParmeters, string> = {
   contextRelevance: "Context Relevance",
@@ -2012,7 +2021,8 @@ export const ReviewHistoryTimeline = ({
   handleAccept,
   questionId,
   selectedQuestionData,
-  setSelectedQuestion
+  setSelectedQuestion,
+  refetchQuestions
 }: ReviewHistoryTimelineProps) => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [rejectReRouteReason,setRejectReRouteReason]=useState('')
@@ -2111,7 +2121,7 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
 }
 
     try {
-   let result= await rejectReRoute({
+    await rejectReRoute({
         reason,
         rerouteId: h.rerouteId,
         questionId: h.question._id,
@@ -2119,8 +2129,14 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
         expertId:h.reroute.reroutedTo,
         role:"expert"
       });
-      console.log("the result coming=====")
-     // setSelectedQuestion(null);
+      
+      setSelectedQuestion(null);
+      
+      // Refetch questions list
+      if (refetchQuestions) {
+        console.log("the refetch happening===")
+        refetchQuestions(); // ✅ Call it here
+      }
      toast.success("You have successfully rejected the Re Route Question");
     } catch (error) {
       console.log("the eroor coming====",error)
