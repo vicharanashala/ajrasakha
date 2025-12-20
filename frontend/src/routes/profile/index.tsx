@@ -52,7 +52,7 @@ export const Route = createFileRoute("/profile/")({
 });
 
 export default function ProfilePage() {
-  const { data: user, isLoading } = useGetCurrentUser();
+  const { data: user, isLoading } = useGetCurrentUser({});
   const { mutateAsync: updateUser, isPending: isUpdating } = useEditUser();
 
   const handleSubmit = async (data: IUser) => {

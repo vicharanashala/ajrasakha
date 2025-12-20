@@ -1243,7 +1243,6 @@ export class QuestionRepository implements IQuestionRepository {
     try {
       await this.init();
 
-      console.log('Updates: ', updates);
       if (!questionId || !isValidObjectId(questionId)) {
         throw new BadRequestError('Invalid or missing questionId');
       }
@@ -1260,7 +1259,10 @@ export class QuestionRepository implements IQuestionRepository {
       for (const field of forbiddenFields) {
         delete (updates as any)[field];
       }
-      console.log('Updates: ', updates);
+
+      if (updates.closedAt) {
+        updates.closedAt = new Date(updates.closedAt);
+      }
 
       const result = await this.QuestionCollection.updateOne(
         {_id: new ObjectId(questionId)},
@@ -1286,7 +1288,7 @@ export class QuestionRepository implements IQuestionRepository {
               (id: any) => id?.toString() === lastUpdatedById,
             );
 
-            // 🔹 If found, remove all users that come after this index
+            //  If found, remove all users that come after this index
             if (currentIndex !== -1 && currentIndex < queue?.length - 1) {
               const remainingQueue = queue?.slice(0, currentIndex + 1);
 
