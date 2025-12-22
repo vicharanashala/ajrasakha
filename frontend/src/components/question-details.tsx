@@ -1989,6 +1989,18 @@ export const AnswerTimeline = ({
             <small className="text-xs text-muted-foreground mt-1">
               {item.createdAt}
             </small>
+            <div>
+              
+           
+            <Badge
+              variant="outline"
+              className="text-green-600 border-green-600"
+            >
+               {item?.submission?.isReroute?"ReRouted":"Allocated"}
+            </Badge>
+          
+           
+              </div>
           </div>
         )}
         content={(item) => (
@@ -2663,7 +2675,7 @@ const userId = lastReroutedTo.reroutedTo._id;
             >
               <DialogHeader className="pb-4 border-b">
                 <DialogTitle className="text-xl font-semibold">
-                  Answer Details:{props?.submissionData?.isReroute?"ReRouted":"Allocated"}
+                  Answer Details
                 </DialogTitle>
               </DialogHeader>
 
@@ -2777,7 +2789,7 @@ const userId = lastReroutedTo.reroutedTo._id;
                               {props.submissionData.updatedBy?.email && (
                                 <> ({props.submissionData.updatedBy.email})</>
                               )}
-                            </span>
+                          </span>      
                           </p>
 
                           {props.answer.threshold > 0 && (
