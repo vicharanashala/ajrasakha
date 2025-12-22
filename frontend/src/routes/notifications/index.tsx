@@ -147,7 +147,8 @@ export default function Notification() {
       goToComment(enitity_id); // enitity_id is questionId
       return;
     }
-    if(type==="review_rejected" || type==="review_modified"||type==="re-routed-answer-created"||type==="re-routed-rejected-expert" )
+    if(type==="review_rejected" || type==="review_modified"||type==="re-routed-answer-created"||type==="re-routed-rejected-expert" ||
+    type==="re-routed-rejected-moderator" )
     {
       goToHistory(enitity_id);
       return;

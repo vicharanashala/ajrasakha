@@ -114,7 +114,13 @@ const ViewContextModal = ({
     finalized: "Finalized Answer",
     rejected: "Rejected Answer",
     modified: "Modified Answer",
-    rerouted:"ReRoute Answer"
+    rerouted:"ReRoute Answer",
+    reroute_approved:"ReRoute Approved Answer",
+    reroute_rejected:"ReRoute Rejected Answer",
+    reroute_modified:"ReRoute Modified Answer",
+    moderator_rejected:"ReRoute Rejected By Moderator",
+    expert_rejected:"ReRoute Rejected By Expert",
+    reroute_created_answer:"ReRoute Created Answer"
 
   };
 
@@ -171,7 +177,7 @@ const ViewContextModal = ({
             {/* ====================== CURRENT ANSWER ====================== */}
             {(item.action === "approved" ||
               item.action === "finalized" ||
-              item.action === "rejected") && (
+              item.action === "rejected"||item.action=="reroute_approved") && (
               <div>
                 <p className="text-sm font-medium mb-1">Answer</p>
                 <div className="rounded-lg border bg-muted/30 p-3">
@@ -201,7 +207,7 @@ const ViewContextModal = ({
             )}
 
             {/* ====================== REJECTED ANSWER ====================== */}
-            {rejectedAnswer && (
+            {rejectedAnswer && item.activityType!="reroute" && (
               <div>
                 <p className="text-sm font-medium mb-1">Rejected Answer</p>
                 <div className="rounded-lg border bg-muted/30 p-3">
@@ -209,6 +215,16 @@ const ViewContextModal = ({
                 </div>
               </div>
             )}
+             {/* ====================== REJECTED ANSWER ====================== */}
+             {rejectedAnswer && item.activityType=="reroute"&& (
+              <div>
+                <p className="text-sm font-medium mb-1">Created Answer</p>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  {rejectedAnswer}
+                </div>
+              </div>
+            )}
+
 
             {/* ====================== REJECTION BANNER ====================== */}
             {isRejected && (
@@ -368,30 +384,51 @@ export default function UserActivityHistory({
                           className={`
                   w-full sm:w-auto justify-center
                   ${
-                    (item.action === "accepted" || item.action==='approved')
+                    (item.action === "accepted" || item.action==='approved'||item.action==='reroute_approved')
                       ? "border-green-600 text-green-600"
-                      : item.action === "rejected"
+                      : item.action === "rejected"||item.action==='reroute_rejected'||item.action==='moderator_rejected'||item.action==='expert_rejected'
                       ? "border-red-600 text-red-600"
                       : item.action === "author"
                       ? "rounded-full bg-blue-100 text-blue-700 font-semibold"
-                      : "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700"
+                      : item.action === "reroute_created_answer"?
+                      "rounded-full bg-blue-100 text-blue-700 font-semibold"
+                      :
+                "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700"
                   }
                 `}
                         >
                           <span className="flex items-center gap-1">
-                            {item.action === "accepted" || item.action ==='approved' && (
+                            {item.action === "accepted" || item.action ==='approved' ||item.action==='reroute_approved' && (
                               <>
                                 <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
                                 <span>Accepted</span>
                               </>
                             )}
-                            {item.action === "rejected" && (
+                            {(item.action === "rejected" ||item.action==='reroute_rejected') && (
                               <>
                                 <XCircle className="w-3 h-3 text-red-600 dark:text-red-400" />
                                 <span>Rejected</span>
                               </>
                             )}
-                            {item.action === "modified" && (
+                             {item.action==='moderator_rejected' && (
+                              <>
+                                <XCircle className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                <span> Moderator Rejected</span>
+                              </>
+                            )}
+                            {item.action==='reroute_created_answer' && (
+                              <>
+                                <User className="w-3 h-3 text-gray-700 dark:text-gray-400" />
+                                <span> ReRoute Created Answer</span>
+                              </>
+                            )}
+                            {item.action==='expert_rejected' && (
+                              <>
+                                <XCircle className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                <span> Expert Rejected</span>
+                              </>
+                            )}
+                            {item.action === "modified" ||item.action==='reroute_modified' && (
                               <>
                                 <Pencil className="w-3 h-3 text-orange-700 dark:text-orange-400" />
                                 <span>Modified</span>

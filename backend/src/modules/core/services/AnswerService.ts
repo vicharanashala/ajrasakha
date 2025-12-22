@@ -877,6 +877,9 @@ export class AnswerService extends BaseService {
           );
           
           await this.reRouteRepository.updateStatus(questionId.toString(),userId.toString(),"approved",review_answerId,undefined,session)
+          /*await this.answerRepo.updateAnswerStatus(review_answerId , {
+            reRouted: true,
+          });*/
 
            }
         
@@ -936,9 +939,11 @@ export class AnswerService extends BaseService {
 
           await this.answerRepo.updateAnswer(
             modifiedAnswer,
-            {answer, sources, status: newStatus},
+            {answer, sources, status: newStatus,reRouted: true},
             session,
           );
+         
+
 
          
 

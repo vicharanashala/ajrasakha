@@ -101,7 +101,7 @@ export interface HistoryItem {
     //answer
     _id: string;
     answer: string;
-    approvalCount: string;
+    approvalCount: string|number;
     sources: SourceItem[];
     remarks: string;
   };

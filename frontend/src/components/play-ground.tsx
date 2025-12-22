@@ -51,7 +51,11 @@ export const PlaygroundPage = () => {
     if (user.role !== "expert") {
       if (selectedRequestId) {
         calculatedTab = "request_queue";
-      } else {
+      } 
+      else if (selectedHistoryId) {
+        calculatedTab = "history";
+      }
+      else {
         /* else if(selectedExpertId)
       {
         calculatedTab = "expertPerformance";

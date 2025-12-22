@@ -7,7 +7,7 @@ export const useReRouteRejectQuestion = () => {
   const queryClient = useQueryClient();
 
   const {
-    mutate: rejectReRoute,
+    mutateAsync: rejectReRoute,
     isPending,
     error,
     isSuccess,
@@ -19,6 +19,7 @@ export const useReRouteRejectQuestion = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["question"] });
       queryClient.invalidateQueries({ queryKey: ["questions"] });
+      queryClient.invalidateQueries({ queryKey: ["question_full_data"] });
     },
     onError: (error: any) => {
       // Re-throw the error so it can be caught in the component

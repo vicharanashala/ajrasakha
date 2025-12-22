@@ -69,6 +69,8 @@ import {
   Users,
   X,
   XCircle,
+  ShieldCheck,
+  ShieldX
 } from "lucide-react";
 import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
 import { useGetComments } from "@/hooks/api/comment/useGetComments";
@@ -1599,6 +1601,29 @@ const RerouteTimeline = ({ currentUser,rerouteData }:RerouteTimelineProps) => {
     ? reroutes
     : reroutes.slice(0, INITIAL_DISPLAY_COUNT);
   const hasMore = reroutes.length > INITIAL_DISPLAY_COUNT;
+  type LetterIconProps = {
+    letter: string;
+    className?: string;
+  };
+  
+  const LetterIcon = ({ letter, className }: LetterIconProps) => {
+    return (
+      <div
+        className={`  text-red flex items-center justify-center text-xs font-semibold ${className}`}
+      >
+        {letter}
+      </div>
+    );
+  };
+  
+  // Convenience components
+  const ExpertIcon = (props: { className?: string }) => (
+    <LetterIcon letter="E" {...props} />
+  );
+  
+   const ModeratorIcon = (props: { className?: string }) => (
+    <LetterIcon letter="M" {...props} />
+  );
 
   const getStatusInfo = (status:string) => {
     switch (status) {
@@ -1681,8 +1706,8 @@ const RerouteTimeline = ({ currentUser,rerouteData }:RerouteTimelineProps) => {
         };
       case "expert_rejected":
         return {
-          label: "Expert Rejected",
-          icon: RefreshCcw,
+          label: "Request Rejected",
+          icon: ExpertIcon,
           styles: {
             container: "bg-orange-100 dark:bg-orange-900/30 border-orange-300 dark:border-orange-700 shadow-orange-100/50",
             icon: "text-orange-700 dark:text-orange-400",
@@ -1692,13 +1717,13 @@ const RerouteTimeline = ({ currentUser,rerouteData }:RerouteTimelineProps) => {
         };
       case "moderator_rejected":
         return {
-          label: "Moderator Rejected",
-          icon: AlertCircle,
+          label: "Request Rejected",
+          icon: ModeratorIcon ,
           styles: {
-            container: "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 shadow-red-100/50",
-            icon: "text-red-700 dark:text-red-400",
-            badge: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-700",
-            iconBg: "bg-red-200 dark:bg-red-800/40",
+            container: "bg-orange-100 dark:bg-orange-900/30 border-orange-300 dark:border-orange-700 shadow-orange-100/50",
+            icon: "text-orange-700 dark:text-orange-400",
+            badge: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700",
+            iconBg: "bg-orange-200 dark:bg-orange-800/40",
           }
         };
       default:
@@ -1991,14 +2016,14 @@ export const AnswerTimeline = ({
             </small>
             <div>
               
-           
+            {item?.submission?.isReroute &&
             <Badge
               variant="outline"
               className="text-green-600 border-green-600"
             >
-               {item?.submission?.isReroute?"ReRouted":"Allocated"}
+               ReRouted
             </Badge>
-          
+        }
            
               </div>
           </div>
@@ -2160,10 +2185,14 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRo
     : null;
    // console.log("the submission data====",props.submissionData)
     
-  const experts =
+ /* const experts =
     usersData?.users.filter(
       (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id)
-    ) || [];
+    ) || [];*/
+    const experts =
+    usersData?.users.filter(
+      (user) => user.role === "expert" 
+    ) || []
 
   const filteredExperts = experts.filter(
     (expert) =>
@@ -2241,7 +2270,7 @@ const moderatorId = lastReroutedTo.reroutedTo._id;
 const userId = lastReroutedTo.reroutedTo._id;
 
     try {
-    await rejectReRoute({
+ let result=   await rejectReRoute({
         reason,
         rerouteId: rerouteId,
         questionId: questionId,
@@ -2250,9 +2279,18 @@ const userId = lastReroutedTo.reroutedTo._id;
         role:'moderator'
 
       });
+      console.log("the result coming====",result)
      toast.success("You have successfully rejected the Re Route Question");
-    } catch (error) {
-      console.error("Failed to reject reroute question:", error);
+    } catch (error:any) {
+      // ✅ NOW you will see backend error
+    console.error("Failed to reject reroute question:", error);
+
+    const message =
+      error?.response?.data?.message ||
+      error?.message ||
+      "Something went wrong";
+
+    toast.error(message);
     }
 
   
@@ -2914,9 +2952,19 @@ const userId = lastReroutedTo.reroutedTo._id;
                   {/* Review Timeline */}
                   {props.answer.reviews && props.answer.reviews.length > 0 && (
                     <div className="mt-6">
-                      <p className="text-sm font-medium text-foreground mb-3">
+                     {/* <p className="text-sm font-medium text-foreground mb-3">
+                        Review Timeline
+                  </p>*/}
+                      { props.submissionData?.isReroute&&(
+                        <p className="text-sm font-medium text-foreground mb-3">
+                        ReRoute Timeline
+                      </p>
+                      )}
+                      { !props.submissionData?.isReroute&&(
+                        <p className="text-sm font-medium text-foreground mb-3">
                         Review Timeline
                       </p>
+                      )}
 
                       <div className="space-y-4">
                         {props.answer.reviews.map((review) => {
@@ -3059,6 +3107,7 @@ const userId = lastReroutedTo.reroutedTo._id;
                       </div>
                     </div>
                   )}
+                   
             {/*props.rerouteQuestion && props.rerouteQuestion?.[0]?.reroutes?.length > 0 && (
             <div className="space-y-3">
               {props.rerouteQuestion[0].reroutes.map((reroute, index) => {

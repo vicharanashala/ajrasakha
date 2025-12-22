@@ -94,11 +94,11 @@ export class ReRouteService extends BaseService {
           const lastExpert = existingReRoute.reroutes.at(-1).reroutedTo;
           const lastStatus=existingReRoute.reroutes.at(-1).status
          
-          if (lastExpert.toString() === expertId.toString()) {
+        /*  if (lastExpert.toString() === expertId.toString()) {
             throw new BadRequestError('Cannot assign to same expert');
-          }
+          }*/
           if (lastStatus=="pending") {
-            throw new BadRequestError('The answer is in review state you can not assign new expert');
+            throw new BadRequestError('The answer is in review state you can not assign new expert please refresh the page');
           }
 
           await this.reRouteRepository.pushRerouteHistory(
@@ -128,11 +128,14 @@ export class ReRouteService extends BaseService {
           null,
           session,
         );
-        await Promise.all([updateWorkload, sendNotification, updateQuestion]);
+       // await Promise.all([updateWorkload, sendNotification, updateQuestion]);
+       await updateWorkload;
+       await sendNotification;
+       await updateQuestion;
         return;
       });
     } catch (error) {
-      throw new InternalServerError(`Failed to add questions: ${error}`);
+      throw new InternalServerError(`Failed to add expert: ${error}`);
     }
   }
 
@@ -217,8 +220,8 @@ export class ReRouteService extends BaseService {
         );
         const lastStatus=existingReRoute.reroutes.at(-1).status
        
-        if (lastStatus=="expert_rejected") {
-          throw new BadRequestError('You have already submitted the response please refresh the page');
+        if (lastStatus=="expert_rejected"||lastStatus=="moderator_rejected") {
+          throw new BadRequestError('You have already rejected the response please refresh the page');
           
         }
         await this.reRouteRepository.rejectRerouteRequest(rerouteId,reason,role,session)
@@ -250,7 +253,7 @@ export class ReRouteService extends BaseService {
       })
     } catch (error) {
       throw new BadRequestError(
-        "You have already submitted the response. Please refresh the page."
+        "You have already rejected the response please refresh the page"
       );
     }
   }

@@ -1780,7 +1780,6 @@ ReRouteResponseTimelineProps) => {
   // };
 
   const handleRejectOrModify = (type: "reject" | "modify") => {
-    console.log("currentReviewingAnswer===",currentReviewingAnswer)
     const actionLabel = type === "reject" ? "rejection" : "modification";
 
     if (!rejectionReason.trim()) {
@@ -1868,7 +1867,7 @@ ReRouteResponseTimelineProps) => {
           <div className="flex items-center gap-2">
             <History className="w-5 h-5 text-primary" />
 
-            <h3 className="text-lg font-semibold">Response History</h3>
+            <h3 className="text-lg font-semibold">Reroute Response</h3>
           </div>
 
           <QuestionDetailsDialog question={selectedQuestionData} />
@@ -2540,7 +2539,11 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                         </Button>
                       </div>
                     )}
+                    
                     {item.answer &&
+                    item.status === "re-routed" && (
+                      <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                       {item.answer && Number(item.answer.approvalCount) >= 3&&
                     item.status === "re-routed" && (
                       <div className="flex items-center gap-1.5 pt-1 flex-wrap">
                         <AcceptReviewDialog
@@ -2549,6 +2552,8 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                           isSubmitting={isSubmittingAnswer}
                           onConfirm={handleAccept}
                         />
+                        </div>
+                    )}
 
                         <Button
                           size="sm"
