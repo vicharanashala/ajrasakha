@@ -2133,10 +2133,10 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
       setSelectedQuestion(null);
       
       // Refetch questions list
-      if (refetchQuestions) {
-        console.log("the refetch happening===")
-        refetchQuestions(); // ✅ Call it here
-      }
+     /* if (refetchQuestions) {
+       // console.log("the refetch happening===")
+       // refetchQuestions(); // ✅ Call it here
+      }*/
      toast.success("You have successfully rejected the Re Route Question");
     } catch (error) {
       console.log("the eroor coming====",error)
