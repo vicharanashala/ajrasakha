@@ -348,6 +348,7 @@ export class AnswerService extends BaseService {
             lastAnswerId,
             reason,
             parameters,
+            false,
             session,
           );
 
@@ -856,6 +857,7 @@ export class AnswerService extends BaseService {
             lastAnswerId,
             reason,
             parameters,
+            true,
             session,
           );
 

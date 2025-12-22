@@ -113,6 +113,7 @@ export interface IReview {
   createdAt?: Date;
   updatedAt?: Date;
   status?: string;
+  reRoutedReview?:boolean
 }
 
 // For transcripts

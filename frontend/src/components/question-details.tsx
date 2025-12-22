@@ -2320,6 +2320,24 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     setSelectedExperts([]);
     setIsModalOpen(false);
   };
+        const reviews = props.answer.reviews ?? [];
+
+      let firstTrueIndex: number | undefined;
+      let firstFalseOrMissingIndex: number | undefined;
+
+      reviews.forEach((review, index) => {
+        if (review.reRoutedReview === true) {
+          if (firstTrueIndex === undefined) {
+            firstTrueIndex = index;
+          }
+        } else {
+          // false OR undefined OR null
+          if (firstFalseOrMissingIndex === undefined) {
+            firstFalseOrMissingIndex = index;
+          }
+        }
+      });
+
   return (
     <Card className="p-6 grid gap-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
@@ -2980,7 +2998,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       {/* <p className="text-sm font-medium text-foreground mb-3">
                         Review Timeline
                   </p>*/}
-                      {props.submissionData?.isReroute && (
+                      {/*props.submissionData?.isReroute && (
                         <p className="text-sm font-medium text-foreground mb-3">
                           ReRoute Timeline
                         </p>
@@ -2989,23 +3007,37 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                         <p className="text-sm font-medium text-foreground mb-3">
                           Review Timeline
                         </p>
-                      )}
+                      )*/}
 
                       <div className="space-y-4">
-                        {props.answer.reviews.map((review) => {
+                        {props.answer.reviews.map((review,index) => {
                           const modification =
                             review?.answer?.modifications?.find(
                               (mod) => mod.modifiedBy === review.reviewerId
                             );
 
                           return (
+                            <div>
+                              {index === firstTrueIndex && (
+                              <p className="text-sm font-medium text-purple-600 mb-2">
+                                ReRoute Timeline
+                              </p>
+                            )}
+
+                            {index === firstFalseOrMissingIndex && (
+                              <p className="text-sm font-medium text-blue-600 mb-2">
+                                Review Timeline
+                              </p>
+                            )}
                             <div
                               key={review._id}
                               className="rounded-lg border bg-muted/30 p-4 space-y-3"
                             >
+                               
                               {/* Reviewer + Date */}
                               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                                 <div className="flex items-center gap-2">
+                                
                                   <span className="text-sm font-medium">
                                     Reviewer:
                                   </span>
@@ -3126,6 +3158,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                                   </Accordion>
                                 </div>
                               )}
+                            </div>
                             </div>
                           );
                         })}

@@ -56,16 +56,24 @@ export class ReRouteService extends BaseService {
     status: RerouteStatus,
   ) {
     try {
+      const existingReRoute =
+  await this.reRouteRepository.findByQuestionId(questionId);
+
+if (existingReRoute?.reroutes.at(-1)?.status === "pending") {
+  throw new BadRequestError(
+    "The answer is in review state, you cannot assign a new expert"
+  );
+}
       return await this._withTransaction(async (session: ClientSession) => {
         const expert = await this.userRepo.findById(expertId.toString());
         if (!expert) {
           throw new NotFoundError('Expert not found');
         }
         const now = new Date();
-        const existingReRoute = await this.reRouteRepository.findByQuestionId(
+       /* const existingReRoute = await this.reRouteRepository.findByQuestionId(
           questionId,
           session,
-        );
+        );*/
         const rerouteHistory: IRerouteHistory = {
           reroutedBy: new ObjectId(moderatorId),
           reroutedTo: new ObjectId(expertId),

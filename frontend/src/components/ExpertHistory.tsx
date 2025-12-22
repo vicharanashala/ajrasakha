@@ -12,6 +12,7 @@ import {
   FileText,
   Pencil,
   User,
+  Send,
 } from "lucide-react";
 import { useGetSubmissions } from "@/hooks/api/answer/useGetSubmissions";
 import { DateRangeFilter } from "./DateRangeFilter";
@@ -93,6 +94,7 @@ const ViewContextModal = ({
   onClose: () => void;
 }) => {
   if (!item) return null;
+  console.log("the item coming====",item)
 
   const question = item?.question?.question || "No question found";
 
@@ -392,12 +394,26 @@ export default function UserActivityHistory({
                       ? "rounded-full bg-blue-100 text-blue-700 font-semibold"
                       : item.action === "reroute_created_answer"?
                       "rounded-full bg-blue-100 text-blue-700 font-semibold"
+                      :item.action=="finalized"?
+                      "border-green-600 text-green-600"
                       :
-                "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700"
+                  "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700"
                   }
                 `}
                         >
                           <span className="flex items-center gap-1">
+                          {item.action === "finalized"  && (
+                              <>
+                                <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
+                                <span>Finalized</span>
+                              </>
+                            )}
+                            {item.action === "rerouted"  && (
+                              <>
+                                <Send className="w-3 h-3 text-orange-600 dark:text-orange-400" />
+                                <span>ReRouted</span>
+                              </>
+                            )}
                             {item.action === "accepted" || item.action ==='approved' ||item.action==='reroute_approved' && (
                               <>
                                 <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />

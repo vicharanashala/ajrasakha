@@ -82,6 +82,7 @@ export interface IReview {
   updatedAt?: Date;
   reputation_score?: number;
   notificationRetention?: NotificationRetentionType;
+  reRoutedReview?:boolean
 }
 
 export interface HistoryItem {
