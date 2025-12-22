@@ -8,7 +8,7 @@ import type {
   ReRouteStatus,
   SourceItem,
   UserRole,
-  IRerouteHistoryResponse
+  IRerouteHistoryResponse,
 } from "@/types";
 import {
   forwardRef,
@@ -70,7 +70,7 @@ import {
   X,
   XCircle,
   ShieldCheck,
-  ShieldX
+  ShieldX,
 } from "lucide-react";
 import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
 import { useGetComments } from "@/hooks/api/comment/useGetComments";
@@ -88,7 +88,7 @@ import { Label } from "./atoms/label";
 import { Switch } from "./atoms/switch";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { useAllocateExpert } from "@/hooks/api/question/useAllocateExperts";
-import {useGetReRouteAllocation} from '@/hooks/api/question/useGetReRouteAllocation'
+import { useGetReRouteAllocation } from "@/hooks/api/question/useGetReRouteAllocation";
 import { useToggleAutoAllocateQuestion } from "@/hooks/api/question/useToggleAutoAllocateQuestion";
 import { useRemoveAllocation } from "@/hooks/api/question/useRemoveAllocation";
 import { ConfirmationModal } from "./confirmation-modal";
@@ -106,8 +106,8 @@ import {
   AccordionTrigger,
 } from "./atoms/accordion";
 import { diffWords } from "@/utils/wordDifference";
-import {useGetReRoutedQuestionFullData} from '@/hooks/api/question/useGetReRoutedQuestionFullData'
-import {useReRouteRejectQuestion} from '@/hooks/api/question/useReRouteRejectQuestion'
+import { useGetReRoutedQuestionFullData } from "@/hooks/api/question/useGetReRoutedQuestionFullData";
+import { useReRouteRejectQuestion } from "@/hooks/api/question/useReRouteRejectQuestion";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -116,7 +116,7 @@ interface QuestionDetailProps {
   refetchAnswers: () => void;
   isRefetching: boolean;
   currentUser: IUser;
-  rerouteQuestion?:IRerouteHistoryResponse[]
+  rerouteQuestion?: IRerouteHistoryResponse[];
 }
 
 const flattenAnswers = (submission: ISubmission): IAnswer[] => {
@@ -142,11 +142,11 @@ export const QuestionDetails = ({
   isRefetching,
   currentUser,
   goBack,
-  rerouteQuestion
+  rerouteQuestion,
 }: QuestionDetailProps) => {
   //console.log("the question details====",question)
- // console.log("reroutedetail====",rerouteQuestion)
- 
+  // console.log("reroutedetail====",rerouteQuestion)
+
   const answers = useMemo(
     () => flattenAnswers(question?.submission),
     [question.submission]
@@ -586,16 +586,13 @@ export const QuestionDetails = ({
         currentUser={currentUser}
         question={question}
       />
-      {reroutequestionDetails&&
-        reroutequestionDetails.length>=1 &&(
-          <RerouteTimeline
-      
-        currentUser={currentUser}
-        rerouteData={reroutequestionDetails}
-      />
-        )
-      }
-      
+      {reroutequestionDetails && reroutequestionDetails.length >= 1 && (
+        <RerouteTimeline
+          currentUser={currentUser}
+          rerouteData={reroutequestionDetails}
+        />
+      )}
+
       {/* )} */}
       <div className="md:flex items-center justify-between md:mt-12 hidden ">
         <h2 className="text-lg font-semibold flex justify-center gap-2 items-center ">
@@ -660,12 +657,11 @@ export const QuestionDetails = ({
             answerVisibleCount={answerVisibleCount}
             answers={answers}
             commentRef={commentRef}
-            currentUserId={currentUserId||currentUser._id?.toString()}
+            currentUserId={currentUserId || currentUser._id?.toString()}
             question={question}
             userRole={currentUser.role}
             queue={question.submission.queue}
             rerouteQuestion={reroutequestionDetails ?? undefined}
-        
           />
           {answerVisibleCount < answers.length && (
             <div className="flex justify-center">
@@ -1531,7 +1527,6 @@ const AllocationTimeline = ({
           })}
         </div>
       )}
-      
 
       {hasMore && (
         <div className="flex justify-center pt-4">
@@ -1557,21 +1552,24 @@ const AllocationTimeline = ({
     </div>
   );
 };
-interface RerouteTimelineProps{
+interface RerouteTimelineProps {
   currentUser: IUser;
   rerouteData: IRerouteHistoryResponse[];
 }
-const RerouteTimeline = ({ currentUser,rerouteData }:RerouteTimelineProps) => {
-  
+const RerouteTimeline = ({
+  currentUser,
+  rerouteData,
+}: RerouteTimelineProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
   const [flippedId, setFlippedId] = useState("");
-  const [hoverTimeout, setHoverTimeout] =
-  useState<ReturnType<typeof setTimeout> | null>(null);
-  
+  const [hoverTimeout, setHoverTimeout] = useState<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
   const INITIAL_DISPLAY_COUNT = 12;
 
-  const handleMouseEnter = (id:string) => {
+  const handleMouseEnter = (id: string) => {
     const timeout = setTimeout(() => {
       setFlippedId(id);
       setIsFlipped(true);
@@ -1596,7 +1594,7 @@ const RerouteTimeline = ({ currentUser,rerouteData }:RerouteTimelineProps) => {
 
   // Extract reroutes from the data
   const reroutes = rerouteData?.[0]?.reroutes || [];
-  
+
   const displayedReroutes = isExpanded
     ? reroutes
     : reroutes.slice(0, INITIAL_DISPLAY_COUNT);
@@ -1605,7 +1603,7 @@ const RerouteTimeline = ({ currentUser,rerouteData }:RerouteTimelineProps) => {
     letter: string;
     className?: string;
   };
-  
+
   const LetterIcon = ({ letter, className }: LetterIconProps) => {
     return (
       <div
@@ -1615,140 +1613,159 @@ const RerouteTimeline = ({ currentUser,rerouteData }:RerouteTimelineProps) => {
       </div>
     );
   };
-  
+
   // Convenience components
   const ExpertIcon = (props: { className?: string }) => (
     <LetterIcon letter="E" {...props} />
   );
-  
-   const ModeratorIcon = (props: { className?: string }) => (
+
+  const ModeratorIcon = (props: { className?: string }) => (
     <LetterIcon letter="M" {...props} />
   );
 
-  const getStatusInfo = (status:string) => {
+  const getStatusInfo = (status: string) => {
     switch (status) {
       case "expert_completed":
         return {
           label: "Expert Completed",
           icon: CheckCircle2,
           styles: {
-            container: "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 shadow-green-100/50",
+            container:
+              "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 shadow-green-100/50",
             icon: "text-green-700 dark:text-green-400",
-            badge: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700",
+            badge:
+              "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700",
             iconBg: "bg-green-200 dark:bg-green-800/40",
-          }
+          },
         };
       case "moderator_approved":
         return {
           label: "Moderator Approved",
           icon: UserCheck,
           styles: {
-            container: "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700 shadow-emerald-100/50",
+            container:
+              "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700 shadow-emerald-100/50",
             icon: "text-emerald-700 dark:text-emerald-400",
-            badge: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700",
+            badge:
+              "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700",
             iconBg: "bg-emerald-200 dark:bg-emerald-800/40",
-          }
+          },
         };
       case "pending":
         return {
           label: "Pending",
           icon: Clock,
           styles: {
-            container: "bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700 shadow-yellow-100/50",
+            container:
+              "bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700 shadow-yellow-100/50",
             icon: "text-yellow-700 dark:text-yellow-400",
-            badge: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-700",
+            badge:
+              "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-700",
             iconBg: "bg-yellow-200 dark:bg-yellow-800/40",
-          }
+          },
         };
-        case "approved":
-          return {
-            label: "Approved",
-            icon: CheckCircle2,
-            styles: {
-              container: "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 shadow-green-100/50",
-              icon: "text-green-700 dark:text-green-400",
-              badge: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700",
-              iconBg: "bg-green-200 dark:bg-green-800/40",
-            }
-          };
+      case "approved":
+        return {
+          label: "Approved",
+          icon: CheckCircle2,
+          styles: {
+            container:
+              "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 shadow-green-100/50",
+            icon: "text-green-700 dark:text-green-400",
+            badge:
+              "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700",
+            iconBg: "bg-green-200 dark:bg-green-800/40",
+          },
+        };
       case "rejected":
         return {
           label: "Rejected",
           icon: AlertCircle,
           styles: {
-            container: "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 shadow-red-100/50",
+            container:
+              "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 shadow-red-100/50",
             icon: "text-red-700 dark:text-red-400",
-            badge: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-700",
+            badge:
+              "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-700",
             iconBg: "bg-red-200 dark:bg-red-800/40",
-          }
+          },
         };
       case "modified":
         return {
           label: "Modified",
           icon: RefreshCcw,
           styles: {
-            container: "bg-orange-100 dark:bg-orange-900/30 border-orange-300 dark:border-orange-700 shadow-orange-100/50",
+            container:
+              "bg-orange-100 dark:bg-orange-900/30 border-orange-300 dark:border-orange-700 shadow-orange-100/50",
             icon: "text-orange-700 dark:text-orange-400",
-            badge: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700",
+            badge:
+              "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700",
             iconBg: "bg-orange-200 dark:bg-orange-800/40",
-          }
+          },
         };
       case "waiting":
         return {
           label: "Waiting",
           icon: RefreshCcw,
           styles: {
-            container: "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 shadow-blue-100/50",
+            container:
+              "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 shadow-blue-100/50",
             icon: "text-blue-700 dark:text-blue-400",
-            badge: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-700",
+            badge:
+              "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-700",
             iconBg: "bg-blue-200 dark:bg-blue-800/40",
-          }
+          },
         };
       case "expert_rejected":
         return {
           label: "Request Rejected",
           icon: ExpertIcon,
           styles: {
-            container: "bg-orange-100 dark:bg-orange-900/30 border-orange-300 dark:border-orange-700 shadow-orange-100/50",
-            icon: "text-orange-700 dark:text-orange-400",
-            badge: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700",
-            iconBg: "bg-orange-200 dark:bg-orange-800/40",
-          }
+            container:
+              "bg-zinc-100 dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 shadow-zinc-200/50",
+            icon: "text-zinc-900 dark:text-zinc-100",
+            badge:
+              "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-400 dark:border-zinc-600",
+            iconBg: "bg-zinc-300 dark:bg-zinc-700/70",
+          },
         };
       case "moderator_rejected":
         return {
           label: "Request Rejected",
-          icon: ModeratorIcon ,
+          icon: ModeratorIcon,
           styles: {
-            container: "bg-orange-100 dark:bg-orange-900/30 border-orange-300 dark:border-orange-700 shadow-orange-100/50",
-            icon: "text-orange-700 dark:text-orange-400",
-            badge: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700",
-            iconBg: "bg-orange-200 dark:bg-orange-800/40",
-          }
+            container:
+              "bg-zinc-100 dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 shadow-zinc-200/50",
+            icon: "text-zinc-900 dark:text-zinc-100",
+            badge:
+              "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-400 dark:border-zinc-600",
+            iconBg: "bg-zinc-300 dark:bg-zinc-700/70",
+          },
         };
       default:
         return {
           label: "Unknown",
           icon: AlertCircle,
           styles: {
-            container: "bg-gray-100 dark:bg-gray-900/30 border-gray-300 dark:border-gray-700 shadow-gray-100/50",
+            container:
+              "bg-gray-100 dark:bg-gray-900/30 border-gray-300 dark:border-gray-700 shadow-gray-100/50",
             icon: "text-gray-700 dark:text-gray-400",
-            badge: "bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-400 border border-gray-300 dark:border-gray-700",
+            badge:
+              "bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-400 border border-gray-300 dark:border-gray-700",
             iconBg: "bg-gray-200 dark:bg-gray-800/40",
-          }
+          },
         };
     }
   };
 
   const formatDate = (dateString?: string | Date | null): string => {
     if (!dateString) return "";
-  
-    const date = typeof dateString === "string"
-      ? new Date(dateString)
-      : dateString;
-  
+
+    const date =
+      typeof dateString === "string" ? new Date(dateString) : dateString;
+
     if (isNaN(date.getTime())) return "";
-  
+
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
@@ -1760,22 +1777,19 @@ const RerouteTimeline = ({ currentUser,rerouteData }:RerouteTimelineProps) => {
     <div className="w-full space-y-6 my-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-primary/10">
-            <Users className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-semibold text-foreground">
-            Question Reroute Timeline
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">
-             
-            Total Reroutes: {reroutes.length}
-            </p>
-          </div>
+        <div className="p-2.5 rounded-xl bg-primary/10">
+          <Users className="w-6 h-6 text-primary" />
         </div>
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent my-4"></div>
-      
-      
+        <div>
+          <h2 className="text-2xl font-semibold text-foreground">
+            Question Reroute Timeline
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Total Reroutes: {reroutes.length}
+          </p>
+        </div>
+      </div>
+      <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent my-4"></div>
 
       {/* Timeline Grid */}
       {reroutes.length === 0 ? (
@@ -1860,29 +1874,38 @@ const RerouteTimeline = ({ currentUser,rerouteData }:RerouteTimelineProps) => {
                       <div
                         className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${statusInfo.styles.iconBg}`}
                       >
-                        <StatusIcon className={`w-6 h-6 ${statusInfo.styles.icon}`} />
+                        <StatusIcon
+                          className={`w-6 h-6 ${statusInfo.styles.icon}`}
+                        />
                       </div>
 
                       <div className="text-center w-full px-2">
-                        {currentUser.role=="expert"?<p className="text-xs font-semibold">Reviewer {index+1}</p>:(
+                        {currentUser.role == "expert" ? (
+                          <p className="text-xs font-semibold">
+                            Reviewer {index + 1}
+                          </p>
+                        ) : (
                           <div>
-                          <p
-                          className="text-xs font-semibold text-gray-900 dark:text-white truncate"
-                          title={reroute.reroutedTo.firstName}
-                        >
-                          {reroute.reroutedTo.firstName?.slice(0, 15)}
-                          {reroute.reroutedTo.firstName?.length > 15 ? "..." : ""}
-                        </p>
-                        <p
-                          className="text-[10px] text-gray-600 dark:text-gray-400 truncate mt-0.5"
-                          title={reroute.reroutedTo.email}
-                        >
-                          {reroute.reroutedTo.email?.slice(0, 23)}
-                          {reroute.reroutedTo.email?.length > 23 ? "..." : ""}
-                        </p>
-                        </div>
+                            <p
+                              className="text-xs font-semibold text-gray-900 dark:text-white truncate"
+                              title={reroute.reroutedTo.firstName}
+                            >
+                              {reroute.reroutedTo.firstName?.slice(0, 15)}
+                              {reroute.reroutedTo.firstName?.length > 15
+                                ? "..."
+                                : ""}
+                            </p>
+                            <p
+                              className="text-[10px] text-gray-600 dark:text-gray-400 truncate mt-0.5"
+                              title={reroute.reroutedTo.email}
+                            >
+                              {reroute.reroutedTo.email?.slice(0, 23)}
+                              {reroute.reroutedTo.email?.length > 23
+                                ? "..."
+                                : ""}
+                            </p>
+                          </div>
                         )}
-                        
                       </div>
 
                       <span
@@ -1906,7 +1929,9 @@ const RerouteTimeline = ({ currentUser,rerouteData }:RerouteTimelineProps) => {
                           Rerouted by
                         </p>
                         <p className="text-xs text-gray-600 dark:text-gray-400">
-                          {currentUser.role=="expert"?"Moderator":reroute.reroutedBy.firstName}
+                          {currentUser.role == "expert"
+                            ? "Moderator"
+                            : reroute.reroutedBy.firstName}
                         </p>
                         <p className="text-[10px] text-gray-500 dark:text-gray-500">
                           {formatDate(reroute.reroutedAt)}
@@ -1954,13 +1979,13 @@ const RerouteTimeline = ({ currentUser,rerouteData }:RerouteTimelineProps) => {
 
 interface IAnswerTimelineProps {
   answers: IAnswer[];
-  currentUserId: string |undefined;
+  currentUserId: string | undefined;
   question: IQuestionFullData;
   answerVisibleCount: number;
   commentRef: React.RefObject<HTMLDivElement>;
   userRole: UserRole;
   queue: ISubmission["queue"];
-  rerouteQuestion?:IRerouteHistoryResponse[]
+  rerouteQuestion?: IRerouteHistoryResponse[];
 }
 
 export const AnswerTimeline = ({
@@ -1971,7 +1996,7 @@ export const AnswerTimeline = ({
   commentRef,
   userRole,
   queue,
-  rerouteQuestion
+  rerouteQuestion,
 }: IAnswerTimelineProps) => {
   // map answers to timeline events
   const events = answers.slice(0, answerVisibleCount).map((ans) => {
@@ -2015,17 +2040,15 @@ export const AnswerTimeline = ({
               {item.createdAt}
             </small>
             <div>
-              
-            {item?.submission?.isReroute &&
-            <Badge
-              variant="outline"
-              className="text-green-600 border-green-600"
-            >
-               ReRouted
-            </Badge>
-        }
-           
-              </div>
+              {item?.submission?.isReroute && (
+                <Badge
+                  variant="outline"
+                  className="text-green-600 border-green-600"
+                >
+                  ReRouted
+                </Badge>
+              )}
+            </div>
           </div>
         )}
         content={(item) => (
@@ -2052,7 +2075,7 @@ export const AnswerTimeline = ({
 
 interface AnswerItemProps {
   answer: IAnswer;
-  currentUserId: string|undefined;
+  currentUserId: string | undefined;
   submissionData?: ISubmissionHistory;
   questionId: string;
   lastAnswerId: string;
@@ -2060,7 +2083,7 @@ interface AnswerItemProps {
   userRole: UserRole;
   questionStatus: QuestionStatus;
   queue: ISubmission["queue"];
-  rerouteQuestion?:IRerouteHistoryResponse[]
+  rerouteQuestion?: IRerouteHistoryResponse[];
 }
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
@@ -2161,46 +2184,44 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
 
   const isRejected =
     props.submissionData && props.submissionData.status === "rejected";
-    
-    const { data: usersData, isLoading: isUsersLoading } = useGetAllUsers();
-const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRouteAllocation();
-    
-    const [searchTerm, setSearchTerm] = useState("");
-    const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const { data: usersData, isLoading: isUsersLoading } = useGetAllUsers();
+  const { mutateAsync: allocateExpert, isPending: allocatingExperts } =
+    useGetReRouteAllocation();
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
   //  const expertsIdsInQueue = new Set(props.queue?.map((expert) => expert._id));
-    const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
-    const [comment, setComment] = useState("");
-    const reroutedExpertIds =
-    props.rerouteQuestion
-      ?.flatMap(item => item.reroutes.map(r => r.reroutedTo._id))
-      ?? [];
-     /* const expertsIdsInQueue = new Set<string>([
+  const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
+  const [comment, setComment] = useState("");
+  const reroutedExpertIds =
+    props.rerouteQuestion?.flatMap((item) =>
+      item.reroutes.map((r) => r.reroutedTo._id)
+    ) ?? [];
+  /* const expertsIdsInQueue = new Set<string>([
         ...(props.queue?.map(expert => expert._id) ?? []),
         ...reroutedExpertIds,
       ]);*/
-      const expertsIdsInQueue = new Set<string>([ ...reroutedExpertIds ])
-      const lastReroutedTo =
-      props.rerouteQuestion?.[0]?.reroutes?.length
-    ? props.rerouteQuestion[0].reroutes[props.rerouteQuestion[0].reroutes.length - 1]
+  const expertsIdsInQueue = new Set<string>([...reroutedExpertIds]);
+  const lastReroutedTo = props.rerouteQuestion?.[0]?.reroutes?.length
+    ? props.rerouteQuestion[0].reroutes[
+        props.rerouteQuestion[0].reroutes.length - 1
+      ]
     : null;
-   // console.log("the submission data====",props.submissionData)
-    
- /* const experts =
+  // console.log("the submission data====",props.submissionData)
+
+  /* const experts =
     usersData?.users.filter(
       (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id)
     ) || [];*/
-    const experts =
-    usersData?.users.filter(
-      (user) => user.role === "expert" 
-    ) || []
+  const experts =
+    usersData?.users.filter((user) => user.role === "expert") || [];
 
   const filteredExperts = experts.filter(
     (expert) =>
       expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       expert.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
- 
 
   const handleSelectExpert = (expertId: string) => {
     setSelectedExperts((prev) =>
@@ -2215,23 +2236,22 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRo
       toast.error("Please select an expert.");
       return;
     }
-  
+
     if (!comment.trim()) {
       toast.error("Comments are required.");
       return;
     }
-   
+
     try {
-      
       await allocateExpert({
         questionId: props.questionId,
         experts: selectedExperts[0],
-        moderatorId:props.currentUserId,
-        answerId:props.answer?._id,
+        moderatorId: props.currentUserId,
+        answerId: props.answer?._id,
         comment: comment.trim(),
         status: "pending" as ReRouteStatus,
       });
-      toast.success("You have successfully Re Routed the question")
+      toast.success("You have successfully Re Routed the question");
       setSelectedExperts([]);
       setIsModalOpen(false);
     } catch (error: any) {
@@ -2244,56 +2264,54 @@ const { mutateAsync: allocateExpert, isPending: allocatingExperts } = useGetReRo
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const { rejectReRoute, isRejecting } = useReRouteRejectQuestion();
-  const handleRejectReRouteAnswer = async(reason: string) => {
+  const handleRejectReRouteAnswer = async (reason: string) => {
     if (reason.trim() === "") {
-        toast.error("No reason provided for rejection");
-          return;
-        }
-        if (reason.length < 8) {
-          toast.error("Rejection reason must be atleast 8 letters");
-          return;
-        }
-        const rerouteQuestion = props.rerouteQuestion;
+      toast.error("No reason provided for rejection");
+      return;
+    }
+    if (reason.length < 8) {
+      toast.error("Rejection reason must be atleast 8 letters");
+      return;
+    }
+    const rerouteQuestion = props.rerouteQuestion;
 
-if (!rerouteQuestion || rerouteQuestion.length === 0) {
-  console.warn("No reroute question available");
-  return;
-}
-if (!lastReroutedTo) {
-  console.warn("No reroute info found");
-  return;
-}
-    
-const questionId = rerouteQuestion[0].questionId;
-const rerouteId = rerouteQuestion[0]._id;
-const moderatorId = lastReroutedTo.reroutedTo._id;
-const userId = lastReroutedTo.reroutedTo._id;
+    if (!rerouteQuestion || rerouteQuestion.length === 0) {
+      console.warn("No reroute question available");
+      return;
+    }
+    if (!lastReroutedTo) {
+      console.warn("No reroute info found");
+      return;
+    }
+
+    const questionId = rerouteQuestion[0].questionId;
+    const rerouteId = rerouteQuestion[0]._id;
+    const moderatorId = lastReroutedTo.reroutedTo._id;
+    const userId = lastReroutedTo.reroutedTo._id;
 
     try {
- let result=   await rejectReRoute({
+      let result = await rejectReRoute({
         reason,
         rerouteId: rerouteId,
         questionId: questionId,
         moderatorId: moderatorId,
-        expertId:userId,
-        role:'moderator'
-
+        expertId: userId,
+        role: "moderator",
       });
-      console.log("the result coming====",result)
-     toast.success("You have successfully rejected the Re Route Question");
-    } catch (error:any) {
+      console.log("the result coming====", result);
+      toast.success("You have successfully rejected the Re Route Question");
+    } catch (error: any) {
       // ✅ NOW you will see backend error
-    console.error("Failed to reject reroute question:", error);
+      console.error("Failed to reject reroute question:", error);
 
-    const message =
-      error?.response?.data?.message ||
-      error?.message ||
-      "Something went wrong";
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Something went wrong";
 
-    toast.error(message);
+      toast.error(message);
     }
 
-  
     // 🔥 call mutation / API here
     // rejectReRouteMutation.mutate(payload);
   };
@@ -2317,28 +2335,29 @@ const userId = lastReroutedTo.reroutedTo._id;
               Final
             </Badge>
           )}
-          {props?.submissionData?.rejectedAnswer&& (
+          {props?.submissionData?.rejectedAnswer && (
             <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
               <XCircle className="w-3 h-3 mr-1" />
               Rejected
             </Badge>
           )}
-          {isRejected &&!props.submissionData?.isReroute && (
+          {isRejected && !props.submissionData?.isReroute && (
             <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
               <XCircle className="w-3 h-3 mr-1" />
               Rejected
             </Badge>
           )}
-          {props.submissionData?.isReroute && props.submissionData?.status=="rejected" && props.lastAnswerId != props.answer?._id&& (
-            <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
-              <XCircle className="w-3 h-3 mr-1" />
-              Rejected
-            </Badge>
-          )} 
-          {
-           ( props.questionStatus === "in-review"||props.questionStatus === "re-routed") &&
-            props.lastAnswerId === props.answer?._id &&
-             (
+          {props.submissionData?.isReroute &&
+            props.submissionData?.status == "rejected" &&
+            props.lastAnswerId != props.answer?._id && (
+              <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
+                <XCircle className="w-3 h-3 mr-1" />
+                Rejected
+              </Badge>
+            )}
+          {(props.questionStatus === "in-review" ||
+            props.questionStatus === "re-routed") &&
+            props.lastAnswerId === props.answer?._id && (
               <Badge
                 className="
       bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100
@@ -2349,9 +2368,11 @@ const userId = lastReroutedTo.reroutedTo._id;
                 In Review
               </Badge>
             )}
-          
-             {!isRejected &&!props?.submissionData?.rejectedAnswer&&
-            props.questionStatus !== "in-review" &&props.questionStatus !== "re-routed"&&
+
+          {!isRejected &&
+            !props?.submissionData?.rejectedAnswer &&
+            props.questionStatus !== "in-review" &&
+            props.questionStatus !== "re-routed" &&
             props.questionStatus !== "closed" && (
               <Badge
                 className="
@@ -2368,25 +2389,25 @@ const userId = lastReroutedTo.reroutedTo._id;
         </div>
         <div className="flex items-center justify-center gap-2">
           {props.userRole !== "expert" &&
-            (props.questionStatus === "in-review"||props.questionStatus === "re-routed") &&
+            (props.questionStatus === "in-review" ||
+              props.questionStatus === "re-routed") &&
             props.lastAnswerId === props.answer?._id && (
               <Dialog open={editOpen} onOpenChange={setEditOpen}>
                 <DialogTrigger asChild>
-                  <button 
-                  disabled={lastReroutedTo?.status === "pending"}
-                  className={`bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded
-                    ${lastReroutedTo?.status === "pending"
-                      ? "opacity-50 cursor-not-allowed"
-                      : "hover:bg-primary/90"}
+                  <button
+                    disabled={lastReroutedTo?.status === "pending"}
+                    className={`bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded
+                    ${
+                      lastReroutedTo?.status === "pending"
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:bg-primary/90"
+                    }
                   `}
-                  
                   >
                     <CheckCircle2 className="h-4 w-4" />
                     Approve Answer
                   </button>
-                  
                 </DialogTrigger>
-                
 
                 <DialogContent
                   className="w-[90vw] max-w-6xl max-h-[85vh] flex flex-col"
@@ -2445,28 +2466,29 @@ const userId = lastReroutedTo.reroutedTo._id;
                 </DialogContent>
               </Dialog>
             )}
-            {props.userRole !== "expert" &&
-           ( props.questionStatus === "in-review"||props.questionStatus === "re-routed") &&
+          {props.userRole !== "expert" &&
+            (props.questionStatus === "in-review" ||
+              props.questionStatus === "re-routed") &&
             props.lastAnswerId === props.answer?._id && (
               <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-              <DialogTrigger asChild>
-              <button 
-                  disabled={lastReroutedTo?.status === "pending"}
-                  className={`bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded
-                    ${lastReroutedTo?.status === "pending"
-                      ? "opacity-50 cursor-not-allowed"
-                      : "hover:bg-primary/90"}
+                <DialogTrigger asChild>
+                  <button
+                    disabled={lastReroutedTo?.status === "pending"}
+                    className={`bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded
+                    ${
+                      lastReroutedTo?.status === "pending"
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:bg-primary/90"
+                    }
                   `}
-                  
                   >
                     <Send className="h-4 w-4" />
                     Re Route
                   </button>
-                
-              </DialogTrigger>
+                </DialogTrigger>
 
-              <DialogContent
-                className="
+                <DialogContent
+                  className="
                         w-[95vw]                 
                         sm:max-w-xl              
                         md:max-w-4xl             
@@ -2477,224 +2499,224 @@ const userId = lastReroutedTo.reroutedTo._id;
                         flex flex-col        
                         p-4                       
                       "
-              >
-              <div className="mt-4 space-y-2">
-                <Label htmlFor="reject-comment">
-                  Comments <span className="text-red-500">*</span>
-                </Label>
-                <Textarea
-                  id="reject-comment"
-                  placeholder="Enter reason for rejection..."
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  className="min-h-[100px]"
-                  required
-                />
-              </div>
-                <DialogHeader className="space-y-4">
-                  <DialogTitle className="flex items-center gap-3 text-lg font-semibold">
-                    <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <UserPlus className="w-5 h-5 text-primary" />
-                    </div>
-                    Select Experts Manually
-                  </DialogTitle>
-
-                  <div className="mt-1 relative">
-                    <Input
-                      type="text"
-                      placeholder="Search experts by name, email..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary border"
+                >
+                  <div className="mt-4 space-y-2">
+                    <Label htmlFor="reject-comment">
+                      Comments <span className="text-red-500">*</span>
+                    </Label>
+                    <Textarea
+                      id="reject-comment"
+                      placeholder="Enter reason for rejection..."
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      className="min-h-[100px]"
+                      required
                     />
-                    {searchTerm && (
-                      <button
-                        type="button"
-                        onClick={() => setSearchTerm("")}
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
                   </div>
-                </DialogHeader>
+                  <DialogHeader className="space-y-4">
+                    <DialogTitle className="flex items-center gap-3 text-lg font-semibold">
+                      <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <UserPlus className="w-5 h-5 text-primary" />
+                      </div>
+                      Select Experts Manually
+                    </DialogTitle>
 
-                <ScrollArea
-                  className="
+                    <div className="mt-1 relative">
+                      <Input
+                        type="text"
+                        placeholder="Search experts by name, email..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary border"
+                      />
+                      {searchTerm && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchTerm("")}
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </DialogHeader>
+
+                  <ScrollArea
+                    className="
                             max-h-[50vh]      
                             md:max-h-[60vh]
                             pr-2
                           "
-                >
-                  <div className="space-y-3">
-                    {isUsersLoading && (
-                      <div className="flex justify-center items-center py-10 text-muted-foreground">
-                        <div className="flex flex-col items-center space-y-2">
-                          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                          <span className="text-sm">Loading experts...</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {!isUsersLoading && filteredExperts.length === 0 && (
-                      <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
-                        <UserPlus className="w-8 h-8 mb-2 text-muted-foreground/80" />
-                        <p className="text-sm font-medium">
-                          No experts available
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Try refreshing or check back later.
-                        </p>
-                      </div>
-                    )}
-
-                    {!isUsersLoading &&
-                      filteredExperts.map((expert) => (
-                        <div
-                          key={expert._id}
-                          className={`flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors ${
-                            expert.isBlocked
-                              ? "blur-[0px] cursor-not-allowed"
-                              : "hover:bg-muted/50"
-                          }
-`}
-                        >
-                          <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <User className="w-5 h-5 text-primary" />
+                  >
+                    <div className="space-y-3">
+                      {isUsersLoading && (
+                        <div className="flex justify-center items-center py-10 text-muted-foreground">
+                          <div className="flex flex-col items-center space-y-2">
+                            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            <span className="text-sm">Loading experts...</span>
                           </div>
-
-                          <Checkbox
-                            id={`expert-${expert._id}`}
-                            checked={selectedExperts.includes(expert._id)}
-                            onCheckedChange={() =>
-                              handleSelectExpert(expert._id)
-                            }
-                            disabled={
-                              expert.isBlocked ||
-                              (selectedExperts.length > 0 &&
-                                !selectedExperts.includes(expert._id))
-                            }
-                            className="mt-1"
-                          />
-                          {/* {expert.isBlocked ? 'Blocked' : ''} */}
-
-                          <Label
-                            htmlFor={`expert-${expert._id}`}
-                            className="font-normal cursor-pointer flex-1 w-full"
-                          >
-                            <div className="flex justify-between items-center w-full">
-                              <div className="flex flex-col">
-                                <div
-                                  className="font-medium truncate"
-                                  title={expert.userName}
-                                >
-                                  {expert?.userName?.slice(0, 48)}
-                                  {expert?.userName?.length > 48 ? "..." : ""}
-                                </div>
-                                <div
-                                  className="text-xs text-muted-foreground truncate"
-                                  title={expert.email}
-                                >
-                                  {expert?.email?.slice(0, 48)}
-                                  {expert?.email?.length > 48 ? "..." : ""}
-                                </div>
-                                {expert.isBlocked && (
-                                  <span className="mt-1 text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full w-fit">
-                                    Blocked
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="text-sm text-muted-foreground flex-shrink-0 ml-2 hidden md:block">
-                                {expert.preference?.domain &&
-                                expert.preference.domain !== "all"
-                                  ? expert.preference.domain
-                                  : "Agriculture Expert"}
-                              </div>
-                            </div>
-                          </Label>
                         </div>
-                      ))}
-                  </div>
-                </ScrollArea>
+                      )}
 
-                <DialogFooter className="flex gap-2 justify-end pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={handleCancel}
-                    className="hidden md:block"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={selectedExperts.length === 0 || !comment.trim()}
-                  >
-                    {`Submit (${selectedExperts.length} selected)`}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                      {!isUsersLoading && filteredExperts.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                          <UserPlus className="w-8 h-8 mb-2 text-muted-foreground/80" />
+                          <p className="text-sm font-medium">
+                            No experts available
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Try refreshing or check back later.
+                          </p>
+                        </div>
+                      )}
+
+                      {!isUsersLoading &&
+                        filteredExperts.map((expert) => (
+                          <div
+                            key={expert._id}
+                            className={`flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors ${
+                              expert.isBlocked
+                                ? "blur-[0px] cursor-not-allowed"
+                                : "hover:bg-muted/50"
+                            }
+`}
+                          >
+                            <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
+                              <User className="w-5 h-5 text-primary" />
+                            </div>
+
+                            <Checkbox
+                              id={`expert-${expert._id}`}
+                              checked={selectedExperts.includes(expert._id)}
+                              onCheckedChange={() =>
+                                handleSelectExpert(expert._id)
+                              }
+                              disabled={
+                                expert.isBlocked ||
+                                (selectedExperts.length > 0 &&
+                                  !selectedExperts.includes(expert._id))
+                              }
+                              className="mt-1"
+                            />
+                            {/* {expert.isBlocked ? 'Blocked' : ''} */}
+
+                            <Label
+                              htmlFor={`expert-${expert._id}`}
+                              className="font-normal cursor-pointer flex-1 w-full"
+                            >
+                              <div className="flex justify-between items-center w-full">
+                                <div className="flex flex-col">
+                                  <div
+                                    className="font-medium truncate"
+                                    title={expert.userName}
+                                  >
+                                    {expert?.userName?.slice(0, 48)}
+                                    {expert?.userName?.length > 48 ? "..." : ""}
+                                  </div>
+                                  <div
+                                    className="text-xs text-muted-foreground truncate"
+                                    title={expert.email}
+                                  >
+                                    {expert?.email?.slice(0, 48)}
+                                    {expert?.email?.length > 48 ? "..." : ""}
+                                  </div>
+                                  {expert.isBlocked && (
+                                    <span className="mt-1 text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full w-fit">
+                                      Blocked
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="text-sm text-muted-foreground flex-shrink-0 ml-2 hidden md:block">
+                                  {expert.preference?.domain &&
+                                  expert.preference.domain !== "all"
+                                    ? expert.preference.domain
+                                    : "Agriculture Expert"}
+                                </div>
+                              </div>
+                            </Label>
+                          </div>
+                        ))}
+                    </div>
+                  </ScrollArea>
+
+                  <DialogFooter className="flex gap-2 justify-end pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={handleCancel}
+                      className="hidden md:block"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={selectedExperts.length === 0 || !comment.trim()}
+                    >
+                      {`Submit (${selectedExperts.length} selected)`}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             )}
-            
-             {props.userRole !== "expert" &&
-           ( props.questionStatus === "in-review"||props.questionStatus === "re-routed") &&
-            props.lastAnswerId === props.answer?._id && lastReroutedTo?.status == "pending"&& (
-              <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-              <DialogTrigger asChild>
-              <button 
-                  disabled={lastReroutedTo?.status != "pending"}
-                  className={`bg-red-400 text-primary-foreground flex items-center gap-2 px-2 py-2 rounded bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 shadow-red-100/50
-                    ${lastReroutedTo?.status != "pending"
-                      ? "opacity-50 cursor-not-allowed"
-                      : "hover:bg-red/90"}
+
+          {props.userRole !== "expert" &&
+            (props.questionStatus === "in-review" ||
+              props.questionStatus === "re-routed") &&
+            props.lastAnswerId === props.answer?._id &&
+            lastReroutedTo?.status == "pending" && (
+              <Dialog
+                open={isRejectDialogOpen}
+                onOpenChange={setIsRejectDialogOpen}
+              >
+                <DialogTrigger asChild>
+                  <button
+                    disabled={lastReroutedTo?.status != "pending"}
+                    className={`bg-red-400 text-primary-foreground flex items-center gap-2 px-2 py-2 rounded bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 shadow-red-100/50
+                    ${
+                      lastReroutedTo?.status != "pending"
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:bg-red/90"
+                    }
                   `}
-                  
                   >
                     <XCircle className="w-3 h-3" />
-                              Reject ReRoute
-                            
+                    Reject ReRoute
                   </button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Rejection Reason *</DialogTitle>
-            </DialogHeader>
-            <Textarea
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              rows={10}
-              className="mt-2 h-[30vh]"
-              placeholder="Write your reason..."
-            />
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Rejection Reason *</DialogTitle>
+                  </DialogHeader>
+                  <Textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    rows={10}
+                    className="mt-2 h-[30vh]"
+                    placeholder="Write your reason..."
+                  />
 
-           <DialogFooter className="mt-4 gap-2">
-      {/* Cancel */}
-      <Button
-        variant="outline"
-        onClick={() => setIsRejectDialogOpen(false)}
-      >
-        Cancel
-      </Button>
+                  <DialogFooter className="mt-4 gap-2">
+                    {/* Cancel */}
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsRejectDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
 
-      {/* Submit */}
-      <Button
-       disabled={rejectionReason.length<8}
-        onClick={() => {
-          handleRejectReRouteAnswer(rejectionReason);
-          setIsRejectDialogOpen(false);
-        }}
-      >
-        { "Submit"}
-      </Button>
-    </DialogFooter>
-    </DialogContent>
-  
-                
-             
-
-              
-            </Dialog>
+                    {/* Submit */}
+                    <Button
+                      disabled={rejectionReason.length < 8}
+                      onClick={() => {
+                        handleRejectReRouteAnswer(rejectionReason);
+                        setIsRejectDialogOpen(false);
+                      }}
+                    >
+                      {"Submit"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             )}
           {props.answer?.approvalCount !== undefined &&
             props.answer?.approvalCount > 0 && (
@@ -2743,54 +2765,57 @@ const userId = lastReroutedTo.reroutedTo._id;
                             ? "Final Answer"
                             : "Draft"}
                         </Badge> */}
-                        {props?.submissionData?.rejectedAnswer&& (
-            <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
-              <XCircle className="w-3 h-3 mr-1" />
-              Rejected
-            </Badge>
-          )}
-          {isRejected &&!props.submissionData?.isReroute && (
-            <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
-              <XCircle className="w-3 h-3 mr-1" />
-              Rejected
-            </Badge>
-          )}
-          {props.submissionData?.isReroute && props.submissionData?.status=="rejected" && props.lastAnswerId != props.answer?._id&& (
-            <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
-              <XCircle className="w-3 h-3 mr-1" />
-              Rejected
-            </Badge>
-          )} 
-          {
-           ( props.questionStatus === "in-review"||props.questionStatus === "re-routed") &&
-            props.lastAnswerId === props.answer?._id &&
-             (
-              <Badge
-                className="
+                        {props?.submissionData?.rejectedAnswer && (
+                          <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Rejected
+                          </Badge>
+                        )}
+                        {isRejected && !props.submissionData?.isReroute && (
+                          <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Rejected
+                          </Badge>
+                        )}
+                        {props.submissionData?.isReroute &&
+                          props.submissionData?.status == "rejected" &&
+                          props.lastAnswerId != props.answer?._id && (
+                            <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
+                              <XCircle className="w-3 h-3 mr-1" />
+                              Rejected
+                            </Badge>
+                          )}
+                        {(props.questionStatus === "in-review" ||
+                          props.questionStatus === "re-routed") &&
+                          props.lastAnswerId === props.answer?._id && (
+                            <Badge
+                              className="
       bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100
       dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 dark:hover:bg-amber-900
     "
-              >
-                <Clock className="w-3 h-3 mr-1 opacity-80" />
-                In Review
-              </Badge>
-            )}
-          
-             {!isRejected &&!props?.submissionData?.rejectedAnswer&&
-            props.questionStatus !== "in-review" &&props.questionStatus !== "re-routed"&&
-            props.questionStatus !== "closed" && (
-              <Badge
-                className="
-      bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100
-      dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 dark:hover:bg-amber-900
-    "
-              >
-                <Clock className="w-3 h-3 mr-1 opacity-80" />
-                In Review
-              </Badge>
-            )}
+                            >
+                              <Clock className="w-3 h-3 mr-1 opacity-80" />
+                              In Review
+                            </Badge>
+                          )}
 
-                    {/** {isRejected && (
+                        {!isRejected &&
+                          !props?.submissionData?.rejectedAnswer &&
+                          props.questionStatus !== "in-review" &&
+                          props.questionStatus !== "re-routed" &&
+                          props.questionStatus !== "closed" && (
+                            <Badge
+                              className="
+      bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100
+      dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 dark:hover:bg-amber-900
+    "
+                            >
+                              <Clock className="w-3 h-3 mr-1 opacity-80" />
+                              In Review
+                            </Badge>
+                          )}
+
+                        {/** {isRejected && (
                           <Badge className="bg-rejected text-red-500 dark:text-red-700">
                             <XCircle className="w-3 h-3 mr-1" />
                             Rejected
@@ -2807,7 +2832,7 @@ const userId = lastReroutedTo.reroutedTo._id;
                               <Clock className="w-3 h-3 mr-1 opacity-80" />
                               In Review
                             </Badge>
-                          )}*/}    
+                          )}*/}
                       </div>
 
                       <div className="flex flex-col text-muted-foreground text-xs">
@@ -2827,7 +2852,7 @@ const userId = lastReroutedTo.reroutedTo._id;
                               {props.submissionData.updatedBy?.email && (
                                 <> ({props.submissionData.updatedBy.email})</>
                               )}
-                          </span>      
+                            </span>
                           </p>
 
                           {props.answer.threshold > 0 && (
@@ -2952,18 +2977,18 @@ const userId = lastReroutedTo.reroutedTo._id;
                   {/* Review Timeline */}
                   {props.answer.reviews && props.answer.reviews.length > 0 && (
                     <div className="mt-6">
-                     {/* <p className="text-sm font-medium text-foreground mb-3">
+                      {/* <p className="text-sm font-medium text-foreground mb-3">
                         Review Timeline
                   </p>*/}
-                      { props.submissionData?.isReroute&&(
+                      {props.submissionData?.isReroute && (
                         <p className="text-sm font-medium text-foreground mb-3">
-                        ReRoute Timeline
-                      </p>
+                          ReRoute Timeline
+                        </p>
                       )}
-                      { !props.submissionData?.isReroute&&(
+                      {!props.submissionData?.isReroute && (
                         <p className="text-sm font-medium text-foreground mb-3">
-                        Review Timeline
-                      </p>
+                          Review Timeline
+                        </p>
                       )}
 
                       <div className="space-y-4">
@@ -3107,8 +3132,8 @@ const userId = lastReroutedTo.reroutedTo._id;
                       </div>
                     </div>
                   )}
-                   
-            {/*props.rerouteQuestion && props.rerouteQuestion?.[0]?.reroutes?.length > 0 && (
+
+                  {/*props.rerouteQuestion && props.rerouteQuestion?.[0]?.reroutes?.length > 0 && (
             <div className="space-y-3">
               {props.rerouteQuestion[0].reroutes.map((reroute, index) => {
                  if (!reroute?.answer?.answer) return null;
@@ -3205,7 +3230,6 @@ const userId = lastReroutedTo.reroutedTo._id;
                               })}
   </div>
                             )*/}
-
                 </div>
               </ScrollArea>
             </DialogContent>
