@@ -31,7 +31,7 @@ export class ReRouteRepository implements IReRouteRepository {
   ) {}
 
   private async init() {
-    this.ReRouteCollection = await this.db.getCollection<IReroute>('reroute');
+    this.ReRouteCollection = await this.db.getCollection<IReroute>('reroutes');
   }
 
   async addrerouteAnswer(

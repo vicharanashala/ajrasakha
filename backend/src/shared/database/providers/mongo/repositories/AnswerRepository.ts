@@ -43,7 +43,7 @@ export class AnswerRepository implements IAnswerRepository {
     this.QuestionSubmissionCollection =
       await this.db.getCollection<IQuestionSubmission>('question_submissions');
     await this.db.getCollection<IQuestionSubmission>('question_submissions');
-    this.ReRouteCollection = await this.db.getCollection<IReroute>('reroute');
+    this.ReRouteCollection = await this.db.getCollection<IReroute>('reroutes');
   }
 
   async addAnswer(

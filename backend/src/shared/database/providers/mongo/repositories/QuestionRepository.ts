@@ -73,7 +73,7 @@ export class QuestionRepository implements IQuestionRepository {
     this.UsersCollection = await this.db.getCollection<IUser>('users');
     this.AnswersCollection = await this.db.getCollection<IAnswer>('answers');
     this.ReviewCollection = await this.db.getCollection<IReview>('reviews');
-    this.ReRouteCollection = await this.db.getCollection<IReroute>('reroute');
+    this.ReRouteCollection = await this.db.getCollection<IReroute>('reroutes');
   }
 
   private async ensureIndexes() {
