@@ -47,7 +47,7 @@ export class ReRouteService extends BaseService {
     super(mongoDatabase);
   }
 
-  async addrerouteAnswer(
+  /*async addrerouteAnswer(
     questionId: string,
     expertId: string,
     answerId: string,
@@ -70,10 +70,6 @@ if (existingReRoute?.reroutes.at(-1)?.status === "pending") {
           throw new NotFoundError('Expert not found');
         }
         const now = new Date();
-       /* const existingReRoute = await this.reRouteRepository.findByQuestionId(
-          questionId,
-          session,
-        );*/
         const rerouteHistory: IRerouteHistory = {
           reroutedBy: new ObjectId(moderatorId),
           reroutedTo: new ObjectId(expertId),
@@ -102,9 +98,6 @@ if (existingReRoute?.reroutes.at(-1)?.status === "pending") {
           const lastExpert = existingReRoute.reroutes.at(-1).reroutedTo;
           const lastStatus=existingReRoute.reroutes.at(-1).status
          
-        /*  if (lastExpert.toString() === expertId.toString()) {
-            throw new BadRequestError('Cannot assign to same expert');
-          }*/
           if (lastStatus=="pending") {
             throw new BadRequestError('The answer is in review state you can not assign new expert please refresh the page');
           }
@@ -136,7 +129,6 @@ if (existingReRoute?.reroutes.at(-1)?.status === "pending") {
           null,
           session,
         );
-       // await Promise.all([updateWorkload, sendNotification, updateQuestion]);
        await updateWorkload;
        await sendNotification;
        await updateQuestion;
@@ -145,8 +137,121 @@ if (existingReRoute?.reroutes.at(-1)?.status === "pending") {
     } catch (error) {
       throw new InternalServerError(`Failed to add expert: ${error}`);
     }
+  }*/
+  async addrerouteAnswer(
+    questionId: string,
+    expertId: string,
+    answerId: string,
+    moderatorId: string,
+    comment: string,
+    status: RerouteStatus,
+  ) {
+    try {
+      return await this._withTransaction(async (session: ClientSession) => {
+  
+        /* ---------------------------------------------------
+         * 1️⃣ VALIDATE EXPERT (inside transaction)
+         * --------------------------------------------------- */
+        const expert = await this.userRepo.findById(expertId, session);
+        if (!expert) {
+          throw new NotFoundError('Expert not found');
+        }
+  
+        const now = new Date();
+  
+        /* ---------------------------------------------------
+         * 2️⃣ READ reroute INSIDE transaction
+         * --------------------------------------------------- */
+        const existingReRoute =
+          await this.reRouteRepository.findByQuestionId(questionId, session);
+  
+        if (
+          existingReRoute?.reroutes?.length &&
+          existingReRoute.reroutes.at(-1)?.status === 'pending'
+        ) {
+          throw new BadRequestError(
+            'The answer is in review state, you cannot assign a new expert',
+          );
+        }
+  
+        /* ---------------------------------------------------
+         * 3️⃣ BUILD reroute history
+         * --------------------------------------------------- */
+        const rerouteHistory: IRerouteHistory = {
+          reroutedBy: new ObjectId(moderatorId),
+          reroutedTo: new ObjectId(expertId),
+          reroutedAt: now,
+          answerId: new ObjectId(answerId),
+          status,
+          comment,
+          updatedAt: now,
+        };
+  
+        /* ---------------------------------------------------
+         * 4️⃣ INSERT / UPDATE reroute document
+         * --------------------------------------------------- */
+        if (!existingReRoute) {
+          const payload: IReroute = {
+            answerId: new ObjectId(answerId),
+            questionId: new ObjectId(questionId),
+            reroutes: [rerouteHistory],
+            createdAt: now,
+            updatedAt: now,
+          };
+  
+          await this.reRouteRepository.addrerouteAnswer(payload, session);
+        } else {
+          const lastStatus = existingReRoute.reroutes.at(-1)?.status;
+  
+          if (lastStatus === 'pending') {
+            throw new BadRequestError(
+              'The answer is already under review. Please refresh the page.',
+            );
+          }
+  
+          await this.reRouteRepository.pushRerouteHistory(
+            answerId,
+            existingReRoute._id.toString(),
+            rerouteHistory,
+            now,
+            session,
+          );
+        }
+  
+        /* ---------------------------------------------------
+         * 5️⃣ SIDE EFFECTS (ALL WITH SAME SESSION)
+         * --------------------------------------------------- */
+        await this.userRepo.updateReputationScore(
+          expertId,
+          true,
+          session,
+        );
+  
+        await this.notificationService.saveTheNotifications(
+          'Moderator has re-routed a review for you',
+          'Re-route review assigned',
+          questionId,
+          expertId,
+          're-routed',
+          session,
+        );
+  
+        await this.questionRepo.updateQuestionStatus(
+          questionId,
+          're-routed',
+          null,
+          session,
+        );
+  
+        return;
+      });
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to add expert: ${error instanceof Error ? error.message : error}`,
+      );
+    }
   }
-
+  
 
   async getAllocatedQuestions(userId:string,query:GetDetailedQuestionsQuery){
     return await this._withTransaction(async (session:ClientSession) => {
