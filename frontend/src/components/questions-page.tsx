@@ -2,6 +2,7 @@ import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetail
 import { QuestionsFilters, QuestionsTable } from "./questions-table";
 import { useEffect, useMemo, useState } from "react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
+import { useGetReRoutedQuestionFullData } from "@/hooks/api/question/useGetReRoutedQuestionFullData";
 import { QuestionDetails } from "./question-details";
 import type { IUser } from "@/types";
 import {
@@ -100,6 +101,7 @@ export const QuestionsPage = ({
     refetch: refechSelectedQuestion,
     isLoading: isLoadingSelectedQuestion,
   } = useGetQuestionFullDataById(selectedQuestionId);
+
   useEffect(() => {
     if (autoOpenQuestionId && autoOpenQuestionId !== selectedQuestionId) {
       setSelectedQuestionId(autoOpenQuestionId);
@@ -191,22 +193,22 @@ export const QuestionsPage = ({
   return (
     <main className={"mx-auto w-full p-4 md:p-6 space-y-6"}>
       {selectedQuestionId ? (
-    isLoadingSelectedQuestion ? (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Spinner />
-      </div>
-    ) : (
-      questionDetails && (
-        <QuestionDetails
-          question={questionDetails.data}
-          currentUserId={questionDetails.currentUserId}
-          refetchAnswers={refechSelectedQuestion}
-          isRefetching={isLoadingSelectedQuestion}
-          goBack={goBack}
-          currentUser={currentUser!}
-        />
-      )
-    )
+        isLoadingSelectedQuestion ? (
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <Spinner />
+          </div>
+        ) : (
+          questionDetails && (
+            <QuestionDetails
+              question={questionDetails.data}
+              currentUserId={questionDetails.currentUserId}
+              refetchAnswers={refechSelectedQuestion}
+              isRefetching={isLoadingSelectedQuestion}
+              goBack={goBack}
+              currentUser={currentUser!}
+            />
+          )
+        )
       ) : (
         <>
           <QuestionsFilters

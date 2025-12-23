@@ -1,7 +1,7 @@
 import {ObjectId} from 'mongodb';
 
 export type UserRole = 'admin' | 'moderator' | 'expert';
-export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed';
 export interface IPreference {
   state: string;
   crop: string;
@@ -81,6 +81,7 @@ export interface IAnswer {
   approvedBy?: string | ObjectId;
   status?: string;
   answer: string;
+  reRouted?:boolean;
   modifications?:PreviousAnswersItem[];
   sources: SourceItem[];
   embedding: number[];
@@ -112,6 +113,7 @@ export interface IReview {
   createdAt?: Date;
   updatedAt?: Date;
   status?: string;
+  reRoutedReview?:boolean
 }
 
 // For transcripts
@@ -195,7 +197,11 @@ export type INotificationType =
   | 'comment'
   | 'flag_response'
   | 'review_rejected'
-  | 'review_modified';
+  | 'review_modified'
+  | 're-routed'
+  | 're-routed-rejected-expert'
+  |'re-routed-rejected-moderator'
+  |'re-routed-answer-created'
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;
@@ -225,3 +231,38 @@ export interface IReviewerHeatmapRow {
   reviewerName: string;
   counts: Record<string, number>;
 }
+export type RerouteStatus =
+  | 'pending'
+  | 'expert_rejected'
+  | 'expert_completed'
+  | 'moderator_rejected'
+  | 'moderator_approved'
+  |"approved"
+  |"rejected"
+  |"modified"
+  |"in-review";
+  export interface IRerouteHistory {
+    reroutedBy: ObjectId|string;        // Moderator
+    reroutedTo: ObjectId |string;        // Expert
+    reroutedAt: Date|string;
+    answerId?: ObjectId | string
+    status: RerouteStatus;
+    moderatorRejectionReason?:string;
+    rejectionReason?: string;    // Only when expert rejects
+    comment?: string;            // Mandatory when moderator reroutes
+  
+    updatedAt: Date|string;             // Updated on every status change
+  }
+  export interface IReroute {
+    _id?: ObjectId|string;
+  
+    answerId: ObjectId|string;          // Which answer is being rerouted
+    questionId: ObjectId|string;
+  
+    reroutes: IRerouteHistory[]; // Timeline of reroutes
+  
+    createdAt: Date|string;
+    updatedAt: Date|string;
+  }
+    
+

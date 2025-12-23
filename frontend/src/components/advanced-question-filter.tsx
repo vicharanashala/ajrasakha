@@ -48,6 +48,7 @@ import {
   ChevronDown,
   XCircle,
   Layers,
+  Send
 } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
@@ -308,6 +309,12 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                         <div className="flex items-center gap-2">
                           <AlertTriangle className="w-4 h-4 text-yellow-500" />
                           <span>Delayed</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="re-routed">
+                        <div className="flex items-center gap-2">
+                          <Send className="w-4 h-4 text-green-500" />
+                          <span>Re Routed</span>
                         </div>
                       </SelectItem>
 

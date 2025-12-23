@@ -32,6 +32,7 @@ export interface IAnswerRepository {
     session?: ClientSession,
     status?: string,
     remarks?: string,
+    type?:string,
   ): Promise<{insertedId: string}>;
 
   /**
@@ -216,6 +217,7 @@ export interface IAnswerRepository {
   page: number,
   limit: number,
   dateRange?: { from?: string; to?: string },
+  selectedHistoryId?:string,
   session?:ClientSession
 ) 
 }

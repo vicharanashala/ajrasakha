@@ -83,6 +83,7 @@ export interface IReview {
   updatedAt?: Date;
   reputation_score?: number;
   notificationRetention?: NotificationRetentionType;
+  reRoutedReview?:boolean
 }
 
 export interface HistoryItem {
@@ -102,7 +103,7 @@ export interface HistoryItem {
     //answer
     _id: string;
     answer: string;
-    approvalCount: string;
+    approvalCount: string|number;
     sources: SourceItem[];
     remarks: string;
   };
@@ -111,7 +112,7 @@ export interface HistoryItem {
   // reviewed => if an expert reviewed (accpeted/rejected) the previous answer
   // approved => After three consecutive approvals fo an answer
   // rejected => If any expert rejects an answer, so that history status would be rejected and rejected person doc status would be reviewed
-  status?: "in-review" | "reviewed" | "approved" | "rejected";
+  status?: "in-review" | "reviewed" | "approved" | "rejected"|"re-routed";
   // rejection reason
   reasonForRejection?: string;
   // If an expert is approving, it store the approved answer id
@@ -123,8 +124,21 @@ export interface HistoryItem {
   // If an expert is modifying, it store the modified answer id
   modifiedAnswer?: string;
   // timestamp
-  createdAt: Date;
-  updatedAt: Date;
+ 
+  moderator?: ModeratorRerouteRepo;
+  question?: QuestionEntityRerouteRepo;
+ 
+  rerouteId?: string;
+  reroute?: RerouteRerouteRepo;
+  text?: string;
+  
+  details?: QuestionDetailsRerouteRepo;
+  createdAt?: Date;
+  priority?: Priority;
+  id?: string;
+ 
+  updatedAt?:Date,
+ 
 }
 
 export type QuestionPriority = "low" | "medium" | "high";
@@ -155,6 +169,14 @@ export interface IQuestion {
     isFinalAnswer: boolean;
     createdAt: string;
   }[];
+}
+export interface RejectReRoutePayload {
+  reason: string;
+  rerouteId: string;
+  questionId: string;
+  moderatorId: string;
+  expertId:string
+  role:string
 }
 
 export interface ISubmissions {
@@ -227,7 +249,8 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed"|"re-routed";
+export type ReRouteStatus="pending" | "expert_rejected" | "expert_completed" | "moderator_rejected"|"moderator_approved"|"approved"|"rejected"|"modified"|"in-review";
 export interface ResponseDto {
   id: string;
   answer: string;
@@ -358,6 +381,7 @@ export interface ISubmissionHistory {
 
   modifiedAnswer: string;
   reasonForLastModification: string;
+  isReroute?:boolean
 }
 
 export interface ISubmission {
@@ -483,3 +507,291 @@ export interface INotification {
   createdAt: string;
   updatedAt: string;
 }
+// =====================
+// Reroute History Types
+// =====================
+
+
+export type RerouteStatus ="pending" | "expert_rejected" | "expert_completed" | "moderator_rejected"|"moderator_approved"|"approved"|"rejected"|"modified"|"in-review";
+
+
+// ---------------------
+// User (Moderator / Expert)
+// ---------------------
+export interface IUserReRoute {
+  _id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  reputation_score: number;
+}
+
+// ---------------------
+// Question Details
+// ---------------------
+export interface IQuestionDetailsMeta {
+  state: string;
+  district: string;
+  crop: string;
+  season: string;
+  domain: string;
+}
+
+export interface IQuestionDetails {
+  _id: string;
+  question: string;
+  text: string;
+  priority: QuestionPriority;
+  status: QuestionStatus;
+  totalAnswersCount: number;
+  createdAt: string;
+  details: IQuestionDetailsMeta;
+}
+export interface Answer {
+  _id: string | null;
+  answer?: string;
+  status?: string;
+  isFinalAnswer?: boolean;
+  sources?: Source[];
+  createdAt?: string;
+}
+
+export interface Source {
+  source: string;
+  page: string | null;
+}
+
+// ---------------------
+// Reroute Entry
+// ---------------------
+export interface IReroute {
+  reroutedAt: string;
+  status: RerouteStatus;
+  comment: string;
+  updatedAt: string;
+  reroutedBy: IUserReRoute;
+  reroutedTo: IUserReRoute;
+  answer: Answer;
+  rejectionReason?:string
+}
+
+// ---------------------
+// Main API Response
+// ---------------------
+export interface IRerouteHistoryResponse {
+  _id: string;
+  questionId: string;
+  createdAt: string;
+  updatedAt: string;
+  question: IQuestionDetails;
+  reroutes: IReroute[];
+}
+
+// ---------------------
+// API returns an array
+// ---------------------
+export type RerouteHistoryApiResponse = IRerouteHistoryResponse[];
+type Priority = "high" | "medium" | "low";
+
+ export interface ReroutedQuestionItem {
+  id: string;
+  text: string;
+  status: QuestionStatus;
+  priority: Priority;
+  createdAt: string;
+  updatedAt: string;
+  totalAnswersCount: number;
+  moderator: Moderator;
+  question: Question;
+  answer: AnswerReRoute;
+  reroute: Reroute;
+  details: QuestionDetailsReRoute;
+  source:QuestionSource
+}
+
+interface Moderator {
+  _id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+}
+
+interface Question {
+  _id: string;
+  question: string;
+  priority: Priority;
+  status: QuestionStatus;
+  details: QuestionDetailsReRoute;
+  createdAt: string;
+}
+
+interface QuestionDetailsReRoute {
+  state: string;
+  district: string;
+  crop: string;
+  season: string;
+  domain: string;
+}
+
+interface AnswerReRoute {
+  _id: string;
+  answer: string;
+  isFinalAnswer: boolean;
+  answerIteration: number;
+  approvalCount: number;
+  remarks: string;
+  status: string;
+  reRouted: boolean;
+  sources: AnswerSource[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AnswerSource {
+  source: string;
+  page: number | null;
+}
+
+interface Reroute {
+  status: RerouteStatus;
+  comment: string;
+  reroutedAt: string;
+  updatedAt: string;
+  reroutedBy: string;
+  reroutedTo: string;
+}
+export interface QuestionRerouteRepo {
+  id: string;
+  text: string;
+  source: QuestionSource;
+  details: QuestionDetailsRerouteRepo;
+  status: QuestionStatus;
+  priority: Priority;
+  aiInitialAnswer?: string;
+  createdAt: string;
+  updatedAt: string;
+  totalAnswersCount: number;
+  history: QuestionHistoryRerouteRepo[];
+  isAutoAllocate?:boolean
+}
+
+/* =========================
+   History Item
+========================= */
+
+export interface QuestionHistoryRerouteRepo {
+  moderator?: ModeratorRerouteRepo;
+  question?: QuestionEntityRerouteRepo;
+  answer?: AnswerRerouteRepo;
+  rerouteId?: string;
+  reroute?: RerouteRerouteRepo;
+  text?: string;
+  status?: QuestionStatus;
+  details?: QuestionDetailsRerouteRepo;
+  createdAt?: string;
+  priority?: Priority;
+  id?: string;
+ 
+  updatedAt?:Date,
+  updatedBy?: {
+    // who's submission is this
+    _id: string;
+    userName: string;
+    // email: string;
+  };
+  
+  
+}
+
+/* =========================
+   Moderator
+========================= */
+
+export interface ModeratorRerouteRepo {
+  _id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  id: string | null;
+}
+
+/* =========================
+   Question Entity
+========================= */
+
+export interface QuestionEntityRerouteRepo {
+  _id: string;
+  question: string;
+  priority: Priority;
+  status: QuestionStatus;
+  details: QuestionDetailsRerouteRepo;
+  createdAt: string;
+  id: string | null;
+}
+
+/* =========================
+   Question Details
+========================= */
+
+export interface QuestionDetailsRerouteRepo {
+  state: string;
+  district: string;
+  crop: string;
+  season: string;
+  domain: string;
+}
+
+/* =========================
+   Answer
+========================= */
+
+export interface AnswerRerouteRepo {
+  answer: string;
+  isFinalAnswer: boolean;
+  answerIteration: number;
+  approvalCount: number;
+  remarks: string;
+  status: string;
+  reRouted: boolean;
+  sources: AnswerSourceRerouteRepo[];
+  createdAt: string;
+  updatedAt: string;
+  id: string | null;
+  questionId: string;
+  authorId: string;
+  approvedBy: string | null;
+  _id?:string
+}
+
+/* =========================
+   Answer Source
+========================= */
+
+export interface AnswerSourceRerouteRepo {
+  source: string;
+  page: number | null;
+}
+
+/* =========================
+   Reroute
+========================= */
+
+export interface RerouteRerouteRepo {
+  status: RerouteStatus;
+  comment: string;
+  reroutedAt: string;
+  updatedAt: string;
+  reroutedBy: string;
+  reroutedTo: string;
+  answerId: string | null;
+}
+export type QuestionResponse =
+  | {
+      kind: "normal";
+      data: IQuestion;
+    }
+  | {
+      kind: "reroute";
+      data: QuestionRerouteRepo;
+    };

@@ -36,6 +36,7 @@ export class ReviewRepository implements IReviewRepository {
     answerId?: string ,
     reason?: string,
     parameters?: any,
+    reRoutedReview?:boolean,
     session?: ClientSession
   ): Promise<{ insertedId: string }> {
     await this.ensureInit();
@@ -48,6 +49,7 @@ export class ReviewRepository implements IReviewRepository {
       answerId: answerId ? new ObjectId(answerId) : undefined,
       reason,
       parameters,
+      reRoutedReview,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

@@ -3,6 +3,9 @@ import type {
   IDetailedQuestionResponse,
   IQuestion,
   QuestionFullDataResponse,
+  RejectReRoutePayload,
+  IRerouteHistoryResponse,
+  ReroutedQuestionItem
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { QuestionFilter } from "@/components/QA-interface";
@@ -14,6 +17,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
+  private _reRouteUrl = `${API_BASE_URL}/reroute`;
 
   async useGetAllDetailedQuestions(
     pageParam: number,
@@ -59,8 +63,10 @@ export class QuestionService {
     pageParam: number,
     limit: number,
     filter: QuestionFilter,
-    preferences: AdvanceFilterValues
-  ): Promise<IQuestion[] | null> {
+    preferences: AdvanceFilterValues,
+    actionType:string,
+    autoSelectQuestionId?:string|null
+  ): Promise<IQuestion[] | ReroutedQuestionItem[] |null> {
     const params = new URLSearchParams({
       page: pageParam.toString(),
       limit: limit.toString(),
@@ -87,24 +93,62 @@ export class QuestionService {
       params.append("answersCountMin", String(min));
       params.append("answersCountMax", String(max));
     }
+    if(autoSelectQuestionId)
+    {
+      params.append("autoSelectQuestionId", autoSelectQuestionId);
+
+    }
 
     if (preferences.dateRange && preferences.dateRange !== "all")
       params.append("dateRange", preferences.dateRange);
+      if(actionType=="allocated")
+      {
+        return apiFetch<IQuestion[] | null>(
+          `${this._baseUrl}/allocated?${params.toString()}`
+        );
+      }
+      else{
+        return apiFetch<ReroutedQuestionItem[]| null>(
+          `${this._reRouteUrl}/allocated?${params.toString()}`
+        );
+      }
 
-    return apiFetch<IQuestion[] | null>(
-      `${this._baseUrl}/allocated?${params.toString()}`
-    );
+   
   }
 
-  async getQuestionById(id: string): Promise<IQuestion | null> {
-    return apiFetch<IQuestion | null>(`${this._baseUrl}/${id}`);
+  async getQuestionById(id: string,actionType:string): Promise<IQuestion | null> {
+    if(actionType=="allocated")
+      {
+        return apiFetch<IQuestion | null>(`${this._baseUrl}/${id}`);
+      }
+      else{
+        return apiFetch<IQuestion | null>(`${this._reRouteUrl}/${id}`);
+      }
+
+    
   }
+  async rejectRerouteRequest(payload: RejectReRoutePayload) {
+  const { rerouteId, questionId, ...body } = payload;
+
+  return apiFetch<void>(`${this._reRouteUrl}/${rerouteId}/${questionId}`,{
+    body:JSON.stringify(body),
+    method:"PATCH"
+  })
+ 
+}
 
   async getQuestionFullDataById(
     id: string
   ): Promise<QuestionFullDataResponse | null> {
     return apiFetch<QuestionFullDataResponse | null>(
       `${this._baseUrl}/${id}/full`
+    );
+  }
+  async getReRoutedQuestionFullDataById(
+    answerId: string
+  ): Promise< IRerouteHistoryResponse[]| null> {
+    return apiFetch<IRerouteHistoryResponse[] | null>(
+      `${this._reRouteUrl}/${answerId}/history`
     );
   }
 
@@ -185,6 +229,27 @@ export class QuestionService {
       {
         method: "POST",
         body: JSON.stringify({ experts }),
+      }
+    );
+  }
+  async allocateReRouteExperts(
+    questionId: string,
+    expertId: string,
+    moderatorId?:string,
+    answerId?:string,
+    comment?:string,
+    status?:string
+
+  ): Promise<IDetailedQuestion | null> {
+    return apiFetch<IDetailedQuestion>(
+      `${this._reRouteUrl}/${questionId}/allocate-reroute-experts`,
+      {
+        method: "POST",
+        body: JSON.stringify({ expertId,
+          moderatorId,
+          answerId,
+          comment,
+        status }),
       }
     );
   }

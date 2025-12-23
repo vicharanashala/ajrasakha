@@ -19,6 +19,7 @@ export interface IReviewAnswerPayload {
   reasonForModification?: string;
   parameters: IReviewParmeters;
   remarks: string;
+  type?:string
 }
 const questionService = new AnswerService();
 export const useReviewAnswer = () => {
@@ -36,6 +37,7 @@ export const useReviewAnswer = () => {
       reasonForModification,
       parameters,
       remarks,
+      type
     }) => {
       try {
         return await questionService.reviewAnswer({
@@ -50,6 +52,7 @@ export const useReviewAnswer = () => {
           reasonForModification,
           parameters,
           remarks,
+          type
         });
       } catch (error) {
         throw error instanceof Error ? error : new Error("Unknown error");

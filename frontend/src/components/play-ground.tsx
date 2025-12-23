@@ -38,6 +38,8 @@ export const PlaygroundPage = () => {
     setSelectedCommentId,
     selectedHistoryId,
     setSelectedHistoryId,
+    selectedQuestionType,
+    setSelectedQuestionType
   } = useSelectedQuestion();
   const [activeTab, setActiveTab] = useState<string>("performance");
 
@@ -49,7 +51,11 @@ export const PlaygroundPage = () => {
     if (user.role !== "expert") {
       if (selectedRequestId) {
         calculatedTab = "request_queue";
-      } else {
+      } 
+      else if (selectedHistoryId) {
+        calculatedTab = "history";
+      }
+      else {
         /* else if(selectedExpertId)
       {
         calculatedTab = "expertPerformance";
@@ -67,7 +73,7 @@ export const PlaygroundPage = () => {
       } else if (selectedHistoryId) {
         calculatedTab = "history";
       } else {
-        calculatedTab = "expertPerformance";
+        calculatedTab = "questions";
       }
     }
 
@@ -409,6 +415,7 @@ export const PlaygroundPage = () => {
                   <QAInterface
                     autoSelectQuestionId={selectedQuestionId}
                     onManualSelect={setSelectedQuestionId}
+                    selectQuestionType={selectedQuestionType}
                   />
                 </TabsContent>
               )}

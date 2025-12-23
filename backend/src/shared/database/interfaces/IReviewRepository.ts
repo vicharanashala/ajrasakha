@@ -29,6 +29,7 @@ export interface IReviewRepository {
     answerId?: string,
     reason?: string,
     parameters?: IReviewParmeters,
+    reRoutedReview?:boolean,
     session?: ClientSession,
   ): Promise<{insertedId: string}>;
 

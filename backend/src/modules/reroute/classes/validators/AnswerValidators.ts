@@ -235,15 +235,6 @@ class ReviewAnswerBody {
   @ValidateNested()
   @Type(() => ReviewParametersDto)
   parameters!: ReviewParametersDto;
-
-  @JSONSchema({
-    description: 'Type of the answer',
-    example: 're-routed',
-    type: 'string',
-  })
-  @IsOptional()
-  @IsString()
-  type!: string;
 }
 
 // class ReviewAnswerBody {

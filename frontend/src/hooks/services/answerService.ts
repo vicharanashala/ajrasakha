@@ -38,7 +38,8 @@ export class AnswerService {
     modifiedAnswer,
     reasonForModification,
     parameters,
-    remarks
+    remarks,
+    type
   }: IReviewAnswerPayload): Promise<SubmitAnswerResponse | null> {
     try {
       return await apiFetch<SubmitAnswerResponse>(`${this._baseUrl}/review`, {
@@ -54,7 +55,8 @@ export class AnswerService {
           modifiedAnswer,
           reasonForModification,
           parameters,
-          remarks
+          remarks,
+          type
         }),
       });
     } catch (error) {
@@ -83,7 +85,6 @@ export class AnswerService {
     dateRange:any,
     selectedHistoryId?:string,
   ): Promise<any> {
-    console.log("the date range coming=====",dateRange)
     const params = new URLSearchParams();
   params.append("page", String(pageParam));
   params.append("limit", String(limit));

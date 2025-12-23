@@ -31,6 +31,7 @@
             "#users/*": ["./modules/users/*"],
             "#quizzes/*": ["./modules/quizzes/*"],
             "#settings/*": ["./modules/settings/*"],
+            "#reroute/*":["./modules/reroute/*"]
         },
 
         "types": ["node", "express"],

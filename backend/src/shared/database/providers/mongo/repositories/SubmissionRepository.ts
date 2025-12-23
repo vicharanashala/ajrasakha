@@ -39,6 +39,7 @@ export class QuestionSubmissionRepository
       this.QuestionCollection = await this.db.getCollection<IQuestion>(
         'questions',
       );
+      this.ReRouteCollection = await this.db.getCollection<IReroute>('reroutes');
   }
 
   async getByQuestionId(
@@ -628,7 +629,7 @@ export class QuestionSubmissionRepository
     }
   }
 
-  async getUserActivityHistory(
+  /*async getUserActivityHistory(
     userId: string,
     page = 1,
     limit = 20,
@@ -650,6 +651,7 @@ export class QuestionSubmissionRepository
     const dateFilter: any = {};
     if (fromDate) dateFilter.$gte = fromDate;
     if (toDate) dateFilter.$lte = toDate;
+
 
     const matchStage = selectedHistoryId
       ? {
@@ -901,6 +903,480 @@ export class QuestionSubmissionRepository
       totalPages: Math.ceil((aggResult?.totalCount ?? 0) / safeLimit),
       limit: safeLimit,
       data: aggResult?.data ?? [],
+    };
+  }*/
+  async getUserActivityHistory(
+    userId: string,
+    page = 1,
+    limit = 20,
+    dateRange?: {from?: string; to?: string},
+    session?: ClientSession,
+    selectedHistoryId?: string,
+  ): Promise<any> {
+    await this.init();
+  
+    const userObjId = new ObjectId(userId);
+    const safePage = Math.max(1, Math.floor(page));
+    const safeLimit = Math.max(1, Math.floor(limit));
+    const skip = (safePage - 1) * safeLimit;
+  
+    // Parse date range
+    const fromDate = dateRange?.from ? new Date(dateRange.from) : null;
+    const toDate = dateRange?.to ? new Date(dateRange.to) : null;
+  
+    const dateFilter: any = {};
+    if (fromDate) dateFilter.$gte = fromDate;
+    if (toDate) dateFilter.$lte = toDate;
+  
+    const matchStage = selectedHistoryId
+      ? {
+          $match: {
+            questionId: new ObjectId(selectedHistoryId),
+          },
+        }
+      : {
+          $match: {
+            'history.updatedBy': userObjId,
+          },
+        };
+  
+    const pipeline: any[] = [
+      matchStage,
+  
+      // Explode history entries
+      {
+        $unwind: {
+          path: '$history',
+          includeArrayIndex: 'historyIndex',
+        },
+      },
+  
+      // Match again after unwind
+      {$match: {'history.updatedBy': userObjId}},
+  
+      // ---- LOOKUPS ----
+      {
+        $lookup: {
+          from: 'reviews',
+          localField: 'history.reviewId',
+          foreignField: '_id',
+          as: 'reviewDoc',
+        },
+      },
+      {$unwind: {path: '$reviewDoc', preserveNullAndEmptyArrays: true}},
+  
+      {
+        $lookup: {
+          from: 'answers',
+          localField: 'history.answer',
+          foreignField: '_id',
+          as: 'answerDoc',
+        },
+      },
+      {$unwind: {path: '$answerDoc', preserveNullAndEmptyArrays: true}},
+  
+      {
+        $lookup: {
+          from: 'answers',
+          localField: 'history.rejectedAnswer',
+          foreignField: '_id',
+          as: 'rejectedAnswerDoc',
+        },
+      },
+      {$unwind: {path: '$rejectedAnswerDoc', preserveNullAndEmptyArrays: true}},
+  
+      {
+        $lookup: {
+          from: 'answers',
+          localField: 'history.modifiedAnswer',
+          foreignField: '_id',
+          as: 'modifiedAnswerDoc',
+        },
+      },
+      {$unwind: {path: '$modifiedAnswerDoc', preserveNullAndEmptyArrays: true}},
+  
+      {
+        $lookup: {
+          from: 'answers',
+          localField: 'history.approvedAnswer',
+          foreignField: '_id',
+          as: 'approvedAnswerDoc',
+        },
+      },
+      {$unwind: {path: '$approvedAnswerDoc', preserveNullAndEmptyArrays: true}},
+  
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'questionDoc',
+        },
+      },
+      {$unwind: {path: '$questionDoc', preserveNullAndEmptyArrays: true}},
+  
+      // Determine author vs review actions
+      {
+        $addFields: {
+          isAuthor: {
+            $and: [
+              {$eq: ['$historyIndex', 0]},
+              {$eq: ['$answerDoc.authorId', userObjId]},
+            ],
+          },
+        },
+      },
+  
+      {
+        $addFields: {
+          action: {
+            $switch: {
+              branches: [
+                {case: {$eq: ['$isAuthor', true]}, then: 'author'},
+                {
+                  case: {$eq: ['$reviewDoc.action', 'accepted']},
+                  then: 'approved',
+                },
+                {
+                  case: {$eq: ['$reviewDoc.action', 'rejected']},
+                  then: 'rejected',
+                },
+                {
+                  case: {$eq: ['$reviewDoc.action', 'modified']},
+                  then: 'modified',
+                },
+              ],
+              default: null,
+            },
+          },
+          activityType: {$literal: 'history'},
+        },
+      },
+  
+      // Only count valid actions
+      {$match: {action: {$in: ['author', 'approved', 'rejected', 'modified']}}},
+  
+      {
+        $addFields: {
+          mainDate: {
+            $ifNull: ['$reviewDoc.createdAt', '$history.createdAt'],
+          },
+        },
+      },
+  
+      {
+        $project: {
+          _id: {
+            $concat: [
+              {$toString: '$_id'},
+              '_history_',
+              {$toString: '$historyIndex'},
+            ],
+          },
+          activityType: 1,
+          action: 1,
+          mainDate: 1,
+          createdAt: '$mainDate',
+          updatedAt: '$history.updatedAt',
+          reviewType: '$reviewDoc.reviewType',
+          reason: {
+            $ifNull: ['$reviewDoc.reason', '$history.reasonForRejection'],
+          },
+          remarks: '$answerDoc.remarks',
+          review: {
+            parameters: '$reviewDoc.parameters',
+            action: '$reviewDoc.action',
+            reason: '$reviewDoc.reason',
+            reviewerId: '$reviewDoc.reviewerId',
+            createdAt: '$reviewDoc.createdAt',
+          },
+          question: {
+            _id: {$toString: '$questionDoc._id'},
+            question: '$questionDoc.question',
+          },
+          answer: {
+            _id: {$toString: '$answerDoc._id'},
+            answer: '$answerDoc.answer',
+          },
+          rejectedAnswer: {
+            _id: {$toString: '$rejectedAnswerDoc._id'},
+            answer: '$rejectedAnswerDoc.answer',
+          },
+          modifiedAnswer: {
+            _id: {$toString: '$modifiedAnswerDoc._id'},
+            answer: '$modifiedAnswerDoc.answer',
+          },
+          approvedAnswer: {
+            _id: {$toString: '$approvedAnswerDoc._id'},
+            answer: '$approvedAnswerDoc.answer',
+          },
+        },
+      },
+    ];
+  
+    // Get history activities
+    const historyActivities = await this.QuestionSubmissionCollection.aggregate(
+      pipeline,
+      {session},
+    ).toArray();
+  
+    // Get reroute activities from separate collection
+    // Get reroute activities from separate collection
+    const reroutePipeline: any[] = [
+      {
+        $match: selectedHistoryId
+          ? {questionId: new ObjectId(selectedHistoryId)}
+          : {},
+      },
+  
+      // Unwind reroutes array
+      {
+        $unwind: {
+          path: '$reroutes',
+          includeArrayIndex: 'rerouteIndex',
+        },
+      },
+  
+      // Match user as reroutedTo
+      {$match: {'reroutes.reroutedTo': userObjId}},
+  
+      // Lookup the main answer (answerId in reroute)
+      {
+        $lookup: {
+          from: 'answers',
+          localField: 'reroutes.answerId',
+          foreignField: '_id',
+          as: 'rerouteAnswerDoc',
+        },
+      },
+      {$unwind: {path: '$rerouteAnswerDoc', preserveNullAndEmptyArrays: true}},
+  
+      // Lookup question
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'questionDoc',
+        },
+      },
+      {$unwind: {path: '$questionDoc', preserveNullAndEmptyArrays: true}},
+  
+      // Lookup all answer details from answers collection
+      {
+        $lookup: {
+          from: 'answers',
+          let: {aId: '$reroutes.answerId'},
+          pipeline: [
+            {
+              $match: {
+                $expr: {$eq: ['$_id', '$aId']},
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+                answer: 1,
+                rejectedAnswer: 1,
+                modifiedAnswer: 1,
+                approvedAnswer: 1,
+              },
+            },
+          ],
+          as: 'answerDetails',
+        },
+      },
+      {$unwind: {path: '$answerDetails', preserveNullAndEmptyArrays: true}},
+  
+      // Lookup rejected answer details if exists
+      {
+        $lookup: {
+          from: 'answers',
+          localField: 'reroutes.answerId',
+          foreignField: '_id',
+          as: 'rejectedAnswerDoc',
+        },
+      },
+      {$unwind: {path: '$rejectedAnswerDoc', preserveNullAndEmptyArrays: true}},
+  
+      // Lookup modified answer details if exists
+      {
+        $lookup: {
+          from: 'answers',
+          localField: 'reroutes.answerId',
+          foreignField: '_id',
+          as: 'modifiedAnswerDoc',
+        },
+      },
+      {$unwind: {path: '$modifiedAnswerDoc', preserveNullAndEmptyArrays: true}},
+  
+      // Lookup approved answer details if exists
+      {
+        $lookup: {
+          from: 'answers',
+          localField: 'reroutes.answerId',
+          foreignField: '_id',
+          as: 'approvedAnswerDoc',
+        },
+      },
+      {$unwind: {path: '$approvedAnswerDoc', preserveNullAndEmptyArrays: true}},
+  
+      // Map reroute status to action
+      {
+        $addFields: {
+          action: {
+            $switch: {
+              branches: [
+                {case: {$eq: ['$reroutes.status', 'expert_completed']}, then: 'reroute_completed'},
+               // {case: {$eq: ['$reroutes.status', 'rejected']}, then: 'reroute_rejected'},
+                {case: {$eq: ['$reroutes.status', 'modified']}, then: 'reroute_modified'},
+                {case: {$eq: ['$reroutes.status', 'expert_rejected']}, then: 'expert_rejected'},
+                {case: {$eq: ['$reroutes.status', 'pending']}, then: 'reroute_pending'},
+                {case: {$eq: ['$reroutes.status', 'approved']}, then: 'reroute_approved'},
+                {case: {$eq: ['$reroutes.status', 'moderator_rejected']}, then: 'moderator_rejected'},
+                {case: {$eq: ['$reroutes.status', 'rejected']}, then: 'reroute_created_answer'}
+              ],
+              default: 'reroute_assigned',
+            },
+          },
+          activityType: {$literal: 'reroute'},
+          mainDate: {$ifNull: ['$reroutes.updatedAt', '$reroutes.reroutedAt']},
+        },
+      },
+  
+      {
+        $project: {
+          _id: {
+            $concat: [
+              {$toString: '$_id'},
+              '_reroute_',
+              {$toString: '$rerouteIndex'},
+            ],
+          },
+          activityType: 1,
+          action: 1,
+          mainDate: 1,
+          createdAt: '$reroutes.reroutedAt',
+          updatedAt: '$reroutes.updatedAt',
+          rerouteStatus: '$reroutes.status',
+          comment: '$reroutes.comment',
+          rejectionReason: '$reroutes.rejectionReason',
+          reroutedBy: '$reroutes.reroutedBy',
+          question: {
+            _id: {$toString: '$questionDoc._id'},
+            question: '$questionDoc.question',
+          },
+          // For expert_rejected status, only send the main answer
+          answer: {
+            $cond: {
+              if: {$eq: ['$reroutes.status', 'expert_rejected']},
+              then: {
+                _id: {$toString: '$rerouteAnswerDoc._id'},
+                answer: '$rerouteAnswerDoc.answer',
+              },
+              else: {
+                _id: {$toString: '$rerouteAnswerDoc._id'},
+                answer: '$rerouteAnswerDoc.answer',
+              },
+            },
+          },
+          // Include rejected answer details for rejected status
+          rejectedAnswer: {
+            $cond: {
+              if: {
+                $and: [
+                  {$eq: ['$reroutes.status', 'rejected']},
+                  {$ne: ['$rejectedAnswerDoc', null]},
+                ],
+              },
+              then: {
+                _id: {$toString: '$rejectedAnswerDoc._id'},
+                answer: '$rejectedAnswerDoc.answer',
+              },
+              else: '$REMOVE',
+            },
+          },
+          // Include modified answer details for modified status
+          modifiedAnswer: {
+            $cond: {
+              if: {
+                $and: [
+                  {$eq: ['$reroutes.status', 'modified']},
+                  {$ne: ['$modifiedAnswerDoc', null]},
+                ],
+              },
+              then: {
+                _id: {$toString: '$modifiedAnswerDoc._id'},
+                answer: '$modifiedAnswerDoc.answer',
+              },
+              else: '$REMOVE',
+            },
+          },
+          // Include approved answer details for expert_completed or approved status
+          approvedAnswer: {
+            $cond: {
+              if: {
+                $and: [
+                  {
+                    $or: [
+                      {$eq: ['$reroutes.status', 'expert_completed']},
+                      {$eq: ['$reroutes.status', 'approved']},
+                    ],
+                  },
+                  {$ne: ['$approvedAnswerDoc', null]},
+                ],
+              },
+              then: {
+                _id: {$toString: '$approvedAnswerDoc._id'},
+                answer: '$approvedAnswerDoc.answer',
+              },
+              else: '$REMOVE',
+            },
+          },
+        },
+      },
+    ];
+
+  
+  
+    const rerouteActivities = await this.ReRouteCollection.aggregate(
+      reroutePipeline,
+      {session},
+    ).toArray();
+  
+    // Combine both arrays
+    const combinedActivities = [...historyActivities, ...rerouteActivities];
+  
+    // Apply date filter
+    const filteredActivities = dateFilter && Object.keys(dateFilter).length > 0
+      ? combinedActivities.filter(activity => {
+          const activityDate = new Date(activity.mainDate);
+          if (dateFilter.$gte && activityDate < dateFilter.$gte) return false;
+          if (dateFilter.$lte && activityDate > dateFilter.$lte) return false;
+          return true;
+        })
+      : combinedActivities;
+  
+    // Sort by date (descending)
+    filteredActivities.sort((a, b) => {
+      return new Date(b.mainDate).getTime() - new Date(a.mainDate).getTime();
+    });
+  
+    // Apply pagination
+    let totalCount = filteredActivities.length;
+    let paginatedData = filteredActivities.slice(skip, skip + safeLimit);
+    if(selectedHistoryId)
+    {
+      paginatedData=filteredActivities.filter((ele)=>ele.rerouteStatus==="moderator_rejected").slice(0,1)
+      totalCount=1
+    }
+  
+    return {
+      totalCount,
+      page: safePage,
+      totalPages: Math.ceil(totalCount / safeLimit),
+      limit: safeLimit,
+      data: paginatedData,
     };
   }
   //690f05447360add0cf5aa0f8

@@ -131,8 +131,8 @@ export default function Notification() {
     await markAsRead(_id);
 
     // 🔥 Only these two need to open the QA interface
-    if (type === "answer_creation" || type === "peer_review") {
-      goToQuestion(enitity_id); // will set ?question=questionId
+    if (type === "answer_creation" || type === "peer_review"||type=="re-routed") {
+      goToQuestion(enitity_id,type); // will set ?question=questionId
       return;
     }
 
@@ -147,7 +147,8 @@ export default function Notification() {
       goToComment(enitity_id); // enitity_id is questionId
       return;
     }
-    if(type==="review_rejected" || type==="review_modified")
+    if(type==="review_rejected" || type==="review_modified"||type==="re-routed-answer-created"||type==="re-routed-rejected-expert" ||
+    type==="re-routed-rejected-moderator" )
     {
       goToHistory(enitity_id);
       return;

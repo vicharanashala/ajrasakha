@@ -5,10 +5,10 @@ export const useNavigateToQuestion = () => {
   const navigate = useNavigate();
 
   const goToQuestion = useCallback(
-    (questionId: string) => {
+    (questionId: string,questiontype:string) => {
       navigate({
         to: "/home",
-        search: (prev) => ({ ...prev, question: questionId }),
+        search: (prev) => ({ ...prev, question: questionId,questionType:questiontype }),
         replace: true,
       });
     },

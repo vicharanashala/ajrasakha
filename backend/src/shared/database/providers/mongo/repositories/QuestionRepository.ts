@@ -7,6 +7,7 @@ import {
   IReview,
   IUser,
   QuestionStatus,
+  IReroute
 } from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
@@ -54,6 +55,7 @@ export class QuestionRepository implements IQuestionRepository {
   private UsersCollection!: Collection<IUser>;
   private ContextCollection: Collection<IContext>;
   private ReviewCollection: Collection<IReview>;
+  private ReRouteCollection: Collection<IReroute>;
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
@@ -71,6 +73,7 @@ export class QuestionRepository implements IQuestionRepository {
     this.UsersCollection = await this.db.getCollection<IUser>('users');
     this.AnswersCollection = await this.db.getCollection<IAnswer>('answers');
     this.ReviewCollection = await this.db.getCollection<IReview>('reviews');
+    this.ReRouteCollection = await this.db.getCollection<IReroute>('reroutes');
   }
 
   private async ensureIndexes() {
@@ -783,13 +786,40 @@ export class QuestionRepository implements IQuestionRepository {
         {projection: {userId: 0, embedding: 0}},
       );
       if (!question) return null;
+      
       // 2 Fetch submissions for this question
       const submission = await this.QuestionSubmissionCollection.findOne({
         questionId: questionObjectId,
       });
 
+      // 2.1 Fetch reroutes for this question
+      const reroutes = await this.ReRouteCollection.find({
+        questionId: questionObjectId,
+      }).toArray();
+
       // 3 Collect all user IDs for lastRespondedBy
-      const lastRespondedId = submission?.lastRespondedBy?.toString();
+      let lastRespondedId = submission?.lastRespondedBy?.toString();
+
+      // 3.1 Check if there's an expert_completed reroute - that becomes lastRespondedBy
+      let latestExpertCompletedReroute = null;
+      let latestExpertCompletedTime = null;
+      
+      reroutes?.forEach(reroute => {
+        reroute.reroutes?.forEach(r => {
+          if (r.status === 'rejected') {
+            const updatedTime = r.updatedAt || r.reroutedAt;
+            if (!latestExpertCompletedTime || updatedTime > latestExpertCompletedTime) {
+              latestExpertCompletedTime = updatedTime;
+              latestExpertCompletedReroute = r;
+            }
+          }
+        });
+      });
+
+      // Update lastRespondedBy if there's an expert_completed reroute
+      if (latestExpertCompletedReroute) {
+        lastRespondedId = latestExpertCompletedReroute.reroutedTo?.toString();
+      }
 
       // 4 Collect all updatedBy and answer IDs from submission histories
       const allUpdatedByIds: ObjectId[] = [];
@@ -800,6 +830,27 @@ export class QuestionRepository implements IQuestionRepository {
         if (h.answer) allAnswerIds.push(h.answer as ObjectId);
       });
 
+      // 4.1 Collect answer IDs from reroutes with status "expert_completed"
+      reroutes?.forEach(reroute => {
+        reroute.reroutes?.forEach(r => {
+          if (r.status === 'rejected' && r.answerId) {
+            allAnswerIds.push(r.answerId as ObjectId);
+          }
+          // Also collect reroutedTo IDs for user lookup
+          if (r.reroutedTo) {
+            allUpdatedByIds.push(r.reroutedTo as ObjectId);
+          }
+          if (r.reroutedBy) {
+            allUpdatedByIds.push(r.reroutedBy as ObjectId);
+          }
+        });
+      });
+      // 4.2 Remove duplicate answer IDs
+      const uniqueAnswerIds = Array.from(
+        new Set(allAnswerIds.map(id => id.toString()))
+      ).map(id => new ObjectId(id));
+
+
       // 5 Fetch all related users
       const users = await this.UsersCollection.find({
         // _id: {$in: [lastRespondedId, ...allUpdatedByIds]},
@@ -809,8 +860,9 @@ export class QuestionRepository implements IQuestionRepository {
 
       // 6 Fetch all related answers and reviews
       const answers = await this.AnswersCollection.find({
-        _id: {$in: allAnswerIds},
+        _id: {$in: uniqueAnswerIds},
       }).toArray();
+      
       const normalizedAnswers = answers.map(a => ({
         ...a,
         _id: a._id.toString(),
@@ -824,10 +876,11 @@ export class QuestionRepository implements IQuestionRepository {
             modifiedBy: m.modifiedBy?.toString(),
           })) ?? [],
       }));
-      // const answersMap = new Map(answers.map(a => [a._id?.toString(), a]));
+      
       const answersMap = new Map(
         normalizedAnswers.map(a => [a._id?.toString(), a]),
       );
+      
       const isAlreadySubmitted = allUpdatedByIds
         .map(id => id.toString())
         .includes(userId);
@@ -835,7 +888,7 @@ export class QuestionRepository implements IQuestionRepository {
       // Fetch associated reviews and reviewer details
       const reviews = await this.ReviewCollection.find({
         questionId: new ObjectId(questionId),
-        answerId: {$in: allAnswerIds},
+        answerId: {$in: uniqueAnswerIds},
       })
         .sort({createdAt: -1})
         .toArray();
@@ -891,27 +944,184 @@ export class QuestionRepository implements IQuestionRepository {
         reviewsByAnswer.get(aId).push(r);
       });
 
+      // 6.1 Convert reroutes to history format
+       // 6.1 Convert reroutes to history format and keep only latest per answerId
+       const rerouteHistoryMap = new Map();
+      
+       reroutes?.forEach(reroute => {
+         reroute.reroutes?.forEach(r => {
+           const answerIdKey = r.answerId?.toString();
+           const updatedTime = r.updatedAt || r.reroutedAt;
+           
+           // If answerId exists and status is expert_completed, check if we should keep this one
+           if (answerIdKey && r.status === 'rejected') {
+             const existing = rerouteHistoryMap.get(answerIdKey);
+             const existingTime = existing?.updatedAt || existing?.reroutedAt;
+             
+             // Only keep this entry if it's newer than the existing one
+             if (!existing || new Date(updatedTime) > new Date(existingTime)) {
+               const reroutedToUser = usersMap.get(r.reroutedTo?.toString());
+               
+               rerouteHistoryMap.set(answerIdKey, {
+                 updatedBy: r.reroutedTo
+                   ? {
+                       _id: r.reroutedTo?.toString(),
+                       name: isExpert
+                         ? getReviewerQueuePosition(
+                             submission?.queue,
+                             r.reroutedTo?.toString(),
+                           ) == 0
+                           ? 'Author'
+                           : `Reviewer ${getReviewerQueuePosition(
+                               submission?.queue,
+                               r.reroutedTo?.toString(),
+                             )}`
+                         : reroutedToUser?.firstName,
+                       email: !isExpert && reroutedToUser?.email,
+                     }
+                   : null,
+                 answer: {
+                     _id: r.answerId?.toString(),
+                     authorId: answersMap
+                       .get(r.answerId?.toString())
+                       ?.authorId?.toString(),
+                     answerIteration: answersMap.get(r.answerId?.toString())
+                       ?.answerIteration,
+                     isFinalAnswer: answersMap.get(r.answerId?.toString())
+                       ?.isFinalAnswer,
+                     answer: answersMap.get(r.answerId?.toString())?.answer,
+                     sources: answersMap.get(r.answerId?.toString())?.sources,
+                     approvalCount: answersMap.get(r.answerId?.toString())
+                       ?.approvalCount,
+                     remarks: answersMap.get(r.answerId?.toString())?.remarks,
+                     createdAt: answersMap.get(r.answerId?.toString())?.createdAt,
+                     updatedAt: answersMap.get(r.answerId?.toString())?.updatedAt,
+                     reviews: reviewsByAnswer.get(r.answerId?.toString()) || [],
+                   },
+                 status: r.status,
+                 reasonForRejection: r.rejectionReason || null,
+                 comment: r.comment,
+                 reroutedBy: r.reroutedBy?.toString(),
+                 reroutedAt: r.reroutedAt,
+                 updatedAt: r.updatedAt,
+                 isReroute: true,
+               });
+             }
+           } else {
+             // For non-expert_completed or no answerId, add all entries
+             const reroutedToUser = usersMap.get(r.reroutedTo?.toString());
+             const uniqueKey = `${r.reroutedTo?.toString()}_${updatedTime}`;
+             
+             rerouteHistoryMap.set(uniqueKey, {
+               updatedBy: r.reroutedTo
+                 ? {
+                     _id: r.reroutedTo?.toString(),
+                     name: isExpert
+                       ? getReviewerQueuePosition(
+                           submission?.queue,
+                           r.reroutedTo?.toString(),
+                         ) == 0
+                         ? 'Author'
+                         : `Reviewer ${getReviewerQueuePosition(
+                             submission?.queue,
+                             r.reroutedTo?.toString(),
+                           )}`
+                       : reroutedToUser?.firstName,
+                     email: !isExpert && reroutedToUser?.email,
+                   }
+                 : null,
+               answer: null,
+               status: r.status,
+               reasonForRejection: r.rejectionReason || null,
+               comment: r.comment,
+               reroutedBy: r.reroutedBy?.toString(),
+               reroutedAt: r.reroutedAt,
+               updatedAt: r.updatedAt,
+               isReroute: true,
+             });
+           }
+         });
+       });
+       
+       const rerouteHistory = Array.from(rerouteHistoryMap.values());
+
       // 7 Populate submissions manually
+      const submissionHistory = submission?.history?.map(h => ({
+        updatedBy: h.updatedBy
+          ? {
+              _id: h.updatedBy?.toString(),
+              name: isExpert
+                ? getReviewerQueuePosition(
+                    submission.queue,
+                    h.updatedBy?.toString(),
+                  ) == 0
+                  ? 'Author'
+                  : `Reviewer ${getReviewerQueuePosition(
+                      submission.queue,
+                      h.updatedBy?.toString(),
+                    )}`
+                : usersMap.get(h.updatedBy?.toString())?.firstName,
+              email:
+                !isExpert && usersMap.get(h.updatedBy?.toString())?.email,
+            }
+          : [],
+        answer: h.answer
+          ? {
+              _id: h.answer?.toString(),
+              authorId: answersMap
+                .get(h.answer?.toString())
+                ?.authorId?.toString(),
+              answerIteration: answersMap.get(h.answer?.toString())
+                ?.answerIteration,
+              isFinalAnswer: answersMap.get(h.answer?.toString())
+                ?.isFinalAnswer,
+              answer: answersMap.get(h.answer?.toString())?.answer,
+              sources: answersMap.get(h.answer?.toString())?.sources,
+              approvalCount: answersMap.get(h.answer?.toString())
+                ?.approvalCount,
+              remarks: answersMap.get(h.answer?.toString())?.remarks,
+              createdAt: answersMap.get(h.answer?.toString())?.createdAt,
+              updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
+              reviews: reviewsByAnswer.get(h.answer?.toString()) || [],
+            }
+          : null,
+        status: h.status,
+        reasonForRejection: h.reasonForRejection,
+        approvedAnswer: h.approvedAnswer?.toString(),
+        rejectedAnswer: h.rejectedAnswer?.toString(),
+        modifiedAnswer: h.modifiedAnswer?.toString(),
+        reasonForLastModification: h.reasonForLastModification?.toString(),
+        reviewId: h.reviewId?.toString(),
+        isReroute: false,
+      })) || [];
+
+      // 7.1 Merge submission history with reroute history and sort by date
+      const combinedHistory = [...submissionHistory, ...rerouteHistory].sort((a, b) => {
+        const dateA = a.updatedAt || a.reroutedAt || new Date(0);
+        const dateB = b.updatedAt || b.reroutedAt || new Date(0);
+        return new Date(dateA).getTime() - new Date(dateB).getTime();
+      });
+
       const populatedSubmission = {
         _id: submission?._id?.toString(),
         questionId: submission?.questionId?.toString(),
         lastRespondedBy: lastRespondedId
           ? {
-              _id: submission?.lastRespondedBy?.toString(),
+              _id: lastRespondedId,
               name: isExpert
                 ? getReviewerQueuePosition(
-                    submission.queue,
-                    submission?.lastRespondedBy?.toString(),
+                    submission?.queue,
+                    lastRespondedId,
                   ) == 0
                   ? 'Author'
                   : `Reviewer ${getReviewerQueuePosition(
-                      submission.queue,
-                      submission?.lastRespondedBy?.toString(),
+                      submission?.queue,
+                      lastRespondedId,
                     )}`
                 : usersMap.get(lastRespondedId)?.firstName,
               email:
                 !isExpert &&
-                usersMap.get(submission?.lastRespondedBy?.toString())?.email,
+                usersMap.get(lastRespondedId)?.email,
             }
           : null,
         queue: submission?.queue?.map(q => ({
@@ -926,55 +1136,7 @@ export class QuestionRepository implements IQuestionRepository {
             : usersMap.get(q.toString())?.firstName,
           email: !isExpert && usersMap.get(q.toString())?.email,
         })),
-        history: submission?.history.map(h => ({
-          updatedBy: h.updatedBy
-            ? {
-                _id: h.updatedBy?.toString(),
-                name: isExpert
-                  ? getReviewerQueuePosition(
-                      submission.queue,
-                      h.updatedBy?.toString(),
-                    ) == 0
-                    ? 'Author'
-                    : `Reviewer ${getReviewerQueuePosition(
-                        submission.queue,
-                        h.updatedBy?.toString(),
-                      )}`
-                  : usersMap.get(h.updatedBy?.toString())?.firstName,
-                email:
-                  !isExpert && usersMap.get(h.updatedBy?.toString())?.email,
-              }
-            : [],
-          answer: h.answer
-            ? {
-                _id: h.answer?.toString(),
-                authorId: answersMap
-                  .get(h.answer?.toString())
-                  ?.authorId?.toString(),
-                answerIteration: answersMap.get(h.answer?.toString())
-                  ?.answerIteration,
-                isFinalAnswer: answersMap.get(h.answer?.toString())
-                  ?.isFinalAnswer,
-                answer: answersMap.get(h.answer?.toString())?.answer,
-                sources: answersMap.get(h.answer?.toString())?.sources,
-                approvalCount: answersMap.get(h.answer?.toString())
-                  ?.approvalCount,
-                remarks: answersMap.get(h.answer?.toString()).remarks,
-                createdAt: answersMap.get(h.answer?.toString())?.createdAt,
-                updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
-
-                // Attch review details
-                reviews: reviewsByAnswer.get(h.answer?.toString()) || [],
-              }
-            : null,
-          status: h.status,
-          reasonForRejection: h.reasonForRejection,
-          approvedAnswer: h.approvedAnswer?.toString(),
-          rejectedAnswer: h.rejectedAnswer?.toString(),
-          modifiedAnswer: h.modifiedAnswer?.toString(),
-          reasonForLastModification: h.reasonForLastModification?.toString(),
-          reviewId: h.reviewId?.toString(),
-        })),
+        history: combinedHistory,
         createdAt: submission?.createdAt,
         updatedAt: submission?.updatedAt,
       };
@@ -1023,7 +1185,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       const result = await this.QuestionCollection.updateMany(
         {
-          status: {$nin: ['closed', 'in-review']},
+          status: {$nin: ['closed', 'in-review','re-routed']},
           createdAt: {$lte: fourHoursAgo},
         },
         {$set: {status: 'delayed'}},
