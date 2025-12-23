@@ -96,6 +96,23 @@ class ExpertReviewLevelDto{
  
   @IsOptional()
   endTime?: string;
+
+  @IsOptional()
+  crop:string
+
+  @IsOptional()
+  season:string
+
+  @IsOptional()
+  state:string
+
+  @IsOptional()
+  district:string
+
+  @IsOptional()
+  status:string
+  @IsOptional()
+  domain:string
 }
 
 export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive,BlockUnblockBody];

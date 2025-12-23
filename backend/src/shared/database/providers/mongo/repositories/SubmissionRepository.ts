@@ -5,6 +5,7 @@ import {
   IReviewerHeatmapRow,
   IReview,
   IAnswer,
+  IQuestion
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -26,6 +27,7 @@ export class QuestionSubmissionRepository
   implements IQuestionSubmissionRepository
 {
   private QuestionSubmissionCollection: Collection<IQuestionSubmission>;
+  private QuestionCollection: Collection<IQuestion>;
   constructor(
     @inject(GLOBAL_TYPES.Database)
     private db: MongoDatabase,
@@ -34,6 +36,9 @@ export class QuestionSubmissionRepository
   private async init() {
     this.QuestionSubmissionCollection =
       await this.db.getCollection<IQuestionSubmission>('question_submissions');
+      this.QuestionCollection = await this.db.getCollection<IQuestion>(
+        'questions',
+      );
   }
 
   async getByQuestionId(
@@ -1456,6 +1461,399 @@ export class QuestionSubmissionRepository
     });
 
     return merged;
+  }
+  async getModeratorReviewLevel(query: ExpertReviewLevelDto): Promise<any> {
+    await this.init();
+    let {userId, startTime, endTime, crop, season, state, district,status,domain} = query;
+   // district="vn"
+   // status="closed"
+    
+    console.log(startTime, endTime);
+    const start = startTime ? new Date(`${startTime}T00:00:00.000Z`) : null;
+    const end = endTime ? new Date(`${endTime}T23:59:59.999Z`) : null;
+    
+    // Step 1: Get filtered question IDs if filters exist
+    let questionIds = null;
+    if (crop || season || state || district||status ||domain) {
+      const questionFilter: any = {};
+      if (crop) questionFilter['details.crop'] = crop;
+      if (season) questionFilter['details.season'] = season;
+      if (state) questionFilter['details.state'] = state;
+      if (district) questionFilter['details.district'] = district;
+      if (domain) questionFilter['details.domain'] = domain;
+      if (status) questionFilter['status'] = status;
+      const questions = await this.QuestionCollection.find(questionFilter, {
+        projection: { _id: 1 }
+      }).toArray();
+      
+      questionIds = questions.map(q => q._id);
+      
+      // If no questions match the filter, return empty result
+      if (questionIds.length === 0) {
+        return [
+          { Review_level: 'Author', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
+          { Review_level: 'Level 1', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
+          { Review_level: 'Level 2', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
+          { Review_level: 'Level 3', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
+          { Review_level: 'Level 4', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
+          { Review_level: 'Level 5', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
+          { Review_level: 'Level 6', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
+          { Review_level: 'Level 7', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
+          { Review_level: 'Level 8', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
+          { Review_level: 'Level 9', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
+        ];
+      }
+    }
+    
+    const pipe = [
+      // Step 2: Filter by questionIds if filters were applied
+      ...(questionIds ? [
+        {
+          $match: {
+            questionId: { $in: questionIds }
+          }
+        }
+      ] : []),
+    
+      // Filter history by date range
+      {
+        $addFields: {
+          history: {
+            $filter: {
+              input: '$history',
+              as: 'h',
+              cond: {
+                $and: [
+                  ...(start ? [{$gte: ['$$h.updatedAt', start]}] : []),
+                  ...(end ? [{$lte: ['$$h.updatedAt', end]}] : []),
+                ],
+              },
+            },
+          },
+        },
+      },
+      {$match: {history: {$ne: []}}},
+      
+      // Ensure history exists
+      {
+        $addFields: {
+          historyArr: {$ifNull: ['$history', []]},
+          historyLen: {$size: {$ifNull: ['$history', []]}},
+        },
+      },
+    
+      // Determine which level this document belongs to
+      {
+        $addFields: {
+          documentLevel: {
+            $switch: {
+              branches: [
+                // Check Level 9 (index 9)
+                {
+                  case: {
+                    $and: [
+                      {$gte: ['$historyLen', 10]},
+                      {$ne: [{$arrayElemAt: ['$historyArr.status', 9]}, 'in-review']}
+                    ]
+                  },
+                  then: 'Level 9'
+                },
+                // Check Level 8 (index 8)
+                {
+                  case: {
+                    $and: [
+                      {$gte: ['$historyLen', 9]},
+                      {$ne: [{$arrayElemAt: ['$historyArr.status', 8]}, 'in-review']}
+                    ]
+                  },
+                  then: 'Level 8'
+                },
+                // Check Level 7 (index 7)
+                {
+                  case: {
+                    $and: [
+                      {$gte: ['$historyLen', 8]},
+                      {$ne: [{$arrayElemAt: ['$historyArr.status', 7]}, 'in-review']}
+                    ]
+                  },
+                  then: 'Level 7'
+                },
+                // Check Level 6 (index 6)
+                {
+                  case: {
+                    $and: [
+                      {$gte: ['$historyLen', 7]},
+                      {$ne: [{$arrayElemAt: ['$historyArr.status', 6]}, 'in-review']}
+                    ]
+                  },
+                  then: 'Level 6'
+                },
+                // Check Level 5 (index 5)
+                {
+                  case: {
+                    $and: [
+                      {$gte: ['$historyLen', 6]},
+                      {$ne: [{$arrayElemAt: ['$historyArr.status', 5]}, 'in-review']}
+                    ]
+                  },
+                  then: 'Level 5'
+                },
+                // Check Level 4 (index 4)
+                {
+                  case: {
+                    $and: [
+                      {$gte: ['$historyLen', 5]},
+                      {$ne: [{$arrayElemAt: ['$historyArr.status', 4]}, 'in-review']}
+                    ]
+                  },
+                  then: 'Level 4'
+                },
+                // Check Level 3 (index 3)
+                {
+                  case: {
+                    $and: [
+                      {$gte: ['$historyLen', 4]},
+                      {$ne: [{$arrayElemAt: ['$historyArr.status', 3]}, 'in-review']}
+                    ]
+                  },
+                  then: 'Level 3'
+                },
+                // Check Level 2 (index 2)
+                {
+                  case: {
+                    $and: [
+                      {$gte: ['$historyLen', 3]},
+                      {$ne: [{$arrayElemAt: ['$historyArr.status', 2]}, 'in-review']}
+                    ]
+                  },
+                  then: 'Level 2'
+                },
+                // Check Level 1 (index 1)
+                {
+                  case: {
+                    $and: [
+                      {$gte: ['$historyLen', 2]},
+                      {$ne: [{$arrayElemAt: ['$historyArr.status', 1]}, 'in-review']}
+                    ]
+                  },
+                  then: 'Level 1'
+                },
+                // Author (index 0) - always counts if exists
+                {
+                  case: {$gte: ['$historyLen', 1]},
+                  then: 'Author'
+                }
+              ],
+              default: null
+            }
+          }
+        }
+      },
+    
+      // Get the entry for this level to extract action counts
+      {
+        $addFields: {
+          levelEntry: {
+            $switch: {
+              branches: [
+                {case: {$eq: ['$documentLevel', 'Author']}, then: {$arrayElemAt: ['$historyArr', 0]}},
+                {case: {$eq: ['$documentLevel', 'Level 1']}, then: {$arrayElemAt: ['$historyArr', 1]}},
+                {case: {$eq: ['$documentLevel', 'Level 2']}, then: {$arrayElemAt: ['$historyArr', 2]}},
+                {case: {$eq: ['$documentLevel', 'Level 3']}, then: {$arrayElemAt: ['$historyArr', 3]}},
+                {case: {$eq: ['$documentLevel', 'Level 4']}, then: {$arrayElemAt: ['$historyArr', 4]}},
+                {case: {$eq: ['$documentLevel', 'Level 5']}, then: {$arrayElemAt: ['$historyArr', 5]}},
+                {case: {$eq: ['$documentLevel', 'Level 6']}, then: {$arrayElemAt: ['$historyArr', 6]}},
+                {case: {$eq: ['$documentLevel', 'Level 7']}, then: {$arrayElemAt: ['$historyArr', 7]}},
+                {case: {$eq: ['$documentLevel', 'Level 8']}, then: {$arrayElemAt: ['$historyArr', 8]}},
+                {case: {$eq: ['$documentLevel', 'Level 9']}, then: {$arrayElemAt: ['$historyArr', 9]}},
+              ],
+              default: null
+            }
+          }
+        }
+      },
+    
+      // Add counting fields
+      {
+        $addFields: {
+          approvedCount: {
+            $cond: [
+              {$and: [
+                {$ne: ['$documentLevel', 'Author']},
+                {$ne: ['$documentLevel', null]},
+                {$ifNull: ['$levelEntry.approvedAnswer', false]}
+              ]},
+              1,
+              0
+            ]
+          },
+          rejectedCount: {
+            $cond: [
+              {$and: [
+                {$ne: ['$documentLevel', 'Author']},
+                {$ne: ['$documentLevel', null]},
+                {$ifNull: ['$levelEntry.rejectedAnswer', false]}
+              ]},
+              1,
+              0
+            ]
+          },
+          modifiedCount: {
+            $cond: [
+              {$and: [
+                {$ne: ['$documentLevel', 'Author']},
+                {$ne: ['$documentLevel', null]},
+                {$ifNull: ['$levelEntry.modifiedAnswer', false]}
+              ]},
+              1,
+              0
+            ]
+          },
+        }
+      },
+    
+      // Filter out documents without a level
+      {$match: {documentLevel: {$ne: null}}},
+    
+      // Group by documentLevel
+      {
+        $group: {
+          _id: '$documentLevel',
+          count: {$sum: 1},
+          approvedCount: {$sum: '$approvedCount'},
+          rejectedCount: {$sum: '$rejectedCount'},
+          modifiedCount: {$sum: '$modifiedCount'},
+        },
+      },
+    
+      // Collect all actual levels
+      {
+        $group: {
+          _id: null,
+          actual: {
+            $push: {
+              Review_level: '$_id',
+              count: '$count',
+              approvedCount: '$approvedCount',
+              rejectedCount: '$rejectedCount',
+              modifiedCount: '$modifiedCount',
+            },
+          },
+        },
+      },
+    
+      // Merge with fixed levels to ensure all levels appear
+      {
+        $project: {
+          merged: {
+            $map: {
+              input: [
+                'Author',
+                'Level 1',
+                'Level 2',
+                'Level 3',
+                'Level 4',
+                'Level 5',
+                'Level 6',
+                'Level 7',
+                'Level 8',
+                'Level 9',
+              ],
+              as: 'lvl',
+              in: {
+                Review_level: '$$lvl',
+                count: {
+                  $let: {
+                    vars: {
+                      found: {
+                        $first: {
+                          $filter: {
+                            input: {$ifNull: ['$actual', []]},
+                            cond: {$eq: ['$$this.Review_level', '$$lvl']},
+                          },
+                        },
+                      },
+                    },
+                    in: {$ifNull: ['$$found.count', 0]},
+                  },
+                },
+                approvedCount: {
+                  $let: {
+                    vars: {
+                      found: {
+                        $first: {
+                          $filter: {
+                            input: {$ifNull: ['$actual', []]},
+                            cond: {$eq: ['$$this.Review_level', '$$lvl']},
+                          },
+                        },
+                      },
+                    },
+                    in: {$ifNull: ['$$found.approvedCount', 0]},
+                  },
+                },
+                rejectedCount: {
+                  $let: {
+                    vars: {
+                      found: {
+                        $first: {
+                          $filter: {
+                            input: {$ifNull: ['$actual', []]},
+                            cond: {$eq: ['$$this.Review_level', '$$lvl']},
+                          },
+                        },
+                      },
+                    },
+                    in: {$ifNull: ['$$found.rejectedCount', 0]},
+                  },
+                },
+                modifiedCount: {
+                  $let: {
+                    vars: {
+                      found: {
+                        $first: {
+                          $filter: {
+                            input: {$ifNull: ['$actual', []]},
+                            cond: {$eq: ['$$this.Review_level', '$$lvl']},
+                          },
+                        },
+                      },
+                    },
+                    in: {$ifNull: ['$$found.modifiedCount', 0]},
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    
+      // Unwind merged array
+      {$unwind: '$merged'},
+      {$replaceRoot: {newRoot: '$merged'}},
+    
+      // Sort Author first, then Levels numerically
+      {
+        $addFields: {
+          levelSort: {
+            $cond: [
+              {$eq: ['$Review_level', 'Author']},
+              0,
+              {$toInt: {$substr: ['$Review_level', 6, -1]}},
+            ],
+          },
+        },
+      },
+      {$sort: {levelSort: 1}},
+      {$project: {levelSort: 0}},
+    ];
+
+   
+    let completed = await this.QuestionSubmissionCollection.aggregate(
+      pipe,
+    ).toArray();
+    
+    return completed;
   }
 
   async getReviewWiseCount(): Promise<IReviewWiseStats> {

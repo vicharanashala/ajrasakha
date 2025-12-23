@@ -58,6 +58,8 @@ export class UserService extends BaseService {
 
       return this._withTransaction(async (session: ClientSession) => {
         const result= await this.questionSubmissionRepo.getUserReviewLevel(query)
+        const result1=await this.questionSubmissionRepo.getModeratorReviewLevel(query)
+        console.log("the result coming===",result1)
         return result
       });
     } catch (error) {

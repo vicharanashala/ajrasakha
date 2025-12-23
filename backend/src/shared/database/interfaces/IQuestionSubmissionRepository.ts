@@ -134,4 +134,5 @@ export interface IQuestionSubmissionRepository {
     selectedHistoryId?: string | undefined,
   );
   getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any>;
+  getModeratorReviewLevel(query: ExpertReviewLevelDto): Promise<any>;
 }
