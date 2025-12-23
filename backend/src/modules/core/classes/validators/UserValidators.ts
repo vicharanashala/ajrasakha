@@ -113,6 +113,8 @@ class ExpertReviewLevelDto{
   status:string
   @IsOptional()
   domain:string
+  @IsOptional()
+  role:string
 }
 
 export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive,BlockUnblockBody];

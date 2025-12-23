@@ -83,7 +83,7 @@ const handleDateSelect = (range: DateRange | undefined) => {
       <Button
         id="date-toggle"
         variant={"outline"}
-        className={`w-full justify-start text-left font-normal bg-background pr-3 ${
+        className={`w-full justify-start text-left font-normal bg-background pr-3 w-68 ${
           !dateRange.from && "text-muted-foreground"
         }`}
         onClick={() => setIsCalendarVisible(!isCalendarVisible)}

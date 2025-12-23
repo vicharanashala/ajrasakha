@@ -1136,7 +1136,6 @@ export class QuestionSubmissionRepository
       // Optional: ensure Author comes first
       {$sort: {Review_level: 1}},
     ];
-    console.log(startTime, endTime);
     const start = startTime ? new Date(`${startTime}T00:00:00.000Z`) : null;
 
     const end = endTime ? new Date(`${endTime}T23:59:59.999Z`) : null;
@@ -1467,8 +1466,14 @@ export class QuestionSubmissionRepository
     let {userId, startTime, endTime, crop, season, state, district,status,domain} = query;
    // district="vn"
    // status="closed"
+   crop = crop === 'all' ? undefined : crop;
+   season = season === 'all' ? undefined : season;
+   state = state === 'all' ? undefined : state;
+   district = district === 'all' ? undefined : district;
+   status = status === 'all' ? undefined : status;
+   domain = domain === 'all' ? undefined : domain;
+   console.log("crop======",crop,season,state)
     
-    console.log(startTime, endTime);
     const start = startTime ? new Date(`${startTime}T00:00:00.000Z`) : null;
     const end = endTime ? new Date(`${endTime}T23:59:59.999Z`) : null;
     

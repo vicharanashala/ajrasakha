@@ -83,30 +83,33 @@ export const ExpertDashboard = ({
     userId = user?._id?.toString();
   }
   const { data: reviewLevel, isLoading: isLoadingReviewLevel } =
-    useGetReviewLevel(userId, {
-      startTime: expertDate.startTime,
-      endTime: expertDate.endTime,
+    useGetReviewLevel({
+      userId,
+      dateRange: {
+        startTime: expertDate.startTime,
+        endTime: expertDate.endTime,
+      },
     });
   const levels = reviewLevel || [];
-  const totalPending = levels.reduce((sum, item) => sum + item.pendingcount, 0);
+  const totalPending = levels.reduce((sum, item) => sum + (item.pendingcount ?? 0), 0);
   const totalCompleted = levels.reduce(
-    (sum, item) => sum + item.completedcount,
+    (sum, item) => sum + (item.completedcount??0),
     0
   );
   const totalapproved = levels.reduce(
-    (sum, item) => sum + item.approvedCount,
+    (sum, item) => sum + (item.approvedCount??0),
     0
   );
   const totalrejected = levels.reduce(
-    (sum, item) => sum + item.rejectedCount,
+    (sum, item) => sum + (item.rejectedCount??0),
     0
   );
   const totalmodified = levels.reduce(
-    (sum, item) => sum + item.modifiedCount,
+    (sum, item) => sum + (item.modifiedCount??0),
     0
   );
   const totalDelayedQuestions = levels.reduce(
-    (sum, item) => sum + item.delayedQuestion,
+    (sum, item) => sum + (item.delayedQuestion??0),
     0
   );
   const [search, setSearch] = useState("");

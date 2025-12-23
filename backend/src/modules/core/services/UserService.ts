@@ -54,12 +54,18 @@ export class UserService extends BaseService {
   }
   async getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any> {
     try {
-      if (!query.userId) throw new NotFoundError('User ID is required');
+      //if (!query.userId) throw new NotFoundError('User ID is required');
 
       return this._withTransaction(async (session: ClientSession) => {
+        if(query.role=="moderator")
+        {
+          const moderatorResult=await this.questionSubmissionRepo.getModeratorReviewLevel(query)
+          return moderatorResult
+          
+        }
         const result= await this.questionSubmissionRepo.getUserReviewLevel(query)
-        const result1=await this.questionSubmissionRepo.getModeratorReviewLevel(query)
-        console.log("the result coming===",result1)
+        
+        
         return result
       });
     } catch (error) {

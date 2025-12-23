@@ -84,3 +84,10 @@ export const Review_Level=[
   "Level 9"
 
 ]
+export const STATUS=[
+  "open",
+  "in-review",
+  "delayed",
+  "closed",
+  "re-routed"
+]

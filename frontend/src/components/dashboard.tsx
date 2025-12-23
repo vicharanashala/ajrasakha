@@ -24,6 +24,7 @@ import { DateRangeFilter } from "./DateRangeFilter";
 import { useTheme } from "next-themes";
 import { Switch } from "./atoms/switch";
 import { Label } from "./atoms/label";
+import {ReviewLevelComponent} from './ReviewLevelComponent'
 
 //     { name: "Experts", value: 32 },
 //     { name: "Moderators", value: 8 },
@@ -378,7 +379,6 @@ export const Dashboard = () => {
           <ModeratorsOverview data={dataToShow.userRoleOverview} />
           <ApprovalRateCard data={dataToShow.moderatorApprovalRate} />
         </div>
-
         {/* Full Width Sources Chart */}
         <div className="mb-6 ">
           <GoldenDatasetOverview
@@ -440,6 +440,12 @@ export const Dashboard = () => {
             <HeatMap heatMapDate={heatMapDate} />
           </div>
         </div>
+
+         {/*Review Levell Data*/}
+         <div className="mb-6">
+          <ReviewLevelComponent/>
+          </div>
+
       </div>
     </main>
   );
