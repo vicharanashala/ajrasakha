@@ -146,7 +146,7 @@ export const ReviewLevelComponent=()=>{
       <Card className="mt-10">
       <div className="flex justify-between items-center mb-4 ml-5 mr-5">
         <h1 className="text-lg font-bold">
-          Summary of Completed Tasks by Review Level
+        Review Stage Distribution (Questions Passed at Each Level)
         </h1>
          
       <Dialog open={openFilter} onOpenChange={setOpenFilter}>
@@ -230,7 +230,7 @@ export const ReviewLevelComponent=()=>{
                   </TableHead>
                   
                   <TableHead className="text-center w-52">
-                    Completed Tasks({totalCompleted})
+                    Completed Tasks
                   </TableHead>
                 </TableRow>
               </TableHeader>
