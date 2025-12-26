@@ -86,6 +86,7 @@ export class QuestionService extends BaseService {
     const testEmbedding = await this.aiService.getEmbedding('Test');
 
     const formatted: IQuestion[] = questions.map((q: any) => {
+
       const low = normalizeKeysToLower(q || {});
       const details = {
         state: (low.state || '').toString(),
@@ -98,9 +99,9 @@ export class QuestionService extends BaseService {
       const priorities = ['low', 'high', 'medium'];
       const priority = priorities.includes(priorityRaw)
         ? (priorityRaw as IQuestionPriority)
-        : 'medium';
+        : 'medium'; 
       const questionText = (low.question || '').toString().trim();
-
+      const aiInitialAnswer = q.aiInitialAnswer;
       if (!questionText) {
         throw new BadRequestError(
           'Each question must have a non-empty "question" field',
@@ -115,6 +116,7 @@ export class QuestionService extends BaseService {
         totalAnswersCount: 0,
         contextId: null,
         details,
+        aiInitialAnswer,
         isAutoAllocate: true,
         embedding: [],
         metrics: null,

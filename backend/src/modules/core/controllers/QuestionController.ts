@@ -165,6 +165,7 @@ export class QuestionController {
           );
         }
 
+        console.log('Paylod: ', payload);
         const insertedIds = await this.questionService.createBulkQuestions(
           userId,
           payload,
