@@ -2543,7 +2543,13 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                     {item.answer &&
                     item.status === "re-routed" && (
                       <div className="flex items-center gap-1.5 pt-1 flex-wrap">
-                       {item.answer && Number(item.answer.approvalCount) >= 3&&
+                        <AcceptReviewDialog
+                          checklist={checklist}
+                          onChecklistChange={setChecklist}
+                          isSubmitting={isSubmittingAnswer}
+                          onConfirm={handleAccept}
+                        />
+                      {/* {item.answer && Number(item.answer.approvalCount) >= 3&&
                     item.status === "re-routed" && (
                       <div className="flex items-center gap-1.5 pt-1 flex-wrap">
                         <AcceptReviewDialog
@@ -2553,7 +2559,7 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                           onConfirm={handleAccept}
                         />
                         </div>
-                    )}
+                    )}*/}
 
                         <Button
                           size="sm"

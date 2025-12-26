@@ -1,4 +1,4 @@
-export const CROPS = ["Paddy Dhan", "Wheat"];
+export const CROPS = ["Paddy", "Wheat"];
 export const DOMAINS = [
   "Agriculture Mechanization",
   "Bio-Pesticides and Bio-Fertilizers",
