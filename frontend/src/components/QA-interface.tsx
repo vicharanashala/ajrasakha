@@ -109,6 +109,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/atoms/select";
+import { Review_Level_QAI } from "@/components/MetaData";
 
 export type QuestionFilter =
   | "newest"
@@ -156,6 +157,7 @@ export const QAInterface = ({
   const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
   const [remarks, setRemarks] = useState("");
+  const[reviewLevel,setReviewLevel]=useState('all')
 
   const [isLoaded, setIsLoaded] = useState(false);
   // const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
@@ -208,7 +210,7 @@ export const QAInterface = ({
     hasNextPage,
     isFetchingNextPage,
     refetch,
-  } = useGetAllocatedQuestions(LIMIT, filter, preferences,actionType,autoSelectQuestionId);
+  } = useGetAllocatedQuestions(LIMIT, filter, preferences,actionType,autoSelectQuestionId,reviewLevel);
   const { data: exactQuestionPage, isLoading: isLoading } =
     useGetAllocatedQuestionPage(autoSelectQuestionId!);
    
@@ -600,27 +602,49 @@ const handleActionChange = (value: string) => {
                   </Tooltip>
                 </div>
               </TooltipProvider>
-              <div className="flex ">
-              <Select value={actionType} onValueChange={handleActionChange} >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select action" />
-              </SelectTrigger>
+             
+              <div className="sm:flex sm:flex-row sm:justify-end sm:items-center gap-3 ">
+              <Select value={actionType} onValueChange={handleActionChange}>
+                <SelectTrigger className="">
+                  <SelectValue placeholder="Select action" />
+                </SelectTrigger>
 
-              <SelectContent>
-                <SelectItem value="allocated">Allocated Questions</SelectItem>
-                <SelectItem value="reroute">ReRouted Questions</SelectItem>
-              </SelectContent>
-            </Select>
+                <SelectContent>
+                  <SelectItem value="allocated">Allocated Questions</SelectItem>
+                  <SelectItem value="reroute">ReRouted Questions</SelectItem>
+                </SelectContent>
+              </Select>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => refetch()}
-                className="h-9 px-3 bg-transparent hidden md:block ml-3"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span className="sr-only">Refresh</span>
-              </Button>
+                {actionType === "allocated" && (
+                  <div className="min-w-0">
+                    <Select
+                      value={reviewLevel}
+                      onValueChange={(v) => setReviewLevel(v)}
+                    >
+                      <SelectTrigger className="bg-background w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Levels</SelectItem>
+                        {Review_Level_QAI.map((d) => ( 
+                          <SelectItem key={d} value={d}>
+                            {d}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )} 
+
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetch()}
+                  className="h-9 px-3 bg-transparent hidden md:block"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span className="sr-only">Refresh</span>
+                </Button>
               </div>
             </CardHeader>
             {isQuestionsLoading || isLoadingTargetQuestion ? (

@@ -9,10 +9,11 @@ export const useGetAllocatedQuestions = (
   filter: QuestionFilter,
   preferences: AdvanceFilterValues,
   actionType:string,
-  autoSelectQuestionId?:string|null
+  autoSelectQuestionId?:string|null,
+  reviewLevel?:string
 ) => {
   return useInfiniteQuery({
-    queryKey: ["questions", limit, filter, preferences,actionType],
+    queryKey: ["questions", limit, filter, preferences,actionType,reviewLevel],
     queryFn: async ({ pageParam }) => {
       return await questionService.useGetAllocatedQuestions(
         pageParam,
@@ -20,7 +21,8 @@ export const useGetAllocatedQuestions = (
         filter,
         preferences,
         actionType,
-        autoSelectQuestionId
+        autoSelectQuestionId,
+        reviewLevel
 
       );
     },

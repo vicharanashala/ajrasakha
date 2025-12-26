@@ -670,7 +670,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       const userObjectId = new ObjectId(userId);
 
-      const submissions = await this.QuestionSubmissionCollection.aggregate([
+     /* const submissions = await this.QuestionSubmissionCollection.aggregate([
         {
           $addFields: {
             lastHistory: {$arrayElemAt: ['$history', -1]},
@@ -697,7 +697,110 @@ export class QuestionRepository implements IQuestionRepository {
             ],
           },
         },
+      ]).toArray();*/
+      const submissions = await this.QuestionSubmissionCollection.aggregate([
+        // --------------------------------------------------
+        // 1. Minimal helper fields
+        // --------------------------------------------------
+        {
+          $addFields: {
+            historyCount: { $size: { $ifNull: ['$history', []] } },
+            lastHistory: { $arrayElemAt: ['$history', -1] },
+            firstInQueue: { $arrayElemAt: ['$queue', 0] }
+          }
+        },
+      
+        // --------------------------------------------------
+        // 2. Main match logic (INLINE review_level handling)
+        // --------------------------------------------------
+        {
+          $match: {
+            $expr: {
+              $and: [
+                // ===============================
+                // Review level vs history length
+                // ===============================
+                {
+                  $or: [
+                    // all → no filtering
+                    { $eq: [query.review_level, 'all'] },
+      
+                    // Author → historyCount = 0
+                    {
+                      $and: [
+                        { $eq: [query.review_level, 'Author'] },
+                        { $eq: ['$historyCount', 0] }
+                      ]
+                    },
+      
+                    // Level X → historyCount = X + 1
+                    {
+                      $and: [
+                        {
+                          $regexMatch: {
+                            input: query.review_level,
+                            regex: /^Level\s\d+$/
+                          }
+                        },
+                        {
+                          $eq: [
+                            '$historyCount',
+                            {
+                              $add: [
+                                {
+                                  $toInt: {
+                                    $arrayElemAt: [
+                                      { $split: [query.review_level, ' '] },
+                                      1
+                                    ]
+                                  }
+                                },
+                                1
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+      
+                // ===============================
+                // Submission visibility logic
+                // ===============================
+                {
+                  $or: [
+                    // Case 1: User is current reviewer
+                    {
+                      $and: [
+                        { $eq: ['$lastHistory.updatedBy', userObjectId] },
+                        { $eq: ['$lastHistory.status', 'in-review'] },
+                        {
+                          $or: [
+                            { $not: ['$lastHistory.answer'] },
+                            { $eq: ['$lastHistory.answer', null] },
+                            { $eq: ['$lastHistory.answer', ''] }
+                          ]
+                        }
+                      ]
+                    },
+      
+                    // Case 2: First reviewer
+                    {
+                      $and: [
+                        { $eq: ['$historyCount', 0] },
+                        { $eq: ['$firstInQueue', userObjectId] }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
       ]).toArray();
+      
+      
 
       const questionIdsToAttempt = submissions.map(
         sub => new ObjectId(sub?.questionId),
