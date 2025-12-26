@@ -65,7 +65,8 @@ export class QuestionService {
     filter: QuestionFilter,
     preferences: AdvanceFilterValues,
     actionType:string,
-    autoSelectQuestionId?:string|null
+    autoSelectQuestionId?:string|null,
+    reviewLevel?:string
   ): Promise<IQuestion[] | ReroutedQuestionItem[] |null> {
     const params = new URLSearchParams({
       page: pageParam.toString(),
@@ -96,6 +97,11 @@ export class QuestionService {
     if(autoSelectQuestionId)
     {
       params.append("autoSelectQuestionId", autoSelectQuestionId);
+
+    }
+    if(reviewLevel)
+    {
+      params.append("review_level",reviewLevel);
 
     }
 
