@@ -41,50 +41,68 @@ export const PlaygroundPage = () => {
     selectedQuestionType,
     setSelectedQuestionType
   } = useSelectedQuestion();
-  const [activeTab, setActiveTab] = useState<string>("performance");
-
+  //const [activeTab, setActiveTab] = useState<string>("performance");
+  // Initialize from localStorage or default
+ 
+  const [activeTab, setActiveTab] = useState<string>("all_questions");
+  const getStorageKey = (user?: { email?: string }) => {
+    if (!user?.email) return null;
+    return `playground_active_tab_${user.email}`;
+  };
+  // Set default tab based on user role when user data loads
+  useEffect(() => {
+    if (!user) return;
+    const storageKey = getStorageKey(user);
+    if (!storageKey) return;
+    const savedTab = localStorage.getItem(storageKey);
+    if (savedTab) {
+      setActiveTab(savedTab);
+    } else {
+      const defaultTab =
+        user.role === "expert" ? "questions" : "performance";
+  
+      setActiveTab(defaultTab);
+      localStorage.setItem(storageKey, defaultTab);
+    }
+    console.log("the active tab coming====",savedTab)
+   // setActiveTab(savedTab);
+  }, [user]);
+  // Only update tab when there's a specific selection that requires navigation
   useEffect(() => {
     if (!user) return;
 
-    let calculatedTab = "performance";
+    let calculatedTab: string | null = null;
 
-    if (user.role !== "expert") {
-      if (selectedRequestId) {
-        calculatedTab = "request_queue";
-      } 
-      else if (selectedHistoryId) {
-        calculatedTab = "history";
-      }
-      else {
-        /* else if(selectedExpertId)
-      {
-        calculatedTab = "expertPerformance";
-      }*/
-        calculatedTab = "performance";
-      }
-    } else {
-      // For experts
-      if (selectedRequestId) {
-        calculatedTab = "request_queue";
-      } else if (selectedQuestionId) {
-        calculatedTab = "questions";
-      } else if (selectedCommentId) {
-        calculatedTab = "all_questions";
-      } else if (selectedHistoryId) {
-        calculatedTab = "history";
-      } else {
-        calculatedTab = "questions";
-      }
+    // Only set calculatedTab if there's an explicit selection
+    if (selectedRequestId) {
+      calculatedTab = "request_queue";
+    } else if (selectedHistoryId) {
+      calculatedTab = "history";
+    } else if (selectedQuestionId) {
+      calculatedTab = "questions";
+    } else if (selectedCommentId) {
+      calculatedTab = "all_questions";
     }
-
-    setActiveTab(calculatedTab);
+    const storageKey = getStorageKey(user);
+    if (!storageKey) return;
+    // Only update if we have a specific tab to navigate to
+    if (calculatedTab && calculatedTab !== activeTab) {
+      setActiveTab(calculatedTab);
+      localStorage.setItem(storageKey, calculatedTab);
+    }
   }, [
     user,
     selectedQuestionId,
     selectedRequestId,
     selectedCommentId,
     selectedHistoryId,
+    activeTab
   ]);
+
+
+    
+    
+   
   // const defaultTab = (() => {
   //   if (!user) return "performance";
   //   if (user.role !== "expert") return "performance";
@@ -94,7 +112,12 @@ export const PlaygroundPage = () => {
   //   return "questions";
   // })();
   const handleTabChange = (value: string) => {
+    if (!user) return;
+    const storageKey = getStorageKey(user);
+    if (!storageKey) return;
     setActiveTab(value);
+    localStorage.setItem(storageKey, value);
+    
     if (value !== "questions") {
       setSelectedQuestionId(null);
     }

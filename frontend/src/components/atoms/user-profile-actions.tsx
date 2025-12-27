@@ -68,6 +68,14 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
   const [imgError, setImgError] = React.useState(false);
   const navigate = useNavigate();
   const handleLogout = () => {
+    const clearPlaygroundTabs = () => {
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith("playground_active_tab")) {
+          localStorage.removeItem(key);
+        }
+      });
+    };
+    clearPlaygroundTabs()
     onLogout();
   };
   if (!user) return;
