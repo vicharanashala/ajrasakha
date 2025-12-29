@@ -458,7 +458,7 @@ export interface IDetailedQuestion {
   createdAt?: string;
   updatedAt?: string;
   review_level_number?:number;
-
+  closedAt?: string;
 }
 
 export interface IDetailedQuestionResponse {
