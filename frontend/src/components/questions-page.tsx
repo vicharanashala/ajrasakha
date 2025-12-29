@@ -157,6 +157,18 @@ export const QuestionsPage = ({
     if (next.closedAtStart !== undefined) setClosedAtStart(next.closedAtStart);
     if (next.closedAtEnd !== undefined) setClosedAtEnd(next.closedAtEnd);
   };
+  const [showClosedAt,setClosedAt]=useState(false)
+  useEffect(()=>{
+    if(status=="closed" ||closedAtStart!=undefined)
+    {
+      setClosedAt(true)
+    }
+    else{
+      setClosedAt(false)
+    }
+    
+
+  },[status,closedAtStart])
 
   const onReset = () => {
     setStatus("all");
@@ -270,6 +282,8 @@ export const QuestionsPage = ({
             selectedQuestionIds={selectedQuestionIds}
             setIsSelectionModeOn={setIsSelectionModeOn}
             setSelectedQuestionIds={setSelectedQuestionIds}
+            showClosedAt={showClosedAt}
+           
           />
         </>
       )}

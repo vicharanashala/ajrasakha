@@ -395,14 +395,30 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="space-y-2 min-w-0">
-                <DateRangeFilter
-                 customName={"CreatedAt Date Range"}
-                  advanceFilter={advanceFilter}
-                  handleDialogChange={handleDialogChange}
-                />
+                <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <Layers className="h-4 w-4 text-primary" />
+                  Review Level
+                </Label>
+                <Select
+                  value={advanceFilter.review_level}
+                  onValueChange={(v) => handleDialogChange("review_level", v)}
+                >
+                  <SelectTrigger className="bg-background w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Levels</SelectItem>
+                    {Review_Level.map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
+              
             </div>
 
             <Separator />
@@ -601,27 +617,13 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
             <Separator />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              
               <div className="space-y-2 min-w-0">
-                <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Layers className="h-4 w-4 text-primary" />
-                  Review Level
-                </Label>
-                <Select
-                  value={advanceFilter.review_level}
-                  onValueChange={(v) => handleDialogChange("review_level", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Levels</SelectItem>
-                    {Review_Level.map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <DateRangeFilter
+                 customName={"CreatedAt Date Range"}
+                  advanceFilter={advanceFilter}
+                  handleDialogChange={handleDialogChange}
+                />
               </div>
               <div className="space-y-2 min-w-0">
                 <DateRangeFilter
@@ -634,6 +636,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
             </div>
 
             <Separator />
+            
 
             {/* Number of Answers Slider */}
             <div className="space-y-4">

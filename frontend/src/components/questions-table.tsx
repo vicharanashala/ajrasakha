@@ -137,6 +137,7 @@ type QuestionsTableProps = {
   setIsSelectionModeOn: (value: boolean) => void;
   selectedQuestionIds: string[];
   setSelectedQuestionIds: Dispatch<SetStateAction<string[]>>;
+  showClosedAt?:boolean
 };
 
 export const QuestionsTable = ({
@@ -153,6 +154,7 @@ export const QuestionsTable = ({
   setIsSelectionModeOn,
   selectedQuestionIds,
   setSelectedQuestionIds,
+  showClosedAt
 }: QuestionsTableProps) => {
   const [editOpen, setEditOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
@@ -296,6 +298,8 @@ export const QuestionsTable = ({
                 <TableHead className="text-center">Answers</TableHead>
                 <TableHead className="text-center">Review Level</TableHead>
                 <TableHead className="text-center">Created</TableHead>
+                {showClosedAt? <TableHead className="text-center">Closed</TableHead>:null}
+               
                 {/* <TableHead className="text-center">Action</TableHead> */}
               </TableRow>
             </TableHeader>
@@ -342,6 +346,7 @@ export const QuestionsTable = ({
                     isSelected={!!q._id && selectedQuestionIds.includes(q._id)}
                     setIsSelectionModeOn={setIsSelectionModeOn}
                     selectedQuestionIds={selectedQuestionIds}
+                    showClosedAt={showClosedAt}
                   />
                 ))
               )}
@@ -424,6 +429,7 @@ interface QuestionRowProps {
     status?: QuestionStatus
   ) => Promise<void>;
   onViewMore: (id: string) => void;
+  showClosedAt?:boolean
 }
 
 const QuestionRow: React.FC<QuestionRowProps> = ({
@@ -444,6 +450,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   isSelected,
   handleQuestionsSelection,
   selectedQuestionIds,
+  showClosedAt
 }) => {
   // To track cont
 
@@ -640,6 +647,12 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
           <TableCell className="align-middle">
             {formatDate(new Date(q.createdAt!), false)}
           </TableCell>
+          {showClosedAt?
+          <TableCell className="align-middle">
+          {q.closedAt?formatDate(new Date(q.closedAt!), false):'N/C'}
+        </TableCell>:null
+          }
+          
         </TableRow>
       </ContextMenuTrigger>
 
