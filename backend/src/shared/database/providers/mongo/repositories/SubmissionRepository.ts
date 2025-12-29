@@ -1614,9 +1614,9 @@ export class QuestionSubmissionRepository
       // Optional: ensure Author comes first
       {$sort: {Review_level: 1}},
     ];
-    const start = startTime ? new Date(`${startTime}T00:00:00.000Z`) : null;
+    const start = startTime ? new Date(`${startTime}T00:00:00.000+05:30`) : null;
 
-    const end = endTime ? new Date(`${endTime}T23:59:59.999Z`) : null;
+    const end = endTime ? new Date(`${endTime}T23:59:59.999+05:30`) : null;
     const pipe = [
       {
         $addFields: {
@@ -1952,8 +1952,8 @@ export class QuestionSubmissionRepository
    domain = domain === 'all' ? undefined : domain;
    
     
-    const start = startTime ? new Date(`${startTime}T00:00:00.000Z`) : null;
-    const end = endTime ? new Date(`${endTime}T23:59:59.999Z`) : null;
+    const start = startTime ? new Date(`${startTime}T00:00:00.000+05:30`) : null;
+    const end = endTime ? new Date(`${endTime}T23:59:59.999+05:30`) : null;
     
     // Step 1: Get filtered question IDs if filters exist
     let questionIds = null;
