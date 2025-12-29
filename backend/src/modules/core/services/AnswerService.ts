@@ -866,6 +866,11 @@ export class AnswerService extends BaseService {
               'Failed to create review entry. Please try again.',
             );
           }
+          await this.questionRepo.updateQuestion(
+            questionId,
+            {status: 'in-review'},
+            session,
+          );
 
           reviewId = new ObjectId(insertedId);
         }
