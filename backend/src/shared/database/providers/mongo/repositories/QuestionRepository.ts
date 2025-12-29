@@ -339,11 +339,11 @@ export class QuestionRepository implements IQuestionRepository {
         const filterDate: any = {};
 
         if (startTime) {
-          filterDate.$gte = new Date(`${startTime}T00:00:00.000Z`);
+          filterDate.$gte = new Date(`${startTime}T00:00:00.000+05:30`);
         }
 
         if (endTime) {
-          filterDate.$lte = new Date(`${endTime}T23:59:59.999Z`);
+          filterDate.$lte = new Date(`${endTime}T23:59:59.999+05:30`);
         }
 
         filter.createdAt = filterDate;
@@ -375,11 +375,11 @@ export class QuestionRepository implements IQuestionRepository {
         const filterDate: any = {};
 
         if (closedAtStart) {
-          filterDate.$gte = new Date(`${closedAtStart}T00:00:00.000Z`);
+          filterDate.$gte = new Date(`${closedAtStart}T00:00:00.000+05:30`);
         }
 
         if (closedAtEnd) {
-          filterDate.$lte = new Date(`${closedAtEnd}T23:59:59.999Z`);
+          filterDate.$lte = new Date(`${closedAtEnd}T23:59:59.999+05:30`);
         }
 
         filter.closedAt = filterDate;
