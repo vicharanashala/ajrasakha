@@ -2413,10 +2413,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
               <Dialog open={editOpen} onOpenChange={setEditOpen}>
                 <DialogTrigger asChild>
                   <button
-                    disabled={lastReroutedTo?.status === "pending"}
+                    disabled={lastReroutedTo?.status === "pending"||props.answer.approvalCount<3}
                     className={`bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded
                     ${
-                      lastReroutedTo?.status === "pending"
+                      lastReroutedTo?.status === "pending"||props.answer.approvalCount<3
                         ? "opacity-50 cursor-not-allowed"
                         : "hover:bg-primary/90"
                     }
