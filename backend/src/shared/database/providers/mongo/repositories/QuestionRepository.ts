@@ -1368,7 +1368,8 @@ export class QuestionRepository implements IQuestionRepository {
         throw new BadRequestError('Updates object cannot be empty');
       }
 
-      const forbiddenFields = ['_id', 'id', 'createdAt', 'updatedAt'];
+      const forbiddenFields = ['_id', 'id', 'createdAt', 'updatedAt','review_level_number' ];
+      
 
       if (!addText) {
         forbiddenFields.push('text');
