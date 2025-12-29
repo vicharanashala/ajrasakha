@@ -310,6 +310,8 @@ export class QuestionRepository implements IQuestionRepository {
         page = 1,
         limit = 10,
         review_level,
+        closedAtStart,
+        closedAtEnd
       } = query;
 
       const filter: any = {};
@@ -368,6 +370,19 @@ export class QuestionRepository implements IQuestionRepository {
         }
 
         if (startDate) filter.createdAt = {$gte: startDate};
+      }
+      else if (closedAtEnd||closedAtStart) {
+        const filterDate: any = {};
+
+        if (closedAtStart) {
+          filterDate.$gte = new Date(`${closedAtStart}T00:00:00.000Z`);
+        }
+
+        if (closedAtEnd) {
+          filterDate.$lte = new Date(`${closedAtEnd}T23:59:59.999Z`);
+        }
+
+        filter.closedAt = filterDate;
       }
 
       let questionIdsByUser: string[] | null = null;

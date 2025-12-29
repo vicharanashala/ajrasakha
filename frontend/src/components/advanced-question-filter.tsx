@@ -101,6 +101,8 @@ export type AdvanceFilterValues = {
   startTime?: Date | undefined; // Use a specific name like startTime/endTime
   endTime?: Date | undefined;
   review_level?: ReviewLevel;
+  closedAtEnd?:Date|undefined,
+  closedAtStart?:Date|undefined
 };
 
 // Define the props for your new component
@@ -396,6 +398,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
               <div className="space-y-2 min-w-0">
                 <DateRangeFilter
+                 customName={"CreatedAt Date Range"}
                   advanceFilter={advanceFilter}
                   handleDialogChange={handleDialogChange}
                 />
@@ -620,6 +623,14 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2 min-w-0">
+                <DateRangeFilter
+                customName={"ClosedAt Date Range"}
+                  advanceFilter={advanceFilter}
+                  handleDialogChange={handleDialogChange}
+                  type={"closedDateRange"}
+                />
+              </div>
             </div>
 
             <Separator />
@@ -673,6 +684,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                         key == "startTime" ||
                         key == "endTime" ||
                         value === "all" ||
+                        key === "closedAtStart" ||
+                        key === "closedAtEnd" ||
                         (Array.isArray(value) &&
                           value[0] === 0 &&
                           value[1] === 100)
@@ -721,6 +734,11 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   user: "all",
                   domain: "all",
                   review_level: "all",
+                  
+                  endTime: undefined,
+                  startTime:undefined,
+                  closedAtStart:undefined,
+                  closedAtEnd:undefined
                 });
                 onReset();
               }}

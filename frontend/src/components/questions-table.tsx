@@ -1529,6 +1529,8 @@ export const QuestionsFilters = ({
       endTime: undefined,
       startTime: undefined,
       review_level: "all",
+      closedAtStart:undefined,
+      closedAtEnd:undefined
     }
   );
   const [addOpen, setAddOpen] = useState(false);
@@ -1662,15 +1664,46 @@ export const QuestionsFilters = ({
       endTime: advanceFilter.endTime,
       startTime: advanceFilter.startTime,
       review_level: advanceFilter?.review_level,
+      closedAtStart:advanceFilter?.closedAtStart,
+      closedAtEnd:advanceFilter?.closedAtEnd
     });
   };
 
-  const activeFiltersCount = Object.values(advanceFilter).filter(
+  /*const activeFiltersCount = Object.values(advanceFilter).filter(
     (v) =>
       v !== undefined &&
       v !== "all" &&
       !(Array.isArray(v) && v[0] === 0 && v[1] === 100)
-  ).length;
+  ).length;*/
+  const activeFiltersCount =
+  Object.entries(advanceFilter).filter(([key, value]) => {
+    // ❌ exclude date range internal fields
+    if (
+      key === "startTime" ||
+      key === "endTime" ||
+      key === "closedAtStart" ||
+      key === "closedAtEnd"
+    ) {
+      return false;
+    }
+
+    // ignore defaults
+    if (value === undefined || value === "all") return false;
+
+    //  ignore default slider range
+    if (Array.isArray(value) && value[0] === 0 && value[1] === 100) {
+      return false;
+    }
+
+    return true;
+  }).length
+  +
+  // ✅ Created date range counts as ONE
+  (advanceFilter.startTime || advanceFilter.endTime ? 1 : 0)
+  +
+  // ✅ ClosedAt date range counts as ONE
+  (advanceFilter.closedAtStart || advanceFilter.closedAtEnd ? 1 : 0);
+
 
   return (
     <div className="w-full p-4 border-b bg-card ms-2 md:ms-0  rounded flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">

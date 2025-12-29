@@ -45,6 +45,12 @@ export class QuestionService {
     if (filter.endTime) {
       params.append("endTime", formatDateLocal(filter.endTime));
     }
+    if (filter.closedAtEnd) {
+      params.append("closedAtEnd", formatDateLocal(filter.closedAtEnd));
+    }
+    if (filter.closedAtStart) {
+      params.append("closedAtStart", formatDateLocal(filter.closedAtStart));
+    }
 
     if (filter.answersCount) {
       params.append("answersCountMin", filter.answersCount[0].toString());
