@@ -37,6 +37,8 @@ export const QuestionsPage = ({
   const [startTime, setStartTime] = useState<Date | undefined>(undefined);
   const [endTime, setEndTime] = useState<Date | undefined>(undefined);
   const [review_level, setReviewLevel] = useState<ReviewLevel>("all");
+  const [closedAtStart, setClosedAtStart] = useState<Date | undefined>(undefined);
+  const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
 
   // const observerRef = useRef<IntersectionObserver | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -74,6 +76,8 @@ export const QuestionsPage = ({
       startTime,
       endTime,
       review_level,
+      closedAtStart,
+      closedAtEnd
     }),
     [
       status,
@@ -88,6 +92,8 @@ export const QuestionsPage = ({
       startTime,
       endTime,
       review_level,
+      closedAtEnd,
+      closedAtStart
     ]
   );
 
@@ -133,6 +139,8 @@ export const QuestionsPage = ({
     startTime?: Date | undefined;
     endTime?: Date | undefined;
     review_level?: ReviewLevel;
+    closedAtEnd?:Date|undefined,
+    closedAtStart?:Date|undefined
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -146,6 +154,8 @@ export const QuestionsPage = ({
     if (next.startTime !== undefined) setStartTime(next.startTime);
     if (next.endTime !== undefined) setEndTime(next.endTime);
     if (next.review_level !== undefined) setReviewLevel(next.review_level);
+    if (next.closedAtStart !== undefined) setClosedAtStart(next.closedAtStart);
+    if (next.closedAtEnd !== undefined) setClosedAtEnd(next.closedAtEnd);
   };
 
   const onReset = () => {
@@ -159,6 +169,12 @@ export const QuestionsPage = ({
     setDomain("all");
     setUser("all");
     setReviewLevel("all");
+    setStartTime(undefined)
+    setEndTime(undefined)
+    setClosedAtEnd(undefined)
+    setClosedAtStart(undefined)
+   
+
   };
 
   const handleViewMore = (questoinId: string) => {

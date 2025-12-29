@@ -434,6 +434,24 @@ class GetDetailedQuestionsQuery {
   @IsOptional()
   @IsString()
   review_level?: string;
+
+  @JSONSchema({
+    description: 'Start time for closedAt date range filter',
+    example: '2025-11-12T18:30:00.000Z',
+    type: 'string',
+    format: 'date-time',
+  })
+  @IsOptional()
+  closedAtStart?: string;
+
+  @JSONSchema({
+    description: 'End time for closedAt date range filter',
+    example: '2025-11-27T18:30:00.000Z',
+    type: 'string',
+    format: 'date-time',
+  })
+  @IsOptional()
+  closedAtEnd?: string;
 }
 
 export interface IQuestionWithAnswerTexts {

@@ -13,6 +13,8 @@ interface DateRangeFilterProps {
   // The handler to update the parent state
   handleDialogChange: (key: string, value: any) => void;
   className?: string;
+  customName?:string;
+  type?:string
 }
 
 
@@ -20,12 +22,16 @@ export const DateRangeFilter = ({
   advanceFilter,
   handleDialogChange,
   className,
+  customName,
+  type
 }: DateRangeFilterProps) => {
   const [isCalendarVisible, setIsCalendarVisible] = React.useState(false);
   // Convert the flat startTime/endTime into the DateRange object for the Calendar
+  const startKey = type === "closedDateRange" ? "closedAtStart" : "startTime";
+const endKey = type === "closedDateRange" ? "closedAtEnd" : "endTime";
   const dateRange: DateRange = {
-    from: advanceFilter.startTime,
-    to: advanceFilter.endTime,
+    from: advanceFilter[startKey],
+    to: advanceFilter[endKey],
   };
 
 //   const handleDateSelect = (range: DateRange | undefined) => {
@@ -39,7 +45,7 @@ export const DateRangeFilter = ({
 //     }
 //   };
 
-const handleDateSelect = (range: DateRange | undefined) => {
+/*const handleDateSelect = (range: DateRange | undefined) => {
   if (!range) return;
 
   const { from, to } = range;
@@ -67,7 +73,32 @@ const handleDateSelect = (range: DateRange | undefined) => {
 
     setIsCalendarVisible(false);
   }
+
+};*/
+const handleDateSelect = (range: DateRange | undefined) => {
+  if (!range) return;
+
+  const { from, to } = range;
+  const currentEnd = advanceFilter[endKey];
+
+  // Only start selected
+  if (from && !to) {
+    handleDialogChange(startKey, from);
+
+    if (currentEnd && from > currentEnd) {
+      handleDialogChange(endKey, undefined);
+    }
+    return;
+  }
+
+  // Start & end selected
+  if (from && to) {
+    handleDialogChange(startKey, from);
+    handleDialogChange(endKey, to);
+    setIsCalendarVisible(false);
+  }
 };
+
 
 
   const isRangeSelected = dateRange.from && dateRange.to;
@@ -76,7 +107,7 @@ const handleDateSelect = (range: DateRange | undefined) => {
     <div className={`space-y-2 min-w-0 relative${className}`}>
       <Label className="flex items-center gap-2 text-sm font-semibold">
         <Clock className="h-4 w-4 text-primary" />
-        Custom Date Range
+       {customName || "Custom Date Range"}
       </Label>
 
       {/* This Button now acts as a toggle */}
