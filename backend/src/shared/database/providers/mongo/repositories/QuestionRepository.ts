@@ -1444,6 +1444,10 @@ export class QuestionRepository implements IQuestionRepository {
         {_id: new ObjectId(questionId)},
         {session},
       );
+   const result1=   await this.ReRouteCollection.deleteOne(
+        {questionId: new ObjectId(questionId)},
+        {session},
+      );
 
       return {deletedCount: result.deletedCount};
     } catch (error) {
