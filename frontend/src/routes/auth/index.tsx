@@ -1,4 +1,5 @@
-import { AuthForm } from "@/components/auth-form";
+// import { AuthForm } from "@/components/auth-form";
+import { AuthForm } from "@/features/auth/components/AuthForm";
 import { useAuthStore } from "@/stores/auth-store";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
