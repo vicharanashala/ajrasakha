@@ -6,17 +6,17 @@ import "./styles.css";
 import reportWebVitals from "./reportWebVitals.ts";
 import { worker } from "./mocks/browser.js";
 import { client } from "./client/client.gen.ts";
+import { env } from "./config/env.ts";
 // import { useAuthStore } from "./stores/auth-store.ts";
 
-if (import.meta.env.VITE_ENABLE_MOCKS === "true") {
+if (env.enableMocks() === true) {
   await worker.start();
 }
 client.setConfig({
-  baseUrl: import.meta.env.VITE_API_BASE_URL || "http://localhost:4000",
+  baseUrl: env.apiBaseUrl() || "http://localhost:4000",
   // auth: `${useAuthStore.getState().token}`,
 });
 
-console.log(import.meta.env.VITE_API_BASE_URL, "API Base URL");
 
 // Create a new router instance
 const router = createRouter({

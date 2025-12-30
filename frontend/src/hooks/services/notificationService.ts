@@ -1,7 +1,8 @@
 
 import { apiFetch } from "../api/api-fetch";
 import type { INotification } from "../../types";
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { env } from "@/config/env";
+const API_BASE_URL = env.apiBaseUrl();
 
 export class NotificationService {
   private _baseUrl = `${API_BASE_URL}/notifications`;

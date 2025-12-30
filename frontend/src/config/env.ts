@@ -26,6 +26,7 @@ function getEnv(key: EnvKey, required = true): string {
   const value = import.meta.env[key];
 
   if (!value && required) {
+    alert("Missing required environment variable");
     throw new Error(`Missing required environment variable: ${key}`);
   }
 
@@ -45,8 +46,7 @@ export const env = {
     storageBucket: () => getEnv("VITE_FIREBASE_STORAGE_BUCKET"),
     messagingSenderId: () => getEnv("VITE_FIREBASE_MESSAGING_SENDER_ID"),
     appId: () => getEnv("VITE_FIREBASE_APP_ID"),
-    measurementId: () =>
-      getEnv("VITE_FIREBASE_MEASUREMENT_ID", false),
+    measurementId: () => getEnv("VITE_FIREBASE_MEASUREMENT_ID", false),
   },
 
   sarvamApiKey: () => getEnv("VITE_SARVAM_API_KEY"),

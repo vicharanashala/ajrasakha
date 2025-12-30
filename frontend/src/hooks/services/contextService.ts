@@ -1,8 +1,9 @@
+import { env } from "@/config/env";
 import { apiFetch } from "../api/api-fetch";
 import type { SupportedLanguage } from "@/types";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const SARVAM_API_KEY = import.meta.env.VITE_SARVAM_API_KEY;
+const API_BASE_URL = env.apiBaseUrl();
+const SARVAM_API_KEY = env.sarvamApiKey()
 export class ContextService {
   private _baseUrl = `${API_BASE_URL}/context`;
 

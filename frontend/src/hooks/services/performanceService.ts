@@ -6,8 +6,9 @@ import type {
 } from "../api/performance/useGetDashboard";
 import { formatDateLocal } from "@/utils/formatDate";
 import type { DateRange } from "@/components/dashboard/questions-analytics";
+import { env } from "@/config/env";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = env.apiBaseUrl();
 
 export class PerformaneService {
   private _baseUrl = `${API_BASE_URL}/performance`;
