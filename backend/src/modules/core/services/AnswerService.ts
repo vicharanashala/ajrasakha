@@ -641,14 +641,16 @@ export class AnswerService extends BaseService {
         const currentUserIndexInQueue = currentSumbmissionQueue.findIndex(
           id => id.toString() === userId.toString(),
         );
-
         // Check if the current user is in the queue
         if (currentUserIndexInQueue !== -1) {
           const isNotLast =
             currentUserIndexInQueue < currentSumbmissionQueue.length - 1;
           const isQueueNotFull = currentSumbmissionQueue.length < 10;
           // Case 1: Current user is not the last in the queue and total history (including next) is less than 10
-          if (isNotLast && isQueueNotFull) {
+          //currentSubmissionHistory.length <10
+          
+         // if (isNotLast &&isQueueNotFull  ) {
+          if (isNotLast &&currentSubmissionHistory.length <10 ) {
             const nextExpertId =
               currentSumbmissionQueue[currentUserIndexInQueue + 1];
 
@@ -690,7 +692,7 @@ export class AnswerService extends BaseService {
           }
 
           // Case 2: Current user is the last in the queue but the queue isn't full
-          else if (
+           if (
             currentUserIndexInQueue === currentSumbmissionQueue.length - 1 &&
             currentSumbmissionQueue.length < 10 &&
             question.isAutoAllocate
