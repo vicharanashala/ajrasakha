@@ -307,6 +307,16 @@ export class QuestionController {
     return this.questionService.deleteQuestion(questionId);
   }
 
+  @Get('/')
+  @HttpCode(200)
+  @Authorized()
+  @ResponseSchema(QuestionResponse)
+  @OpenAPI({summary: 'Get all questions and review levels'})
+  async getQuestionsAndReviewlevel(
+  ) {
+    return this.questionService.getQuestionAndReviewLevel();
+  }
+
   /////////////////////////////////////////////////// FOR BACKGROUND JOBS ///////////////////////////////////////////////
 
   @Get('/background-status')

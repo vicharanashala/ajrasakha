@@ -1288,4 +1288,10 @@ export class QuestionService extends BaseService {
       );
     });
   }
+
+  async getQuestionAndReviewLevel(){
+    return this._withTransaction(async session => {
+      return this.questionRepo.getQuestionsAndReviewLevel(session)
+    } )
+  }
 }

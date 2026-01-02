@@ -313,4 +313,6 @@ export interface IQuestionRepository {
     status: IQuestion['status'],
     session?: ClientSession,
   ): Promise<IQuestion[]>;
+
+  getQuestionsAndReviewLevel(session?:ClientSession)
 }
