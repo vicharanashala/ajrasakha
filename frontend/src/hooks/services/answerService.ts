@@ -6,8 +6,9 @@ import type {
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { IReviewAnswerPayload } from "../api/answer/useReviewAnswer";
+import { env } from "@/config/env";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = env.apiBaseUrl();
 
 export class AnswerService {
   private _baseUrl = `${API_BASE_URL}/answers`;

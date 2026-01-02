@@ -1,7 +1,8 @@
 import type { IDetailedQuestion, IRequest, IRequestResponse } from "@/types";
 import { apiFetch } from "../api/api-fetch";
+import { env } from "@/config/env";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = env.apiBaseUrl();
 
 export class RequestService {
   private _baseUrl = `${API_BASE_URL}/requests`;

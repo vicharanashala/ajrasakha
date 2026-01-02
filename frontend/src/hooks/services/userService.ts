@@ -2,8 +2,9 @@ import type { IUser,ReviewLevelCount } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { IUsersNameResponse } from "../api/user/useGetAllUsers";
 import { formatDateLocal } from "@/utils/formatDate";
+import { env } from "@/config/env";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = env.apiBaseUrl();
 
 export class UserService {
   private _baseUrl = `${API_BASE_URL}/users`;

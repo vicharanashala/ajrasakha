@@ -12,9 +12,9 @@ import type { QuestionFilter } from "@/components/QA-interface";
 import type { GeneratedQuestion } from "@/components/voice-recorder-card";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
 import { formatDateLocal } from "@/utils/formatDate";
+import { env } from "@/config/env";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
+const API_BASE_URL = env.apiBaseUrl();
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
   private _reRouteUrl = `${API_BASE_URL}/reroute`;
