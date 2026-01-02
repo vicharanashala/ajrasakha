@@ -361,6 +361,12 @@ if (existingReRoute?.reroutes.at(-1)?.status === "pending") {
           await Promise.all([updateReputation,sendNotification])
 
         }
+        await this.questionRepo.updateQuestionStatus(
+          questionId,
+          'in-review',
+          null,
+          session,
+        );
         
         return
       })

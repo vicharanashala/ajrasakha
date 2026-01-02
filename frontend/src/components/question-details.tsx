@@ -2353,12 +2353,12 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
               Final
             </Badge>
           )}
-          {props?.submissionData?.rejectedAnswer && (
+          {/*props?.submissionData?.rejectedAnswer && (
             <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
               <XCircle className="w-3 h-3 mr-1" />
               Rejected
             </Badge>
-          )}
+          )*/}
           {isRejected && !props.submissionData?.isReroute && (
             <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
               <XCircle className="w-3 h-3 mr-1" />
