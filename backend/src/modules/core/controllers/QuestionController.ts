@@ -313,11 +313,11 @@ export class QuestionController {
   @ResponseSchema(QuestionResponse)
   @OpenAPI({summary: 'Get all questions and review levels'})
   async getQuestionsAndReviewlevel(
+     @QueryParams() query: {page?: number; limit?: number;search?:string}
   ) {
-    return this.questionService.getQuestionAndReviewLevel();
+    const {page=1,limit=10,search=""} = query
+    return this.questionService.getQuestionAndReviewLevel(Number(page),Number(limit),search);
   }
-
-  /////////////////////////////////////////////////// FOR BACKGROUND JOBS ///////////////////////////////////////////////
 
   @Get('/background-status')
   getAllJobs() {
@@ -331,5 +331,4 @@ export class QuestionController {
     return job;
   }
 
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
