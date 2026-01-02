@@ -1936,8 +1936,96 @@ export class QuestionSubmissionRepository
         modifiedCount: matchCompleted ? matchCompleted.modifiedCount : 0,
       };
     });
+   
 
-    return merged;
+      const reroutePipeline=[
+        // 1️⃣ Explode reroutes array
+        {
+          $unwind: "$reroutes"
+        },
+
+        // 2️⃣ Match reviewer + exclude system rejections
+        {
+          $match: {
+            "reroutes.reroutedTo": reviewerId,
+            "reroutes.status": {
+              $nin: ["moderator_rejected", "expert_rejected"]
+            }
+          }
+        },
+
+        // 3️⃣ Aggregate true counts
+        {
+          $group: {
+            _id: null,
+
+            pendingcount: {
+              $sum: {
+                $cond: [{ $eq: ["$reroutes.status", "pending"] }, 1, 0]
+              }
+            },
+
+            approvedCount: {
+              $sum: {
+                $cond: [{ $eq: ["$reroutes.status", "approved"] }, 1, 0]
+              }
+            },
+
+            rejectedCount: {
+              $sum: {
+                $cond: [{ $eq: ["$reroutes.status", "rejected"] }, 1, 0]
+              }
+            },
+
+            modifiedCount: {
+              $sum: {
+                $cond: [{ $eq: ["$reroutes.status", "modified"] }, 1, 0]
+              }
+            },
+
+            completedcount: {
+              $sum: {
+                $cond: [
+                  {
+                    $in: [
+                      "$reroutes.status",
+                      ["approved", "rejected", "modified"]
+                    ]
+                  },
+                  1,
+                  0
+                ]
+              }
+            }
+          }
+        },
+
+        // 4️⃣ Final shape
+        {
+          $project: {
+            _id: 0,
+            Review_level: { $literal: "rerouted" },
+            pendingcount: 1,
+            approvedCount: 1,
+            rejectedCount: 1,
+            modifiedCount: 1,
+            completedcount: 1 
+          }
+        }
+      ]
+      let rerouteResults=await this.ReRouteCollection.aggregate(reroutePipeline).toArray()
+      if(rerouteResults.length==0)
+      {
+        rerouteResults=[{Review_level: "rerouted",
+        pendingcount: 0,
+       
+        completedcount: 0,
+        approvedCount:  0,
+        rejectedCount:  0,
+        modifiedCount:  0}]
+
+      }
+    return  [...merged,...rerouteResults] ;
   }
   async getModeratorReviewLevel(query: ExpertReviewLevelDto): Promise<any> {
     await this.init();

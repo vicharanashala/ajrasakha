@@ -275,7 +275,7 @@ export const ExpertDashboard = ({
                     Incentive Points
                   </p>
                   <p className="text-3xl font-bold text-foreground">
-                    {user?.incentive || 0}
+                    { userDetails?.[0]?.incentive||user?.incentive || 0}
                   </p>
                   <p className="text-xs text-green-600 mt-2 font-medium">
                     Total Approved Answers
@@ -292,7 +292,7 @@ export const ExpertDashboard = ({
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Penality</p>
                   <p className="text-3xl font-bold text-foreground">
-                    {user?.penalty || 0}
+                    {userDetails?.[0]?.penalty ||user?.penalty || 0}
                   </p>
                   <p className="text-xs text-green-600 mt-2 font-medium">
                     Total Rejected Answers

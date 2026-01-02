@@ -64,7 +64,6 @@ export const PlaygroundPage = () => {
       setActiveTab(defaultTab);
       localStorage.setItem(storageKey, defaultTab);
     }
-    console.log("the active tab coming====",savedTab)
    // setActiveTab(savedTab);
   }, [user]);
   // Only update tab when there's a specific selection that requires navigation
