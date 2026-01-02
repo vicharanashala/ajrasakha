@@ -1289,9 +1289,9 @@ export class QuestionService extends BaseService {
     });
   }
 
-  async getQuestionAndReviewLevel(){
+  async getQuestionAndReviewLevel(page:number,limit:number,search:string){
     return this._withTransaction(async session => {
-      return this.questionRepo.getQuestionsAndReviewLevel(session)
+      return this.questionRepo.getQuestionsAndReviewLevel(page,limit,search,session)
     } )
   }
 }

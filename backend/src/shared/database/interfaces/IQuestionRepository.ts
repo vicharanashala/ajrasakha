@@ -314,5 +314,5 @@ export interface IQuestionRepository {
     session?: ClientSession,
   ): Promise<IQuestion[]>;
 
-  getQuestionsAndReviewLevel(session?:ClientSession)
+  getQuestionsAndReviewLevel(page:number,limit:number,search:string,session?:ClientSession)
 }
