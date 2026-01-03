@@ -277,15 +277,14 @@ export const PlaygroundPage = () => {
         <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="mx-auto flex items-center justify-between gap-4 px-4 py-3">
             {/* Logo */}
-            {/* <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-3 shrink-0">
               <img
                 src="/annam-logo.png"
                 alt="Annam Logo"
                 className="h-10 w-auto md:h-14"
               />
-            </div> */}
-            <div className="relative flex items-center gap-3 shrink-0">
-              {/* Christmas Cap */}
+            </div>
+            {/* <div className="relative flex items-center gap-3 shrink-0">
               <ChristmasCap
                 className="
                   hidden 
@@ -301,13 +300,12 @@ export const PlaygroundPage = () => {
                   z-10
                 "
               />
-              {/* Logo */}
               <img
                 src="/annam-logo.png"
                 alt="Annam Logo"
                 className="h-10 w-auto md:h-14"
               />
-            </div>
+            </div> */}
 
             <div className="flex-1 md:flex justify-center min-w-0 hidden ">
               <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">

@@ -31,7 +31,7 @@ import {
 import { DashboardClock } from "./dashboard/dashboard-clock";
 import { Button } from "./atoms/button";
 import { DateRangeFilter } from "./DateRangeFilter";
-import { ChristmasCap, HolidayBanner, Snowfall } from "./dashboard";
+// import { ChristmasCap, HolidayBanner, Snowfall } from "./dashboard";
 import { useTheme } from "next-themes";
 import { Label } from "./atoms/label";
 import { Switch } from "./atoms/switch";
@@ -53,20 +53,22 @@ export const ExpertDashboard = ({
   expertDetailsList,
 }: ExpertDashboardProps) => {
   /////////////////////////////////////////////////////////////////////////
-  const { theme } = useTheme();
+  // const { theme } = useTheme();
 
-  const ANIMATIONS_KEY = "animationsEnabled";
+  // const ANIMATIONS_KEY = "animationsEnabled";
 
-  const [animationsEnabled, setAnimationsEnabled] = useState<boolean>(() => {
-    if (typeof window === "undefined") return true; // SSR safety
-    const stored = localStorage.getItem(ANIMATIONS_KEY);
-    return stored ? JSON.parse(stored) : true; // default ON
-  });
+  // const [animationsEnabled, setAnimationsEnabled] = useState<boolean>(() => {
+  //   if (typeof window === "undefined") return true; // SSR safety
+  //   const stored = localStorage.getItem(ANIMATIONS_KEY);
+  //   return stored ? JSON.parse(stored) : true; // default ON
+  // });
 
-  useEffect(() => {
-    localStorage.setItem(ANIMATIONS_KEY, JSON.stringify(animationsEnabled));
-  }, [animationsEnabled]);
+  // useEffect(() => {
+  //   localStorage.setItem(ANIMATIONS_KEY, JSON.stringify(animationsEnabled));
+  // }, [animationsEnabled]);
   ///////////////////////////////////////////////////////////////////////////
+
+  localStorage.removeItem("animationsEnabled");
 
   const shouldFetch = !expertDetailsList;
   const [expertDate, setExpertDate] = useState<DateRange>({
@@ -151,7 +153,7 @@ export const ExpertDashboard = ({
     <main
       className={`min-h-screen bg-background ${isLoading ? "opacity-40" : ""}`}
     >
-      {theme == "dark" && animationsEnabled && <Snowfall />}
+      {/* {theme == "dark" && animationsEnabled && <Snowfall />} */}
       {/* <HolidayBanner /> */}
 
       {expertId ? (
@@ -207,7 +209,7 @@ export const ExpertDashboard = ({
 
           <div className="flex items-center gap-4">
             {/* ANIMATION SWITCH */}
-            {theme == "dark" && (
+            {/* {theme == "dark" && (
               <div className="flex items-center gap-2">
                 <Label
                   htmlFor="animations-toggle"
@@ -223,7 +225,7 @@ export const ExpertDashboard = ({
                   className="scale-100 data-[state=checked]:bg-primary"
                 />
               </div>
-            )}
+            )} */}
 
             {/* CLOCK */}
             <DashboardClock />
