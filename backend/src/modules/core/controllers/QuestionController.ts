@@ -46,6 +46,7 @@ import {
   getJobById,
   startBackgroundProcessing,
 } from '#root/workers/workerManager.js';
+import { QuestionLevelResponse } from '../classes/transformers/QuestionLevel.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -314,7 +315,7 @@ export class QuestionController {
   @OpenAPI({summary: 'Get all questions and review levels'})
   async getQuestionsAndReviewlevel(
      @QueryParams() query: {page?: number; limit?: number;search?:string}
-  ) {
+  ): Promise<QuestionLevelResponse> {
     const {page=1,limit=10,search=""} = query
     return this.questionService.getQuestionAndReviewLevel(Number(page),Number(limit),search);
   }

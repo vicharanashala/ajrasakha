@@ -37,6 +37,7 @@ import {notifyUser} from '#root/utils/pushNotification.js';
 import {NotificationService} from './NotificationService.js';
 import {normalizeKeysToLower} from '#root/utils/normalizeKeysToLower.js';
 import {appConfig} from '#root/config/app.js';
+import { QuestionLevelResponse } from '../classes/transformers/QuestionLevel.js';
 
 @injectable()
 export class QuestionService extends BaseService {
@@ -1289,7 +1290,7 @@ export class QuestionService extends BaseService {
     });
   }
 
-  async getQuestionAndReviewLevel(page:number,limit:number,search:string){
+  async getQuestionAndReviewLevel(page:number,limit:number,search:string):Promise<QuestionLevelResponse>{
     return this._withTransaction(async session => {
       return this.questionRepo.getQuestionsAndReviewLevel(page,limit,search,session)
     } )
