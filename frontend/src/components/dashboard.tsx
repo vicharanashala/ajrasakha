@@ -24,217 +24,28 @@ import { DateRangeFilter } from "./DateRangeFilter";
 import { useTheme } from "next-themes";
 import { Switch } from "./atoms/switch";
 import { Label } from "./atoms/label";
-import {ReviewLevelComponent} from './ReviewLevelComponent'
+import { ReviewLevelComponent } from "./ReviewLevelComponent";
 
-//     { name: "Experts", value: 32 },
-//     { name: "Moderators", value: 8 },
-//   ],
-//   moderatorApprovalRate: {
-//     approved: 125,
-//     pending: 75,
-//     approvalRate: 62.5,
-//   },
-//   goldenDataset: {
-//     type: "year",
-
-//     yearData: [
-//       { month: "Jan", entries: 450, verified: 300 },
-//       { month: "Feb", entries: 420, verified: 310 },
-//       { month: "Mar", entries: 510, verified: 350 },
-//       { month: "Apr", entries: 480, verified: 390 },
-//       { month: "May", entries: 600, verified: 450 },
-//       { month: "Jun", entries: 550, verified: 400 },
-//       { month: "Jul", entries: 620, verified: 500 },
-//       { month: "Aug", entries: 590, verified: 450 },
-//       { month: "Sep", entries: 630, verified: 510 },
-//       { month: "Oct", entries: 700, verified: 560 },
-//       { month: "Nov", entries: 680, verified: 530 },
-//       { month: "Dec", entries: 720, verified: 600 },
-//     ],
-
-//     weeksData: [
-//       { week: "Week 1", entries: 120, verified: 90 },
-//       { week: "Week 2", entries: 100, verified: 80 },
-//       { week: "Week 3", entries: 130, verified: 100 },
-//       { week: "Week 4", entries: 100, verified: 70 },
-//     ],
-
-//     dailyData: [
-//       { day: "Mon", entries: 30, verified: 25 },
-//       { day: "Tue", entries: 27, verified: 20 },
-//       { day: "Wed", entries: 25, verified: 18 },
-//       { day: "Thu", entries: 35, verified: 28 },
-//       { day: "Fri", entries: 29, verified: 24 },
-//       { day: "Sat", entries: 22, verified: 18 },
-//       { day: "Sun", entries: 18, verified: 15 },
-//     ],
-
-//     dayHourlyData: {
-//       Mon: [
-//         { hour: "00:00", entries: 2, verified: 1 },
-//         { hour: "01:00", entries: 1, verified: 1 },
-//         { hour: "02:00", entries: 1, verified: 1 },
-//         { hour: "03:00", entries: 2, verified: 1 },
-//         { hour: "04:00", entries: 3, verified: 2 },
-//         { hour: "05:00", entries: 2, verified: 2 },
-//         { hour: "06:00", entries: 3, verified: 2 },
-//         { hour: "07:00", entries: 4, verified: 3 },
-//         { hour: "08:00", entries: 4, verified: 3 },
-//         { hour: "09:00", entries: 5, verified: 4 }, // your original
-//         { hour: "10:00", entries: 5, verified: 4 }, // original
-//         { hour: "11:00", entries: 4, verified: 3 },
-//         { hour: "12:00", entries: 6, verified: 5 },
-//         { hour: "13:00", entries: 8, verified: 6 }, // original
-//         { hour: "14:00", entries: 5, verified: 4 },
-//         { hour: "15:00", entries: 7, verified: 5 }, // original
-//         { hour: "16:00", entries: 6, verified: 4 },
-//         { hour: "17:00", entries: 5, verified: 4 },
-//         { hour: "18:00", entries: 4, verified: 3 },
-//         { hour: "19:00", entries: 3, verified: 2 },
-//         { hour: "20:00", entries: 4, verified: 3 },
-//         { hour: "21:00", entries: 3, verified: 2 },
-//         { hour: "22:00", entries: 2, verified: 1 },
-//         { hour: "23:00", entries: 2, verified: 1 },
-//       ],
-//       Tue: [
-//         { hour: "00:00", entries: 0, verified: 0 },
-//         { hour: "01:00", entries: 0, verified: 0 },
-//         { hour: "02:00", entries: 0, verified: 0 },
-//         { hour: "03:00", entries: 0, verified: 0 },
-//         { hour: "04:00", entries: 0, verified: 0 },
-//         { hour: "05:00", entries: 0, verified: 0 },
-//         { hour: "06:00", entries: 0, verified: 0 },
-//         { hour: "07:00", entries: 0, verified: 0 },
-//         { hour: "08:00", entries: 0, verified: 0 },
-//         { hour: "09:00", entries: 5, verified: 4 },
-//         { hour: "10:00", entries: 5, verified: 4 },
-//         { hour: "11:00", entries: 0, verified: 0 },
-//         { hour: "12:00", entries: 0, verified: 0 },
-//         { hour: "13:00", entries: 8, verified: 6 },
-//         { hour: "14:00", entries: 0, verified: 0 },
-//         { hour: "15:00", entries: 7, verified: 5 },
-//         { hour: "16:00", entries: 0, verified: 0 },
-//         { hour: "17:00", entries: 0, verified: 0 },
-//         { hour: "18:00", entries: 0, verified: 0 },
-//         { hour: "19:00", entries: 0, verified: 0 },
-//         { hour: "20:00", entries: 0, verified: 0 },
-//         { hour: "21:00", entries: 0, verified: 0 },
-//         { hour: "22:00", entries: 0, verified: 0 },
-//         { hour: "23:00", entries: 0, verified: 0 },
-//       ],
-//       Wed: [
-//         { hour: "00:00", entries: 0, verified: 0 },
-//         { hour: "01:00", entries: 0, verified: 0 },
-//         { hour: "02:00", entries: 0, verified: 0 },
-//         { hour: "03:00", entries: 0, verified: 0 },
-//         { hour: "04:00", entries: 0, verified: 0 },
-//         { hour: "05:00", entries: 0, verified: 0 },
-//         { hour: "06:00", entries: 0, verified: 0 },
-//         { hour: "07:00", entries: 0, verified: 0 },
-//         { hour: "08:00", entries: 0, verified: 0 },
-//         { hour: "09:00", entries: 5, verified: 4 },
-//         { hour: "10:00", entries: 5, verified: 4 },
-//         { hour: "11:00", entries: 0, verified: 0 },
-//         { hour: "12:00", entries: 0, verified: 0 },
-//         { hour: "13:00", entries: 8, verified: 6 },
-//         { hour: "14:00", entries: 0, verified: 0 },
-//         { hour: "15:00", entries: 7, verified: 5 },
-//         { hour: "16:00", entries: 0, verified: 0 },
-//         { hour: "17:00", entries: 0, verified: 0 },
-//         { hour: "18:00", entries: 0, verified: 0 },
-//         { hour: "19:00", entries: 0, verified: 0 },
-//         { hour: "20:00", entries: 0, verified: 0 },
-//         { hour: "21:00", entries: 0, verified: 0 },
-//         { hour: "22:00", entries: 0, verified: 0 },
-//         { hour: "23:00", entries: 0, verified: 0 },
-//       ],
-//     },
-//   },
-
-//   questionContributionTrend: [
-//     { date: "2025-12-01", Ajraskha: 8, Moderator: 5 },
-//     { date: "2025-12-02", Ajraskha: 10, Moderator: 6 },
-//     { date: "2025-12-03", Ajraskha: 13, Moderator: 7 },
-//     { date: "2025-12-04", Ajraskha: 15, Moderator: 9 },
-//     { date: "2025-12-05", Ajraskha: 12, Moderator: 10 },
-//     { date: "2025-12-06", Ajraskha: 14, Moderator: 11 },
-//     { date: "2025-12-07", Ajraskha: 16, Moderator: 12 },
-//   ],
-
-//   statusOverview: {
-//     questions: [
-//       { status: "delayed", value: 520 },
-//       { status: "in-review", value: 110 },
-//       { status: "open", value: 90 },
-//     ],
-//     answers: [
-//       { status: "open", value: 450 },
-//       { status: "rejected", value: 180 },
-//       { status: "in-review", value: 70 },
-//     ],
-//   },
-
-//   expertPerformance: [
-//     { expert: "Ravi", reputation: 88, incentive: 2500, penalty: 150 },
-//     { expert: "Deepak", reputation: 92, incentive: 3000, penalty: 100 },
-//     { expert: "Swetha", reputation: 75, incentive: 1800, penalty: 200 },
-//     { expert: "Ajay", reputation: 81, incentive: 2200, penalty: 130 },
-//     { expert: "Priya", reputation: 95, incentive: 3500, penalty: 80 },
-//   ],
-
-//   analytics: {
-//     cropData: [
-//       { name: "Rice", count: 245 },
-//       { name: "Wheat", count: 189 },
-//       { name: "Corn", count: 167 },
-//       { name: "Cotton", count: 142 },
-//       { name: "Others", count: 257 },
-//       { name: "Rice", count: 245 },
-//     ],
-//     stateData: [
-//       { name: "Maharashtra", count: 234 },
-//       { name: "Punjab", count: 198 },
-//       { name: "Uttar Pradesh", count: 187 },
-//       { name: "Karnataka", count: 156 },
-//       { name: "Rajasthan", count: 145 },
-//       { name: "Maharashtra", count: 234 },
-//       { name: "Punjab", count: 198 },
-//       { name: "Uttar Pradesh", count: 187 },
-//       { name: "Karnataka", count: 156 },
-//       { name: "Rajasthan", count: 145 },
-//       { name: "Maharashtra", count: 234 },
-//       { name: "Punjab", count: 198 },
-//       { name: "Uttar Pradesh", count: 187 },
-//       { name: "Karnataka", count: 156 },
-//       { name: "Rajasthan", count: 145 },
-//     ],
-
-//     domainData: [
-//       { name: "Pest Management", count: 312 },
-//       { name: "Soil Health", count: 287 },
-//       { name: "Irrigation", count: 256 },
-//       { name: "Fertilizers", count: 201 },
-//     ],
-//   },
-// };
 export type ViewType = "year" | "month" | "week" | "day";
 
 export const Dashboard = () => {
   /////////////////////////////////////////////////////////////////////////
-  const { theme } = useTheme();
+  // const { theme } = useTheme();
 
-  const ANIMATIONS_KEY = "animationsEnabled";
+  // const ANIMATIONS_KEY = "animationsEnabled";
 
-  const [animationsEnabled, setAnimationsEnabled] = useState<boolean>(() => {
-    if (typeof window === "undefined") return true; // SSR safety
-    const stored = localStorage.getItem(ANIMATIONS_KEY);
-    return stored ? JSON.parse(stored) : true; // default ON
-  });
+  // const [animationsEnabled, setAnimationsEnabled] = useState<boolean>(() => {
+  //   if (typeof window === "undefined") return true; // SSR safety
+  //   const stored = localStorage.getItem(ANIMATIONS_KEY);
+  //   return stored ? JSON.parse(stored) : true; // default ON
+  // });
 
-  useEffect(() => {
-    localStorage.setItem(ANIMATIONS_KEY, JSON.stringify(animationsEnabled));
-  }, [animationsEnabled]);
+  // useEffect(() => {
+  //   localStorage.setItem(ANIMATIONS_KEY, JSON.stringify(animationsEnabled));
+  // }, [animationsEnabled]);
   ///////////////////////////////////////////////////////////////////////////
+
+  localStorage.removeItem("animationsEnabled");
 
   // ---- Golden Dataset Overview state filters ----- //
   const [viewType, setViewType] = useState<ViewType>("year");
@@ -329,7 +140,7 @@ export const Dashboard = () => {
     <main
       className={`min-h-screen bg-background ${isLoading ? "opacity-40" : ""}`}
     >
-      {theme == "dark" && animationsEnabled && <Snowfall />}
+      {/* {theme == "dark" && animationsEnabled && <Snowfall />} */}
       {/* <HolidayBanner /> */}
       <div className="mx-auto p-6">
         <div className="mb-8 flex justify-between items-center">
@@ -351,7 +162,7 @@ export const Dashboard = () => {
           {/* <DashboardClock /> */}
           <div className="flex items-center gap-4">
             {/* ANIMATION SWITCH */}
-            {theme == "dark" && (
+            {/* {theme == "dark" && (
               <div className="flex items-center gap-2">
                 <Label
                   htmlFor="animations-toggle"
@@ -367,7 +178,7 @@ export const Dashboard = () => {
                   className="scale-100 data-[state=checked]:bg-primary"
                 />
               </div>
-            )}
+            )} */}
 
             {/* CLOCK */}
             <DashboardClock />
@@ -441,11 +252,10 @@ export const Dashboard = () => {
           </div>
         </div>
 
-         {/*Review Levell Data*/}
-         <div className="mb-6">
-          <ReviewLevelComponent/>
-          </div>
-
+        {/*Review Levell Data*/}
+        <div className="mb-6">
+          <ReviewLevelComponent />
+        </div>
       </div>
     </main>
   );
