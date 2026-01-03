@@ -331,7 +331,34 @@ export class UserRepository implements IUserRepository {
     // });
 
     // return scoredUsers.map(s => s.user);
-    return [...matched, ...unmatched].map(s => s.user);
+    let result = [...matched, ...unmatched].map(s => s.user)
+    return result;
+  }
+  async findExpertsByReputationScore(
+    details: PreferenceDto,
+    session?: ClientSession,
+  ): Promise<IUser[]> {
+    await this.init();
+
+    // 1. Fetch all experts
+    const allUsersRaw = await this.usersCollection
+      .find({role: 'expert', isBlocked: false}, {session})
+      .toArray();
+
+    // 2. Remove duplicates based on email
+    const uniqueUsersMap = new Map<string, IUser>();
+    for (const user of allUsersRaw) {
+      if (!user.email) continue;
+      if (!uniqueUsersMap.has(user.email)) uniqueUsersMap.set(user.email, user);
+    }
+    let allUsers = Array.from(uniqueUsersMap.values());
+    allUsers.sort((a, b) => {
+     
+
+      return a.reputation_score - b.reputation_score;
+    });
+
+    return allUsers
   }
 
   async findModerators(): Promise<IUser[]> {
