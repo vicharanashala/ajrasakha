@@ -1507,6 +1507,9 @@ type QuestionsFiltersProps = {
   selectedQuestionIds: string[];
   setIsSelectionModeOn: (value: boolean) => void;
   setSelectedQuestionIds: (value: string[]) => void;
+  viewMode: "all" | "review-level";
+setViewMode: (v: "all" | "review-level") => void;
+
 };
 
 export const QuestionsFilters = ({
@@ -1527,6 +1530,9 @@ export const QuestionsFilters = ({
   setSelectedQuestionIds,
   setIsSelectionModeOn,
   bulkDeletingQuestions,
+  viewMode,
+  setViewMode
+
 }: QuestionsFiltersProps) => {
   const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
     {
@@ -1757,6 +1763,31 @@ export const QuestionsFilters = ({
           )}
         </div>
       </div>
+
+      <div className="flex gap-2 border rounded-md p-1 bg-muted/40">
+  <button
+    className={`px-3 py-1 rounded-md text-sm ${
+      viewMode === "all"
+        ? "bg-primary text-white"
+        : "text-muted-foreground"
+    }`}
+    onClick={() => setViewMode("all")}
+  >
+    All
+  </button>
+
+  <button
+    className={`px-3 py-1 rounded-md text-sm ${
+      viewMode === "review-level"
+        ? "bg-primary text-white"
+        : "text-muted-foreground"
+    }`}
+    onClick={() => setViewMode("review-level")}
+  >
+    Level Matrix
+  </button>
+</div>
+
 
       {/* RIGHT ACTIONS – wrap nicely on small screens */}
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-3 justify-between sm:justify-end">

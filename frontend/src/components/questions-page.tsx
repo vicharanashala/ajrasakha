@@ -18,6 +18,9 @@ import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useBulkDeleteQuestions } from "@/hooks/api/question/useBulkDeleteQuestions";
 import { toast } from "sonner";
 import Spinner from "./atoms/spinner";
+import { ReviewLevelsTable } from "@/features/questions/components/review-level/ReviewLevelsTable";
+import { useGetQuestionsAndLevel } from "@/features/questions/hooks/useGetQuestionsAndLevel";
+import { mapReviewQuestionToRow } from "@/features/questions/utils/mapReviewLevel";
 
 export const QuestionsPage = ({
   currentUser,
@@ -37,7 +40,9 @@ export const QuestionsPage = ({
   const [startTime, setStartTime] = useState<Date | undefined>(undefined);
   const [endTime, setEndTime] = useState<Date | undefined>(undefined);
   const [review_level, setReviewLevel] = useState<ReviewLevel>("all");
-  const [closedAtStart, setClosedAtStart] = useState<Date | undefined>(undefined);
+  const [closedAtStart, setClosedAtStart] = useState<Date | undefined>(
+    undefined
+  );
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
 
   // const observerRef = useRef<IntersectionObserver | null>(null);
@@ -57,9 +62,21 @@ export const QuestionsPage = ({
   // for Select mulitple questions and bulk delete
   const [isSelectionModeOn, setIsSelectionModeOn] = useState(false);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+  const [viewMode, setViewMode] = useState<"all" | "review-level">("all");
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reviewLimit] = useState(10);
 
   const { mutateAsync: bulkDeleteQuestions, isPending: bulkDeletingQuestions } =
     useBulkDeleteQuestions();
+  const {
+    data: reviewData,
+    isLoading: isReviewLoading,
+    error: reviewError,
+  } = useGetQuestionsAndLevel(reviewPage, reviewLimit, search);
+  const reviewRows = useMemo(
+    () => (reviewData?.data ?? []).map(mapReviewQuestionToRow),
+    [reviewData]
+  );
 
   const LIMIT = 11;
   const filter = useMemo(
@@ -77,7 +94,7 @@ export const QuestionsPage = ({
       endTime,
       review_level,
       closedAtStart,
-      closedAtEnd
+      closedAtEnd,
     }),
     [
       status,
@@ -93,7 +110,7 @@ export const QuestionsPage = ({
       endTime,
       review_level,
       closedAtEnd,
-      closedAtStart
+      closedAtStart,
     ]
   );
 
@@ -139,8 +156,8 @@ export const QuestionsPage = ({
     startTime?: Date | undefined;
     endTime?: Date | undefined;
     review_level?: ReviewLevel;
-    closedAtEnd?:Date|undefined,
-    closedAtStart?:Date|undefined
+    closedAtEnd?: Date | undefined;
+    closedAtStart?: Date | undefined;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -157,18 +174,14 @@ export const QuestionsPage = ({
     if (next.closedAtStart !== undefined) setClosedAtStart(next.closedAtStart);
     if (next.closedAtEnd !== undefined) setClosedAtEnd(next.closedAtEnd);
   };
-  const [showClosedAt,setClosedAt]=useState(false)
-  useEffect(()=>{
-    if(status=="closed" ||closedAtStart!=undefined)
-    {
-      setClosedAt(true)
+  const [showClosedAt, setClosedAt] = useState(false);
+  useEffect(() => {
+    if (status == "closed" || closedAtStart != undefined) {
+      setClosedAt(true);
+    } else {
+      setClosedAt(false);
     }
-    else{
-      setClosedAt(false)
-    }
-    
-
-  },[status,closedAtStart])
+  }, [status, closedAtStart]);
 
   const onReset = () => {
     setStatus("all");
@@ -181,12 +194,10 @@ export const QuestionsPage = ({
     setDomain("all");
     setUser("all");
     setReviewLevel("all");
-    setStartTime(undefined)
-    setEndTime(undefined)
-    setClosedAtEnd(undefined)
-    setClosedAtStart(undefined)
-   
-
+    setStartTime(undefined);
+    setEndTime(undefined);
+    setClosedAtEnd(undefined);
+    setClosedAtStart(undefined);
   };
 
   const handleViewMore = (questoinId: string) => {
@@ -263,28 +274,41 @@ export const QuestionsPage = ({
             setIsSelectionModeOn={setIsSelectionModeOn}
             setSelectedQuestionIds={setSelectedQuestionIds}
             bulkDeletingQuestions={bulkDeletingQuestions}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
           />
 
-          <QuestionsTable
-            items={questionData?.questions}
-            onViewMore={handleViewMore}
-            currentPage={currentPage}
-            setCurrentPage={setCurrentPage}
-            userRole={currentUser?.role!}
-            limit={LIMIT}
-            // hasMore={hasNextPage}
-            // isLoadingMore={isFetchingNextPage}
-            // lastElementRef={lastElementRef}
-            totalPages={questionData?.totalPages || 0}
-            isLoading={isLoading || isRefreshing || bulkDeletingQuestions}
-            isBulkUpload={isBulkUpload}
-            uploadedQuestionsCount={uploadedQuestionsCount}
-            selectedQuestionIds={selectedQuestionIds}
-            setIsSelectionModeOn={setIsSelectionModeOn}
-            setSelectedQuestionIds={setSelectedQuestionIds}
-            showClosedAt={showClosedAt}
-           
-          />
+          {viewMode === "all" ? (
+            <QuestionsTable
+              items={questionData?.questions}
+              onViewMore={handleViewMore}
+              currentPage={currentPage}
+              setCurrentPage={setCurrentPage}
+              userRole={currentUser?.role!}
+              limit={LIMIT}
+              totalPages={questionData?.totalPages || 0}
+              isLoading={isLoading || isRefreshing || bulkDeletingQuestions}
+              isBulkUpload={isBulkUpload}
+              uploadedQuestionsCount={uploadedQuestionsCount}
+              selectedQuestionIds={selectedQuestionIds}
+              setIsSelectionModeOn={setIsSelectionModeOn}
+              setSelectedQuestionIds={setSelectedQuestionIds}
+              showClosedAt={showClosedAt}
+            />
+          ) : (
+            <ReviewLevelsTable
+              data={reviewRows}
+              isLoading={isReviewLoading}
+              page={reviewPage}
+              totalPages={reviewData?.totalPages || 0}
+              search={search}
+              onSearch={(val) => {
+                setSearch(val);
+                setReviewPage(1);
+              }}
+              onPageChange={setReviewPage}
+            />
+          )}
         </>
       )}
     </main>
