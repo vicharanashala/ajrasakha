@@ -1,12 +1,14 @@
 import { Badge } from "@/components/atoms/badge";
 import type { ReviewRow } from "./reviewLevel.coloumn";
+import { truncate } from "../../helper";
 
 type Props = {
   row: ReviewRow;
   index: number;
+  onViewMore: (id: string) => void;
 };
 
-export function ReviewLevelMobileCard({ row, index }: Props) {
+export function ReviewLevelMobileCard({ row, index ,onViewMore}: Props) {
   return (
     <div className="rounded-lg border p-4 bg-card shadow-sm text-sm leading-snug">
       <div className="flex justify-between mb-1">
@@ -17,15 +19,21 @@ export function ReviewLevelMobileCard({ row, index }: Props) {
         <Badge variant="outline">Review Levels</Badge>
       </div>
 
-      <p className="font-medium break-words">
-        {row.question}
-      </p>
+      <p
+  className="font-medium break-words hover:underline cursor-pointer"
+  onClick={() => onViewMore(row._id)}
+>
+  {truncate(row.question, 80)}
+</p>
 
       <div className="grid grid-cols-2 gap-2 mt-3">
         {row.levels.map((lvl, i) => (
           <div key={i} className="flex justify-between text-xs border rounded px-2 py-1">
             <span>Level {i + 1}</span>
-            <Badge variant="outline">{lvl ?? "-"}</Badge>
+            <Badge variant="outline">
+  {typeof lvl === "string" ? lvl : lvl.time ?? "-"}
+</Badge>
+
           </div>
         ))}
       </div>

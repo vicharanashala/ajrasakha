@@ -301,12 +301,8 @@ export const QuestionsPage = ({
               isLoading={isReviewLoading}
               page={reviewPage}
               totalPages={reviewData?.totalPages || 0}
-              search={search}
-              onSearch={(val) => {
-                setSearch(val);
-                setReviewPage(1);
-              }}
               onPageChange={setReviewPage}
+              onViewMore={handleViewMore}
             />
           )}
         </>
