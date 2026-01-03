@@ -1764,7 +1764,12 @@ export const QuestionsFilters = ({
         </div>
       </div>
 
-      <div className="flex gap-2 border rounded-md p-1 bg-muted/40">
+      
+
+
+      {/* RIGHT ACTIONS – wrap nicely on small screens */}
+      <div className="w-full sm:w-auto flex flex-wrap items-center gap-3 justify-between sm:justify-end">
+        <div className="flex gap-2 border rounded-md p-1 bg-muted/40">
   <button
     className={`px-3 py-1 rounded-md text-sm ${
       viewMode === "all"
@@ -1784,13 +1789,10 @@ export const QuestionsFilters = ({
     }`}
     onClick={() => setViewMode("review-level")}
   >
-    Level Matrix
+    Level
   </button>
 </div>
-
-
-      {/* RIGHT ACTIONS – wrap nicely on small screens */}
-      <div className="w-full sm:w-auto flex flex-wrap items-center gap-3 justify-between sm:justify-end">
+        {viewMode ==='all' &&(
         <AdvanceFilterDialog
           advanceFilter={advanceFilter}
           setAdvanceFilterValues={setAdvanceFilterValues}
@@ -1802,6 +1804,7 @@ export const QuestionsFilters = ({
           onReset={onReset}
           isForQA={false}
         />
+          )}
 
         <Button
           variant="outline"
