@@ -1,19 +1,20 @@
-import type { ReviewRow } from "../components/review-level/reviewLevel.coloumn";
-import type { ReviewLevelQuestion, ReviewLevelValue } from "../types";
+  import type { ReviewRow } from "../components/review-level/reviewLevel.coloumn";
+  import type { ReviewLevelQuestion} from "../types";
 
-
-function formatLevelValue(value: ReviewLevelValue) {
-  if (value === "NA") return "NA";
-  return value.time ?? "NA";
-}
-
-export function mapReviewQuestionToRow(
-  q: ReviewLevelQuestion
-): ReviewRow {
-  return {
-    question: q.question,
-
-    // convert reviewLevels[] → levels[]
-    levels: q.reviewLevels.map(l => formatLevelValue(l.value)),
-  };
-}
+  export function mapReviewQuestionToRow(
+    q: ReviewLevelQuestion
+  ): ReviewRow {
+    return {
+      _id: q._id,
+      question: q.question,
+      status:q.status,
+      levels: q.reviewLevels.map(l =>
+      l.value === "NA"
+        ? "NA"
+        : {
+            time: l.value.time,
+            yet_to_complete: l.value.yet_to_complete,
+          }
+    ),
+    };
+  }

@@ -12,6 +12,7 @@ type Props = {
   totalPages: number;
 
   onPageChange: (page: number) => void;
+  onViewMore: (id: string) => void;
 };
 
 export function ReviewLevelsTable({
@@ -19,7 +20,8 @@ export function ReviewLevelsTable({
   isLoading,
   page,
   totalPages,
-  onPageChange
+  onPageChange,
+  onViewMore
 }: Props) {
 
   return (
@@ -30,7 +32,7 @@ export function ReviewLevelsTable({
         {/* Desktop Table */}
         <div className="hidden md:block overflow-x-auto">
           <BaseTable
-            columns={reviewLevelColumns}
+            columns={reviewLevelColumns(onViewMore)}
             data={data}
             isLoading={isLoading}
           />
@@ -43,11 +45,12 @@ export function ReviewLevelsTable({
               key={i}
               row={row}
               index={(page - 1) * data.length + i}
+              onViewMore={onViewMore}
             />
           ))}
         </div>
       </TableContainer>
-      
+
       <Pagination
         currentPage={page}
         totalPages={totalPages}
