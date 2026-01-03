@@ -13,6 +13,7 @@ import type { GeneratedQuestion } from "@/components/voice-recorder-card";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
 import { formatDateLocal } from "@/utils/formatDate";
 import { env } from "@/config/env";
+import type { ReviewLevelsApiResponse } from "@/features/questions/types";
 
 const API_BASE_URL = env.apiBaseUrl();
 export class QuestionService {
@@ -278,4 +279,25 @@ export class QuestionService {
       body: JSON.stringify({ questionIds }),
     });
   }
+
+  
+  async GetQuestionsAndLevels(
+  pageParam: number,
+  limit: number,
+  search: string
+):Promise<ReviewLevelsApiResponse | null> {
+  const params = new URLSearchParams();
+
+  params.append("page", pageParam.toString());
+  params.append("limit", limit.toString());
+
+  if (search?.trim()) {
+    params.append("search", search.trim());
+  }
+
+  return apiFetch(
+    `${this._baseUrl}?${params.toString()}`
+  );
+}
+
 }
