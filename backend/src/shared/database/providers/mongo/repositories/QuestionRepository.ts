@@ -42,6 +42,7 @@ import {
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {promises} from 'dns';
 import {getReviewerQueuePosition} from '#root/utils/getReviewerQueuePosition.js';
+import { QuestionLevelResponse, ReviewLevelTimeValue } from '#root/modules/core/classes/transformers/QuestionLevel.js';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';
@@ -2191,7 +2192,7 @@ export class QuestionRepository implements IQuestionRepository {
     limit: number,
     search: string,
     session?: ClientSession,
-  ) {
+  ):Promise<QuestionLevelResponse> {
     await this.init();
 
     const skip = (page - 1) * limit;

@@ -1,3 +1,4 @@
+import { QuestionLevelResponse, ReviewLevelTimeValue } from '#root/modules/core/classes/transformers/QuestionLevel.js';
 import {
   Analytics,
   DashboardResponse,
@@ -314,5 +315,5 @@ export interface IQuestionRepository {
     session?: ClientSession,
   ): Promise<IQuestion[]>;
 
-  getQuestionsAndReviewLevel(page:number,limit:number,search:string,session?:ClientSession)
+  getQuestionsAndReviewLevel(page:number,limit:number,search:string,session?:ClientSession):Promise<QuestionLevelResponse>
 }
