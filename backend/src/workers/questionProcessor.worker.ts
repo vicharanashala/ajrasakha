@@ -114,7 +114,7 @@ const aiService = new AiService();
  
       // allocation stage - 2
 
-      const users = await userRepo.findExpertsByPreference(
+      const users = await userRepo.findExpertsByReputationScore(
         question.details as PreferenceDto,
       );
 
