@@ -58,8 +58,8 @@ export const reviewLevelColumns = (
 
   // Dynamically render Level 1 → Level 10
   ...Array.from({ length: 10 }).map((_, i) => ({
-    key: `level_${i + 1}`,
-    label: `Level ${i + 1}`,
+    key: `level_${i}`,
+    label: i ===0 ? 'Author' : `Level ${i}`,
     render: (row: ReviewRow) => renderLevelBadge(row, i),
   }))
 ];
