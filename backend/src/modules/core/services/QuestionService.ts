@@ -37,7 +37,7 @@ import {notifyUser} from '#root/utils/pushNotification.js';
 import {NotificationService} from './NotificationService.js';
 import {normalizeKeysToLower} from '#root/utils/normalizeKeysToLower.js';
 import {appConfig} from '#root/config/app.js';
-import { QuestionLevelResponse } from '../classes/transformers/QuestionLevel.js';
+import {QuestionLevelResponse} from '../classes/transformers/QuestionLevel.js';
 
 @injectable()
 export class QuestionService extends BaseService {
@@ -87,7 +87,6 @@ export class QuestionService extends BaseService {
     const testEmbedding = await this.aiService.getEmbedding('Test');
 
     const formatted: IQuestion[] = questions.map((q: any) => {
-
       const low = normalizeKeysToLower(q || {});
       const details = {
         state: (low.state || '').toString(),
@@ -100,7 +99,7 @@ export class QuestionService extends BaseService {
       const priorities = ['low', 'high', 'medium'];
       const priority = priorities.includes(priorityRaw)
         ? (priorityRaw as IQuestionPriority)
-        : 'medium'; 
+        : 'medium';
       const questionText = (low.question || '').toString().trim();
       const aiInitialAnswer = q.aiInitialAnswer;
       if (!questionText) {
@@ -1290,9 +1289,30 @@ export class QuestionService extends BaseService {
     });
   }
 
-  async getQuestionAndReviewLevel(page:number,limit:number,search:string):Promise<QuestionLevelResponse>{
+  async getQuestionAndReviewLevel(
+    query: GetDetailedQuestionsQuery,
+  ): Promise<QuestionLevelResponse> {
     return this._withTransaction(async session => {
-      return this.questionRepo.getQuestionsAndReviewLevel(page,limit,search,session)
-    } )
+      let searchEmbedding: number[] | null = null;
+
+      if (query?.search) {
+        try {
+          // const embedding=[]
+          const {embedding} = await this.aiService.getEmbedding(query.search);
+          searchEmbedding = embedding;
+        } catch (err) {
+          console.error(
+            'Embedding generation failed, falling back to normal search:',
+            err,
+          );
+          searchEmbedding = null;
+        }
+      }
+
+      return this.questionRepo.getQuestionsAndReviewLevel({
+        ...query,
+        searchEmbedding,
+      });
+    });
   }
 }

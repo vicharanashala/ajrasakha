@@ -2,7 +2,6 @@ import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetail
 import { QuestionsFilters, QuestionsTable } from "./questions-table";
 import { useEffect, useMemo, useState } from "react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
-import { useGetReRoutedQuestionFullData } from "@/hooks/api/question/useGetReRoutedQuestionFullData";
 import { QuestionDetails } from "./question-details";
 import type { IUser } from "@/types";
 import {
@@ -68,15 +67,8 @@ export const QuestionsPage = ({
 
   const { mutateAsync: bulkDeleteQuestions, isPending: bulkDeletingQuestions } =
     useBulkDeleteQuestions();
-  const {
-    data: reviewData,
-    isLoading: isReviewLoading,
-    error: reviewError,
-  } = useGetQuestionsAndLevel(reviewPage, reviewLimit, search);
-  const reviewRows = useMemo(
-    () => (reviewData?.data ?? []).map(mapReviewQuestionToRow),
-    [reviewData]
-  );
+  
+  
 
   const LIMIT = 11;
   const filter = useMemo(
@@ -118,13 +110,20 @@ export const QuestionsPage = ({
     data: questionData,
     isLoading,
     refetch,
-  } = useGetAllDetailedQuestions(currentPage, LIMIT, filter, debouncedSearch);
+  } = useGetAllDetailedQuestions(currentPage, LIMIT, filter, debouncedSearch,viewMode==='all');
   const {
     data: questionDetails,
     refetch: refechSelectedQuestion,
     isLoading: isLoadingSelectedQuestion,
   } = useGetQuestionFullDataById(selectedQuestionId);
-
+  const {
+    data: reviewData,
+    isLoading: isReviewLoading,
+  } = useGetQuestionsAndLevel(reviewPage, reviewLimit, search,filter,viewMode==='review-level');
+  const reviewRows = useMemo(
+    () => (reviewData?.data ?? []).map(mapReviewQuestionToRow),
+    [reviewData]
+  );
   useEffect(() => {
     if (autoOpenQuestionId && autoOpenQuestionId !== selectedQuestionId) {
       setSelectedQuestionId(autoOpenQuestionId);
@@ -140,7 +139,7 @@ export const QuestionsPage = ({
 
   useEffect(() => {
     if (debouncedSearch === "") return;
-    if (currentUser?.role !== "expert") onReset(); // Reset filters on search change for non-experts
+    if (currentUser?.role !== "expert") onReset(); 
   }, [debouncedSearch]);
 
   const onChangeFilters = (next: {

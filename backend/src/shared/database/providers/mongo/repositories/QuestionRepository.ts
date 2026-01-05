@@ -43,6 +43,7 @@ import {
 import {promises} from 'dns';
 import {getReviewerQueuePosition} from '#root/utils/getReviewerQueuePosition.js';
 import { QuestionLevelResponse, ReviewLevelTimeValue } from '#root/modules/core/classes/transformers/QuestionLevel.js';
+import { buildQuestionFilter } from '#root/utils/buildQuestionFilter.js';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';
@@ -2188,22 +2189,21 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   async getQuestionsAndReviewLevel(
-    page: number,
-    limit: number,
-    search: string,
+    query: GetDetailedQuestionsQuery & { searchEmbedding: number[] | null },
     session?: ClientSession,
   ):Promise<QuestionLevelResponse> {
     await this.init();
-
+    const { page = 1, limit = 10, search } = query;
     const skip = (page - 1) * limit;
-
-    const searchFilter =
-      search && search.trim().length
-        ? {question: {$regex: search.trim(), $options: 'i'}}
-        : {};
-
+     const { filter } = await buildQuestionFilter(
+    query,
+    this.QuestionSubmissionCollection,
+  );
+    if (search && search.trim().length) {
+    filter.question = { $regex: search.trim(), $options: "i" };
+  }
     const pipeline: any[] = [
-      {$match: searchFilter},
+      {$match: filter},
 
       {$sort: {createdAt: -1}},
 

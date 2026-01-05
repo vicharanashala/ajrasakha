@@ -1,22 +1,19 @@
-import {  useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { QuestionService } from "@/hooks/services/questionService";
+import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
 
 const questionService = new QuestionService();
-
-export const  useGetQuestionsAndLevel = (
+export const useGetQuestionsAndLevel = (
   page: number,
   limit: number,
-  search: string
+  search: string,
+  filter: AdvanceFilterValues,
+  enabled: boolean
 ) => {
   return useQuery({
-    queryKey: ["questions_levels", page, limit,search],
-    queryFn: async () => {
-      const data = await questionService.GetQuestionsAndLevels(
-        page,
-        limit,
-        search
-      );
-      return data;
-    },
+    queryKey: ["questions_levels", page, limit, search, filter],
+    queryFn: async () =>
+      questionService.GetQuestionsAndLevels(page, limit, search, filter),
+    enabled,
   });
 };
