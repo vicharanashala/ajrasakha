@@ -1,4 +1,7 @@
-import { QuestionLevelResponse, ReviewLevelTimeValue } from '#root/modules/core/classes/transformers/QuestionLevel.js';
+import {
+  QuestionLevelResponse,
+  ReviewLevelTimeValue,
+} from '#root/modules/core/classes/transformers/QuestionLevel.js';
 import {
   Analytics,
   DashboardResponse,
@@ -102,8 +105,8 @@ export interface IQuestionRepository {
    */
   bulkDeleteByIds(
     questionIds: string[],
-    session?:ClientSession
-  ): Promise<{ deletedCount: number }>;
+    session?: ClientSession,
+  ): Promise<{deletedCount: number}>;
 
   /**
    * Retrieves all questions that have not been answered yet.
@@ -309,11 +312,14 @@ export interface IQuestionRepository {
     session?: ClientSession,
   ): Promise<ModeratorApprovalRate>;
   getAll(session?: ClientSession): Promise<IQuestion[]>;
-  
+
   getByStatus(
     status: IQuestion['status'],
     session?: ClientSession,
   ): Promise<IQuestion[]>;
 
-  getQuestionsAndReviewLevel(page:number,limit:number,search:string,session?:ClientSession):Promise<QuestionLevelResponse>
+  getQuestionsAndReviewLevel(
+    query: GetDetailedQuestionsQuery & {searchEmbedding: number[] | null},
+    session?: ClientSession,
+  ): Promise<QuestionLevelResponse>;
 }

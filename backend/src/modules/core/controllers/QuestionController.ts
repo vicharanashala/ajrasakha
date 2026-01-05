@@ -314,10 +314,9 @@ export class QuestionController {
   @ResponseSchema(QuestionResponse)
   @OpenAPI({summary: 'Get all questions and review levels'})
   async getQuestionsAndReviewlevel(
-     @QueryParams() query: {page?: number; limit?: number;search?:string}
+     @QueryParams() query: GetDetailedQuestionsQuery
   ): Promise<QuestionLevelResponse> {
-    const {page=1,limit=10,search=""} = query
-    return this.questionService.getQuestionAndReviewLevel(Number(page),Number(limit),search);
+    return this.questionService.getQuestionAndReviewLevel(query);
   }
 
   @Get('/background-status')
