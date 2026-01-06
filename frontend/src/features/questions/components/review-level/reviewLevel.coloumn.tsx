@@ -9,7 +9,6 @@ export type ReviewRow = {
   _id:string
   question: string;
   status:string
-  // levels: (string | number)[];
   levels: (
     | "NA"
     | {
@@ -23,8 +22,6 @@ export const reviewLevelColumns = (
   onViewMore: (id: string) => void
 ): Column<ReviewRow>[] => [
   { key: "sl", label: "Sl.No", width: "80px", render: (_row, i) => i + 1 },
-
-  // { key: "question", label: "Question", width: "28%", render: row => row.question },
   {
   key: "question",
   label: "Question",
@@ -56,7 +53,6 @@ export const reviewLevelColumns = (
 }
 ,
 
-  // Dynamically render Level 1 → Level 10
   ...Array.from({ length: 10 }).map((_, i) => ({
     key: `level_${i}`,
     label: i ===0 ? 'Author' : `Level ${i}`,

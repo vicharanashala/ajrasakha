@@ -1770,7 +1770,7 @@ export const QuestionsFilters = ({
             }`}
             onClick={() => setViewMode("all")}
           >
-            All
+            Normal
           </button>
 
           <button
@@ -1781,7 +1781,7 @@ export const QuestionsFilters = ({
             }`}
             onClick={() => setViewMode("review-level")}
           >
-            Level
+            Turn Around
           </button>
         </div>
         <AdvanceFilterDialog
