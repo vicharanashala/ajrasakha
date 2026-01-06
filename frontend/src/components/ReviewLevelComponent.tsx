@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useGetReviewLevel } from "@/hooks/api/user/useGetReviewLevel";
 import {
   Table,
@@ -22,7 +22,8 @@ import {
  Filter,
  Leaf,
  Globe,
- FileText
+ FileText,
+ UserIcon,Info
   
 } from "lucide-react";
 import { DateRangeFilter } from "./DateRangeFilter";
@@ -44,6 +45,8 @@ import {
   DialogTrigger
 } from "./atoms/dialog";
 import { Button } from "@/components/atoms/button";
+import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 interface DateRange {
   startTime?: Date;
   endTime?: Date;
@@ -61,6 +64,7 @@ type Filters = {
   domain: string;
   status: string;
   dateRange: DateRange;
+  userId:string
 };
 const FilterSelect = ({
   label,
@@ -95,12 +99,15 @@ const defaultFilters: Filters = {
   domain: "all",
   status: "all",
   dateRange: {},
+  userId:"all"
 };
 export const ReviewLevelComponent=()=>{
+  const { data: userNameReponse, isLoading } = useGetAllUsers();
  
   const [openFilter, setOpenFilter] = useState(false);
   const [draftFilters, setDraftFilters] = useState<Filters>(defaultFilters);
   const [filters, setFilters] = useState<Filters>(defaultFilters);
+
   let role="moderator"
   const { data: reviewLevel, isLoading: isLoadingReviewLevel } =
     useGetReviewLevel({role,
@@ -109,6 +116,7 @@ export const ReviewLevelComponent=()=>{
   crop: filters.crop,
   domain: filters.domain,
   status: filters.status,
+  userId:filters.userId
     });
     const levels = reviewLevel || [];
   const totalCompleted = levels.reduce(
@@ -125,6 +133,14 @@ export const ReviewLevelComponent=()=>{
       },
     }));
   };
+  const handleSelectedExpert=( value?: string)=>{
+    setDraftFilters((prev) => ({
+      ...prev,
+      userId: value??"all",
+    }));
+      
+   
+  }
   const updateDraft = (key: keyof Filters, value: string) => {
     setDraftFilters((prev) => ({
       ...prev,
@@ -139,6 +155,11 @@ export const ReviewLevelComponent=()=>{
     setDraftFilters(defaultFilters);
     setFilters(defaultFilters);
   };
+  const users = (userNameReponse?.users || []).sort((a, b) =>
+  a.userName.localeCompare(b.userName)
+).filter((ele)=>ele.role==="expert")
+
+
   
   return(
     <div>
@@ -157,7 +178,7 @@ export const ReviewLevelComponent=()=>{
             </Button>
           </DialogTrigger>
 
-          <DialogContent className="max-w-4xl ">
+          <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Filter Options</DialogTitle>
             </DialogHeader>
@@ -196,6 +217,58 @@ export const ReviewLevelComponent=()=>{
                 onChange={(val) => updateDraft("status", val)}
                 Icon={FileText}
               />
+                <div className="space-y-2 min-w-0">
+                <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <UserIcon className="h-4 w-4 text-primary" />
+                  User
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-sm">
+                      <p>
+                        This option allows filtering questions that have been
+                        submitted at least once by the selected user.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </Label>
+
+                <Select
+                  value={draftFilters.userId}
+                  onValueChange={ handleSelectedExpert}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="bg-background w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    {isLoading ? (
+                      <div className="flex items-center justify-center p-3">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        <span className="ml-2 text-sm text-muted-foreground">
+                          Loading users...
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        <SelectItem value="all">All Users</SelectItem>
+                        {users?.map((u) => (
+                          <SelectItem key={u._id} value={u._id}>
+                            {u.userName}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2 min-w-0">
                     <DateRangeFilter
                   advanceFilter={draftFilters.dateRange}
