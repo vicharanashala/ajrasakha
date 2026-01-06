@@ -34,6 +34,14 @@ export class UserRepository implements IUserRepository {
     }
     this.AnswerCollection = await this.db.getCollection<IAnswer>('answers');
   }
+  private async ensureIndexes() {
+    try {
+      await this.usersCollection.createIndex({role:1,firstName:1,lastName:1,"preference.state":1});
+      await this.AnswerCollection.createIndex({authorId:1})
+    } catch (error) {
+      console.error('Failed to create index:', error);
+    }
+  }
 
   async getDBClient(): Promise<MongoClient> {
     const client = await this.db.getClient();
@@ -525,7 +533,7 @@ export class UserRepository implements IUserRepository {
   }
 
   }*/
-  async findAllExperts(
+  /*async findAllExperts(
     page: number,
     limit: number,
     search: string,
@@ -637,10 +645,171 @@ export class UserRepository implements IUserRepository {
     } catch (error) {
       throw new InternalServerError("Failed to get experts");
     }
+  }*/
+  async findAllExperts(
+    page: number,
+    limit: number,
+    search: string,
+    sortOption: string,
+    filter: string,
+    session?: ClientSession,
+  ): Promise<{ experts: any[]; totalExperts: number; totalPages: number }> {
+    await this.init();
+  
+    try {
+      await this.ensureIndexes();
+      const skip = (page - 1) * limit;
+      
+  
+      const matchQuery: any = { role: "expert" };
+  
+      if (search) {
+        matchQuery.$or = [
+          { firstName: { $regex: search, $options: "i" } },
+          { lastName: { $regex: search, $options: "i" } },
+        ];
+      }
+      
+  
+      if (filter && filter !== "ALL") {
+        matchQuery["preference.state"] = filter;
+      }
+  
+      const sortMap: any = {
+        penalty: { penaltyPercentage: -1 },
+        incentive: { incentive: -1 },
+        createdAt: { createdAt: -1 },
+        reputation_score: { reputation_score: -1 },
+        default: { rankPosition: 1 },
+      };
+      
+      const selectedSort = sortMap[sortOption] || sortMap.default;
+      
+      const result = await this.usersCollection.aggregate([
+        
+      
+        /** Answers count */
+        {
+          $lookup: {
+            from: "answers",
+            let: { userId: "$_id" },
+            pipeline: [
+              { $match: { $expr: { $eq: ["$authorId", "$$userId"] } } },
+              { $count: "count" },
+            ],
+            as: "answersMeta",
+          },
+        },
+      
+        {
+          $addFields: {
+            totalAnswers_Created: {
+              $ifNull: [{ $arrayElemAt: ["$answersMeta.count", 0] }, 0],
+            },
+            penalty: { $ifNull: ["$penalty", 0] },
+            incentive: { $ifNull: ["$incentive", 0] },
+            reputation_score: { $ifNull: ["$reputation_score", 0] },
+          },
+        },
+      
+        {
+          $addFields: {
+            penaltyPercentage: {
+              $cond: [
+                { $gt: ["$totalAnswers_Created", 0] },
+                {
+                  $multiply: [
+                    { $divide: ["$penalty", "$totalAnswers_Created"] },
+                    100,
+                  ],
+                },
+                0,
+              ],
+            },
+          },
+        },
+      
+        /** Calculate rankValue */
+        {
+          $addFields: {
+            rankValue: {
+              $subtract: [
+                {
+                  $add: [
+                    { $multiply: ["$totalAnswers_Created", 0.5] },
+                    { $multiply: ["$incentive", 0.3] },
+                  ],
+                },
+                { $multiply: ["$penaltyPercentage", 0.2] },
+              ],
+            },
+          },
+        },
+      
+        /** ✅ Multi-level sort for ordinal ranking */
+        {
+          $sort: {
+            rankValue: -1,
+            reputation_score: -1,
+            totalAnswers_Created: -1,
+            penalty: 1,
+            incentive: -1,
+            createdAt: 1,
+          },
+        },
+      
+        /** ✅ Add sequential rank using $group + $push */
+        {
+          $group: {
+            _id: null,
+            experts: { $push: "$$ROOT" },
+          },
+        },
+        {
+          $unwind: {
+            path: "$experts",
+            includeArrayIndex: "rankPosition",
+          },
+        },
+        {
+          $addFields: {
+            "experts.rankPosition": { $add: ["$rankPosition", 1] },
+          },
+        },
+        {
+          $replaceRoot: { newRoot: "$experts" },
+        },
+      
+        /** ✅ Apply UI sorting */
+        { $sort: selectedSort },
+        { $match: matchQuery },
+      
+        /** Pagination */
+        {
+          $facet: {
+            experts: [{ $skip: skip }, { $limit: limit }],
+            meta: [{ $count: "totalExperts" }],
+          },
+        },
+      ]).toArray();
+      
+      const experts = result[0]?.experts || [];
+      const totalExperts = result[0]?.meta[0]?.totalExperts || 0;
+  
+      // Convert ObjectId to string
+      experts.forEach((u) => {
+        u._id = u._id.toString();
+      });
+     
+      return {
+        experts,
+        totalExperts,
+        totalPages: Math.ceil(totalExperts / limit),
+      };
+    } catch (error) {
+      throw new InternalServerError("Failed to get experts");
+    }
   }
-  
-  
-  
   
 
 
