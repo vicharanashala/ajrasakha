@@ -137,7 +137,7 @@ type QuestionsTableProps = {
   setIsSelectionModeOn: (value: boolean) => void;
   selectedQuestionIds: string[];
   setSelectedQuestionIds: Dispatch<SetStateAction<string[]>>;
-  showClosedAt?:boolean
+  showClosedAt?: boolean;
 };
 
 export const QuestionsTable = ({
@@ -154,7 +154,7 @@ export const QuestionsTable = ({
   setIsSelectionModeOn,
   selectedQuestionIds,
   setSelectedQuestionIds,
-  showClosedAt
+  showClosedAt,
 }: QuestionsTableProps) => {
   const [editOpen, setEditOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
@@ -298,8 +298,10 @@ export const QuestionsTable = ({
                 <TableHead className="text-center">Answers</TableHead>
                 <TableHead className="text-center">Review Level</TableHead>
                 <TableHead className="text-center">Created</TableHead>
-                {showClosedAt? <TableHead className="text-center">Closed</TableHead>:null}
-               
+                {showClosedAt ? (
+                  <TableHead className="text-center">Closed</TableHead>
+                ) : null}
+
                 {/* <TableHead className="text-center">Action</TableHead> */}
               </TableRow>
             </TableHeader>
@@ -429,7 +431,7 @@ interface QuestionRowProps {
     status?: QuestionStatus
   ) => Promise<void>;
   onViewMore: (id: string) => void;
-  showClosedAt?:boolean
+  showClosedAt?: boolean;
 }
 
 const QuestionRow: React.FC<QuestionRowProps> = ({
@@ -450,7 +452,7 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
   isSelected,
   handleQuestionsSelection,
   selectedQuestionIds,
-  showClosedAt
+  showClosedAt,
 }) => {
   // To track cont
 
@@ -647,12 +649,11 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
           <TableCell className="align-middle">
             {formatDate(new Date(q.createdAt!), false)}
           </TableCell>
-          {showClosedAt?
-          <TableCell className="align-middle">
-          {q.closedAt?formatDate(new Date(q.closedAt!), false):'N/C'}
-        </TableCell>:null
-          }
-          
+          {showClosedAt ? (
+            <TableCell className="align-middle">
+              {q.closedAt ? formatDate(new Date(q.closedAt!), false) : "N/C"}
+            </TableCell>
+          ) : null}
         </TableRow>
       </ContextMenuTrigger>
 
@@ -1507,6 +1508,8 @@ type QuestionsFiltersProps = {
   selectedQuestionIds: string[];
   setIsSelectionModeOn: (value: boolean) => void;
   setSelectedQuestionIds: (value: string[]) => void;
+  viewMode: "all" | "review-level";
+  setViewMode: (v: "all" | "review-level") => void;
 };
 
 export const QuestionsFilters = ({
@@ -1527,6 +1530,8 @@ export const QuestionsFilters = ({
   setSelectedQuestionIds,
   setIsSelectionModeOn,
   bulkDeletingQuestions,
+  viewMode,
+  setViewMode,
 }: QuestionsFiltersProps) => {
   const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
     {
@@ -1542,8 +1547,8 @@ export const QuestionsFilters = ({
       endTime: undefined,
       startTime: undefined,
       review_level: "all",
-      closedAtStart:undefined,
-      closedAtEnd:undefined
+      closedAtStart: undefined,
+      closedAtEnd: undefined,
     }
   );
   const [addOpen, setAddOpen] = useState(false);
@@ -1622,7 +1627,6 @@ export const QuestionsFilters = ({
       }
 
       const { state, district, crop, season, domain } = payload.details;
-      console.log("the payload deatils=====", payload);
 
       if (!state?.trim()) {
         toast.error("Please Select the State field.");
@@ -1677,8 +1681,8 @@ export const QuestionsFilters = ({
       endTime: advanceFilter.endTime,
       startTime: advanceFilter.startTime,
       review_level: advanceFilter?.review_level,
-      closedAtStart:advanceFilter?.closedAtStart,
-      closedAtEnd:advanceFilter?.closedAtEnd
+      closedAtStart: advanceFilter?.closedAtStart,
+      closedAtEnd: advanceFilter?.closedAtEnd,
     });
   };
 
@@ -1689,34 +1693,31 @@ export const QuestionsFilters = ({
       !(Array.isArray(v) && v[0] === 0 && v[1] === 100)
   ).length;*/
   const activeFiltersCount =
-  Object.entries(advanceFilter).filter(([key, value]) => {
-    // ❌ exclude date range internal fields
-    if (
-      key === "startTime" ||
-      key === "endTime" ||
-      key === "closedAtStart" ||
-      key === "closedAtEnd"
-    ) {
-      return false;
-    }
+    Object.entries(advanceFilter).filter(([key, value]) => {
+      // ❌ exclude date range internal fields
+      if (
+        key === "startTime" ||
+        key === "endTime" ||
+        key === "closedAtStart" ||
+        key === "closedAtEnd"
+      ) {
+        return false;
+      }
 
-    // ignore defaults
-    if (value === undefined || value === "all") return false;
+      // ignore defaults
+      if (value === undefined || value === "all") return false;
 
-    //  ignore default slider range
-    if (Array.isArray(value) && value[0] === 0 && value[1] === 100) {
-      return false;
-    }
+      //  ignore default slider range
+      if (Array.isArray(value) && value[0] === 0 && value[1] === 100) {
+        return false;
+      }
 
-    return true;
-  }).length
-  +
-  // ✅ Created date range counts as ONE
-  (advanceFilter.startTime || advanceFilter.endTime ? 1 : 0)
-  +
-  // ✅ ClosedAt date range counts as ONE
-  (advanceFilter.closedAtStart || advanceFilter.closedAtEnd ? 1 : 0);
-
+      return true;
+    }).length +
+    // ✅ Created date range counts as ONE
+    (advanceFilter.startTime || advanceFilter.endTime ? 1 : 0) +
+    // ✅ ClosedAt date range counts as ONE
+    (advanceFilter.closedAtStart || advanceFilter.closedAtEnd ? 1 : 0);
 
   return (
     <div className="w-full p-4 border-b bg-card ms-2 md:ms-0  rounded flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
@@ -1760,6 +1761,29 @@ export const QuestionsFilters = ({
 
       {/* RIGHT ACTIONS – wrap nicely on small screens */}
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-3 justify-between sm:justify-end">
+        <div className="flex gap-2 border rounded-md p-1 bg-muted/40">
+          <button
+            className={`px-3 py-1 rounded-md text-sm ${
+              viewMode === "all"
+                ? "bg-primary text-white"
+                : "text-muted-foreground"
+            }`}
+            onClick={() => setViewMode("all")}
+          >
+            Normal
+          </button>
+
+          <button
+            className={`px-3 py-1 rounded-md text-sm ${
+              viewMode === "review-level"
+                ? "bg-primary text-white"
+                : "text-muted-foreground"
+            }`}
+            onClick={() => setViewMode("review-level")}
+          >
+            Turn Around
+          </button>
+        </div>
         <AdvanceFilterDialog
           advanceFilter={advanceFilter}
           setAdvanceFilterValues={setAdvanceFilterValues}

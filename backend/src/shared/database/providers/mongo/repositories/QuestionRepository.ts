@@ -7,7 +7,7 @@ import {
   IReview,
   IUser,
   QuestionStatus,
-  IReroute
+  IReroute,
 } from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
@@ -42,6 +42,8 @@ import {
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {promises} from 'dns';
 import {getReviewerQueuePosition} from '#root/utils/getReviewerQueuePosition.js';
+import { QuestionLevelResponse, ReviewLevelTimeValue } from '#root/modules/core/classes/transformers/QuestionLevel.js';
+import { buildQuestionFilter } from '#root/utils/buildQuestionFilter.js';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';
@@ -311,7 +313,7 @@ export class QuestionRepository implements IQuestionRepository {
         limit = 10,
         review_level,
         closedAtStart,
-        closedAtEnd
+        closedAtEnd,
       } = query;
 
       const filter: any = {};
@@ -370,8 +372,7 @@ export class QuestionRepository implements IQuestionRepository {
         }
 
         if (startDate) filter.createdAt = {$gte: startDate};
-      }
-      else if (closedAtEnd||closedAtStart) {
+      } else if (closedAtEnd || closedAtStart) {
         const filterDate: any = {};
 
         if (closedAtStart) {
@@ -685,7 +686,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       const userObjectId = new ObjectId(userId);
 
-     /* const submissions = await this.QuestionSubmissionCollection.aggregate([
+      /* const submissions = await this.QuestionSubmissionCollection.aggregate([
         {
           $addFields: {
             lastHistory: {$arrayElemAt: ['$history', -1]},
@@ -719,12 +720,12 @@ export class QuestionRepository implements IQuestionRepository {
         // --------------------------------------------------
         {
           $addFields: {
-            historyCount: { $size: { $ifNull: ['$history', []] } },
-            lastHistory: { $arrayElemAt: ['$history', -1] },
-            firstInQueue: { $arrayElemAt: ['$queue', 0] }
-          }
+            historyCount: {$size: {$ifNull: ['$history', []]}},
+            lastHistory: {$arrayElemAt: ['$history', -1]},
+            firstInQueue: {$arrayElemAt: ['$queue', 0]},
+          },
         },
-      
+
         // --------------------------------------------------
         // 2. Main match logic (INLINE review_level handling)
         // --------------------------------------------------
@@ -738,24 +739,24 @@ export class QuestionRepository implements IQuestionRepository {
                 {
                   $or: [
                     // all → no filtering
-                    { $eq: [query.review_level, 'all'] },
-      
+                    {$eq: [query.review_level, 'all']},
+
                     // Author → historyCount = 0
                     {
                       $and: [
-                        { $eq: [query.review_level, 'Author'] },
-                        { $eq: ['$historyCount', 0] }
-                      ]
+                        {$eq: [query.review_level, 'Author']},
+                        {$eq: ['$historyCount', 0]},
+                      ],
                     },
-      
+
                     // Level X → historyCount = X + 1
                     {
                       $and: [
                         {
                           $regexMatch: {
                             input: query.review_level,
-                            regex: /^Level\s\d+$/
-                          }
+                            regex: /^Level\s\d+$/,
+                          },
                         },
                         {
                           $eq: [
@@ -765,21 +766,21 @@ export class QuestionRepository implements IQuestionRepository {
                                 {
                                   $toInt: {
                                     $arrayElemAt: [
-                                      { $split: [query.review_level, ' '] },
-                                      1
-                                    ]
-                                  }
+                                      {$split: [query.review_level, ' ']},
+                                      1,
+                                    ],
+                                  },
                                 },
-                                1
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
+                                1,
+                              ],
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
                 },
-      
+
                 // ===============================
                 // Submission visibility logic
                 // ===============================
@@ -788,34 +789,32 @@ export class QuestionRepository implements IQuestionRepository {
                     // Case 1: User is current reviewer
                     {
                       $and: [
-                        { $eq: ['$lastHistory.updatedBy', userObjectId] },
-                        { $eq: ['$lastHistory.status', 'in-review'] },
+                        {$eq: ['$lastHistory.updatedBy', userObjectId]},
+                        {$eq: ['$lastHistory.status', 'in-review']},
                         {
                           $or: [
-                            { $not: ['$lastHistory.answer'] },
-                            { $eq: ['$lastHistory.answer', null] },
-                            { $eq: ['$lastHistory.answer', ''] }
-                          ]
-                        }
-                      ]
+                            {$not: ['$lastHistory.answer']},
+                            {$eq: ['$lastHistory.answer', null]},
+                            {$eq: ['$lastHistory.answer', '']},
+                          ],
+                        },
+                      ],
                     },
-      
+
                     // Case 2: First reviewer
                     {
                       $and: [
-                        { $eq: ['$historyCount', 0] },
-                        { $eq: ['$firstInQueue', userObjectId] }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          }
-        }
+                        {$eq: ['$historyCount', 0]},
+                        {$eq: ['$firstInQueue', userObjectId]},
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        },
       ]).toArray();
-      
-      
 
       const questionIdsToAttempt = submissions.map(
         sub => new ObjectId(sub?.questionId),
@@ -904,7 +903,7 @@ export class QuestionRepository implements IQuestionRepository {
         {projection: {userId: 0, embedding: 0}},
       );
       if (!question) return null;
-      
+
       // 2 Fetch submissions for this question
       const submission = await this.QuestionSubmissionCollection.findOne({
         questionId: questionObjectId,
@@ -921,12 +920,15 @@ export class QuestionRepository implements IQuestionRepository {
       // 3.1 Check if there's an expert_completed reroute - that becomes lastRespondedBy
       let latestExpertCompletedReroute = null;
       let latestExpertCompletedTime = null;
-      
+
       reroutes?.forEach(reroute => {
         reroute.reroutes?.forEach(r => {
           if (r.status === 'rejected') {
             const updatedTime = r.updatedAt || r.reroutedAt;
-            if (!latestExpertCompletedTime || updatedTime > latestExpertCompletedTime) {
+            if (
+              !latestExpertCompletedTime ||
+              updatedTime > latestExpertCompletedTime
+            ) {
               latestExpertCompletedTime = updatedTime;
               latestExpertCompletedReroute = r;
             }
@@ -965,9 +967,8 @@ export class QuestionRepository implements IQuestionRepository {
       });
       // 4.2 Remove duplicate answer IDs
       const uniqueAnswerIds = Array.from(
-        new Set(allAnswerIds.map(id => id.toString()))
+        new Set(allAnswerIds.map(id => id.toString())),
       ).map(id => new ObjectId(id));
-
 
       // 5 Fetch all related users
       const users = await this.UsersCollection.find({
@@ -980,7 +981,7 @@ export class QuestionRepository implements IQuestionRepository {
       const answers = await this.AnswersCollection.find({
         _id: {$in: uniqueAnswerIds},
       }).toArray();
-      
+
       const normalizedAnswers = answers.map(a => ({
         ...a,
         _id: a._id.toString(),
@@ -994,11 +995,11 @@ export class QuestionRepository implements IQuestionRepository {
             modifiedBy: m.modifiedBy?.toString(),
           })) ?? [],
       }));
-      
+
       const answersMap = new Map(
         normalizedAnswers.map(a => [a._id?.toString(), a]),
       );
-      
+
       const isAlreadySubmitted = allUpdatedByIds
         .map(id => id.toString())
         .includes(userId);
@@ -1063,162 +1064,165 @@ export class QuestionRepository implements IQuestionRepository {
       });
 
       // 6.1 Convert reroutes to history format
-       // 6.1 Convert reroutes to history format and keep only latest per answerId
-       const rerouteHistoryMap = new Map();
-      
-       reroutes?.forEach(reroute => {
-         reroute.reroutes?.forEach(r => {
-           const answerIdKey = r.answerId?.toString();
-           const updatedTime = r.updatedAt || r.reroutedAt;
-           
-           // If answerId exists and status is expert_completed, check if we should keep this one
-           if (answerIdKey && r.status === 'rejected') {
-             const existing = rerouteHistoryMap.get(answerIdKey);
-             const existingTime = existing?.updatedAt || existing?.reroutedAt;
-             
-             // Only keep this entry if it's newer than the existing one
-             if (!existing || new Date(updatedTime) > new Date(existingTime)) {
-               const reroutedToUser = usersMap.get(r.reroutedTo?.toString());
-               
-               rerouteHistoryMap.set(answerIdKey, {
-                 updatedBy: r.reroutedTo
-                   ? {
-                       _id: r.reroutedTo?.toString(),
-                       name: isExpert
-                         ? getReviewerQueuePosition(
-                             submission?.queue,
-                             r.reroutedTo?.toString(),
-                           ) == 0
-                           ? 'Author'
-                           : `Reviewer ${getReviewerQueuePosition(
-                               submission?.queue,
-                               r.reroutedTo?.toString(),
-                             )}`
-                         : reroutedToUser?.firstName,
-                       email: !isExpert && reroutedToUser?.email,
-                     }
-                   : null,
-                 answer: {
-                     _id: r.answerId?.toString(),
-                     authorId: answersMap
-                       .get(r.answerId?.toString())
-                       ?.authorId?.toString(),
-                     answerIteration: answersMap.get(r.answerId?.toString())
-                       ?.answerIteration,
-                     isFinalAnswer: answersMap.get(r.answerId?.toString())
-                       ?.isFinalAnswer,
-                     answer: answersMap.get(r.answerId?.toString())?.answer,
-                     sources: answersMap.get(r.answerId?.toString())?.sources,
-                     approvalCount: answersMap.get(r.answerId?.toString())
-                       ?.approvalCount,
-                     remarks: answersMap.get(r.answerId?.toString())?.remarks,
-                     createdAt: answersMap.get(r.answerId?.toString())?.createdAt,
-                     updatedAt: answersMap.get(r.answerId?.toString())?.updatedAt,
-                     reviews: reviewsByAnswer.get(r.answerId?.toString()) || [],
-                   },
-                 status: r.status,
-                 reasonForRejection: r.rejectionReason || null,
-                 comment: r.comment,
-                 reroutedBy: r.reroutedBy?.toString(),
-                 reroutedAt: r.reroutedAt,
-                 updatedAt: r.updatedAt,
-                 isReroute: true,
-               });
-             }
-           } else {
-             // For non-expert_completed or no answerId, add all entries
-             const reroutedToUser = usersMap.get(r.reroutedTo?.toString());
-             const uniqueKey = `${r.reroutedTo?.toString()}_${updatedTime}`;
-             
-             rerouteHistoryMap.set(uniqueKey, {
-               updatedBy: r.reroutedTo
-                 ? {
-                     _id: r.reroutedTo?.toString(),
-                     name: isExpert
-                       ? getReviewerQueuePosition(
-                           submission?.queue,
-                           r.reroutedTo?.toString(),
-                         ) == 0
-                         ? 'Author'
-                         : `Reviewer ${getReviewerQueuePosition(
-                             submission?.queue,
-                             r.reroutedTo?.toString(),
-                           )}`
-                       : reroutedToUser?.firstName,
-                     email: !isExpert && reroutedToUser?.email,
-                   }
-                 : null,
-               answer: null,
-               status: r.status,
-               reasonForRejection: r.rejectionReason || null,
-               comment: r.comment,
-               reroutedBy: r.reroutedBy?.toString(),
-               reroutedAt: r.reroutedAt,
-               updatedAt: r.updatedAt,
-               isReroute: true,
-             });
-           }
-         });
-       });
-       
-       const rerouteHistory = Array.from(rerouteHistoryMap.values());
+      // 6.1 Convert reroutes to history format and keep only latest per answerId
+      const rerouteHistoryMap = new Map();
+
+      reroutes?.forEach(reroute => {
+        reroute.reroutes?.forEach(r => {
+          const answerIdKey = r.answerId?.toString();
+          const updatedTime = r.updatedAt || r.reroutedAt;
+
+          // If answerId exists and status is expert_completed, check if we should keep this one
+          if (answerIdKey && r.status === 'rejected') {
+            const existing = rerouteHistoryMap.get(answerIdKey);
+            const existingTime = existing?.updatedAt || existing?.reroutedAt;
+
+            // Only keep this entry if it's newer than the existing one
+            if (!existing || new Date(updatedTime) > new Date(existingTime)) {
+              const reroutedToUser = usersMap.get(r.reroutedTo?.toString());
+
+              rerouteHistoryMap.set(answerIdKey, {
+                updatedBy: r.reroutedTo
+                  ? {
+                      _id: r.reroutedTo?.toString(),
+                      name: isExpert
+                        ? getReviewerQueuePosition(
+                            submission?.queue,
+                            r.reroutedTo?.toString(),
+                          ) == 0
+                          ? 'Author'
+                          : `Reviewer ${getReviewerQueuePosition(
+                              submission?.queue,
+                              r.reroutedTo?.toString(),
+                            )}`
+                        : reroutedToUser?.firstName,
+                      email: !isExpert && reroutedToUser?.email,
+                    }
+                  : null,
+                answer: {
+                  _id: r.answerId?.toString(),
+                  authorId: answersMap
+                    .get(r.answerId?.toString())
+                    ?.authorId?.toString(),
+                  answerIteration: answersMap.get(r.answerId?.toString())
+                    ?.answerIteration,
+                  isFinalAnswer: answersMap.get(r.answerId?.toString())
+                    ?.isFinalAnswer,
+                  answer: answersMap.get(r.answerId?.toString())?.answer,
+                  sources: answersMap.get(r.answerId?.toString())?.sources,
+                  approvalCount: answersMap.get(r.answerId?.toString())
+                    ?.approvalCount,
+                  remarks: answersMap.get(r.answerId?.toString())?.remarks,
+                  createdAt: answersMap.get(r.answerId?.toString())?.createdAt,
+                  updatedAt: answersMap.get(r.answerId?.toString())?.updatedAt,
+                  reviews: reviewsByAnswer.get(r.answerId?.toString()) || [],
+                },
+                status: r.status,
+                reasonForRejection: r.rejectionReason || null,
+                comment: r.comment,
+                reroutedBy: r.reroutedBy?.toString(),
+                reroutedAt: r.reroutedAt,
+                updatedAt: r.updatedAt,
+                isReroute: true,
+              });
+            }
+          } else {
+            // For non-expert_completed or no answerId, add all entries
+            const reroutedToUser = usersMap.get(r.reroutedTo?.toString());
+            const uniqueKey = `${r.reroutedTo?.toString()}_${updatedTime}`;
+
+            rerouteHistoryMap.set(uniqueKey, {
+              updatedBy: r.reroutedTo
+                ? {
+                    _id: r.reroutedTo?.toString(),
+                    name: isExpert
+                      ? getReviewerQueuePosition(
+                          submission?.queue,
+                          r.reroutedTo?.toString(),
+                        ) == 0
+                        ? 'Author'
+                        : `Reviewer ${getReviewerQueuePosition(
+                            submission?.queue,
+                            r.reroutedTo?.toString(),
+                          )}`
+                      : reroutedToUser?.firstName,
+                    email: !isExpert && reroutedToUser?.email,
+                  }
+                : null,
+              answer: null,
+              status: r.status,
+              reasonForRejection: r.rejectionReason || null,
+              comment: r.comment,
+              reroutedBy: r.reroutedBy?.toString(),
+              reroutedAt: r.reroutedAt,
+              updatedAt: r.updatedAt,
+              isReroute: true,
+            });
+          }
+        });
+      });
+
+      const rerouteHistory = Array.from(rerouteHistoryMap.values());
 
       // 7 Populate submissions manually
-      const submissionHistory = submission?.history?.map(h => ({
-        updatedBy: h.updatedBy
-          ? {
-              _id: h.updatedBy?.toString(),
-              name: isExpert
-                ? getReviewerQueuePosition(
-                    submission.queue,
-                    h.updatedBy?.toString(),
-                  ) == 0
-                  ? 'Author'
-                  : `Reviewer ${getReviewerQueuePosition(
+      const submissionHistory =
+        submission?.history?.map(h => ({
+          updatedBy: h.updatedBy
+            ? {
+                _id: h.updatedBy?.toString(),
+                name: isExpert
+                  ? getReviewerQueuePosition(
                       submission.queue,
                       h.updatedBy?.toString(),
-                    )}`
-                : usersMap.get(h.updatedBy?.toString())?.firstName,
-              email:
-                !isExpert && usersMap.get(h.updatedBy?.toString())?.email,
-            }
-          : [],
-        answer: h.answer
-          ? {
-              _id: h.answer?.toString(),
-              authorId: answersMap
-                .get(h.answer?.toString())
-                ?.authorId?.toString(),
-              answerIteration: answersMap.get(h.answer?.toString())
-                ?.answerIteration,
-              isFinalAnswer: answersMap.get(h.answer?.toString())
-                ?.isFinalAnswer,
-              answer: answersMap.get(h.answer?.toString())?.answer,
-              sources: answersMap.get(h.answer?.toString())?.sources,
-              approvalCount: answersMap.get(h.answer?.toString())
-                ?.approvalCount,
-              remarks: answersMap.get(h.answer?.toString())?.remarks,
-              createdAt: answersMap.get(h.answer?.toString())?.createdAt,
-              updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
-              reviews: reviewsByAnswer.get(h.answer?.toString()) || [],
-            }
-          : null,
-        status: h.status,
-        reasonForRejection: h.reasonForRejection,
-        approvedAnswer: h.approvedAnswer?.toString(),
-        rejectedAnswer: h.rejectedAnswer?.toString(),
-        modifiedAnswer: h.modifiedAnswer?.toString(),
-        reasonForLastModification: h.reasonForLastModification?.toString(),
-        reviewId: h.reviewId?.toString(),
-        isReroute: false,
-      })) || [];
+                    ) == 0
+                    ? 'Author'
+                    : `Reviewer ${getReviewerQueuePosition(
+                        submission.queue,
+                        h.updatedBy?.toString(),
+                      )}`
+                  : usersMap.get(h.updatedBy?.toString())?.firstName,
+                email:
+                  !isExpert && usersMap.get(h.updatedBy?.toString())?.email,
+              }
+            : [],
+          answer: h.answer
+            ? {
+                _id: h.answer?.toString(),
+                authorId: answersMap
+                  .get(h.answer?.toString())
+                  ?.authorId?.toString(),
+                answerIteration: answersMap.get(h.answer?.toString())
+                  ?.answerIteration,
+                isFinalAnswer: answersMap.get(h.answer?.toString())
+                  ?.isFinalAnswer,
+                answer: answersMap.get(h.answer?.toString())?.answer,
+                sources: answersMap.get(h.answer?.toString())?.sources,
+                approvalCount: answersMap.get(h.answer?.toString())
+                  ?.approvalCount,
+                remarks: answersMap.get(h.answer?.toString())?.remarks,
+                createdAt: answersMap.get(h.answer?.toString())?.createdAt,
+                updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
+                reviews: reviewsByAnswer.get(h.answer?.toString()) || [],
+              }
+            : null,
+          status: h.status,
+          reasonForRejection: h.reasonForRejection,
+          approvedAnswer: h.approvedAnswer?.toString(),
+          rejectedAnswer: h.rejectedAnswer?.toString(),
+          modifiedAnswer: h.modifiedAnswer?.toString(),
+          reasonForLastModification: h.reasonForLastModification?.toString(),
+          reviewId: h.reviewId?.toString(),
+          isReroute: false,
+        })) || [];
 
       // 7.1 Merge submission history with reroute history and sort by date
-      const combinedHistory = [...submissionHistory, ...rerouteHistory].sort((a, b) => {
-        const dateA = a.updatedAt || a.reroutedAt || new Date(0);
-        const dateB = b.updatedAt || b.reroutedAt || new Date(0);
-        return new Date(dateA).getTime() - new Date(dateB).getTime();
-      });
+      const combinedHistory = [...submissionHistory, ...rerouteHistory].sort(
+        (a, b) => {
+          const dateA = a.updatedAt || a.reroutedAt || new Date(0);
+          const dateB = b.updatedAt || b.reroutedAt || new Date(0);
+          return new Date(dateA).getTime() - new Date(dateB).getTime();
+        },
+      );
 
       const populatedSubmission = {
         _id: submission?._id?.toString(),
@@ -1237,9 +1241,7 @@ export class QuestionRepository implements IQuestionRepository {
                       lastRespondedId,
                     )}`
                 : usersMap.get(lastRespondedId)?.firstName,
-              email:
-                !isExpert &&
-                usersMap.get(lastRespondedId)?.email,
+              email: !isExpert && usersMap.get(lastRespondedId)?.email,
             }
           : null,
         queue: submission?.queue?.map(q => ({
@@ -1303,7 +1305,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       const result = await this.QuestionCollection.updateMany(
         {
-          status: {$nin: ['closed', 'in-review','re-routed']},
+          status: {$nin: ['closed', 'in-review', 're-routed']},
           createdAt: {$lte: fourHoursAgo},
         },
         {$set: {status: 'delayed'}},
@@ -1368,8 +1370,13 @@ export class QuestionRepository implements IQuestionRepository {
         throw new BadRequestError('Updates object cannot be empty');
       }
 
-      const forbiddenFields = ['_id', 'id', 'createdAt', 'updatedAt','review_level_number' ];
-      
+      const forbiddenFields = [
+        '_id',
+        'id',
+        'createdAt',
+        'updatedAt',
+        'review_level_number',
+      ];
 
       if (!addText) {
         forbiddenFields.push('text');
@@ -1444,7 +1451,7 @@ export class QuestionRepository implements IQuestionRepository {
         {_id: new ObjectId(questionId)},
         {session},
       );
-   const result1=   await this.ReRouteCollection.deleteOne(
+      const result1 = await this.ReRouteCollection.deleteOne(
         {questionId: new ObjectId(questionId)},
         {session},
       );
@@ -2178,6 +2185,365 @@ export class QuestionRepository implements IQuestionRepository {
 
     return {
       deletedCount: result.deletedCount ?? 0,
+    };
+  }
+
+  async getQuestionsAndReviewLevel(
+    query: GetDetailedQuestionsQuery & { searchEmbedding: number[] | null },
+    session?: ClientSession,
+  ):Promise<QuestionLevelResponse> {
+    await this.init();
+    const { page = 1, limit = 10, search } = query;
+    const skip = (page - 1) * limit;
+     const { filter } = await buildQuestionFilter(
+    query,
+    this.QuestionSubmissionCollection,
+  );
+    if (search && search.trim().length) {
+    filter.question = { $regex: search.trim(), $options: "i" };
+  }
+    const pipeline: any[] = [
+      {$match: filter},
+
+      {$sort: {createdAt: -1}},
+
+      {
+        $facet: {
+          metadata: [{$count: 'totalDocs'}],
+
+          data: [
+            {$skip: skip},
+            {$limit: limit},
+
+            {
+              $project: {
+                _id: 1,
+                question: 1,
+                status: 1,
+                createdAt: 1,
+              },
+            },
+
+            {
+              $lookup: {
+                from: 'question_submissions',
+                localField: '_id',
+                foreignField: 'questionId',
+                as: 'submission',
+              },
+            },
+
+            {$unwind: {path: '$submission', preserveNullAndEmptyArrays: true}},
+
+            {
+              $addFields: {
+                history: {$ifNull: ['$submission.history', []]},
+                submissionCreatedAt: '$submission.createdAt',
+
+                currentLevel: {
+                  $cond: [
+                    {$gt: [{$size: {$ifNull: ['$submission.history', []]}}, 0]},
+                    {
+                      $subtract: [
+                        {$size: {$ifNull: ['$submission.history', []]}},
+                        1,
+                      ],
+                    },
+                    -1,
+                  ],
+                },
+              },
+            },
+
+            {
+              $addFields: {
+                reviewLevels: {
+                  $map: {
+                    input: {$range: [0, 11]},
+                    as: 'idx',
+
+                    in: {
+                      $let: {
+                        vars: {
+                          hist: {$arrayElemAt: ['$history', '$$idx']},
+                          nextHist: {
+                            $arrayElemAt: ['$history', {$add: ['$$idx', 1]}],
+                          },
+
+                          
+                          isAuthorNoHistory: {
+                            $and: [
+                              {$eq: ['$$idx', 0]},
+                              {$eq: ['$currentLevel', -1]},
+                              {$ne: ['$submissionCreatedAt', null]},
+                            ],
+                          },
+                        },
+
+                        in: {
+                          $let: {
+                            vars: {
+                              // pending only applies to last level
+                              isPending: {
+                                $and: [
+                                  {$eq: ['$$idx', '$currentLevel']},
+                                  {$ne: ['$$hist', null]},
+                                  {
+                                    $or: [
+                                      {$eq: ['$$hist.updatedAt', null]},
+                                      {
+                                        $eq: [
+                                          '$$hist.updatedAt',
+                                          '$$hist.createdAt',
+                                        ],
+                                      },
+                                    ],
+                                  },
+                                ],
+                              },
+
+                              secs: {
+                                $cond: [
+                                  // submission exists + no history
+                                  '$$isAuthorNoHistory',
+
+                                  {
+                                    $dateDiff: {
+                                      startDate: '$submissionCreatedAt',
+                                      endDate: '$$NOW',
+                                      unit: 'second',
+                                    },
+                                  },
+
+                                  // normal 
+                                  {
+                                    $cond: [
+                                      {$eq: ['$$idx', 0]},
+
+                                      {
+                                        $cond: [
+                                          {
+                                            $and: [
+                                              {$ne: ['$$hist', null]},
+                                              {
+                                                $ne: [
+                                                  '$submissionCreatedAt',
+                                                  null,
+                                                ],
+                                              },
+                                            ],
+                                          },
+                                          {
+                                            $dateDiff: {
+                                              startDate: '$submissionCreatedAt',
+                                              endDate: '$$hist.createdAt',
+                                              unit: 'second',
+                                            },
+                                          },
+                                          null,
+                                        ],
+                                      },
+
+                                      // ===== NON-AUTHOR =====
+                                      {
+                                        $cond: [
+                                          {$lt: ['$$idx', '$currentLevel']},
+
+                                          // non-last
+                                          {
+                                            $cond: [
+                                              {
+                                                $and: [
+                                                  {$ne: ['$$hist', null]},
+                                                  {$ne: ['$$nextHist', null]},
+                                                ],
+                                              },
+                                              {
+                                                $dateDiff: {
+                                                  startDate: '$$hist.createdAt',
+                                                  endDate:
+                                                    '$$nextHist.createdAt',
+                                                  unit: 'second',
+                                                },
+                                              },
+                                              null,
+                                            ],
+                                          },
+
+                                          // last level
+                                          {
+                                            $cond: [
+                                              {
+                                                $and: [
+                                                  {$ne: ['$$hist', null]},
+                                                  {
+                                                    $or: [
+                                                      {
+                                                        $eq: [
+                                                          '$$hist.updatedAt',
+                                                          null,
+                                                        ],
+                                                      },
+                                                      {
+                                                        $eq: [
+                                                          '$$hist.updatedAt',
+                                                          '$$hist.createdAt',
+                                                        ],
+                                                      },
+                                                    ],
+                                                  },
+                                                ],
+                                              },
+
+                                              // pending → now - createdAt
+                                              {
+                                                $dateDiff: {
+                                                  startDate: '$$hist.createdAt',
+                                                  endDate: '$$NOW',
+                                                  unit: 'second',
+                                                },
+                                              },
+
+                                              // completed → updatedAt - createdAt
+                                              {
+                                                $cond: [
+                                                  {$ne: ['$$hist', null]},
+                                                  {
+                                                    $dateDiff: {
+                                                      startDate:
+                                                        '$$hist.createdAt',
+                                                      endDate:
+                                                        '$$hist.updatedAt',
+                                                      unit: 'second',
+                                                    },
+                                                  },
+                                                  null,
+                                                ],
+                                              },
+                                            ],
+                                          },
+                                        ],
+                                      },
+                                    ],
+                                  },
+                                ],
+                              },
+                            },
+
+                            in: {
+                              column: {
+                                $cond: [
+                                  {$eq: ['$$idx', 0]},
+                                  'author',
+                                  {$concat: ['level ', {$toString: '$$idx'}]},
+                                ],
+                              },
+
+                              value: {
+                                $cond: [
+                                  {
+                                    $and: [
+                                      {$gt: ['$$idx', '$currentLevel']},
+                                      {$not: '$$isAuthorNoHistory'},
+                                    ],
+                                  },
+                                  'NA',
+
+                                  {
+                                    $cond: [
+                                      {$eq: ['$$secs', null]},
+                                      'NA',
+
+                                      {
+                                        $let: {
+                                          vars: {
+                                            h: {
+                                              $floor: {
+                                                $divide: ['$$secs', 3600],
+                                              },
+                                            },
+                                            m: {
+                                              $floor: {
+                                                $mod: [
+                                                  {$divide: ['$$secs', 60]},
+                                                  60,
+                                                ],
+                                              },
+                                            },
+                                            s: {$mod: ['$$secs', 60]},
+                                          },
+
+                                          in: {
+                                            time: {
+                                              $concat: [
+                                                {$toString: '$$h'},
+                                                ':',
+                                                {$toString: '$$m'},
+                                                ':',
+                                                {$toString: '$$s'},
+                                              ],
+                                            },
+
+                                            yet_to_complete: {
+                                              $or: [
+                                                '$$isPending',
+                                                '$$isAuthorNoHistory',
+                                              ],
+                                            },
+                                          },
+                                        },
+                                      },
+                                    ],
+                                  },
+                                ],
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+
+            {
+              $project: {
+                _id: 1,
+                question: 1,
+                status: 1,
+                createdAt: 1,
+                reviewLevels: 1,
+              },
+            },
+          ],
+        },
+      },
+    ];
+    const result = await this.QuestionCollection.aggregate(pipeline, {
+      session,
+    }).toArray();
+    const meta = result[0]?.metadata?.[0] ?? {totalDocs: 0};
+    const docs = result[0]?.data ?? [];
+
+    const totalDocs = meta.totalDocs;
+    const totalPages = Math.max(1, Math.ceil(totalDocs / limit));
+
+    return {
+      page,
+      limit,
+      totalDocs,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+
+      data: docs.map(doc => ({
+        _id: doc._id?.toString(),
+        question: doc.question,
+        status: doc.status,
+        createdAt: doc.createdAt,
+        reviewLevels: doc.reviewLevels,
+      })),
     };
   }
 }

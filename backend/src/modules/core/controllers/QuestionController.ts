@@ -46,6 +46,7 @@ import {
   getJobById,
   startBackgroundProcessing,
 } from '#root/workers/workerManager.js';
+import { QuestionLevelResponse } from '../classes/transformers/QuestionLevel.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -307,7 +308,16 @@ export class QuestionController {
     return this.questionService.deleteQuestion(questionId);
   }
 
-  /////////////////////////////////////////////////// FOR BACKGROUND JOBS ///////////////////////////////////////////////
+  @Get('/')
+  @HttpCode(200)
+  @Authorized()
+  @ResponseSchema(QuestionResponse)
+  @OpenAPI({summary: 'Get all questions and review levels'})
+  async getQuestionsAndReviewlevel(
+     @QueryParams() query: GetDetailedQuestionsQuery
+  ): Promise<QuestionLevelResponse> {
+    return this.questionService.getQuestionAndReviewLevel(query);
+  }
 
   @Get('/background-status')
   getAllJobs() {
@@ -321,5 +331,4 @@ export class QuestionController {
     return job;
   }
 
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }

@@ -13,6 +13,7 @@ import type { GeneratedQuestion } from "@/components/voice-recorder-card";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
 import { formatDateLocal } from "@/utils/formatDate";
 import { env } from "@/config/env";
+import type { ReviewLevelsApiResponse } from "@/features/questions/types";
 
 const API_BASE_URL = env.apiBaseUrl();
 export class QuestionService {
@@ -278,4 +279,51 @@ export class QuestionService {
       body: JSON.stringify({ questionIds }),
     });
   }
+
+  
+  async GetQuestionsAndLevels(
+  pageParam: number,
+  limit: number,
+  search: string,
+  filter:AdvanceFilterValues
+):Promise<ReviewLevelsApiResponse | null> {
+  const params = new URLSearchParams();
+
+    if (search) params.append("search", search);
+    params.append("page", pageParam.toString());
+    params.append("limit", limit.toString());
+
+    if (filter.status) params.append("status", filter.status);
+    if (filter.source) params.append("source", filter.source);
+    if (filter.state) params.append("state", filter.state);
+    if (filter.crop) params.append("crop", filter.crop);
+    if (filter.priority) params.append("priority", filter.priority);
+    if (filter.domain) params.append("domain", filter.domain);
+    if (filter.user) params.append("user", filter.user);
+    if (filter.review_level) params.append("review_level", filter.review_level);
+    if (filter.startTime) {
+      params.append("startTime", formatDateLocal(filter.startTime));
+    }
+    if (filter.endTime) {
+      params.append("endTime", formatDateLocal(filter.endTime));
+    }
+    if (filter.closedAtEnd) {
+      params.append("closedAtEnd", formatDateLocal(filter.closedAtEnd));
+    }
+    if (filter.closedAtStart) {
+      params.append("closedAtStart", formatDateLocal(filter.closedAtStart));
+    }
+
+    if (filter.answersCount) {
+      params.append("answersCountMin", filter.answersCount[0].toString());
+      params.append("answersCountMax", filter.answersCount[1].toString());
+    }
+
+    if (filter.dateRange && filter.dateRange !== "all")
+      params.append("dateRange", filter.dateRange);
+    return apiFetch(
+    `${this._baseUrl}?${params.toString()}`
+   );
+}
+
 }
