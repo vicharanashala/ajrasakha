@@ -47,6 +47,7 @@ import {
 import { Button } from "@/components/atoms/button";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
+import { TopRightBadge } from "./NewBadge";
 interface DateRange {
   startTime?: Date;
   endTime?: Date;
@@ -217,7 +218,8 @@ export const ReviewLevelComponent=()=>{
                 onChange={(val) => updateDraft("status", val)}
                 Icon={FileText}
               />
-                <div className="space-y-2 min-w-0">
+                <div className="space-y-2 min-w-0 relative">
+                  <TopRightBadge label="New" />
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <UserIcon className="h-4 w-4 text-primary" />
                   User

@@ -108,6 +108,7 @@ import {
   ContextMenuTrigger,
 } from "./atoms/context-menu";
 import { Checkbox } from "./atoms/checkbox";
+import { TopRightBadge } from "./NewBadge";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -1759,31 +1760,34 @@ export const QuestionsFilters = ({
         </div>
       </div>
 
-      {/* RIGHT ACTIONS – wrap nicely on small screens */}
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-3 justify-between sm:justify-end">
-        <div className="flex gap-2 border rounded-md p-1 bg-muted/40">
-          <button
-            className={`px-3 py-1 rounded-md text-sm ${
-              viewMode === "all"
-                ? "bg-primary text-white"
-                : "text-muted-foreground"
-            }`}
-            onClick={() => setViewMode("all")}
-          >
-            Normal
-          </button>
+        <div className="relative inline-block">
+          <TopRightBadge label="New" />
+          <div className="flex gap-2 border rounded-md p-1 bg-muted/40">
+            <button
+              className={`px-3 py-1 rounded-md text-sm ${
+                viewMode === "all"
+                  ? "bg-primary text-white"
+                  : "text-muted-foreground"
+              }`}
+              onClick={() => setViewMode("all")}
+            >
+              Normal
+            </button>
 
-          <button
-            className={`px-3 py-1 rounded-md text-sm ${
-              viewMode === "review-level"
-                ? "bg-primary text-white"
-                : "text-muted-foreground"
-            }`}
-            onClick={() => setViewMode("review-level")}
-          >
-            Turn Around
-          </button>
+            <button
+              className={`px-3 py-1 rounded-md text-sm ${
+                viewMode === "review-level"
+                  ? "bg-primary text-white"
+                  : "text-muted-foreground"
+              }`}
+              onClick={() => setViewMode("review-level")}
+            >
+              Turn Around
+            </button>
+          </div>
         </div>
+
         <AdvanceFilterDialog
           advanceFilter={advanceFilter}
           setAdvanceFilterValues={setAdvanceFilterValues}
