@@ -508,7 +508,7 @@ export class QuestionSubmissionRepository
 
       let {startTime, endTime} = query;
 
-      const matchConditions: any = {
+     /* const matchConditions: any = {
         'history.status': {$in: ['reviewed', 'rejected']},
       };
 
@@ -523,25 +523,87 @@ export class QuestionSubmissionRepository
           ...(matchConditions['history.createdAt'] || {}),
           $lte: end,
         };
-      }
+      }*/
 
       const pipeline = [
-        {$unwind: '$history'},
-
         {
-          $match: matchConditions,
+          $unwind: {
+            path: '$history',
+            includeArrayIndex: 'historyIndex',
+          },
         },
 
-        {
-          $addFields: {
-            turnaroundHours: {
-              $divide: [
-                {$subtract: ['$history.updatedAt', '$createdAt']},
-                1000 * 60 * 60,
-              ],
+        // ✅ Step 2: Filter based on index and status
+      {
+        $match: {
+          $expr: {
+            $or: [
+              // Index 0: any status is allowed
+              {$eq: ['$historyIndex', 0]},
+              // Index >= 1: must have specific status
+              {
+                $and: [
+                  {$gte: ['$historyIndex', 1]},
+                  {
+                    $in: [
+                      '$history.status',
+                      ['reviewed', 'rejected', 'approved', 'modified'],
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+      // ✅ Step 3: Apply date range filtering
+      ...(startTime || endTime
+        ? [
+            {
+              $match: {
+                ...(startTime && {
+                  'history.createdAt': {
+                    $gte: new Date(`${startTime}T00:00:00.000+05:30`), 
+                  },
+                }),
+                ...(endTime && {
+                  'history.updatedAt': {
+                    $lte: new Date(`${endTime}T23:59:59.999+05:30`),
+                  },
+                }),
+              },
+            },
+          ]
+        : []),
+        // ✅ Step 4: Ensure updatedBy exists
+      {
+        $match: {
+          'history.updatedBy': {$exists: true, $ne: null},
+        },
+      },
+      {
+        $addFields: {
+          turnaroundHours: {
+            $cond: {
+              if: {$eq: ['$historyIndex', 0]},
+              // ✅ Index 0: from ROOT createdAt to history.updatedAt
+              then: {
+                $divide: [
+                  {$subtract: ['$history.updatedAt', '$createdAt']},
+                  1000 * 60 * 60,
+                ],
+              },
+              // ✅ Index >= 1: from history.createdAt to history.updatedAt
+              else: {
+                $divide: [
+                  {$subtract: ['$history.updatedAt', '$history.createdAt']},
+                  1000 * 60 * 60,
+                ],
+              },
             },
           },
         },
+      },
 
         // ✅ ONE-HOUR BUCKET INTERVALS
         {
@@ -616,6 +678,11 @@ export class QuestionSubmissionRepository
               },
             },
             counts: 1,
+          },
+        },
+        {
+          $sort: {
+            reviewerName: 1, // 1 for ascending (A-Z), -1 for descending (Z-A)
           },
         },
       ];
