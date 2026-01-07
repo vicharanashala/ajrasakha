@@ -6,6 +6,7 @@ import "./styles.css";
 import reportWebVitals from "./reportWebVitals.ts";
 import { client } from "./client/client.gen.ts";
 import { env } from "./config/env.ts";
+import ReviewMaintenance from "./components/maintainence.tsx";
 
 async function bootstrap() {
   // Enable MSW only when explicitly allowed
@@ -32,7 +33,9 @@ async function bootstrap() {
     const root = ReactDOM.createRoot(rootElement);
     root.render(
       <StrictMode>
-        <RouterProvider router={router} />
+        {/* <RouterProvider router={router} /> */}
+        <ReviewMaintenance />
+
       </StrictMode>
     );
   }
