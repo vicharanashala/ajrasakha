@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  golden-dataset-mcp:
+    build:
+      context: ./golden_dataset
+      dockerfile: Dockerfile
+    container_name: golden-dataset-mcp
+    ports:
+      - "9001:9001"
+    volumes:
+      - hf_cache:/app/hf_cache
+    restart: unless-stopped
+
+  pop-mcp:
+    build:
+      context: ./pop
+      dockerfile: Dockerfile
+    container_name: pop-mcp
+    ports:
+      - "9002:9002"
+    volumes:
+      - hf_cache:/app/hf_cache
+    restart: unless-stopped
+
+  market-mcp:
+    build:
+      context: ./market
+      dockerfile: Dockerfile
+    container_name: market-mcp
+    ports:
+      - "9003:9003"
+    restart: unless-stopped
+
+  weather-mcp:
+    build:
+      context: ./weather
+      dockerfile: Dockerfile
+    container_name: weather-mcp
+    ports:
+      - "9004:9004"
+    restart: unless-stopped
+
+  faq-mcp:
+    build:
+      context: ./faq
+      dockerfile: Dockerfile
+    container_name: faq-mcp
+    ports:
+      - "9005:9005"
+    volumes:
+      - hf_cache:/app/hf_cache
+    restart: unless-stopped
+
+volumes:
+  hf_cache:
