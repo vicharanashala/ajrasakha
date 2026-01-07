@@ -298,7 +298,9 @@ export const QuestionsTable = ({
                 <TableHead className="text-center">Status</TableHead>
                 <TableHead className="text-center">Answers</TableHead>
                 <TableHead className="text-center">Review Level</TableHead>
-                <TableHead className="text-center">Created</TableHead>
+                {!showClosedAt ? (
+                  <TableHead className="text-center">Created</TableHead>
+                ):null}
                 {showClosedAt ? (
                   <TableHead className="text-center">Closed</TableHead>
                 ) : null}
@@ -646,10 +648,11 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
               ? q.review_level_number
               : `Level ${q.review_level_number}`}
           </TableCell>
-
+          {!showClosedAt ? (
           <TableCell className="align-middle">
             {formatDate(new Date(q.createdAt!), false)}
           </TableCell>
+          ) : null}
           {showClosedAt ? (
             <TableCell className="align-middle">
               {q.closedAt ? formatDate(new Date(q.closedAt!), false) : "N/C"}
