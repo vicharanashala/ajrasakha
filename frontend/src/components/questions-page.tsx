@@ -265,7 +265,7 @@ export const QuestionsPage = ({
                 setIsRefreshing(false);
               }, 2000);
             }}
-            totalQuestions={questionData?.totalCount || 0}
+            totalQuestions={viewMode==='all' ? questionData?.totalCount || 0 : reviewData?.totalDocs || 0}
             userRole={currentUser?.role!}
             isSelectionModeOn={isSelectionModeOn}
             handleBulkDelete={handleBulkDelete}
