@@ -35,7 +35,7 @@ data/*.xlsx
 *.csv
 
 # MongoDB
-*.lock
+# *.lock
 
 # Logs
 *.log
