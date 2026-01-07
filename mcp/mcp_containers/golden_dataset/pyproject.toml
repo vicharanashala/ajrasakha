@@ -1,0 +1,26 @@
+[project]
+name = "mcp-ajrasakha"
+version = "0.1.0"
+description = "MCP for ajrasakha system"
+authors = [
+    {name = "adityabmv",email = "adityabmv@gmail.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "fastmcp (>=2.12.3,<3.0.0)",
+    "llama-index (>=0.14.3,<0.15.0)",
+    "llama-index-embeddings-huggingface (>=0.6.1,<0.7.0)",
+    "pymongo (>=4.15.1,<5.0.0)",
+    "llama-index-vector-stores-mongodb (>=0.8.1,<0.9.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.poetry]
+package-mode = false
