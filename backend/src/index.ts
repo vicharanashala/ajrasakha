@@ -68,9 +68,9 @@ if (NODE_ENV === 'production' || NODE_ENV === 'staging') {
 }
 
 // Start server
-useExpressServer(app, moduleOptions);
+// useExpressServer(app, moduleOptions);
 
-app.listen(appConfig.port, () => {
-  initJobs();
-  printStartupSummary();
-});
+// app.listen(appConfig.port, () => {
+//   initJobs();
+//   printStartupSummary();
+// });

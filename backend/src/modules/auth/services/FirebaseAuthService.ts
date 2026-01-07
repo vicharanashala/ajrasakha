@@ -61,17 +61,17 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
 
     // Retrieve the user from our database using the Firebase UID
     const user = await this.userRepository.findByFirebaseUID(firebaseUID);
-    if(!user){
-      console.warn(`Firebase user ${firebaseUID} not found in DB. Deleting from firebase`)
-      await this.auth.deleteUser(firebaseUID).catch(err => {
-        console.error("failed to delete firebase user ",error)
-      })
-      console.log("deleted firebase user ")
-      throw new UnauthorizedError("User not found in database")
-    }
+    // if(!user){
+    //   console.warn(`Firebase user ${firebaseUID} not found in DB. Deleting from firebase`)
+    //   await this.auth.deleteUser(firebaseUID).catch(err => {
+    //     console.error("failed to delete firebase user ",error)
+    //   })
+    //   console.log("deleted firebase user ")
+    //   throw new UnauthorizedError("User not found in database")
+    // }
     user._id = user._id.toString();
     return user;
-  }
+  } 
   async getUserIdFromReq(req: any): Promise<string> {
     // Extract the token from the request headers
     const token = req.headers.authorization?.split(' ')[1];
