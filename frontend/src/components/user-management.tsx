@@ -96,7 +96,7 @@ export const UserManagement = ({
                 <Input
                   placeholder="Search users..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {setSearch(e.target.value);setPage(1)}}
                   className="pl-9 pr-9 bg-background"
                 />
 
