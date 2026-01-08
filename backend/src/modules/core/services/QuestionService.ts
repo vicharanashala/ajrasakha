@@ -971,8 +971,8 @@ export class QuestionService extends BaseService {
         const expertId = submissionQueue[index]?.toString();
         //5. Decrease the expert's reputation score (since being removed)
         const nextUserId = submissionQueue[index + 1]?.toString();
-
-        if (expertId) {
+        const isExpertInHistory = submissionHistory.find((h) => h.updatedBy.toString()==expertId.toString())
+        if (expertId && isExpertInHistory && !isExpertInHistory.reviewId && isExpertInHistory.status==='in-review') {
           const INCREMENT = false;
           await this.userRepo.updateReputationScore(
             expertId,
