@@ -17,11 +17,6 @@ import {
   NotFoundError,
   UnauthorizedError,
 } from 'routing-controllers';
-import {
-  ReviewAnswerBody,
-  SubmissionResponse,
-  UpdateAnswerBody,
-} from '../classes/validators/AnswerValidators.js';
 import {CORE_TYPES} from '../types.js';
 import {AiService} from './AiService.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';

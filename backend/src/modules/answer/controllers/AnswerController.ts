@@ -19,16 +19,8 @@ import {inject} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {IAnswer, IUser} from '#root/shared/interfaces/models.js';
-import {AnswerService} from '../services/AnswerService.js';
-import {
-  AddAnswerBody,
-  AnswerIdParam,
-  AnswerResponse,
-  DeleteAnswerParams,
-  ReviewAnswerBody,
-  SubmissionResponse,
-  UpdateAnswerBody,
-} from '../classes/validators/AnswerValidators.js';
+import { AnswerService } from '../services/AnswerService.js';
+import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 
 @OpenAPI({
   tags: ['Answers'],

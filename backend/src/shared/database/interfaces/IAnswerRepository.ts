@@ -1,4 +1,4 @@
-import {SubmissionResponse} from '#root/modules/core/classes/validators/AnswerValidators.js';
+
 import {IAnswer, PreviousAnswersItem, SourceItem} from '#root/shared/interfaces/models.js';
 import {
   Analytics,
@@ -6,6 +6,7 @@ import {
   ModeratorApprovalRate,
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {ClientSession, ObjectId} from 'mongodb';
+import { SubmissionResponse } from '#root/modules/answer/classes/validators/AnswerValidator.js';
 
 /**
  * Interface representing a repository for answer-related operations.
