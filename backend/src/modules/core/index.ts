@@ -4,10 +4,8 @@ import {InversifyAdapter} from '#root/inversify-adapter.js';
 import {useContainer} from 'class-validator';
 import {QuestionController} from './controllers/QuestionController.js';
 import {ContextController} from './controllers/ContextController.js';
-import {AnswerController} from './controllers/AnswerController.js';
 import {coreContainerModule} from './container.js';
 import {QUESTION_VALIDATORS} from './classes/validators/QuestionValidators.js';
-import {ANSWER_VALIDATORS} from './classes/validators/AnswerValidators.js';
 import {CONTEXT_VALIDATORS} from './classes/validators/ContextValidators.js';
 import {COMMENT_VALIDATORS} from './classes/validators/CommentValidators.js';
 import {CommentController} from './controllers/CommentController.js';
@@ -18,6 +16,8 @@ import { REQUEST_VALIDATORS } from './classes/validators/RequestValidators.js';
 import { NotificationController } from './controllers/NotificationController.js';
 import { NOTIFICATION_VALIDATORS } from './classes/validators/NotificationValidators.js';
 import {PerformanceController} from './controllers/PerformanceController.js'
+import { AnswerController } from '../answer/controllers/AnswerController.js';
+import { ANSWER_VALIDATORS } from '../answer/classes/validators/AnswerValidator.js';
 
 // Export names that loadAppModules expects
 export const coreModuleControllers: Function[] = [
@@ -57,14 +57,14 @@ export const coreModuleValidators: Function[] = [
 
 // Export all the main components for external use
 export * from './controllers/QuestionController.js';
-export * from './controllers/AnswerController.js';
+export * from '../../modules/answer/controllers/AnswerController.js'
 export * from './controllers/ContextController.js';
 export * from './controllers/CommentController.js';
 export * from './controllers/NotificationController.js'
 export * from './controllers/PerformanceController.js'
 
 export * from './services/QuestionService.js';
-export * from './services/AnswerService.js';
+export * from '../../modules/answer/services/AnswerService.js'
 export * from './services/ContextService.js';
 export * from './services/CommentService.js';
 export * from './services/NotificationService.js'
