@@ -10,16 +10,11 @@ import {
   CurrentUser,
 } from 'routing-controllers';
 import {OpenAPI} from 'routing-controllers-openapi';
-import {CommentService} from '../services/CommentService.js';
 import {IComment, IUser} from '#root/shared/index.js';
-import {
-  AddCommentBody,
-  AddCommentParams,
-  GetCommentsParams,
-  GetCommentsQuery,
-} from '../classes/validators/CommentValidators.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
+import { CommentService } from '../services/CommentService.js';
+import { AddCommentBody, AddCommentParams, GetCommentsParams, GetCommentsQuery } from '../classes/validators/CommentValidator.js';
 
 @OpenAPI({
   tags: ['Comments'],

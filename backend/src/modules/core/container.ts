@@ -6,8 +6,8 @@ import {AnswerRepository} from '#root/shared/database/providers/mongo/repositori
 import {AiService} from './services/AiService.js';
 import {QuestionSubmissionRepository} from '#root/shared/database/providers/mongo/repositories/SubmissionRepository.js';
 import {CommentRepository} from '#root/shared/database/providers/mongo/repositories/CommentRespository.js';
-import {CommentController} from './controllers/CommentController.js';
-import {CommentService} from './services/CommentService.js';
+import {CommentController} from '../../modules/comment/controllers/CommentController.js';
+import {CommentService} from '../../modules/comment/services/CommentService.js';
 import { UserController } from './controllers/UserController.js';
 import { UserService } from './services/UserService.js';
 import { RequestController } from './controllers/RequestController.js';
