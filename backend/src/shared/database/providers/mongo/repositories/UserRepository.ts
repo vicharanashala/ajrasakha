@@ -687,6 +687,12 @@ export class UserRepository implements IUserRepository {
       
       const result = await this.usersCollection.aggregate([
         
+        /** ✅ Add isBlocked field default (if not exists) */
+        {
+          $addFields: {
+            isBlocked: { $ifNull: ["$isBlocked", false] },
+          },
+        },
       
         /** Answers count */
         {
@@ -746,9 +752,10 @@ export class UserRepository implements IUserRepository {
           },
         },
       
-        /** ✅ Multi-level sort for ordinal ranking */
+        /** ✅ Multi-level sort: isBlocked FIRST, then rankValue and others */
         {
           $sort: {
+            isBlocked: 1,              // false (0) comes before true (1)
             rankValue: -1,
             reputation_score: -1,
             totalAnswers_Created: -1,
@@ -780,8 +787,13 @@ export class UserRepository implements IUserRepository {
           $replaceRoot: { newRoot: "$experts" },
         },
       
-        /** ✅ Apply UI sorting */
-        { $sort: selectedSort },
+        /** ✅ Apply UI sorting (also prioritize isBlocked) */
+        { 
+          $sort: { 
+            isBlocked: 1,              // Maintain blocked users at the end
+            ...selectedSort 
+          } 
+        },
         { $match: matchQuery },
       
         /** Pagination */
