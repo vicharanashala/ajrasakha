@@ -26,12 +26,12 @@ import {INotificationRepository} from '#root/shared/database/interfaces/INotific
 import {notifyUser} from '#root/utils/pushNotification.js';
 import {normalizeKeysToLower} from '#root/utils/normalizeKeysToLower.js';
 import {appConfig} from '#root/config/app.js';
-import { CORE_TYPES } from '#root/modules/core/types.js';
 import { AiService } from '#root/modules/core/services/AiService.js';
 import { AddQuestionBodyDto, GeneratedQuestionResponse, GetDetailedQuestionsQuery, QuestionResponse } from '../classes/validators/QuestionVaidators.js';
 import { PreferenceDto } from '#root/modules/core/classes/validators/UserValidators.js';
 import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
 import { NotificationService } from '#root/modules/core/services/NotificationService.js';
+import { CORE_TYPES } from '#root/modules/core/types.js';
 
 @injectable()
 export class QuestionService extends BaseService {

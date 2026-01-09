@@ -20,11 +20,9 @@ import {
   GetDashboardQuery,
   GetHeatMapQuery,
   GoldenDataset,
-  GoldenDataViewType,
   QuestionStatusOverview,
-  StatusOverview,
-  UserRoleOverview,
-} from '../classes/validators/DashboardValidators.js';
+  StatusOverview
+} from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
 
 @injectable()
