@@ -1,5 +1,4 @@
 import {GetHeatMapQuery} from '#root/modules/core/classes/validators/DashboardValidators.js';
-import {HistoryItem} from '#root/modules/core/classes/validators/QuestionValidators.js';
 import {
   IQuestionSubmission,
   IReviewerHeatmapRow,
@@ -8,6 +7,7 @@ import {
 import {ClientSession, ObjectId} from 'mongodb';
 import {ExpertReviewLevelDto} from '#root/modules/core/classes/validators/UserValidators.js';
 import {IReviewWiseStats} from '#root/utils/getDailyStats.js';
+import { HistoryItem } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 
 export interface IQuestionSubmissionRepository {
   /**

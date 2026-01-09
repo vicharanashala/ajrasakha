@@ -26,8 +26,6 @@ import {
   IUser,
 } from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
-import {QuestionService} from '../services/QuestionService.js';
-import {ContextIdParam} from '../classes/validators/ContextValidators.js';
 import {
   AddQuestionBodyDto,
   AllocateExpertsRequest,
@@ -37,16 +35,18 @@ import {
   GetDetailedQuestionsQuery,
   QuestionIdParam,
   QuestionResponse,
-  RemoveAllocateBody,
-} from '../classes/validators/QuestionValidators.js';
-import {UploadFileOptions} from '../classes/validators/fileUploadOptions.js';
+  RemoveAllocateBody
+} from '../classes/validators/QuestionVaidators.js';
 import * as XLSX from 'xlsx';
 import {
   getBackgroundJobs,
   getJobById,
   startBackgroundProcessing,
 } from '#root/workers/workerManager.js';
-import { QuestionLevelResponse } from '../classes/transformers/QuestionLevel.js';
+import { ContextIdParam } from '#root/modules/core/classes/validators/ContextValidators.js';
+import { QuestionService } from '../services/QuestionService.js';
+import { UploadFileOptions } from '#root/modules/core/classes/validators/fileUploadOptions.js';
+import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
 
 @OpenAPI({
   tags: ['questions'],

@@ -18,11 +18,11 @@ import {
   NotFoundError,
 } from 'routing-controllers';
 import {USER_VALIDATORS} from '#root/modules/core/classes/validators/UserValidators.js';
-import {HistoryItem} from '#root/modules/core/classes/validators/QuestionValidators.js';
 import {GetHeatMapQuery} from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {getReviewerQueuePosition} from '#root/utils/getReviewerQueuePosition.js';
 import {ExpertReviewLevelDto} from '#root/modules/core/classes/validators/UserValidators.js';
 import {IReviewWiseStats} from '#root/utils/getDailyStats.js';
+import { HistoryItem } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 
 export class QuestionSubmissionRepository
   implements IQuestionSubmissionRepository

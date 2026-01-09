@@ -1,4 +1,5 @@
-import { GetDetailedQuestionsQuery } from "#root/modules/core/classes/validators/QuestionValidators.js";
+
+import { GetDetailedQuestionsQuery } from "#root/modules/question/classes/validators/QuestionVaidators.js";
 import { ObjectId } from "mongodb";
 
 export const buildQuestionFilter = async (

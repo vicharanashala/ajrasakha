@@ -6,10 +6,7 @@ import {
   ModeratorApprovalRate,
   QuestionStatusOverview,
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
-import {
-  GetDetailedQuestionsQuery,
-  QuestionResponse,
-} from '#root/modules/core/classes/validators/QuestionValidators.js';
+import { GetDetailedQuestionsQuery } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 import {
   IQuestion,
   IReroute,

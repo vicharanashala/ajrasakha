@@ -30,8 +30,9 @@ import {appConfig} from '#root/config/app.js';
 import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
 import { AiService } from '#root/modules/core/services/AiService.js';
-import { NotificationService, QuestionService } from '#root/modules/core/index.js';
+import { NotificationService} from '#root/modules/core/index.js';
 import { ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
+import { QuestionService } from '#root/modules/question/services/QuestionService.js';
 
 @injectable()
 export class AnswerService extends BaseService {

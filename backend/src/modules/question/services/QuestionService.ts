@@ -17,27 +17,21 @@ import {
   NotFoundError,
   UnauthorizedError,
 } from 'routing-controllers';
-import {
-  AddQuestionBodyDto,
-  GeneratedQuestionResponse,
-  GetDetailedQuestionsQuery,
-  QuestionResponse,
-} from '../classes/validators/QuestionValidators.js';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
-import {CORE_TYPES} from '../types.js';
-import {AiService} from './AiService.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
-import {dummyEmbeddings, questionStatus} from '../utils/questionGen.js';
 import {IContextRepository} from '#root/shared/database/interfaces/IContextRepository.js';
-import {PreferenceDto} from '../classes/validators/UserValidators.js';
 import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
 import {notifyUser} from '#root/utils/pushNotification.js';
-import {NotificationService} from './NotificationService.js';
 import {normalizeKeysToLower} from '#root/utils/normalizeKeysToLower.js';
 import {appConfig} from '#root/config/app.js';
-import {QuestionLevelResponse} from '../classes/transformers/QuestionLevel.js';
+import { CORE_TYPES } from '#root/modules/core/types.js';
+import { AiService } from '#root/modules/core/services/AiService.js';
+import { AddQuestionBodyDto, GeneratedQuestionResponse, GetDetailedQuestionsQuery, QuestionResponse } from '../classes/validators/QuestionVaidators.js';
+import { PreferenceDto } from '#root/modules/core/classes/validators/UserValidators.js';
+import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
+import { NotificationService } from '#root/modules/core/services/NotificationService.js';
 
 @injectable()
 export class QuestionService extends BaseService {

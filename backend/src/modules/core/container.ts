@@ -1,7 +1,5 @@
 import {ContainerModule} from 'inversify';
-import {QuestionController} from './controllers/QuestionController.js';
 import {CORE_TYPES} from './types.js';
-import {QuestionService} from './services/QuestionService.js';
 import {ContextController} from './controllers/ContextController.js';
 import {ContextService} from './services/ContextService.js';
 import {QuestionRepository} from '#root/shared/database/providers/mongo/repositories/QuestionRepository.js';
@@ -25,6 +23,8 @@ import {PerformanceService} from './services/PerformanceService.js'
 import { ReviewRepository } from '#root/shared/database/providers/mongo/repositories/ReviewRepository.js';
 import { AnswerService } from '../answer/services/AnswerService.js';
 import { AnswerController } from '../answer/controllers/AnswerController.js';
+import { QuestionController } from '../question/controllers/QuestionController.js';
+import { QuestionService } from '../question/services/QuestionService.js';
 
 export const coreContainerModule = new ContainerModule(options => {
   // Controllers
