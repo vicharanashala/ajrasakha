@@ -9,8 +9,6 @@ import {CommentController} from '../../modules/comment/controllers/CommentContro
 import {CommentService} from '../../modules/comment/services/CommentService.js';
 import { UserController } from './controllers/UserController.js';
 import { UserService } from './services/UserService.js';
-import { RequestController } from './controllers/RequestController.js';
-import { RequestService } from './services/RequestService.js';
 import { RequestRepository } from '#root/shared/database/providers/mongo/repositories/RequestRepository.js';
 import { NotificationController } from './controllers/NotificationController.js';
 import { NotificationService } from './services/NotificationService.js';
@@ -25,6 +23,8 @@ import { ContextService } from '../context/services/ContextService.js';
 import { PerformanceController } from '../performance/controllers/PerformanceController.js';
 import { CORE_TYPES } from './types.js';
 import { PerformanceService } from '../performance/services/PerformanceService.js';
+import { RequestController } from '../request/controllers/RequestController.js';
+import { RequestService } from '../request/services/RequestService.js';
 
 export const coreContainerModule = new ContainerModule(options => {
   // Controllers
