@@ -1,11 +1,7 @@
 import {aiConfig} from '#root/config/ai.js';
+import { GeneratedQuestionResponse, IQuestionAnalysis, IQuestionWithAnswerTexts } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 import {injectable} from 'inversify';
 import {InternalServerError} from 'routing-controllers';
-import {
-  GeneratedQuestionResponse,
-  IQuestionAnalysis,
-  IQuestionWithAnswerTexts,
-} from '../classes/validators/QuestionValidators.js';
 
 @injectable()
 export class AiService {

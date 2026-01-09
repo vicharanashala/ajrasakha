@@ -1,4 +1,4 @@
-import {QuestionService} from '#root/modules/core/index.js';
+
 import {CORE_TYPES} from '#root/modules/core/types.js';
 import cron from 'node-cron';
 import {getContainer} from '../loadModules.js';
