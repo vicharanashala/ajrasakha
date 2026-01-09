@@ -20,7 +20,7 @@ import {
   RequestParamsDto,
   RequestStatusBody,
 } from '../classes/validators/RequestValidators.js';
-import {RequestService} from '../services/RequestService.js';
+import { RequestService } from '../services/RequestService.js';
 
 @OpenAPI({
   tags: ['requests'],

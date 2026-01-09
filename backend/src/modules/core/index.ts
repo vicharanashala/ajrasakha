@@ -5,8 +5,6 @@ import {useContainer} from 'class-validator';
 import {coreContainerModule} from './container.js';
 import {UserController} from './controllers/UserController.js';
 import {USER_VALIDATORS} from './classes/validators/UserValidators.js';
-import {RequestController} from './controllers/RequestController.js';
-import { REQUEST_VALIDATORS } from './classes/validators/RequestValidators.js';
 import { NotificationController } from './controllers/NotificationController.js';
 import { NOTIFICATION_VALIDATORS } from './classes/validators/NotificationValidators.js';
 import { AnswerController } from '../answer/controllers/AnswerController.js';
@@ -18,6 +16,8 @@ import { CONTEXT_VALIDATORS } from '../context/classes/validators/ContextValidat
 import { CommentController } from '../comment/controllers/CommentController.js';
 import { COMMENT_VALIDATORS } from '../comment/classes/validators/CommentValidator.js';
 import { PerformanceController } from '../../modules/performance/controllers/PerformanceController.js';
+import { RequestController } from '../request/controllers/RequestController.js';
+import { REQUEST_VALIDATORS } from '../request/classes/validators/RequestValidators.js';
 
 // Export names that loadAppModules expects
 export const coreModuleControllers: Function[] = [
