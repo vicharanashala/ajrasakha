@@ -2,9 +2,7 @@ import {sharedContainerModule} from '#root/container.js';
 import {Container, ContainerModule} from 'inversify';
 import {InversifyAdapter} from '#root/inversify-adapter.js';
 import {useContainer} from 'class-validator';
-import {ContextController} from './controllers/ContextController.js';
 import {coreContainerModule} from './container.js';
-import {CONTEXT_VALIDATORS} from './classes/validators/ContextValidators.js';
 import {COMMENT_VALIDATORS} from './classes/validators/CommentValidators.js';
 import {CommentController} from './controllers/CommentController.js';
 import {UserController} from './controllers/UserController.js';
@@ -18,6 +16,8 @@ import { AnswerController } from '../answer/controllers/AnswerController.js';
 import { ANSWER_VALIDATORS } from '../answer/classes/validators/AnswerValidator.js';
 import { QuestionController } from '../question/controllers/QuestionController.js';
 import { QUESTION_VALIDATORS } from '../question/classes/validators/QuestionVaidators.js';
+import { ContextController } from '../../modules/context/controllers/ContextController.js';
+import { CONTEXT_VALIDATORS } from '../context/classes/validators/ContextValidator.js';
 
 // Export names that loadAppModules expects
 export const coreModuleControllers: Function[] = [
@@ -58,14 +58,14 @@ export const coreModuleValidators: Function[] = [
 // Export all the main components for external use
 export * from '../../modules/question/controllers/QuestionController.js';
 export * from '../../modules/answer/controllers/AnswerController.js'
-export * from './controllers/ContextController.js';
+export * from '../../modules/context/controllers/ContextController.js';
 export * from './controllers/CommentController.js';
 export * from './controllers/NotificationController.js'
 export * from './controllers/PerformanceController.js'
 
 export * from '../../modules/question/services/QuestionService.js';
 export * from '../../modules/answer/services/AnswerService.js'
-export * from './services/ContextService.js';
+export * from '../../modules/context/services/ContextService.js';
 export * from './services/CommentService.js';
 export * from './services/NotificationService.js'
 export * from './services/PerformanceService.js'

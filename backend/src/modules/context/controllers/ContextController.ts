@@ -14,10 +14,10 @@ import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
-import {ContextService} from '../services/ContextService.js';
-import {ContextResponse} from '../classes/validators/ContextValidators.js';
 import {IUser} from '#root/shared/index.js';
 import multer from 'multer';
+import { ContextResponse } from '../classes/validators/ContextValidator.js';
+import { ContextService } from '../services/ContextService.js';
 
 const upload = multer({
   storage: multer.memoryStorage(),

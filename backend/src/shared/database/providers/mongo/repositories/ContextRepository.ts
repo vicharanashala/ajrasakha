@@ -6,7 +6,6 @@ import {MongoDatabase} from '../MongoDatabase.js';
 import {isValidObjectId} from '#root/utils/isValidObjectId.js';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {IContextRepository} from '#root/shared/database/interfaces/IContextRepository.js';
-import {Context} from '#root/modules/core/classes/transformers/Context.js';
 import {instanceToPlain, plainToInstance} from 'class-transformer';
 
 @injectable()
