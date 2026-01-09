@@ -1,5 +1,5 @@
 import {getContainer} from '#root/bootstrap/loadModules.js';
-import {CORE_TYPES} from '#root/modules/core/types.js';
+import { CORE_TYPES } from '#root/modules/core/types.js';
 import {QuestionRepository} from '#root/shared/database/providers/mongo/repositories/QuestionRepository.js';
 import {QuestionSubmissionRepository} from '#root/shared/database/providers/mongo/repositories/SubmissionRepository.js';
 

@@ -23,12 +23,9 @@ import {
   IUser,
   IReviewerHeatmapRow,
 } from '#root/shared/interfaces/models.js';
-import {PerformanceService} from '../services/PerformanceService.js';
-import {
-  DashboardResponse,
-  GetDashboardQuery,
-  GetHeatMapQuery,
-} from '../classes/validators/DashboardValidators.js';
+import { PerformanceService } from '../services/PerformanceService.js';
+import { DashboardResponse, GetDashboardQuery, GetHeatMapQuery } from '#root/modules/core/classes/validators/DashboardValidators.js';
+
 
 @OpenAPI({
   tags: ['performance'],
