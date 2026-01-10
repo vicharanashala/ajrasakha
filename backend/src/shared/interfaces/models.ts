@@ -8,6 +8,7 @@ export interface IPreference {
   domain: string;
 }
 export type NotificationRetentionType = '3d' | '1w' | '2w' | '1m' | 'never';
+export type UserStatus = "active" | "in-active";
 export interface IUser {
   _id?: string | ObjectId;
   firebaseUID: string;
@@ -24,6 +25,7 @@ export interface IUser {
   isBlocked?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
+  status?: UserStatus;
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high';
