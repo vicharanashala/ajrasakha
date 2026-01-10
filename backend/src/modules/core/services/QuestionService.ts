@@ -989,23 +989,24 @@ export class QuestionService extends BaseService {
             );
           }
         }
-        // if (submissionHistory.length === 0) {
-        //   if (submissionQueue[0].toString() === expertId) {
-        //     const IS_INCREMENT = false;
-        //     await this.userRepo.updateReputationScore(
-        //       expertId,
-        //       IS_INCREMENT,
-        //       session,
-        //     );
-        //     if (nextUserId) {
-        //       const IS_INCREMENT = true;
-        //       await this.userRepo.updateReputationScore(
-        //         nextUserId,
-        //         IS_INCREMENT,
-        //         session,
-        //       );
-        //     }
-        //   }
+         if (submissionHistory.length === 0) {
+           if (submissionQueue[0].toString() === expertId) {
+             const IS_INCREMENT = false;
+             await this.userRepo.updateReputationScore(
+               expertId,
+               IS_INCREMENT,
+               session,
+             );
+            if (nextUserId) {
+              const IS_INCREMENT = true;
+               await this.userRepo.updateReputationScore(
+                 nextUserId,
+                 IS_INCREMENT,
+                 session,
+               );
+             }
+          }
+        }
         // } else {
         //   const matchUser = submissionHistory.find(
         //     u => u.updatedBy?.toString() === expertId,

@@ -77,7 +77,7 @@ export const UsersTable = ({
               <TableHead className="text-center w-52">Email</TableHead>
               <TableHead className="text-center w-32">State</TableHead>
               <TableHead className="text-center w-24">
-                Reputation Score
+              Pending WorkLoad
               </TableHead>
               <TableHead className="text-center w-24">Incentive</TableHead>
               <TableHead className="text-center w-24">Penalty</TableHead>
