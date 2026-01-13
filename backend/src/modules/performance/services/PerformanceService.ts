@@ -24,9 +24,10 @@ import {
   StatusOverview
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
+import { IPerformanceService } from '../interfaces/IPerformanceService.js';
 
 @injectable()
-export class PerformanceService extends BaseService {
+export class PerformanceService extends BaseService implements IPerformanceService {
   constructor(
     @inject(GLOBAL_TYPES.QuestionRepository)
     private readonly questionRepo: IQuestionRepository,

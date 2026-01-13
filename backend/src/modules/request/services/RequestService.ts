@@ -24,9 +24,10 @@ import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
 import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
 import {notifyUser} from '#root/utils/pushNotification.js';
+import { IRequestService } from '../interfaces/IRequestService.js';
 
 @injectable()
-export class RequestService extends BaseService {
+export class RequestService extends BaseService implements IRequestService{
   constructor(
     @inject(GLOBAL_TYPES.RequestRepository)
     private readonly requestRepository: IRequestRepository,

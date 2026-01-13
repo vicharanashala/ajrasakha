@@ -25,9 +25,10 @@ import {IReRouteRepository} from '#root/shared/database/interfaces/IReRouteRepos
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {NotificationService} from '#root/modules/core/index.js';
 import { GetDetailedQuestionsQuery } from '../classes/validators/QuestionValidators.js';
+import { IReRouteService } from '../interfaces/IRerouteService.js';
 
 @injectable()
-export class ReRouteService extends BaseService {
+export class ReRouteService extends BaseService implements IReRouteService {
   constructor(
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
