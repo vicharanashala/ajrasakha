@@ -414,12 +414,12 @@ export default function UserActivityHistory({
                                 <span>ReRouted</span>
                               </>
                             )}
-                            {item.action === "accepted" || item.action ==='approved' ||item.action==='reroute_approved' && (
+                            {(item.action === "accepted" || item.action === 'approved' || item.action === 'reroute_approved') && (
                               <>
                                 <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
                                 <span>Accepted</span>
                               </>
-                            )}
+                            )} 
                             {(item.action === "rejected" ||item.action==='reroute_rejected') && (
                               <>
                                 <XCircle className="w-3 h-3 text-red-600 dark:text-red-400" />
@@ -444,7 +444,7 @@ export default function UserActivityHistory({
                                 <span> Expert Rejected</span>
                               </>
                             )}
-                            {item.action === "modified" ||item.action==='reroute_modified' && (
+                            {(item.action === "modified" || item.action === 'reroute_modified') && (
                               <>
                                 <Pencil className="w-3 h-3 text-orange-700 dark:text-orange-400" />
                                 <span>Modified</span>
