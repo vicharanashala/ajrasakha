@@ -112,6 +112,7 @@ import { renderModificationDiff } from "@/features/question_details/components/r
 import { AnswerTimeline } from "@/features/question_details/components/AnswerTimeline";
 import { RerouteTimeline } from "@/features/question_details/components/RerouteTimeline";
 import { AllocationTimeline } from "@/features/question_details/components/AllocationTimeline";
+import { flattenAnswers } from "@/features/question_details/utils/flattenAnswers";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -123,21 +124,21 @@ interface QuestionDetailProps {
   rerouteQuestion?: IRerouteHistoryResponse[];
 }
 
-const flattenAnswers = (submission: ISubmission): IAnswer[] => {
-  const answers: IAnswer[] = [];
+// const flattenAnswers = (submission: ISubmission): IAnswer[] => {
+//   const answers: IAnswer[] = [];
 
-  for (const h of submission.history) {
-    if (h.answer) {
-      answers.push(h.answer);
-    }
-  }
+//   for (const h of submission.history) {
+//     if (h.answer) {
+//       answers.push(h.answer);
+//     }
+//   }
 
-  return answers.sort((a, b) => {
-    const aT = a.createdAt ? +new Date(a.createdAt) : 0;
-    const bT = b.createdAt ? +new Date(b.createdAt) : 0;
-    return bT - aT;
-  });
-};
+//   return answers.sort((a, b) => {
+//     const aT = a.createdAt ? +new Date(a.createdAt) : 0;
+//     const bT = b.createdAt ? +new Date(b.createdAt) : 0;
+//     return bT - aT;
+//   });
+// };
 
 export const QuestionDetails = ({
   question,
@@ -150,12 +151,12 @@ export const QuestionDetails = ({
 }: QuestionDetailProps) => {
   //console.log("the question details====",question)
   // console.log("reroutedetail====",rerouteQuestion)
+  const ANSWER_VISIBLE_COUNT = 5;
 
   const answers = useMemo(
     () => flattenAnswers(question?.submission),
     [question.submission]
   );
-  const ANSWER_VISIBLE_COUNT = 5;
   const [answerVisibleCount, setAnswerVisibleCount] =
     useState(ANSWER_VISIBLE_COUNT);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
