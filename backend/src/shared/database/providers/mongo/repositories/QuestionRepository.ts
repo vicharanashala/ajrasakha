@@ -19,10 +19,6 @@ import {
   InternalServerError,
   NotFoundError,
 } from 'routing-controllers';
-import {
-  GetDetailedQuestionsQuery,
-  QuestionResponse,
-} from '#root/modules/core/classes/validators/QuestionValidators.js';
 
 import {
   detailsArray,
@@ -44,6 +40,7 @@ import {promises} from 'dns';
 import {getReviewerQueuePosition} from '#root/utils/getReviewerQueuePosition.js';
 import { QuestionLevelResponse, ReviewLevelTimeValue } from '#root/modules/core/classes/transformers/QuestionLevel.js';
 import { buildQuestionFilter } from '#root/utils/buildQuestionFilter.js';
+import { GetDetailedQuestionsQuery, QuestionResponse } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';

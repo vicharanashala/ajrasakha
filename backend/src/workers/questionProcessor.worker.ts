@@ -4,7 +4,6 @@ import path from 'path';
 import {Container} from 'inversify';
 import {IQuestionSubmission, MongoDatabase} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
-import {CORE_TYPES} from '#root/modules/core/types.js';
 import {ObjectId} from 'mongodb';
 import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
 import {getBackgroundJobs} from './workerManager.js';

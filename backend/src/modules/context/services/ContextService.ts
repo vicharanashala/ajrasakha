@@ -5,9 +5,7 @@ import {inject, injectable} from 'inversify';
 import {ClientSession, ObjectId} from 'mongodb';
 import {IContext} from '#root/shared/interfaces/models.js';
 import {InternalServerError, BadRequestError} from 'routing-controllers';
-import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
-import {dummyQuestions} from '../utils/questionGen.js';
-import { QuestionService } from './QuestionService.js';
+import { QuestionService } from '#root/modules/question/services/QuestionService.js';
 
 @injectable()
 export class ContextService extends BaseService {

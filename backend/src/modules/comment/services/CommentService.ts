@@ -3,10 +3,10 @@ import {BaseService, IComment, INotificationType, MongoDatabase} from '#root/sha
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
 import {ClientSession} from 'mongodb';
-import {CORE_TYPES} from '../types.js';
 import {InternalServerError, NotFoundError} from 'routing-controllers';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
-import {NotificationService} from './NotificationService.js';
+import { NotificationService } from '#root/modules/core/services/NotificationService.js';
+import { CORE_TYPES } from '#root/modules/core/types.js';
 
 export class CommentService extends BaseService {
   constructor(

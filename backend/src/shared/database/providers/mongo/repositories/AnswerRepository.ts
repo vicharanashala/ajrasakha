@@ -14,13 +14,13 @@ import {MongoDatabase} from '../MongoDatabase.js';
 import {isValidObjectId} from '#root/utils/isValidObjectId.js';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
-import {SubmissionResponse} from '#root/modules/core/classes/validators/AnswerValidators.js';
 import {
   Analytics,
   AnalyticsItem,
   AnswerStatusOverview,
   ModeratorApprovalRate,
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
+import { SubmissionResponse } from '#root/modules/answer/classes/validators/AnswerValidator.js';
 
 export class AnswerRepository implements IAnswerRepository {
   private AnswerCollection: Collection<IAnswer>;

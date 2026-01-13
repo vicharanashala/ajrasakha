@@ -5,36 +5,13 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {inject, injectable} from 'inversify';
 import {ClientSession, ObjectId} from 'mongodb';
 import {
-  IAnswer,
-  IQuestionMetrics,
-  ISubmissionHistory,
   IReviewerHeatmapRow,
-  QuestionStatus,
 } from '#root/shared/interfaces/models.js';
 import {
-  BadRequestError,
-  InternalServerError,
-  NotFoundError,
   UnauthorizedError,
 } from 'routing-controllers';
-import {
-  ReviewAnswerBody,
-  SubmissionResponse,
-  UpdateAnswerBody,
-} from '../classes/validators/AnswerValidators.js';
-import {CORE_TYPES} from '../types.js';
-import {AiService} from './AiService.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
-import {dummyEmbeddings} from '../utils/questionGen.js';
-import {
-  IQuestionAnalysis,
-  IQuestionWithAnswerTexts,
-} from '../classes/validators/QuestionValidators.js';
-import {QuestionService} from './QuestionService.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
-import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
-import {notifyUser} from '#root/utils/pushNotification.js';
-import {NotificationService} from './NotificationService.js';
 import {
   Analytics,
   AnswerStatusOverview,
@@ -43,11 +20,9 @@ import {
   GetDashboardQuery,
   GetHeatMapQuery,
   GoldenDataset,
-  GoldenDataViewType,
   QuestionStatusOverview,
-  StatusOverview,
-  UserRoleOverview,
-} from '../classes/validators/DashboardValidators.js';
+  StatusOverview
+} from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
 
 @injectable()

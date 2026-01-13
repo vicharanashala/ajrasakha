@@ -1,30 +1,30 @@
 import {ContainerModule} from 'inversify';
-import {QuestionController} from './controllers/QuestionController.js';
-import {CORE_TYPES} from './types.js';
-import {QuestionService} from './services/QuestionService.js';
-import {AnswerService} from './services/AnswerService.js';
-import {AnswerController} from './controllers/AnswerController.js';
-import {ContextController} from './controllers/ContextController.js';
-import {ContextService} from './services/ContextService.js';
 import {QuestionRepository} from '#root/shared/database/providers/mongo/repositories/QuestionRepository.js';
 import {ContextRepository} from '#root/shared/database/providers/mongo/repositories/ContextRepository.js';
 import {AnswerRepository} from '#root/shared/database/providers/mongo/repositories/AnswerRepository.js';
 import {AiService} from './services/AiService.js';
 import {QuestionSubmissionRepository} from '#root/shared/database/providers/mongo/repositories/SubmissionRepository.js';
 import {CommentRepository} from '#root/shared/database/providers/mongo/repositories/CommentRespository.js';
-import {CommentController} from './controllers/CommentController.js';
-import {CommentService} from './services/CommentService.js';
+import {CommentController} from '../../modules/comment/controllers/CommentController.js';
+import {CommentService} from '../../modules/comment/services/CommentService.js';
 import { UserController } from './controllers/UserController.js';
 import { UserService } from './services/UserService.js';
-import { RequestController } from './controllers/RequestController.js';
-import { RequestService } from './services/RequestService.js';
 import { RequestRepository } from '#root/shared/database/providers/mongo/repositories/RequestRepository.js';
 import { NotificationController } from './controllers/NotificationController.js';
 import { NotificationService } from './services/NotificationService.js';
 import { NotificationRepository } from '#root/shared/database/providers/mongo/repositories/NotificationRepository.js';
-import {PerformanceController} from './controllers/PerformanceController.js'
-import {PerformanceService} from './services/PerformanceService.js'
 import { ReviewRepository } from '#root/shared/database/providers/mongo/repositories/ReviewRepository.js';
+import { AnswerService } from '../answer/services/AnswerService.js';
+import { AnswerController } from '../answer/controllers/AnswerController.js';
+import { QuestionController } from '../question/controllers/QuestionController.js';
+import { QuestionService } from '../question/services/QuestionService.js';
+import { ContextController } from '../context/controllers/ContextController.js';
+import { ContextService } from '../context/services/ContextService.js';
+import { PerformanceController } from '../performance/controllers/PerformanceController.js';
+import { CORE_TYPES } from './types.js';
+import { PerformanceService } from '../performance/services/PerformanceService.js';
+import { RequestController } from '../request/controllers/RequestController.js';
+import { RequestService } from '../request/services/RequestService.js';
 
 export const coreContainerModule = new ContainerModule(options => {
   // Controllers

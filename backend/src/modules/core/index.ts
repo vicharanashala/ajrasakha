@@ -2,22 +2,22 @@ import {sharedContainerModule} from '#root/container.js';
 import {Container, ContainerModule} from 'inversify';
 import {InversifyAdapter} from '#root/inversify-adapter.js';
 import {useContainer} from 'class-validator';
-import {QuestionController} from './controllers/QuestionController.js';
-import {ContextController} from './controllers/ContextController.js';
-import {AnswerController} from './controllers/AnswerController.js';
 import {coreContainerModule} from './container.js';
-import {QUESTION_VALIDATORS} from './classes/validators/QuestionValidators.js';
-import {ANSWER_VALIDATORS} from './classes/validators/AnswerValidators.js';
-import {CONTEXT_VALIDATORS} from './classes/validators/ContextValidators.js';
-import {COMMENT_VALIDATORS} from './classes/validators/CommentValidators.js';
-import {CommentController} from './controllers/CommentController.js';
 import {UserController} from './controllers/UserController.js';
 import {USER_VALIDATORS} from './classes/validators/UserValidators.js';
-import {RequestController} from './controllers/RequestController.js';
-import { REQUEST_VALIDATORS } from './classes/validators/RequestValidators.js';
 import { NotificationController } from './controllers/NotificationController.js';
 import { NOTIFICATION_VALIDATORS } from './classes/validators/NotificationValidators.js';
-import {PerformanceController} from './controllers/PerformanceController.js'
+import { AnswerController } from '../answer/controllers/AnswerController.js';
+import { ANSWER_VALIDATORS } from '../answer/classes/validators/AnswerValidator.js';
+import { QuestionController } from '../question/controllers/QuestionController.js';
+import { QUESTION_VALIDATORS } from '../question/classes/validators/QuestionVaidators.js';
+import { ContextController } from '../../modules/context/controllers/ContextController.js';
+import { CONTEXT_VALIDATORS } from '../context/classes/validators/ContextValidator.js';
+import { CommentController } from '../comment/controllers/CommentController.js';
+import { COMMENT_VALIDATORS } from '../comment/classes/validators/CommentValidator.js';
+import { PerformanceController } from '../../modules/performance/controllers/PerformanceController.js';
+import { RequestController } from '../request/controllers/RequestController.js';
+import { REQUEST_VALIDATORS } from '../request/classes/validators/RequestValidators.js';
 
 // Export names that loadAppModules expects
 export const coreModuleControllers: Function[] = [
@@ -56,18 +56,18 @@ export const coreModuleValidators: Function[] = [
 ];
 
 // Export all the main components for external use
-export * from './controllers/QuestionController.js';
-export * from './controllers/AnswerController.js';
-export * from './controllers/ContextController.js';
-export * from './controllers/CommentController.js';
+export * from '../../modules/question/controllers/QuestionController.js';
+export * from '../../modules/answer/controllers/AnswerController.js'
+export * from '../../modules/context/controllers/ContextController.js';
+export * from '../../modules/comment/controllers/CommentController.js';
 export * from './controllers/NotificationController.js'
-export * from './controllers/PerformanceController.js'
+export * from '../../modules/performance/controllers/PerformanceController.js'
 
-export * from './services/QuestionService.js';
-export * from './services/AnswerService.js';
-export * from './services/ContextService.js';
-export * from './services/CommentService.js';
+export * from '../../modules/question/services/QuestionService.js';
+export * from '../../modules/answer/services/AnswerService.js'
+export * from '../../modules/context/services/ContextService.js';
+export * from '../../modules/comment/services/CommentService.js';
 export * from './services/NotificationService.js'
-export * from './services/PerformanceService.js'
+export * from '../../modules/performance/services/PerformanceService.js'
 
-export * from './types.js';
+export * from '../core/types.js';

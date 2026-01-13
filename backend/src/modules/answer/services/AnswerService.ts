@@ -21,27 +21,17 @@ import {
   NotFoundError,
   UnauthorizedError,
 } from 'routing-controllers';
-import {
-  ReviewAnswerBody,
-  SubmissionResponse,
-  UpdateAnswerBody,
-} from '../classes/validators/AnswerValidators.js';
-import {CORE_TYPES} from '../types.js';
-import {AiService} from './AiService.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
-import {dummyEmbeddings} from '../utils/questionGen.js';
-import {
-  IQuestionAnalysis,
-  IQuestionWithAnswerTexts,
-} from '../classes/validators/QuestionValidators.js';
-import {QuestionService} from './QuestionService.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
 import {notifyUser} from '#root/utils/pushNotification.js';
-import {NotificationService} from './NotificationService.js';
 import {IReviewRepository} from '#root/shared/database/interfaces/IReviewRepository.js';
 import {appConfig} from '#root/config/app.js';
 import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
+import { AiService } from '#root/modules/core/services/AiService.js';
+import { CORE_TYPES, NotificationService} from '#root/modules/core/index.js';
+import { ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
+import { QuestionService } from '#root/modules/question/services/QuestionService.js';
 
 @injectable()
 export class AnswerService extends BaseService {
