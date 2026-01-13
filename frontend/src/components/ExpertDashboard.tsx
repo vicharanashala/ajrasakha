@@ -255,7 +255,7 @@ export const ExpertDashboard = ({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">
-                    Reputation Score
+                    Pending WorkLoad
                   </p>
                   <p className="text-3xl font-bold text-foreground">
                     {totalPending || 0}
