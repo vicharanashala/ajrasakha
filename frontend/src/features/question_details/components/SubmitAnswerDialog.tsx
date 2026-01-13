@@ -1,5 +1,5 @@
 import { Button } from "@/components/atoms/button";
-import { DialogFooter, DialogHeader } from "@/components/atoms/dialog";
+
 import { Textarea } from "@/components/atoms/textarea";
 import { SourceUrlManager } from "@/components/source-url-manager";
 import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
@@ -10,7 +10,9 @@ import {
   DialogDescription,
   DialogTitle,
   DialogTrigger,
-} from "@radix-ui/react-dialog";
+  DialogFooter,
+  DialogHeader,
+} from "@/components/atoms/dialog";
 import { Send } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
