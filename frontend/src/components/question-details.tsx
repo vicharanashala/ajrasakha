@@ -108,6 +108,7 @@ import {
 import { diffWords } from "@/utils/wordDifference";
 import { useGetReRoutedQuestionFullData } from "@/hooks/api/question/useGetReRoutedQuestionFullData";
 import { useReRouteRejectQuestion } from "@/hooks/api/question/useReRouteRejectQuestion";
+import { renderModificationDiff } from "@/features/question_details/components/renderModificationDiff";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -293,10 +294,10 @@ export const QuestionDetails = ({
               question.status === "in-review"
                 ? "bg-green-500/10 text-green-600 border-green-500/30"
                 : question.status === "open"
-                ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                : question.status === "closed"
-                ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-                : "bg-muted text-foreground"
+                  ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                  : question.status === "closed"
+                    ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
+                    : "bg-muted text-foreground"
             }
           >
             {question.status.replace("_", " ")}
@@ -307,10 +308,10 @@ export const QuestionDetails = ({
               question.priority === "high"
                 ? "bg-red-500/10 text-red-600 border-red-500/30"
                 : question.priority === "medium"
-                ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-                : question.priority === "low"
-                ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
-                : "bg-muted text-foreground"
+                  ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+                  : question.priority === "low"
+                    ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                    : "bg-muted text-foreground"
             }
           >
             {question.priority ? question.priority.toUpperCase() : "NIL"}
@@ -1487,16 +1488,16 @@ const AllocationTimeline = ({
                         {status === "answerCreated"
                           ? "Answer Created"
                           : status === "approved"
-                          ? "Approved"
-                          : status === "modified"
-                          ? "Modified"
-                          : status === "rejected"
-                          ? "Rejected"
-                          : status === "waiting"
-                          ? isCurrentUserWaiting
-                            ? "Your Turn"
-                            : "Waiting"
-                          : "Pending"}
+                            ? "Approved"
+                            : status === "modified"
+                              ? "Modified"
+                              : status === "rejected"
+                                ? "Rejected"
+                                : status === "waiting"
+                                  ? isCurrentUserWaiting
+                                    ? "Your Turn"
+                                    : "Waiting"
+                                  : "Pending"}
                       </span>
                     </div>
 
@@ -2320,23 +2321,23 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     setSelectedExperts([]);
     setIsModalOpen(false);
   };
-        const reviews = props.answer.reviews ?? [];
+  const reviews = props.answer.reviews ?? [];
 
-      let firstTrueIndex: number | undefined;
-      let firstFalseOrMissingIndex: number | undefined;
+  let firstTrueIndex: number | undefined;
+  let firstFalseOrMissingIndex: number | undefined;
 
-      reviews.forEach((review, index) => {
-        if (review.reRoutedReview === true) {
-          if (firstTrueIndex === undefined) {
-            firstTrueIndex = index;
-          }
-        } else {
-          // false OR undefined OR null
-          if (firstFalseOrMissingIndex === undefined) {
-            firstFalseOrMissingIndex = index;
-          }
-        }
-      });
+  reviews.forEach((review, index) => {
+    if (review.reRoutedReview === true) {
+      if (firstTrueIndex === undefined) {
+        firstTrueIndex = index;
+      }
+    } else {
+      // false OR undefined OR null
+      if (firstFalseOrMissingIndex === undefined) {
+        firstFalseOrMissingIndex = index;
+      }
+    }
+  });
 
   return (
     <Card className="p-6 grid gap-4">
@@ -2413,10 +2414,14 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
               <Dialog open={editOpen} onOpenChange={setEditOpen}>
                 <DialogTrigger asChild>
                   <button
-                    disabled={lastReroutedTo?.status === "pending"||props.answer.approvalCount<3}
+                    disabled={
+                      lastReroutedTo?.status === "pending" ||
+                      props.answer.approvalCount < 3
+                    }
                     className={`bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded
                     ${
-                      lastReroutedTo?.status === "pending"||props.answer.approvalCount<3
+                      lastReroutedTo?.status === "pending" ||
+                      props.answer.approvalCount < 3
                         ? "opacity-50 cursor-not-allowed"
                         : "hover:bg-primary/90"
                     }
@@ -3010,7 +3015,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       )*/}
 
                       <div className="space-y-4">
-                        {props.answer.reviews.map((review,index) => {
+                        {props.answer.reviews.map((review, index) => {
                           const modification =
                             review?.answer?.modifications?.find(
                               (mod) => mod.modifiedBy === review.reviewerId
@@ -3019,86 +3024,85 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                           return (
                             <div>
                               {index === firstTrueIndex && (
-                              <p className="text-sm font-medium text-purple-600 mb-2">
-                                ReRoute Timeline
-                              </p>
-                            )}
-
-                            {index === firstFalseOrMissingIndex && (
-                              <p className="text-sm font-medium text-blue-600 mb-2">
-                                Review Timeline
-                              </p>
-                            )}
-                            <div
-                              key={review._id}
-                              className="rounded-lg border bg-muted/30 p-4 space-y-3"
-                            >
-                               
-                              {/* Reviewer + Date */}
-                              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                                <div className="flex items-center gap-2">
-                                
-                                  <span className="text-sm font-medium">
-                                    Reviewer:
-                                  </span>
-                                  <span className="text-sm text-muted-foreground">
-                                    {review.reviewer?.firstName}
-                                    {review.reviewer?.email && (
-                                      <> ({review.reviewer.email})</>
-                                    )}
-                                  </span>
-                                </div>
-
-                                <div className="text-xs text-muted-foreground">
-                                  {formatDate(review.createdAt!)}
-                                </div>
-                              </div>
-
-                              {/* Action Badge */}
-                              <div className="flex items-center gap-2">
-                                <Badge
-                                  variant="outline"
-                                  className={
-                                    review.action === "accepted"
-                                      ? "border-green-600 text-green-600"
-                                      : review.action === "rejected"
-                                      ? "border-red-600 text-red-600"
-                                      : "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700"
-                                  }
-                                >
-                                  <span className="flex items-center gap-1">
-                                    {review.action === "accepted" && (
-                                      <>
-                                        <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
-                                        <span>Accepted</span>
-                                      </>
-                                    )}
-
-                                    {review.action === "rejected" && (
-                                      <>
-                                        <XCircle className="w-3 h-3 text-red-600 dark:text-red-400" />
-                                        <span>Rejected</span>
-                                      </>
-                                    )}
-
-                                    {review.action === "modified" && (
-                                      <>
-                                        <Pencil className="w-3 h-3 text-orange-700 dark:text-orange-400" />
-                                        <span>Modified</span>
-                                      </>
-                                    )}
-                                  </span>
-                                </Badge>
-                              </div>
-
-                              {/* Parameters */}
-                              <div className="space-y-1">
-                                <p className="text-xs mb-2 font-medium text-foreground">
-                                  Parameters
+                                <p className="text-sm font-medium text-purple-600 mb-2">
+                                  ReRoute Timeline
                                 </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {Object.entries(review.parameters ?? {}).map(
-                                    ([key, value]) => (
+                              )}
+
+                              {index === firstFalseOrMissingIndex && (
+                                <p className="text-sm font-medium text-blue-600 mb-2">
+                                  Review Timeline
+                                </p>
+                              )}
+                              <div
+                                key={review._id}
+                                className="rounded-lg border bg-muted/30 p-4 space-y-3"
+                              >
+                                {/* Reviewer + Date */}
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium">
+                                      Reviewer:
+                                    </span>
+                                    <span className="text-sm text-muted-foreground">
+                                      {review.reviewer?.firstName}
+                                      {review.reviewer?.email && (
+                                        <> ({review.reviewer.email})</>
+                                      )}
+                                    </span>
+                                  </div>
+
+                                  <div className="text-xs text-muted-foreground">
+                                    {formatDate(review.createdAt!)}
+                                  </div>
+                                </div>
+
+                                {/* Action Badge */}
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      review.action === "accepted"
+                                        ? "border-green-600 text-green-600"
+                                        : review.action === "rejected"
+                                          ? "border-red-600 text-red-600"
+                                          : "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700"
+                                    }
+                                  >
+                                    <span className="flex items-center gap-1">
+                                      {review.action === "accepted" && (
+                                        <>
+                                          <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
+                                          <span>Accepted</span>
+                                        </>
+                                      )}
+
+                                      {review.action === "rejected" && (
+                                        <>
+                                          <XCircle className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                          <span>Rejected</span>
+                                        </>
+                                      )}
+
+                                      {review.action === "modified" && (
+                                        <>
+                                          <Pencil className="w-3 h-3 text-orange-700 dark:text-orange-400" />
+                                          <span>Modified</span>
+                                        </>
+                                      )}
+                                    </span>
+                                  </Badge>
+                                </div>
+
+                                {/* Parameters */}
+                                <div className="space-y-1">
+                                  <p className="text-xs mb-2 font-medium text-foreground">
+                                    Parameters
+                                  </p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {Object.entries(
+                                      review.parameters ?? {}
+                                    ).map(([key, value]) => (
                                       <Badge
                                         key={key}
                                         variant="outline"
@@ -3119,46 +3123,49 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                                           ]
                                         }
                                       </Badge>
-                                    )
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Reason */}
+                                {review.reason &&
+                                  review.reason.trim() !== "" && (
+                                    <div className="space-y-1">
+                                      <p className="text-xs font-medium text-foreground">
+                                        Reason
+                                      </p>
+                                      <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                        {review.reason}
+                                      </p>
+                                    </div>
                                   )}
-                                </div>
+
+                                {/* Modification Accordion */}
+                                {review.action === "modified" &&
+                                  modification && (
+                                    <div className="mt-3">
+                                      <Accordion
+                                        type="single"
+                                        collapsible
+                                        className="w-full"
+                                      >
+                                        <AccordionItem
+                                          value={`mod-details-${review._id}`}
+                                        >
+                                          <AccordionTrigger className="text-sm font-medium">
+                                            View Modification Details
+                                          </AccordionTrigger>
+
+                                          <AccordionContent>
+                                            {renderModificationDiff(
+                                              modification
+                                            )}
+                                          </AccordionContent>
+                                        </AccordionItem>
+                                      </Accordion>
+                                    </div>
+                                  )}
                               </div>
-
-                              {/* Reason */}
-                              {review.reason && review.reason.trim() !== "" && (
-                                <div className="space-y-1">
-                                  <p className="text-xs font-medium text-foreground">
-                                    Reason
-                                  </p>
-                                  <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                                    {review.reason}
-                                  </p>
-                                </div>
-                              )}
-
-                              {/* Modification Accordion */}
-                              {review.action === "modified" && modification && (
-                                <div className="mt-3">
-                                  <Accordion
-                                    type="single"
-                                    collapsible
-                                    className="w-full"
-                                  >
-                                    <AccordionItem
-                                      value={`mod-details-${review._id}`}
-                                    >
-                                      <AccordionTrigger className="text-sm font-medium">
-                                        View Modification Details
-                                      </AccordionTrigger>
-
-                                      <AccordionContent>
-                                        {renderModificationDiff(modification)}
-                                      </AccordionContent>
-                                    </AccordionItem>
-                                  </Accordion>
-                                </div>
-                              )}
-                            </div>
                             </div>
                           );
                         })}
@@ -3401,58 +3408,58 @@ export const SubmitAnswerDialog = ({
   );
 };
 
-export const renderModificationDiff = (modification: any) => {
-  const diff = diffWords(modification.oldAnswer, modification.newAnswer);
+// export const renderModificationDiff = (modification: any) => {
+//   const diff = diffWords(modification.oldAnswer, modification.newAnswer);
 
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-      {/* BEFORE */}
-      <div className="border rounded-lg p-3 bg-muted/50">
-        <p className="text-xs font-semibold mb-1 text-foreground">
-          Before modification
-        </p>
+//   return (
+//     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+//       {/* BEFORE */}
+//       <div className="border rounded-lg p-3 bg-muted/50">
+//         <p className="text-xs font-semibold mb-1 text-foreground">
+//           Before modification
+//         </p>
 
-        <div className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
-          {diff.map((part, idx) =>
-            part.type === "added" ? null : (
-              <span
-                key={idx}
-                className={
-                  part.type === "removed"
-                    ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                    : "text-dark dark:text-white"
-                }
-              >
-                {part.value}
-              </span>
-            )
-          )}
-        </div>
-      </div>
+//         <div className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+//           {diff.map((part, idx) =>
+//             part.type === "added" ? null : (
+//               <span
+//                 key={idx}
+//                 className={
+//                   part.type === "removed"
+//                     ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+//                     : "text-dark dark:text-white"
+//                 }
+//               >
+//                 {part.value}
+//               </span>
+//             )
+//           )}
+//         </div>
+//       </div>
 
-      {/* AFTER */}
-      <div className="border rounded-lg p-3 bg-muted/50">
-        <p className="text-xs font-semibold mb-1 text-foreground">
-          After modification
-        </p>
+//       {/* AFTER */}
+//       <div className="border rounded-lg p-3 bg-muted/50">
+//         <p className="text-xs font-semibold mb-1 text-foreground">
+//           After modification
+//         </p>
 
-        <div className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
-          {diff.map((part, idx) =>
-            part.type === "removed" ? null : (
-              <span
-                key={idx}
-                className={
-                  part.type === "added"
-                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                    : "text-dark dark:text-white"
-                }
-              >
-                {part.value}
-              </span>
-            )
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
+//         <div className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+//           {diff.map((part, idx) =>
+//             part.type === "removed" ? null : (
+//               <span
+//                 key={idx}
+//                 className={
+//                   part.type === "added"
+//                     ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+//                     : "text-dark dark:text-white"
+//                 }
+//               >
+//                 {part.value}
+//               </span>
+//             )
+//           )}
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
