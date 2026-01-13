@@ -48,6 +48,7 @@ import {
 } from '#root/workers/workerManager.js';
 import { ROUTE_TYPES } from '../types.js';
 import { ModeratorRejectParam, RerouteIdParam } from '../classes/validators/RerouteValidator.js';
+import { IReRouteService } from '../interfaces/IRerouteService.js';
 
 @OpenAPI({
   tags: ['reroute'],
@@ -58,7 +59,7 @@ import { ModeratorRejectParam, RerouteIdParam } from '../classes/validators/Rero
 export class ReRouteController {
   constructor(
     @inject(ROUTE_TYPES.ReRouteService)
-    private readonly reRouteService: ReRouteService,
+    private readonly reRouteService: IReRouteService,
   ) {}
 
   // @Get('/allocat')

@@ -18,6 +18,7 @@ import {IUser} from '#root/shared/index.js';
 import multer from 'multer';
 import { ContextResponse } from '../classes/validators/ContextValidator.js';
 import { ContextService } from '../services/ContextService.js';
+import { IContextService } from '../interfaces/IContextService.js';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -36,7 +37,7 @@ const upload = multer({
 export class ContextController {
   constructor(
     @inject(GLOBAL_TYPES.ContextService)
-    private readonly contextService: ContextService,
+    private readonly contextService: IContextService,
   ) {}
 
   @Post('/')

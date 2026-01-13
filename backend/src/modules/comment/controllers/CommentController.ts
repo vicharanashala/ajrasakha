@@ -15,6 +15,7 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
 import { CommentService } from '../services/CommentService.js';
 import { AddCommentBody, AddCommentParams, GetCommentsParams, GetCommentsQuery } from '../classes/validators/CommentValidator.js';
+import { ICommentService } from '../interfaces/ICommentService.js';
 
 @OpenAPI({
   tags: ['Comments'],
@@ -24,7 +25,7 @@ import { AddCommentBody, AddCommentParams, GetCommentsParams, GetCommentsQuery }
 export class CommentController {
   constructor(
     @inject(GLOBAL_TYPES.CommentService)
-    private commentService: CommentService,
+    private commentService: ICommentService,
   ) {}
 
   @OpenAPI({summary: 'Get comments for a specific answer of a question'})

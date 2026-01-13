@@ -21,6 +21,7 @@ import {
   RequestStatusBody,
 } from '../classes/validators/RequestValidators.js';
 import { RequestService } from '../services/RequestService.js';
+import { IRequestService } from '../interfaces/IRequestService.js';
 
 @OpenAPI({
   tags: ['requests'],
@@ -31,7 +32,7 @@ import { RequestService } from '../services/RequestService.js';
 export class RequestController {
   constructor(
     @inject(GLOBAL_TYPES.RequestService)
-    private readonly requestService: RequestService,
+    private readonly requestService: IRequestService,
   ) {}
 
   @Post('/')

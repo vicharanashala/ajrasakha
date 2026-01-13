@@ -25,6 +25,7 @@ import {
 } from '#root/shared/interfaces/models.js';
 import { PerformanceService } from '../services/PerformanceService.js';
 import { DashboardResponse, GetDashboardQuery, GetHeatMapQuery } from '#root/modules/core/classes/validators/DashboardValidators.js';
+import { IPerformanceService } from '../interfaces/IPerformanceService.js';
 
 
 @OpenAPI({
@@ -35,7 +36,7 @@ import { DashboardResponse, GetDashboardQuery, GetHeatMapQuery } from '#root/mod
 export class PerformanceController {
   constructor(
     @inject(GLOBAL_TYPES.PerformanceService)
-    private readonly performanceService: PerformanceService,
+    private readonly performanceService: IPerformanceService,
   ) {}
 
   @Get('/dashboard')
