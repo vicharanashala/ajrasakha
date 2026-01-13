@@ -6,9 +6,10 @@ import {ClientSession, ObjectId} from 'mongodb';
 import {IContext} from '#root/shared/interfaces/models.js';
 import {InternalServerError, BadRequestError} from 'routing-controllers';
 import { QuestionService } from '#root/modules/question/services/QuestionService.js';
+import { IContextService } from '../interfaces/IContextService.js';
 
 @injectable()
-export class ContextService extends BaseService {
+export class ContextService extends BaseService implements IContextService {
   constructor(
     @inject(GLOBAL_TYPES.ContextRepository)
     private readonly contextRepo: IContextRepository,

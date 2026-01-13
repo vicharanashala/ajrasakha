@@ -6,7 +6,7 @@ import { appConfig } from '#root/config/app.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
 
 // Schedule every 1 minutes
-if(appConfig.isDevelopment){
+if(!appConfig.isDevelopment){
 cron.schedule('*/1 * * * *', async () => {
   console.log('<<CRON>> Running question status update job...');
 

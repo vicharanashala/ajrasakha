@@ -47,6 +47,7 @@ import { ContextIdParam } from '#root/modules/core/classes/validators/ContextVal
 import { QuestionService } from '../services/QuestionService.js';
 import { UploadFileOptions } from '#root/modules/core/classes/validators/fileUploadOptions.js';
 import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
+import { IQuestionService } from '../interfaces/IQuestionService.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -57,7 +58,7 @@ import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/Q
 export class QuestionController {
   constructor(
     @inject(GLOBAL_TYPES.QuestionService)
-    private readonly questionService: QuestionService,
+    private readonly questionService: IQuestionService,
   ) {}
 
   @Get('/context/:contextId')

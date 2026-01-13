@@ -32,9 +32,10 @@ import { PreferenceDto } from '#root/modules/core/classes/validators/UserValidat
 import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
 import { NotificationService } from '#root/modules/core/services/NotificationService.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
+import { IQuestionService } from '../interfaces/IQuestionService.js';
 
 @injectable()
-export class QuestionService extends BaseService {
+export class QuestionService extends BaseService implements IQuestionService {
   constructor(
     @inject(CORE_TYPES.AIService)
     private readonly aiService: AiService,

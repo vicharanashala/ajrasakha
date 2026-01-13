@@ -32,9 +32,10 @@ import { AiService } from '#root/modules/core/services/AiService.js';
 import { CORE_TYPES, NotificationService} from '#root/modules/core/index.js';
 import { ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { QuestionService } from '#root/modules/question/services/QuestionService.js';
+import { IAnswerService } from '../interfaces/IAnswerService.js';
 
 @injectable()
-export class AnswerService extends BaseService {
+export class AnswerService extends BaseService implements IAnswerService{
   constructor(
     @inject(CORE_TYPES.AIService)
     private readonly aiService: AiService,

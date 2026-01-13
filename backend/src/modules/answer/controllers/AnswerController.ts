@@ -21,6 +21,7 @@ import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {IAnswer, IUser} from '#root/shared/interfaces/models.js';
 import { AnswerService } from '../services/AnswerService.js';
 import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
+import { IAnswerService } from '../interfaces/IAnswerService.js';
 
 @OpenAPI({
   tags: ['Answers'],
@@ -30,7 +31,7 @@ import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, ReviewAnswerBody, Sub
 export class AnswerController {
   constructor(
     @inject(GLOBAL_TYPES.AnswerService)
-    private readonly answerService: AnswerService,
+    private readonly answerService: IAnswerService,
   ) {}
 
   @OpenAPI({summary: 'Add a new answer to a question'})
