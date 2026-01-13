@@ -80,62 +80,23 @@ interface AnswerItemProps {
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const [sources, setSources] = useState<SourceItem[]>(props.answer.sources);
   const isMine = props.answer.authorId === props.currentUserId;
-  // const [comment, setComment] = useState("");
-  // const observer = useRef<IntersectionObserver>(null);
-  const LIMIT = 1;
-  const {
-    // data: commentsData,
-    refetch: refetchComments,
-    // fetchNextPage,
-    // hasNextPage,
-    // isFetchingNextPage,
-    // isLoading: isLoadingComments,
-  } = useGetComments(LIMIT, props.questionId, props.answer._id);
 
-  // const comments =
-  //   commentsData?.pages.flatMap((comment) => comment ?? []) ?? [];
+  const LIMIT = 1;
+  const { refetch: refetchComments } = useGetComments(
+    LIMIT,
+    props.questionId,
+    props.answer._id
+  );
+
   const [editableAnswer, setEditableAnswer] = useState(props.answer.answer);
   const [editOpen, setEditOpen] = useState(false);
-  // const { mutateAsync: addComment, isPending: isAddingComment } =
-  //   useAddComment();
+
   const { mutateAsync: updateAnswer, isPending: isUpdatingAnswer } =
     useUpdateAnswer();
 
   useImperativeHandle(ref, () => {
     refetchComments;
   });
-
-  // const submitComment = async () => {
-  //   if (!comment.trim()) return;
-
-  //   try {
-  //     await addComment({
-  //       questionId: props.questionId,
-  //       answerId: props.answer._id!,
-  //       text: comment.trim(),
-  //     });
-  //     setComment("");
-  //     toast.success("Comment submitted! Thank you for your input.");
-  //   } catch (err) {
-  //     console.error("Failed to submit comment:", err);
-  //   }
-  // };
-
-  // const lastCommentRef = useCallback(
-  //   (node: HTMLDivElement | null) => {
-  //     if (isFetchingNextPage) return;
-  //     if (observer.current) observer.current.disconnect();
-
-  //     observer.current = new IntersectionObserver((entries) => {
-  //       if (entries[0].isIntersecting && hasNextPage) {
-  //         fetchNextPage();
-  //       }
-  //     });
-
-  //     if (node) observer.current.observe(node);
-  //   },
-  //   [isFetchingNextPage, fetchNextPage, hasNextPage]
-  // );
 
   const handleUpdateAnswer = async () => {
     try {
@@ -189,22 +150,14 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     props.rerouteQuestion?.flatMap((item) =>
       item.reroutes.map((r) => r.reroutedTo._id)
     ) ?? [];
-  /* const expertsIdsInQueue = new Set<string>([
-        ...(props.queue?.map(expert => expert._id) ?? []),
-        ...reroutedExpertIds,
-      ]);*/
+
   const expertsIdsInQueue = new Set<string>([...reroutedExpertIds]);
   const lastReroutedTo = props.rerouteQuestion?.[0]?.reroutes?.length
     ? props.rerouteQuestion[0].reroutes[
         props.rerouteQuestion[0].reroutes.length - 1
       ]
     : null;
-  // console.log("the submission data====",props.submissionData)
 
-  /* const experts =
-    usersData?.users.filter(
-      (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id)
-    ) || [];*/
   const experts =
     usersData?.users.filter((user) => user.role === "expert") || [];
 
@@ -344,12 +297,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
               Final
             </Badge>
           )}
-          {/*props?.submissionData?.rejectedAnswer && (
-            <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
-              <XCircle className="w-3 h-3 mr-1" />
-              Rejected
-            </Badge>
-          )*/}
+
           {isRejected && !props.submissionData?.isReroute && (
             <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
               <XCircle className="w-3 h-3 mr-1" />
@@ -764,20 +712,6 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                           </span>
                         </span>
 
-                        {/* <Badge
-                          variant={
-                            props.answer.isFinalAnswer ? "default" : "secondary"
-                          }
-                          className={
-                            props.answer.isFinalAnswer
-                              ? "bg-green-100 text-green-800 hover:bg-green-100"
-                              : ""
-                          }
-                        >
-                          {props.answer.isFinalAnswer
-                            ? "Final Answer"
-                            : "Draft"}
-                        </Badge> */}
                         {props?.submissionData?.rejectedAnswer && (
                           <Badge className="bg-rejected text-red-500 dark:text-red-700 border-rejected hover:bg-rejected/90">
                             <XCircle className="w-3 h-3 mr-1" />
@@ -827,25 +761,6 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                               In Review
                             </Badge>
                           )}
-
-                        {/** {isRejected && (
-                          <Badge className="bg-rejected text-red-500 dark:text-red-700">
-                            <XCircle className="w-3 h-3 mr-1" />
-                            Rejected
-                          </Badge>
-                        )}
-                        {!isRejected &&
-                          props.questionStatus !== "in-review"&&props.questionStatus !== "re-routed" && (
-                            <Badge
-                              className="
-      bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100
-      dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 dark:hover:bg-amber-900
-    "
-                            >
-                              <Clock className="w-3 h-3 mr-1 opacity-80" />
-                              In Review
-                            </Badge>
-                          )}*/}
                       </div>
 
                       <div className="flex flex-col text-muted-foreground text-xs">
@@ -990,20 +905,6 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                   {/* Review Timeline */}
                   {props.answer.reviews && props.answer.reviews.length > 0 && (
                     <div className="mt-6">
-                      {/* <p className="text-sm font-medium text-foreground mb-3">
-                        Review Timeline
-                  </p>*/}
-                      {/*props.submissionData?.isReroute && (
-                        <p className="text-sm font-medium text-foreground mb-3">
-                          ReRoute Timeline
-                        </p>
-                      )}
-                      {!props.submissionData?.isReroute && (
-                        <p className="text-sm font-medium text-foreground mb-3">
-                          Review Timeline
-                        </p>
-                      )*/}
-
                       <div className="space-y-4">
                         {props.answer.reviews.map((review, index) => {
                           const modification =
@@ -1162,104 +1063,6 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       </div>
                     </div>
                   )}
-
-                  {/*props.rerouteQuestion && props.rerouteQuestion?.[0]?.reroutes?.length > 0 && (
-            <div className="space-y-3">
-              {props.rerouteQuestion[0].reroutes.map((reroute, index) => {
-                 if (!reroute?.answer?.answer) return null;
-
-                 return (
-                <div key={index} className="border rounded p-3">
-                  <p className="text-xl font-semibold mb-3">ReRouted Answer Details</p>
-                   <div key={index} className="border rounded p-3 mb-3">
-                      <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-foreground">
-                          Submitted By:{" "}
-                            <span className="text-sm text-muted-foreground">
-                            {reroute?.reroutedTo?.firstName} ({reroute?.reroutedTo?.email})
-                            </span>
-                          </p>
-                       </div>
-                       </div>
-        
-       
-
-        {reroute?.answer?.answer && (
-           <div>
-           <p className="text-sm font-medium text-foreground mb-3">
-             Answer Content
-           </p>
-           <div className="rounded-lg border bg-muted/30 h-[30vh]  ">
-             <ScrollArea className="h-full">
-               <div className="p-4">
-                 <p className=" text-foreground ">
-                   {reroute.answer.answer}
-                 </p>
-               </div>
-             </ScrollArea>
-           </div>
-         </div>
-          
-        )}
-        {Array.isArray(reroute.answer?.sources) && reroute.answer.sources.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium text-foreground mb-3 mt-3">
-                        Source URLs
-                      </p>
-
-                      <div className="space-y-2">
-                        {reroute?.answer?.sources.map((source, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-center justify-between rounded-lg border bg-muted/30 p-2 pr-3"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span
-                                    className="text-sm truncate max-w-[260px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                                    onClick={() =>
-                                      window.open(source.source, "_blank")
-                                    }
-                                  >
-                                    {source.source}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>{source.source}</TooltipContent>
-                              </Tooltip>
-
-                              {source.page && (
-                                <>
-                                  <span className="text-muted-foreground">
-                                    •
-                                  </span>
-                                  <span className="text-xs text-muted-foreground">
-                                    page {source.page}
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                            <a
-                              href={source.source}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1 rounded hover:bg-muted/20 dark:hover:bg-muted/50 transition-colors"
-                            >
-                              <ArrowUpRight className="w-4 h-4 text-foreground/80" />
-                            </a>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-        
-
-                 </div>
-                 )
-                              })}
-  </div>
-                            )*/}
                 </div>
               </ScrollArea>
             </DialogContent>
