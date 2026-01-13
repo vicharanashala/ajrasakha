@@ -165,6 +165,10 @@ const UserRow: React.FC<UserRowProps> = ({
 }) => {
   const isBlocked = u.isBlocked || false;
 
+  //expert block/unblock modal state
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
   const { goToExpertDashboard } = useNavigateToExpertDashboard();
   const handleExpertClick = async (userdetails: any) => {
     if (userdetails) {
@@ -289,7 +293,7 @@ const UserRow: React.FC<UserRowProps> = ({
       {/* Actions */}
       <TableCell className="align-middle w-32">
         <div className="flex justify-center">
-          <DropdownMenu>
+          <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="outline" className="p-1">
                 <MoreVertical className="w-4 h-4" />
@@ -312,9 +316,20 @@ const UserRow: React.FC<UserRowProps> = ({
                   e.preventDefault();
                   setUserIdToBlock(u._id!);
                   setIsCurrentlyBlocked(isBlocked!);
+                  setIsOpen(false);
+                  setIsConfirmOpen(true);
                 }}
               >
-                <ConfirmationModal
+                <button className="flex justify-center items-center gap-2">
+                      <Trash className="w-4 h-4 mr-2 text-red-500" />
+                      {isBlocked ? "Unblock" : "Block"}
+                    </button>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <ConfirmationModal
+                  open={isConfirmOpen}
+                  onOpenChange={setIsConfirmOpen}
                   title={isBlocked ? "Unblock the User?" : "Block the User?"}
                   description={
                     isBlocked
@@ -324,17 +339,11 @@ const UserRow: React.FC<UserRowProps> = ({
                   confirmText={isBlocked ? "Unblock" : "Block"}
                   cancelText="Cancel"
                   type={isBlocked ? "default" : "delete"}
-                  onConfirm={handleBlock}
-                  trigger={
-                    <button className="flex justify-center items-center gap-2">
-                      <Trash className="w-4 h-4 mr-2 text-red-500" />
-                      {isBlocked ? "Unblock" : "Block"}
-                    </button>
-                  }
+                  onConfirm={() => {
+                    handleBlock()
+                    setIsConfirmOpen(false) 
+                  }}
                 />
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </TableCell>
     </TableRow>
