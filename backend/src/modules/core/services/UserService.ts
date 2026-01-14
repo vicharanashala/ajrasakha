@@ -149,6 +149,12 @@ export class UserService extends BaseService {
     })
   }
 
+  async updateActivityStatus(userId: string, status: 'active' | 'in-active') {
+    return await this._withTransaction(async (session: ClientSession) => {
+      return await this.userRepo.updateActivityStatus(userId, status, session);
+    });
+  }
+
   async getUserByEmail(email:string):Promise<IUser | null>{
     return await this._withTransaction(async (session:ClientSession) => {
       return await this.userRepo.findByEmail(email,session)

@@ -42,6 +42,13 @@ export class UserService {
     })
   }
 
+  async updateUserStatus(userId: string, status: string) {
+    return apiFetch<{message: string}>(`${this._baseUrl}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ userId, status }),
+    });
+  }
+
    async Getuser(email:string):Promise<IUser| null>{
     return apiFetch<IUser | null>(`${this._baseUrl}/details/${email}`);
   }

@@ -693,6 +693,11 @@ export class UserRepository implements IUserRepository {
             isBlocked: { $ifNull: ["$isBlocked", false] },
           },
         },
+        {
+          $addFields: {
+          status: { $ifNull: ["$status", "active"] },
+          },
+        },
       
         /** Answers count */
         {
@@ -755,6 +760,7 @@ export class UserRepository implements IUserRepository {
         /** ✅ Multi-level sort: isBlocked FIRST, then rankValue and others */
         {
           $sort: {
+            status:1,
             isBlocked: 1,              // false (0) comes before true (1)
             rankValue: -1,
             reputation_score: -1,
@@ -842,6 +848,25 @@ export class UserRepository implements IUserRepository {
       throw new InternalServerError(`Failed to update IsBlock`);
     }
   }
+
+  async updateActivityStatus(
+    userId: string,
+    status: 'active' | 'in-active',
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    try {
+      await this.usersCollection.updateOne(
+        {_id: new ObjectId(userId)},
+        {$set: {status, updatedAt: new Date()}},
+        {session},
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to update activity status`);
+    }
+  }
+
+  
 
   async getUserRoleCount(session?: ClientSession): Promise<UserRoleOverview[]> {
     try {
