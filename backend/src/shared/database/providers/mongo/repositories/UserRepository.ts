@@ -688,6 +688,7 @@ export class UserRepository implements IUserRepository {
       const result = await this.usersCollection.aggregate([
         
         /** ✅ Add isBlocked field default (if not exists) */
+        { $match: matchQuery },
         {
           $addFields: {
             isBlocked: { $ifNull: ["$isBlocked", false] },
@@ -794,7 +795,6 @@ export class UserRepository implements IUserRepository {
             ...selectedSort 
           } 
         },
-        { $match: matchQuery },
       
         /** Pagination */
         {
