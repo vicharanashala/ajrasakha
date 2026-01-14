@@ -1,8 +1,8 @@
 export const validateEmail = (email: string, domain = "annam.ai") => {
   if (!email) return "Email is required";
-  // if (!new RegExp(`^[^\\s@]+@${domain}$`).test(email))
-  //   return `Please enter a valid email (${domain})`;
-  // return "";
+  if (!new RegExp(`^[^\\s@]+@${domain}$`).test(email))
+    return `Please enter a valid email (${domain})`;
+  return "";
 };
 
 export const validatePassword = (password: string) => {
