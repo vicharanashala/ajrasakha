@@ -38,6 +38,8 @@ type UserTableProps = {
   isLoading?: boolean;
   totalPages: number;
   limit: number;
+  sort: string;
+  onSort: (key: string) => void;
   userRole?: UserRole;
   setSelectExpertId?: (userId: string) => void;
   setRankPosition?: (rank: number) => void;
@@ -47,6 +49,8 @@ export const UsersTable = ({
   items,
   onViewMore,
   limit,
+  sort,
+  onSort,
   currentPage,
   setCurrentPage,
   userRole,
@@ -77,13 +81,105 @@ export const UsersTable = ({
               <TableHead className="text-center w-52">Email</TableHead>
               <TableHead className="text-center w-32">State</TableHead>
               <TableHead className="text-center w-24">
-              Pending WorkLoad
+                <button
+    onClick={() => onSort("workload")}
+    className="flex items-center gap-1 mx-auto"
+  >
+    Pending Workload
+  <span
+  className="
+    text-xs
+    font-bold
+    px-0.8
+    py-0.3
+    rounded
+    border
+    border-muted-foreground/40
+    text-foreground
+  "
+>
+  {sort === "workload_asc" && "↑"}
+  {sort === "workload_desc" && "↓"}
+  {sort !== "workload_asc" && sort !== "workload_desc" && "↑↓"}
+</span>
+
+
+  </button>
               </TableHead>
-              <TableHead className="text-center w-24">Incentive</TableHead>
-              <TableHead className="text-center w-24">Penalty</TableHead>
+              <TableHead className="text-center w-24">
+                <button
+    onClick={() => onSort("incentive")}
+    className="flex items-center gap-1 mx-auto"
+  >
+    Incentive
+   <span
+  className="
+    text-xs
+    font-bold
+    px-0.8
+    py-0.3
+    rounded
+    border
+    border-muted-foreground/40
+    text-foreground
+  "
+>
+  {sort === "incentive_asc" && "↑"}
+  {sort === "incentive_desc" && "↓"}
+  {sort !== "incentive_asc" && sort !== "incentive_desc" && "↑↓"}
+</span>
+  </button>
+    </TableHead>
+              <TableHead className="text-center w-24">
+              <button
+    onClick={() => onSort("penalty")}
+    className="flex items-center gap-1 mx-auto"
+  >
+    Penalty
+    <span
+  className="
+    text-xs
+    font-bold
+    px-0.8
+    py-0.3
+    rounded
+    border
+    border-muted-foreground/40
+    text-foreground
+  "
+>
+  {sort === "penalty_asc" && "↑"}
+  {sort === "penalty_desc" && "↓"}
+  {sort !== "penalty_asc" && sort !== "penalty_desc" && "↑↓"}
+</span>
+  </button>
+                </TableHead>
               <TableHead className="text-center w-24">Total Answered</TableHead>
               {/* <TableHead className="text-center w-24">Rank</TableHead> */}
-              <TableHead className="text-center w-24">Joined At</TableHead>
+              <TableHead className="text-center w-24">
+ <button
+    onClick={() => onSort("joined")}
+    className="flex items-center gap-1 mx-auto"
+  >
+    Joined At
+     <span
+  className="
+    text-xs
+    font-bold
+    px-0.8
+    py-0.3
+    rounded
+    border
+    border-muted-foreground/40
+    text-foreground
+  "
+>
+  {sort === "joined_asc" && "↑"}
+  {sort === "joined_desc" && "↓"}
+  {sort !== "joined_asc" && sort !== "joined_desc" && "↑↓"}
+</span>
+  </button>
+  </TableHead>
               <TableHead className="text-center w-24">Status</TableHead>
               <TableHead className="text-center w-24">Action</TableHead>
             </TableRow>
