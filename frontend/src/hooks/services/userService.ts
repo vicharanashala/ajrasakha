@@ -42,6 +42,14 @@ export class UserService {
     })
   }
 
+  async switchRoleToModerator(userId: string): Promise<IUser | null> {
+  return apiFetch<IUser>(`${this._baseUrl}/${userId}/role`, {
+    method: "PATCH",
+    body: JSON.stringify({ userId }),
+  });
+}
+
+
    async Getuser(email:string):Promise<IUser| null>{
     return apiFetch<IUser | null>(`${this._baseUrl}/details/${email}`);
   }

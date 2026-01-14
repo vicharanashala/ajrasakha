@@ -92,6 +92,26 @@ export class UserService extends BaseService {
     }
   }
 
+  async switchRoleToModerator(userId: string): Promise<IUser> {
+  try {
+    if (!userId) throw new NotFoundError('User ID is required');
+
+    return this._withTransaction(async (session: ClientSession) => {
+        const updatedUser = await this.userRepo.edit(userId, { role: 'moderator' }, session);
+
+      if (!updatedUser) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      return updatedUser;
+    });
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to switch role to moderator for user ID ${userId}: ${error}`
+    );
+  }
+}
+
   async getAllUsers(userId: string): Promise<UsersNameResponseDto> {
     try {
       return await this._withTransaction(async session => {
