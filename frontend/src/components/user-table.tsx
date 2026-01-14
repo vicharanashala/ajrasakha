@@ -38,6 +38,8 @@ type UserTableProps = {
   isLoading?: boolean;
   totalPages: number;
   limit: number;
+  sort: string;
+  onSort: (key: string) => void;
   userRole?: UserRole;
   setSelectExpertId?: (userId: string) => void;
   setRankPosition?: (rank: number) => void;
@@ -47,6 +49,8 @@ export const UsersTable = ({
   items,
   onViewMore,
   limit,
+  sort,
+  onSort,
   currentPage,
   setCurrentPage,
   userRole,
@@ -77,13 +81,63 @@ export const UsersTable = ({
               <TableHead className="text-center w-52">Email</TableHead>
               <TableHead className="text-center w-32">State</TableHead>
               <TableHead className="text-center w-24">
-                Pending WorkLoad
+                <button
+                  onClick={() => onSort("workload")}
+                  className="flex items-center gap-1 mx-auto select-none"
+                >
+                  Pending Workload
+                  {sort === "workload_asc" && (
+                    <span className="text-sm font-medium">↑</span>
+                  )}
+                  {sort === "workload_desc" && (
+                    <span className="text-sm font-medium">↓</span>
+                  )}
+                </button>
               </TableHead>
-              <TableHead className="text-center w-24">Incentive</TableHead>
-              <TableHead className="text-center w-24">Penalty</TableHead>
+              <TableHead className="text-center w-24">
+                <button
+                  onClick={() => onSort("incentive")}
+                  className="flex items-center gap-1 mx-auto select-none"
+                >
+                  Incentive
+                  {sort === "incentive_asc" && (
+                    <span className="text-sm font-medium">↑</span>
+                  )}
+                  {sort === "incentive_desc" && (
+                    <span className="text-sm font-medium">↓</span>
+                  )}
+                </button>
+              </TableHead>
+              <TableHead className="text-center w-24">
+                <button
+                  onClick={() => onSort("penalty")}
+                  className="flex items-center gap-1 mx-auto select-none"
+                >
+                  Penalty
+                  {sort === "penalty_asc" && (
+                    <span className="text-sm font-medium">↑</span>
+                  )}
+                  {sort === "penalty_desc" && (
+                    <span className="text-sm font-medium">↓</span>
+                  )}
+                </button>
+              </TableHead>
               <TableHead className="text-center w-24">Total Answered</TableHead>
               {/* <TableHead className="text-center w-24">Rank</TableHead> */}
-              <TableHead className="text-center w-24">Joined At</TableHead>
+              <TableHead className="text-center w-24">
+                <button
+                  onClick={() => onSort("joined")}
+                  className="flex items-center gap-1 mx-auto select-none"
+                >
+                  Joined At
+                  {sort === "joined_asc" && (
+                    <span className="text-sm font-medium">↑</span>
+                  )}
+                  {sort === "joined_desc" && (
+                    <span className="text-sm font-medium">↓</span>
+                  )}
+                </button>
+              </TableHead>
               <TableHead className="text-center w-24">Status</TableHead>
               <TableHead className="text-center w-24">Action</TableHead>
             </TableRow>

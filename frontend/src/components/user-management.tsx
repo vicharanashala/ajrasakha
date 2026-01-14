@@ -41,7 +41,7 @@ export const UserManagement = ({
   const [selectedUserId, setSelectedUserId] = useState("");
   const [filter, setFilter] = useState("");
   const debouncedSearch = useDebounce(search);
-  const [selectedSort, setSelectedSort] = useState("");
+  const [sort, setSort] = useState<string>("");
   const [page, setPage] = useState(1);
   const LIMIT = 12;
   const states = STATES;
@@ -49,9 +49,18 @@ export const UserManagement = ({
     page,
     LIMIT,
     search,
-    selectedSort,
+    sort,
     filter
   );
+ const toggleSort = (key: string) => {
+  setSort((prev) => {
+    if (prev === `${key}_asc`) return `${key}_desc`;
+    return `${key}_asc`;
+  });
+};
+
+
+
   useEffect(() => {
     if (selectedUserId) {
       setSelectedUserId("");
@@ -113,50 +122,8 @@ export const UserManagement = ({
 
             {/* RIGHT — Sort + Filter Group */}
             <div className="flex items-center gap-4 order-2">
-              {/* Sort */}
-              <div className="flex items-center gap-3 w-[240px]">
-                <Label className="flex items-center gap-2 text-sm font-semibold whitespace-nowrap">
-                  <MessageSquare className="h-4 w-4 text-primary" />
-                  Sort
-                </Label>
-
-                <Select value={selectedSort} onValueChange={setSelectedSort}>
-                  <SelectTrigger className="bg-background px-3 py-2 w-full">
-                    <SelectValue placeholder="Select Filter" />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    <SelectItem value="reputation_score">
-                      <div className="flex items-center gap-2">
-                        <Award className="w-4 h-4 text-primary" />
-                        <span>Pending WorkLoad</span>
-                      </div>
-                    </SelectItem>
-
-                    <SelectItem value="incentive">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="w-4 h-4 text-green-600" />
-                        <span>Incentive</span>
-                      </div>
-                    </SelectItem>
-
-                    <SelectItem value="penalty">
-                      <div className="flex items-center gap-2">
-                        <TrendingDown className="w-4 h-4 text-red-600" />
-                        <span>Penalty</span>
-                      </div>
-                    </SelectItem>
-
-                    <SelectItem value="createdAt">
-                      <div className="flex items-center gap-2">
-                        <CalendarClock className="w-4 h-4 text-primary" />
-                        <span>Join Date</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
+            
+             
               {/* Filter */}
               <div className="flex items-center gap-3 w-[240px]">
                 <Label className="flex items-center gap-2 text-sm font-semibold whitespace-nowrap">
@@ -202,6 +169,8 @@ export const UserManagement = ({
             isLoading={isLoading}
             setSelectExpertId={setSelectExpertId}
             setRankPosition={setRankPosition}
+            onSort={toggleSort}
+            sort={sort} 
           />
         </>
       )
