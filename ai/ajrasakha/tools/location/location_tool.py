@@ -1,8 +1,9 @@
-import requests
+import aiohttp
+from typing import Dict, Any
 from langchain.tools import tool
 
 @tool
-def location_information_tool(latitude: float, longitude: float):
+async def location_information_tool(latitude: float, longitude: float) -> Dict[str, Any]:
     """
     Reverse geocode lat/lon to city, state, country
     Uses OpenStreetMap Nominatim
@@ -19,17 +20,24 @@ def location_information_tool(latitude: float, longitude: float):
         "User-Agent": "AjraSakha-Agent/1.0"
     }
 
-    response = requests.get(url, params=params, headers=headers, timeout=10)
-    response.raise_for_status()
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(
+                    url,
+                    params=params,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=10)
+            ) as response:
+                response.raise_for_status()
+                data = await response.json()
 
-    data = response.json()
-    address = data.get("address", {})
+                address = data.get("address", {})
 
-    return {
-        "city": address.get("city") or address.get("town") or address.get("village"),
-        "state": address.get("state"),
-        "country": address.get("country"),
-        "display_name": data.get("display_name"),
-    }
-
-
+                return {
+                    "city": address.get("city") or address.get("town") or address.get("village"),
+                    "state": address.get("state"),
+                    "country": address.get("country"),
+                    "display_name": data.get("display_name"),
+                }
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
