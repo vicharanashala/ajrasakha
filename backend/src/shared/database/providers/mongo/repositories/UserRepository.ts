@@ -692,6 +692,7 @@ export class UserRepository implements IUserRepository {
       };
 
       const selectedSort = sortMap[sortOption] || sortMap.default;
+<<<<<<< HEAD
 
       const result = await this.usersCollection
         .aggregate([
@@ -699,6 +700,36 @@ export class UserRepository implements IUserRepository {
           {
             $addFields: {
               isBlocked: {$ifNull: ['$isBlocked', false]},
+=======
+      
+      const result = await this.usersCollection.aggregate([
+        
+        /** ✅ Add isBlocked field default (if not exists) */
+        { $match: matchQuery },
+        {
+          $addFields: {
+            isBlocked: { $ifNull: ["$isBlocked", false] },
+          },
+        },
+      
+        /** Answers count */
+        {
+          $lookup: {
+            from: "answers",
+            let: { userId: "$_id" },
+            pipeline: [
+              { $match: { $expr: { $eq: ["$authorId", "$$userId"] } } },
+              { $count: "count" },
+            ],
+            as: "answersMeta",
+          },
+        },
+      
+        {
+          $addFields: {
+            totalAnswers_Created: {
+              $ifNull: [{ $arrayElemAt: ["$answersMeta.count", 0] }, 0],
+>>>>>>> origin/main
             },
           },
 
@@ -780,11 +811,32 @@ export class UserRepository implements IUserRepository {
               experts: {$push: '$$ROOT'},
             },
           },
+<<<<<<< HEAD
           {
             $unwind: {
               path: '$experts',
               includeArrayIndex: 'rankPosition',
             },
+=======
+        },
+        {
+          $replaceRoot: { newRoot: "$experts" },
+        },
+      
+        /** ✅ Apply UI sorting (also prioritize isBlocked) */
+        { 
+          $sort: { 
+            isBlocked: 1,              // Maintain blocked users at the end
+            ...selectedSort 
+          } 
+        },
+      
+        /** Pagination */
+        {
+          $facet: {
+            experts: [{ $skip: skip }, { $limit: limit }],
+            meta: [{ $count: "totalExperts" }],
+>>>>>>> origin/main
           },
           {
             $addFields: {
