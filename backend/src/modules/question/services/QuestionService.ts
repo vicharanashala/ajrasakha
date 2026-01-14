@@ -879,7 +879,7 @@ export class QuestionService extends BaseService {
           let title = 'Answer Creation Assigned';
           let entityId = questionId.toString();
           const user = firstPerson.toString();
-          const type: INotificationType = 'peer_review';
+          const type: INotificationType = 'answer_creation';
           await this.notificationService.saveTheNotifications(
             message,
             title,
