@@ -458,6 +458,13 @@ export default function UserActivityHistory({
                             )}
                           </span>
                         </Badge>
+                        {item.activityType === "reroute" && (
+                          <div className="sm:ml-auto ml-0">
+                            <Badge variant="outline" className="rounded-full bg-indigo-100 text-indigo-700 border-indigo-200 text-xs px-2 py-1">
+                              <span className="uppercase font-semibold">ReRoute</span>
+                            </Badge>
+                          </div>
+                        )}
                       </div>
                     </div>
 
