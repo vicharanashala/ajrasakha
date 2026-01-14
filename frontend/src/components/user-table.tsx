@@ -127,7 +127,7 @@ export const UsersTable = ({
               <TableHead className="text-center w-24">
                 <button
                   onClick={() => onSort("joined")}
-                  className="flex items-center gap-1 mx-auto"
+                  className="flex items-center gap-1 mx-auto select-none"
                 >
                   Joined At
                   {sort === "joined_asc" && (
