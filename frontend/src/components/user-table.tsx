@@ -77,7 +77,7 @@ export const UsersTable = ({
               <TableHead className="text-center w-52">Email</TableHead>
               <TableHead className="text-center w-32">State</TableHead>
               <TableHead className="text-center w-24">
-              Pending WorkLoad
+                Pending WorkLoad
               </TableHead>
               <TableHead className="text-center w-24">Incentive</TableHead>
               <TableHead className="text-center w-24">Penalty</TableHead>
@@ -164,6 +164,10 @@ const UserRow: React.FC<UserRowProps> = ({
   setRankPosition,
 }) => {
   const isBlocked = u.isBlocked || false;
+
+  //expert block/unblock modal state
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   const { goToExpertDashboard } = useNavigateToExpertDashboard();
   const handleExpertClick = async (userdetails: any) => {
@@ -289,7 +293,7 @@ const UserRow: React.FC<UserRowProps> = ({
       {/* Actions */}
       <TableCell className="align-middle w-32">
         <div className="flex justify-center">
-          <DropdownMenu>
+          <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="outline" className="p-1">
                 <MoreVertical className="w-4 h-4" />
@@ -312,29 +316,34 @@ const UserRow: React.FC<UserRowProps> = ({
                   e.preventDefault();
                   setUserIdToBlock(u._id!);
                   setIsCurrentlyBlocked(isBlocked!);
+                  setIsOpen(false);
+                  setIsConfirmOpen(true);
                 }}
               >
-                <ConfirmationModal
-                  title={isBlocked ? "Unblock the User?" : "Block the User?"}
-                  description={
-                    isBlocked
-                      ? "This will restore the expert’s access to the review system and allow them to participate in reviews again. Are you sure you want to unblock this user?"
-                      : "Blocking this expert will restrict their access to the review system until they are unblocked. Once blocked, they will no longer be able to review, submit answers, or perform any actions within the platform. They will also be excluded from all current and future allocations. Are you sure you want to proceed?"
-                  }
-                  confirmText={isBlocked ? "Unblock" : "Block"}
-                  cancelText="Cancel"
-                  type={isBlocked ? "default" : "delete"}
-                  onConfirm={handleBlock}
-                  trigger={
-                    <button className="flex justify-center items-center gap-2">
-                      <Trash className="w-4 h-4 mr-2 text-red-500" />
-                      {isBlocked ? "Unblock" : "Block"}
-                    </button>
-                  }
-                />
+                <button className="flex justify-center items-center gap-2">
+                  <Trash className="w-4 h-4 mr-2 text-red-500" />
+                  {isBlocked ? "Unblock" : "Block"}
+                </button>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <ConfirmationModal
+            open={isConfirmOpen}
+            onOpenChange={setIsConfirmOpen}
+            title={isBlocked ? "Unblock the User?" : "Block the User?"}
+            description={
+              isBlocked
+                ? "This will restore the expert’s access to the review system and allow them to participate in reviews again. Are you sure you want to unblock this user?"
+                : "Blocking this expert will restrict their access to the review system until they are unblocked. Once blocked, they will no longer be able to review, submit answers, or perform any actions within the platform. They will also be excluded from all current and future allocations. Are you sure you want to proceed?"
+            }
+            confirmText={isBlocked ? "Unblock" : "Block"}
+            cancelText="Cancel"
+            type={isBlocked ? "default" : "delete"}
+            onConfirm={() => {
+              handleBlock();
+              setIsConfirmOpen(false);
+            }}
+          />
         </div>
       </TableCell>
     </TableRow>
