@@ -5,8 +5,9 @@ LAT = 18.5204
 LON = 73.8567
 
 
-def test_weather_returns_today_and_forecast():
-    result = weather_information_tool(LAT, LON)
+@pytest.mark.asyncio
+async def test_weather_returns_today_and_forecast():
+    result = await weather_information_tool.ainvoke({"latitude": LAT, "longitude": LON})
 
     assert "today" in result
     assert "forecast" in result
@@ -17,8 +18,9 @@ def test_weather_returns_today_and_forecast():
     print("Result:", result)
 
 
-def test_today_weather_structure():
-    result = weather_information_tool(LAT, LON)
+@pytest.mark.asyncio
+async def test_today_weather_structure():
+    result = await weather_information_tool.ainvoke({"latitude": LAT, "longitude": LON})
 
     today = result["today"]
 
@@ -30,8 +32,9 @@ def test_today_weather_structure():
     print("Result:", result)
 
 
-def test_forecast_structure():
-    result = weather_information_tool(LAT, LON)
+@pytest.mark.asyncio
+async def test_forecast_structure():
+    result = await weather_information_tool.ainvoke({"latitude": LAT, "longitude": LON})
 
     for day in result["forecast"]:
         assert "date" in day
@@ -43,6 +46,11 @@ def test_forecast_structure():
     print("Result:", result)
 
 
-def test_invalid_coordinates():
-    with pytest.raises(Exception):
-        weather_information_tool(999, 999)
+@pytest.mark.asyncio
+async def test_invalid_coordinates():
+    result = await weather_information_tool.ainvoke({"latitude": 999, "longitude": 999})
+
+    # Since we added error handling, check for error in response
+    assert "status" in result
+    assert result["status"] == "error"
+    assert "error" in result
