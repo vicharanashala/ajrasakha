@@ -38,7 +38,7 @@ export const useAuthStore = create<AuthStore>()(
           set({ firebaseUser }, undefined, "setFirebaseUser"),
 
         setUser: (user) => set({ user }, undefined, "setUser"),
-      
+
         clearUser: () => {
           localStorage.removeItem("firebase-auth-token");
           localStorage.removeItem("user-id");
@@ -82,8 +82,6 @@ export const useAuthStore = create<AuthStore>()(
               undefined,
               "logout"
             );
-
-
           } catch (err: any) {
             console.error(err);
             set({ error: err.message || "Logout failed", loading: false });
