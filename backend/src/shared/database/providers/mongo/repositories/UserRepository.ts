@@ -695,7 +695,7 @@ export class UserRepository implements IUserRepository {
 
       const result = await this.usersCollection
         .aggregate([
-          {$match:{role: 'expert'}},
+          {$match:{role: 'expert' }},
           /** ✅ Add isBlocked field default (if not exists) */
           {
             $addFields: {
