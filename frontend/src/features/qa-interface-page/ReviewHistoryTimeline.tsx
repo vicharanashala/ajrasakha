@@ -41,7 +41,7 @@ import {
   
 } from "lucide-react";
 import { toast } from "sonner";
-import { renderModificationDiff } from "../../components/question-details";
+import { renderModificationDiff } from "../question_details/components/renderModificationDiff";
 import {
   Dialog,
   DialogContent,

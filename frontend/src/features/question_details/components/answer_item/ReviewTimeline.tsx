@@ -2,7 +2,7 @@
 import { Badge } from "lucide-react";
 import { CheckCircle, XCircle, Pencil, Check, X } from "lucide-react";
 import { formatDate } from "@/utils/formatDate";
-import { parameterLabels } from "@/components/QA-interface";
+import { parameterLabels } from "../../../qa-interface-page/ReviewHistoryTimeline";
 import {
   Accordion,
   AccordionContent,
