@@ -1,4 +1,5 @@
 import { auth, googleProvider } from "@/config/firebase";
+import { queryClient } from "@/routes/__root";
 import type { AuthUser, ExtendedUserCredential } from "@/types";
 import {
   // getIdToken,
@@ -74,6 +75,7 @@ export const useAuthStore = create<AuthStore>()(
           set({ loading: true });
           try {
             await signOut(auth);
+            queryClient.clear();
             localStorage.removeItem("questionDrafts");
             set(
               { user: null, firebaseUser: null, loading: false },
