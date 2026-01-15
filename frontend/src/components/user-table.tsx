@@ -9,7 +9,15 @@ import {
   TableRow,
 } from "./atoms/table";
 
-import { Eye, Loader2, Lock, MoreVertical, Trash, Unlock, Gavel } from "lucide-react";
+import {
+  Eye,
+  Loader2,
+  Lock,
+  MoreVertical,
+  Trash,
+  Unlock,
+  Gavel,
+} from "lucide-react";
 
 import { Pagination } from "./pagination";
 import type { IUser, UserRole } from "@/types";
@@ -23,7 +31,7 @@ import { ConfirmationModal } from "./confirmation-modal";
 import { formatDate } from "@/utils/formatDate";
 import { useState } from "react";
 import { useBlockUser } from "@/hooks/api/user/useBlockUser";
-import { useSwitchRoleToModerator } from "@/hooks/api/user/useSwitchRoleToModerator";
+import { useToggleRole } from "@/hooks/api/user/useToggleRole";
 
 import { useNavigateToExpertDashboard } from "@/hooks/api/question/useNavigateToQuestion";
 
@@ -64,15 +72,15 @@ export const UsersTable = ({
   const [userIdToBlock, setUserIdToBlock] = useState<string>("");
   const [isCurrentlyBlocked, setIsCurrentlyBlocked] = useState<boolean>(false);
   const { mutate: blockExpert } = useBlockUser();
-  const { mutate: switchRoleToModerator } = useSwitchRoleToModerator();
+  const { mutate: toggleUserRole } = useToggleRole();
   const handleBlock = async () => {
-    console.log("reacej block");
-    const action = isCurrentlyBlocked ? "unblock " : "block";
+    const action = isCurrentlyBlocked ? "unblock" : "block";
     blockExpert({ userId: userIdToBlock, action: action });
   };
-  const handleSwitchRole = (userId: string) => {
-  switchRoleToModerator(userId);
-};
+  const handleToggleRole = (userId: string,userRole:string) => {
+    toggleUserRole({  userId, currentUserRole: userRole! });
+  };
+  const isAdmin = userRole === "admin";
 
   return (
     <div>
@@ -80,11 +88,14 @@ export const UsersTable = ({
         <Table className="min-w-[800px]">
           <TableHeader className="bg-card sticky top-0 z-10">
             <TableRow>
-              <TableHead className="text-center w-12">Rank</TableHead>
               <TableHead className="w-[35%] text-center w-52">
                 Full Name
               </TableHead>
               <TableHead className="text-center w-52">Email</TableHead>
+              {isAdmin && (
+                <TableHead className="text-center w-24">Role</TableHead>
+              )}
+
               <TableHead className="text-center w-32">State</TableHead>
               <TableHead className="text-center w-24">
                 <button
@@ -171,7 +182,7 @@ export const UsersTable = ({
                 <UserRow
                   currentPage={currentPage}
                   handleBlock={handleBlock}
-                  handleSwitchRole={handleSwitchRole}
+                  handleToggleRole={handleToggleRole}
                   idx={idx}
                   onViewMore={onViewMore}
                   u={u}
@@ -208,7 +219,7 @@ interface UserRowProps {
   setUserIdToBlock: (id: string) => void;
   setIsCurrentlyBlocked: (value: boolean) => void;
   handleBlock: () => Promise<void>;
-  handleSwitchRole: (userId: string) => void;
+  handleToggleRole: (userId: string,userRole:string) => void;
   onViewMore: (id: string) => void;
   setSelectExpertId?: (id: string) => void;
   setRankPosition?: (rank: number) => void;
@@ -220,18 +231,19 @@ const UserRow: React.FC<UserRowProps> = ({
   currentPage,
   limit,
   handleBlock,
-  handleSwitchRole,
+  handleToggleRole,
   setUserIdToBlock,
   setIsCurrentlyBlocked,
   setSelectExpertId,
   setRankPosition,
+  userRole,
 }) => {
   const isBlocked = u.isBlocked || false;
 
   //expert block/unblock modal state
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-
+  const isAdmin = userRole === "admin";
   const { goToExpertDashboard } = useNavigateToExpertDashboard();
   const handleExpertClick = async (userdetails: any) => {
     if (userdetails) {
@@ -250,7 +262,7 @@ const UserRow: React.FC<UserRowProps> = ({
         {(currentPage - 1) * limit + idx + 1}
       </TableCell> */}
 
-      <TableCell className="align-middle w-12" title={idx.toString()}>
+      {/* <TableCell className="align-middle w-12" title={idx.toString()}>
         {u.rankPosition && u.rankPosition <= 3 ? (
           <span
             className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-semibold text-sm border-2 ${
@@ -282,7 +294,7 @@ const UserRow: React.FC<UserRowProps> = ({
             #{u.rankPosition || "—"}
           </span>
         )}
-      </TableCell>
+      </TableCell> */}
 
       {/* User name */}
       <TableCell className="align-middle w-36" title={u.firstName}>
@@ -302,6 +314,13 @@ const UserRow: React.FC<UserRowProps> = ({
       <TableCell className="align-middle w-64">
         {truncate(u.email, 60)}
       </TableCell>
+
+      {/* Role */}
+      {isAdmin && (
+        <TableCell className="align-middle w-32">
+          <Badge variant="outline">{u.role}</Badge>
+        </TableCell>
+      )}
 
       {/* State */}
       <TableCell className="align-middle w-32">
@@ -389,18 +408,20 @@ const UserRow: React.FC<UserRowProps> = ({
                 </button>
               </DropdownMenuItem>
               {/* Switch role from expert to moderator */}
-              <DropdownMenuItem
-    onSelect={(e) => {
-      e.preventDefault();
-      setIsOpen(false);
-      handleSwitchRole(u._id!);
-    }}
-  >
-    <div className="flex items-center gap-2">
-      <Gavel className="w-4 h-4 text-blue-500" />
-      Switch Role
-    </div>
-  </DropdownMenuItem>
+                {isAdmin && u.role !== "admin" && (
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                  e.preventDefault();
+                  setIsOpen(false);
+                  handleToggleRole(u._id!,u.role);
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Gavel className="w-4 h-4 text-blue-500" />
+                    Switch Role
+                  </div>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
           <ConfirmationModal

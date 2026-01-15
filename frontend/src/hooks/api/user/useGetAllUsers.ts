@@ -18,18 +18,31 @@ export interface IUsersNameResponse {
   users: BasicUser[];
 }
 
-export const useGetAllUsers = () => {
-  const { data, isLoading, error } = useQuery<IUsersNameResponse | null, Error>(
-    {
-      queryKey: ["users_name"],
-      queryFn: async () => {
-        return await userService.useGetAllUsers();
-      },
-    }
-  );
+
+export const useGetAllUsers = (
+  page: number,
+  limit: number,
+  search: string,
+  sort: string,
+  filter: string,
+  options: { enabled?: boolean } = {}
+) => {
+  const { data, isLoading, error } = useQuery<{
+    users: IUser[];
+    totalUsers: number;
+    totalPages: number;
+  } | null>({
+    queryKey: ["users", page, limit, search, sort, filter],
+    queryFn: async () => {
+      return await userService.useGetAllUsers(page, limit, search, sort, filter);
+    },
+    enabled: options.enabled,
+  });
 
   return { data, isLoading, error };
 };
+
+
 
 export const useGetAllExperts = (
   page: number,
@@ -44,7 +57,7 @@ export const useGetAllExperts = (
     totalExperts: number;
     totalPages: number;
   } | null>({
-    queryKey: ["users", page, limit, search, sort, filter],
+    queryKey: ["experts", page, limit, search, sort, filter],
     queryFn: async () => {
       return await userService.useGetAllExperts(
         page,
@@ -54,7 +67,7 @@ export const useGetAllExperts = (
         filter
       );
     },
-    enabled: options?.enabled,
+    enabled: options?.enabled ?? true,
   });
 
   return { data, isLoading, error };

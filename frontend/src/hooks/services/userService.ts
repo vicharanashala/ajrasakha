@@ -13,9 +13,18 @@ export class UserService {
     return apiFetch<IUser>(`${this._baseUrl}/me`);
   }
 
-  async useGetAllUsers(): Promise<IUsersNameResponse | null> {
-    return apiFetch<IUsersNameResponse>(`${this._baseUrl}/all`);
-  }
+   async useGetAllUsers(
+  page: number,
+  limit: number,
+  search: string,
+  sort: string,
+  filter: string
+): Promise<{ users: IUser[]; totalUsers: number; totalPages: number } | null> {
+  return apiFetch<{ users: IUser[]; totalUsers: number; totalPages: number }>(
+    `${this._baseUrl}/all?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}`
+  );
+}
+
 
   async edit(user: Partial<IUser>): Promise<void | null> {
     return apiFetch<void>(`${this._baseUrl}/`, {
@@ -42,13 +51,17 @@ export class UserService {
     })
   }
 
-  async switchRoleToModerator(userId: string): Promise<IUser | null> {
-  return apiFetch<IUser>(`${this._baseUrl}/${userId}/role`, {
-    method: "PATCH",
-    body: JSON.stringify({ userId }),
-  });
-}
-
+  async toggleUserRole(userId: string, currentRole: string): Promise<IUser | null> {
+    if (currentRole === "admin") {
+      throw new Error("Admin role cannot be changed");
+    }
+    
+    const newRole = currentRole === "moderator" ? "expert" : "moderator";
+    return apiFetch<IUser>(`${this._baseUrl}/${userId}/role`, {
+      method: "PATCH",
+      body: JSON.stringify({ userId, role: newRole }),
+    });
+  }
 
    async Getuser(email:string):Promise<IUser| null>{
     return apiFetch<IUser | null>(`${this._baseUrl}/details/${email}`);
