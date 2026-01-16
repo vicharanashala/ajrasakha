@@ -215,81 +215,86 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
             </div>
           </div>
         </div>
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-medium border ${
-            req?.status === "approved"
-              ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
-              : req?.status === "rejected"
-              ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
-              : req?.status === "in-review"
-              ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
-              : req?.status === "pending"
-              ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
-              : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
-          }`}
-        >
-          {req?.status?.toUpperCase() || "N/A"}
-        </span>
-        {/* delte button */}
+        {/* Status badge */}
+<span
+  className={`absolute top-11 right-5 px-3 py-1 rounded-full text-xs font-medium border ${
+    req?.status === "approved"
+      ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
+      : req?.status === "rejected"
+      ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
+      : req?.status === "in-review"
+      ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
+      : req?.status === "pending"
+      ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
+      : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
+  }`}
+>
+  {req?.status?.toUpperCase() || "N/A"}
+</span>
+
+     {/* Delete button */}
+<Button
+  variant="ghost" // ghost removes default filled styling
+  className="
+    absolute top-2 right-2
+    h-8 w-8
+    p-0
+    flex items-center justify-center
+    opacity-0 group-hover:opacity-100
+    transition-opacity
+    text-black
+    hover:text-red-500
+    cursor-pointer
+    bg-transparent !shadow-none
+    border-none
+    z-10
+  "
+  disabled={deleting}
+  onClick={() => {
+    toast.custom((t) => (
+      <div className="w-full max-w-sm rounded-lg border bg-background p-4 shadow-lg">
+        <p className="text-sm font-medium">
+          Are you sure you want to delete this request?
+        </p>
+
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => toast.dismiss(t.id)}>
+            Cancel
+          </Button>
+
           <Button
-          variant="destructive"
-        className="absolute top-14 right-6 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+            variant="destructive"
+            size="sm"
+            onClick={async () => {
+              try {
+                await softDelete(req._id);
 
-          disabled={deleting}
-          onClick={() => {
-            toast.custom((t) => (
-              <div className="w-full max-w-sm rounded-lg border bg-background p-4 shadow-lg">
-                <p className="text-sm font-medium">
-                  Are you sure you want to delete this request?
-                </p>
+                queryClient.removeQueries({
+                  queryKey: ["request_diff", req._id],
+                });
 
-                <div className="mt-4 flex justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => toast.dismiss(t.id)}
-                  >
-                    Cancel
-                  </Button>
+                queryClient.invalidateQueries({
+                  queryKey: ["requests"],
+                });
 
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        await softDelete(req._id);
+                toast.dismiss(t.id);
+                toast.success("Request deleted successfully.");
+              } catch {
+                toast.dismiss(t.id);
+                toast.error("Failed to delete request.");
+              }
+            }}
+          >
+            Delete
+          </Button>
+        </div>
+      </div>
+    ), { position: "top-center" });
+  }}
+>
+  <Trash2 className="w-4 h-4" />
+</Button>
 
-                        queryClient.removeQueries({
-                          queryKey: ["request_diff", req._id],
-                        });
-
-                        queryClient.invalidateQueries({
-                          queryKey: ["requests"],
-                        });
-
-                        toast.dismiss(t.id);
-                        toast.success("Request deleted successfully.");
-                      } catch {
-                        toast.dismiss(t.id);
-                        toast.error("Failed to delete request.");
-                      }
-                    }}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </div>
-              
-            ),
-            {
-          position: "top-center",
-        }
-          );
-          }}
-        >
-          <Trash2 className="w-4 h-4" />
-        
-        </Button>
 
       </CardHeader>
 
