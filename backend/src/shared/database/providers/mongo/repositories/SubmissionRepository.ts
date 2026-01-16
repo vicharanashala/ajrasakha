@@ -1206,9 +1206,6 @@ export class QuestionSubmissionRepository
         },
       },
   
-      // Match user as reroutedTo
-      // {$match: {'reroutes.reroutedTo': userObjId}},
-
       // Match user as reroutedTo (exclude pending reroutes)
       {$match: {'reroutes.reroutedTo': userObjId, 'reroutes.status': {$ne: 'pending'}}},
   
