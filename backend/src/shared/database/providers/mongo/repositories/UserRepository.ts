@@ -1,5 +1,9 @@
 import {IUserRepository} from '#shared/database/interfaces/IUserRepository.js';
-import {IUser, NotificationRetentionType,IAnswer} from '#shared/interfaces/models.js';
+import {
+  IUser,
+  NotificationRetentionType,
+  IAnswer,
+} from '#shared/interfaces/models.js';
 import {instanceToPlain} from 'class-transformer';
 import {injectable, inject} from 'inversify';
 import {Collection, MongoClient, ClientSession, ObjectId} from 'mongodb';
@@ -36,8 +40,13 @@ export class UserRepository implements IUserRepository {
   }
   private async ensureIndexes() {
     try {
-      await this.usersCollection.createIndex({role:1,firstName:1,lastName:1,"preference.state":1});
-      await this.AnswerCollection.createIndex({authorId:1})
+      await this.usersCollection.createIndex({
+        role: 1,
+        firstName: 1,
+        lastName: 1,
+        'preference.state': 1,
+      });
+      await this.AnswerCollection.createIndex({authorId: 1});
     } catch (error) {
       console.error('Failed to create index:', error);
     }
@@ -205,7 +214,6 @@ export class UserRepository implements IUserRepository {
       ...user,
       _id: user._id.toString(),
     }));
-    
   }
 
   async findAll(session?: ClientSession): Promise<IUser[]> {
@@ -339,7 +347,7 @@ export class UserRepository implements IUserRepository {
     // });
 
     // return scoredUsers.map(s => s.user);
-    let result = [...matched, ...unmatched].map(s => s.user)
+    let result = [...matched, ...unmatched].map(s => s.user);
     return result;
   }
   async findExpertsByReputationScore(
@@ -361,12 +369,10 @@ export class UserRepository implements IUserRepository {
     }
     let allUsers = Array.from(uniqueUsersMap.values());
     allUsers.sort((a, b) => {
-     
-
       return a.reputation_score - b.reputation_score;
     });
 
-    return allUsers
+    return allUsers;
   }
 
   async findModerators(): Promise<IUser[]> {
@@ -421,7 +427,7 @@ export class UserRepository implements IUserRepository {
     }
   }
 
- /* async findAllExperts(
+  /* async findAllExperts(
     page: number,
     limit: number,
     search: string,
@@ -653,39 +659,42 @@ export class UserRepository implements IUserRepository {
     sortOption: string,
     filter: string,
     session?: ClientSession,
-  ): Promise<{ experts: any[]; totalExperts: number; totalPages: number }> {
+  ): Promise<{experts: any[]; totalExperts: number; totalPages: number}> {
     await this.init();
-  
+
     try {
       await this.ensureIndexes();
       const skip = (page - 1) * limit;
-      
-  
-      const matchQuery: any = { role: "expert" };
-  
+
+      const matchQuery: any = {};
+
       if (search) {
         matchQuery.$or = [
-          { firstName: { $regex: search, $options: "i" } },
-          { lastName: { $regex: search, $options: "i" } },
+          {firstName: {$regex: search, $options: 'i'}},
+          {lastName: {$regex: search, $options: 'i'}},
         ];
       }
-      
-  
-      if (filter && filter !== "ALL") {
-        matchQuery["preference.state"] = filter;
+
+      if (filter && filter !== 'ALL') {
+        matchQuery['preference.state'] = filter;
       }
-  
+
       const sortMap: any = {
-        penalty: { penaltyPercentage: -1 },
-        incentive: { incentive: -1 },
-        createdAt: { createdAt: -1 },
-        reputation_score: { reputation_score: -1 },
-        default: { rankPosition: 1 },
+        workload_asc: {reputation_score: 1},
+        workload_desc: {reputation_score: -1},
+        incentive_asc: {incentive: 1},
+        incentive_desc: {incentive: -1},
+        penalty_asc: {penaltyPercentage: 1},
+        penalty_desc: {penaltyPercentage: -1},
+        joined_asc: {createdAt: 1},
+        joined_desc: {createdAt: -1},
+        default: {rankPosition: 1},
       };
-      
+
       const selectedSort = sortMap[sortOption] || sortMap.default;
       
       const result = await this.usersCollection.aggregate([
+        {$match:{role:"expert"}},
         
         /** ✅ Add isBlocked field default (if not exists) */
         {
@@ -810,26 +819,24 @@ export class UserRepository implements IUserRepository {
           },
         },
       ]).toArray();
-      
+
       const experts = result[0]?.experts || [];
       const totalExperts = result[0]?.meta[0]?.totalExperts || 0;
-  
+
       // Convert ObjectId to string
-      experts.forEach((u) => {
+      experts.forEach(u => {
         u._id = u._id.toString();
       });
-     
+
       return {
         experts,
         totalExperts,
         totalPages: Math.ceil(totalExperts / limit),
       };
     } catch (error) {
-      throw new InternalServerError("Failed to get experts");
+      throw new InternalServerError('Failed to get experts');
     }
   }
-  
-
 
   async updateIsBlocked(
     userId: string,
@@ -919,7 +926,12 @@ export class UserRepository implements IUserRepository {
         {role: 'expert'},
         {
           session,
-          projection: {firstName: 1, reputation_score: 1, incentive: 1, penalty: 1},
+          projection: {
+            firstName: 1,
+            reputation_score: 1,
+            incentive: 1,
+            penalty: 1,
+          },
         },
       )
       .toArray();

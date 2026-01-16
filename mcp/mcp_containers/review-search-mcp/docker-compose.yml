@@ -1,0 +1,36 @@
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agricultural-review-mcp
+    ports:
+      - "9012:9012"
+    env_file:
+      - .env
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - DATABASE_NAME=${DATABASE_NAME}
+      - COLLECTION_NAME=${COLLECTION_NAME:-questions}
+      - ANSWERS_COLLECTION_NAME=${ANSWERS_COLLECTION_NAME:-answers}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-BAAI/bge-large-en-v1.5}
+      - DEVICE=${DEVICE:-cuda}
+    volumes:
+      - model_cache:/app/model_cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    networks:
+      - mcp-network
+
+networks:
+  mcp-network:
+    driver: bridge
+
+volumes:
+  model_cache:

@@ -52,5 +52,33 @@ services:
       - hf_cache:/app/hf_cache
     restart: unless-stopped
 
+  review-search-mcp:
+    build:
+      context: ./review-search-mcp
+      dockerfile: Dockerfile
+    container_name: review-search-mcp
+    ports:
+      - "9012:9012"
+    env_file:
+      - ./review-search-mcp/.env
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - DATABASE_NAME=${DATABASE_NAME:-agriai}
+      - COLLECTION_NAME=${COLLECTION_NAME:-questions}
+      - ANSWERS_COLLECTION_NAME=${ANSWERS_COLLECTION_NAME:-answers}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-BAAI/bge-large-en-v1.5}
+      - DEVICE=${DEVICE:-cuda}
+    volumes:
+      - review_model_cache:/app/model_cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
 volumes:
   hf_cache:
+  review_model_cache:
