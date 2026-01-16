@@ -93,7 +93,9 @@ export class RequestRepository implements IRequestRepository {
       const limit = query.limit ?? 10;
       const skip = (page - 1) * limit;
 
-      const filter: any = {};
+      const filter: any = {
+        isDeleted: {$ne: true},
+      };
       if (query.status && query.status !== 'all') {
         filter.status = query.status;
       }
@@ -183,7 +185,9 @@ export class RequestRepository implements IRequestRepository {
       };
 
       const updatedRequest = await this.RequestCollection.findOneAndUpdate(
-        {_id: new ObjectId(requestId)},
+        {_id: new ObjectId(requestId),
+          isDeleted: { $ne: true },
+        },
         {
           $set: {status},
           $push: {responses: responsePayload},
@@ -223,11 +227,45 @@ export class RequestRepository implements IRequestRepository {
     try {
       await this.init();
       return await this.RequestCollection.findOne(
-        {_id: new ObjectId(requestId)},
+        {_id: new ObjectId(requestId),
+           isDeleted: { $ne: true },
+        },
         {session},
       );
     } catch (error) {
       throw new InternalServerError(`Failed to get request, More/ ${error}`);
     }
   }
+
+  async softDeleteById(
+  requestId: string,
+  deletedBy: string,
+  session?: ClientSession,
+): Promise<void> {
+  try {
+    await this.init();
+
+    const result = await this.RequestCollection.updateOne(
+      {
+        _id: new ObjectId(requestId),
+        isDeleted: {$ne: true},
+      },
+      {
+        $set: {
+          isDeleted: true,
+          deletedAt: new Date(),
+          deletedBy: new ObjectId(deletedBy),
+        },
+      },
+      {session},
+    );
+
+    if (result.matchedCount === 0) {
+      throw new NotFoundError('Request not found or already deleted');
+    }
+  } catch (error) {
+    throw new InternalServerError(`Failed to soft delete request: ${error}`);
+  }
+}
+
 }

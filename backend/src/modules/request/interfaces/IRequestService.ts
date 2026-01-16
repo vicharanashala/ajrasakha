@@ -52,4 +52,10 @@ export interface IRequestService {
     existingDoc: any;
     responses: IRequestResponse[];
   }>;
+
+  softDeleteRequest(
+  requestId: string,
+  userId: string,
+): Promise<void>;
 }
+

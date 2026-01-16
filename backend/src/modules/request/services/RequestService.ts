@@ -237,4 +237,33 @@ export class RequestService extends BaseService implements IRequestService{
       throw error;
     }
   }
+
+  async softDeleteRequest(
+  requestId: string,
+  userId: string,
+): Promise<void> {
+  return this._withTransaction(async session => {
+    const user = await this.userRepo.findById(userId, session);
+
+    if (!user || user.role !== 'moderator') {
+      throw new UnauthorizedError('Only moderators can delete requests');
+    }
+
+    const request = await this.requestRepository.getRequestById(
+      requestId,
+      session,
+    );
+
+    if (!request || request.isDeleted) {
+      throw new NotFoundError('Request not found');
+    }
+
+    await this.requestRepository.softDeleteById(
+      requestId,
+      userId,
+      session,
+    );
+  });
+}
+
 }
