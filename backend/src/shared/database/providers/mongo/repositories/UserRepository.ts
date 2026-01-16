@@ -692,128 +692,130 @@ export class UserRepository implements IUserRepository {
       };
 
       const selectedSort = sortMap[sortOption] || sortMap.default;
+      
+      const result = await this.usersCollection.aggregate([
+      /** Match experts */
+      { $match: matchQuery },
 
-      const result = await this.usersCollection
-        .aggregate([
-          {$match:{role: 'expert' }},
-          /** ✅ Add isBlocked field default (if not exists) */
-          {
-            $addFields: {
-              isBlocked: {$ifNull: ['$isBlocked', false]},
-            },
+      /** Default isBlocked */
+      {
+        $addFields: {
+          isBlocked: { $ifNull: ['$isBlocked', false] },
+        },
+      },
+
+      /** Answers count */
+      {
+        $lookup: {
+          from: 'answers',
+          let: { userId: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$authorId', '$$userId'] } } },
+            { $count: 'count' },
+          ],
+          as: 'answersMeta',
+        },
+      },
+
+      /** Derived fields */
+      {
+        $addFields: {
+          totalAnswers_Created: {
+            $ifNull: [{ $arrayElemAt: ['$answersMeta.count', 0] }, 0],
           },
+          penalty: { $ifNull: ['$penalty', 0] },
+          incentive: { $ifNull: ['$incentive', 0] },
+          reputation_score: { $ifNull: ['$reputation_score', 0] },
+        },
+      },
 
-          /** Answers count */
-          {
-            $lookup: {
-              from: 'answers',
-              let: {userId: '$_id'},
-              pipeline: [
-                {$match: {$expr: {$eq: ['$authorId', '$$userId']}}},
-                {$count: 'count'},
-              ],
-              as: 'answersMeta',
-            },
-          },
-
-          {
-            $addFields: {
-              totalAnswers_Created: {
-                $ifNull: [{$arrayElemAt: ['$answersMeta.count', 0]}, 0],
-              },
-              penalty: {$ifNull: ['$penalty', 0]},
-              incentive: {$ifNull: ['$incentive', 0]},
-              reputation_score: {$ifNull: ['$reputation_score', 0]},
-            },
-          },
-
-          {
-            $addFields: {
-              penaltyPercentage: {
-                $cond: [
-                  {$gt: ['$totalAnswers_Created', 0]},
-                  {
-                    $multiply: [
-                      {$divide: ['$penalty', '$totalAnswers_Created']},
-                      100,
-                    ],
-                  },
-                  0,
+      /** Penalty percentage */
+      {
+        $addFields: {
+          penaltyPercentage: {
+            $cond: [
+              { $gt: ['$totalAnswers_Created', 0] },
+              {
+                $multiply: [
+                  { $divide: ['$penalty', '$totalAnswers_Created'] },
+                  100,
                 ],
               },
-            },
+              0,
+            ],
           },
+        },
+      },
 
-          /** Calculate rankValue */
-          {
-            $addFields: {
-              rankValue: {
-                $subtract: [
-                  {
-                    $add: [
-                      {$multiply: ['$totalAnswers_Created', 0.5]},
-                      {$multiply: ['$incentive', 0.3]},
-                    ],
-                  },
-                  {$multiply: ['$penaltyPercentage', 0.2]},
+      /** Rank value */
+      {
+        $addFields: {
+          rankValue: {
+            $subtract: [
+              {
+                $add: [
+                  { $multiply: ['$totalAnswers_Created', 0.5] },
+                  { $multiply: ['$incentive', 0.3] },
                 ],
               },
-            },
+              { $multiply: ['$penaltyPercentage', 0.2] },
+            ],
           },
+        },
+      },
 
-          /** ✅ Multi-level sort: isBlocked FIRST, then rankValue and others */
-          {
-            $sort: {
-              isBlocked: 1, // false (0) comes before true (1)
-              rankValue: -1,
-              reputation_score: -1,
-              totalAnswers_Created: -1,
-              penalty: 1,
-              incentive: -1,
-              createdAt: 1,
-            },
-          },
+      /** Ranking sort (global rank order) */
+      {
+        $sort: {
+          isBlocked: 1,
+          rankValue: -1,
+          reputation_score: -1,
+          totalAnswers_Created: -1,
+          penalty: 1,
+          incentive: -1,
+          createdAt: 1,
+        },
+      },
 
-          /** ✅ Add sequential rank using $group + $push */
-          {
-            $group: {
-              _id: null,
-              experts: {$push: '$$ROOT'},
-            },
-          },
-          {
-            $unwind: {
-              path: '$experts',
-              includeArrayIndex: 'rankPosition',
-            },
-          },
-          {
-            $addFields: {
-              'experts.rankPosition': {$add: ['$rankPosition', 1]},
-            },
-          },
-          {
-            $replaceRoot: {newRoot: '$experts'},
-          },
+      /** Assign rankPosition */
+      {
+        $group: {
+          _id: null,
+          experts: { $push: '$$ROOT' },
+        },
+      },
+      {
+        $unwind: {
+          path: '$experts',
+          includeArrayIndex: 'rankPosition',
+        },
+      },
+      {
+        $addFields: {
+          'experts.rankPosition': { $add: ['$rankPosition', 1] },
+        },
+      },
+      {
+        $replaceRoot: { newRoot: '$experts' },
+      },
 
-          /** ✅ Apply UI sorting (also prioritize isBlocked) */
-          {
-            $sort: {
-              isBlocked: 1, // Maintain blocked users at the end
-              ...selectedSort,
-            },
-          },
-          {$match: matchQuery},
+      /** UI sorting (dropdown) */
+      {
+        $sort: {
+          isBlocked: 1,
+          ...selectedSort,
+        },
+      },
 
-          /** Pagination */
-          {
-            $facet: {
-              experts: [{$skip: skip}, {$limit: limit}],
-              meta: [{$count: 'totalExperts'}],
-            },
-          },
-        ])
-        .toArray();
+      /** Pagination */
+      {
+        $facet: {
+          experts: [{ $skip: skip }, { $limit: limit }],
+          meta: [{ $count: 'totalExperts' }],
+        },
+      },
+    ]).toArray();
+
 
       const experts = result[0]?.experts || [];
       const totalExperts = result[0]?.meta[0]?.totalExperts || 0;

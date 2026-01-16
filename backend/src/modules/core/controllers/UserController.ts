@@ -6,6 +6,7 @@ import {
   Body,
   HttpCode,
   Params,
+  Param,
   Authorized,
   CurrentUser,
   NotFoundError,
@@ -137,6 +138,19 @@ export class UserController {
     await this.userService.blockUnblockExperts(userId,action)
     return { message: `${action} Expert successfully` };
   }
+
+  @Patch('/:id/role')
+@HttpCode(200)
+@Authorized()
+@OpenAPI({ summary: 'Switch user role to moderator' })
+async switchRoleToModerator(
+  @Param('id') userId: string
+) {
+  const updatedUser = await this.userService.switchRoleToModerator(userId);
+  return { message: `User promoted to moderator`, user: updatedUser };
+}
+
+
 
   @Get('/details/:email')
   @HttpCode(200)

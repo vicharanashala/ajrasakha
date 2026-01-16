@@ -9,7 +9,7 @@ import {
   TableRow,
 } from "./atoms/table";
 
-import { Eye, Loader2, Lock, MoreVertical, Trash, Unlock } from "lucide-react";
+import { Eye, Loader2, Lock, MoreVertical, Trash, Unlock, Gavel } from "lucide-react";
 
 import { Pagination } from "./pagination";
 import type { IUser, UserRole } from "@/types";
@@ -23,6 +23,8 @@ import { ConfirmationModal } from "./confirmation-modal";
 import { formatDate } from "@/utils/formatDate";
 import { useState } from "react";
 import { useBlockUser } from "@/hooks/api/user/useBlockUser";
+import { useSwitchRoleToModerator } from "@/hooks/api/user/useSwitchRoleToModerator";
+
 import { useNavigateToExpertDashboard } from "@/hooks/api/question/useNavigateToQuestion";
 
 const truncate = (s: string, n = 80) => {
@@ -62,11 +64,15 @@ export const UsersTable = ({
   const [userIdToBlock, setUserIdToBlock] = useState<string>("");
   const [isCurrentlyBlocked, setIsCurrentlyBlocked] = useState<boolean>(false);
   const { mutate: blockExpert } = useBlockUser();
+  const { mutate: switchRoleToModerator } = useSwitchRoleToModerator();
   const handleBlock = async () => {
     console.log("reacej block");
     const action = isCurrentlyBlocked ? "unblock " : "block";
     blockExpert({ userId: userIdToBlock, action: action });
   };
+  const handleSwitchRole = (userId: string) => {
+  switchRoleToModerator(userId);
+};
 
   return (
     <div>
@@ -165,6 +171,7 @@ export const UsersTable = ({
                 <UserRow
                   currentPage={currentPage}
                   handleBlock={handleBlock}
+                  handleSwitchRole={handleSwitchRole}
                   idx={idx}
                   onViewMore={onViewMore}
                   u={u}
@@ -201,6 +208,7 @@ interface UserRowProps {
   setUserIdToBlock: (id: string) => void;
   setIsCurrentlyBlocked: (value: boolean) => void;
   handleBlock: () => Promise<void>;
+  handleSwitchRole: (userId: string) => void;
   onViewMore: (id: string) => void;
   setSelectExpertId?: (id: string) => void;
   setRankPosition?: (rank: number) => void;
@@ -212,6 +220,7 @@ const UserRow: React.FC<UserRowProps> = ({
   currentPage,
   limit,
   handleBlock,
+  handleSwitchRole,
   setUserIdToBlock,
   setIsCurrentlyBlocked,
   setSelectExpertId,
@@ -379,6 +388,19 @@ const UserRow: React.FC<UserRowProps> = ({
                   {isBlocked ? "Unblock" : "Block"}
                 </button>
               </DropdownMenuItem>
+              {/* Switch role from expert to moderator */}
+              <DropdownMenuItem
+    onSelect={(e) => {
+      e.preventDefault();
+      setIsOpen(false);
+      handleSwitchRole(u._id!);
+    }}
+  >
+    <div className="flex items-center gap-2">
+      <Gavel className="w-4 h-4 text-blue-500" />
+      Switch Role
+    </div>
+  </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <ConfirmationModal
