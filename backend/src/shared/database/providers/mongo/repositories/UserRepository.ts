@@ -852,7 +852,7 @@ async findAllUsers(
       await this.ensureIndexes();
       const skip = (page - 1) * limit;
 
-      const matchQuery: any = {role: 'expert'};
+      const matchQuery: any = {};
 
       if (search) {
         matchQuery.$or = [

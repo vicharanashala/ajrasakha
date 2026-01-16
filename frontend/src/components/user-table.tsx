@@ -88,6 +88,7 @@ export const UsersTable = ({
         <Table className="min-w-[800px]">
           <TableHeader className="bg-card sticky top-0 z-10">
             <TableRow>
+               <TableHead className="text-center w-12">{isAdmin ? "#" : "Rank"}</TableHead>
               <TableHead className="w-[35%] text-center w-52">
                 Full Name
               </TableHead>
@@ -295,6 +296,43 @@ const UserRow: React.FC<UserRowProps> = ({
           </span>
         )}
       </TableCell> */}
+    <TableCell className="align-middle w-12" title={idx.toString()}>
+  {userRole === "admin" ? (
+     <span className="inline-flex items-center justify-center w-8 h-8 text-sm font-medium">
+      {(currentPage - 1) * limit + idx + 1}
+    </span>
+  ) : (
+     u.rankPosition && u.rankPosition <= 3 ? (
+      <span
+        className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-semibold text-sm border-2 ${
+          u.rankPosition === 1
+            ? `
+  relative overflow-hidden
+  bg-yellow-50 dark:bg-yellow-950
+  border-yellow-400 dark:border-yellow-600
+  text-yellow-900 dark:text-yellow-100
+  shadow-[0_0_12px_rgba(250,204,21,0.35)]
+  before:absolute before:inset-0 before:rounded-full
+  before:bg-gradient-to-t
+  before:from-white/10
+  before:via-white/30
+  before:to-transparent
+  before:pointer-events-none
+  `
+            : u.rankPosition === 2
+            ? "bg-slate-50 dark:bg-slate-900 border-slate-400 dark:border-slate-500 text-slate-900 dark:text-slate-100"
+            : "bg-orange-50 dark:bg-amber-900/40 border-orange-400 dark:border-amber-500 text-orange-900 dark:text-amber-200"
+        }`}
+      >
+        {u.rankPosition}
+      </span>
+    ) : (
+      <span className="inline-flex items-center justify-center w-8 h-8 text-sm text-muted-foreground">
+        #{u.rankPosition ?? "—"}
+      </span>
+    )
+  )}
+</TableCell>
 
       {/* User name */}
       <TableCell className="align-middle w-36" title={u.firstName}>
