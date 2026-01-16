@@ -18,6 +18,9 @@ import {
 } from "@/components/atoms/select";
 import { Textarea } from "@/components/atoms/textarea";
 
+import { Trash2 } from "lucide-react";
+import { useSoftDeleteRequest } from "@/hooks/api/request/useDeleteRequest";
+import { useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback } from "@/components/atoms/avatar";
 import { cn } from "@/lib/utils";
 import type { IDetailedQuestion, IRequest, RequestStatus } from "@/types";
@@ -90,7 +93,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
   const [responseOpen, setResponseOpen] = useState(false);
 
   const { data: requestDiff, isLoading: reqDiffLoading } = useGetRequestDiff(
-    req._id
+    diffOpen ? req._id : ""
   );
 
   const { mutateAsync: updateStatus, isPending: updatingStatus } =
@@ -100,6 +103,10 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
     requestType: req.requestType,
     diff: requestDiff!,
   };
+   const queryClient = useQueryClient();
+  const { mutateAsync: softDelete, isPending: deleting } = useSoftDeleteRequest();
+ 
+
   useEffect(() => {}, [isHighlighted, req._id]);
   const handleSubmit = async () => {
     try {
@@ -169,7 +176,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
   return (
     <Card
       // className="bg-card"
-      className={`bg-card relative transition-all duration-200 ${
+      className={`group bg-card relative transition-all duration-200 ${
         isHighlighted
           ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
           : "border-border hover:border-primary/40 hover:shadow-sm"
@@ -223,7 +230,69 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
         >
           {req?.status?.toUpperCase() || "N/A"}
         </span>
+        {/* delte button */}
+          <Button
+          variant="destructive"
+        className="absolute top-14 right-6 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+
+          disabled={deleting}
+          onClick={() => {
+            toast.custom((t) => (
+              <div className="w-full max-w-sm rounded-lg border bg-background p-4 shadow-lg">
+                <p className="text-sm font-medium">
+                  Are you sure you want to delete this request?
+                </p>
+
+                <div className="mt-4 flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toast.dismiss(t.id)}
+                  >
+                    Cancel
+                  </Button>
+
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await softDelete(req._id);
+
+                        queryClient.removeQueries({
+                          queryKey: ["request_diff", req._id],
+                        });
+
+                        queryClient.invalidateQueries({
+                          queryKey: ["requests"],
+                        });
+
+                        toast.dismiss(t.id);
+                        toast.success("Request deleted successfully.");
+                      } catch {
+                        toast.dismiss(t.id);
+                        toast.error("Failed to delete request.");
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </div>
+              
+            ),
+            {
+          position: "top-center",
+        }
+          );
+          }}
+        >
+          <Trash2 className="w-4 h-4" />
+        
+        </Button>
+
       </CardHeader>
+
       <CardContent className="space-y-3">
         <div className="text-sm">
           <div className="font-medium">Reason</div>
@@ -235,7 +304,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
         <div className="flex gap-2 justify-end">
           <div className="fixed inset-0 flex items-start justify-center z-50 p-6 pointer-events-none">
             {diffOpen && (
-              <Card className="bg-card w-[90vw] max-w-[95vw] h-[90vh] flex flex-col shadow-xl border border-border pointer-events-auto overflow-hidden">
+              <Card className="group bg-card w-[90vw] max-w-[95vw] h-[90vh] flex flex-col shadow-xl border border-border pointer-events-auto overflow-hidden">
                 <CardHeader className="p-6 border-b border-border flex flex-col gap-2">
                   <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-4">
@@ -440,25 +509,26 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
               </DialogContent>
             </Dialog>
           </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              className="flex items-center justify-center gap-2"
-              onClick={() => setResponseOpen(true)}
-            >
-              <History className="w-4 h-4" aria-hidden="true" />
-              <span>View History</span>
-            </Button>
+      <div className="flex items-center gap-3 relative group">
+  <Button
+    variant="outline"
+    className="flex items-center justify-center gap-2"
+    onClick={() => setResponseOpen(true)}
+  >
+    <History className="w-4 h-4" aria-hidden="true" />
+    <span>View History</span>
+  </Button>
 
-            <Button
-              variant="default"
-              className="flex items-center justify-center gap-2"
-              onClick={() => setDiffOpen(true)}
-            >
-              <GitCompare className="w-4 h-4" aria-hidden="true" />
-              <span>View Diff</span>
-            </Button>
-          </div>
+  <Button
+    variant="default"
+    className="flex items-center justify-center gap-2"
+    onClick={() => setDiffOpen(true)}
+  >
+    <GitCompare className="w-4 h-4" aria-hidden="true" />
+    <span>View Diff</span>
+  </Button>
+</div>
+
         </div>
       </CardContent>
     </Card>
@@ -626,6 +696,7 @@ export const RequestsPage = ({
         ) : (
           requestData.requests.map((req) => (
             <RequestCard
+            
               key={`${req._id}-${selectedRequestId === String(req._id)}`}
               req={req}
               isHighlighted={selectedRequestId === String(req._id)}

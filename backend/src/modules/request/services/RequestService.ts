@@ -25,6 +25,7 @@ import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRep
 import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
 import {notifyUser} from '#root/utils/pushNotification.js';
 import { IRequestService } from '../interfaces/IRequestService.js';
+import { log } from 'console';
 
 @injectable()
 export class RequestService extends BaseService implements IRequestService{
@@ -253,6 +254,8 @@ export class RequestService extends BaseService implements IRequestService{
       requestId,
       session,
     );
+
+    log(request);
 
     if (!request || request.isDeleted) {
       throw new NotFoundError('Request not found');

@@ -186,7 +186,6 @@ export class RequestRepository implements IRequestRepository {
 
       const updatedRequest = await this.RequestCollection.findOneAndUpdate(
         {_id: new ObjectId(requestId),
-          isDeleted: { $ne: true },
         },
         {
           $set: {status},
@@ -245,7 +244,7 @@ export class RequestRepository implements IRequestRepository {
   try {
     await this.init();
 
-    const result = await this.RequestCollection.updateOne(
+    await this.RequestCollection.updateOne(
       {
         _id: new ObjectId(requestId),
         isDeleted: {$ne: true},
@@ -260,9 +259,6 @@ export class RequestRepository implements IRequestRepository {
       {session},
     );
 
-    if (result.matchedCount === 0) {
-      throw new NotFoundError('Request not found or already deleted');
-    }
   } catch (error) {
     throw new InternalServerError(`Failed to soft delete request: ${error}`);
   }
