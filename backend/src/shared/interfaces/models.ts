@@ -185,6 +185,9 @@ export type IRequest = RequestDetails & {
   entityId: string | ObjectId;
   responses: IRequestResponse[];
   status: RequestStatus;
+  isDeleted?: boolean;
+  deletedAt?: Date;
+  deletedBy?: string | ObjectId;
   requestedUser?: IUser | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;

@@ -42,6 +42,12 @@ export const apiFetch = async <T>(
   // };
 
   const res = await fetch(url, { ...options, headers });
+  if (res.status === 204) {
+  return undefined as T;
+}
+if (res.status === 404 && options?.method === "PUT") {
+  return null as T;
+}
 
   if (!res.ok) {
     if (res.status === 401) {
@@ -63,11 +69,6 @@ export const apiFetch = async <T>(
     }
 
     throw new Error(errorMessage);
-  }
-
-  // return empty for 204 responses
-  if (res.status === 204) {
-    return undefined as T;
   }
 
   return (await res.json()) as T;
