@@ -243,7 +243,11 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
     opacity-0 group-hover:opacity-100
     transition-opacity
     text-black
+    dark:text-muted-foreground
     hover:text-red-500
+    dark:hover:text-white
+    dark:hover:bg-white/10
+
     cursor-pointer
     bg-transparent !shadow-none
     border-none
