@@ -175,18 +175,6 @@ export interface IUserRepository {
   ): Promise<void>;
 
   /**
-   * Updates user activity status
-   * @param userId - userid of expert to update
-   * @param status - either active or in-active
-   * @returns void
-   */
-  updateActivityStatus(
-    userId: string,
-    status: 'active' | 'in-active',
-    session?: ClientSession,
-  ): Promise<void>;
-
-  /**
    * @param session
    */
   getUserRoleCount(session?: ClientSession): Promise<UserRoleOverview[]>;

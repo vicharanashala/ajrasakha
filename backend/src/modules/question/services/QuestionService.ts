@@ -675,21 +675,6 @@ export class QuestionService extends BaseService implements IQuestionService {
           IS_INCREMENT,
           session,
         );
-        // No submissions send answer_creation notification to the first expert
-        if(EXISTING_QUEUE_COUNT===0){
-          let message = `A Question has been assigned for answering`;
-          let title = 'Answer Creation Assigned';
-          let entityId = questionId.toString();
-          const user = expertId;
-          const type: INotificationType = 'answer_creation';
-          await this.notificationService.saveTheNotifications(
-            message,
-            title,
-            entityId,
-            user,
-            type,
-          );
-        }
       }
       if (
         hasExperts &&
@@ -997,17 +982,6 @@ export class QuestionService extends BaseService implements IQuestionService {
               INCREMENT,
               session,
             );
-            let entityId= questionId;
-            let message:string = `A new Review has been assigned to you`;
-            let title:string = 'New Review Assigned';
-            let type:INotificationType= 'peer_review';
-            await this.notificationService.saveTheNotifications(
-              message,
-              title,
-              entityId,
-              nextUserId,
-              type,
-            );
           }
         }
          if (submissionHistory.length === 0) {
@@ -1025,18 +999,6 @@ export class QuestionService extends BaseService implements IQuestionService {
                  IS_INCREMENT,
                  session,
                );
-               let message:string=`A Question has been assigned for answering`;
-              let title:string='Answer Creation Assigned';
-              let entityId= questionId;
-              let type:INotificationType='answer_creation';
-              console.log("Send notification");
-              await this.notificationService.saveTheNotifications(
-                message,
-                title,
-                entityId,
-                nextUserId,
-                type,
-              );
              }
           }
         }

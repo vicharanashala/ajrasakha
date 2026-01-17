@@ -128,7 +128,7 @@ export class UserController {
   @Patch('/expert')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Block or unblock an expert'})
+  @OpenAPI({summary: 'Update user information'})
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async BlockAndUnblockExpert(
     @Body() body:BlockUnblockBody,
@@ -136,19 +136,6 @@ export class UserController {
     const {action,userId} = body
     await this.userService.blockUnblockExperts(userId,action)
     return { message: `${action} Expert successfully` };
-  }
-
-  @Patch('/status')
-  @HttpCode(200)
-  @Authorized()
-  @OpenAPI({summary: 'Update expert activity status'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async updateActivityStatus(
-    @Body() body: {userId: string; status: 'active' | 'in-active'},
-  ): Promise<{message: string}> {
-    const {userId, status} = body;
-    await this.userService.updateActivityStatus(userId, status);
-    return {message: `Expert status updated to ${status} successfully`};
   }
 
   @Get('/details/:email')
@@ -161,5 +148,3 @@ export class UserController {
     return await this.userService.getUserByEmail(email) 
   }
 }
-
-
