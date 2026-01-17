@@ -98,4 +98,19 @@ export class RequestController {
 
     return this.requestService.updateStatus(requestId, status, response, userId);
   }
+
+  @Put('/:requestId/delete')
+@HttpCode(204)
+@Authorized()
+@OpenAPI({summary: 'Soft delete a request'})
+async softDelete(
+  @Params() params: RequestParamsDto,
+  @CurrentUser() user: IUser,
+): Promise<void> {
+  const {requestId} = params;
+  const userId = user._id.toString();
+
+  await this.requestService.softDeleteRequest(requestId, userId);
+}
+
 }

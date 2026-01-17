@@ -353,7 +353,7 @@ export const PlaygroundPage = () => {
                     className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
                   >
                     <HoverCard openDelay={150}>
-                      <span>Expert Management</span>
+                      <span>{user.role==='admin' ? 'User' :'Expert' } Management</span>
                     </HoverCard>
                   </TabsTrigger>
                 )}
@@ -454,7 +454,7 @@ export const PlaygroundPage = () => {
                   value="user_management"
                   className="mt-0 border-0 p-0 "
                 >
-                  <UserManagement />
+                  <UserManagement currentUser={user} />
                 </TabsContent>
               )}
               {user && user.role !== "expert" && (

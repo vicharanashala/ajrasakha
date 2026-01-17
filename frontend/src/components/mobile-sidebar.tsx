@@ -68,16 +68,17 @@ export const MobileSidebar = ({
   };
 
   const menuItems = [
-    ...(user && user.role !== "expert"
+    ...(user && user.role === "admin"
+      ? [{ id: "user_management", label: "User Management", icon: Users }]
+      : user && user.role !== "expert"
       ? [{ id: "performance", label: "Performance", icon: BarChart3 }]
       : []),
     ...(user && user.role === "expert"
       ? [{ id: "questions", label: "Questions", icon: MessageSquare }]
       : []),
     { id: "all_questions", label: "All Questions", icon: List },
-    ...(user && user.role !== "expert"
+    ...(user && user.role !== "expert" && user.role !== "admin"
       ? [
-          { id: "user_management", label: "Expert Management", icon: Users },
           { id: "request_queue", label: "Request Queue", icon: Clock },
         ]
       : []),

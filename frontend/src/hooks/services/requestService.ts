@@ -76,4 +76,11 @@ export class RequestService {
       body: JSON.stringify({ status, response }),
     });
   }
+
+  async softDeleteRequest(requestId: string): Promise<void> {
+  await apiFetch<void>(`${this._baseUrl}/${requestId}/delete`, {
+    method: "PUT",
+  });
+}
+
 }

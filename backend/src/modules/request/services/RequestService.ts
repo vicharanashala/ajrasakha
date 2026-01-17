@@ -25,6 +25,7 @@ import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRep
 import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
 import {notifyUser} from '#root/utils/pushNotification.js';
 import { IRequestService } from '../interfaces/IRequestService.js';
+import { log } from 'console';
 
 @injectable()
 export class RequestService extends BaseService implements IRequestService{
@@ -237,4 +238,35 @@ export class RequestService extends BaseService implements IRequestService{
       throw error;
     }
   }
+
+  async softDeleteRequest(
+  requestId: string,
+  userId: string,
+): Promise<void> {
+  return this._withTransaction(async session => {
+    const user = await this.userRepo.findById(userId, session);
+
+    if (!user || user.role !== 'moderator') {
+      throw new UnauthorizedError('Only moderators can delete requests');
+    }
+
+    const request = await this.requestRepository.getRequestById(
+      requestId,
+      session,
+    );
+
+    log(request);
+
+    if (!request || request.isDeleted) {
+      throw new NotFoundError('Request not found');
+    }
+
+    await this.requestRepository.softDeleteById(
+      requestId,
+      userId,
+      session,
+    );
+  });
+}
+
 }

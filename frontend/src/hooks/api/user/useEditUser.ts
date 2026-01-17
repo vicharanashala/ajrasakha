@@ -13,7 +13,16 @@ export const useEditUser = () => {
       return await userService.edit(user);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user"] });
+      queryClient.invalidateQueries({
+        queryKey: ["users"],
+        exact: false,
+      });
+
+      //  Refresh moderator experts list
+      queryClient.invalidateQueries({
+        queryKey: ["experts"],
+        exact: false,
+      });
     },
     onError: () => {
       toast.error("Failed to update, try again!");
