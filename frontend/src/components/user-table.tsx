@@ -24,7 +24,6 @@ import { formatDate } from "@/utils/formatDate";
 import { useState } from "react";
 import { useBlockUser } from "@/hooks/api/user/useBlockUser";
 import { useNavigateToExpertDashboard } from "@/hooks/api/question/useNavigateToQuestion";
-import { useUpdateActivity } from "@/hooks/api/user/useUpdateActivity";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -125,8 +124,6 @@ export const UsersTable = ({
               </TableHead>
               <TableHead className="text-center w-24">Total Answered</TableHead>
               {/* <TableHead className="text-center w-24">Rank</TableHead> */}
-              
-              
               <TableHead className="text-center w-24">
                 <button
                   onClick={() => onSort("joined")}
@@ -141,7 +138,6 @@ export const UsersTable = ({
                   )}
                 </button>
               </TableHead>
-              <TableHead className="text-center w-24">Activity</TableHead>
               <TableHead className="text-center w-24">Status</TableHead>
               <TableHead className="text-center w-24">Action</TableHead>
             </TableRow>
@@ -222,7 +218,6 @@ const UserRow: React.FC<UserRowProps> = ({
   setRankPosition,
 }) => {
   const isBlocked = u.isBlocked || false;
-  const { mutate: updateActivity } = useUpdateActivity();
 
   //expert block/unblock modal state
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -238,11 +233,6 @@ const UserRow: React.FC<UserRowProps> = ({
       // goToExpertDashboard(userId); // enitity_id is questionId
       return;
     }
-  };
-
-  const handleActivityToggle = () => {
-    const nextStatus = u.status === 'in-active' ? 'active' : 'in-active';
-    updateActivity({ userId: u._id!, status: nextStatus });
   };
   return (
     <TableRow key={String(u._id)} className="text-center">
@@ -343,15 +333,6 @@ const UserRow: React.FC<UserRowProps> = ({
         {formatDate(new Date(u.createdAt!), false)}
       </TableCell>
 
-      <TableCell className="align-middle w-32">
-        <Badge 
-          variant="outline" 
-          className={u.status === 'in-active' ? "text-red-500 border-red-200 bg-red-50" : "text-green-700 border-green-200 bg-green-50"}
-        >
-          {u.status === 'in-active' ? 'Inactive' : 'Active'}
-        </Badge>
-      </TableCell>
-
       {/* Blocked Status */}
       <TableCell className="align-middle w-32">
         <div className="flex justify-center items-center">
@@ -381,14 +362,6 @@ const UserRow: React.FC<UserRowProps> = ({
                 <Eye className="w-4 h-4 mr-2 text-primary" />
                 View
               </DropdownMenuItem> */}
-              <DropdownMenuItem
-                onClick={handleActivityToggle}
-              >
-                <div className="flex items-center gap-2">
-                  <Eye className="w-4 h-4 mr-2" />
-                  Mark as {u.status === 'in-active' ? 'Active' : 'Inactive'}
-                </div>
-              </DropdownMenuItem>
 
               {/* <DropdownMenuSeparator /> */}
 
