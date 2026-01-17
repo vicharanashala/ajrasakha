@@ -53,6 +53,10 @@ export const UserManagement = ({
     filter
   );
  const toggleSort = (key: string) => {
+  if (key === "rank") {
+    setSort("");
+    return;
+  }
   setSort((prev) => {
     if (prev === `${key}_asc`) return `${key}_desc`;
     return `${key}_asc`;
