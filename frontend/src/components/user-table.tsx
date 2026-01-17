@@ -242,7 +242,11 @@ const UserRow: React.FC<UserRowProps> = ({
   const isBlocked = u.isBlocked || false;
 
   //expert block/unblock modal state
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+ type ConfirmAction = "block" | "unblock" | "switch-role" | null;
+
+const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
+const [actionUserId, setActionUserId] = useState<string>("");
+const [actionRole, setActionRole] = useState<string>("");
   const [isOpen, setIsOpen] = useState(false);
   const isAdmin = userRole === "admin";
   const { goToExpertDashboard } = useNavigateToExpertDashboard();
@@ -436,8 +440,10 @@ const UserRow: React.FC<UserRowProps> = ({
                   e.preventDefault();
                   setUserIdToBlock(u._id!);
                   setIsCurrentlyBlocked(isBlocked!);
+                  setActionUserId(u._id!);
+                  setConfirmAction(isBlocked ? "unblock" : "block");
                   setIsOpen(false);
-                  setIsConfirmOpen(true);
+
                 }}
               >
                 <button className="flex justify-center items-center gap-2">
@@ -451,7 +457,9 @@ const UserRow: React.FC<UserRowProps> = ({
                   onSelect={(e) => {
                   e.preventDefault();
                   setIsOpen(false);
-                  handleToggleRole(u._id!,u.role);
+                  setActionUserId(u._id!);
+                  setActionRole(u.role);
+                  setConfirmAction("switch-role");
                   }}
                 >
                   <div className="flex items-center gap-2">
@@ -463,22 +471,47 @@ const UserRow: React.FC<UserRowProps> = ({
             </DropdownMenuContent>
           </DropdownMenu>
           <ConfirmationModal
-            open={isConfirmOpen}
-            onOpenChange={setIsConfirmOpen}
-            title={isBlocked ? "Unblock the User?" : "Block the User?"}
-            description={
-              isBlocked
-                ? "This will restore the expert’s access to the review system and allow them to participate in reviews again. Are you sure you want to unblock this user?"
-                : "Blocking this expert will restrict their access to the review system until they are unblocked. Once blocked, they will no longer be able to review, submit answers, or perform any actions within the platform. They will also be excluded from all current and future allocations. Are you sure you want to proceed?"
-            }
-            confirmText={isBlocked ? "Unblock" : "Block"}
-            cancelText="Cancel"
-            type={isBlocked ? "default" : "delete"}
-            onConfirm={() => {
-              handleBlock();
-              setIsConfirmOpen(false);
-            }}
-          />
+  open={!!confirmAction}
+  onOpenChange={() => setConfirmAction(null)}
+  title={
+    confirmAction === "switch-role"
+      ? "Switch User Role?"
+      : confirmAction === "block"
+      ? "Block the User?"
+      : "Unblock the User?"
+  }
+  description={
+  confirmAction === "switch-role"
+    ? actionRole === "expert"
+      ? "This will promote the expert to a moderator. Are you sure you want to continue?"
+      : "This will demote the moderator to an expert. Are you sure you want to continue?"
+    : confirmAction === "block"
+    ? actionRole === "expert"
+      ? "Blocking this expert will restrict their access to the review system until they are unblocked. Once blocked, they will no longer be able to review, submit answers, or perform any actions within the platform. They will also be excluded from all current and future allocations. Are you sure you want to proceed?"
+      : "Blocking this moderator will restrict their access to the platform until they are unblocked. They will not be able to manage reviews, moderate content, or perform any administrative actions. Are you sure you want to proceed?"
+    : actionRole === "expert"
+    ? "This will restore the expert’s access to the review system and allow them to participate in reviews again. Are you sure you want to unblock this user?"
+    : "This will restore the moderator’s access and administrative permissions on the platform. Are you sure you want to unblock this user?"
+}
+  confirmText={
+    confirmAction === "switch-role"
+      ? "Switch Role"
+      : confirmAction === "block"
+      ? "Block"
+      : "Unblock"
+  }
+  cancelText="Cancel"
+  type={confirmAction === "block" ? "delete" : "default"}
+  onConfirm={() => {
+    if (confirmAction === "switch-role") {
+      handleToggleRole(actionUserId, actionRole);
+    } else {
+      handleBlock();
+    }
+    setConfirmAction(null);
+  }}
+/>
+
         </div>
       </TableCell>
     </TableRow>
