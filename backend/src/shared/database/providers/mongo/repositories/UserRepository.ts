@@ -692,128 +692,133 @@ export class UserRepository implements IUserRepository {
       };
 
       const selectedSort = sortMap[sortOption] || sortMap.default;
-
-      const result = await this.usersCollection
-        .aggregate([
-          {$match:{role: 'expert' }},
-          /** ✅ Add isBlocked field default (if not exists) */
-          {
-            $addFields: {
-              isBlocked: {$ifNull: ['$isBlocked', false]},
-            },
+      
+      const result = await this.usersCollection.aggregate([
+        {$match:{role:"expert"}},
+        
+        /** ✅ Add isBlocked field default (if not exists) */
+        {
+          $addFields: {
+            isBlocked: { $ifNull: ["$isBlocked", false] },
           },
-
-          /** Answers count */
-          {
-            $lookup: {
-              from: 'answers',
-              let: {userId: '$_id'},
-              pipeline: [
-                {$match: {$expr: {$eq: ['$authorId', '$$userId']}}},
-                {$count: 'count'},
+        },
+        {
+          $addFields: {
+          status: { $ifNull: ["$status", "active"] },
+          },
+        },
+      
+        /** Answers count */
+        {
+          $lookup: {
+            from: "answers",
+            let: { userId: "$_id" },
+            pipeline: [
+              { $match: { $expr: { $eq: ["$authorId", "$$userId"] } } },
+              { $count: "count" },
+            ],
+            as: "answersMeta",
+          },
+        },
+      
+        {
+          $addFields: {
+            totalAnswers_Created: {
+              $ifNull: [{ $arrayElemAt: ["$answersMeta.count", 0] }, 0],
+            },
+            penalty: { $ifNull: ["$penalty", 0] },
+            incentive: { $ifNull: ["$incentive", 0] },
+            reputation_score: { $ifNull: ["$reputation_score", 0] },
+          },
+        },
+      
+        {
+          $addFields: {
+            penaltyPercentage: {
+              $cond: [
+                { $gt: ["$totalAnswers_Created", 0] },
+                {
+                  $multiply: [
+                    { $divide: ["$penalty", "$totalAnswers_Created"] },
+                    100,
+                  ],
+                },
+                0,
               ],
-              as: 'answersMeta',
             },
           },
-
-          {
-            $addFields: {
-              totalAnswers_Created: {
-                $ifNull: [{$arrayElemAt: ['$answersMeta.count', 0]}, 0],
-              },
-              penalty: {$ifNull: ['$penalty', 0]},
-              incentive: {$ifNull: ['$incentive', 0]},
-              reputation_score: {$ifNull: ['$reputation_score', 0]},
+        },
+      
+        /** Calculate rankValue */
+        {
+          $addFields: {
+            rankValue: {
+              $subtract: [
+                {
+                  $add: [
+                    { $multiply: ["$totalAnswers_Created", 0.5] },
+                    { $multiply: ["$incentive", 0.3] },
+                  ],
+                },
+                { $multiply: ["$penaltyPercentage", 0.2] },
+              ],
             },
           },
-
-          {
-            $addFields: {
-              penaltyPercentage: {
-                $cond: [
-                  {$gt: ['$totalAnswers_Created', 0]},
-                  {
-                    $multiply: [
-                      {$divide: ['$penalty', '$totalAnswers_Created']},
-                      100,
-                    ],
-                  },
-                  0,
-                ],
-              },
-            },
+        },
+      
+        /** ✅ Multi-level sort: isBlocked FIRST, then rankValue and others */
+        {
+          $sort: {
+            status:1,
+            isBlocked: 1,              // false (0) comes before true (1)
+            rankValue: -1,
+            reputation_score: -1,
+            totalAnswers_Created: -1,
+            penalty: 1,
+            incentive: -1,
+            createdAt: 1,
           },
-
-          /** Calculate rankValue */
-          {
-            $addFields: {
-              rankValue: {
-                $subtract: [
-                  {
-                    $add: [
-                      {$multiply: ['$totalAnswers_Created', 0.5]},
-                      {$multiply: ['$incentive', 0.3]},
-                    ],
-                  },
-                  {$multiply: ['$penaltyPercentage', 0.2]},
-                ],
-              },
-            },
+        },
+      
+        /** ✅ Add sequential rank using $group + $push */
+        {
+          $group: {
+            _id: null,
+            experts: { $push: "$$ROOT" },
           },
-
-          /** ✅ Multi-level sort: isBlocked FIRST, then rankValue and others */
-          {
-            $sort: {
-              isBlocked: 1, // false (0) comes before true (1)
-              rankValue: -1,
-              reputation_score: -1,
-              totalAnswers_Created: -1,
-              penalty: 1,
-              incentive: -1,
-              createdAt: 1,
-            },
+        },
+        {
+          $unwind: {
+            path: "$experts",
+            includeArrayIndex: "rankPosition",
           },
-
-          /** ✅ Add sequential rank using $group + $push */
-          {
-            $group: {
-              _id: null,
-              experts: {$push: '$$ROOT'},
-            },
+        },
+        {
+          $addFields: {
+            "experts.rankPosition": { $add: ["$rankPosition", 1] },
           },
-          {
-            $unwind: {
-              path: '$experts',
-              includeArrayIndex: 'rankPosition',
-            },
+        },
+        {
+          $replaceRoot: { newRoot: "$experts" },
+        },
+      
+        /** ✅ Apply UI sorting (also prioritize isBlocked) */
+        { 
+          $sort: { 
+            isBlocked: 1,              // Maintain blocked users at the end
+            ...selectedSort 
+          } 
+        },
+        { $match: matchQuery },
+      
+        /** Pagination */
+        {
+          $facet: {
+            experts: [{ $skip: skip }, { $limit: limit }],
+            meta: [{ $count: "totalExperts" }],
           },
-          {
-            $addFields: {
-              'experts.rankPosition': {$add: ['$rankPosition', 1]},
-            },
-          },
-          {
-            $replaceRoot: {newRoot: '$experts'},
-          },
-
-          /** ✅ Apply UI sorting (also prioritize isBlocked) */
-          {
-            $sort: {
-              isBlocked: 1, // Maintain blocked users at the end
-              ...selectedSort,
-            },
-          },
-          {$match: matchQuery},
-
-          /** Pagination */
-          {
-            $facet: {
-              experts: [{$skip: skip}, {$limit: limit}],
-              meta: [{$count: 'totalExperts'}],
-            },
-          },
-        ])
-        .toArray();
+        },
+      ]).toArray();
 
       const experts = result[0]?.experts || [];
       const totalExperts = result[0]?.meta[0]?.totalExperts || 0;
@@ -850,6 +855,25 @@ export class UserRepository implements IUserRepository {
       throw new InternalServerError(`Failed to update IsBlock`);
     }
   }
+
+  async updateActivityStatus(
+    userId: string,
+    status: 'active' | 'in-active',
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    try {
+      await this.usersCollection.updateOne(
+        {_id: new ObjectId(userId)},
+        {$set: {status, updatedAt: new Date()}},
+        {session},
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to update activity status`);
+    }
+  }
+
+  
 
   async getUserRoleCount(session?: ClientSession): Promise<UserRoleOverview[]> {
     try {

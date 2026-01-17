@@ -38,7 +38,7 @@ import {
   Zap,
   Cpu,
   Brain,
-  ArrowUpRight
+  ArrowUpRight,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { RadioGroup, RadioGroupItem } from "./atoms/radio-group";
@@ -49,7 +49,7 @@ import {
   useGetAllocatedQuestionPage,
   useGetAllocatedQuestions,
 } from "@/hooks/api/question/useGetAllocatedQuestions";
-import {useReRouteRejectQuestion} from '@/hooks/api/question/useReRouteRejectQuestion'
+import { useReRouteRejectQuestion } from "@/hooks/api/question/useReRouteRejectQuestion";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
 import { toast } from "sonner";
 import {
@@ -81,7 +81,7 @@ import type {
   IQuestion,
   IReviewParmeters,
   SourceItem,
-  QuestionRerouteRepo
+  QuestionRerouteRepo,
 } from "@/types";
 import { ScrollArea } from "./atoms/scroll-area";
 import { ExpandableText } from "./expandable-text";
@@ -101,7 +101,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "./atoms/accordion";
-import { renderModificationDiff } from "./question-details";
+import { renderModificationDiff } from "@/features/question_details/components/renderModificationDiff";
 import {
   Select,
   SelectTrigger,
@@ -119,27 +119,24 @@ export type QuestionFilter =
 export const QAInterface = ({
   autoSelectQuestionId,
   onManualSelect,
-  selectQuestionType
+  selectQuestionType,
 }: {
   autoSelectQuestionId: string | null;
   onManualSelect: (id: string | null) => void;
-  selectQuestionType:string|null
+  selectQuestionType: string | null;
 }) => {
-  
   const [actionType, setActionType] = useState<"allocated" | "reroute">(
     "reroute"
   );
-  useEffect(()=>{
-    if (!selectQuestionType) return
-    if(selectQuestionType=="re-routed")
-    {
-      setActionType("reroute")
+  useEffect(() => {
+    if (!selectQuestionType) return;
+    if (selectQuestionType == "re-routed") {
+      setActionType("reroute");
+    } else {
+      setActionType("allocated");
     }
-    else{
-      setActionType("allocated")
-    }
-  },[selectQuestionType])
-  
+  }, [selectQuestionType]);
+
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
   const [newAnswer, setNewAnswer] = useState<string>("");
   const [isFinalAnswer, setIsFinalAnswer] = useState<boolean>(false);
@@ -157,7 +154,7 @@ export const QAInterface = ({
   const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
   const [remarks, setRemarks] = useState("");
-  const[reviewLevel,setReviewLevel]=useState('all')
+  const [reviewLevel, setReviewLevel] = useState("all");
 
   const [isLoaded, setIsLoaded] = useState(false);
   // const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
@@ -210,10 +207,17 @@ export const QAInterface = ({
     hasNextPage,
     isFetchingNextPage,
     refetch,
-  } = useGetAllocatedQuestions(LIMIT, filter, preferences,actionType,autoSelectQuestionId,reviewLevel);
+  } = useGetAllocatedQuestions(
+    LIMIT,
+    filter,
+    preferences,
+    actionType,
+    autoSelectQuestionId,
+    reviewLevel
+  );
   const { data: exactQuestionPage, isLoading: isLoading } =
     useGetAllocatedQuestionPage(autoSelectQuestionId!);
-   
+
   // const questions = questionPages?.pages.flat() || [];
   /*const questions = useMemo(() => {
      return questionPages?.pages.flat() || [];
@@ -227,20 +231,18 @@ export const QAInterface = ({
   useEffect(() => {
     // wait until data is loaded
     if (!questionPages?.pages) return;
-  
+
     // run ONLY once
     if (didInit.current) return;
     didInit.current = true;
-  
+
     if (questions.length === 0) {
       setActionType("allocated");
     }
   }, [questionPages, questions]);
-  
-  
 
   const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
-    useGetQuestionById(selectedQuestion,actionType);
+    useGetQuestionById(selectedQuestion, actionType);
 
   // const { mutateAsync: submitAnswer, isPending: isSubmittingAnswer } =
   //   useSubmitAnswer();
@@ -300,7 +302,7 @@ export const QAInterface = ({
       const firstId = questions[0]?.id ?? null;
       setSelectedQuestion(firstId);
     }
-  }, [isLoading, questions, autoSelectQuestionId,actionType]);
+  }, [isLoading, questions, autoSelectQuestionId, actionType]);
 
   useEffect(() => {
     if (!selectedQuestion) return;
@@ -344,7 +346,7 @@ export const QAInterface = ({
         },
       };
     });
-  }, [newAnswer, sources, remarks, selectedQuestion,actionType]);
+  }, [newAnswer, sources, remarks, selectedQuestion, actionType]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -536,7 +538,7 @@ export const QAInterface = ({
       payload.answer = newAnswer;
       payload.sources = sources;
     }
-    payload.type=actionType
+    payload.type = actionType;
 
     try {
       await respondQuestion(payload);
@@ -569,10 +571,10 @@ export const QAInterface = ({
   //   return <Spinner/>
   // }
 
-const handleActionChange = (value: string) => {
-  setActionType(value as "allocated" | "reroute");
-  setSelectedQuestion(null);
-};
+  const handleActionChange = (value: string) => {
+    setActionType(value as "allocated" | "reroute");
+    setSelectedQuestion(null);
+  };
   return (
     <div className=" mx-auto px-4 md:px-6 bg-transparent py-4 ">
       <div className="flex flex-col space-y-6">
@@ -602,18 +604,20 @@ const handleActionChange = (value: string) => {
                   </Tooltip>
                 </div>
               </TooltipProvider>
-             
-              <div className="sm:flex sm:flex-row sm:justify-end sm:items-center gap-3 ">
-              <Select value={actionType} onValueChange={handleActionChange}>
-                <SelectTrigger className="">
-                  <SelectValue placeholder="Select action" />
-                </SelectTrigger>
 
-                <SelectContent>
-                  <SelectItem value="allocated">Allocated Questions</SelectItem>
-                  <SelectItem value="reroute">ReRouted Questions</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="sm:flex sm:flex-row sm:justify-end sm:items-center gap-3 ">
+                <Select value={actionType} onValueChange={handleActionChange}>
+                  <SelectTrigger className="">
+                    <SelectValue placeholder="Select action" />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="allocated">
+                      Allocated Questions
+                    </SelectItem>
+                    <SelectItem value="reroute">ReRouted Questions</SelectItem>
+                  </SelectContent>
+                </Select>
 
                 {actionType === "allocated" && (
                   <div className="min-w-0">
@@ -626,7 +630,7 @@ const handleActionChange = (value: string) => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Levels</SelectItem>
-                        {Review_Level_QAI.map((d) => ( 
+                        {Review_Level_QAI.map((d) => (
                           <SelectItem key={d} value={d}>
                             {d}
                           </SelectItem>
@@ -634,9 +638,9 @@ const handleActionChange = (value: string) => {
                       </SelectContent>
                     </Select>
                   </div>
-                )} 
+                )}
 
-                <Button 
+                <Button
                   variant="outline"
                   size="sm"
                   onClick={() => refetch()}
@@ -759,8 +763,8 @@ const handleActionChange = (value: string) => {
                                   question.priority === "high"
                                     ? "bg-red-500/10 text-red-600 border-red-500/30"
                                     : question.priority === "medium"
-                                    ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-                                    : "bg-green-500/10 text-green-600 border-green-500/30"
+                                      ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+                                      : "bg-green-500/10 text-green-600 border-green-500/30"
                                 }`}
                               >
                                 {question.priority.charAt(0).toUpperCase() +
@@ -1090,7 +1094,8 @@ const handleActionChange = (value: string) => {
             )}
 
           {questions &&
-            questions.length != 0 && actionType=="allocated" &&
+            questions.length != 0 &&
+            actionType == "allocated" &&
             selectedQuestionData &&
             selectedQuestionData?.history?.length > 0 && (
               <ResponseTimeline
@@ -1111,11 +1116,11 @@ const handleActionChange = (value: string) => {
                 refetchQuestions={refetch}
               />
             )}
-            {questions &&
-            questions.length != 0 && actionType=="reroute" &&
-            selectedQuestionData &&selectedQuestionData?.history?.length > 0 &&
-            
-             (
+          {questions &&
+            questions.length != 0 &&
+            actionType == "reroute" &&
+            selectedQuestionData &&
+            selectedQuestionData?.history?.length > 0 && (
               <ReRouteResponseTimeline
                 SourceUrlManager={SourceUrlManager}
                 handleReset={handleReset}
@@ -1143,7 +1148,7 @@ const handleActionChange = (value: string) => {
 };
 
 type QuestionDetailsDialogProps = {
-  question: IQuestion|QuestionRerouteRepo;
+  question: IQuestion | QuestionRerouteRepo;
   buttonLabel?: string;
 };
 
@@ -1409,7 +1414,7 @@ interface ResponseTimelineProps {
   SourceUrlManager: React.ComponentType<any>;
   remarks: string;
   setRemarks: (value: string) => void;
-  setSelectedQuestion:(value: string|null) => void;
+  setSelectedQuestion: (value: string | null) => void;
   refetchQuestions?: () => void;
 }
 
@@ -1427,7 +1432,7 @@ export const ResponseTimeline = ({
   remarks,
   setRemarks,
   setSelectedQuestion,
-  refetchQuestions
+  refetchQuestions,
 }: // SourceUrlManager,
 ResponseTimelineProps) => {
   const [rejectionReason, setRejectionReason] = useState("");
@@ -1700,9 +1705,9 @@ interface ReRouteResponseTimelineProps {
   SourceUrlManager: React.ComponentType<any>;
   remarks: string;
   setRemarks: (value: string) => void;
-  questions:any
-  selectedQuestion:string|null,
-  setSelectedQuestion:(value: string|null) => void;
+  questions: any;
+  selectedQuestion: string | null;
+  setSelectedQuestion: (value: string | null) => void;
   refetchQuestions?: () => void;
 }
 export const ReRouteResponseTimeline = ({
@@ -1720,10 +1725,9 @@ export const ReRouteResponseTimeline = ({
   setRemarks,
   questions,
   setSelectedQuestion,
-  refetchQuestions
+  refetchQuestions,
 }: // SourceUrlManager,
 ReRouteResponseTimelineProps) => {
-  
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejectionSubmitted, setIsRejectionSubmitted] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
@@ -1899,36 +1903,36 @@ ReRouteResponseTimelineProps) => {
 
         <CardContent className="p-6 py-4 flex-1 flex flex-col overflow-hidden">
           <ScrollArea className="flex-1 pe-4">
-          <div className="flex flex-col w-full">
-                        <div className="flex items-center justify-between gap-2 mb-3">
-                          <Label className="text-sm font-medium text-muted-foreground">
-                            Re Routed By:
-                          </Label>
-                          {/* <QuestionDetailsDialog
+            <div className="flex flex-col w-full">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <Label className="text-sm font-medium text-muted-foreground">
+                  Re Routed By:
+                </Label>
+                {/* <QuestionDetailsDialog
                             question={selectedQuestionData}
                           /> */}
-                        </div>
+              </div>
 
-                        <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words mb-3">
-                          {selectedQuestionData?.history[0]?.moderator?.firstName}{`(${selectedQuestionData.history[0].moderator?.email})`}
-                        </p>
-                      </div>
-                      <div className="flex flex-col w-full">
-                        <div className="flex items-center justify-between gap-2 mb-3">
-                          <Label className="text-sm font-medium text-muted-foreground">
-                            Comments From Moderator:
-                          </Label>
-                          {/* <QuestionDetailsDialog
+              <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words mb-3">
+                {selectedQuestionData?.history[0]?.moderator?.firstName}
+                {`(${selectedQuestionData.history[0].moderator?.email})`}
+              </p>
+            </div>
+            <div className="flex flex-col w-full">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <Label className="text-sm font-medium text-muted-foreground">
+                  Comments From Moderator:
+                </Label>
+                {/* <QuestionDetailsDialog
                             question={selectedQuestionData}
                           /> */}
-                        </div>
+              </div>
 
-                        <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words mb-3">
-                          {selectedQuestionData.history[0].reroute?.comment}
-                        </p>
-                      </div>
-                      
-                    
+              <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words mb-3">
+                {selectedQuestionData.history[0].reroute?.comment}
+              </p>
+            </div>
+
             <ReviewHistoryTimeline
               history={history}
               isSubmittingAnswer={isSubmittingAnswer}
@@ -2007,8 +2011,6 @@ ReRouteResponseTimelineProps) => {
   );
 };
 
-
-
 interface ReviewHistoryTimelineProps {
   history: HistoryItem[];
   isSubmittingAnswer: boolean;
@@ -2020,8 +2022,8 @@ interface ReviewHistoryTimelineProps {
   setIsModifyDialogOpen: (open: boolean) => void;
   handleAccept: () => void;
   questionId: string;
-  selectedQuestionData?:IQuestion
-  setSelectedQuestion:(value: string|null) => void;
+  selectedQuestionData?: IQuestion;
+  setSelectedQuestion: (value: string | null) => void;
   refetchQuestions?: () => void;
 }
 export const parameterLabels: Record<keyof IReviewParmeters, string> = {
@@ -2045,11 +2047,11 @@ export const ReviewHistoryTimeline = ({
   questionId,
   selectedQuestionData,
   setSelectedQuestion,
-  refetchQuestions
+  refetchQuestions,
 }: ReviewHistoryTimelineProps) => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const [rejectReRouteReason,setRejectReRouteReason]=useState('')
-  const [rerouteModal,setRerouteModal]=useState(false)
+  const [rejectReRouteReason, setRejectReRouteReason] = useState("");
+  const [rerouteModal, setRerouteModal] = useState(false);
 
   const handleCopy = async (url: string, index: number) => {
     await navigator.clipboard.writeText(url);
@@ -2120,52 +2122,57 @@ export const ReviewHistoryTimeline = ({
       : "";
   };
   const { rejectReRoute, isRejecting } = useReRouteRejectQuestion();
-  const handleRejectReRouteAnswer = async(reason: string) => {
+  const handleRejectReRouteAnswer = async (reason: string) => {
     if (reason.trim() === "") {
-        toast.error("No reason provided for rejection");
-          return;
-        }
-        if (reason.length < 8) {
-          toast.error("Rejection reason must be atleast 8 letters");
-          return;
-        }
-    
+      toast.error("No reason provided for rejection");
+      return;
+    }
+    if (reason.length < 8) {
+      toast.error("Rejection reason must be atleast 8 letters");
+      return;
+    }
+
     if (!selectedQuestionData?.history?.length) {
       console.warn("Selected question data not ready");
       return;
     }
-  
-    
+
     const h = selectedQuestionData.history?.[0];
 
-if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.reroutedTo) {
-  console.error("Required data is missing for rejectReRoute");
-  return;
-}
+    if (
+      !h ||
+      !h.rerouteId ||
+      !h.question?._id ||
+      !h.moderator?._id ||
+      !h.reroute?.reroutedTo
+    ) {
+      console.error("Required data is missing for rejectReRoute");
+      return;
+    }
 
     try {
-    await rejectReRoute({
+      await rejectReRoute({
         reason,
         rerouteId: h.rerouteId,
         questionId: h.question._id,
         moderatorId: h.moderator._id,
-        expertId:h.reroute.reroutedTo,
-        role:"expert"
+        expertId: h.reroute.reroutedTo,
+        role: "expert",
       });
-      
+
       setSelectedQuestion(null);
-      
+
       // Refetch questions list
-     /* if (refetchQuestions) {
+      /* if (refetchQuestions) {
        // console.log("the refetch happening===")
        // refetchQuestions(); // ✅ Call it here
       }*/
-     toast.success("You have successfully rejected the Re Route Question");
+      toast.success("You have successfully rejected the Re Route Question");
     } catch (error) {
-      console.log("the eroor coming====",error)
+      console.log("the eroor coming====", error);
       console.error("Failed to reject reroute question:", error);
     }
-};
+  };
 
   return (
     <div className="space-y-6">
@@ -2198,7 +2205,7 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
 
                       {/* NAME (TRUNCATE) */}
                       <span className="font-medium truncate max-w-[120px]">
-                        {item?.updatedBy?.userName||"Author"}
+                        {item?.updatedBy?.userName || "Author"}
                       </span>
 
                       {/* DATE */}
@@ -2563,16 +2570,15 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                         </Button>
                       </div>
                     )}
-                    
-                    {item.answer &&
-                    item.status === "re-routed" && (
-                      <div className="flex items-center gap-1.5 pt-1 flex-wrap">
-                        <AcceptReviewDialog
-                          checklist={checklist}
-                          onChecklistChange={setChecklist}
-                          isSubmitting={isSubmittingAnswer}
-                          onConfirm={handleAccept}
-                        />
+
+                  {item.answer && item.status === "re-routed" && (
+                    <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                      <AcceptReviewDialog
+                        checklist={checklist}
+                        onChecklistChange={setChecklist}
+                        isSubmitting={isSubmittingAnswer}
+                        onConfirm={handleAccept}
+                      />
                       {/* {item.answer && Number(item.answer.approvalCount) >= 3&&
                     item.status === "re-routed" && (
                       <div className="flex items-center gap-1.5 pt-1 flex-wrap">
@@ -2585,102 +2591,100 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                         </div>
                     )}*/}
 
-                        <Button
-                          size="sm"
-                          disabled={isSubmittingAnswer}
-                          onClick={() => setIsRejectDialogOpen(true)}
-                          variant="destructive"
-                          className="gap-1 h-8 px-3 text-xs"
-                        >
-                          {isSubmittingAnswer &&
-                          rejectionReason &&
-                          isRejectionSubmitted ? (
-                            <>
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              Rejecting...
-                            </>
-                          ) : (
-                            <>
-                              <XCircle className="w-3 h-3" />
-                              Reject
-                            </>
-                          )}
-                        </Button>
+                      <Button
+                        size="sm"
+                        disabled={isSubmittingAnswer}
+                        onClick={() => setIsRejectDialogOpen(true)}
+                        variant="destructive"
+                        className="gap-1 h-8 px-3 text-xs"
+                      >
+                        {isSubmittingAnswer &&
+                        rejectionReason &&
+                        isRejectionSubmitted ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            Rejecting...
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-3 h-3" />
+                            Reject
+                          </>
+                        )}
+                      </Button>
 
+                      <Button
+                        size="sm"
+                        disabled={isSubmittingAnswer}
+                        className="gap-1 h-8 px-3 text-xs bg-blue-600 dark:bg-blue-900 text-white hover:bg-blue-600"
+                        onClick={() => setIsModifyDialogOpen(true)}
+                      >
+                        {isSubmittingAnswer &&
+                        rejectionReason &&
+                        isRejectionSubmitted ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            Modifying...
+                          </>
+                        ) : (
+                          <>
+                            <Pencil className="w-3 h-3" />
+                            Modify
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={isSubmittingAnswer}
+                        onClick={() => setRerouteModal(true)}
+                        variant="destructive"
+                        className="gap-1 h-8 px-3 text-xs "
+                      >
+                        <XCircle className="w-3 h-3" />
+                        Reject ReRoute
+                      </Button>
+                      <Dialog
+                        open={rerouteModal}
+                        onOpenChange={setRerouteModal}
+                      >
+                        <DialogContent className="max-w-lg">
+                          <DialogHeader>
+                            <DialogTitle>Rejection Reason *</DialogTitle>
+                          </DialogHeader>
+                          <Textarea
+                            value={rejectReRouteReason}
+                            onChange={(e) =>
+                              setRejectReRouteReason(e.target.value)
+                            }
+                            rows={6}
+                            className="mt-2 h-[30vh]"
+                            placeholder="Write your reason..."
+                          />
 
-                        <Button
-                          size="sm"
-                          disabled={isSubmittingAnswer}
-                          className="gap-1 h-8 px-3 text-xs bg-blue-600 dark:bg-blue-900 text-white hover:bg-blue-600"
-                          onClick={() => setIsModifyDialogOpen(true)}
-                        >
-                          {isSubmittingAnswer &&
-                          rejectionReason &&
-                          isRejectionSubmitted ? (
-                            <>
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              Modifying...
-                            </>
-                          ) : (
-                            <>
-                              <Pencil className="w-3 h-3" />
-                              Modify
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          disabled={isSubmittingAnswer}
-                          onClick={() => setRerouteModal(true)}
-                          variant="destructive"
-                          className="gap-1 h-8 px-3 text-xs "
-                        >
-                         
-                            
-                              <XCircle className="w-3 h-3" />
-                              Reject ReRoute
-                            
-                          
-                        </Button>
-                        <Dialog open={rerouteModal} onOpenChange={setRerouteModal}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Rejection Reason *</DialogTitle>
-            </DialogHeader>
-            <Textarea
-              value={rejectReRouteReason}
-              onChange={(e) => setRejectReRouteReason(e.target.value)}
-              rows={6}
-              className="mt-2 h-[30vh]"
-              placeholder="Write your reason..."
-            />
+                          <DialogFooter className="mt-4 gap-2">
+                            {/* Cancel */}
+                            <Button
+                              variant="outline"
+                              onClick={() => setRerouteModal(false)}
+                            >
+                              Cancel
+                            </Button>
 
-           <DialogFooter className="mt-4 gap-2">
-      {/* Cancel */}
-      <Button
-        variant="outline"
-        onClick={() => setRerouteModal(false)}
-      >
-        Cancel
-      </Button>
-
-      {/* Submit */}
-      <Button
-       disabled={rejectReRouteReason.length<8}
-        onClick={() => {
-          handleRejectReRouteAnswer(rejectReRouteReason);
-          setRerouteModal(false);
-        }}
-      >
-        {isSubmittingAnswer ? "Submitting..." : "Submit"}
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-      </Dialog>
-
-
-                      </div>
-                    )}
+                            {/* Submit */}
+                            <Button
+                              disabled={rejectReRouteReason.length < 8}
+                              onClick={() => {
+                                handleRejectReRouteAnswer(rejectReRouteReason);
+                                setRerouteModal(false);
+                              }}
+                            >
+                              {isSubmittingAnswer ? "Submitting..." : "Submit"}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  )}
                 </div>
               </div>
             </Card>

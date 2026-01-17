@@ -22,6 +22,7 @@ export interface IUser {
   incentive?: number;
   penalty?: number;
   isBlocked?: boolean;
+  status?: 'active' | 'in-active';
   createdAt?: Date;
   updatedAt?: Date;
 }
