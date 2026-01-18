@@ -77,6 +77,10 @@ class ChatCompletionResponse(BaseModel):
 
 # Predefined responses database
 PREDEFINED_RESPONSES = {
+    "greeting": {
+        "thinking": "The user is greeting me. I should respond warmly and offer assistance.",
+        "content": "Hello! How can I help you today?"
+    },
     "weather": {
         "thinking": "The user is asking about weather. I should use the get_weather tool to fetch this information.",
         "tool_calls": [
@@ -103,6 +107,10 @@ PREDEFINED_RESPONSES = {
             }
         ]
     },
+    "code": {
+        "thinking": "The user wants help with coding. Let me provide a helpful code example.",
+        "content": "Sure! I can help you with coding. What programming language are you working with?"
+    },
     "default": {
         "thinking": "Let me process this request and formulate a helpful response.",
         "content": "I'm a mock API. I can help you with weather queries, calculations, or general conversation!"
@@ -117,80 +125,144 @@ def detect_intent(messages: List[Message]) -> str:
         return "default"
 
     content_lower = last_user_message.content.lower()
+
+    # Check for greetings
+    if any(word in content_lower for word in ["hello", "hi", "hey", "greetings"]):
+        return "greeting"
+
+    # Check for weather
     if "weather" in content_lower:
         return "weather"
-    elif any(word in content_lower for word in ["calculate", "math", "compute"]):
+
+    # Check for calculations
+    if any(word in content_lower for word in ["calculate", "math", "compute", "solve"]):
         return "calculate"
+
+    # Check for coding
+    if any(word in content_lower for word in ["code", "program", "function", "script", "debug"]):
+        return "code"
+
     return "default"
 
 
-def create_streaming_response(response_data: Dict[str, Any], include_thinking: bool = False):
-    """Generate SSE streaming response"""
+def create_streaming_response(response_data: Dict[str, Any], include_thinking: bool = True):
+    """Generate SSE streaming response in vLLM/Qwen format"""
 
     async def generate():
-        chunk_id = f"chatcmpl-{uuid.uuid4().hex[:8]}"
+        chunk_id = f"chatcmpl-{uuid.uuid4().hex}"
+        created = int(time.time())
+        model = response_data.get("model", "openai/gpt-oss-120b")
 
-        # Stream thinking if requested
-        if include_thinking and "thinking" in response_data:
-            thinking_chunk = {
+        # First chunk with role and reasoning_content: null
+        first_chunk = {
+            "id": chunk_id,
+            "object": "chat.completion.chunk",
+            "created": created,
+            "model": model,
+            "choices": [{
+                "index": 0,
+                "delta": {"role": "assistant", "content": "", "reasoning_content": None},
+                "logprobs": None,
+                "finish_reason": None
+            }],
+            "prompt_token_ids": None
+        }
+        yield f"data: {json.dumps(first_chunk)}\n\n"
+        await asyncio.sleep(0.01)
+
+        # Stream reasoning (thinking) if present
+        if "thinking" in response_data:
+            reasoning_text = response_data["thinking"]
+            # Split by words for more natural streaming
+            words = reasoning_text.split()
+            for word in words:
+                reasoning_chunk = {
+                    "id": chunk_id,
+                    "object": "chat.completion.chunk",
+                    "created": created,
+                    "model": model,
+                    "choices": [{
+                        "index": 0,
+                        "delta": {"reasoning": word if word == words[0] else f" {word}",
+                                  "reasoning_content": word if word == words[0] else f" {word}"},
+                        "logprobs": None,
+                        "finish_reason": None,
+                        "token_ids": None
+                    }]
+                }
+                yield f"data: {json.dumps(reasoning_chunk)}\n\n"
+                await asyncio.sleep(0.02)
+
+        # Stream content if present
+        if "content" in response_data:
+            content = response_data["content"]
+            # First send newline separators (like vLLM does)
+            separator_chunk = {
                 "id": chunk_id,
                 "object": "chat.completion.chunk",
-                "created": int(time.time()),
-                "model": response_data.get("model", "gpt-4"),
+                "created": created,
+                "model": model,
                 "choices": [{
                     "index": 0,
-                    "delta": {"role": "assistant", "thinking": response_data["thinking"]},
-                    "finish_reason": None
+                    "delta": {"content": "\n\n", "reasoning_content": None},
+                    "logprobs": None,
+                    "finish_reason": None,
+                    "token_ids": None
                 }]
             }
-            yield f"data: {json.dumps(thinking_chunk)}\n\n"
-            await asyncio.sleep(0.1)
+            yield f"data: {json.dumps(separator_chunk)}\n\n"
+            await asyncio.sleep(0.01)
 
-        # Stream tool calls or content
+            # Stream content by words
+            words = content.split()
+            for i, word in enumerate(words):
+                content_chunk = {
+                    "id": chunk_id,
+                    "object": "chat.completion.chunk",
+                    "created": created,
+                    "model": model,
+                    "choices": [{
+                        "index": 0,
+                        "delta": {"content": word if i == 0 else f" {word}", "reasoning_content": None},
+                        "logprobs": None,
+                        "finish_reason": None,
+                        "token_ids": None
+                    }]
+                }
+                yield f"data: {json.dumps(content_chunk)}\n\n"
+                await asyncio.sleep(0.03)
+
+        # Stream tool calls if present
         if "tool_calls" in response_data:
             for tool_call in response_data["tool_calls"]:
                 tool_chunk = {
                     "id": chunk_id,
                     "object": "chat.completion.chunk",
-                    "created": int(time.time()),
-                    "model": response_data.get("model", "gpt-4"),
+                    "created": created,
+                    "model": model,
                     "choices": [{
                         "index": 0,
-                        "delta": {"tool_calls": [tool_call]},
-                        "finish_reason": None
+                        "delta": {"tool_calls": [tool_call], "reasoning_content": None},
+                        "logprobs": None,
+                        "finish_reason": None,
+                        "token_ids": None
                     }]
                 }
                 yield f"data: {json.dumps(tool_chunk)}\n\n"
 
-        if "content" in response_data:
-            # Stream content in chunks
-            content = response_data["content"]
-            for i in range(0, len(content), 10):
-                chunk = content[i:i + 10]
-                content_chunk = {
-                    "id": chunk_id,
-                    "object": "chat.completion.chunk",
-                    "created": int(time.time()),
-                    "model": response_data.get("model", "gpt-4"),
-                    "choices": [{
-                        "index": 0,
-                        "delta": {"content": chunk},
-                        "finish_reason": None
-                    }]
-                }
-                yield f"data: {json.dumps(content_chunk)}\n\n"
-                await asyncio.sleep(0.05)
-
-        # Final chunk
+        # Final chunk with finish_reason
         final_chunk = {
             "id": chunk_id,
             "object": "chat.completion.chunk",
-            "created": int(time.time()),
-            "model": response_data.get("model", "gpt-4"),
+            "created": created,
+            "model": model,
             "choices": [{
                 "index": 0,
-                "delta": {},
-                "finish_reason": "stop" if "content" in response_data else "tool_calls"
+                "delta": {"content": "", "reasoning_content": None},
+                "logprobs": None,
+                "finish_reason": "stop" if "content" in response_data else "tool_calls",
+                "stop_reason": None,
+                "token_ids": None
             }]
         }
         yield f"data: {json.dumps(final_chunk)}\n\n"
@@ -216,10 +288,9 @@ async def chat_completions(request: ChatCompletionRequest):
 
     # Handle streaming
     if request.stream:
-        import asyncio
-        include_thinking = request.thinking is not None and request.thinking.get("type") == "enabled"
+        # ALWAYS include thinking, regardless of request parameter
         return StreamingResponse(
-            create_streaming_response(response_data, include_thinking),
+            create_streaming_response(response_data, include_thinking=True),
             media_type="text/event-stream"
         )
 
@@ -238,7 +309,7 @@ async def chat_completions(request: ChatCompletionRequest):
         index=0,
         message=Message(**message_dict),
         finish_reason=finish_reason,
-        thinking=response_data.get("thinking") if request.thinking else None
+        thinking=response_data.get("thinking")  # ALWAYS include thinking
     )
 
     return ChatCompletionResponse(
