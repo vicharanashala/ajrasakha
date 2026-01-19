@@ -17,4 +17,3 @@ class ChatCompletionRequest(BaseModel):
     max_tokens: Optional[int] = None
     stream: Optional[bool] = False
     thinking: Optional[Dict[str, Any]] = None  # Extended thinking support
-

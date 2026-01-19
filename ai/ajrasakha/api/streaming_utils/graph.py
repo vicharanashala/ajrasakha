@@ -14,6 +14,7 @@ async def filter_events(event_stream):
                 "data": event.get("data"),
             }
 
+
 def make_chunk(ai_message_chunk, finish_reason=None):
     """
     Create a chunk from AIMessage, automatically detecting reasoning content
@@ -50,6 +51,7 @@ def make_chunk(ai_message_chunk, finish_reason=None):
         }]
     }
 
+
 async def stream_graph_events(graph: CompiledStateGraph[Any, Any, Any, Any], initial_state: Any):
     async for event in filter_events(
             graph.astream_events(initial_state, version="v2")
@@ -57,4 +59,3 @@ async def stream_graph_events(graph: CompiledStateGraph[Any, Any, Any, Any], ini
         if event.get("event") == "on_chat_model_stream":
             chunk = event["data"]["chunk"]
             yield make_chunk(chunk)
-

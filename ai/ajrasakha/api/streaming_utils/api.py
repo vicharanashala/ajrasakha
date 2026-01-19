@@ -1,11 +1,12 @@
 import json
 from typing import List, Any
 
+from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.graph.state import CompiledStateGraph
 
 from .graph import stream_graph_events, make_chunk
 from ..models import Message
-from langchain_core.messages import HumanMessage, AIMessage
+
 
 async def streaming_api_response(graph, initial_state):
     async for chunk in stream_graph_events(graph, initial_state):
@@ -41,4 +42,3 @@ async def agent_response(messages: List[Message], graph: CompiledStateGraph[Any,
     }
     async for chunk in streaming_api_response(graph, initial_state):
         yield chunk
-
