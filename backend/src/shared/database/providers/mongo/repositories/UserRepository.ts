@@ -925,4 +925,17 @@ export class UserRepository implements IUserRepository {
     });
     return performance;
   }
+
+  async updateCheckInTime(userId: string, time: Date) {
+  await this.init();
+  await this.usersCollection.updateOne(
+    { _id: new ObjectId(userId) },
+    {
+      $set: {
+        lastCheckInAt: time,
+        updatedAt: new Date(),
+      },
+    }
+  );
+}
 }
