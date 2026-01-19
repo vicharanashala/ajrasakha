@@ -170,7 +170,7 @@ export const useAuthForm = (
         } catch (e) {
           // fallback: do nothing, use original message
         }
-        if (message === "User Is Blocked Please Contact Moderator") {
+        if (message === "User Is Blocked. Please Contact Moderator") {
           toast.warning(authError.message);
         } else {
           toast.error(message);
