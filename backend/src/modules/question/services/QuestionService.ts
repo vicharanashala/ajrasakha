@@ -932,20 +932,22 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   async removeExpertFromQueue(
-    userId: string,
+    userId: string | null,
     questionId: string,
     index: number,
   ): Promise<IQuestionSubmission> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
         // Validate that user has authorization for this
+         if (userId !== null) {
         const user = await this.userRepo.findById(userId, session);
         if (!user)
           throw new UnauthorizedError(`Cannot find user, try relogin!`);
-        if (user.role == 'expert')
+        if (user.role === 'expert')
           throw new UnauthorizedError(
             `You don't have permission to perform this operation`,
           );
+      }
         //1. Validate that the question exists
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
@@ -984,22 +986,22 @@ export class QuestionService extends BaseService implements IQuestionService {
             );
           }
         }
-         if (submissionHistory.length === 0) {
-           if (submissionQueue[0].toString() === expertId) {
-             const IS_INCREMENT = false;
-             await this.userRepo.updateReputationScore(
-               expertId,
-               IS_INCREMENT,
-               session,
-             );
+        if (submissionHistory.length === 0) {
+          if (submissionQueue[0].toString() === expertId) {
+            const IS_INCREMENT = false;
+            await this.userRepo.updateReputationScore(
+              expertId,
+              IS_INCREMENT,
+              session,
+            );
             if (nextUserId) {
               const IS_INCREMENT = true;
-               await this.userRepo.updateReputationScore(
-                 nextUserId,
-                 IS_INCREMENT,
-                 session,
-               );
-             }
+              await this.userRepo.updateReputationScore(
+                nextUserId,
+                IS_INCREMENT,
+                session,
+              );
+            }
           }
         }
         // } else {
@@ -1294,7 +1296,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (query?.search) {
         try {
           // const embedding=[]
-          const {embedding} = await this.aiService.getEmbedding(query.search);
+          const { embedding } = await this.aiService.getEmbedding(query.search);
           searchEmbedding = embedding;
         } catch (err) {
           console.error(
@@ -1310,5 +1312,62 @@ export class QuestionService extends BaseService implements IQuestionService {
         searchEmbedding,
       });
     });
+  }
+  async removeAbsentExperts(): Promise<void> {
+    try {
+      await this._withTransaction(async (session: ClientSession) => {
+        const today = new Date();
+        const absentExperts = await this.userRepo.findAbsentExperts(
+          today,
+          session,
+        );
+
+        if (absentExperts.length === 0) {
+          console.log('No absent experts found today.');
+          return;
+        }
+
+        console.log(`Found ${absentExperts.length} absent experts.`);
+
+        for (const expert of absentExperts) {
+          const expertId = expert._id.toString();
+          await this.userRepo.updateIsBlocked(expertId, 'block', session);
+          const submissions =
+            await this.questionSubmissionRepo.findByExpertInQueue(
+              expertId,
+              session,
+            );
+
+          if (!submissions || submissions.length === 0) continue;
+
+          for (const submission of submissions) {
+            const questionId = submission.questionId.toString();
+
+            const index = submission.queue.findIndex(
+              (id: any) => id.toString() === expertId
+            );
+
+            if (index !== -1) {
+            const lastHistory = submission.history?.at(-1);
+
+            if (
+              lastHistory &&
+              lastHistory.updatedBy?.toString() === expertId &&
+              lastHistory.status !== 'reviewed' &&
+              lastHistory.status !== 'approved'
+            ) {
+              if (submission.queue.length >= submission.history.length) {
+                await this.removeExpertFromQueue(null, questionId, index);
+              }
+            }
+          }
+
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Failed to remove absent experts:', error);
+      throw new InternalServerError(`Failed to remove absent experts: ${error}`);
+    }
   }
 }

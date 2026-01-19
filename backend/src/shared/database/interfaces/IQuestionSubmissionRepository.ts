@@ -135,4 +135,14 @@ export interface IQuestionSubmissionRepository {
   );
   getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any>;
   getModeratorReviewLevel(query: ExpertReviewLevelDto): Promise<any>;
+
+  /**
+   * Finds submissions where a specific expert is in the queue.
+   * @param expertId - The ID of the expert.
+   * @param session - Optional MongoDB session.
+   */
+  findByExpertInQueue(
+    expertId: string,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]>;
 }

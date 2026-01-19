@@ -112,18 +112,18 @@ export interface IUserRepository {
    * @returns A promise that resolves to an array of users.
    */
 
-findAllUsers(
-  page: number,
-  limit: number,
-  search: string,
-  sortOption: string,
-  filter: string,
-  session?: ClientSession,
-): Promise<{
-  users: IUser[];
-  totalUsers: number;
-  totalPages: number;
-}>;
+  findAllUsers(
+    page: number,
+    limit: number,
+    search: string,
+    sortOption: string,
+    filter: string,
+    session?: ClientSession,
+  ): Promise<{
+    users: IUser[];
+    totalUsers: number;
+    totalPages: number;
+  }>;
 
   /**
  * Finds all users with pagination, search, sorting and filtering (Admin).
@@ -136,7 +136,7 @@ findAllUsers(
  * @returns paginated users list
  */
 
-   
+
   updateReputationScore(
     userId: string,
     isIncrement: boolean,
@@ -215,5 +215,13 @@ findAllUsers(
  * @param userId - The ID of the user.
  * @param time - The new check-in time.
  */
-updateCheckInTime(userId: string, time: Date, session?: ClientSession): Promise<void>;
+  updateCheckInTime(userId: string, time: Date, session?: ClientSession): Promise<void>;
+
+  /**
+   * Finds all experts who have NOT checked in today.
+   * @param today - The Date object representing today (for comparison).
+   * @param session - Optional MongoDB session.
+   * @returns List of absent experts.
+   */
+  findAbsentExperts(today: Date, session?: ClientSession): Promise<IUser[]>;
 }

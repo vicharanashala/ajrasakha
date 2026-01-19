@@ -85,7 +85,7 @@ export interface IQuestionService {
 
   /** Remove expert from allocation queue */
   removeExpertFromQueue(
-    userId: string,
+    userId: string | null,
     questionId: string,
     index: number
   ): Promise<IQuestionSubmission>;
@@ -117,4 +117,9 @@ export interface IQuestionService {
   getQuestionAndReviewLevel(
     query: GetDetailedQuestionsQuery
   ): Promise<QuestionLevelResponse>;
+
+  /**
+   * Identify and remove experts who have not checked in today.
+   */
+  removeAbsentExperts(): Promise<void>;
 }
