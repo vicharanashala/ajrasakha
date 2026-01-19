@@ -2094,6 +2094,7 @@ interface AnswerItemProps {
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const [sources, setSources] = useState<SourceItem[]>(props.answer.sources);
+  const [searchTerm, setSearchTerm] = useState("");
   const isMine = props.answer.authorId === props.currentUserId;
   // const [comment, setComment] = useState("");
   // const observer = useRef<IntersectionObserver>(null);
@@ -2191,11 +2192,16 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const isRejected =
     props.submissionData && props.submissionData.status === "rejected";
 
-  const { data: usersData, isLoading: isUsersLoading } = useGetAllUsers();
+  const { data: usersData, isLoading: isUsersLoading } = useGetAllUsers(
+     1,
+    20,
+    searchTerm,
+    "",
+    "",
+  );
   const { mutateAsync: allocateExpert, isPending: allocatingExperts } =
     useGetReRouteAllocation();
 
-  const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   //  const expertsIdsInQueue = new Set(props.queue?.map((expert) => expert._id));
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
@@ -2225,10 +2231,9 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
 
   const filteredExperts = experts.filter(
     (expert) =>
-      expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      expert.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       expert.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
   const handleSelectExpert = (expertId: string) => {
     setSelectedExperts((prev) =>
       prev.includes(expertId)
@@ -2611,14 +2616,14 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
 
                             <Checkbox
                               id={`expert-${expert._id}`}
-                              checked={selectedExperts.includes(expert._id)}
+                              checked={selectedExperts.includes(expert._id??"")}
                               onCheckedChange={() =>
-                                handleSelectExpert(expert._id)
+                                handleSelectExpert(expert._id ?? "")
                               }
                               disabled={
                                 expert.isBlocked ||
                                 (selectedExperts.length > 0 &&
-                                  !selectedExperts.includes(expert._id))
+                                  !selectedExperts.includes(expert._id ?? ""))
                               }
                               className="mt-1"
                             />
@@ -2632,10 +2637,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                                 <div className="flex flex-col">
                                   <div
                                     className="font-medium truncate"
-                                    title={expert.userName}
+                                    title={expert.firstName}
                                   >
-                                    {expert?.userName?.slice(0, 48)}
-                                    {expert?.userName?.length > 48 ? "..." : ""}
+                                    {expert?.firstName?.slice(0, 48)}
+                                    {expert?.firstName?.length > 48 ? "..." : ""}
                                   </div>
                                   <div
                                     className="text-xs text-muted-foreground truncate"
