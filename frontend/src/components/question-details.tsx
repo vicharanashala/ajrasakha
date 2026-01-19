@@ -662,6 +662,7 @@ export const QuestionDetails = ({
             userRole={currentUser.role}
             queue={question.submission.queue}
             rerouteQuestion={reroutequestionDetails ?? undefined}
+            refetchRerouteData={refechrerouteSelectedQuestion}
           />
           {answerVisibleCount < answers.length && (
             <div className="flex justify-center">
@@ -1992,6 +1993,7 @@ interface IAnswerTimelineProps {
   userRole: UserRole;
   queue: ISubmission["queue"];
   rerouteQuestion?: IRerouteHistoryResponse[];
+  refetchRerouteData?:()=>void;
 }
 
 export const AnswerTimeline = ({
@@ -2003,6 +2005,7 @@ export const AnswerTimeline = ({
   userRole,
   queue,
   rerouteQuestion,
+  refetchRerouteData
 }: IAnswerTimelineProps) => {
   // map answers to timeline events
   const events = answers.slice(0, answerVisibleCount).map((ans) => {
@@ -2071,6 +2074,7 @@ export const AnswerTimeline = ({
               userRole={userRole}
               queue={queue}
               rerouteQuestion={rerouteQuestion}
+              refetchRerouteData = {refetchRerouteData}
             />
           </div>
         )}
@@ -2090,9 +2094,10 @@ interface AnswerItemProps {
   questionStatus: QuestionStatus;
   queue: ISubmission["queue"];
   rerouteQuestion?: IRerouteHistoryResponse[];
+  refetchRerouteData?: ()=>void;
 }
 
-export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
+export const AnswerItem = forwardRef((props: AnswerItemProps, ref,) => {
   const [sources, setSources] = useState<SourceItem[]>(props.answer.sources);
   const [searchTerm, setSearchTerm] = useState("");
   const isMine = props.answer.authorId === props.currentUserId;
@@ -2262,14 +2267,20 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         comment: comment.trim(),
         status: "pending" as ReRouteStatus,
       });
-      toast.success("You have successfully Re Routed the question");
+
+      if(props.refetchRerouteData){
+         props.refetchRerouteData()
+      }
+
       setSelectedExperts([]);
-      setIsModalOpen(false);
+      toast.success("You have successfully Re Routed the question");
     } catch (error: any) {
       console.error("Error allocating experts:", error);
       toast.error(
         error?.message || "Failed to allocate experts. Please try again."
       );
+    } finally {
+      setIsModalOpen(false)
     }
   };
   const [rejectionReason, setRejectionReason] = useState("");
@@ -2309,7 +2320,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         expertId: userId,
         role: "moderator",
       });
-      console.log("the result coming====", result);
+      
+      if(props.refetchRerouteData){
+         props.refetchRerouteData()
+      }
       toast.success("You have successfully rejected the Re Route Question");
     } catch (error: any) {
       // ✅ NOW you will see backend error
