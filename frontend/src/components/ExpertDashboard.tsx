@@ -78,15 +78,9 @@ export const ExpertDashboard = ({
   });
 
   const isSameDay = (d1: Date, d2: Date) =>
-<<<<<<< HEAD
-  d1.getFullYear() === d2.getFullYear() &&
-  d1.getMonth() === d2.getMonth() &&
-  d1.getDate() === d2.getDate();
-=======
     d1.getFullYear() === d2.getFullYear() &&
     d1.getMonth() === d2.getMonth() &&
     d1.getDate() === d2.getDate();
->>>>>>> 1166cd45c1aaf0f3c6bb6b6dcaebf06b55ea755f
 
   const { data: user, isLoading } = useGetCurrentUser({ enabled: shouldFetch });
   let userId: string | undefined;
@@ -155,36 +149,6 @@ export const ExpertDashboard = ({
   }, [expertArr, user?.email]);
 
 
-<<<<<<< HEAD
-const lastCheckIn = userDetails?.[0]?.lastCheckInAt
-  ? new Date(userDetails[0].lastCheckInAt)
-  : null;
-
-   const isCheckInDisabled = (lastCheckIn: Date | null) => {
-  if (!lastCheckIn) return false;
-
-  const now = new Date();
-
-  const startOfToday = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    0, 0, 0, 0
-  );
-
-  const endOfToday = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    23, 59, 59, 999
-  );
-
-  return lastCheckIn >= startOfToday && lastCheckIn <= endOfToday;
-};
-  const isCheckedInToday = isCheckInDisabled(lastCheckIn);
-
-  const { mutate: checkIn, isPending } = useCheckIn();
-=======
   const lastCheckIn = userDetails?.[0]?.lastCheckInAt
     ? new Date(userDetails[0].lastCheckInAt)
     : null;
@@ -214,7 +178,6 @@ const lastCheckIn = userDetails?.[0]?.lastCheckInAt
 
   const { checkIn, isPending } = useCheckIn();
 
->>>>>>> 1166cd45c1aaf0f3c6bb6b6dcaebf06b55ea755f
   const handleDateChange = (key: string, value?: Date) => {
     setExpertDate((prev) => ({
       ...prev,
