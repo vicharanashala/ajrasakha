@@ -55,6 +55,16 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
     filter,
     { enabled: isAdmin }
   );
+ const toggleSort = (key: string) => {
+  if (key === "rank") {
+    setSort("");
+    return;
+  }
+  setSort((prev) => {
+    if (prev === `${key}_asc`) return `${key}_desc`;
+    return `${key}_asc`;
+  });
+};
 
   const { data: expertDetails, isLoading: expertLoading } = useGetAllExperts(
     page,
@@ -64,13 +74,6 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
     filter,
     { enabled: isModerator }
   );
-
-  const toggleSort = (key: string) => {
-    setSort((prev) => {
-      if (prev === `${key}_asc`) return `${key}_desc`;
-      return `${key}_asc`;
-    });
-  };
 
   useEffect(() => {
     if (selectedUserId) {
