@@ -51,7 +51,7 @@ export const QaHeader=({ questions,
   setQuestionRef}:QaHeaderProps)=>{
   return(
     <div>
-      <Card className="w-full md:max-h-[120vh]  max-h-[80vh] min-h-[75vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent">
+      <Card className="w-full md:max-h-[120vh]  max-h-[80vh] min-h-[90vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent">
             <CardHeader className="border-b flex flex-row items-center justify-between pb-4">
               <TooltipProvider>
                 <div className="flex items-center gap-2">

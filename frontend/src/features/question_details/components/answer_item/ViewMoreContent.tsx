@@ -1,7 +1,7 @@
 // components/ViewMoreContent.tsx
 import type { IAnswer, ISubmissionHistory, QuestionStatus } from "@/types";
 import { ScrollArea } from "@/components/atoms/scroll-area";
-import { Badge } from "lucide-react";
+import { Badge } from "@/components/atoms/badge";
 import { XCircle, Clock, AlertCircle, ArrowUpRight } from "lucide-react";
 import { formatDate } from "@/utils/formatDate";
 import { ExpandableText } from "@/components/expandable-text";

@@ -42,7 +42,7 @@ interface AnswerActionsProps {
   rejectionReason: string;
   setRejectionReason: (reason: string) => void;
   handleRejectReRouteAnswer: (reason: string) => void;
-  isRejected: boolean;
+  isRejected: boolean|undefined;
   submissionData?: ISubmissionHistory;
   questionId: string;
   reviews: any[];

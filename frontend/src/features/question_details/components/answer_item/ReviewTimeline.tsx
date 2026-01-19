@@ -1,5 +1,5 @@
 // components/ReviewTimeline.tsx
-import { Badge } from "lucide-react";
+import { Badge } from "@/components/atoms/badge";
 import { CheckCircle, XCircle, Pencil, Check, X } from "lucide-react";
 import { formatDate } from "@/utils/formatDate";
 import { parameterLabels } from "../../../qa-interface-page/ReviewHistoryTimeline";

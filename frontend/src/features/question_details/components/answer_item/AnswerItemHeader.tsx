@@ -1,11 +1,11 @@
 import type { IAnswer, ISubmissionHistory, QuestionStatus } from "@/types";
-import { Badge } from "lucide-react";
+import { Badge } from "@/components/atoms/badge";
 import { XCircle, Clock, UserCheck } from "lucide-react";
 
 interface AnswerItemHeaderProps {
   answer: IAnswer;
   isMine: boolean;
-  isRejected: boolean;
+  isRejected: boolean|undefined;
   submissionData?: ISubmissionHistory;
   questionStatus: QuestionStatus;
   lastAnswerId: string;
