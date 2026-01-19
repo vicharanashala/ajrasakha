@@ -2335,6 +2335,8 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref,) => {
         "Something went wrong";
 
       toast.error(message);
+    } finally{
+      setIsRejectDialogOpen(false)
     }
 
     // 🔥 call mutation / API here
@@ -2688,14 +2690,23 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref,) => {
                       variant="outline"
                       onClick={handleCancel}
                       className="hidden md:block"
+                      disabled={ allocatingExperts}
                     >
                       Cancel
                     </Button>
                     <Button
                       onClick={handleSubmit}
-                      disabled={selectedExperts.length === 0 || !comment.trim()}
+                      disabled={selectedExperts.length === 0 || !comment.trim() || allocatingExperts}
                     >
-                      {`Submit (${selectedExperts.length} selected)`}
+                      {
+                        allocatingExperts?
+                        <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Allocating...
+                        </>
+                        :
+                      `Submit (${selectedExperts.length} selected)`
+                      }
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -2742,6 +2753,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref,) => {
                     {/* Cancel */}
                     <Button
                       variant="outline"
+                      disabled={isRejecting}
                       onClick={() => setIsRejectDialogOpen(false)}
                     >
                       Cancel
@@ -2749,13 +2761,21 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref,) => {
 
                     {/* Submit */}
                     <Button
-                      disabled={rejectionReason.length < 8}
+                      disabled={rejectionReason.length < 8 || isRejecting}
                       onClick={() => {
                         handleRejectReRouteAnswer(rejectionReason);
-                        setIsRejectDialogOpen(false);
                       }}
                     >
-                      {"Submit"}
+                      { 
+                      isRejecting?
+                      <>
+
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      submiting...
+                      </>
+                      :
+                      "Submit"
+                      }
                     </Button>
                   </DialogFooter>
                 </DialogContent>
