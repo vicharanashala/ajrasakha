@@ -78,9 +78,9 @@ export const ExpertDashboard = ({
   });
 
   const isSameDay = (d1: Date, d2: Date) =>
-  d1.getFullYear() === d2.getFullYear() &&
-  d1.getMonth() === d2.getMonth() &&
-  d1.getDate() === d2.getDate();
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate();
 
   const { data: user, isLoading } = useGetCurrentUser({ enabled: shouldFetch });
   let userId: string | undefined;
@@ -149,34 +149,35 @@ export const ExpertDashboard = ({
   }, [expertArr, user?.email]);
 
 
-const lastCheckIn = userDetails?.[0]?.lastCheckInAt
-  ? new Date(userDetails[0].lastCheckInAt)
-  : null;
+  const lastCheckIn = userDetails?.[0]?.lastCheckInAt
+    ? new Date(userDetails[0].lastCheckInAt)
+    : null;
 
-   const isCheckInDisabled = (lastCheckIn: Date | null) => {
-  if (!lastCheckIn) return false;
+  const isCheckInDisabled = (lastCheckIn: Date | null) => {
+    if (!lastCheckIn) return false;
 
-  const now = new Date();
+    const now = new Date();
 
-  const startOfToday = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    0, 0, 0, 0
-  );
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      0, 0, 0, 0
+    );
 
-  const endOfToday = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    23, 59, 59, 999
-  );
+    const endOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      23, 59, 59, 999
+    );
 
-  return lastCheckIn >= startOfToday && lastCheckIn <= endOfToday;
-};
+    return lastCheckIn >= startOfToday && lastCheckIn <= endOfToday;
+  };
   const isCheckedInToday = isCheckInDisabled(lastCheckIn);
 
-  const { mutate: checkIn, isPending } = useCheckIn();
+  const { checkIn, isPending } = useCheckIn();
+
   const handleDateChange = (key: string, value?: Date) => {
     setExpertDate((prev) => ({
       ...prev,
@@ -246,10 +247,10 @@ const lastCheckIn = userDetails?.[0]?.lastCheckInAt
           {/* <DashboardClock /> */}
           <div className="flex flex-col items-center gap-1">
             <Button
-            size="sm"
-            disabled={isCheckedInToday || isPending}
-            onClick={() => checkIn()}
-          >
+              size="sm"
+              disabled={isCheckedInToday || isPending}
+              onClick={() => checkIn()}
+            >
               {isCheckedInToday ? "Checked In" : "Check In"}
             </Button>
             {/* ANIMATION SWITCH */}
@@ -321,7 +322,7 @@ const lastCheckIn = userDetails?.[0]?.lastCheckInAt
                     Incentive Points
                   </p>
                   <p className="text-3xl font-bold text-foreground">
-                    { userDetails?.[0]?.incentive||user?.incentive || 0}
+                    {userDetails?.[0]?.incentive || user?.incentive || 0}
                   </p>
                   <p className="text-xs text-green-600 mt-2 font-medium">
                     Total Approved Answers
@@ -338,7 +339,7 @@ const lastCheckIn = userDetails?.[0]?.lastCheckInAt
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Penality</p>
                   <p className="text-3xl font-bold text-foreground">
-                    {userDetails?.[0]?.penalty ||user?.penalty || 0}
+                    {userDetails?.[0]?.penalty || user?.penalty || 0}
                   </p>
                   <p className="text-xs text-green-600 mt-2 font-medium">
                     Total Rejected Answers
