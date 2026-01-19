@@ -708,7 +708,14 @@ const AllocationQueueHeader = ({
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const { data: usersData, isLoading: isUsersLoading } = useGetAllUsers();
+  const { data: usersData, isLoading: isUsersLoading } = useGetAllUsers(
+     1,
+    20,
+    searchTerm,
+    "",
+    "",
+  );
+  
   const { mutateAsync: allocateExpert, isPending: allocatingExperts } =
     useAllocateExpert();
   const { mutateAsync: toggleAutoAllocateStatus, isPending: changingStatus } =
@@ -718,12 +725,11 @@ const AllocationQueueHeader = ({
 
   const experts =
     usersData?.users.filter(
-      (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id)
+      (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id ?? '')
     ) || [];
-
   const filteredExperts = experts.filter(
     (expert) =>
-      expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      expert.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       expert.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
