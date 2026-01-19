@@ -1,8 +1,7 @@
 from typing import List, Optional
-
 from utils import get_mongodb_vector_store, get_huggingface_embedding_model
 from langchain.tools import tool
-from pymongo import MongoClient
+from pymongo import AsyncMongoClient
 from bson import ObjectId
 import os
 from pydantic import BaseModel
@@ -22,7 +21,7 @@ vector_store = get_mongodb_vector_store(
     MONGODB_INDEX,
 )
 
-mongo_client = MongoClient(MONGODB_URI)
+mongo_client = AsyncMongoClient(MONGODB_URI)
 database = mongo_client[MONGODB_DATABASE]
 answers_collection = database["answers"]
 users_collection = database["users"]
@@ -35,8 +34,8 @@ class QuestionAnswerPair(BaseModel):
     sources: List
     similarity_score: Optional[float] = None
 
-def _get_answer_text_sources_and_author_name(question_id: str):
-    answer_document = answers_collection.find_one(
+async def _get_answer_text_sources_and_author_name(question_id: str):
+    answer_document = await answers_collection.find_one(
         {
             "questionId": ObjectId(question_id)
         },
@@ -46,7 +45,7 @@ def _get_answer_text_sources_and_author_name(question_id: str):
             "answer": 1,
         },
     )
-    user_document = users_collection.find_one(
+    user_document = await users_collection.find_one(
         {
             "_id": ObjectId(answer_document["authorId"])
         }
@@ -59,12 +58,12 @@ def _get_answer_text_sources_and_author_name(question_id: str):
 
 
 @tool
-def golden_retriever_tool(
-    query: str,
-    crop: str | None = None,
-    season: str | None = None,
-    state: str | None = None,
-    domain: str | None = None,
+async def golden_retriever_tool(
+        query: str,
+        crop: str | None = None,
+        season: str | None = None,
+        state: str | None = None,
+        domain: str | None = None,
 ):
     '''Retrieve relevant documents from the Golden dataset based on the query and optional filters.'''
     filters = {"status": "closed"}
@@ -82,7 +81,9 @@ def golden_retriever_tool(
     result = []
     for doc in docs:
         document, score = doc
-        answer, sources, author_name = _get_answer_text_sources_and_author_name(document.metadata['_id'])
+        answer, sources, author_name = await _get_answer_text_sources_and_author_name(
+            document.metadata['_id']
+        )
         question_answer_pair = QuestionAnswerPair(
             question_id=document.metadata['_id'],
             question_text=document.metadata['question'],
