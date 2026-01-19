@@ -1,3 +1,3 @@
-from .weather import *
-from .location import *
 from .golden import *
+from .location import *
+from .weather import *

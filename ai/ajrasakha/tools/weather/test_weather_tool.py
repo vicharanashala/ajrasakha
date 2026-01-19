@@ -1,4 +1,5 @@
 import pytest
+
 from .weather_tool import weather_information_tool
 
 LAT = 18.5204

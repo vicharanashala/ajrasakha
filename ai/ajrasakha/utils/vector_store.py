@@ -1,13 +1,14 @@
-from pymongo import MongoClient
-from langchain_mongodb import MongoDBAtlasVectorSearch
 from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_mongodb import MongoDBAtlasVectorSearch
+from pymongo import MongoClient
+
 
 def get_mongodb_vector_store(
-    embedding_model: HuggingFaceEmbeddings,
-    mongo_connection_string: str,
-    db_name: str,
-    collection_name: str,
-    index_name: str,
+        embedding_model: HuggingFaceEmbeddings,
+        mongo_connection_string: str,
+        db_name: str,
+        collection_name: str,
+        index_name: str,
 ) -> MongoDBAtlasVectorSearch:
     """
     Initialize and return a MongoDB Atlas Vector Search vector store.
