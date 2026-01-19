@@ -17,7 +17,10 @@ import {
   SelectValue,
 } from "@/components/atoms/select";
 import { Textarea } from "@/components/atoms/textarea";
-
+import { ConfirmationModal } from "./confirmation-modal";
+import { Trash2 } from "lucide-react";
+import { useSoftDeleteRequest } from "@/hooks/api/request/useDeleteRequest";
+import { useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback } from "@/components/atoms/avatar";
 import { cn } from "@/lib/utils";
 import type { IDetailedQuestion, IRequest, RequestStatus } from "@/types";
@@ -90,7 +93,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
   const [responseOpen, setResponseOpen] = useState(false);
 
   const { data: requestDiff, isLoading: reqDiffLoading } = useGetRequestDiff(
-    req._id
+    diffOpen ? req._id : ""
   );
 
   const { mutateAsync: updateStatus, isPending: updatingStatus } =
@@ -100,6 +103,11 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
     requestType: req.requestType,
     diff: requestDiff!,
   };
+   const queryClient = useQueryClient();
+  const { mutateAsync: softDelete, isPending: deleting } = useSoftDeleteRequest();
+ const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+
+
   useEffect(() => {}, [isHighlighted, req._id]);
   const handleSubmit = async () => {
     try {
@@ -167,9 +175,9 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
   };
 
   return (
-    <Card
+    <Card 
       // className="bg-card"
-      className={`bg-card relative transition-all duration-200 ${
+      className={`group bg-card relative transition-all duration-200 ${
         isHighlighted
           ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
           : "border-border hover:border-primary/40 hover:shadow-sm"
@@ -208,22 +216,80 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
             </div>
           </div>
         </div>
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-medium border ${
-            req?.status === "approved"
-              ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
-              : req?.status === "rejected"
-              ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
-              : req?.status === "in-review"
-              ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
-              : req?.status === "pending"
-              ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
-              : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
-          }`}
-        >
-          {req?.status?.toUpperCase() || "N/A"}
-        </span>
+        {/* Status badge */}
+<span
+  className={`absolute top-11 right-5 px-3 py-1 rounded-full text-xs font-medium border ${
+    req?.status === "approved"
+      ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
+      : req?.status === "rejected"
+      ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
+      : req?.status === "in-review"
+      ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
+      : req?.status === "pending"
+      ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
+      : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
+  }`}
+>
+  {req?.status?.toUpperCase() || "N/A"}
+</span>
+{/* Delete button */}
+<ConfirmationModal
+  title="Confirm Delete"
+  description="Are you sure you want to delete this request? This action cannot be undone."
+  confirmText="Delete"
+  type="delete"
+  open={deleteModalOpen}
+  onOpenChange={setDeleteModalOpen}
+  isLoading={deleting}
+  onConfirm={async () => {
+    try {
+      await softDelete(req._id);
+
+      // Remove and invalidate queries
+      queryClient.removeQueries({ queryKey: ["request_diff", req._id] });
+      queryClient.invalidateQueries({ queryKey: ["requests"] });
+
+      toast.success("Request deleted successfully.");
+      setDeleteModalOpen(false);
+    } catch {
+      toast.error("Failed to delete request.");
+    }
+  }}
+  trigger={
+    <Button
+      variant="ghost"
+      className="
+  absolute top-0 right-0
+  h-10 w-10 p-0
+  flex items-center justify-center
+  rounded-full
+
+  bg-muted/70 dark:bg-white/10
+  text-black dark:text-muted-foreground
+
+  opacity-0 group-hover:opacity-100
+  transition-opacity duration-200
+
+  hover:text-red-500
+  dark:hover:text-white
+
+  cursor-pointer
+  !shadow-none
+  border-none
+  z-20
+"
+
+      disabled={deleting}
+    >
+      <Trash2 className="w-4 h-4" />
+    </Button>
+  }
+/>
+
+
+
       </CardHeader>
+
       <CardContent className="space-y-3">
         <div className="text-sm">
           <div className="font-medium">Reason</div>
@@ -235,7 +301,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
         <div className="flex gap-2 justify-end">
           <div className="fixed inset-0 flex items-start justify-center z-50 p-6 pointer-events-none">
             {diffOpen && (
-              <Card className="bg-card w-[90vw] max-w-[95vw] h-[90vh] flex flex-col shadow-xl border border-border pointer-events-auto overflow-hidden">
+              <Card className="group bg-card w-[90vw] max-w-[95vw] h-[90vh] flex flex-col shadow-xl border border-border pointer-events-auto overflow-hidden">
                 <CardHeader className="p-6 border-b border-border flex flex-col gap-2">
                   <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-4">
@@ -440,25 +506,26 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
               </DialogContent>
             </Dialog>
           </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              className="flex items-center justify-center gap-2"
-              onClick={() => setResponseOpen(true)}
-            >
-              <History className="w-4 h-4" aria-hidden="true" />
-              <span>View History</span>
-            </Button>
+      <div className="flex items-center gap-3 relative group">
+  <Button
+    variant="outline"
+    className="flex items-center justify-center gap-2"
+    onClick={() => setResponseOpen(true)}
+  >
+    <History className="w-4 h-4" aria-hidden="true" />
+    <span>View History</span>
+  </Button>
 
-            <Button
-              variant="default"
-              className="flex items-center justify-center gap-2"
-              onClick={() => setDiffOpen(true)}
-            >
-              <GitCompare className="w-4 h-4" aria-hidden="true" />
-              <span>View Diff</span>
-            </Button>
-          </div>
+  <Button
+    variant="default"
+    className="flex items-center justify-center gap-2"
+    onClick={() => setDiffOpen(true)}
+  >
+    <GitCompare className="w-4 h-4" aria-hidden="true" />
+    <span>View Diff</span>
+  </Button>
+</div>
+
         </div>
       </CardContent>
     </Card>
@@ -626,6 +693,7 @@ export const RequestsPage = ({
         ) : (
           requestData.requests.map((req) => (
             <RequestCard
+            
               key={`${req._id}-${selectedRequestId === String(req._id)}`}
               req={req}
               isHighlighted={selectedRequestId === String(req._id)}

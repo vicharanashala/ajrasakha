@@ -111,6 +111,32 @@ export interface IUserRepository {
    * @param newScore -  New score.
    * @returns A promise that resolves to an array of users.
    */
+
+findAllUsers(
+  page: number,
+  limit: number,
+  search: string,
+  sortOption: string,
+  filter: string,
+  session?: ClientSession,
+): Promise<{
+  users: IUser[];
+  totalUsers: number;
+  totalPages: number;
+}>;
+
+  /**
+ * Finds all users with pagination, search, sorting and filtering (Admin).
+ * @param page - page number
+ * @param limit - documents per page
+ * @param search - search query
+ * @param sort - sorting option
+ * @param filter - filter option
+ * @param session - MongoDB session
+ * @returns paginated users list
+ */
+
+   
   updateReputationScore(
     userId: string,
     isIncrement: boolean,
