@@ -15,6 +15,7 @@ interface AuthStore {
   firebaseUser: User | null;
   loading: boolean;
   error: string | null;
+  updateUser: (data: Partial<AuthUser>) => void;
   loginWithGoogle: () => Promise<ExtendedUserCredential | null>;
   logout: () => Promise<void>;
   initAuthListener: () => void;
@@ -46,6 +47,15 @@ export const useAuthStore = create<AuthStore>()(
           localStorage.removeItem("user-lastName");
           set({ user: null, isAuthenticated: false });
         },
+        updateUser: (data) =>
+          set(
+            (state) =>
+              state.user
+                ? { user: { ...state.user, ...data } }
+                : state,
+            undefined,
+            "updateUser"
+          ),
         loginWithGoogle: async (): Promise<ExtendedUserCredential | null> => {
           set({ loading: true, error: null });
           try {
