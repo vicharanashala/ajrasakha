@@ -11,7 +11,7 @@ import {
   UnauthorizedError,
 } from 'routing-controllers';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
-import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
+import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js'
 import {
   Analytics,
   AnswerStatusOverview,
@@ -63,6 +63,10 @@ export class PerformanceService extends BaseService implements IPerformanceServi
   }> {
     return await this.answerRepo.getCurrentUserWorkLoad(currentUserId);
   }
+
+  async updateCheckInTime(userId: string, time: Date) {
+  await this.userRepo.updateCheckInTime(userId, time); 
+}
 
   async getDashboardData(
     currentUserId: string,

@@ -87,4 +87,14 @@ export class PerformanceController {
     // console.log("the service result====",result)
     return result;
   }
+
+  @Post('/performance/check-in')
+    @HttpCode(200)
+    @Authorized()
+    @OpenAPI({ summary: 'Check-in for the current user' })
+    async checkIn(@CurrentUser() user: IUser) {
+      await this.performanceService.updateCheckInTime(user._id.toString(), new Date());
+      return { success: true, lastCheckInAt: new Date() };
+    }
+
 }

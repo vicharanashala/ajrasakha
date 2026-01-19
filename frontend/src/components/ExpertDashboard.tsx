@@ -20,6 +20,7 @@ import {
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useGetReviewLevel } from "@/hooks/api/user/useGetReviewLevel";
 import { useGetAllExperts } from "@/hooks/api/user/useGetAllUsers";
+import { useCheckIn } from "@/hooks/api/performance/useCheckIn";
 import {
   Table,
   TableBody,
@@ -75,6 +76,11 @@ export const ExpertDashboard = ({
     startTime: undefined,
     endTime: undefined,
   });
+
+  const isSameDay = (d1: Date, d2: Date) =>
+  d1.getFullYear() === d2.getFullYear() &&
+  d1.getMonth() === d2.getMonth() &&
+  d1.getDate() === d2.getDate();
 
   const { data: user, isLoading } = useGetCurrentUser({ enabled: shouldFetch });
   let userId: string | undefined;
@@ -142,12 +148,44 @@ export const ExpertDashboard = ({
     setUserDetails(filteredUsers);
   }, [expertArr, user?.email]);
 
+
+const lastCheckIn = userDetails?.[0]?.lastCheckInAt
+  ? new Date(userDetails[0].lastCheckInAt)
+  : null;
+
+   const isCheckInDisabled = (lastCheckIn: Date | null) => {
+  if (!lastCheckIn) return false;
+
+  const now = new Date();
+
+  const startOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    0, 0, 0, 0
+  );
+
+  const endOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    23, 59, 59, 999
+  );
+
+  return lastCheckIn >= startOfToday && lastCheckIn <= endOfToday;
+};
+  const isCheckedInToday = isCheckInDisabled(lastCheckIn);
+
+  const { mutate: checkIn, isPending } = useCheckIn();
   const handleDateChange = (key: string, value?: Date) => {
     setExpertDate((prev) => ({
       ...prev,
       [key]: value,
     }));
   };
+ 
+
+
 
   return (
     <main
@@ -206,8 +244,14 @@ export const ExpertDashboard = ({
           </div>
 
           {/* <DashboardClock /> */}
-
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col items-center gap-1">
+            <Button
+            size="sm"
+            disabled={isCheckedInToday || isPending}
+            onClick={() => checkIn()}
+          >
+              {isCheckedInToday ? "Checked In" : "Check In"}
+            </Button>
             {/* ANIMATION SWITCH */}
             {/* {theme == "dark" && (
               <div className="flex items-center gap-2">
