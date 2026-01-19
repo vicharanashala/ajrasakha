@@ -1,10 +1,12 @@
-from typing import List, Optional
-from utils import get_mongodb_vector_store, get_huggingface_embedding_model
-from langchain.tools import tool
-from pymongo import AsyncMongoClient
-from bson import ObjectId
 import os
+from typing import List, Optional
+
+from bson import ObjectId
+from langchain.tools import tool
 from pydantic import BaseModel
+from pymongo import AsyncMongoClient
+
+from utils import get_mongodb_vector_store, get_huggingface_embedding_model
 
 EMBEDDING_MODEL = os.getenv("GOLDEN_EMBEDDING_MODEL")
 MONGODB_URI = os.getenv("GOLDEN_MONGODB_URI")
@@ -26,6 +28,7 @@ database = mongo_client[MONGODB_DATABASE]
 answers_collection = database["answers"]
 users_collection = database["users"]
 
+
 class QuestionAnswerPair(BaseModel):
     question_id: str
     question_text: str
@@ -33,6 +36,7 @@ class QuestionAnswerPair(BaseModel):
     author: Optional[str]
     sources: List
     similarity_score: Optional[float] = None
+
 
 async def _get_answer_text_sources_and_author_name(question_id: str):
     answer_document = await answers_collection.find_one(

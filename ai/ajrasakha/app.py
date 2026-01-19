@@ -1,11 +1,11 @@
 from typing import TypedDict, Optional, List
 import uvicorn
 from fastapi import HTTPException, FastAPI
-from langchain_core.runnables import RunnableConfig
-from langgraph.graph import StateGraph
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_core.callbacks.manager import adispatch_custom_event
+from langchain_core.messages import BaseMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_qwq import ChatQwen
+from langgraph.graph import StateGraph
 from starlette.responses import StreamingResponse
 from api import ChatCompletionRequest
 from api.streaming_utils import agent_response
@@ -49,8 +49,8 @@ builder.set_finish_point("chatbot")
 
 graph = builder.compile()
 
-
 app = FastAPI()
+
 
 @app.post("/chat/completions")
 async def chat_completions(request: ChatCompletionRequest):
@@ -67,4 +67,3 @@ async def chat_completions(request: ChatCompletionRequest):
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
-

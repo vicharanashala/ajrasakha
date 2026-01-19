@@ -1,6 +1,8 @@
-import aiohttp
 from typing import Dict, Any
+
+import aiohttp
 from langchain.tools import tool
+
 
 @tool
 async def location_information_tool(latitude: float, longitude: float) -> Dict[str, Any]:
