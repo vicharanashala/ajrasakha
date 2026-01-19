@@ -87,7 +87,7 @@ export class UserController {
     return updatedUser;
   }
 
-  @Get('/all')
+  @Get('/admin/alluser')
   @HttpCode(200)
   @Authorized(['admin'])
   @OpenAPI({summary: 'Get all users with pagination (Admin)'})
@@ -116,6 +116,17 @@ export class UserController {
       sort,
       filter,
     );
+  }
+
+  @Get('/all')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Get all user names'})
+  async getAllUsersName(
+    @CurrentUser() user: IUser,
+  ): Promise<UsersNameResponseDto> {
+    const userId = user._id.toString();
+    return await this.userService.getAllUsersforManualSelect(userId);
   }
 
   @Patch('/')
