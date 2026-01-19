@@ -602,9 +602,11 @@ export class QuestionService extends BaseService implements IQuestionService {
     ]);
 
     const expertIdsSet = new Set<string>();
-    preferredExperts.forEach(user => expertIdsSet.add(user._id.toString()));
+    preferredExperts
+      .filter(user => user.role === 'expert' && !user.isBlocked)
+      .forEach(user => expertIdsSet.add(user._id.toString()));
     users
-      .filter(user => user.role === 'expert')
+      .filter(user => user.role === 'expert' && !user.isBlocked)
       .forEach(user => expertIdsSet.add(user._id.toString()));
 
     const allExpertIds = Array.from(expertIdsSet);
@@ -935,9 +937,10 @@ export class QuestionService extends BaseService implements IQuestionService {
     userId: string | null,
     questionId: string,
     index: number,
+    session?: ClientSession
   ): Promise<IQuestionSubmission> {
     try {
-      return this._withTransaction(async (session: ClientSession) => {
+      const run = async (session: ClientSession) => {
         // Validate that user has authorization for this
          if (userId !== null) {
         const user = await this.userRepo.findById(userId, session);
@@ -1071,7 +1074,14 @@ export class QuestionService extends BaseService implements IQuestionService {
 
         //8. Return the updated question submission
         return updated;
-      });
+      };
+
+      if (session) {
+        return run(session);
+      }
+
+      return this._withTransaction(run);
+
     } catch (error) {
       throw new InternalServerError(
         `Failed to remove expert from queue: ${error}`,
@@ -1313,6 +1323,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       });
     });
   }
+  
   async removeAbsentExperts(): Promise<void> {
     try {
       await this._withTransaction(async (session: ClientSession) => {
@@ -1356,8 +1367,22 @@ export class QuestionService extends BaseService implements IQuestionService {
               lastHistory.status !== 'reviewed' &&
               lastHistory.status !== 'approved'
             ) {
+
+              await this.questionSubmissionRepo.updateHistoryByUserId(
+                questionId,
+                expertId,
+                { status: 'skipped', updatedAt: new Date() },
+                session,
+              );
+
+              await this.questionRepo.updateQuestion(
+                questionId,
+                { status: 'open' },
+                session,
+              );
+
               if (submission.queue.length >= submission.history.length) {
-                await this.removeExpertFromQueue(null, questionId, index);
+                await this.removeExpertFromQueue(null, questionId, index, session);
               }
             }
           }

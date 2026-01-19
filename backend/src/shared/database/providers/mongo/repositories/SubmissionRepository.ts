@@ -2910,4 +2910,24 @@ export class QuestionSubmissionRepository
       }
     );
   }
+  async findByExpertInQueue(
+    expertId: string,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]> {
+    try {
+      await this.init();
+
+      // In MongoDB, searching for a value in an array property 
+      // is done by simply matching the ID against the array field.
+      return await this.QuestionSubmissionCollection.find(
+        { queue: new ObjectId(expertId) },
+        { session }
+      ).toArray();
+
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to find submissions for expert in queue: ${error}`
+      );
+    }
+  }
 }
