@@ -933,9 +933,9 @@ const AllocationQueueHeader = ({
 
                             <Checkbox
                               id={`expert-${expert._id}`}
-                              checked={selectedExperts.includes(expert._id)}
+                              checked={selectedExperts.includes(expert._id ?? "")}
                               onCheckedChange={() =>
-                                handleSelectExpert(expert._id)
+                                handleSelectExpert(expert._id ?? "")
                               }
                               disabled={expert.isBlocked}
                               className="mt-1"
@@ -950,10 +950,10 @@ const AllocationQueueHeader = ({
                                 <div className="flex flex-col">
                                   <div
                                     className="font-medium truncate"
-                                    title={expert.userName}
+                                    title={expert.firstName}
                                   >
-                                    {expert?.userName?.slice(0, 48)}
-                                    {expert?.userName?.length > 48 ? "..." : ""}
+                                    {expert?.firstName?.slice(0, 48)}
+                                    {expert?.firstName?.length > 48 ? "..." : ""}
                                   </div>
                                   <div
                                     className="text-xs text-muted-foreground truncate"
