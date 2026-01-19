@@ -19,7 +19,10 @@ import {
 } from "lucide-react";
 import { Input } from "./atoms/input";
 import { UsersTable } from "./user-table";
-import { useGetAllExperts } from "@/hooks/api/user/useGetAllUsers";
+import {
+  useGetAllExperts,
+  useGetAllUsers,
+} from "@/hooks/api/user/useGetAllUsers";
 import { Label } from "./atoms/label";
 import {
   Select,
@@ -28,15 +31,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./atoms/select";
-import {ExpertDashboard} from './ExpertDashboard'
+import { ExpertDashboard } from "./ExpertDashboard";
 
-export const UserManagement = ({
-  currentUser,
-}: {
-  currentUser?: IUser;
-}) => {
-  const [selectExpertId,setSelectExpertId]=useState<string>('')
-  const [rankPostion,setRankPosition]=useState<number>(0)
+export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
+  const [selectExpertId, setSelectExpertId] = useState<string>("");
+  const [rankPostion, setRankPosition] = useState<number>(0);
   const [search, setSearch] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [filter, setFilter] = useState("");
@@ -45,21 +44,36 @@ export const UserManagement = ({
   const [page, setPage] = useState(1);
   const LIMIT = 12;
   const states = STATES;
-  const { data: expertDetails, isLoading } = useGetAllExperts(
+  const isAdmin = currentUser?.role === "admin";
+  const isModerator = currentUser?.role === "moderator";
+
+  const { data: adminUsers, isLoading: adminLoading } = useGetAllUsers(
     page,
     LIMIT,
     search,
     sort,
-    filter
+    filter,
+    { enabled: isAdmin }
   );
  const toggleSort = (key: string) => {
+  if (key === "rank") {
+    setSort("");
+    return;
+  }
   setSort((prev) => {
     if (prev === `${key}_asc`) return `${key}_desc`;
     return `${key}_asc`;
   });
 };
 
-
+  const { data: expertDetails, isLoading: expertLoading } = useGetAllExperts(
+    page,
+    LIMIT,
+    search,
+    sort,
+    filter,
+    { enabled: isModerator }
+  );
 
   useEffect(() => {
     if (selectedUserId) {
@@ -78,23 +92,36 @@ export const UserManagement = ({
     setSelectedUserId(userId);
   };
   const goBack = () => {
-    
     const url = new URL(window.location.href);
-   
+
     if (url.searchParams.has("comment")) {
       url.searchParams.delete("comment");
       window.history.replaceState({}, "", url.toString());
-      setSelectExpertId("")
+      setSelectExpertId("");
       return;
     }
-    setSelectExpertId("")
+    setSelectExpertId("");
   };
+
+  const tableItems = isAdmin
+    ? adminUsers?.users ?? []
+    : expertDetails?.experts ?? [];
+    
+
+  const isLoading = isAdmin ? adminLoading : expertLoading;
+
+  const totalPages = isAdmin ? 1 : expertDetails?.totalPages || 0;
 
   return (
     <main className="mx-auto w-full p-4 md:p-6 space-y-6 ">
-      {selectExpertId?
-      <ExpertDashboard expertId={selectExpertId} goBack={goBack} rankPosition={rankPostion} expertDetailsList={expertDetails}/>:
-      (
+      {selectExpertId ? (
+        <ExpertDashboard
+          expertId={selectExpertId}
+          goBack={goBack}
+          rankPosition={rankPostion}
+          expertDetailsList={expertDetails}
+        />
+      ) : (
         <>
           <div className="flex flex-wrap items-start justify-between gap-4 w-full bg-card py-4 px-2 rounded">
             {/* LEFT — Search */}
@@ -105,7 +132,10 @@ export const UserManagement = ({
                 <Input
                   placeholder="Search users..."
                   value={search}
-                  onChange={(e) => {setSearch(e.target.value);setPage(1)}}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
                   className="pl-9 pr-9 bg-background"
                 />
 
@@ -122,8 +152,6 @@ export const UserManagement = ({
 
             {/* RIGHT — Sort + Filter Group */}
             <div className="flex items-center gap-4 order-2">
-            
-             
               {/* Filter */}
               <div className="flex items-center gap-3 w-[240px]">
                 <Label className="flex items-center gap-2 text-sm font-semibold whitespace-nowrap">
@@ -159,22 +187,25 @@ export const UserManagement = ({
           </div>
 
           <UsersTable
-            items={expertDetails?.experts}
+            items={tableItems} // either adminUsers.users or expertDetails.experts
             onViewMore={handleViewMore}
             currentPage={page}
             setCurrentPage={setPage}
             userRole={currentUser?.role!}
             limit={LIMIT}
-            totalPages={expertDetails?.totalPages || 0}
+            totalPages={
+              isAdmin
+                ? adminUsers?.totalPages || 1
+                : expertDetails?.totalPages || 0
+            }
             isLoading={isLoading}
             setSelectExpertId={setSelectExpertId}
             setRankPosition={setRankPosition}
             onSort={toggleSort}
-            sort={sort} 
+            sort={sort}
           />
         </>
-      )
-                    }
+      )}
     </main>
   );
 };

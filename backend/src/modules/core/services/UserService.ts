@@ -1,6 +1,10 @@
 import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
-import {IUser, NotificationRetentionType} from '#root/shared/interfaces/models.js';
+import {
+  IUser,
+  NotificationRetentionType,
+  UserRole,
+} from '#root/shared/interfaces/models.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {InternalServerError, NotFoundError} from 'routing-controllers';
 import {BaseService, MongoDatabase} from '#root/shared/index.js';
@@ -8,9 +12,9 @@ import {ClientSession} from 'mongodb';
 import {
   PreferenceDto,
   UsersNameResponseDto,
-  ExpertReviewLevelDto
+  ExpertReviewLevelDto,
 } from '../classes/validators/UserValidators.js';
-import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
+import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
 
 @injectable()
@@ -27,7 +31,6 @@ export class UserService extends BaseService {
 
     @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
     private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
-
   ) {
     super(mongoDatabase);
   }
@@ -39,11 +42,15 @@ export class UserService extends BaseService {
       return this._withTransaction(async (session: ClientSession) => {
         let user = await this.userRepo.findById(userId, session);
         if (!user) throw new NotFoundError(`User with ID ${userId} not found`);
-        let notifications = await this.notificationRepository.getNotificationsCount(userId,session)
+        let notifications =
+          await this.notificationRepository.getNotificationsCount(
+            userId,
+            session,
+          );
         const usersWithNotification = {
           ...user,
-          notifications
-        }
+          notifications,
+        };
         return usersWithNotification;
       });
     } catch (error) {
@@ -57,16 +64,16 @@ export class UserService extends BaseService {
       //if (!query.userId) throw new NotFoundError('User ID is required');
 
       return this._withTransaction(async (session: ClientSession) => {
-        if(query.role=="moderator")
-        {
-          const moderatorResult=await this.questionSubmissionRepo.getModeratorReviewLevel(query)
-          return moderatorResult
-          
+        if (query.role == 'moderator') {
+          const moderatorResult =
+            await this.questionSubmissionRepo.getModeratorReviewLevel(query);
+          return moderatorResult;
         }
-        const result= await this.questionSubmissionRepo.getUserReviewLevel(query)
-        
-        
-        return result
+        const result = await this.questionSubmissionRepo.getUserReviewLevel(
+          query,
+        );
+
+        return result;
       });
     } catch (error) {
       throw new InternalServerError(
@@ -92,67 +99,111 @@ export class UserService extends BaseService {
     }
   }
 
-  async getAllUsers(userId: string): Promise<UsersNameResponseDto> {
+  async toggleUserRole(
+    currentUser: IUser,
+    userId: string,
+  ): Promise<IUser> {
     try {
-      return await this._withTransaction(async session => {
-        const me = await this.userRepo.findById(userId, session);
-        const users = await this.userRepo.findAll(session);
+      if (!currentUser || currentUser.role !== 'admin') {
+        throw new NotFoundError('Only admin can switch user roles');
+      }
+      if (!userId) throw new NotFoundError('User ID is required');
 
-        const usersExceptMe = users.filter(
-          user => user._id.toString() !== userId,
+      return this._withTransaction(async (session: ClientSession) => {
+        const user = await this.userRepo.findById(userId, session);
+        if (!user) {
+          throw new NotFoundError(`User with ID ${userId} not found`);
+        }
+
+        const newRole: UserRole = user.role === 'moderator' ? 'expert' : 'moderator';
+        const updatedUser = await this.userRepo.edit(
+          userId,
+          { role: newRole },
+          session,
         );
 
-        const myPreference: PreferenceDto = {
-          state: me?.preference?.state ?? null,
-          crop: me?.preference?.crop ?? null,
-          domain: me?.preference?.domain ?? null,
-        };
-
-        return {
-          myPreference,
-          users: users.map(u => ({
-            _id: u._id.toString(),
-            role: u.role,
-            email: u.email,
-            preference: u.preference,
-            userName: `${u.firstName} ${u.lastName ? u.lastName : ''}`.trim(),
-            isBlocked:u.isBlocked
-          })),
-        };
+        return updatedUser;
       });
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch users: ${error}`);
+      throw new InternalServerError(
+        `Failed to toggle role for user ID ${userId}: ${error}`,
+      );
     }
   }
 
-  async updateAutoDeleteNotificationPreference(preference:NotificationRetentionType,userId:string):Promise<void>{
-    await this._withTransaction(async (session:ClientSession) => {
-      await this.userRepo.updateAutoDeleteNotificationPreference(preference,userId,session)
-    })
+async getAllUsers(
+  page: number,
+  limit: number,
+  search: string,
+  sort: string,
+  filter: string,
+): Promise<{ users: IUser[]; totalUsers: number; totalPages: number }> {
+  return await this._withTransaction(async () => {
+    const { users, totalUsers, totalPages } =
+      await this.userRepo.findAllUsers(
+        page,
+        limit,
+        search,
+        sort,
+        filter,
+      );
+    return { users, totalUsers, totalPages };
+  });
+}
+
+
+
+
+  async updateAutoDeleteNotificationPreference(
+    preference: NotificationRetentionType,
+    userId: string,
+  ): Promise<void> {
+    await this._withTransaction(async (session: ClientSession) => {
+      await this.userRepo.updateAutoDeleteNotificationPreference(
+        preference,
+        userId,
+        session,
+      );
+    });
   }
 
-  async updatePenaltyAndIncentive(userId:string,type:'penalty' | 'incentive'):Promise<void>{
-    await this._withTransaction(async (session:ClientSession) => {
-      await this.userRepo.updatePenaltyAndIncentive(userId,type,session)
-    })
+  async updatePenaltyAndIncentive(
+    userId: string,
+    type: 'penalty' | 'incentive',
+  ): Promise<void> {
+    await this._withTransaction(async (session: ClientSession) => {
+      await this.userRepo.updatePenaltyAndIncentive(userId, type, session);
+    });
   }
 
-  async findAllExperts(page:number,limit:number,search:string,sort:string,filter:string):Promise<{experts:IUser[]; totalExperts:number; totalPages:number}>{
-    return await this._withTransaction(async (session:ClientSession) => {
-      return await this.userRepo.findAllExperts(page,limit,search,sort,filter,session)
-    })
+  async findAllExperts(
+    page: number,
+    limit: number,
+    search: string,
+    sort: string,
+    filter: string,
+  ): Promise<{experts: IUser[]; totalExperts: number; totalPages: number}> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      return await this.userRepo.findAllExperts(
+        page,
+        limit,
+        search,
+        sort,
+        filter,
+        session,
+      );
+    });
   }
 
-  async blockUnblockExperts(userId:string,action:string){
-    return await this._withTransaction(async (session:ClientSession) => {
-      return await this.userRepo.updateIsBlocked(userId,action,session)
-    })
+  async blockUnblockExperts(userId: string, action: string) {
+    return await this._withTransaction(async (session: ClientSession) => {
+      return await this.userRepo.updateIsBlocked(userId, action, session);
+    });
   }
 
-  async getUserByEmail(email:string):Promise<IUser | null>{
-    return await this._withTransaction(async (session:ClientSession) => {
-      return await this.userRepo.findByEmail(email,session)
-    })
+  async getUserByEmail(email: string): Promise<IUser | null> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      return await this.userRepo.findByEmail(email, session);
+    });
   }
-
 }
