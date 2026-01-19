@@ -1,17 +1,14 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "@/hooks/api/api-fetch";
+import { useMutation } from "@tanstack/react-query";
+import { PerformaneService } from "../../services/performanceService";
+
+const performaceService = new PerformaneService();
 
 export const useCheckIn = () => {
-  const queryClient = useQueryClient();
+    const { mutateAsync, isPending, error, data } = useMutation({
+        mutationFn: async () => {
+            return await performaceService.checkIn();
+        },
+    });
 
-  return useMutation({
-    mutationFn: () =>
-      apiFetch("/performance/check-in", { method: "POST" }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["current-user"] });
-      queryClient.invalidateQueries({ queryKey: ["review-level"] });
-      queryClient.invalidateQueries({ queryKey: ["experts"] });
-    },
-  });
+    return { checkIn: mutateAsync, isPending, error, data };
 };
-

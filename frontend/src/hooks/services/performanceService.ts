@@ -31,7 +31,7 @@ export class PerformaneService {
       `${this._baseUrl}/heatMapofReviewers?${params.toString()}`
     );
   }
-  
+
   async getWorkLoadCount(): Promise<WorkLoad | null> {
     return apiFetch<WorkLoad>(`${this._baseUrl}/workload`);
   }
@@ -65,6 +65,15 @@ export class PerformaneService {
 
     return apiFetch<DashboardAnalyticsResponse>(
       `${this._baseUrl}/dashboard?${params.toString()}`
+    );
+  }
+
+  async checkIn(): Promise<{ success: boolean; lastCheckInAt: Date } | null> {
+    return apiFetch<{ success: boolean; lastCheckInAt: Date }>(
+      `${this._baseUrl}/check-in`,
+      {
+        method: "POST",
+      }
     );
   }
 }

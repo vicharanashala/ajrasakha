@@ -88,7 +88,7 @@ export class PerformanceController {
     return result;
   }
 
-  @Post('/performance/check-in')
+  @Post('/check-in')
     @HttpCode(200)
     @Authorized()
     @OpenAPI({ summary: 'Check-in for the current user' })
