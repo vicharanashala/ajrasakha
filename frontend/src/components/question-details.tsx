@@ -2510,10 +2510,8 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                         w-[95vw]                 
                         sm:max-w-xl              
                         md:max-w-4xl             
-                        lg:max-w-6xl             
-                        max-h-[85vh]             
-                        min-h-[60vh]             
-                        h-[85vh]              /* 🔑 fixed height */
+                        lg:max-w-6xl           
+                        h-[85vh]
                         flex flex-col        
                         p-4                       
                       "
@@ -2662,7 +2660,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                     <Button
                       variant="outline"
                       onClick={handleCancel}
-                      className="hidden md:block"
+                      className="md:block"
                     >
                       Cancel
                     </Button>

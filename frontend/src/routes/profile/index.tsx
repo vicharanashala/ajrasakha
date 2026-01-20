@@ -441,6 +441,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
             variant="default"
             className="flex items-center gap-2"
             onClick={() => setIsEditMode((prev) => !prev)}
+            disabled={isUpdating}
           >
             <Edit2 className="h-4 w-4" />
             {isEditMode ? "Cancel Edit" : "Edit Profile"}
