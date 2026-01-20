@@ -1192,6 +1192,14 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                   type="button"
                   disabled={isUpdating}
                   className="flex items-center gap-2 w-full sm:w-auto"
+                  onClick={(e)=>{
+                      if(!formData.firstName.trim()){
+                        e.preventDefault();
+                        toast.error("First name cannot be blank space");
+                        return;
+                      }
+                    }
+                  }
                 >
                   <Save className="h-4 w-4" />
                   {isUpdating ? "Saving..." : "Save Changes"}
