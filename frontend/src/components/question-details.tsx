@@ -847,9 +847,8 @@ const AllocationQueueHeader = ({
                           sm:max-w-xl              
                           md:max-w-4xl             
                           lg:max-w-6xl             
-                          max-h-[85vh]             
-                          min-h-[60vh]             
-                          overflow-hidden           
+                          h-[90vh]             
+                          max-h-[90vh]          
                           p-4                       
                         "
                 >
@@ -980,7 +979,6 @@ const AllocationQueueHeader = ({
                     <Button
                       variant="outline"
                       onClick={handleCancel}
-                      className="hidden md:block"
                     >
                       Cancel
                     </Button>
@@ -2510,8 +2508,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                         w-[95vw]                 
                         sm:max-w-xl              
                         md:max-w-4xl             
-                        lg:max-w-6xl           
-                        h-[85vh]
+                        lg:max-w-6xl             
+                        max-h-[85vh]             
+                        min-h-[60vh]             
+                        h-[85vh]              /* 🔑 fixed height */
                         flex flex-col        
                         p-4                       
                       "
@@ -2660,7 +2660,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                     <Button
                       variant="outline"
                       onClick={handleCancel}
-                      className="md:block"
+                      className="hidden md:block"
                     >
                       Cancel
                     </Button>
