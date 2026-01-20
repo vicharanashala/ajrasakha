@@ -128,7 +128,7 @@ export interface ISubmissionHistory {
   updatedBy: string | ObjectId;
   answer?: string | ObjectId;
   reviewId?: string | ObjectId;
-  status: 'reviewed' | 'in-review' | 'approved' | 'rejected' | 'skipped'; // approved status if  an answer got 3 approvals
+  status: 'reviewed' | 'in-review' | 'approved' | 'rejected' ; // approved status if  an answer got 3 approvals
 
   rejectedBy?: string | ObjectId;
   rejectedAnswer?: string | ObjectId;
