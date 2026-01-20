@@ -2374,13 +2374,9 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   });
 
   return (
-    <Card className="p-6 grid gap-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-foreground">
-            Iteration {props.answer.answerIteration}
-          </span>
-          {props.answer.isFinalAnswer && (
+    <Card className="p-6 grid gap-4 ">
+        <div className=" w-full flex justify-between">
+           {props.answer.isFinalAnswer && (
             <Badge
               variant="outline"
               className="text-green-600 border-green-600"
@@ -2438,6 +2434,20 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
               </Badge>
             )}
 
+            {props.answer?.approvalCount !== undefined &&
+            props.answer?.approvalCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 text-green-400 font-medium text-xs whitespace-nowrap border border-primary/20">
+                 {props.answer.approvalCount} Approvals
+             </span>
+            )}
+
+        </div>
+      <div className="p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
+        <div className="flex items-center gap-3">
+         <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-background text-foreground font-medium text-xs sm:text-sm whitespace-nowrap border-l-2 border-primary pl-2.5">
+            Iteration {props.answer.answerIteration}
+         </span>
+         
           {isMine && <UserCheck className="w-4 h-4 text-blue-600 ml-1" />}
         </div>
         <div className="flex items-center justify-center gap-2">
@@ -2452,12 +2462,19 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       lastReroutedTo?.status === "pending" ||
                       (props.lastAnswerApprovalCount ?? 0) < 3
                     }
-                    className={`bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded
+                    className={`
+                      bg-primary text-primary-foreground 
+                      flex items-center gap-2 
+                      px-3 py-1 sm:px-4 sm:py-1
+                      rounded-md
+                      text-sm
+                      whitespace-nowrap
+                      transition-all duration-200
                     ${
                       lastReroutedTo?.status === "pending" ||
                       (props.lastAnswerApprovalCount ?? 0) < 3
                         ? "opacity-50 cursor-not-allowed"
-                        : "hover:bg-primary/90"
+                        : "hover:bg-primary/90 hover:shadow-md active:scale-95"
                     }
                   `}
                   >
@@ -2531,11 +2548,18 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                 <DialogTrigger asChild>
                   <button
                     disabled={lastReroutedTo?.status === "pending"}
-                    className={`bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded
+                    className={`
+                      bg-primary text-primary-foreground 
+                      flex items-center gap-2 
+                      px-3 py-1 sm:px-4 sm:py-1
+                      rounded-md
+                      text-sm
+                      whitespace-nowrap
+                      transition-all duration-200
                     ${
                       lastReroutedTo?.status === "pending"
                         ? "opacity-50 cursor-not-allowed"
-                        : "hover:bg-primary/90"
+                        : "hover:bg-primary/90 hover:shadow-md active:scale-95"
                     }
                   `}
                   >
@@ -2744,15 +2768,25 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                 <DialogTrigger asChild>
                   <button
                     disabled={lastReroutedTo?.status != "pending"}
-                    className={`bg-red-400 text-primary-foreground flex items-center gap-2 px-2 py-2 rounded bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 shadow-red-100/50
+                    className={`
+                      bg-red-400 text-primary-foreground 
+                      flex items-center gap-1.5 sm:gap-2 
+                      px-2 py-1 sm:px-3 sm:py-1 
+                      rounded-md
+                      text-xs sm:text-sm
+                      dark:bg-red-900/30 
+                      border border-red-300 dark:border-red-700 
+                      shadow-sm shadow-red-100/50
+                      whitespace-nowrap
+                      transition-all duration-200
                     ${
                       lastReroutedTo?.status != "pending"
                         ? "opacity-50 cursor-not-allowed"
-                        : "hover:bg-red/90"
+                        : "hover:bg-red-500 dark:hover:bg-red-900/50 hover:shadow-md active:scale-95"
                     }
                   `}
                   >
-                    <XCircle className="w-3 h-3" />
+                    <XCircle className="w-4 h-4" />
                     Reject ReRoute
                   </button>
                 </DialogTrigger>
@@ -2798,10 +2832,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                 </DialogContent>
               </Dialog>
             )}
-          {props.answer?.approvalCount !== undefined &&
-            props.answer?.approvalCount > 0 && (
-              <p>Approval count: {props.answer.approvalCount}</p>
-            )}
+          
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" className="w-full sm:w-auto ">
