@@ -729,9 +729,11 @@ const AllocationQueueHeader = ({
       (user) =>
         user.role === "expert" && !expertsIdsInQueue.has(user._id ?? ""),
     ) || [];
+    if(!experts.length)return;
+    console.log(experts)
   const filteredExperts = experts.filter(
     (expert) =>
-      expert.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       expert.email?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
@@ -954,10 +956,10 @@ const AllocationQueueHeader = ({
                                 <div className="flex flex-col">
                                   <div
                                     className="font-medium truncate"
-                                    title={expert.firstName}
+                                    title={expert.userName}
                                   >
-                                    {expert?.firstName?.slice(0, 48)}
-                                    {expert?.firstName?.length > 48
+                                    {expert?.userName?.slice(0, 48)}
+                                    {(expert?.userName?.length ?? 0) > 48
                                       ? "..."
                                       : ""}
                                   </div>
@@ -1900,10 +1902,10 @@ const RerouteTimeline = ({
                           <div>
                             <p
                               className="text-xs font-semibold text-gray-900 dark:text-white truncate"
-                              title={reroute.reroutedTo.firstName}
+                              title={reroute.reroutedTo.userName}
                             >
-                              {reroute.reroutedTo.firstName?.slice(0, 15)}
-                              {reroute.reroutedTo.firstName?.length > 15
+                              {reroute.reroutedTo.userName?.slice(0, 15)}
+                              {(reroute.reroutedTo.userName?.length ?? 0) > 15
                                 ? "..."
                                 : ""}
                             </p>
@@ -1943,7 +1945,7 @@ const RerouteTimeline = ({
                         <p className="text-xs text-gray-600 dark:text-gray-400">
                           {currentUser.role == "expert"
                             ? "Moderator"
-                            : reroute.reroutedBy.firstName}
+                            : reroute.reroutedBy.userName}
                         </p>
                         <p className="text-[10px] text-gray-500 dark:text-gray-500">
                           {formatDate(reroute.reroutedAt)}
@@ -2241,10 +2243,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     ) || [];*/
   const experts =
     usersData?.users.filter((user) => user.role === "expert") || [];
-
+  console.log('2',experts)
   const filteredExperts = experts.filter(
     (expert) =>
-      expert.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       expert.email?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
   const handleSelectExpert = (expertId: string) => {
@@ -2691,10 +2693,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                                 <div className="flex flex-col">
                                   <div
                                     className="font-medium truncate"
-                                    title={expert.firstName}
+                                    title={expert.userName}
                                   >
-                                    {expert?.firstName?.slice(0, 48)}
-                                    {expert?.firstName?.length > 48
+                                    {expert?.userName?.slice(0, 48)}
+                                    {(expert.userName?.length ?? 0) > 48
                                       ? "..."
                                       : ""}
                                   </div>
@@ -3103,11 +3105,36 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       )*/}
 
                       <div className="space-y-4">
-                        {props.answer.reviews.map((review, index) => {
-                          const modification =
-                            review?.answer?.modifications?.find(
-                              (mod) => mod.modifiedBy === review.reviewerId,
-                            );
+                        {props.answer.reviews.map((review,index) => {
+                          let modification;
+  
+                          if (review.action === "modified" && review?.answer?.modifications) {
+                            const reviewTime = new Date(review.createdAt!).getTime();
+                            
+                            // Find all modifications by this reviewer
+                            const candidateMods = review.answer.modifications
+                              .map((mod, idx) => ({ mod, idx }))
+                              .filter(({ mod }) => mod.modifiedBy === review.reviewerId);
+                            
+                            if (candidateMods.length === 1) {
+                              // Easy case - only one modification by this reviewer
+                              modification = candidateMods[0].mod;
+                            } else if (candidateMods.length > 1) {
+                              // Find the modification with timestamp closest to (but not after) review time
+                              // This handles cases where modification happens slightly before review is recorded
+                              const match = candidateMods
+                                .map(({ mod, idx }) => ({
+                                  mod,
+                                  idx,
+                                  timeDiff: Math.abs(new Date(mod.modifiedAt!).getTime() - reviewTime)
+                                }))
+                                .sort((a, b) => a.timeDiff - b.timeDiff)[0]; // Get closest match
+                              
+                              modification = match.mod;
+                            }
+                          }
+                        
+                        
 
                           return (
                             <div>
@@ -3133,7 +3160,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                                       Reviewer:
                                     </span>
                                     <span className="text-sm text-muted-foreground">
-                                      {review.reviewer?.firstName}
+                                      {review.reviewer?.userName}
                                       {review.reviewer?.email && (
                                         <> ({review.reviewer.email})</>
                                       )}
@@ -3244,16 +3271,14 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                                             View Modification Details
                                           </AccordionTrigger>
 
-                                          <AccordionContent>
-                                            {renderModificationDiff(
-                                              modification,
-                                            )}
-                                          </AccordionContent>
-                                        </AccordionItem>
-                                      </Accordion>
-                                    </div>
-                                  )}
-                              </div>
+                                      <AccordionContent>
+                                        {renderModificationDiff(modification,index)}
+                                      </AccordionContent>
+                                    </AccordionItem>
+                                  </Accordion>
+                                </div>
+                              )}
+                            </div>
                             </div>
                           );
                         })}
