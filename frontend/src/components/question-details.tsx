@@ -2075,6 +2075,7 @@ export const AnswerTimeline = ({
               queue={queue}
               rerouteQuestion={rerouteQuestion}
               refetchRerouteData = {refetchRerouteData}
+              lastAnswerApprovalCount={answers[0]?.approvalCount}
             />
           </div>
         )}
@@ -2095,6 +2096,7 @@ interface AnswerItemProps {
   queue: ISubmission["queue"];
   rerouteQuestion?: IRerouteHistoryResponse[];
   refetchRerouteData?: ()=>void;
+  lastAnswerApprovalCount?:number;
 }
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref,) => {
@@ -2225,6 +2227,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref,) => {
         props.rerouteQuestion[0].reroutes.length - 1
       ]
     : null;
+ 
   // console.log("the submission data====",props.submissionData)
 
   /* const experts =
@@ -2436,14 +2439,15 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref,) => {
           {props.userRole !== "expert" &&
             (props.questionStatus === "in-review" ||
               props.questionStatus === "re-routed") &&
-            props.lastAnswerId === props.answer?._id && (
+             (
               <Dialog open={editOpen} onOpenChange={setEditOpen}>
                 <DialogTrigger asChild>
-                  <button
-                    disabled={lastReroutedTo?.status === "pending"||props.answer.approvalCount<3}
+                  <button 
+                  // props.lastAnswerId !== props.answer?._id && props.answer.approvalCount < 3
+                    disabled={lastReroutedTo?.status === "pending"||(props.lastAnswerApprovalCount??0)<3}
                     className={`bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded
                     ${
-                      lastReroutedTo?.status === "pending"||props.answer.approvalCount<3
+                      lastReroutedTo?.status === "pending"||(props.lastAnswerApprovalCount??0)<3
                         ? "opacity-50 cursor-not-allowed"
                         : "hover:bg-primary/90"
                     }
