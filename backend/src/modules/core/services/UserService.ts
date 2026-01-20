@@ -150,6 +150,38 @@ async getAllUsers(
     return { users, totalUsers, totalPages };
   });
 }
+async getAllUsersforManualSelect(userId: string): Promise<UsersNameResponseDto> {
+  try {
+    return await this._withTransaction(async session => {
+      const me = await this.userRepo.findById(userId, session);
+      const users = await this.userRepo.findAll(session);
+
+      const usersExceptMe = users.filter(
+        user => user._id.toString() !== userId,
+      );
+
+      const myPreference: PreferenceDto = {
+        state: me?.preference?.state ?? null,
+        crop: me?.preference?.crop ?? null,
+        domain: me?.preference?.domain ?? null,
+      };
+
+      return {
+        myPreference,
+        users: users.map(u => ({
+          _id: u._id.toString(),
+          role: u.role,
+          email: u.email,
+          preference: u.preference,
+          userName: `${u.firstName} ${u.lastName ? u.lastName : ''}`.trim(),
+          isBlocked:u.isBlocked
+        })),
+      };
+    });
+  } catch (error) {
+    throw new InternalServerError(`Failed to fetch users: ${error}`);
+  }
+}
 
 
 
