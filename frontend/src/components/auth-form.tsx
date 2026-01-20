@@ -88,13 +88,15 @@ export const AuthForm = ({
 
     if (!formData.password) {
       newErrors.password = "Password is required";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
+    } else if (formData.password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters";
     }
 
     if (mode === "signup") {
       if (!formData.name) {
         newErrors.name = "Name is required";
+      } else if(!formData.name.trim()) {
+        newErrors.name="Nam cannot be empty or blank spaces"
       } else if (!/^[a-zA-Z\s]+$/.test(formData.name)) {
         newErrors.name = "Name cannot contain special characters or numbers";
       }

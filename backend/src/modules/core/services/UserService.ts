@@ -6,7 +6,7 @@ import {
   UserRole,
 } from '#root/shared/interfaces/models.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
-import {InternalServerError, NotFoundError} from 'routing-controllers';
+import {BadRequestError, InternalServerError, NotFoundError} from 'routing-controllers';
 import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {ClientSession} from 'mongodb';
 import {
@@ -87,6 +87,8 @@ export class UserService extends BaseService {
   async updateUser(userId: string, data: Partial<IUser>): Promise<IUser> {
     try {
       if (!userId) throw new NotFoundError('User ID is required');
+
+      if(!data.firstName.trim()) throw new BadRequestError("First name cannot be empty or blank space")
 
       const authService = getFromContainer(FirebaseAuthService);
 
