@@ -389,8 +389,16 @@ export class QuestionService extends BaseService implements IQuestionService {
           session,
         );
 
-        // ii) Create queue from the users found
-        const intialUsersToAllocate = users.slice(0, 3);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const availableUsers = users.filter(user => {
+          const hasCheckedIn = user.lastCheckInAt && new Date(user.lastCheckInAt) >= today;
+          return !user.isBlocked && hasCheckedIn;
+        });
+
+        // ii) Create queue from the available users found
+        const intialUsersToAllocate = availableUsers.slice(0, 3);
 
         const queue = intialUsersToAllocate // Limit to first 3 experts
           .map(user => new ObjectId(user._id.toString()));
@@ -601,12 +609,21 @@ export class QuestionService extends BaseService implements IQuestionService {
       this.userRepo.findExpertsByPreference(details, session),
     ]);
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const expertIdsSet = new Set<string>();
     preferredExperts
-      .filter(user => user.role === 'expert' && !user.isBlocked)
+      .filter(user => {
+        const hasCheckedIn = user.lastCheckInAt && new Date(user.lastCheckInAt) >= today;
+        return user.role === 'expert' && !user.isBlocked && hasCheckedIn;
+      })
       .forEach(user => expertIdsSet.add(user._id.toString()));
     users
-      .filter(user => user.role === 'expert' && !user.isBlocked)
+      .filter(user => {
+        const hasCheckedIn = user.lastCheckInAt && new Date(user.lastCheckInAt) >= today;
+        return user.role === 'expert' && !user.isBlocked && hasCheckedIn;
+      })
       .forEach(user => expertIdsSet.add(user._id.toString()));
 
     const allExpertIds = Array.from(expertIdsSet);
@@ -942,15 +959,15 @@ export class QuestionService extends BaseService implements IQuestionService {
     try {
       const run = async (session: ClientSession) => {
         // Validate that user has authorization for this
-         if (userId !== null) {
-        const user = await this.userRepo.findById(userId, session);
-        if (!user)
-          throw new UnauthorizedError(`Cannot find user, try relogin!`);
-        if (user.role === 'expert')
-          throw new UnauthorizedError(
-            `You don't have permission to perform this operation`,
-          );
-      }
+        if (userId !== null) {
+          const user = await this.userRepo.findById(userId, session);
+          if (!user)
+            throw new UnauthorizedError(`Cannot find user, try relogin!`);
+          if (user.role === 'expert')
+            throw new UnauthorizedError(
+              `You don't have permission to perform this operation`,
+            );
+        }
         //1. Validate that the question exists
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
@@ -1323,7 +1340,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       });
     });
   }
-  
+
   async removeAbsentExperts(): Promise<void> {
     try {
       await this._withTransaction(async (session: ClientSession) => {
@@ -1359,33 +1376,33 @@ export class QuestionService extends BaseService implements IQuestionService {
             );
 
             if (index !== -1) {
-            const lastHistory = submission.history?.at(-1);
+              const lastHistory = submission.history?.at(-1);
 
-            if (
-              lastHistory &&
-              lastHistory.updatedBy?.toString() === expertId &&
-              lastHistory.status !== 'reviewed' &&
-              lastHistory.status !== 'approved'
-            ) {
+              if (
+                lastHistory &&
+                lastHistory.updatedBy?.toString() === expertId &&
+                lastHistory.status !== 'reviewed' &&
+                lastHistory.status !== 'approved'
+              ) {
 
-              await this.questionSubmissionRepo.updateHistoryByUserId(
-                questionId,
-                expertId,
-                { status: 'skipped', updatedAt: new Date() },
-                session,
-              );
+                await this.questionSubmissionRepo.updateHistoryByUserId(
+                  questionId,
+                  expertId,
+                  { status: 'skipped', updatedAt: new Date() },
+                  session,
+                );
 
-              await this.questionRepo.updateQuestion(
-                questionId,
-                { status: 'open' },
-                session,
-              );
+                await this.questionRepo.updateQuestion(
+                  questionId,
+                  { status: 'open' },
+                  session,
+                );
 
-              if (submission.queue.length >= submission.history.length) {
-                await this.removeExpertFromQueue(null, questionId, index, session);
+                if (submission.queue.length >= submission.history.length) {
+                  await this.removeExpertFromQueue(null, questionId, index, session);
+                }
               }
             }
-          }
 
           }
         }
