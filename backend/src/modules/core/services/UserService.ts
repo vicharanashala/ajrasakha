@@ -31,6 +31,9 @@ export class UserService extends BaseService {
 
     @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
     private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
+
+    @inject(GLOBAL_TYPES.QuestionService)
+    private readonly questionService: IQuestionService,
   ) {
     super(mongoDatabase);
   }
@@ -131,25 +134,25 @@ export class UserService extends BaseService {
     }
   }
 
-async getAllUsers(
-  page: number,
-  limit: number,
-  search: string,
-  sort: string,
-  filter: string,
-): Promise<{ users: IUser[]; totalUsers: number; totalPages: number }> {
-  return await this._withTransaction(async () => {
-    const { users, totalUsers, totalPages } =
-      await this.userRepo.findAllUsers(
-        page,
-        limit,
-        search,
-        sort,
-        filter,
-      );
-    return { users, totalUsers, totalPages };
-  });
-}
+  async getAllUsers(
+    page: number,
+    limit: number,
+    search: string,
+    sort: string,
+    filter: string,
+  ): Promise<{ users: IUser[]; totalUsers: number; totalPages: number }> {
+    return await this._withTransaction(async () => {
+      const { users, totalUsers, totalPages } =
+        await this.userRepo.findAllUsers(
+          page,
+          limit,
+          search,
+          sort,
+          filter,
+        );
+      return { users, totalUsers, totalPages };
+    });
+  }
 
 
 
@@ -197,7 +200,41 @@ async getAllUsers(
 
   async blockUnblockExperts(userId: string, action: string) {
     return await this._withTransaction(async (session: ClientSession) => {
-      return await this.userRepo.updateIsBlocked(userId, action, session);
+      const result = await this.userRepo.updateIsBlocked(userId, action, session);
+      if (action === 'block') {
+        try {
+          
+          const submissions =
+            await this.questionSubmissionRepo.findByExpertInQueue(
+              userId,
+              session,
+            );
+
+          if (submissions && submissions.length > 0) {
+            for (const submission of submissions) {
+              const questionId = submission.questionId.toString();
+              const index = submission.queue.findIndex(
+                (id: any) => id.toString() === userId,
+              );
+              if (index !== -1) {
+                
+                await this.questionService.removeExpertFromQueue(
+                  null,
+                  questionId,
+                  index,
+                  session,
+                );
+              }
+            }
+          }
+        } catch (err) {
+          console.error(
+            `Failed to reallocate questions for blocked expert ${userId}:`,
+            err,
+          );
+        }
+      }
+      return result;
     });
   }
 

@@ -87,7 +87,8 @@ export interface IQuestionService {
   removeExpertFromQueue(
     userId: string | null,
     questionId: string,
-    index: number
+    index: number,
+    session?: any
   ): Promise<IQuestionSubmission>;
 
   /** Delete a question (cascade delete) */

@@ -986,6 +986,28 @@ export class QuestionService extends BaseService implements IQuestionService {
         const submissionHistory = questionSubmission.history || [];
         //4. Extract the expert ID based on the provided index
         const expertId = submissionQueue[index]?.toString();
+
+        const lastHistory = submissionHistory.at(-1);
+        if (
+          lastHistory &&
+          lastHistory.updatedBy?.toString() === expertId &&
+          lastHistory.status !== 'reviewed' &&
+          lastHistory.status !== 'approved'
+        ) {
+          await this.questionSubmissionRepo.updateHistoryByUserId(
+            questionId,
+            expertId,
+            { status: 'skipped', updatedAt: new Date() },
+            session,
+          );
+
+          await this.questionRepo.updateQuestion(
+            questionId,
+            { status: 'open' },
+            session,
+          );
+        }
+
         //5. Decrease the expert's reputation score (since being removed)
         const nextUserId = submissionQueue[index + 1]?.toString();
         const isExpertInHistory = submissionHistory.find((h) => h.updatedBy.toString()==expertId.toString())
@@ -1362,9 +1384,9 @@ export class QuestionService extends BaseService implements IQuestionService {
           await this.userRepo.updateIsBlocked(expertId, 'block', session);
           const submissions =
             await this.questionSubmissionRepo.findByExpertInQueue(
-              expertId,
-              session,
-            );
+            expertId,
+            session,
+          );
 
           if (!submissions || submissions.length === 0) continue;
 
@@ -1372,38 +1394,12 @@ export class QuestionService extends BaseService implements IQuestionService {
             const questionId = submission.questionId.toString();
 
             const index = submission.queue.findIndex(
-              (id: any) => id.toString() === expertId
+              (id: any) => id.toString() === expertId,
             );
 
             if (index !== -1) {
-              const lastHistory = submission.history?.at(-1);
-
-              if (
-                lastHistory &&
-                lastHistory.updatedBy?.toString() === expertId &&
-                lastHistory.status !== 'reviewed' &&
-                lastHistory.status !== 'approved'
-              ) {
-
-                await this.questionSubmissionRepo.updateHistoryByUserId(
-                  questionId,
-                  expertId,
-                  { status: 'skipped', updatedAt: new Date() },
-                  session,
-                );
-
-                await this.questionRepo.updateQuestion(
-                  questionId,
-                  { status: 'open' },
-                  session,
-                );
-
-                if (submission.queue.length >= submission.history.length) {
-                  await this.removeExpertFromQueue(null, questionId, index, session);
-                }
-              }
+              await this.removeExpertFromQueue(null, questionId, index, session);
             }
-
           }
         }
       });
