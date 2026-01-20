@@ -16,6 +16,8 @@ import {
 } from '../classes/validators/UserValidators.js';
 import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
+import { getFromContainer } from 'class-validator';
+import { FirebaseAuthService } from '#root/modules/auth/services/FirebaseAuthService.js';
 
 @injectable()
 export class UserService extends BaseService {
@@ -86,10 +88,22 @@ export class UserService extends BaseService {
     try {
       if (!userId) throw new NotFoundError('User ID is required');
 
+      const authService = getFromContainer(FirebaseAuthService);
+
       return this._withTransaction(async (session: ClientSession) => {
         const updatedUser = await this.userRepo.edit(userId, data, session);
         if (!updatedUser)
           throw new NotFoundError(`User with ID ${userId} not found`);
+        
+        if (data.firstName || data.lastName) {
+          await authService.updateFirebaseUser(
+            updatedUser.firebaseUID,
+            {
+              firstName: data.firstName ?? updatedUser.firstName,
+              lastName: data.lastName ?? updatedUser.lastName,
+            },
+          );
+        }
         return updatedUser;
       });
     } catch (error) {
