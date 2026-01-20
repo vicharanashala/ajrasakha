@@ -184,7 +184,7 @@ export const ExpertDashboard = ({
       [key]: value,
     }));
   };
- 
+
 
 
 
@@ -246,13 +246,15 @@ export const ExpertDashboard = ({
 
           {/* <DashboardClock /> */}
           <div className="flex flex-col items-center gap-1">
-            <Button
-              size="sm"
-              disabled={isCheckedInToday || isPending}
-              onClick={() => checkIn()}
-            >
-              {isCheckedInToday ? "Checked In" : "Check In"}
-            </Button>
+            {!expertId && (
+              <Button
+                size="sm"
+                disabled={isCheckedInToday || isPending}
+                onClick={() => checkIn()}
+              >
+                {isCheckedInToday ? "Checked In" : "Check In"}
+              </Button>
+            )}
             {/* ANIMATION SWITCH */}
             {/* {theme == "dark" && (
               <div className="flex items-center gap-2">
