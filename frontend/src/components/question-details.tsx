@@ -3011,10 +3011,35 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
 
                       <div className="space-y-4">
                         {props.answer.reviews.map((review,index) => {
-                          const modification =
-                            review?.answer?.modifications?.find(
-                              (mod) => mod.modifiedBy === review.reviewerId
-                            );
+                          let modification;
+  
+                          if (review.action === "modified" && review?.answer?.modifications) {
+                            const reviewTime = new Date(review.createdAt!).getTime();
+                            
+                            // Find all modifications by this reviewer
+                            const candidateMods = review.answer.modifications
+                              .map((mod, idx) => ({ mod, idx }))
+                              .filter(({ mod }) => mod.modifiedBy === review.reviewerId);
+                            
+                            if (candidateMods.length === 1) {
+                              // Easy case - only one modification by this reviewer
+                              modification = candidateMods[0].mod;
+                            } else if (candidateMods.length > 1) {
+                              // Find the modification with timestamp closest to (but not after) review time
+                              // This handles cases where modification happens slightly before review is recorded
+                              const match = candidateMods
+                                .map(({ mod, idx }) => ({
+                                  mod,
+                                  idx,
+                                  timeDiff: Math.abs(new Date(mod.modifiedAt!).getTime() - reviewTime)
+                                }))
+                                .sort((a, b) => a.timeDiff - b.timeDiff)[0]; // Get closest match
+                              
+                              modification = match.mod;
+                            }
+                          }
+                        
+                        
 
                           return (
                             <div>
@@ -3152,7 +3177,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                                       </AccordionTrigger>
 
                                       <AccordionContent>
-                                        {renderModificationDiff(modification)}
+                                        {renderModificationDiff(modification,index)}
                                       </AccordionContent>
                                     </AccordionItem>
                                   </Accordion>

@@ -597,15 +597,15 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
 
     const [users, preferredExperts] = await Promise.all([
-      this.userRepo.findAll(),
+      this.userRepo.findAll(session).then((allUsers: any[]) => 
+        allUsers.filter((user: any) => !user.isBlocked && user.role === 'expert')
+      ),
       this.userRepo.findExpertsByPreference(details, session),
     ]);
 
     const expertIdsSet = new Set<string>();
     preferredExperts.forEach(user => expertIdsSet.add(user._id.toString()));
-    users
-      .filter(user => user.role === 'expert')
-      .forEach(user => expertIdsSet.add(user._id.toString()));
+    users.forEach(user => expertIdsSet.add(user._id.toString()));
 
     const allExpertIds = Array.from(expertIdsSet);
 
@@ -834,6 +834,19 @@ export class QuestionService extends BaseService implements IQuestionService {
         //5. Validate experts array
         if (!experts || experts.length === 0)
           throw new BadRequestError('Experts list cannot be empty');
+
+        // Check if experts are blocked
+        for (const expertId of experts) {
+          const expert = await this.userRepo.findById(expertId, session);
+          if (!expert) {
+            throw new BadRequestError(`Expert with ID ${expertId} not found`);
+          }
+          if (expert.isBlocked) {
+            throw new BadRequestError(
+              `Cannot allocate blocked expert: ${expert.email}. Please select an unblocked expert.`,
+            );
+          }
+        }
 
         // Check if adding these experts exceeds the limit of 10
         const totalAllocatedExperts = questionSubmission.queue.length;

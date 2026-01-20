@@ -157,6 +157,13 @@ if (existingReRoute?.reroutes.at(-1)?.status === "pending") {
         if (!expert) {
           throw new NotFoundError('Expert not found');
         }
+
+        // Check if expert is blocked
+        if (expert.isBlocked) {
+          throw new BadRequestError(
+            `Cannot allocate blocked expert: ${expert.email}. Please select an unblocked expert.`,
+          );
+        }
   
         const now = new Date();
   
