@@ -847,9 +847,8 @@ const AllocationQueueHeader = ({
                           sm:max-w-xl              
                           md:max-w-4xl             
                           lg:max-w-6xl             
-                          max-h-[85vh]             
-                          min-h-[60vh]             
-                          overflow-hidden           
+                          h-[90vh]
+                          max-h-[90vh]           
                           p-4                       
                         "
                 >
@@ -980,7 +979,7 @@ const AllocationQueueHeader = ({
                     <Button
                       variant="outline"
                       onClick={handleCancel}
-                      className="hidden md:block"
+                      className="md:block"
                     >
                       Cancel
                     </Button>
