@@ -22,13 +22,31 @@ export const auth = getAuth(app);
 export const provider = new GoogleAuthProvider();
 const userService = new UserService()
 export const loginWithEmail = async (email: string, password: string) => {
-  const user = await userService.Getuser(email)
-  if(user?.isBlocked){
-    throw new Error("User Is Blocked Please Contact Moderator")
-  }
-  if(!user?.isBlocked){
-  const result = await signInWithEmailAndPassword(auth, email, password);
-  return result;
+  try {
+    const user = await userService.Getuser(email)
+    if(user?.isBlocked){
+      throw new Error("User Is Blocked Please Contact Moderator")
+    }
+    if(!user?.isBlocked || user === null){
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      return result;
+    }
+  } catch (error: unknown) {
+    // If it's a "User Is Blocked" error, re-throw it
+    if (error instanceof Error && error.message === "User Is Blocked Please Contact Moderator") {
+      throw error;
+    }
+    // Otherwise, if it's a network/fetch error from userService.Getuser, 
+    // allow Firebase auth to proceed and return the error from there
+    if (error instanceof Error && (error.message.includes("Request failed") || error.message.includes("Failed to"))) {
+      try {
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        return result;
+      } catch (authError) {
+        throw authError;
+      }
+    }
+    throw error;
   }
 };
 
