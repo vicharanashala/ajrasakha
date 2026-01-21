@@ -162,7 +162,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, value }) => `${name}: ${value}`}
+                      // label={({ name, value }) => `${name}: ${value}`}
                       outerRadius={100}
                       dataKey="count"
                     >
@@ -272,7 +272,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                       cy="50%"
                       innerRadius={50}
                       labelLine={false}
-                      label={({ name, value }) => `${name}: ${value}`}
+                      // label={({ name, value }) => `${name}: ${value}`}
                       outerRadius={100}
                       dataKey="count"
                     >
