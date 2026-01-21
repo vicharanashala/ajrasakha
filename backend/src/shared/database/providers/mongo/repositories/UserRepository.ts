@@ -852,17 +852,20 @@ async findAllUsers(
       await this.ensureIndexes();
       const skip = (page - 1) * limit;
 
-      const matchQuery: any = {};
+      const baseMatch: any = {
+        role: 'expert',
+      };
+      const searchMatch: any = {};
 
       if (search) {
-        matchQuery.$or = [
-          {firstName: {$regex: search, $options: 'i'}},
-          {lastName: {$regex: search, $options: 'i'}},
+        searchMatch.$or = [
+          { firstName: { $regex: search, $options: 'i' } },
+          { lastName: { $regex: search, $options: 'i' } },
         ];
       }
 
       if (filter && filter !== 'ALL') {
-        matchQuery['preference.state'] = filter;
+        searchMatch['preference.state'] = filter;
       }
 
       const sortMap: any = {
@@ -881,7 +884,7 @@ async findAllUsers(
       
       const result = await this.usersCollection.aggregate([
       /** Match experts */
-      { $match: matchQuery },
+      { $match: baseMatch },
 
       /** Default isBlocked */
       {
@@ -984,6 +987,9 @@ async findAllUsers(
       {
         $replaceRoot: { newRoot: '$experts' },
       },
+      ...(Object.keys(searchMatch).length
+            ? [{ $match: searchMatch }]
+            : []),
 
       /** UI sorting (dropdown) */
       {
