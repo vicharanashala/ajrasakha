@@ -98,6 +98,16 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
   const processedCropData = getTopTenWithOthers(data.cropData);
   const processedDomainData = getTopTenWithOthers(data.domainData);
 
+  const processedCropWithColors = processedCropData.map((item, index) => ({
+    ...item,
+    color: colors[index % colors.length],
+  }));
+
+  const processedDomainWithColors = processedDomainData.map((item, index) => ({
+    ...item,
+    color: colors[index % colors.length],
+  }));
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-4 mb-2">
@@ -166,11 +176,8 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                       outerRadius={100}
                       dataKey="count"
                     >
-                      {data.cropData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={colors[index % colors.length]}
-                        />
+                      {processedCropWithColors.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
                     <Tooltip
@@ -194,7 +201,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
 
                 <ScrollArea className="h-72 rounded-md border p-1">
                   <div className="space-y-2 pr-2">
-                    {data.cropData.map((item) => (
+                    {processedCropWithColors.map((item) => (
                       <div
                         key={item.name}
                         className="flex items-center justify-between p-3 rounded-lg bg-muted"
@@ -202,7 +209,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                         <div className="flex items-center gap-2">
                           <div
                             className="w-3 h-3 rounded"
-                            style={{ backgroundColor: "var(--color-chart-3)" }}
+                            style={{ backgroundColor: item.color }}
                           />
                           <span className="text-sm text-foreground">
                             {item.name.length > 18
@@ -267,7 +274,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
-                      data={processedDomainData}
+                      data={processedDomainWithColors}
                       cx="50%"
                       cy="50%"
                       innerRadius={50}
@@ -276,11 +283,8 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                       outerRadius={100}
                       dataKey="count"
                     >
-                      {data.domainData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={colors[index % colors.length]}
-                        />
+                      {processedDomainWithColors.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
                     <Tooltip
@@ -304,7 +308,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
 
                 <ScrollArea className="h-72 rounded-md border p-1">
                   <div className="space-y-2 pr-2">
-                    {data.domainData.map((item) => (
+                    {processedDomainWithColors.map((item) => (
                       <div
                         key={item.name}
                         className="flex items-center justify-between p-3 rounded-lg bg-muted"
@@ -312,7 +316,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                         <div className="flex items-center gap-2">
                           <div
                             className="w-3 h-3 rounded"
-                            style={{ backgroundColor: "var(--color-chart-2)" }}
+                            style={{ backgroundColor: item.color }}
                           />
                           <span className="text-sm text-foreground">
                             {item.name}
