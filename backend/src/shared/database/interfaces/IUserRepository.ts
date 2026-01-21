@@ -216,4 +216,8 @@ findAllUsers(
  * @param time - The new check-in time.
  */
 updateCheckInTime(userId: string, time: Date, session?: ClientSession): Promise<void>;
+
+findUnblockedUsers(session?:ClientSession):Promise<IUser[]>
+
+blockExperts(expertIds:string[],session:ClientSession):Promise<void>
 }

@@ -332,4 +332,9 @@ export class QuestionController {
     return job;
   }
 
+  @Get('/absent/run/script')
+  RunTheAbsentScript() {
+     this.questionService.run()
+    return {message:"Changed"} 
+  }
 }

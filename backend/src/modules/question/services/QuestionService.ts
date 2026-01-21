@@ -33,6 +33,7 @@ import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/Q
 import { NotificationService } from '#root/modules/core/services/NotificationService.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
+import { isToday } from '#root/utils/date.utils.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -604,7 +605,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     const expertIdsSet = new Set<string>();
     preferredExperts.forEach(user => expertIdsSet.add(user._id.toString()));
     users
-      .filter(user => user.role === 'expert')
+      .filter(user => user.role === 'expert' && user.isBlocked !==true)
       .forEach(user => expertIdsSet.add(user._id.toString()));
 
     const allExpertIds = Array.from(expertIdsSet);
@@ -935,10 +936,17 @@ export class QuestionService extends BaseService implements IQuestionService {
     userId: string,
     questionId: string,
     index: number,
+    options?: {
+    skipAutoAllocate?: boolean;
+  },
   ): Promise<IQuestionSubmission> {
+    const skipAutoAllocate = options?.skipAutoAllocate ?? false;
     try {
+      console.log("Called remove ")
+      console.log("Called remove astn ",questionId , index)
       return this._withTransaction(async (session: ClientSession) => {
         // Validate that user has authorization for this
+        if(userId!=='system'){
         const user = await this.userRepo.findById(userId, session);
         if (!user)
           throw new UnauthorizedError(`Cannot find user, try relogin!`);
@@ -946,6 +954,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           throw new UnauthorizedError(
             `You don't have permission to perform this operation`,
           );
+        }
         //1. Validate that the question exists
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
@@ -1043,7 +1052,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           }*/
 
         //7. Handle auto reallocation logic if autoAllocate is enabled
-        if (index >= 0 && question.isAutoAllocate) {
+        if (!skipAutoAllocate&&  index >= 0 && question.isAutoAllocate) {
           // Get updated queue and history lengths
           const UPDATED_QUEUE_LENGTH = updated?.queue.length || 0;
           const UPDATED_HISTORY_LENGTH = updated?.history.length || 0;
@@ -1311,4 +1320,347 @@ export class QuestionService extends BaseService implements IQuestionService {
       });
     });
   }
+
+  async run(){
+    return await this._withTransaction(async session => {
+      try {
+        console.log("reached ")
+        const absentExpertIds = await this.findAbsentExperts(session);
+        console.log("absent experts ",absentExpertIds)
+        if (!absentExpertIds.length) return;
+        await this.userRepo.blockExperts(absentExpertIds, session);
+        await this.cleanupQuestionSubmissions(absentExpertIds, session);
+      } catch (error) {
+        throw new InternalServerError(
+        `Daily reviewer cleanup failed: ${error}`,
+      );
+      }
+    })
+  }
+
+  async findAbsentExperts(
+    session: ClientSession,
+  ): Promise<string[]> {
+    const experts = await this.userRepo.findUnblockedUsers(session)
+    return experts
+      .filter(expert => !isToday(expert.lastCheckInAt))
+      .map(expert => expert._id.toString());
+  }
+
+  // async cleanupQuestionSubmissions(
+  //   absentExpertIds: string[],
+  //   session: ClientSession,
+  // ): Promise<void> {
+  //   const submissions =await this.questionSubmissionRepo.getAbsentSubmissions(absentExpertIds,session)
+  //   console.log("submissions ",submissions)
+  //   console.log("submissions length ",submissions.length)
+  //   for (const submission of submissions) {
+  //     const {
+  //       queue = [],
+  //       history = [],
+  //       questionId,
+  //     } = submission;
+
+  //     /* Author */
+  //    if (
+  //     history.length === 0 &&
+  //     queue.length > 0 &&
+  //     absentExpertIds.includes(queue[0].toString())
+  //   ) {
+  //     console.log("inside author case ")
+  //     console.log("inside author case qstn ",questionId)
+  //     await this.removeExpertFromQueue(
+  //       'system',
+  //       questionId.toString(),
+  //       0,
+  //     );
+  //     continue;
+  //   }
+
+  //     /* rest*/
+  //     for (let index = history.length-1; index <queue.length; index++) {
+  //       console.log("inside rest ")
+  //       console.log("inside rest qstn and indes ",questionId , index)
+  //       const expertId = queue[index]?.toString();
+  //       console.log("Expert id inside rest ",expertId)
+  //       if (!expertId) continue;
+
+  //       if (!absentExpertIds.includes(expertId)) continue;
+
+  //       const isPendingOrFuture = index >= history.length-1;
+  //       console.log("IS pending or future  ",isPendingOrFuture)
+  //       if (!isPendingOrFuture) continue;
+
+  //       await this.removeExpertFromQueue(
+  //         'system', 
+  //         questionId.toString(),
+  //         index,
+  //       );
+  //       break;
+  //     }
+  //   }
+  // }
+
+//   async cleanupQuestionSubmissions(
+//   absentExpertIds: string[],
+//   session: ClientSession,
+// ): Promise<void> {
+//   const submissions =
+//     await this.questionSubmissionRepo.getAbsentSubmissions(
+//       absentExpertIds,
+//       session,
+//     );
+//     console.log("Submission ",submissions)
+//     console.log("Submission length",submissions.length)
+//   for (const submission of submissions) {
+//     let { queue = [], history = [], questionId } = submission;
+
+//     /* author*/
+//     while (
+//       history.length === 0 &&
+//       queue.length > 0 &&
+//       absentExpertIds.includes(queue[0].toString())
+//     ) {
+//       console.log('Removing pending author', questionId);
+
+//       await this.removeExpertFromQueue(
+//         'system',
+//         questionId.toString(),
+//         0,
+//       );
+
+//       const updated =
+//         await this.questionSubmissionRepo.getByQuestionId(
+//           questionId.toString(),
+//           session,
+//         );
+
+//       queue = updated.queue || [];
+//       history = updated.history || [];
+//     }
+
+//     /* rest */
+//     let index =
+//       queue.length === history.length && history.length > 0
+//         ? history.length - 1 
+//         : history.length;  
+
+//     while (index < queue.length) {
+//       const expertId = queue[index]?.toString();
+//       if (!expertId) {
+//         index++;
+//         continue;
+//       }
+
+//       if (!absentExpertIds.includes(expertId)) {
+//         index++;
+//         continue;
+//       }
+
+//       console.log('Removing pending reviewer', questionId, index);
+
+//       await this.removeExpertFromQueue(
+//         'system',
+//         questionId.toString(),
+//         index,
+//       );
+
+//       // Re-fetch after mutation
+//       const updated =
+//         await this.questionSubmissionRepo.getByQuestionId(
+//           questionId.toString(),
+//           session,
+//         );
+
+//       queue = updated.queue || [];
+//       history = updated.history || [];
+//     }
+//   }
+// }
+
+
+// async cleanupQuestionSubmissions(
+//   absentExpertIds: string[],
+//   session: ClientSession,
+// ): Promise<void> {
+//   const submissions =
+//     await this.questionSubmissionRepo.getAbsentSubmissions(
+//       absentExpertIds,
+//       session,
+//     );
+//     console.log("Submissins ",submissions)
+//     console.log("Submissins length",submissions.length)
+//   for (const submission of submissions) {
+//     const { queue = [], history = [], questionId } = submission;
+
+//     /* -----------------------------------------
+//        STEP 1: decide WHO to remove (by ID)
+//     ------------------------------------------ */
+//     const expertIdsToRemove = new Set<string>();
+
+//     // Author
+//     if (
+//       history.length === 0 &&
+//       queue.length > 0 &&
+//       absentExpertIds.includes(queue[0].toString())
+//     ) {
+//       expertIdsToRemove.add(queue[0].toString());
+//     }
+
+//     // Reviewers
+//     const startIndex =
+//       queue.length === history.length && history.length > 0
+//         ? history.length - 1
+//         : history.length;
+
+//     for (let i = startIndex; i < queue.length; i++) {
+//       const expertId = queue[i]?.toString();
+//       if (!expertId) continue;
+
+//       if (absentExpertIds.includes(expertId)) {
+//         expertIdsToRemove.add(expertId);
+//       }
+//     }
+
+//     /* -----------------------------------------
+//        STEP 2: remove safely (by ID)
+//     ------------------------------------------ */
+//     for (const expertId of expertIdsToRemove) {
+//       const latest =
+//         await this.questionSubmissionRepo.getByQuestionId(
+//           questionId.toString(),
+//           session,
+//         );
+
+//       const currentIndex = latest.queue.findIndex(
+//         q => q.toString() === expertId,
+//       );
+
+//       if (currentIndex === -1) continue; // already removed
+
+//       await this.removeExpertFromQueue(
+//         'system',
+//         questionId.toString(),
+//         currentIndex,
+//       );
+//     }
+//   }
+// }
+
+async cleanupQuestionSubmissions(
+  absentExpertIds: string[],
+  session: ClientSession,
+): Promise<void> {
+  if (!absentExpertIds.length) return;
+
+  const submissions =
+    await this.questionSubmissionRepo.getAbsentSubmissions(
+      absentExpertIds,
+      session,
+    );
+
+  console.log('Submissions ', submissions);
+  console.log('Submissions length ', submissions.length);
+
+  for (const submission of submissions) {
+    const {
+      questionId,
+      queue = [],
+      history = [],
+    } = submission;
+
+    if (!queue.length) continue;
+
+    /* -----------------------------------------
+       STEP 1: Decide who must be removed
+       (NO MUTATION HERE)
+    ------------------------------------------ */
+    const expertIdsToRemove = new Set<string>();
+
+    /* -------- AUTHOR CASE --------
+       Remove author ONLY if:
+       - history is empty
+       - queue[0] is absent
+    -------------------------------- */
+    if (
+      history.length === 0 &&
+      queue[0] &&
+      absentExpertIds.includes(queue[0].toString())
+    ) {
+      expertIdsToRemove.add(queue[0].toString());
+    }
+
+    /* -------- REVIEWER CASE --------
+       Remove absent experts in:
+       - pending index (index === history.length - 1 AND status=in-review)
+       - future indices (index >= history.length)
+    -------------------------------- */
+    if (history.length > 0 && queue.length >= history.length) {
+      const lastHistory = history[history.length - 1];
+
+      // Pending reviewer (same length, in-review)
+      if (queue.length === history.length && lastHistory.status === 'in-review') {
+        const pendingExpertId = queue[history.length - 1]?.toString();
+        if (
+          pendingExpertId &&
+          absentExpertIds.includes(pendingExpertId)
+        ) {
+          expertIdsToRemove.add(pendingExpertId);
+        }
+      }
+    }
+
+    // Future reviewers
+    for (let index = history.length; index < queue.length; index++) {
+      const expertId = queue[index]?.toString();
+      if (expertId && absentExpertIds.includes(expertId)) {
+        expertIdsToRemove.add(expertId);
+      }
+    }
+
+    if (!expertIdsToRemove.size) continue;
+
+    /* -----------------------------------------
+       STEP 2: Remove experts SEQUENTIALLY
+       (queue will mutate → always refetch)
+    ------------------------------------------ */
+    for (const expertId of expertIdsToRemove) {
+      const latestSubmission =
+        await this.questionSubmissionRepo.getByQuestionId(
+          questionId.toString(),
+          session,
+        );
+
+      const currentIndex = latestSubmission.queue.findIndex(
+        id => id.toString() === expertId,
+      );
+
+      if (currentIndex === -1) continue;
+
+      await this.removeExpertFromQueue(
+        'system',
+        questionId.toString(),
+        currentIndex,
+        { skipAutoAllocate: true },
+      );
+    }
+
+    /* -----------------------------------------
+       STEP 3: Auto-allocate ONCE per question
+    ------------------------------------------ */
+    const question = await this.questionRepo.getById(
+      questionId.toString(),
+      session,
+    );
+
+    if (question?.isAutoAllocate) {
+      await this.autoAllocateExperts(
+        questionId.toString(),
+        session,
+      );
+    }
+  }
+}
+
+
 }

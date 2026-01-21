@@ -135,4 +135,6 @@ export interface IQuestionSubmissionRepository {
   );
   getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any>;
   getModeratorReviewLevel(query: ExpertReviewLevelDto): Promise<any>;
+
+  getAbsentSubmissions(absentExpertIds:string[],session?:ClientSession):Promise<IQuestionSubmission[]>
 }

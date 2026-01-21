@@ -11,6 +11,7 @@ import {
   QuestionResponse,
 } from '../classes/validators/QuestionVaidators.js';
 import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
+import { ClientSession } from 'mongodb';
 
 export interface IQuestionService {
   /** Bulk insert questions (CSV / upload / AI generated) */
@@ -117,4 +118,11 @@ export interface IQuestionService {
   getQuestionAndReviewLevel(
     query: GetDetailedQuestionsQuery
   ): Promise<QuestionLevelResponse>;
+
+  cleanupQuestionSubmissions(
+      absentExpertIds: string[],
+      session: ClientSession,
+    ): Promise<void>
+
+  run()
 }

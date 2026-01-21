@@ -2910,4 +2910,95 @@ export class QuestionSubmissionRepository
       }
     );
   }
+
+  // async getAbsentSubmissions(absentExpertIds: string[], session?: ClientSession): Promise<IQuestionSubmission[]> {
+  //   try {
+  //     await this.init()
+  //     const submissions=await this.QuestionSubmissionCollection.find(
+  //       {
+  //         $or: [
+  //           { queue: { $in: absentExpertIds.map(id => new ObjectId(id)) } },
+  //           // {
+  //           //   lastRespondedBy: {
+  //           //     $in: absentExpertIds.map(id => new ObjectId(id)),
+  //           //   },
+  //           // },
+  //         ],
+  //       },
+  //       session,
+  //     ).toArray()
+  //     return submissions
+  //   } catch (error) {
+  //     throw new InternalServerError("Failed to get absent submissions")
+  //   }
+  // }
+
+async getAbsentSubmissions(
+  absentExpertIds: string[],
+  session?: ClientSession,
+): Promise<IQuestionSubmission[]> {
+  try {
+    await this.init();
+
+    const submissions = await this.QuestionSubmissionCollection
+      .find(
+        {
+          queue: {
+            $in: absentExpertIds.map(id => new ObjectId(id)),
+          },
+        },
+        { session },
+      )
+      .toArray();
+
+    const pendingSubmissions: IQuestionSubmission[] = [];
+
+    for (const submission of submissions) {
+      const { queue = [], history = [] } = submission;
+
+      if (queue.length === 0) continue;
+
+      let hasPendingAbsentExpert = false;
+      if (queue.length === history.length && history.length > 0) {
+        const lastHistory = history[history.length - 1];
+
+        if (lastHistory.status === 'in-review') {
+          const pendingIndex = history.length - 1;
+          const expertId = queue[pendingIndex]?.toString();
+
+          if (expertId && absentExpertIds.includes(expertId)) {
+            hasPendingAbsentExpert = true;
+          }
+        }
+      }
+
+      /* -----------------------------------------
+         CASE B:
+         Normal pending / future reviewers
+         index >= history.length
+      ------------------------------------------ */
+      if (!hasPendingAbsentExpert) {
+        for (let index = history.length; index < queue.length; index++) {
+          const expertId = queue[index]?.toString();
+          if (!expertId) continue;
+
+          if (absentExpertIds.includes(expertId)) {
+            hasPendingAbsentExpert = true;
+            break;
+          }
+        }
+      }
+
+      if (hasPendingAbsentExpert) {
+        pendingSubmissions.push(submission);
+      }
+    }
+
+    return pendingSubmissions;
+  } catch (error) {
+    throw new InternalServerError('Failed to get absent submissions');
+  }
+}
+
+
 }
