@@ -90,7 +90,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
   const [responseOpen, setResponseOpen] = useState(false);
 
   const { data: requestDiff, isLoading: reqDiffLoading } = useGetRequestDiff(
-    req._id,
+    req._id
   );
 
   const { mutateAsync: updateStatus, isPending: updatingStatus } =
@@ -105,7 +105,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
     try {
       if (!newStatus || newStatus === req.status) {
         toast.error(
-          "Please select a new status different from the current one.",
+          "Please select a new status different from the current one."
         );
         return;
       }
@@ -191,7 +191,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
               {initials(
                 req?.requestedUser?.firstName +
                   " " +
-                  req?.requestedUser?.lastName || "",
+                  req?.requestedUser?.lastName || ""
               )}
             </AvatarFallback>
           </Avatar>
@@ -213,12 +213,12 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
             req?.status === "approved"
               ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
               : req?.status === "rejected"
-                ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
-                : req?.status === "in-review"
-                  ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
-                  : req?.status === "pending"
-                    ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
-                    : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
+              ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
+              : req?.status === "in-review"
+              ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
+              : req?.status === "pending"
+              ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
+              : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
           }`}
         >
           {req?.status?.toUpperCase() || "N/A"}
@@ -227,9 +227,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
       <CardContent className="space-y-3 pt-2">
         <div className="text-sm">
           <div className="font-medium text-xs sm:text-sm">Reason</div>
-          <p className="text-muted-foreground line-clamp-2 text-xs sm:text-sm">
-            {req.reason}
-          </p>
+          <p className="text-muted-foreground line-clamp-2 text-xs sm:text-sm">{req.reason}</p>
         </div>
         <div className="text-xs text-muted-foreground">
           Created: {new Date(req.createdAt).toLocaleString()}
@@ -247,13 +245,9 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
                           Request Diff & Review
                         </CardTitle>
                         <div className="text-sm text-muted-foreground flex gap-2 flex-col sm:flex-row mt-1">
-                          <span className="truncate">
-                            QuestionId: {req?.entityId}
-                          </span>
+                          <span className="truncate">QuestionId: {req?.entityId}</span>
                           <span className="hidden sm:inline">•</span>
-                          <span className="truncate">
-                            RequestId: {req?._id}
-                          </span>
+                          <span className="truncate">RequestId: {req?._id}</span>
                         </div>
                       </div>
                     </div>
@@ -264,12 +258,12 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
                           req?.status === "approved"
                             ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
                             : req?.status === "rejected"
-                              ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
-                              : req?.status === "in-review"
-                                ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
-                                : req?.status === "pending"
-                                  ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
-                                  : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
+                            ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
+                            : req?.status === "in-review"
+                            ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
+                            : req?.status === "pending"
+                            ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
+                            : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
                         }`}
                       >
                         {req?.status?.toUpperCase() || "N/A"}
@@ -411,7 +405,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
                                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                     <Calendar className="h-3 w-3" />
                                     {new Date(
-                                      response.reviewedAt || "",
+                                      response.reviewedAt || ""
                                     ).toLocaleString()}
                                   </div>
                                 </div>
@@ -479,12 +473,12 @@ export const RequestsPage = ({
 }) => {
   const [status, setStatus] = useState<"all" | RequestStatus>("all");
   const [reqType, setReqType] = useState<"all" | "question_flag" | "others">(
-    "all",
+    "all"
   );
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
-    null,
+    null
   );
   // const [isInitialLoad, setIsInitialLoad] = useState(true);
   const LIMIT = 10;
@@ -494,7 +488,7 @@ export const RequestsPage = ({
     LIMIT,
     status,
     reqType,
-    sortOrder,
+    sortOrder
   );
 
   useEffect(() => {
@@ -503,7 +497,7 @@ export const RequestsPage = ({
     }
 
     const matchingRequest = requestData.requests.find(
-      (req) => req.entityId === autoSelectId,
+      (req) => req.entityId === autoSelectId
     );
 
     if (matchingRequest) {
@@ -512,7 +506,7 @@ export const RequestsPage = ({
       // Scroll after component re-renders
       setTimeout(() => {
         const element = document.getElementById(
-          `request-${matchingRequest._id}`,
+          `request-${matchingRequest._id}`
         );
         if (element) {
           element.scrollIntoView({
@@ -749,7 +743,7 @@ export const ReqDetailsDiff = ({
                     key={f.path + "-old"}
                     className={cn(
                       "rounded-md border border-border p-3",
-                      f.changed ? "bg-destructive/10" : "bg-muted/20",
+                      f.changed ? "bg-destructive/10" : "bg-muted/20"
                     )}
                   >
                     <div className="text-xs text-muted-foreground mb-1 font-mono">
@@ -775,7 +769,7 @@ export const ReqDetailsDiff = ({
                     key={f.path + "-new"}
                     className={cn(
                       "rounded-md border border-border p-3",
-                      f.changed ? "bg-primary/10" : "bg-muted/20",
+                      f.changed ? "bg-primary/10" : "bg-muted/20"
                     )}
                   >
                     <div className="text-xs text-muted-foreground mb-1 font-mono">
@@ -813,7 +807,7 @@ const Legend = () => {
 
 export const diffQuestion = (
   oldDoc: Record<string, any>,
-  newDoc: Record<string, any>,
+  newDoc: Record<string, any>
 ): Array<{
   path: string;
   oldValue: unknown;
@@ -853,7 +847,7 @@ export const diffQuestion = (
     // Handle nested objects
     if (a && b && typeof a === "object" && typeof b === "object") {
       const keys = Array.from(
-        new Set([...Object.keys(a), ...Object.keys(b)]),
+        new Set([...Object.keys(a), ...Object.keys(b)])
       ).sort();
       for (const key of keys) {
         const path = prefix ? `${prefix}.${key}` : key;
