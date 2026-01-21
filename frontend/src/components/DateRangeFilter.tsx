@@ -1,7 +1,7 @@
 import React from "react";
 import type { DateRange } from "react-day-picker";
 import { Label } from "./atoms/label";
-import { CalendarIcon, ChevronDown, ChevronUp, Clock } from "lucide-react";
+import { CalendarIcon, ChevronDown, ChevronUp, Clock, RefreshCcw } from "lucide-react";
 import { Button } from "./atoms/button";
 import { format } from "date-fns";
 import { Calendar } from "./atoms/calendar";
@@ -99,6 +99,12 @@ const handleDateSelect = (range: DateRange | undefined) => {
   }
 };
 
+  const handleClearDates = () => {
+    handleDialogChange(startKey, undefined);
+    handleDialogChange(endKey, undefined);
+    setIsCalendarVisible(false);
+  };
+
 
 
   const isRangeSelected = dateRange.from && dateRange.to;
@@ -145,19 +151,33 @@ const handleDateSelect = (range: DateRange | undefined) => {
 
       {/* Conditional Rendering of the Calendar */}
       {isCalendarVisible && (
-        <div className="absolute z-50 mt-2 border rounded-lg p-2 bg-popover text-popover-foreground shadow-lg min-w-full sm:min-w-[300px]">
-          {" "}
+        <div className="absolute z-50 mt-2 border rounded-lg bg-popover text-popover-foreground shadow-lg min-w-full sm:min-w-[300px]">
+
           <Calendar
             initialFocus
             mode="range"
             defaultMonth={dateRange.from}
             selected={dateRange}
             onSelect={handleDateSelect}
-            numberOfMonths={1} // Use 1 month since space might be limited now
-            className="w-full"
+            numberOfMonths={1}
+            className="w-full p-2"
           />
+
+          {dateRange.from && (
+            <div className="flex justify-end border-t px-2 py-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearDates}
+              >
+                <RefreshCcw className="h-4 w-4 mr-2" />
+                Reset
+              </Button>
+            </div>
+          )}
         </div>
       )}
+
     </div>
   );
 };
