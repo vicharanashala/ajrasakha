@@ -6,7 +6,7 @@ import {
   IReview,
   IAnswer,
   IQuestion,
-  IReroute
+  IReroute,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -22,11 +22,9 @@ import {GetHeatMapQuery} from '#root/modules/core/classes/validators/DashboardVa
 import {getReviewerQueuePosition} from '#root/utils/getReviewerQueuePosition.js';
 import {ExpertReviewLevelDto} from '#root/modules/core/classes/validators/UserValidators.js';
 import {IReviewWiseStats} from '#root/utils/getDailyStats.js';
-import { HistoryItem } from '#root/modules/question/classes/validators/QuestionVaidators.js';
+import {HistoryItem} from '#root/modules/question/classes/validators/QuestionVaidators.js';
 
-export class QuestionSubmissionRepository
-  implements IQuestionSubmissionRepository
-{
+export class QuestionSubmissionRepository implements IQuestionSubmissionRepository {
   private QuestionSubmissionCollection: Collection<IQuestionSubmission>;
   private QuestionCollection: Collection<IQuestion>;
   private ReRouteCollection: Collection<IReroute>;
@@ -38,10 +36,9 @@ export class QuestionSubmissionRepository
   private async init() {
     this.QuestionSubmissionCollection =
       await this.db.getCollection<IQuestionSubmission>('question_submissions');
-      this.QuestionCollection = await this.db.getCollection<IQuestion>(
-        'questions',
-      );
-      this.ReRouteCollection = await this.db.getCollection<IReroute>('reroutes');
+    this.QuestionCollection =
+      await this.db.getCollection<IQuestion>('questions');
+    this.ReRouteCollection = await this.db.getCollection<IReroute>('reroutes');
   }
 
   async getByQuestionId(
@@ -508,7 +505,7 @@ export class QuestionSubmissionRepository
 
       let {startTime, endTime} = query;
 
-     /* const matchConditions: any = {
+      /* const matchConditions: any = {
         'history.status': {$in: ['reviewed', 'rejected']},
       };
 
@@ -534,76 +531,76 @@ export class QuestionSubmissionRepository
         },
 
         // ✅ Step 2: Filter based on index and status
-      {
-        $match: {
-          $expr: {
-            $or: [
-              // Index 0: any status is allowed
-              {$eq: ['$historyIndex', 0]},
-              // Index >= 1: must have specific status
+        {
+          $match: {
+            $expr: {
+              $or: [
+                // Index 0: any status is allowed
+                {$eq: ['$historyIndex', 0]},
+                // Index >= 1: must have specific status
+                {
+                  $and: [
+                    {$gte: ['$historyIndex', 1]},
+                    {
+                      $in: [
+                        '$history.status',
+                        ['reviewed', 'rejected', 'approved', 'modified'],
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        // ✅ Step 3: Apply date range filtering
+        ...(startTime || endTime
+          ? [
               {
-                $and: [
-                  {$gte: ['$historyIndex', 1]},
-                  {
-                    $in: [
-                      '$history.status',
-                      ['reviewed', 'rejected', 'approved', 'modified'],
-                    ],
-                  },
-                ],
+                $match: {
+                  ...(startTime && {
+                    'history.createdAt': {
+                      $gte: new Date(`${startTime}T00:00:00.000+05:30`),
+                    },
+                  }),
+                  ...(endTime && {
+                    'history.updatedAt': {
+                      $lte: new Date(`${endTime}T23:59:59.999+05:30`),
+                    },
+                  }),
+                },
               },
-            ],
-          },
-        },
-      },
-      // ✅ Step 3: Apply date range filtering
-      ...(startTime || endTime
-        ? [
-            {
-              $match: {
-                ...(startTime && {
-                  'history.createdAt': {
-                    $gte: new Date(`${startTime}T00:00:00.000+05:30`), 
-                  },
-                }),
-                ...(endTime && {
-                  'history.updatedAt': {
-                    $lte: new Date(`${endTime}T23:59:59.999+05:30`),
-                  },
-                }),
-              },
-            },
-          ]
-        : []),
+            ]
+          : []),
         // ✅ Step 4: Ensure updatedBy exists
-      {
-        $match: {
-          'history.updatedBy': {$exists: true, $ne: null},
+        {
+          $match: {
+            'history.updatedBy': {$exists: true, $ne: null},
+          },
         },
-      },
-      {
-        $addFields: {
-          turnaroundHours: {
-            $cond: {
-              if: {$eq: ['$historyIndex', 0]},
-              // ✅ Index 0: from ROOT createdAt to history.updatedAt
-              then: {
-                $divide: [
-                  {$subtract: ['$history.updatedAt', '$createdAt']},
-                  1000 * 60 * 60,
-                ],
-              },
-              // ✅ Index >= 1: from history.createdAt to history.updatedAt
-              else: {
-                $divide: [
-                  {$subtract: ['$history.updatedAt', '$history.createdAt']},
-                  1000 * 60 * 60,
-                ],
+        {
+          $addFields: {
+            turnaroundHours: {
+              $cond: {
+                if: {$eq: ['$historyIndex', 0]},
+                // ✅ Index 0: from ROOT createdAt to history.updatedAt
+                then: {
+                  $divide: [
+                    {$subtract: ['$history.updatedAt', '$createdAt']},
+                    1000 * 60 * 60,
+                  ],
+                },
+                // ✅ Index >= 1: from history.createdAt to history.updatedAt
+                else: {
+                  $divide: [
+                    {$subtract: ['$history.updatedAt', '$history.createdAt']},
+                    1000 * 60 * 60,
+                  ],
+                },
               },
             },
           },
         },
-      },
 
         // ✅ ONE-HOUR BUCKET INTERVALS
         {
@@ -687,9 +684,8 @@ export class QuestionSubmissionRepository
         },
       ];
 
-      const result = await this.QuestionSubmissionCollection.aggregate(
-        pipeline,
-      ).toArray();
+      const result =
+        await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
 
       return result.length ? (result as IReviewerHeatmapRow[]) : null;
     } catch (err) {
@@ -983,20 +979,20 @@ export class QuestionSubmissionRepository
     selectedHistoryId?: string,
   ): Promise<any> {
     await this.init();
-  
+
     const userObjId = new ObjectId(userId);
     const safePage = Math.max(1, Math.floor(page));
     const safeLimit = Math.max(1, Math.floor(limit));
     const skip = (safePage - 1) * safeLimit;
-  
+
     // Parse date range
     const fromDate = dateRange?.from ? new Date(dateRange.from) : null;
     const toDate = dateRange?.to ? new Date(dateRange.to) : null;
-  
+
     const dateFilter: any = {};
     if (fromDate) dateFilter.$gte = fromDate;
     if (toDate) dateFilter.$lte = toDate;
-  
+
     const matchStage = selectedHistoryId
       ? {
           $match: {
@@ -1008,10 +1004,10 @@ export class QuestionSubmissionRepository
             'history.updatedBy': userObjId,
           },
         };
-  
+
     const pipeline: any[] = [
       matchStage,
-  
+
       // Explode history entries
       {
         $unwind: {
@@ -1019,10 +1015,10 @@ export class QuestionSubmissionRepository
           includeArrayIndex: 'historyIndex',
         },
       },
-  
+
       // Match again after unwind
       {$match: {'history.updatedBy': userObjId}},
-  
+
       // ---- LOOKUPS ----
       {
         $lookup: {
@@ -1033,7 +1029,7 @@ export class QuestionSubmissionRepository
         },
       },
       {$unwind: {path: '$reviewDoc', preserveNullAndEmptyArrays: true}},
-  
+
       {
         $lookup: {
           from: 'answers',
@@ -1043,7 +1039,7 @@ export class QuestionSubmissionRepository
         },
       },
       {$unwind: {path: '$answerDoc', preserveNullAndEmptyArrays: true}},
-  
+
       {
         $lookup: {
           from: 'answers',
@@ -1053,7 +1049,7 @@ export class QuestionSubmissionRepository
         },
       },
       {$unwind: {path: '$rejectedAnswerDoc', preserveNullAndEmptyArrays: true}},
-  
+
       {
         $lookup: {
           from: 'answers',
@@ -1063,7 +1059,7 @@ export class QuestionSubmissionRepository
         },
       },
       {$unwind: {path: '$modifiedAnswerDoc', preserveNullAndEmptyArrays: true}},
-  
+
       {
         $lookup: {
           from: 'answers',
@@ -1073,7 +1069,7 @@ export class QuestionSubmissionRepository
         },
       },
       {$unwind: {path: '$approvedAnswerDoc', preserveNullAndEmptyArrays: true}},
-  
+
       {
         $lookup: {
           from: 'questions',
@@ -1083,7 +1079,7 @@ export class QuestionSubmissionRepository
         },
       },
       {$unwind: {path: '$questionDoc', preserveNullAndEmptyArrays: true}},
-  
+
       // Determine author vs review actions
       {
         $addFields: {
@@ -1095,7 +1091,7 @@ export class QuestionSubmissionRepository
           },
         },
       },
-  
+
       {
         $addFields: {
           action: {
@@ -1121,10 +1117,10 @@ export class QuestionSubmissionRepository
           activityType: {$literal: 'history'},
         },
       },
-  
+
       // Only count valid actions
       {$match: {action: {$in: ['author', 'approved', 'rejected', 'modified']}}},
-  
+
       {
         $addFields: {
           mainDate: {
@@ -1132,7 +1128,7 @@ export class QuestionSubmissionRepository
           },
         },
       },
-  
+
       {
         $project: {
           _id: {
@@ -1182,13 +1178,13 @@ export class QuestionSubmissionRepository
         },
       },
     ];
-  
+
     // Get history activities
     const historyActivities = await this.QuestionSubmissionCollection.aggregate(
       pipeline,
       {session},
     ).toArray();
-  
+
     // Get reroute activities from separate collection
     // Get reroute activities from separate collection
     const reroutePipeline: any[] = [
@@ -1197,7 +1193,7 @@ export class QuestionSubmissionRepository
           ? {questionId: new ObjectId(selectedHistoryId)}
           : {},
       },
-  
+
       // Unwind reroutes array
       {
         $unwind: {
@@ -1205,10 +1201,15 @@ export class QuestionSubmissionRepository
           includeArrayIndex: 'rerouteIndex',
         },
       },
-  
+
       // Match user as reroutedTo (exclude pending reroutes)
-      {$match: {'reroutes.reroutedTo': userObjId, 'reroutes.status': {$ne: 'pending'}}},
-  
+      {
+        $match: {
+          'reroutes.reroutedTo': userObjId,
+          'reroutes.status': {$ne: 'pending'},
+        },
+      },
+
       // Lookup the main answer (answerId in reroute)
       {
         $lookup: {
@@ -1219,7 +1220,7 @@ export class QuestionSubmissionRepository
         },
       },
       {$unwind: {path: '$rerouteAnswerDoc', preserveNullAndEmptyArrays: true}},
-  
+
       // Lookup question
       {
         $lookup: {
@@ -1230,7 +1231,7 @@ export class QuestionSubmissionRepository
         },
       },
       {$unwind: {path: '$questionDoc', preserveNullAndEmptyArrays: true}},
-  
+
       // Lookup all answer details from answers collection
       {
         $lookup: {
@@ -1256,7 +1257,7 @@ export class QuestionSubmissionRepository
         },
       },
       {$unwind: {path: '$answerDetails', preserveNullAndEmptyArrays: true}},
-  
+
       // Lookup rejected answer details if exists
       {
         $lookup: {
@@ -1267,7 +1268,7 @@ export class QuestionSubmissionRepository
         },
       },
       {$unwind: {path: '$rejectedAnswerDoc', preserveNullAndEmptyArrays: true}},
-  
+
       // Lookup modified answer details if exists
       {
         $lookup: {
@@ -1278,7 +1279,7 @@ export class QuestionSubmissionRepository
         },
       },
       {$unwind: {path: '$modifiedAnswerDoc', preserveNullAndEmptyArrays: true}},
-  
+
       // Lookup approved answer details if exists
       {
         $lookup: {
@@ -1289,21 +1290,42 @@ export class QuestionSubmissionRepository
         },
       },
       {$unwind: {path: '$approvedAnswerDoc', preserveNullAndEmptyArrays: true}},
-  
+
       // Map reroute status to action
       {
         $addFields: {
           action: {
             $switch: {
               branches: [
-                {case: {$eq: ['$reroutes.status', 'expert_completed']}, then: 'reroute_completed'},
-               // {case: {$eq: ['$reroutes.status', 'rejected']}, then: 'reroute_rejected'},
-                {case: {$eq: ['$reroutes.status', 'modified']}, then: 'reroute_modified'},
-                {case: {$eq: ['$reroutes.status', 'expert_rejected']}, then: 'expert_rejected'},
-                {case: {$eq: ['$reroutes.status', 'pending']}, then: 'reroute_pending'},
-                {case: {$eq: ['$reroutes.status', 'approved']}, then: 'reroute_approved'},
-                {case: {$eq: ['$reroutes.status', 'moderator_rejected']}, then: 'moderator_rejected'},
-                {case: {$eq: ['$reroutes.status', 'rejected']}, then: 'reroute_created_answer'}
+                {
+                  case: {$eq: ['$reroutes.status', 'expert_completed']},
+                  then: 'reroute_completed',
+                },
+                // {case: {$eq: ['$reroutes.status', 'rejected']}, then: 'reroute_rejected'},
+                {
+                  case: {$eq: ['$reroutes.status', 'modified']},
+                  then: 'reroute_modified',
+                },
+                {
+                  case: {$eq: ['$reroutes.status', 'expert_rejected']},
+                  then: 'expert_rejected',
+                },
+                {
+                  case: {$eq: ['$reroutes.status', 'pending']},
+                  then: 'reroute_pending',
+                },
+                {
+                  case: {$eq: ['$reroutes.status', 'approved']},
+                  then: 'reroute_approved',
+                },
+                {
+                  case: {$eq: ['$reroutes.status', 'moderator_rejected']},
+                  then: 'moderator_rejected',
+                },
+                {
+                  case: {$eq: ['$reroutes.status', 'rejected']},
+                  then: 'reroute_created_answer',
+                },
               ],
               default: 'reroute_assigned',
             },
@@ -1312,7 +1334,7 @@ export class QuestionSubmissionRepository
           mainDate: {$ifNull: ['$reroutes.updatedAt', '$reroutes.reroutedAt']},
         },
       },
-  
+
       {
         $project: {
           _id: {
@@ -1406,40 +1428,40 @@ export class QuestionSubmissionRepository
       },
     ];
 
-  
-  
     const rerouteActivities = await this.ReRouteCollection.aggregate(
       reroutePipeline,
       {session},
     ).toArray();
-  
+
     // Combine both arrays
     const combinedActivities = [...historyActivities, ...rerouteActivities];
-  
+
     // Apply date filter
-    const filteredActivities = dateFilter && Object.keys(dateFilter).length > 0
-      ? combinedActivities.filter(activity => {
-          const activityDate = new Date(activity.mainDate);
-          if (dateFilter.$gte && activityDate < dateFilter.$gte) return false;
-          if (dateFilter.$lte && activityDate > dateFilter.$lte) return false;
-          return true;
-        })
-      : combinedActivities;
-  
+    const filteredActivities =
+      dateFilter && Object.keys(dateFilter).length > 0
+        ? combinedActivities.filter(activity => {
+            const activityDate = new Date(activity.mainDate);
+            if (dateFilter.$gte && activityDate < dateFilter.$gte) return false;
+            if (dateFilter.$lte && activityDate > dateFilter.$lte) return false;
+            return true;
+          })
+        : combinedActivities;
+
     // Sort by date (descending)
     filteredActivities.sort((a, b) => {
       return new Date(b.mainDate).getTime() - new Date(a.mainDate).getTime();
     });
-  
+
     // Apply pagination
     let totalCount = filteredActivities.length;
     let paginatedData = filteredActivities.slice(skip, skip + safeLimit);
-    if(selectedHistoryId)
-    {
-      paginatedData=filteredActivities.filter((ele)=>ele.rerouteStatus==="moderator_rejected").slice(0,1)
-      totalCount=1
+    if (selectedHistoryId) {
+      paginatedData = filteredActivities
+        .filter(ele => ele.rerouteStatus === 'moderator_rejected')
+        .slice(0, 1);
+      totalCount = 1;
     }
-  
+
     return {
       totalCount,
       page: safePage,
@@ -1681,7 +1703,9 @@ export class QuestionSubmissionRepository
       // Optional: ensure Author comes first
       {$sort: {Review_level: 1}},
     ];
-    const start = startTime ? new Date(`${startTime}T00:00:00.000+05:30`) : null;
+    const start = startTime
+      ? new Date(`${startTime}T00:00:00.000+05:30`)
+      : null;
 
     const end = endTime ? new Date(`${endTime}T23:59:59.999+05:30`) : null;
     const pipe = [
@@ -1966,12 +1990,10 @@ export class QuestionSubmissionRepository
       {$project: {levelSort: 0}},
     ];
 
-    let pending = await this.QuestionSubmissionCollection.aggregate(
-      pipeline,
-    ).toArray();
-    let completed = await this.QuestionSubmissionCollection.aggregate(
-      pipe,
-    ).toArray();
+    let pending =
+      await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
+    let completed =
+      await this.QuestionSubmissionCollection.aggregate(pipe).toArray();
     if (pending.length == 0) {
       pending = [
         {Review_level: 'Author', count: 0},
@@ -2003,128 +2025,201 @@ export class QuestionSubmissionRepository
         modifiedCount: matchCompleted ? matchCompleted.modifiedCount : 0,
       };
     });
-   
 
-      const reroutePipeline=[
-        // 1️⃣ Explode reroutes array
-        {
-          $unwind: "$reroutes"
-        },
-
-        // 2️⃣ Match reviewer + exclude system rejections
-        {
-          $match: {
-            "reroutes.reroutedTo": reviewerId,
-            "reroutes.status": {
-              $nin: ["moderator_rejected", "expert_rejected"]
-            }
-          }
-        },
-
-        // 3️⃣ Aggregate true counts
-        {
-          $group: {
-            _id: null,
-
-            pendingcount: {
-              $sum: {
-                $cond: [{ $eq: ["$reroutes.status", "pending"] }, 1, 0]
-              }
-            },
-
-            approvedCount: {
-              $sum: {
-                $cond: [{ $eq: ["$reroutes.status", "approved"] }, 1, 0]
-              }
-            },
-
-            rejectedCount: {
-              $sum: {
-                $cond: [{ $eq: ["$reroutes.status", "rejected"] }, 1, 0]
-              }
-            },
-
-            modifiedCount: {
-              $sum: {
-                $cond: [{ $eq: ["$reroutes.status", "modified"] }, 1, 0]
-              }
-            },
-
-            completedcount: {
-              $sum: {
-                $cond: [
-                  {
-                    $in: [
-                      "$reroutes.status",
-                      ["approved", "rejected", "modified"]
-                    ]
-                  },
-                  1,
-                  0
-                ]
-              }
-            }
-          }
-        },
-
-        // 4️⃣ Final shape
-        {
-          $project: {
-            _id: 0,
-            Review_level: { $literal: "rerouted" },
-            pendingcount: 1,
-            approvedCount: 1,
-            rejectedCount: 1,
-            modifiedCount: 1,
-            completedcount: 1 
-          }
-        }
-      ]
-      let rerouteResults=await this.ReRouteCollection.aggregate(reroutePipeline).toArray()
-      if(rerouteResults.length==0)
+    const reroutePipeline = [
+      // 1️⃣ Explode reroutes array
       {
-        rerouteResults=[{Review_level: "rerouted",
-        pendingcount: 0,
-       
-        completedcount: 0,
-        approvedCount:  0,
-        rejectedCount:  0,
-        modifiedCount:  0}]
+        $unwind: '$reroutes',
+      },
 
-      }
-    return  [...merged,...rerouteResults] ;
+      // 2️⃣ Match reviewer + exclude system rejections
+      {
+        $match: {
+          'reroutes.reroutedTo': reviewerId,
+          'reroutes.status': {
+            $nin: ['moderator_rejected', 'expert_rejected'],
+          },
+        },
+      },
+
+      // 3️⃣ Aggregate true counts
+      {
+        $group: {
+          _id: null,
+
+          pendingcount: {
+            $sum: {
+              $cond: [{$eq: ['$reroutes.status', 'pending']}, 1, 0],
+            },
+          },
+
+          approvedCount: {
+            $sum: {
+              $cond: [{$eq: ['$reroutes.status', 'approved']}, 1, 0],
+            },
+          },
+
+          rejectedCount: {
+            $sum: {
+              $cond: [{$eq: ['$reroutes.status', 'rejected']}, 1, 0],
+            },
+          },
+
+          modifiedCount: {
+            $sum: {
+              $cond: [{$eq: ['$reroutes.status', 'modified']}, 1, 0],
+            },
+          },
+
+          completedcount: {
+            $sum: {
+              $cond: [
+                {
+                  $in: [
+                    '$reroutes.status',
+                    ['approved', 'rejected', 'modified'],
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+
+      // 4️⃣ Final shape
+      {
+        $project: {
+          _id: 0,
+          Review_level: {$literal: 'rerouted'},
+          pendingcount: 1,
+          approvedCount: 1,
+          rejectedCount: 1,
+          modifiedCount: 1,
+          completedcount: 1,
+        },
+      },
+    ];
+    let rerouteResults =
+      await this.ReRouteCollection.aggregate(reroutePipeline).toArray();
+    if (rerouteResults.length == 0) {
+      rerouteResults = [
+        {
+          Review_level: 'rerouted',
+          pendingcount: 0,
+
+          completedcount: 0,
+          approvedCount: 0,
+          rejectedCount: 0,
+          modifiedCount: 0,
+        },
+      ];
+    }
+    return [...merged, ...rerouteResults];
   }
   async getModeratorReviewLevel(query: ExpertReviewLevelDto): Promise<any> {
     await this.init();
-    let {userId, startTime, endTime, crop, season, state, district,status,domain} = query;
-   // district="vn"
-   // status="closed"
-   crop = crop === 'all' ? undefined : crop;
-   season = season === 'all' ? undefined : season;
-   state = state === 'all' ? undefined : state;
-   district = district === 'all' ? undefined : district;
-   status = status === 'all' ? undefined : status;
-   domain = domain === 'all' ? undefined : domain;
-   
-    
-    const start = startTime ? new Date(`${startTime}T00:00:00.000+05:30`) : null;
+    let {
+      userId,
+      startTime,
+      endTime,
+      crop,
+      season,
+      state,
+      district,
+      status,
+      domain,
+    } = query;
+    // district="vn"
+    // status="closed"
+    crop = crop === 'all' ? undefined : crop;
+    season = season === 'all' ? undefined : season;
+    state = state === 'all' ? undefined : state;
+    district = district === 'all' ? undefined : district;
+    status = status === 'all' ? undefined : status;
+    domain = domain === 'all' ? undefined : domain;
+
+    const start = startTime
+      ? new Date(`${startTime}T00:00:00.000+05:30`)
+      : null;
     const end = endTime ? new Date(`${endTime}T23:59:59.999+05:30`) : null;
-    
+
     // Step 1: Get filtered question IDs if filters exist
     let questionIds = null;
-    let emptyResults= [
-      { Review_level: 'Author', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
-      { Review_level: 'Level 1', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
-      { Review_level: 'Level 2', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
-      { Review_level: 'Level 3', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
-      { Review_level: 'Level 4', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
-      { Review_level: 'Level 5', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
-      { Review_level: 'Level 6', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
-      { Review_level: 'Level 7', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
-      { Review_level: 'Level 8', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
-      { Review_level: 'Level 9', count: 0, approvedCount: 0, rejectedCount: 0, modifiedCount: 0 },
+    let emptyResults = [
+      {
+        Review_level: 'Author',
+        count: 0,
+        approvedCount: 0,
+        rejectedCount: 0,
+        modifiedCount: 0,
+      },
+      {
+        Review_level: 'Level 1',
+        count: 0,
+        approvedCount: 0,
+        rejectedCount: 0,
+        modifiedCount: 0,
+      },
+      {
+        Review_level: 'Level 2',
+        count: 0,
+        approvedCount: 0,
+        rejectedCount: 0,
+        modifiedCount: 0,
+      },
+      {
+        Review_level: 'Level 3',
+        count: 0,
+        approvedCount: 0,
+        rejectedCount: 0,
+        modifiedCount: 0,
+      },
+      {
+        Review_level: 'Level 4',
+        count: 0,
+        approvedCount: 0,
+        rejectedCount: 0,
+        modifiedCount: 0,
+      },
+      {
+        Review_level: 'Level 5',
+        count: 0,
+        approvedCount: 0,
+        rejectedCount: 0,
+        modifiedCount: 0,
+      },
+      {
+        Review_level: 'Level 6',
+        count: 0,
+        approvedCount: 0,
+        rejectedCount: 0,
+        modifiedCount: 0,
+      },
+      {
+        Review_level: 'Level 7',
+        count: 0,
+        approvedCount: 0,
+        rejectedCount: 0,
+        modifiedCount: 0,
+      },
+      {
+        Review_level: 'Level 8',
+        count: 0,
+        approvedCount: 0,
+        rejectedCount: 0,
+        modifiedCount: 0,
+      },
+      {
+        Review_level: 'Level 9',
+        count: 0,
+        approvedCount: 0,
+        rejectedCount: 0,
+        modifiedCount: 0,
+      },
     ];
-    if (crop || season || state || district||status ||domain) {
+    if (crop || season || state || district || status || domain) {
       const questionFilter: any = {};
       if (crop) questionFilter['details.crop'] = crop;
       if (season) questionFilter['details.season'] = season;
@@ -2133,30 +2228,31 @@ export class QuestionSubmissionRepository
       if (domain) questionFilter['details.domain'] = domain;
       if (status) questionFilter['status'] = status;
       const questions = await this.QuestionCollection.find(questionFilter, {
-        projection: { _id: 1 }
+        projection: {_id: 1},
       }).toArray();
-      
+
       questionIds = questions.map(q => q._id);
-      if (questionIds.length==0) {
-        return emptyResults
+      if (questionIds.length == 0) {
+        return emptyResults;
       }
-      
+
       // If no questions match the filter, return empty result
-      
     }
-    
+
     const pipe = [
       // --------------------------------------------------
       // 1. Filter by questionIds (optional)
       // --------------------------------------------------
       ...(questionIds
-        ? [{
-            $match: {
-              questionId: { $in: questionIds }
-            }
-          }]
+        ? [
+            {
+              $match: {
+                questionId: {$in: questionIds},
+              },
+            },
+          ]
         : []),
-    
+
       // --------------------------------------------------
       // 2. Filter history by date range
       // --------------------------------------------------
@@ -2168,39 +2264,38 @@ export class QuestionSubmissionRepository
               as: 'h',
               cond: {
                 $and: [
-                  ...(start ? [{ $gte: ['$$h.updatedAt', start] }] : []),
-                  ...(end ? [{ $lte: ['$$h.updatedAt', end] }] : [])
-                ]
-              }
-            }
-          }
-        }
+                  ...(start ? [{$gte: ['$$h.updatedAt', start]}] : []),
+                  ...(end ? [{$lte: ['$$h.updatedAt', end]}] : []),
+                ],
+              },
+            },
+          },
+        },
       },
-    
-      { $match: { history: { $ne: [] } } },
-    
+
+      {$match: {history: {$ne: []}}},
+
       // --------------------------------------------------
       // 3. Normalize history
       // --------------------------------------------------
       {
         $addFields: {
-          historyArr: { $ifNull: ['$history', []] },
-          historyLen: { $size: { $ifNull: ['$history', []] } }
-        }
+          historyArr: {$ifNull: ['$history', []]},
+          historyLen: {$size: {$ifNull: ['$history', []]}},
+        },
       },
-    
+
       // --------------------------------------------------
       // 4. Split normal levels and Level 9
       // --------------------------------------------------
       {
         $facet: {
-    
           // ==============================================
           // A. Author → Level 8 (cumulative)
           // ==============================================
           normalLevels: [
-            { $match: { historyLen: { $gt: 1 } } },
-    
+            {$match: {historyLen: {$gt: 1}}},
+
             {
               $addFields: {
                 levelIndexes: {
@@ -2208,15 +2303,15 @@ export class QuestionSubmissionRepository
                     0,
                     {
                       $min: [
-                        { $subtract: ['$historyLen', 1] },
-                        9 // cap at Level 8
-                      ]
-                    }
-                  ]
-                }
-              }
+                        {$subtract: ['$historyLen', 1]},
+                        9, // cap at Level 8
+                      ],
+                    },
+                  ],
+                },
+              },
             },
-    
+
             {
               $addFields: {
                 Review_level: {
@@ -2225,76 +2320,76 @@ export class QuestionSubmissionRepository
                     as: 'idx',
                     in: {
                       $cond: [
-                        { $eq: ['$$idx', 0] },
+                        {$eq: ['$$idx', 0]},
                         'Author',
-                        { $concat: ['Level ', { $toString: '$$idx' }] }
-                      ]
-                    }
-                  }
-                }
-              }
+                        {$concat: ['Level ', {$toString: '$$idx'}]},
+                      ],
+                    },
+                  },
+                },
+              },
             },
-    
-            { $unwind: '$Review_level' },
-    
+
+            {$unwind: '$Review_level'},
+
             // Exclude Level 9 from normal logic
-            { $match: { Review_level: { $ne: 'Level 9' } } },
-    
+            {$match: {Review_level: {$ne: 'Level 9'}}},
+
             {
               $group: {
                 _id: '$Review_level',
-                count: { $sum: 1 }
-              }
-            }
+                count: {$sum: 1},
+              },
+            },
           ],
-    
+
           // ==============================================
           // B. Level 9 (closed questions from Level 8)
           // ==============================================
           level9: [
-            { $match: { historyLen: { $gt: 9} } },
-    
+            {$match: {historyLen: {$gt: 9}}},
+
             {
               $lookup: {
-                from: 'questions',      
+                from: 'questions',
                 localField: 'questionId',
                 foreignField: '_id',
-                as: 'question'
-              }
+                as: 'question',
+              },
             },
-    
-            { $unwind: '$question' },
-    
+
+            {$unwind: '$question'},
+
             {
               $match: {
-                'question.status': 'closed'
-              }
+                'question.status': 'closed',
+              },
             },
-    
+
             {
               $group: {
                 _id: 'Level 9',
-                count: { $sum: 1 }
-              }
-            }
-          ]
-        }
+                count: {$sum: 1},
+              },
+            },
+          ],
+        },
       },
-    
+
       // --------------------------------------------------
       // 5. Merge normal levels + Level 9
       // --------------------------------------------------
       {
         $project: {
           combined: {
-            $concatArrays: ['$normalLevels', '$level9']
-          }
-        }
+            $concatArrays: ['$normalLevels', '$level9'],
+          },
+        },
       },
-    
-      { $unwind: '$combined' },
-      { $replaceRoot: { newRoot: '$combined' } },
-    
+
+      {$unwind: '$combined'},
+      {$replaceRoot: {newRoot: '$combined'}},
+
       // --------------------------------------------------
       // 6. Merge with fixed level list
       // --------------------------------------------------
@@ -2304,12 +2399,12 @@ export class QuestionSubmissionRepository
           actual: {
             $push: {
               Review_level: '$_id',
-              count: '$count'
-            }
-          }
-        }
+              count: '$count',
+            },
+          },
+        },
       },
-    
+
       {
         $project: {
           merged: {
@@ -2324,7 +2419,7 @@ export class QuestionSubmissionRepository
                 'Level 6',
                 'Level 7',
                 'Level 8',
-                'Level 9'
+                'Level 9',
               ],
               as: 'lvl',
               in: {
@@ -2336,45 +2431,42 @@ export class QuestionSubmissionRepository
                         $first: {
                           $filter: {
                             input: '$actual',
-                            cond: { $eq: ['$$this.Review_level', '$$lvl'] }
-                          }
-                        }
-                      }
+                            cond: {$eq: ['$$this.Review_level', '$$lvl']},
+                          },
+                        },
+                      },
                     },
-                    in: { $ifNull: ['$$found.count', 0] }
-                  }
-                }
-              }
-            }
-          }
-        }
+                    in: {$ifNull: ['$$found.count', 0]},
+                  },
+                },
+              },
+            },
+          },
+        },
       },
-    
+
       // --------------------------------------------------
       // 7. Final output & sort
       // --------------------------------------------------
-      { $unwind: '$merged' },
-      { $replaceRoot: { newRoot: '$merged' } },
-    
+      {$unwind: '$merged'},
+      {$replaceRoot: {newRoot: '$merged'}},
+
       {
         $addFields: {
           levelSort: {
             $cond: [
-              { $eq: ['$Review_level', 'Author'] },
+              {$eq: ['$Review_level', 'Author']},
               0,
-              { $toInt: { $substr: ['$Review_level', 6, -1] } }
-            ]
-          }
-        }
+              {$toInt: {$substr: ['$Review_level', 6, -1]}},
+            ],
+          },
+        },
       },
-    
-      { $sort: { levelSort: 1 } },
-      { $project: { levelSort: 0 } }
+
+      {$sort: {levelSort: 1}},
+      {$project: {levelSort: 0}},
     ];
-    const reviewerId =
-    userId && userId !== 'all'
-      ? new ObjectId(userId)
-      : null;
+    const reviewerId = userId && userId !== 'all' ? new ObjectId(userId) : null;
     const userIdPipeline = [
       // --------------------------------------------------
       // 1. Filter by questionIds (optional)
@@ -2383,12 +2475,12 @@ export class QuestionSubmissionRepository
         ? [
             {
               $match: {
-                questionId: { $in: questionIds }
-              }
-            }
+                questionId: {$in: questionIds},
+              },
+            },
           ]
         : []),
-    
+
       // --------------------------------------------------
       // 2. Filter history by date range
       // --------------------------------------------------
@@ -2400,27 +2492,27 @@ export class QuestionSubmissionRepository
               as: 'h',
               cond: {
                 $and: [
-                  ...(start ? [{ $gte: ['$$h.updatedAt', start] }] : []),
-                  ...(end ? [{ $lte: ['$$h.updatedAt', end] }] : [])
-                ]
-              }
-            }
-          }
-        }
+                  ...(start ? [{$gte: ['$$h.updatedAt', start]}] : []),
+                  ...(end ? [{$lte: ['$$h.updatedAt', end]}] : []),
+                ],
+              },
+            },
+          },
+        },
       },
-      
-      { $match: { history: { $ne: [] } } },
-    
+
+      {$match: {history: {$ne: []}}},
+
       // --------------------------------------------------
       // 3. Ensure history exists and calculate length
       // --------------------------------------------------
       {
         $addFields: {
-          historyArr: { $ifNull: ['$history', []] },
-          historyLen: { $size: { $ifNull: ['$history', []] } }
-        }
+          historyArr: {$ifNull: ['$history', []]},
+          historyLen: {$size: {$ifNull: ['$history', []]}},
+        },
       },
-    
+
       // --------------------------------------------------
       // 4. Check if reviewer is Author (history[0])
       //    If reviewerId is null, count all authors
@@ -2433,17 +2525,22 @@ export class QuestionSubmissionRepository
               // If reviewerId provided, check if it matches history[0]
               {
                 $and: [
-                  { $gt: ['$historyLen', 0] },
-                  { $eq: [{ $arrayElemAt: ['$historyArr.updatedBy', 0] }, reviewerId] }
-                ]
+                  {$gt: ['$historyLen', 0]},
+                  {
+                    $eq: [
+                      {$arrayElemAt: ['$historyArr.updatedBy', 0]},
+                      reviewerId,
+                    ],
+                  },
+                ],
               },
               // If no reviewerId, all documents with history have an author
-              { $gt: ['$historyLen', 0] }
-            ]
-          }
-        }
+              {$gt: ['$historyLen', 0]},
+            ],
+          },
+        },
       },
-    
+
       // --------------------------------------------------
       // 5. Map history[1..] with index (review levels)
       // --------------------------------------------------
@@ -2451,17 +2548,17 @@ export class QuestionSubmissionRepository
         $addFields: {
           completedEntriesWithIndex: {
             $map: {
-              input: { $range: [1, '$historyLen'] },
+              input: {$range: [1, '$historyLen']},
               as: 'i',
               in: {
                 index: '$$i',
-                entry: { $arrayElemAt: ['$historyArr', '$$i'] }
-              }
-            }
-          }
-        }
+                entry: {$arrayElemAt: ['$historyArr', '$$i']},
+              },
+            },
+          },
+        },
       },
-    
+
       // --------------------------------------------------
       // 6. Filter completed entries
       //    If reviewerId provided: filter by that reviewer
@@ -2477,21 +2574,21 @@ export class QuestionSubmissionRepository
                 $and: [
                   // If reviewerId provided, filter by it; otherwise include all
                   ...(reviewerId
-                    ? [{ $eq: ['$$x.entry.updatedBy', reviewerId] }]
+                    ? [{$eq: ['$$x.entry.updatedBy', reviewerId]}]
                     : []),
                   {
                     $or: [
-                      { $ne: ['$$x.entry.status', 'in-review'] },
-                      { $eq: ['$$x.index', { $subtract: ['$historyLen', 1] }] }
-                    ]
-                  }
-                ]
-              }
-            }
-          }
-        }
+                      {$ne: ['$$x.entry.status', 'in-review']},
+                      {$eq: ['$$x.index', {$subtract: ['$historyLen', 1]}]},
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
       },
-    
+
       // --------------------------------------------------
       // 7. For reviewerId mode: Extract single reviewEntry
       //    For all mode: Extract ALL review entries
@@ -2501,17 +2598,17 @@ export class QuestionSubmissionRepository
           reviewEntries: {
             $cond: [
               '$isAuthor',
-              [{ $arrayElemAt: ['$historyArr', 0] }],
+              [{$arrayElemAt: ['$historyArr', 0]}],
               {
                 $cond: [
                   reviewerId,
                   // Single reviewer: take first matching entry
-                  [{ $arrayElemAt: ['$completedEntriesWithIndex.entry', 0] }],
+                  [{$arrayElemAt: ['$completedEntriesWithIndex.entry', 0]}],
                   // All reviewers: take all completed entries
-                  '$completedEntriesWithIndex.entry'
-                ]
-              }
-            ]
+                  '$completedEntriesWithIndex.entry',
+                ],
+              },
+            ],
           },
           reviewLevels: {
             $cond: [
@@ -2523,21 +2620,24 @@ export class QuestionSubmissionRepository
                   // Single reviewer: get their level
                   {
                     $cond: [
-                      { $gt: [{ $size: '$completedEntriesWithIndex' }, 0] },
+                      {$gt: [{$size: '$completedEntriesWithIndex'}, 0]},
                       [
                         {
                           $concat: [
                             'Level ',
                             {
                               $toString: {
-                                $arrayElemAt: ['$completedEntriesWithIndex.index', 0]
-                              }
-                            }
-                          ]
-                        }
+                                $arrayElemAt: [
+                                  '$completedEntriesWithIndex.index',
+                                  0,
+                                ],
+                              },
+                            },
+                          ],
+                        },
                       ],
-                      []
-                    ]
+                      [],
+                    ],
                   },
                   // All reviewers: get all levels
                   {
@@ -2545,17 +2645,17 @@ export class QuestionSubmissionRepository
                       input: '$completedEntriesWithIndex',
                       as: 'entry',
                       in: {
-                        $concat: ['Level ', { $toString: '$$entry.index' }]
-                      }
-                    }
-                  }
-                ]
-              }
-            ]
-          }
-        }
+                        $concat: ['Level ', {$toString: '$$entry.index'}],
+                      },
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        },
       },
-    
+
       // --------------------------------------------------
       // 8. Unwind to create one document per review level
       // --------------------------------------------------
@@ -2563,19 +2663,19 @@ export class QuestionSubmissionRepository
         $addFields: {
           combined: {
             $map: {
-              input: { $range: [0, { $size: '$reviewLevels' }] },
+              input: {$range: [0, {$size: '$reviewLevels'}]},
               as: 'idx',
               in: {
-                Review_level: { $arrayElemAt: ['$reviewLevels', '$$idx'] },
-                reviewEntry: { $arrayElemAt: ['$reviewEntries', '$$idx'] }
-              }
-            }
-          }
-        }
+                Review_level: {$arrayElemAt: ['$reviewLevels', '$$idx']},
+                reviewEntry: {$arrayElemAt: ['$reviewEntries', '$$idx']},
+              },
+            },
+          },
+        },
       },
-    
-      { $unwind: '$combined' },
-    
+
+      {$unwind: '$combined'},
+
       // --------------------------------------------------
       // 9. Add approved/rejected/modified counting
       // --------------------------------------------------
@@ -2584,46 +2684,46 @@ export class QuestionSubmissionRepository
           Review_level: '$combined.Review_level',
           approvedCount: {
             $cond: [
-              { $ifNull: ['$combined.reviewEntry.approvedAnswer', false] },
+              {$ifNull: ['$combined.reviewEntry.approvedAnswer', false]},
               1,
-              0
-            ]
+              0,
+            ],
           },
           rejectedCount: {
             $cond: [
-              { $ifNull: ['$combined.reviewEntry.rejectedAnswer', false] },
+              {$ifNull: ['$combined.reviewEntry.rejectedAnswer', false]},
               1,
-              0
-            ]
+              0,
+            ],
           },
           modifiedCount: {
             $cond: [
-              { $ifNull: ['$combined.reviewEntry.modifiedAnswer', false] },
+              {$ifNull: ['$combined.reviewEntry.modifiedAnswer', false]},
               1,
-              0
-            ]
-          }
-        }
+              0,
+            ],
+          },
+        },
       },
-    
+
       // --------------------------------------------------
       // 10. Keep only documents with Review_level
       // --------------------------------------------------
-      { $match: { Review_level: { $ne: null } } },
-    
+      {$match: {Review_level: {$ne: null}}},
+
       // --------------------------------------------------
       // 11. Group counts by Review_level
       // --------------------------------------------------
       {
         $group: {
           _id: '$Review_level',
-          count: { $sum: 1 },
-          approvedCount: { $sum: '$approvedCount' },
-          rejectedCount: { $sum: '$rejectedCount' },
-          modifiedCount: { $sum: '$modifiedCount' }
-        }
+          count: {$sum: 1},
+          approvedCount: {$sum: '$approvedCount'},
+          rejectedCount: {$sum: '$rejectedCount'},
+          modifiedCount: {$sum: '$modifiedCount'},
+        },
       },
-    
+
       // --------------------------------------------------
       // 12. Collect into array
       // --------------------------------------------------
@@ -2636,12 +2736,12 @@ export class QuestionSubmissionRepository
               count: '$count',
               approvedCount: '$approvedCount',
               rejectedCount: '$rejectedCount',
-              modifiedCount: '$modifiedCount'
-            }
-          }
-        }
+              modifiedCount: '$modifiedCount',
+            },
+          },
+        },
       },
-    
+
       // --------------------------------------------------
       // 13. Merge with fixed levels to fill missing with 0
       // --------------------------------------------------
@@ -2659,7 +2759,7 @@ export class QuestionSubmissionRepository
                 'Level 6',
                 'Level 7',
                 'Level 8',
-                'Level 9'
+                'Level 9',
               ],
               as: 'lvl',
               in: {
@@ -2670,18 +2770,18 @@ export class QuestionSubmissionRepository
                       found: {
                         $first: {
                           $filter: {
-                            input: { $ifNull: ['$actual', []] },
-                            cond: { $eq: ['$$this.Review_level', '$$lvl'] }
-                          }
-                        }
-                      }
+                            input: {$ifNull: ['$actual', []]},
+                            cond: {$eq: ['$$this.Review_level', '$$lvl']},
+                          },
+                        },
+                      },
                     },
-                    in: { $ifNull: ['$$found.count', 0] }
-                  }
+                    in: {$ifNull: ['$$found.count', 0]},
+                  },
                 },
                 approvedCount: {
                   $cond: [
-                    { $eq: ['$$lvl', 'Author'] },
+                    {$eq: ['$$lvl', 'Author']},
                     0,
                     {
                       $let: {
@@ -2689,20 +2789,20 @@ export class QuestionSubmissionRepository
                           found: {
                             $first: {
                               $filter: {
-                                input: { $ifNull: ['$actual', []] },
-                                cond: { $eq: ['$$this.Review_level', '$$lvl'] }
-                              }
-                            }
-                          }
+                                input: {$ifNull: ['$actual', []]},
+                                cond: {$eq: ['$$this.Review_level', '$$lvl']},
+                              },
+                            },
+                          },
                         },
-                        in: { $ifNull: ['$$found.approvedCount', 0] }
-                      }
-                    }
-                  ]
+                        in: {$ifNull: ['$$found.approvedCount', 0]},
+                      },
+                    },
+                  ],
                 },
                 rejectedCount: {
                   $cond: [
-                    { $eq: ['$$lvl', 'Author'] },
+                    {$eq: ['$$lvl', 'Author']},
                     0,
                     {
                       $let: {
@@ -2710,20 +2810,20 @@ export class QuestionSubmissionRepository
                           found: {
                             $first: {
                               $filter: {
-                                input: { $ifNull: ['$actual', []] },
-                                cond: { $eq: ['$$this.Review_level', '$$lvl'] }
-                              }
-                            }
-                          }
+                                input: {$ifNull: ['$actual', []]},
+                                cond: {$eq: ['$$this.Review_level', '$$lvl']},
+                              },
+                            },
+                          },
                         },
-                        in: { $ifNull: ['$$found.rejectedCount', 0] }
-                      }
-                    }
-                  ]
+                        in: {$ifNull: ['$$found.rejectedCount', 0]},
+                      },
+                    },
+                  ],
                 },
                 modifiedCount: {
                   $cond: [
-                    { $eq: ['$$lvl', 'Author'] },
+                    {$eq: ['$$lvl', 'Author']},
                     0,
                     {
                       $let: {
@@ -2731,29 +2831,29 @@ export class QuestionSubmissionRepository
                           found: {
                             $first: {
                               $filter: {
-                                input: { $ifNull: ['$actual', []] },
-                                cond: { $eq: ['$$this.Review_level', '$$lvl'] }
-                              }
-                            }
-                          }
+                                input: {$ifNull: ['$actual', []]},
+                                cond: {$eq: ['$$this.Review_level', '$$lvl']},
+                              },
+                            },
+                          },
                         },
-                        in: { $ifNull: ['$$found.modifiedCount', 0] }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        }
+                        in: {$ifNull: ['$$found.modifiedCount', 0]},
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
       },
-    
+
       // --------------------------------------------------
       // 14. Unwind and format output
       // --------------------------------------------------
-      { $unwind: '$merged' },
-      { $replaceRoot: { newRoot: '$merged' } },
-    
+      {$unwind: '$merged'},
+      {$replaceRoot: {newRoot: '$merged'}},
+
       // --------------------------------------------------
       // 15. Sort Author first, then Levels numerically
       // --------------------------------------------------
@@ -2761,33 +2861,29 @@ export class QuestionSubmissionRepository
         $addFields: {
           levelSort: {
             $cond: [
-              { $eq: ['$Review_level', 'Author'] },
+              {$eq: ['$Review_level', 'Author']},
               0,
-              { $toInt: { $substr: ['$Review_level', 6, -1] } }
-            ]
-          }
-        }
+              {$toInt: {$substr: ['$Review_level', 6, -1]}},
+            ],
+          },
+        },
       },
-      { $sort: { levelSort: 1 } },
-      { $project: { levelSort: 0 } }
+      {$sort: {levelSort: 1}},
+      {$project: {levelSort: 0}},
     ];
-    let pipeline
-    if(userId && userId !== 'all')
-    {
-      pipeline=userIdPipeline
+    let pipeline;
+    if (userId && userId !== 'all') {
+      pipeline = userIdPipeline;
+    } else {
+      pipeline = pipe;
     }
-    else{
-      pipeline=pipe
+
+    let completed =
+      await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
+    if (completed.length == 0) {
+      return emptyResults;
     }
-   
-    let completed = await this.QuestionSubmissionCollection.aggregate(
-      pipeline,
-    ).toArray();
-    if (completed.length==0) {
-      return emptyResults
-    }
-    
-    
+
     return completed;
   }
 
@@ -2911,80 +3007,75 @@ export class QuestionSubmissionRepository
     );
   }
 
+  async getAbsentSubmissions(
+    absentExpertIds: string[],
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]> {
+    try {
+      await this.init();
 
-async getAbsentSubmissions(
-  absentExpertIds: string[],
-  session?: ClientSession,
-): Promise<IQuestionSubmission[]> {
-  try {
-    await this.init();
-
-    const submissions = await this.QuestionSubmissionCollection
-      .find(
+      const submissions = await this.QuestionSubmissionCollection.find(
         {
           queue: {
             $in: absentExpertIds.map(id => new ObjectId(id)),
           },
         },
-        { session },
-      )
-      .toArray();
+        {session},
+      ).toArray();
 
-    const pendingSubmissions: IQuestionSubmission[] = [];
+      const pendingSubmissions: IQuestionSubmission[] = [];
 
-    for (const submission of submissions) {
-      const { queue = [], history = [] } = submission;
+      for (const submission of submissions) {
+        const {queue = [], history = []} = submission;
 
-      if (queue.length === 0) continue;
+        if (queue.length === 0) continue;
 
-      let hasPendingAbsentExpert = false;
-      // if (queue.length === history.length && history.length > 0) {
-      //   const lastHistory = history[history.length - 1];
+        let hasPendingAbsentExpert = false;
+        // if (queue.length === history.length && history.length > 0) {
+        //   const lastHistory = history[history.length - 1];
 
-      //   if (lastHistory.status === 'in-review') {
-      //     const pendingIndex = history.length - 1;
-      //     const expertId = queue[pendingIndex]?.toString();
+        //   if (lastHistory.status === 'in-review') {
+        //     const pendingIndex = history.length - 1;
+        //     const expertId = queue[pendingIndex]?.toString();
 
-      //     if (expertId && absentExpertIds.includes(expertId)) {
-      //       hasPendingAbsentExpert = true;
-      //     }
-      //   }
-      // }
+        //     if (expertId && absentExpertIds.includes(expertId)) {
+        //       hasPendingAbsentExpert = true;
+        //     }
+        //   }
+        // }
 
-       if (history.length > 0) {
-        const lastHistoryIndex = history.length - 1;
-        const lastHistory = history[lastHistoryIndex];
+        if (history.length > 0) {
+          const lastHistoryIndex = history.length - 1;
+          const lastHistory = history[lastHistoryIndex];
 
-        if (lastHistory.status === 'in-review') {
-          const expertId = queue[lastHistoryIndex]?.toString();
+          if (lastHistory.status === 'in-review') {
+            const expertId = queue[lastHistoryIndex]?.toString();
 
-          if (expertId && absentExpertIds.includes(expertId)) {
-            hasPendingAbsentExpert = true;
+            if (expertId && absentExpertIds.includes(expertId)) {
+              hasPendingAbsentExpert = true;
+            }
           }
         }
-      }
-      if (!hasPendingAbsentExpert) {
-        for (let index = history.length; index < queue.length; index++) {
-          const expertId = queue[index]?.toString();
-          if (!expertId) continue;
+        if (!hasPendingAbsentExpert) {
+          for (let index = history.length; index < queue.length; index++) {
+            const expertId = queue[index]?.toString();
+            if (!expertId) continue;
 
-          if (absentExpertIds.includes(expertId)) {
-            hasPendingAbsentExpert = true;
-            break;
+            if (absentExpertIds.includes(expertId)) {
+              hasPendingAbsentExpert = true;
+              break;
+            }
           }
+        }
+
+        if (hasPendingAbsentExpert) {
+          pendingSubmissions.push(submission);
         }
       }
 
-      if (hasPendingAbsentExpert) {
-        pendingSubmissions.push(submission);
-      }
+      return pendingSubmissions;
+    } catch (error) {
+      throw new InternalServerError('Failed to get absent submissions');
     }
-
-    return pendingSubmissions;
-  } catch (error) {
-    throw new InternalServerError('Failed to get absent submissions');
   }
-}
-
-
 }

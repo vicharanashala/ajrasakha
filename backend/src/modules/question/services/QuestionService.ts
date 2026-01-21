@@ -944,113 +944,106 @@ export class QuestionService extends BaseService implements IQuestionService {
     options?: {
       skipAutoAllocate?: boolean;
     },
+    session?: ClientSession,
   ): Promise<IQuestionSubmission> {
     const skipAutoAllocate = options?.skipAutoAllocate ?? false;
     try {
-      return this._withTransaction(async (session: ClientSession) => {
-        // Validate that user has authorization for this
-        if (userId !== 'system') {
-          const user = await this.userRepo.findById(userId, session);
-          if (!user)
-            throw new UnauthorizedError(`Cannot find user, try relogin!`);
-          if (user.role == 'expert')
-            throw new UnauthorizedError(
-              `You don't have permission to perform this operation`,
-            );
-        }
-        //1. Validate that the question exists
-        const question = await this.questionRepo.getById(questionId, session);
-        if (!question) throw new NotFoundError('Question not found');
-
-        //2. Validate that the corresponding question submission exists
-        const questionSubmission =
-          await this.questionSubmissionRepo.getByQuestionId(
-            questionId,
-            session,
+      // return this._withTransaction(async (session: ClientSession) => {
+      if (userId !== 'system') {
+        const user = await this.userRepo.findById(userId, session);
+        if (!user)
+          throw new UnauthorizedError(`Cannot find user, try relogin!`);
+        if (user.role == 'expert')
+          throw new UnauthorizedError(
+            `You don't have permission to perform this operation`,
           );
-        if (!questionSubmission)
-          throw new NotFoundError('Question submission not found');
+      }
+      //1. Validate that the question exists
+      const question = await this.questionRepo.getById(questionId, session);
+      if (!question) throw new NotFoundError('Question not found');
 
-        //3. Get the current expert queue from the question submission
-        const submissionQueue = questionSubmission.queue || [];
-        const submissionHistory = questionSubmission.history || [];
-        //4. Extract the expert ID based on the provided index
-        const expertId = submissionQueue[index]?.toString();
-        //5. Decrease the expert's reputation score (since being removed)
-        const nextUserId = submissionQueue[index + 1]?.toString();
-        const isExpertInHistory = submissionHistory.find(
-          h => h.updatedBy.toString() == expertId.toString(),
-        );
-        if (
-          expertId &&
-          isExpertInHistory &&
-          !isExpertInHistory.reviewId &&
-          isExpertInHistory.status === 'in-review'
-        ) {
-          const INCREMENT = false;
+      //2. Validate that the corresponding question submission exists
+      const questionSubmission =
+        await this.questionSubmissionRepo.getByQuestionId(questionId, session);
+      if (!questionSubmission)
+        throw new NotFoundError('Question submission not found');
+
+      //3. Get the current expert queue from the question submission
+      const submissionQueue = questionSubmission.queue || [];
+      const submissionHistory = questionSubmission.history || [];
+      //4. Extract the expert ID based on the provided index
+      const expertId = submissionQueue[index]?.toString();
+      //5. Decrease the expert's reputation score (since being removed)
+      const nextUserId = submissionQueue[index + 1]?.toString();
+      const isExpertInHistory = submissionHistory.find(
+        h => h.updatedBy.toString() == expertId.toString(),
+      );
+      if (
+        expertId &&
+        isExpertInHistory &&
+        !isExpertInHistory.reviewId &&
+        isExpertInHistory.status === 'in-review'
+      ) {
+        const INCREMENT = false;
+        await this.userRepo.updateReputationScore(expertId, INCREMENT, session);
+
+        if (nextUserId) {
+          const INCREMENT = true;
           await this.userRepo.updateReputationScore(
-            expertId,
+            nextUserId,
             INCREMENT,
             session,
           );
-
+        }
+      }
+      if (submissionHistory.length === 0) {
+        if (submissionQueue[0].toString() === expertId) {
+          const IS_INCREMENT = false;
+          await this.userRepo.updateReputationScore(
+            expertId,
+            IS_INCREMENT,
+            session,
+          );
           if (nextUserId) {
-            const INCREMENT = true;
+            const IS_INCREMENT = true;
             await this.userRepo.updateReputationScore(
               nextUserId,
-              INCREMENT,
-              session,
-            );
-          }
-        }
-        if (submissionHistory.length === 0) {
-          if (submissionQueue[0].toString() === expertId) {
-            const IS_INCREMENT = false;
-            await this.userRepo.updateReputationScore(
-              expertId,
               IS_INCREMENT,
               session,
             );
-            if (nextUserId) {
-              const IS_INCREMENT = true;
-              await this.userRepo.updateReputationScore(
-                nextUserId,
-                IS_INCREMENT,
-                session,
-              );
-            }
           }
         }
-        // } else {
-        //   const matchUser = submissionHistory.find(
-        //     u => u.updatedBy?.toString() === expertId,
-        //   );
-        //   if (matchUser) {
-        //     const IS_INCREMENT = false;
-        //     await this.userRepo.updateReputationScore(
-        //       expertId,
-        //       IS_INCREMENT,
-        //       session,
-        //     );
-        //     if (nextUserId) {
-        //       const IS_INCREMENT = true;
-        //       await this.userRepo.updateReputationScore(
-        //         nextUserId,
-        //         IS_INCREMENT,
-        //         session,
-        //       );
-        //     }
-        //   }
-        // }
+      }
+      // } else {
+      //   const matchUser = submissionHistory.find(
+      //     u => u.updatedBy?.toString() === expertId,
+      //   );
+      //   if (matchUser) {
+      //     const IS_INCREMENT = false;
+      //     await this.userRepo.updateReputationScore(
+      //       expertId,
+      //       IS_INCREMENT,
+      //       session,
+      //     );
+      //     if (nextUserId) {
+      //       const IS_INCREMENT = true;
+      //       await this.userRepo.updateReputationScore(
+      //         nextUserId,
+      //         IS_INCREMENT,
+      //         session,
+      //       );
+      //     }
+      //   }
+      // }
 
-        //6. Remove the expert from the queue by index
-        const updated =
-          await this.questionSubmissionRepo.removeExpertFromQueuebyIndex(
-            questionId,
-            Number(index),
-            session,
-          );
-        /*  if(updated)
+      //6. Remove the expert from the queue by index
+      const updated =
+        await this.questionSubmissionRepo.removeExpertFromQueuebyIndex(
+          questionId,
+          Number(index),
+          session,
+        );
+      /*  if(updated)
           {
             const IS_INCREMENT = true;
           const userId =updated.queue[0];
@@ -1061,34 +1054,34 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
           }*/
 
-        //7. Handle auto reallocation logic if autoAllocate is enabled
-        if (!skipAutoAllocate && index >= 0 && question.isAutoAllocate) {
-          // Get updated queue and history lengths
-          const UPDATED_QUEUE_LENGTH = updated?.queue.length || 0;
-          const UPDATED_HISTORY_LENGTH = updated?.history.length || 0;
-          let BATCH_EXPECTED_TO_ADD = 6;
+      //7. Handle auto reallocation logic if autoAllocate is enabled
+      if (!skipAutoAllocate && index >= 0 && question.isAutoAllocate) {
+        // Get updated queue and history lengths
+        const UPDATED_QUEUE_LENGTH = updated?.queue.length || 0;
+        const UPDATED_HISTORY_LENGTH = updated?.history.length || 0;
+        let BATCH_EXPECTED_TO_ADD = 6;
 
-          // Adjust batch size if initial allocation (<3) experts are being removed
-          if (UPDATED_QUEUE_LENGTH < 3)
-            BATCH_EXPECTED_TO_ADD = 3 - UPDATED_QUEUE_LENGTH;
+        // Adjust batch size if initial allocation (<3) experts are being removed
+        if (UPDATED_QUEUE_LENGTH < 3)
+          BATCH_EXPECTED_TO_ADD = 3 - UPDATED_QUEUE_LENGTH;
 
-          // If all previous experts have responded and queue is not full, trigger auto allocation
-          if (
-            UPDATED_QUEUE_LENGTH < 3 ||
-            (UPDATED_HISTORY_LENGTH == UPDATED_QUEUE_LENGTH &&
-              UPDATED_QUEUE_LENGTH < 10)
-          ) {
-            await this.autoAllocateExperts(
-              questionId,
-              session,
-              BATCH_EXPECTED_TO_ADD,
-            );
-          }
+        // If all previous experts have responded and queue is not full, trigger auto allocation
+        if (
+          UPDATED_QUEUE_LENGTH < 3 ||
+          (UPDATED_HISTORY_LENGTH == UPDATED_QUEUE_LENGTH &&
+            UPDATED_QUEUE_LENGTH < 10)
+        ) {
+          await this.autoAllocateExperts(
+            questionId,
+            session,
+            BATCH_EXPECTED_TO_ADD,
+          );
         }
+      }
 
-        //8. Return the updated question submission
-        return updated;
-      });
+      //8. Return the updated question submission
+      return updated;
+      // });
     } catch (error) {
       throw new InternalServerError(
         `Failed to remove expert from queue: ${error}`,
@@ -1379,6 +1372,14 @@ export class QuestionService extends BaseService implements IQuestionService {
       ) {
         indicesToRemove.add(0);
       }
+      if (history.length > 0) {
+        const pendingIndex = history.length - 1;
+        const expertId = queue[pendingIndex]?.toString();
+
+        if (expertId && absentExpertIds.includes(expertId)) {
+          indicesToRemove.add(pendingIndex);
+        }
+      }
       for (let index = history.length; index < queue.length; index++) {
         const expertId = queue[index]?.toString();
         if (!expertId) continue;
@@ -1402,17 +1403,13 @@ export class QuestionService extends BaseService implements IQuestionService {
           questionId.toString(),
           index,
           {skipAutoAllocate: true},
+          session,
         );
       }
       const question = await this.questionRepo.getById(
         questionId.toString(),
         session,
       );
-
-      // if (!question?.isAutoAllocate) {
-      //   continue;
-      // }
-
       const latestSubmission =
         await this.questionSubmissionRepo.getByQuestionId(
           questionId.toString(),
@@ -1421,6 +1418,16 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       const UPDATED_QUEUE_LENGTH = latestSubmission.queue.length || 0;
       const UPDATED_HISTORY_LENGTH = latestSubmission.history.length || 0;
+      if (UPDATED_QUEUE_LENGTH === 0) {
+        // if (question?.isAutoAllocate) {
+        await this.autoAllocateExperts(
+          questionId.toString(),
+          session,
+          3, 
+        );
+        // }
+        continue;
+      }
 
       let BATCH_EXPECTED_TO_ADD = 6;
       if (UPDATED_QUEUE_LENGTH < 3) {
@@ -1438,6 +1445,6 @@ export class QuestionService extends BaseService implements IQuestionService {
         );
       }
     }
-    console.log("Completed!")
+    console.log('Completed!');
   }
 }
