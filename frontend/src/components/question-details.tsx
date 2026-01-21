@@ -149,7 +149,7 @@ export const QuestionDetails = ({
 
   const answers = useMemo(
     () => flattenAnswers(question?.submission),
-    [question.submission]
+    [question.submission],
   );
   const ANSWER_VISIBLE_COUNT = 5;
   const [answerVisibleCount, setAnswerVisibleCount] =
@@ -293,10 +293,10 @@ export const QuestionDetails = ({
               question.status === "in-review"
                 ? "bg-green-500/10 text-green-600 border-green-500/30"
                 : question.status === "open"
-                ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                : question.status === "closed"
-                ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-                : "bg-muted text-foreground"
+                  ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                  : question.status === "closed"
+                    ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
+                    : "bg-muted text-foreground"
             }
           >
             {question.status.replace("_", " ")}
@@ -307,10 +307,10 @@ export const QuestionDetails = ({
               question.priority === "high"
                 ? "bg-red-500/10 text-red-600 border-red-500/30"
                 : question.priority === "medium"
-                ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-                : question.priority === "low"
-                ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
-                : "bg-muted text-foreground"
+                  ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+                  : question.priority === "low"
+                    ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                    : "bg-muted text-foreground"
             }
           >
             {question.priority ? question.priority.toUpperCase() : "NIL"}
@@ -662,6 +662,7 @@ export const QuestionDetails = ({
             userRole={currentUser.role}
             queue={question.submission.queue}
             rerouteQuestion={reroutequestionDetails ?? undefined}
+            refetchRerouteData={refechrerouteSelectedQuestion}
           />
           {answerVisibleCount < answers.length && (
             <div className="flex justify-center">
@@ -672,7 +673,7 @@ export const QuestionDetails = ({
                   setIsLoadingMore(true);
                   setTimeout(() => {
                     setAnswerVisibleCount(
-                      (prev) => prev + ANSWER_VISIBLE_COUNT
+                      (prev) => prev + ANSWER_VISIBLE_COUNT,
                     );
                     setIsLoadingMore(false);
                   }, 2000);
@@ -708,7 +709,14 @@ const AllocationQueueHeader = ({
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const { data: usersData, isLoading: isUsersLoading } = useGetAllUsers();
+  const { data: usersData, isLoading: isUsersLoading } = useGetAllUsers(
+    1,
+    20,
+    searchTerm,
+    "",
+    "",
+  );
+
   const { mutateAsync: allocateExpert, isPending: allocatingExperts } =
     useAllocateExpert();
   const { mutateAsync: toggleAutoAllocateStatus, isPending: changingStatus } =
@@ -718,13 +726,15 @@ const AllocationQueueHeader = ({
 
   const experts =
     usersData?.users.filter(
-      (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id)
+      (user) =>
+        user.role === "expert" && !expertsIdsInQueue.has(user._id ?? ""),
     ) || [];
-
+    if(!experts.length)return;
+    console.log(experts)
   const filteredExperts = experts.filter(
     (expert) =>
       expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      expert.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      expert.email?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const handleToggle = async (checked: boolean) => {
@@ -741,7 +751,7 @@ const AllocationQueueHeader = ({
     setSelectedExperts((prev) =>
       prev.includes(expertId)
         ? prev.filter((id) => id !== expertId)
-        : [...prev, expertId]
+        : [...prev, expertId],
     );
   };
 
@@ -749,7 +759,7 @@ const AllocationQueueHeader = ({
     try {
       if (question.status !== "open" && question.status !== "delayed") {
         toast.error(
-          "This question is currently being reviewed or has been closed. Please check back later!"
+          "This question is currently being reviewed or has been closed. Please check back later!",
         );
         return;
       }
@@ -762,7 +772,7 @@ const AllocationQueueHeader = ({
     } catch (error: any) {
       console.error("Error allocating experts:", error);
       toast.error(
-        error?.message || "Failed to allocate experts. Please try again."
+        error?.message || "Failed to allocate experts. Please try again.",
       );
     }
   };
@@ -927,9 +937,11 @@ const AllocationQueueHeader = ({
 
                             <Checkbox
                               id={`expert-${expert._id}`}
-                              checked={selectedExperts.includes(expert._id)}
+                              checked={selectedExperts.includes(
+                                expert._id ?? "",
+                              )}
                               onCheckedChange={() =>
-                                handleSelectExpert(expert._id)
+                                handleSelectExpert(expert._id ?? "")
                               }
                               disabled={expert.isBlocked}
                               className="mt-1"
@@ -947,7 +959,9 @@ const AllocationQueueHeader = ({
                                     title={expert.userName}
                                   >
                                     {expert?.userName?.slice(0, 48)}
-                                    {expert?.userName?.length > 48 ? "..." : ""}
+                                    {(expert?.userName?.length ?? 0) > 48
+                                      ? "..."
+                                      : ""}
                                   </div>
                                   <div
                                     className="text-xs text-muted-foreground truncate"
@@ -1049,7 +1063,7 @@ const AllocationTimeline = ({
   };
 
   const getUserSubmission = (
-    userId: string
+    userId: string,
   ): ISubmissionHistory | undefined => {
     return history.find((h) => h.updatedBy?._id === userId);
   };
@@ -1070,7 +1084,7 @@ const AllocationTimeline = ({
 
     if (submission?.approvedAnswer) {
       const approvedEntry = history.find(
-        (h) => h.answer?._id === submission.approvedAnswer
+        (h) => h.answer?._id === submission.approvedAnswer,
       );
       const approvedUserName = approvedEntry?.updatedBy?.name || "someone";
       return `${userName} approved ${approvedUserName}'s answer.`;
@@ -1078,7 +1092,7 @@ const AllocationTimeline = ({
 
     if (submission?.modifiedAnswer) {
       const approvedEntry = history.find(
-        (h) => h.answer?._id === submission.approvedAnswer
+        (h) => h.answer?._id === submission.approvedAnswer,
       );
       const approvedUserName = approvedEntry?.updatedBy?.name || "someone";
       return `${userName} modified ${approvedUserName}'s answer.`;
@@ -1086,7 +1100,7 @@ const AllocationTimeline = ({
 
     if (submission.rejectedAnswer) {
       const rejectedEntry = history.find(
-        (h) => h.answer?._id === submission.rejectedAnswer
+        (h) => h.answer?._id === submission.rejectedAnswer,
       );
       const rejectedUserName = rejectedEntry?.updatedBy?.name || "someone";
       return `${userName} rejected ${rejectedUserName}'s answer and created a new answer.`;
@@ -1099,7 +1113,7 @@ const AllocationTimeline = ({
       !submission.rejectedAnswer
     ) {
       const reviewingEntry = history.find(
-        (h) => h.answer && h.status !== "rejected" && h.status !== "approved"
+        (h) => h.answer && h.status !== "rejected" && h.status !== "approved",
       );
       const reviewingUserName = reviewingEntry?.updatedBy?.name || "someone";
       return `${userName} is currently reviewing ${reviewingUserName}'s answer.`;
@@ -1127,19 +1141,19 @@ const AllocationTimeline = ({
         setSelectedAllocationIndex(null);
       }
     },
-    [question._id, removeAllocation]
+    [question._id, removeAllocation],
   );
 
   const submittedUserIds = new Set(
     history
       .filter((entry) => entry.answer || entry.status == "reviewed")
-      .map((entry) => entry.updatedBy?._id)
+      .map((entry) => entry.updatedBy?._id),
   );
 
   const submittedUserEmails = new Set(
     history
       .filter((entry) => entry.answer || entry.status == "reviewed")
-      .map((entry) => entry.updatedBy?.email)
+      .map((entry) => entry.updatedBy?.email),
   );
 
   // const unSubmittedExpertsCount = queue?.filter(
@@ -1147,7 +1161,7 @@ const AllocationTimeline = ({
   // ).length;
 
   const nextWaitingIndex = queue?.findIndex(
-    (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email)
+    (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email),
   );
   const getStatus = (index: number) => {
     const user = queue[index];
@@ -1487,16 +1501,16 @@ const AllocationTimeline = ({
                         {status === "answerCreated"
                           ? "Answer Created"
                           : status === "approved"
-                          ? "Approved"
-                          : status === "modified"
-                          ? "Modified"
-                          : status === "rejected"
-                          ? "Rejected"
-                          : status === "waiting"
-                          ? isCurrentUserWaiting
-                            ? "Your Turn"
-                            : "Waiting"
-                          : "Pending"}
+                            ? "Approved"
+                            : status === "modified"
+                              ? "Modified"
+                              : status === "rejected"
+                                ? "Rejected"
+                                : status === "waiting"
+                                  ? isCurrentUserWaiting
+                                    ? "Your Turn"
+                                    : "Waiting"
+                                  : "Pending"}
                       </span>
                     </div>
 
@@ -1888,10 +1902,10 @@ const RerouteTimeline = ({
                           <div>
                             <p
                               className="text-xs font-semibold text-gray-900 dark:text-white truncate"
-                              title={reroute.reroutedTo.firstName}
+                              title={reroute.reroutedTo.userName}
                             >
-                              {reroute.reroutedTo.firstName?.slice(0, 15)}
-                              {reroute.reroutedTo.firstName?.length > 15
+                              {reroute.reroutedTo.userName?.slice(0, 15)}
+                              {(reroute.reroutedTo.userName?.length ?? 0) > 15
                                 ? "..."
                                 : ""}
                             </p>
@@ -1931,7 +1945,7 @@ const RerouteTimeline = ({
                         <p className="text-xs text-gray-600 dark:text-gray-400">
                           {currentUser.role == "expert"
                             ? "Moderator"
-                            : reroute.reroutedBy.firstName}
+                            : reroute.reroutedBy.userName}
                         </p>
                         <p className="text-[10px] text-gray-500 dark:text-gray-500">
                           {formatDate(reroute.reroutedAt)}
@@ -1986,6 +2000,7 @@ interface IAnswerTimelineProps {
   userRole: UserRole;
   queue: ISubmission["queue"];
   rerouteQuestion?: IRerouteHistoryResponse[];
+  refetchRerouteData?: () => void;
 }
 
 export const AnswerTimeline = ({
@@ -1997,11 +2012,12 @@ export const AnswerTimeline = ({
   userRole,
   queue,
   rerouteQuestion,
+  refetchRerouteData,
 }: IAnswerTimelineProps) => {
   // map answers to timeline events
   const events = answers.slice(0, answerVisibleCount).map((ans) => {
     const submission = question.submission.history.find(
-      (h) => h.answer?._id === ans?._id
+      (h) => h.answer?._id === ans?._id,
     );
 
     return {
@@ -2065,6 +2081,8 @@ export const AnswerTimeline = ({
               userRole={userRole}
               queue={queue}
               rerouteQuestion={rerouteQuestion}
+              refetchRerouteData={refetchRerouteData}
+              lastAnswerApprovalCount={answers[0]?.approvalCount}
             />
           </div>
         )}
@@ -2084,10 +2102,13 @@ interface AnswerItemProps {
   questionStatus: QuestionStatus;
   queue: ISubmission["queue"];
   rerouteQuestion?: IRerouteHistoryResponse[];
+  refetchRerouteData?: () => void;
+  lastAnswerApprovalCount?: number;
 }
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const [sources, setSources] = useState<SourceItem[]>(props.answer.sources);
+  const [searchTerm, setSearchTerm] = useState("");
   const isMine = props.answer.authorId === props.currentUserId;
   // const [comment, setComment] = useState("");
   // const observer = useRef<IntersectionObserver>(null);
@@ -2172,7 +2193,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
       });
 
       toast.success(
-        "Answer approved successfully! The question is now closed. Thank you!"
+        "Answer approved successfully! The question is now closed. Thank you!",
       );
       setEditOpen(false);
     } catch (error) {
@@ -2185,18 +2206,23 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const isRejected =
     props.submissionData && props.submissionData.status === "rejected";
 
-  const { data: usersData, isLoading: isUsersLoading } = useGetAllUsers();
+  const { data: usersData, isLoading: isUsersLoading } = useGetAllUsers(
+    1,
+    20,
+    searchTerm,
+    "",
+    "",
+  );
   const { mutateAsync: allocateExpert, isPending: allocatingExperts } =
     useGetReRouteAllocation();
 
-  const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   //  const expertsIdsInQueue = new Set(props.queue?.map((expert) => expert._id));
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
   const [comment, setComment] = useState("");
   const reroutedExpertIds =
     props.rerouteQuestion?.flatMap((item) =>
-      item.reroutes.map((r) => r.reroutedTo._id)
+      item.reroutes.map((r) => r.reroutedTo._id),
     ) ?? [];
   /* const expertsIdsInQueue = new Set<string>([
         ...(props.queue?.map(expert => expert._id) ?? []),
@@ -2208,6 +2234,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         props.rerouteQuestion[0].reroutes.length - 1
       ]
     : null;
+
   // console.log("the submission data====",props.submissionData)
 
   /* const experts =
@@ -2216,18 +2243,17 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     ) || [];*/
   const experts =
     usersData?.users.filter((user) => user.role === "expert") || [];
-
+  console.log('2',experts)
   const filteredExperts = experts.filter(
     (expert) =>
       expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      expert.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      expert.email?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
-
   const handleSelectExpert = (expertId: string) => {
     setSelectedExperts((prev) =>
       prev.includes(expertId)
         ? prev.filter((id) => id !== expertId)
-        : [...prev, expertId]
+        : [...prev, expertId],
     );
   };
 
@@ -2251,14 +2277,20 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         comment: comment.trim(),
         status: "pending" as ReRouteStatus,
       });
-      toast.success("You have successfully Re Routed the question");
+
+      if (props.refetchRerouteData) {
+        props.refetchRerouteData();
+      }
+
       setSelectedExperts([]);
-      setIsModalOpen(false);
+      toast.success("You have successfully Re Routed the question");
     } catch (error: any) {
       console.error("Error allocating experts:", error);
       toast.error(
-        error?.message || "Failed to allocate experts. Please try again."
+        error?.message || "Failed to allocate experts. Please try again.",
       );
+    } finally {
+      setIsModalOpen(false);
     }
   };
   const [rejectionReason, setRejectionReason] = useState("");
@@ -2298,7 +2330,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         expertId: userId,
         role: "moderator",
       });
-      console.log("the result coming====", result);
+
+      if (props.refetchRerouteData) {
+        props.refetchRerouteData();
+      }
       toast.success("You have successfully rejected the Re Route Question");
     } catch (error: any) {
       // ✅ NOW you will see backend error
@@ -2310,6 +2345,8 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         "Something went wrong";
 
       toast.error(message);
+    } finally {
+      setIsRejectDialogOpen(false);
     }
 
     // 🔥 call mutation / API here
@@ -2320,32 +2357,28 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     setSelectedExperts([]);
     setIsModalOpen(false);
   };
-        const reviews = props.answer.reviews ?? [];
+  const reviews = props.answer.reviews ?? [];
 
-      let firstTrueIndex: number | undefined;
-      let firstFalseOrMissingIndex: number | undefined;
+  let firstTrueIndex: number | undefined;
+  let firstFalseOrMissingIndex: number | undefined;
 
-      reviews.forEach((review, index) => {
-        if (review.reRoutedReview === true) {
-          if (firstTrueIndex === undefined) {
-            firstTrueIndex = index;
-          }
-        } else {
-          // false OR undefined OR null
-          if (firstFalseOrMissingIndex === undefined) {
-            firstFalseOrMissingIndex = index;
-          }
-        }
-      });
+  reviews.forEach((review, index) => {
+    if (review.reRoutedReview === true) {
+      if (firstTrueIndex === undefined) {
+        firstTrueIndex = index;
+      }
+    } else {
+      // false OR undefined OR null
+      if (firstFalseOrMissingIndex === undefined) {
+        firstFalseOrMissingIndex = index;
+      }
+    }
+  });
 
   return (
-    <Card className="p-6 grid gap-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-foreground">
-            Iteration {props.answer.answerIteration}
-          </span>
-          {props.answer.isFinalAnswer && (
+    <Card className="p-6 grid gap-4 ">
+        <div className=" w-full flex justify-between">
+           {props.answer.isFinalAnswer && (
             <Badge
               variant="outline"
               className="text-green-600 border-green-600"
@@ -2403,22 +2436,47 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
               </Badge>
             )}
 
+            {props.answer?.approvalCount !== undefined &&
+            props.answer?.approvalCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 text-green-400 font-medium text-xs whitespace-nowrap border border-primary/20">
+                 {props.answer.approvalCount} Approvals
+             </span>
+            )}
+
+        </div>
+      <div className="p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
+        <div className="flex items-center gap-3">
+         <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-background text-foreground font-medium text-xs sm:text-sm whitespace-nowrap border-l-2 border-primary pl-2.5">
+            Iteration {props.answer.answerIteration}
+         </span>
+         
           {isMine && <UserCheck className="w-4 h-4 text-blue-600 ml-1" />}
         </div>
         <div className="flex items-center justify-center gap-2">
           {props.userRole !== "expert" &&
             (props.questionStatus === "in-review" ||
-              props.questionStatus === "re-routed") &&
-            props.lastAnswerId === props.answer?._id && (
+              props.questionStatus === "re-routed") && (
               <Dialog open={editOpen} onOpenChange={setEditOpen}>
                 <DialogTrigger asChild>
                   <button
-                    disabled={lastReroutedTo?.status === "pending"||props.answer.approvalCount<3}
-                    className={`bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded
+                    // props.lastAnswerId !== props.answer?._id && props.answer.approvalCount < 3
+                    disabled={
+                      lastReroutedTo?.status === "pending" ||
+                      (props.lastAnswerApprovalCount ?? 0) < 3
+                    }
+                    className={`
+                      bg-primary text-primary-foreground 
+                      flex items-center gap-2 
+                      px-3 py-1 sm:px-4 sm:py-1
+                      rounded-md
+                      text-sm
+                      whitespace-nowrap
+                      transition-all duration-200
                     ${
-                      lastReroutedTo?.status === "pending"||props.answer.approvalCount<3
+                      lastReroutedTo?.status === "pending" ||
+                      (props.lastAnswerApprovalCount ?? 0) < 3
                         ? "opacity-50 cursor-not-allowed"
-                        : "hover:bg-primary/90"
+                        : "hover:bg-primary/90 hover:shadow-md active:scale-95"
                     }
                   `}
                   >
@@ -2492,11 +2550,18 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                 <DialogTrigger asChild>
                   <button
                     disabled={lastReroutedTo?.status === "pending"}
-                    className={`bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded
+                    className={`
+                      bg-primary text-primary-foreground 
+                      flex items-center gap-2 
+                      px-3 py-1 sm:px-4 sm:py-1
+                      rounded-md
+                      text-sm
+                      whitespace-nowrap
+                      transition-all duration-200
                     ${
                       lastReroutedTo?.status === "pending"
                         ? "opacity-50 cursor-not-allowed"
-                        : "hover:bg-primary/90"
+                        : "hover:bg-primary/90 hover:shadow-md active:scale-95"
                     }
                   `}
                   >
@@ -2605,14 +2670,16 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
 
                             <Checkbox
                               id={`expert-${expert._id}`}
-                              checked={selectedExperts.includes(expert._id)}
+                              checked={selectedExperts.includes(
+                                expert._id ?? "",
+                              )}
                               onCheckedChange={() =>
-                                handleSelectExpert(expert._id)
+                                handleSelectExpert(expert._id ?? "")
                               }
                               disabled={
                                 expert.isBlocked ||
                                 (selectedExperts.length > 0 &&
-                                  !selectedExperts.includes(expert._id))
+                                  !selectedExperts.includes(expert._id ?? ""))
                               }
                               className="mt-1"
                             />
@@ -2629,7 +2696,9 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                                     title={expert.userName}
                                   >
                                     {expert?.userName?.slice(0, 48)}
-                                    {expert?.userName?.length > 48 ? "..." : ""}
+                                    {(expert.userName?.length ?? 0) > 48
+                                      ? "..."
+                                      : ""}
                                   </div>
                                   <div
                                     className="text-xs text-muted-foreground truncate"
@@ -2663,14 +2732,26 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                       variant="outline"
                       onClick={handleCancel}
                       className="hidden md:block"
+                      disabled={allocatingExperts}
                     >
                       Cancel
                     </Button>
                     <Button
                       onClick={handleSubmit}
-                      disabled={selectedExperts.length === 0 || !comment.trim()}
+                      disabled={
+                        selectedExperts.length === 0 ||
+                        !comment.trim() ||
+                        allocatingExperts
+                      }
                     >
-                      {`Submit (${selectedExperts.length} selected)`}
+                      {allocatingExperts ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Allocating...
+                        </>
+                      ) : (
+                        `Submit (${selectedExperts.length} selected)`
+                      )}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -2689,15 +2770,25 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                 <DialogTrigger asChild>
                   <button
                     disabled={lastReroutedTo?.status != "pending"}
-                    className={`bg-red-400 text-primary-foreground flex items-center gap-2 px-2 py-2 rounded bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 shadow-red-100/50
+                    className={`
+                      bg-red-400 text-primary-foreground 
+                      flex items-center gap-1.5 sm:gap-2 
+                      px-2 py-1 sm:px-3 sm:py-1 
+                      rounded-md
+                      text-xs sm:text-sm
+                      dark:bg-red-900/30 
+                      border border-red-300 dark:border-red-700 
+                      shadow-sm shadow-red-100/50
+                      whitespace-nowrap
+                      transition-all duration-200
                     ${
                       lastReroutedTo?.status != "pending"
                         ? "opacity-50 cursor-not-allowed"
-                        : "hover:bg-red/90"
+                        : "hover:bg-red-500 dark:hover:bg-red-900/50 hover:shadow-md active:scale-95"
                     }
                   `}
                   >
-                    <XCircle className="w-3 h-3" />
+                    <XCircle className="w-4 h-4" />
                     Reject ReRoute
                   </button>
                 </DialogTrigger>
@@ -2717,6 +2808,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                     {/* Cancel */}
                     <Button
                       variant="outline"
+                      disabled={isRejecting}
                       onClick={() => setIsRejectDialogOpen(false)}
                     >
                       Cancel
@@ -2724,22 +2816,25 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
 
                     {/* Submit */}
                     <Button
-                      disabled={rejectionReason.length < 8}
+                      disabled={rejectionReason.length < 8 || isRejecting}
                       onClick={() => {
                         handleRejectReRouteAnswer(rejectionReason);
-                        setIsRejectDialogOpen(false);
                       }}
                     >
-                      {"Submit"}
+                      {isRejecting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          submiting...
+                        </>
+                      ) : (
+                        "Submit"
+                      )}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
             )}
-          {props.answer?.approvalCount !== undefined &&
-            props.answer?.approvalCount > 0 && (
-              <p>Approval count: {props.answer.approvalCount}</p>
-            )}
+          
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" className="w-full sm:w-auto ">
@@ -3044,86 +3139,85 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                           return (
                             <div>
                               {index === firstTrueIndex && (
-                              <p className="text-sm font-medium text-purple-600 mb-2">
-                                ReRoute Timeline
-                              </p>
-                            )}
-
-                            {index === firstFalseOrMissingIndex && (
-                              <p className="text-sm font-medium text-blue-600 mb-2">
-                                Review Timeline
-                              </p>
-                            )}
-                            <div
-                              key={review._id}
-                              className="rounded-lg border bg-muted/30 p-4 space-y-3"
-                            >
-                               
-                              {/* Reviewer + Date */}
-                              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                                <div className="flex items-center gap-2">
-                                
-                                  <span className="text-sm font-medium">
-                                    Reviewer:
-                                  </span>
-                                  <span className="text-sm text-muted-foreground">
-                                    {review.reviewer?.firstName}
-                                    {review.reviewer?.email && (
-                                      <> ({review.reviewer.email})</>
-                                    )}
-                                  </span>
-                                </div>
-
-                                <div className="text-xs text-muted-foreground">
-                                  {formatDate(review.createdAt!)}
-                                </div>
-                              </div>
-
-                              {/* Action Badge */}
-                              <div className="flex items-center gap-2">
-                                <Badge
-                                  variant="outline"
-                                  className={
-                                    review.action === "accepted"
-                                      ? "border-green-600 text-green-600"
-                                      : review.action === "rejected"
-                                      ? "border-red-600 text-red-600"
-                                      : "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700"
-                                  }
-                                >
-                                  <span className="flex items-center gap-1">
-                                    {review.action === "accepted" && (
-                                      <>
-                                        <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
-                                        <span>Accepted</span>
-                                      </>
-                                    )}
-
-                                    {review.action === "rejected" && (
-                                      <>
-                                        <XCircle className="w-3 h-3 text-red-600 dark:text-red-400" />
-                                        <span>Rejected</span>
-                                      </>
-                                    )}
-
-                                    {review.action === "modified" && (
-                                      <>
-                                        <Pencil className="w-3 h-3 text-orange-700 dark:text-orange-400" />
-                                        <span>Modified</span>
-                                      </>
-                                    )}
-                                  </span>
-                                </Badge>
-                              </div>
-
-                              {/* Parameters */}
-                              <div className="space-y-1">
-                                <p className="text-xs mb-2 font-medium text-foreground">
-                                  Parameters
+                                <p className="text-sm font-medium text-purple-600 mb-2">
+                                  ReRoute Timeline
                                 </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {Object.entries(review.parameters ?? {}).map(
-                                    ([key, value]) => (
+                              )}
+
+                              {index === firstFalseOrMissingIndex && (
+                                <p className="text-sm font-medium text-blue-600 mb-2">
+                                  Review Timeline
+                                </p>
+                              )}
+                              <div
+                                key={review._id}
+                                className="rounded-lg border bg-muted/30 p-4 space-y-3"
+                              >
+                                {/* Reviewer + Date */}
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium">
+                                      Reviewer:
+                                    </span>
+                                    <span className="text-sm text-muted-foreground">
+                                      {review.reviewer?.userName}
+                                      {review.reviewer?.email && (
+                                        <> ({review.reviewer.email})</>
+                                      )}
+                                    </span>
+                                  </div>
+
+                                  <div className="text-xs text-muted-foreground">
+                                    {formatDate(review.createdAt!)}
+                                  </div>
+                                </div>
+
+                                {/* Action Badge */}
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      review.action === "accepted"
+                                        ? "border-green-600 text-green-600"
+                                        : review.action === "rejected"
+                                          ? "border-red-600 text-red-600"
+                                          : "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700"
+                                    }
+                                  >
+                                    <span className="flex items-center gap-1">
+                                      {review.action === "accepted" && (
+                                        <>
+                                          <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
+                                          <span>Accepted</span>
+                                        </>
+                                      )}
+
+                                      {review.action === "rejected" && (
+                                        <>
+                                          <XCircle className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                          <span>Rejected</span>
+                                        </>
+                                      )}
+
+                                      {review.action === "modified" && (
+                                        <>
+                                          <Pencil className="w-3 h-3 text-orange-700 dark:text-orange-400" />
+                                          <span>Modified</span>
+                                        </>
+                                      )}
+                                    </span>
+                                  </Badge>
+                                </div>
+
+                                {/* Parameters */}
+                                <div className="space-y-1">
+                                  <p className="text-xs mb-2 font-medium text-foreground">
+                                    Parameters
+                                  </p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {Object.entries(
+                                      review.parameters ?? {},
+                                    ).map(([key, value]) => (
                                       <Badge
                                         key={key}
                                         variant="outline"
@@ -3144,37 +3238,38 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
                                           ]
                                         }
                                       </Badge>
-                                    )
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Reason */}
+                                {review.reason &&
+                                  review.reason.trim() !== "" && (
+                                    <div className="space-y-1">
+                                      <p className="text-xs font-medium text-foreground">
+                                        Reason
+                                      </p>
+                                      <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                        {review.reason}
+                                      </p>
+                                    </div>
                                   )}
-                                </div>
-                              </div>
 
-                              {/* Reason */}
-                              {review.reason && review.reason.trim() !== "" && (
-                                <div className="space-y-1">
-                                  <p className="text-xs font-medium text-foreground">
-                                    Reason
-                                  </p>
-                                  <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                                    {review.reason}
-                                  </p>
-                                </div>
-                              )}
-
-                              {/* Modification Accordion */}
-                              {review.action === "modified" && modification && (
-                                <div className="mt-3">
-                                  <Accordion
-                                    type="single"
-                                    collapsible
-                                    className="w-full"
-                                  >
-                                    <AccordionItem
-                                      value={`mod-details-${review._id}`}
-                                    >
-                                      <AccordionTrigger className="text-sm font-medium">
-                                        View Modification Details
-                                      </AccordionTrigger>
+                                {/* Modification Accordion */}
+                                {review.action === "modified" &&
+                                  modification && (
+                                    <div className="mt-3">
+                                      <Accordion
+                                        type="single"
+                                        collapsible
+                                        className="w-full"
+                                      >
+                                        <AccordionItem
+                                          value={`mod-details-${review._id}`}
+                                        >
+                                          <AccordionTrigger className="text-sm font-medium">
+                                            View Modification Details
+                                          </AccordionTrigger>
 
                                       <AccordionContent>
                                         {renderModificationDiff(modification,index)}
@@ -3350,7 +3445,7 @@ export const SubmitAnswerDialog = ({
         toast.success(
           result.isFinalAnswer
             ? "Response submitted successfully! ✅ This is the final answer."
-            : "Response submitted successfully!"
+            : "Response submitted successfully!",
         );
       }
       onSubmitted?.();
@@ -3450,7 +3545,7 @@ export const renderModificationDiff = (modification: any) => {
               >
                 {part.value}
               </span>
-            )
+            ),
           )}
         </div>
       </div>
@@ -3474,7 +3569,7 @@ export const renderModificationDiff = (modification: any) => {
               >
                 {part.value}
               </span>
-            )
+            ),
           )}
         </div>
       </div>
