@@ -285,7 +285,7 @@ export const QuestionsTable = ({
 
       <div className="rounded-lg border bg-card min-h-[55vh] ">
         <div className="hidden md:block overflow-x-auto">
-          <Table className="min-w-[800px]  table-fixed">
+          <Table className="min-w-[800px]  table-auto">
             <TableHeader className="bg-card sticky top-0 z-10">
               <TableRow>
                 <TableHead className="text-center">Sl.No</TableHead>
