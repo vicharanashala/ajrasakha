@@ -250,8 +250,8 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
     //   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^(){}[\]_+=-]).{8,}$/;
 
     // -------- VALIDATION --------
-    if (!currentPassword) {
-      newErrors.currentPassword = "Current password is required.";
+    if (!currentPassword || currentPassword.length < 6) {
+      newErrors.currentPassword = "Incorrect current password.";
     }
 
     if (!newPassword) {
@@ -262,8 +262,8 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
       //     "Password must be at least 8 characters, include uppercase, lowercase, number, and a special character.";
       // }
 
-      if (currentPassword.length < 6) {
-        newErrors.newPassword = "Password must be at least 6 characters";
+      if (newPassword.length < 6) {
+        newErrors.newPassword = "New password must be at least 6 characters.";
       }
 
       if (newPassword === currentPassword) {
@@ -272,7 +272,9 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
       }
     }
 
-    if (confirmPassword !== newPassword) {
+    if (!confirmPassword) {
+      newErrors.confirmPassword = "Please confirm your new password.";
+    } else if (confirmPassword !== newPassword) {
       newErrors.confirmPassword = "Passwords do not match.";
     }
 
