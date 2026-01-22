@@ -136,7 +136,9 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
                     fill={
                       entry.role == "Experts"
                         ? "var(--chart-1)"
-                        : "var(--chart-2)"
+                        : entry.role == "Moderators"
+                          ? "var(--chart-2)"
+                          : "var(--chart-3)"
                     }
                     stroke="none"
                   />
