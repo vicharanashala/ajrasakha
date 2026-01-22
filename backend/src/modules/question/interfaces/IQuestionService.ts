@@ -124,5 +124,5 @@ export interface IQuestionService {
       session: ClientSession,
     ): Promise<void>
 
-  run()
+  runAbsentScript()
 }

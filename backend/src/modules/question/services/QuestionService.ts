@@ -1517,7 +1517,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
   }
 
-  async run() {
+  async runAbsentScript() {
     return await this._withTransaction(async session => {
       try {
         const absentExpertIds = await this.findAbsentExperts(session);
