@@ -51,11 +51,13 @@ export const StatusCharts = ({ data }: { data: StatusOverview }) => {
                   paddingAngle={2}
                   dataKey="value"
                   nameKey="status"
+                  stroke="none"
                 >
                   {data.questions.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
                       fill={colors[index % colors.length]}
+                      stroke="none"
                     />
                   ))}
                 </Pie>
@@ -64,6 +66,9 @@ export const StatusCharts = ({ data }: { data: StatusOverview }) => {
                     backgroundColor: "var(--color-card)",
                     border: "1px solid var(--color-border)",
                     borderRadius: "var(--radius)",
+                    color: "var(--color-foreground)",
+                  }}
+                  itemStyle={{
                     color: "var(--color-foreground)",
                   }}
                 />
@@ -103,11 +108,13 @@ export const StatusCharts = ({ data }: { data: StatusOverview }) => {
                   paddingAngle={2}
                   dataKey="value"
                   nameKey="status"
+                  stroke="none"
                 >
                   {data.answers.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
                       fill={colors[index % colors.length]}
+                      stroke="none"
                     />
                   ))}
                 </Pie>
@@ -116,6 +123,9 @@ export const StatusCharts = ({ data }: { data: StatusOverview }) => {
                     backgroundColor: "var(--color-card)",
                     border: "1px solid var(--color-border)",
                     borderRadius: "var(--radius)",
+                    color: "var(--color-foreground)",
+                  }}
+                  itemStyle={{
                     color: "var(--color-foreground)",
                   }}
                 />
