@@ -126,6 +126,7 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
                 outerRadius={100}
                 paddingAngle={4}
                 cursor="pointer"
+                stroke="none"
                 // Optional: active slice highlight
                 activeIndex={undefined}
               >
@@ -139,6 +140,7 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
                           ? "var(--chart-2)"
                           : "var(--chart-3)"
                     }
+                    stroke="none"
                   />
                 ))}
               </Pie>

@@ -1682,11 +1682,11 @@ export const QuestionsFilters = ({
       priority: advanceFilter.priority,
       domain: myPreference?.domain || advanceFilter.domain,
       user: advanceFilter.user,
-      endTime: advanceFilter.endTime,
-      startTime: advanceFilter.startTime,
+      endTime: advanceFilter.endTime ?? null,
+      startTime: advanceFilter.startTime ?? null,
       review_level: advanceFilter?.review_level,
-      closedAtStart: advanceFilter?.closedAtStart,
-      closedAtEnd: advanceFilter?.closedAtEnd,
+      closedAtStart: advanceFilter?.closedAtStart ?? null,
+      closedAtEnd: advanceFilter?.closedAtEnd ?? null,
     });
   };
 

@@ -98,11 +98,11 @@ export type AdvanceFilterValues = {
   domain: string;
   crop: string;
   priority: QuestionPriorityFilter;
-  startTime?: Date | undefined; // Use a specific name like startTime/endTime
-  endTime?: Date | undefined;
+  startTime?: Date | undefined | null; // Use a specific name like startTime/endTime
+  endTime?: Date | undefined | null;
   review_level?: ReviewLevel;
-  closedAtEnd?:Date|undefined,
-  closedAtStart?:Date|undefined
+  closedAtEnd?: Date | undefined | null,
+  closedAtStart?: Date | undefined | null
 };
 
 // Define the props for your new component

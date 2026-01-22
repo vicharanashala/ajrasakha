@@ -175,9 +175,12 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                       // label={({ name, value }) => `${name}: ${value}`}
                       outerRadius={100}
                       dataKey="count"
+                      stroke="none"
                     >
+
                       {processedCropWithColors.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
+
                       ))}
                     </Pie>
                     <Tooltip
@@ -282,9 +285,12 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                       // label={({ name, value }) => `${name}: ${value}`}
                       outerRadius={100}
                       dataKey="count"
+                      stroke="none"
                     >
+
                       {processedDomainWithColors.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
+
                       ))}
                     </Pie>
                     <Tooltip
