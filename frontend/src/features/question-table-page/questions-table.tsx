@@ -30,6 +30,7 @@ import { STATES, CROPS, DOMAINS, SEASONS } from "../../components/MetaData";
 import { QuestionRow } from "./QuestionRow";
 import { MobileQuestionCard } from "./MobileQuestionCard";
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
+import { Checkbox } from '@/components/atoms/checkbox';
 
 type QuestionsTableProps = {
   items?: IDetailedQuestion[] | null;
@@ -176,6 +177,36 @@ export const QuestionsTable = ({
     });
   };
 
+  const handleSelectAll = () => {
+    if (!items) return;
+    const visibleIds = items.map((q) => q._id).filter(Boolean) as string[];
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedQuestionIds.includes(id));
+
+    setSelectedQuestionIds((prev) => {
+      let next: string[];
+      if (allVisibleSelected) {
+        // Deselect all visible items, keep others
+        next = prev.filter((id) => !visibleIds.includes(id));
+      } else {
+        // Select all visible items, keep others
+        const newIds = visibleIds.filter((id) => !prev.includes(id));
+        next = [...prev, ...newIds];
+      }
+      setIsSelectionModeOn(next.length > 0);
+      return next;
+    });
+  };
+
+  const allVisibleSelected =
+    items &&
+    items.length > 0 &&
+    items.every((q) => q._id && selectedQuestionIds.includes(q._id));
+
+  const someVisibleSelected =
+    items &&
+    items.some((q) => q._id && selectedQuestionIds.includes(q._id));
+
+
   return (
     <div className="ps-4 md:ps-0">
       <AddOrEditQuestionDialog
@@ -195,7 +226,25 @@ export const QuestionsTable = ({
           <Table className="min-w-[800px]  table-fixed">
             <TableHeader className="bg-card sticky top-0 z-10">
               <TableRow>
-                <TableHead className="text-center">Sl.No</TableHead>
+                <TableHead className="text-center">
+                  {selectedQuestionIds.length > 0 ? (
+                    <div className="flex justify-center">
+                      <Checkbox
+                        checked={
+                          allVisibleSelected
+                            ? true
+                            : someVisibleSelected
+                              ? "indeterminate"
+                              : false
+                        }
+                        onCheckedChange={handleSelectAll}
+                        aria-label="Select all questions"
+                      />
+                    </div>
+                  ) : (
+                    "Sl.No"
+                  )}
+                </TableHead>
                 <TableHead className="w-[25%] text-center">Question</TableHead>
                 <TableHead className="text-center">Priority</TableHead>
                 <TableHead className="text-center">State</TableHead>
