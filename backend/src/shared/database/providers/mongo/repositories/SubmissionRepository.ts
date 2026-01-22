@@ -648,14 +648,32 @@ export class QuestionSubmissionRepository
             counts: {$arrayToObject: '$counts'},
           },
         },
-        {
+        /*{
           $lookup: {
             from: 'users',
             localField: 'reviewerId',
             foreignField: '_id',
             as: 'reviewer',
           },
+        },*/
+        {
+          $lookup: {
+            from: "users",
+            let: { reviewerId: "$reviewerId" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$_id", "$$reviewerId"] }
+                }
+              },
+              {
+                $match: { status: { $ne: "in-active" } }
+              }
+            ],
+            as: "reviewer"
+          }
         },
+        
         {$unwind: '$reviewer'},
         {
           $project: {
