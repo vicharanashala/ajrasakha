@@ -142,7 +142,7 @@ export const useAuthForm = (
         code === "auth/wrong-password" ||
         code === "INVALID_LOGIN_CREDENTIALS"
       ) {
-        toast.error("Incorrect email or password.");
+        toast.error("Invalid Credentials");
       } else {
         // toast.error("Something went wrong. Please try again.");
         let message =
@@ -158,10 +158,19 @@ export const useAuthForm = (
 
           // Clean up verbose prefixes like “Signup failed: 500 Internal Server Error - ”
           message = message.replace(/^.*Internal Server Error - /, "").trim();
+          
+          // Handle Firebase/backend specific error messages
+          if (message.includes("EMAIL_NOT_FOUND")) {
+            message = "Invalid Credentials";
+          } else if (message.includes("INVALID_PASSWORD")) {
+            message = "Invalid Credentials";
+          } else if (message.includes("USER_DISABLED")) {
+            message = "This account has been disabled.";
+          }
         } catch (e) {
-          // fallback: do nothing
+          // fallback: do nothing, use original message
         }
-        if (message === "User Is Blocked Please Contact Moderator") {
+        if (message === "User Is Blocked. Please Contact Moderator") {
           toast.warning(authError.message);
         } else {
           toast.error(message);

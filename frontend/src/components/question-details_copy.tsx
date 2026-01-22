@@ -814,7 +814,7 @@ const AllocationQueueHeader = ({
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-muted-foreground cursor" />
+                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-xs">
                     <div className="space-y-1.5 text-sm">
@@ -847,8 +847,9 @@ const AllocationQueueHeader = ({
                           sm:max-w-xl              
                           md:max-w-4xl             
                           lg:max-w-6xl             
-                          h-[90vh]             
-                          max-h-[90vh]          
+                          max-h-[85vh]             
+                          min-h-[60vh]             
+                          overflow-hidden           
                           p-4                       
                         "
                 >
@@ -979,6 +980,7 @@ const AllocationQueueHeader = ({
                     <Button
                       variant="outline"
                       onClick={handleCancel}
+                      className="hidden md:block"
                     >
                       Cancel
                     </Button>
