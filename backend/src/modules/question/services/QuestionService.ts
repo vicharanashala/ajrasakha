@@ -1036,8 +1036,7 @@ export class QuestionService extends BaseService implements IQuestionService {
                 nextUserId,
                 type,
               );
-              }
-             }
+            }
           }
         }
         // } else {
