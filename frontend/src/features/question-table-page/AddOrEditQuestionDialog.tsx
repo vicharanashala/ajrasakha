@@ -58,7 +58,7 @@ import {
 } from "../../components/atoms/select";
 import { Separator } from "../../components/atoms/separator";
 import { Input } from "../../components/atoms/input";
-import { STATES, CROPS, DOMAINS, SEASONS } from "../../components/MetaData";
+import { STATES, CROPS, DOMAINS, SEASONS, DISTRICTS } from "../../components/MetaData";
 
 
 
@@ -351,6 +351,13 @@ export const AddOrEditQuestionDialog = ({
                       "domain",
                     ] as DetailField[]
                   ).map((field) => {
+                    const fieldOptions =
+                                          field === "district"
+                                            ? updatedData?.details?.state &&
+                                              DISTRICTS[updatedData.details.state]
+                                              ? DISTRICTS[updatedData.details.state]
+                                              : []
+                                            : OPTIONS[field];
                     return (
                       <div key={field} className="flex flex-col gap-2">
                         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -375,7 +382,7 @@ export const AddOrEditQuestionDialog = ({
                           )
                         }
                       />*/}
-                        {OPTIONS[field] ? (
+                        {fieldOptions ? (
                           <Select
                             value={
                               updatedData?.details?.[field]?.trim()
@@ -401,7 +408,7 @@ export const AddOrEditQuestionDialog = ({
                             </SelectTrigger>
 
                             <SelectContent>
-                              {OPTIONS[field]?.map((option) => (
+                              {fieldOptions.map((option) => (
                                 <SelectItem key={option} value={option}>
                                   {option}
                                 </SelectItem>
