@@ -165,11 +165,13 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                       label={({ name, value }) => `${name}: ${value}`}
                       outerRadius={100}
                       dataKey="count"
+                      stroke="none"
                     >
                       {data.cropData.map((entry, index) => (
                         <Cell
                           key={`cell-${index}`}
                           fill={colors[index % colors.length]}
+                          stroke="none"
                         />
                       ))}
                     </Pie>
@@ -275,11 +277,13 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                       label={({ name, value }) => `${name}: ${value}`}
                       outerRadius={100}
                       dataKey="count"
+                      stroke="none"
                     >
                       {data.domainData.map((entry, index) => (
                         <Cell
                           key={`cell-${index}`}
                           fill={colors[index % colors.length]}
+                          stroke="none"
                         />
                       ))}
                     </Pie>
