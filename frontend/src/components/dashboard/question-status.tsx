@@ -66,6 +66,9 @@ export const StatusCharts = ({ data }: { data: StatusOverview }) => {
                     borderRadius: "var(--radius)",
                     color: "var(--color-foreground)",
                   }}
+                  itemStyle={{
+                    color: "var(--color-foreground)",
+                  }}
                 />
                 <Legend />
               </PieChart>
@@ -116,6 +119,9 @@ export const StatusCharts = ({ data }: { data: StatusOverview }) => {
                     backgroundColor: "var(--color-card)",
                     border: "1px solid var(--color-border)",
                     borderRadius: "var(--radius)",
+                    color: "var(--color-foreground)",
+                  }}
+                  itemStyle={{
                     color: "var(--color-foreground)",
                   }}
                 />
