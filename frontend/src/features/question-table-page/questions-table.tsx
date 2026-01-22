@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { useDeleteQuestion } from "@/hooks/api/question/useDeleteQuestion";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 
-import { STATES, CROPS, DOMAINS, SEASONS } from "../../components/MetaData";
+import { STATES, CROPS, DOMAINS, SEASONS, DISTRICTS} from "../../components/MetaData";
 import { QuestionRow } from "./QuestionRow";
 import { MobileQuestionCard } from "./MobileQuestionCard";
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
