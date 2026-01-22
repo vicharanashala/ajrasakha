@@ -174,6 +174,9 @@ export const QuestionsPage = ({
     if (next.review_level !== undefined) setReviewLevel(next.review_level);
     if (next.closedAtStart !== undefined) setClosedAtStart(next.closedAtStart);
     if (next.closedAtEnd !== undefined) setClosedAtEnd(next.closedAtEnd);
+    // Reset pagination to page 1 when filters are applied
+    setCurrentPage(1);
+    setReviewPage(1);
   };
   const [showClosedAt, setClosedAt] = useState(false);
   useEffect(() => {
