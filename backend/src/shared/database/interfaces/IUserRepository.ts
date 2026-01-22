@@ -220,4 +220,6 @@ updateCheckInTime(userId: string, time: Date, session?: ClientSession): Promise<
 findUnblockedUsers(session?:ClientSession):Promise<IUser[]>
 
 blockExperts(expertIds:string[],session:ClientSession):Promise<void>
+
+unBlockExperts():Promise<void>
 }

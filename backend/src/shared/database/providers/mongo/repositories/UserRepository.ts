@@ -1155,4 +1155,16 @@ async blockExperts(expertIds:string[],session:ClientSession):Promise<void>{
     throw new InternalServerError('Failed to block users');
   }
 }
+
+async unBlockExperts():Promise<void>{
+  try {
+    await this.init()
+      await this.usersCollection.updateMany(
+      { inactive: { $ne: true } },
+      { $set: { isBlocked: false } },
+    );
+  } catch (error) {
+    throw new InternalServerError('Failed to block users');
+  }
+}
 }
