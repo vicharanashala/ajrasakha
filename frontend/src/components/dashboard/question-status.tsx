@@ -51,11 +51,13 @@ export const StatusCharts = ({ data }: { data: StatusOverview }) => {
                   paddingAngle={2}
                   dataKey="value"
                   nameKey="status"
+                  stroke="none"
                 >
                   {data.questions.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
                       fill={colors[index % colors.length]}
+                      stroke="none"
                     />
                   ))}
                 </Pie>
@@ -103,11 +105,13 @@ export const StatusCharts = ({ data }: { data: StatusOverview }) => {
                   paddingAngle={2}
                   dataKey="value"
                   nameKey="status"
+                  stroke="none"
                 >
                   {data.answers.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
                       fill={colors[index % colors.length]}
+                      stroke="none"
                     />
                   ))}
                 </Pie>

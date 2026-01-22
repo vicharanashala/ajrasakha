@@ -814,7 +814,7 @@ const AllocationQueueHeader = ({
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    <Info className="h-4 w-4 text-muted-foreground cursor" />
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-xs">
                     <div className="space-y-1.5 text-sm">
