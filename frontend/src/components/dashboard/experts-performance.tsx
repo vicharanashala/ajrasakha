@@ -61,7 +61,11 @@ export const ExpertsPerformance = ({ data }: { data: ExpertPerformance[] }) => {
                 }}
               />
               <Legend />
-              <Bar dataKey="reputation" fill="var(--color-chart-1)" />
+              <Bar
+                dataKey="reputation"
+                name="Penalty Workload"
+                fill="var(--color-chart-1)"
+              />
               <Bar dataKey="incentive" fill="var(--color-chart-2)" />
               <Bar dataKey="penalty" fill="var(--color-chart-3)" />
             </BarChart>

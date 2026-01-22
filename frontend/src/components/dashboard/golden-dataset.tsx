@@ -100,14 +100,14 @@ export const GoldenDatasetOverview = ({
       const total = data?.weeksData?.reduce((sum, d) => sum + d?.entries, 0);
       const verified = data?.weeksData?.reduce(
         (sum, d) => sum + d?.verified,
-        0
+        0,
       );
       return { total, verified, lastEntry: total };
     } else if (viewType === "week") {
       const total = data?.dailyData?.reduce((sum, d) => sum + d?.entries, 0);
       const verified = data?.dailyData?.reduce(
         (sum, d) => sum + d?.verified,
-        0
+        0,
       );
       return { total, verified, lastEntry: total };
     } else {
@@ -213,7 +213,7 @@ export const GoldenDatasetOverview = ({
                 onClick={() => setViewType("year")}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   viewType === "year"
-                    ? "bg-chart-1 text-white"
+                    ? "bg-primary text-white"
                     : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
               >
@@ -223,7 +223,7 @@ export const GoldenDatasetOverview = ({
                 onClick={() => setViewType("month")}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   viewType === "month"
-                    ? "bg-chart-1 text-white"
+                    ? "bg-primary text-white"
                     : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
               >
@@ -233,7 +233,7 @@ export const GoldenDatasetOverview = ({
                 onClick={() => setViewType("week")}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   viewType === "week"
-                    ? "bg-chart-1 text-white"
+                    ? "bg-primary text-white"
                     : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
               >
@@ -243,7 +243,7 @@ export const GoldenDatasetOverview = ({
                 onClick={() => setViewType("day")}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   viewType === "day"
-                    ? "bg-chart-1 text-white"
+                    ? "bg-primary text-white"
                     : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
               >

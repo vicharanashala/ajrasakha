@@ -91,46 +91,59 @@ export class AuthController {
 
   @Post('/login')
   async login(@Body() body: LoginBody) {
-    const {email, password} = body;
-    const data = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${appConfig.firebase.apiKey}`,
+    try {
+      const {email, password} = body;
+      const data = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${appConfig.firebase.apiKey}`,
+        {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            email,
+            password,
+            returnSecureToken: true,
+          }),
+        },
+      );
+
+      const result:any = await data.json();
+      if (!result.idToken) {
+        const errorMessage = result.error?.message || 'Invalid email or password';
+        throw new HttpError(401, errorMessage);
+      }
+
+      //alternative 
+    //   const decoded = await admin.auth().verifyIdToken(result.idToken);
+
+    // if (!decoded.email_verified) {
+    //   throw new Error('Please verify your email before logging in.');
+    // }
+
+    // 2️⃣ Verify email status
+    const lookup = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${appConfig.firebase.apiKey}`,
       {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          email,
-          password,
-          returnSecureToken: true,
-        }),
-      },
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: result.idToken }),
+      }
     );
 
-    const result:any = await data.json();
-    if (!result.idToken) throw new Error(result.error?.message || 'Login failed');
+    const lookupData:any = await lookup.json();
+    const userInfo = lookupData.users?.[0];
 
-    //alternative 
-  //   const decoded = await admin.auth().verifyIdToken(result.idToken);
-
-  // if (!decoded.email_verified) {
-  //   throw new Error('Please verify your email before logging in.');
-  // }
-
-  // 2️⃣ Verify email status
-  const lookup = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${appConfig.firebase.apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken: result.idToken }),
+    if (!userInfo?.emailVerified) {
+      throw new HttpError(401, 'Please verify your email before logging in.');
     }
-  );
-
-  const lookupData:any = await lookup.json();
-  const userInfo = lookupData.users?.[0];
-
-  if (!userInfo?.emailVerified) {
-    throw new Error('Please verify your email before logging in.');
-  }
-    return result;
+      return result;
+    } catch (error) {
+      if (error instanceof HttpError) {
+        throw error;
+      }
+      if (error instanceof Error) {
+        throw new HttpError(401, error.message || 'Invalid email or password');
+      }
+      throw new HttpError(500, 'Internal server error');
+    }
   }
 }
