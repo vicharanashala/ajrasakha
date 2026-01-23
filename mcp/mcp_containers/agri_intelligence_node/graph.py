@@ -17,15 +17,39 @@ from fastmcp import FastMCP
 from mcp.client.streamable_http import streamablehttp_client
 from mcp import ClientSession
 
-# Define MCP Server URLs
+# Define MCP Server URLs (configurable via environment variables)
+MCP_SERVER_BASE = os.getenv("MCP_SERVER_BASE", "http://100.100.108.28")
 SERVERS = {
-    "golden": "http://100.100.108.28:9001/mcp",
-    "pop": "http://100.100.108.28:9002/mcp", 
-    "faq-videos": "http://100.100.108.28:9005/mcp",
-    "reviewed": "http://100.100.108.28:9012/mcp"
+    "golden": os.getenv("GOLDEN_MCP_URL", f"{MCP_SERVER_BASE}:9001/mcp"),
+    "pop": os.getenv("POP_MCP_URL", f"{MCP_SERVER_BASE}:9002/mcp"), 
+    "faq-videos": os.getenv("FAQ_VIDEOS_MCP_URL", f"{MCP_SERVER_BASE}:9005/mcp"),
+    "reviewed": os.getenv("REVIEWED_MCP_URL", f"{MCP_SERVER_BASE}:9012/mcp")
 }
 
 # --- MCP Client Helper ---
+
+
+# --- Helpers ---
+import re
+
+def get_similarity_score(data: Any) -> float:
+    """
+    Parses similarity_score from data string (handling single/double quotes).
+    Returns max score or 0.0 if none found.
+    """
+    if not data:
+        print("No data provided")
+        return 0.0
+    try:
+        data_str = str(data)
+        print(f"Data string: {data_str}")
+        scores = re.findall(r'["\']similarity_score["\']\s*:\s*([\d\.]+)', data_str)
+        if not scores:
+            return 0.0
+        return max([float(s) for s in scores])
+    except Exception as e:
+        print(f"Error parsing similarity score: {e}")
+        return 0.0
 
 
 async def call_mcp_tool(server_key: str, tool_name: str, arguments: dict = {}):
@@ -76,6 +100,7 @@ class AgentState(TypedDict):
     golden_relevant_flag: bool
     reviewed_relevant_flag: bool # NEW
     pop_relevant_flag: bool # NEW
+    video_relevant_flag: bool # NEW
     video_search_done: bool
     data_search_done: bool
     
@@ -99,7 +124,7 @@ async def verify_pop_relevance_llm(state: AgentState):
     User Query: "{query}"
     
     Retrieved PoP Context:
-    {str(data)[:2000]}
+    {str(data)}
     
     Does the retrieved context contain information relevant to answering the user query regarding the crop/issue?
     Return YES or NO.
@@ -127,10 +152,10 @@ def evaluate_pop_score(state: AgentState) -> Literal["valid", "invalid"]:
 
 
 # --- LLM Setup ---
-# Local OpenAI-compatible endpoint
-api_key = "EMPTY" 
-base_url = "http://localhost:8001/v1"
-model_name = "Qwen/Qwen3-30B-A3B-Instruct-2507"
+# Local OpenAI-compatible endpoint (configurable via environment variable)
+api_key = os.getenv("LLM_API_KEY", "EMPTY")
+base_url = os.getenv("LLM_BASE_URL", "http://100.100.108.100:8081/v1")
+model_name = os.getenv("LLM_MODEL_NAME", "")
 
 llm = ChatOpenAI(
     model=model_name,
@@ -153,7 +178,7 @@ async def intent_extractor(state: AgentState):
     {{
         "intent": "disease" | "pest" | "fertilizer" | "general" | "greeting",
         "location_provided": true/false,
-        "state": "detected_state_or_full_name_or_null",
+        "state": "detected_indian_state_or_union_territory_full_name_or_null" e.g Delhi , Uttar Pradesh etc
         "crop": "detected_crop_or_null"
     }}
     """
@@ -178,7 +203,7 @@ async def intent_extractor(state: AgentState):
              s_code = None
              
              # Merge Name->Code maps
-             all_states = {**pop_states, **golden_state_codes}
+             all_states = {**pop_states, **golden_state_codes, **review_state_codes}
              state_map = {k.upper(): v for k, v in all_states.items()}
              
              if s_name.upper() in state_map:
@@ -238,9 +263,41 @@ async def search_video_parallel(state: AgentState):
     """
     query = state["user_query"]
     result = await call_mcp_tool("faq-videos", "search_faq", {"query": query})
+    result = await call_mcp_tool("faq-videos", "search_faq", {"query": query})
     return {"video_data": result, "video_search_done": True}
 
-from values import state_crops_golden_dataset, pop_states, golden_state_codes
+async def verify_video_relevance_llm(state: AgentState):
+    """
+    Node: Verify if Video Data is relevant using LLM.
+    """
+    query = state["user_query"]
+    data = state.get("video_data")
+    
+    # Check if empty or "No FAQ entries found"
+    if not data or "No FAQ entries found" in str(data):
+        return {"video_relevant_flag": False}
+        
+    prompt = f"""
+    User Query: "{query}"
+    
+    Video Search Results:
+    {str(data)}
+    
+    Are any of these videos relevant to the user query?
+    Return YES or NO.
+    """
+    
+    try:
+        response = await llm.ainvoke([HumanMessage(content=prompt)])
+        content = response.content.strip().upper()
+        is_relevant = "YES" in content
+        print(f"DEBUG: Video Relevance Check: {is_relevant}")
+        return {"video_relevant_flag": is_relevant}
+    except Exception as e:
+        print(f"ERROR in Video relevance check: {e}")
+        return {"video_relevant_flag": False}
+
+from values import state_crops_golden_dataset, pop_states, golden_state_codes, state_crop_review_dataset, review_state_codes
 
 async def search_golden_dataset_node(state: AgentState):
     """
@@ -271,9 +328,12 @@ async def search_golden_dataset_node(state: AgentState):
         # 2a. Programmatic Check
         if crop.lower() in allowed_crops_lower:
              # Exact/Case-insensitive match found
-             # Find the original case for better downstream usage if needed, or just use extracted
-             print(f"DEBUG: Programmatic match for crop: {crop}")
-             pass 
+             # Find the original case 
+             for c in allowed_crops:
+                 if c.lower() == crop.lower():
+                     crop = c
+                     break
+             print(f"DEBUG: Programmatic match for crop: {crop}") 
         else:
              # 2b. LLM Fallback
              print(f"DEBUG: doing LLM fallback for crop: {crop} against {len(allowed_crops)} allowed crops.")
@@ -314,18 +374,84 @@ async def search_golden_dataset_node(state: AgentState):
     )
     return {"golden_data": result}
 
+    return {"golden_data": result}
+
 async def search_reviewed_node(state: AgentState):
     """
     Node X: Search Reviewed Agricultural Q&A. (Highest Priority)
     """
     query = state["user_query"]
-    print(f"Search Reviewed DB: {query}")
+    code = state.get("state_code", "PB")
+    crop = state.get("crop_name", "")
     
-    # Call the new tool 'search_agricultural_reviews'
-    # Assuming tool name is 'search_agricultural_reviews' and arg is 'query'
-    # Documentation says 'top_k' is optional (default 5).
-    result = await call_mcp_tool("reviewed", "search_agricultural_reviews", {"query": query, "top_k": 5})
+    # 1. Validation: Check State
+    if code not in state_crop_review_dataset:
+        print(f"DEBUG: State {code} not in Review Dataset. Skipping.")
+        return {"reviewed_data": None}
+        
+    # 2. Validation: Check Crop
+    try:
+        allowed_crops = state_crop_review_dataset[code] # List of strings
+        if not crop:
+             print(f"DEBUG: No crop provided for Review search. Skipping.")
+             return {"reviewed_data": None}
+
+        # Case-insensitive match check
+        allowed_crops_lower = [c.lower() for c in allowed_crops]
+        
+        if crop.lower() in allowed_crops_lower:
+             for c in allowed_crops:
+                 if c.lower() == crop.lower():
+                     crop = c
+                     break
+             print(f"DEBUG: Programmatic match for Review crop: {crop}")
+        else:
+             # LLM Fallback (Reuse logic)
+             print(f"DEBUG: LLM Fallback for Review Crop: {crop}")
+             fallback_prompt = f"""
+             You are a crop matcher.
+             User Crop: "{crop}"
+             Allowed Crops: {json.dumps(allowed_crops)}
+             Is the User Crop a synonym for any crop in the Allowed Crops list?
+             If yes, return ONLY the EXACT name from the list.
+             If no, return "None".
+             """
+             try:
+                 response = await llm.ainvoke([HumanMessage(content=fallback_prompt)])
+                 match = response.content.strip().replace('"', '')
+                 if match != "None" and match in allowed_crops:
+                     print(f"DEBUG: Review LLM matched '{crop}' to '{match}'")
+                     crop = match
+                 else:
+                     print(f"DEBUG: Review LLM did not find match.")
+                     return {"reviewed_data": None}
+             except Exception:
+                 return {"reviewed_data": None}
+
+    except Exception as e:
+        print(f"ERROR validating review crop: {e}")
+        return {"reviewed_data": None}
+
+    print(f"Search Reviewed DB: {query}, {code}, {crop}")
+    result = await call_mcp_tool("reviewed", "get_context_from_review_dataset", {"query": query, "state_code": code, "crop": crop})
+    print(f"DEBUG: Reviewed Data: {result}")
     return {"reviewed_data": result}
+
+def evaluate_reviewed_score(state: AgentState) -> Literal["high", "medium", "low"]:
+    score = get_similarity_score(state.get("reviewed_data"))
+    print(f"DEBUG: Max Reviewed Score: {score}")
+    if score > 0.8:
+        return "high"
+    elif score > 0.7:
+        return "medium"
+    else:
+        return "low"
+
+def mark_reviewed_high_confidence(state: AgentState):
+    """
+    Node: Explicitly mark reviewed data as relevant for high confidence scores.
+    """
+    return {"reviewed_relevant_flag": True}
 
 async def verify_reviewed_relevance_llm(state: AgentState):
     """
@@ -363,42 +489,14 @@ def check_reviewed_relevance(state: AgentState) -> Literal["relevant", "fallback
 
     
 # ... (evaluate_golden_score remains same, checking for None/Empty)
-import re
-
 def evaluate_golden_score(state: AgentState) -> Literal["high", "medium", "low"]:
-    data = state.get("golden_data", {})
-    if not data:
-        return "low"
-        
-    # The data is a string (possibly JSON dump or concatenated text)
-    # We look for "similarity_score": <float> pattern
-    # Example pattern in JSON: "similarity_score": 0.8123
-    
-    try:
-        data_str = str(data)
-        # Regex to find all scores, handling single or double quotes
-        scores = re.findall(r'["\']similarity_score["\']\s*:\s*([\d\.]+)', data_str)
-        
-        if not scores:
-            # Fallback: if we can't parse scores but have data, assume medium to force verification?
-            # Or assume High if we trust the search tool returns good results?
-            # User said: "high score is above .8...". Implies we MUST check.
-            # If no score found, maybe treat as Low to be safe (fallback to PoP)?
-            # Let's try to verify with LLM if score missing but data present -> Medium
-            return "medium"
-            
-        max_score = max([float(s) for s in scores])
-        print(f"DEBUG: Max Golden Score: {max_score}")
-        
-        if max_score > 0.8:
-            return "high"
-        elif max_score > 0.7:
-            return "medium"
-        else:
-            return "low"
-            
-    except Exception as e:
-        print(f"ERROR parsing golden scores: {e}")
+    score = get_similarity_score(state.get("golden_data"))
+    print(f"DEBUG: Max Golden Score: {score}")
+    if score > 0.8:
+        return "high"
+    elif score > 0.7:
+        return "medium"
+    else:
         return "low"
 
 async def verify_relevance_llm(state: AgentState):
@@ -415,7 +513,7 @@ async def verify_relevance_llm(state: AgentState):
     User Query: "{query}"
     
     Retrieved Context:
-    {str(data)[:4000]}
+    {str(data)}
     
     Does the retrieved context contain information relevant to answering the user query?
     Return YES or NO.
@@ -483,7 +581,7 @@ async def verify_pop_relevance_llm(state: AgentState):
     User Query: "{query}"
     
     Retrieved PoP Context:
-    {str(data)[:4000]}
+    {str(data)}
     
     Does the retrieved context contain information relevant to answering the user query regarding the crop/issue?
     Return YES or NO.
@@ -535,6 +633,17 @@ async def format_final_prompt(state: AgentState):
     video = state.get("video_data", {})
     reviewed = state.get("reviewed_data", {})
     
+    # Video Section Logic
+    video_section = ""
+    if state.get("video_relevant_flag"):
+         video_section = f"""
+    VIDEO SOURCE:
+    {str(video)}
+    (This is a relevant video. Please put the link in your response so farmers can watch it.)
+    """
+    else:
+         video_section = "VIDEO SOURCE: No relevant video found."
+
     # Filter Data based on Relevance Flags
     # If Reviewed applies, it takes precedence.
     if state.get("reviewed_relevant_flag"):
@@ -580,8 +689,9 @@ async def format_final_prompt(state: AgentState):
     Golden: {str(golden)}
     PoP: {str(pop)}
     
-    VIDEO SOURCE:
-    {str(video)}
+    {str(pop)}
+    
+    {video_section}
     
     USER QUESTION:
     {query}
@@ -589,7 +699,7 @@ async def format_final_prompt(state: AgentState):
     UPLOAD TO REVIEWER STATUS: {uploaded}
     (If True, please apologize and inform the user the query is being reviewed.)
     """
-    
+    print(f"DEBUG: Final Prompt: {final_prompt}")
     return {"final_prompt": final_prompt.strip()}
 
 
@@ -601,10 +711,12 @@ workflow.add_node("intent_extractor", intent_extractor)
 workflow.add_node("handle_greeting", handle_greeting)
 workflow.add_node("handle_missing_state", handle_missing_state)
 workflow.add_node("search_video_parallel", search_video_parallel)
+workflow.add_node("verify_video_relevance_llm", verify_video_relevance_llm) # NEW
 workflow.add_node("search_golden_dataset", search_golden_dataset_node)
 workflow.add_node("verify_relevance_llm", verify_relevance_llm)
 workflow.add_node("search_pop", search_pop_node)
 workflow.add_node("verify_pop_relevance_llm", verify_pop_relevance_llm) # NEW
+workflow.add_node("mark_reviewed_high_confidence", mark_reviewed_high_confidence) # NEW
 workflow.add_node("upload_to_reviewer", upload_to_reviewer_node)
 workflow.add_node("mark_data_done", mark_data_search_done)
 workflow.add_node("synchronizer", synchronizer)
@@ -636,14 +748,21 @@ workflow.add_edge("start_search_fork", "search_video_parallel")
 workflow.add_edge("start_search_fork", "search_reviewed") # New Primary Path
 
 # Reviewed Logic
-workflow.add_edge("search_reviewed", "verify_reviewed_relevance")
+# Reviewed Logic
+# Check Score First
+workflow.add_conditional_edges("search_reviewed", evaluate_reviewed_score,
+                               {"high": "mark_reviewed_high_confidence", "medium": "verify_reviewed_relevance", "low": "search_golden_dataset"})
+
+workflow.add_edge("mark_reviewed_high_confidence", "mark_data_done")
 
 workflow.add_conditional_edges("verify_reviewed_relevance", check_reviewed_relevance,
                                {"relevant": "mark_data_done", "fallback": "search_golden_dataset"})
 
 
-# Video -> Sync
-workflow.add_edge("search_video_parallel", "synchronizer")
+
+# Video -> Verify -> Sync
+workflow.add_edge("search_video_parallel", "verify_video_relevance_llm")
+workflow.add_edge("verify_video_relevance_llm", "synchronizer")
 
 # Golden Logic
 workflow.add_conditional_edges("search_golden_dataset", evaluate_golden_score,
@@ -709,4 +828,14 @@ async def ask_ajrasakha(query: str) -> str:
     return final_res
 
 if __name__ == "__main__":
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"Starting AjraSakha Orchestrator MCP Server on 0.0.0.0:9010")
+    logger.info(f"Configured LLM endpoint: {base_url}")
+    logger.info(f"Configured MCP Servers: {SERVERS}")
+    logger.info(f"LLM_BASE_URL env var: {os.getenv('LLM_BASE_URL', 'NOT SET')}")
+    logger.info(f"MCP_SERVER_BASE env var: {os.getenv('MCP_SERVER_BASE', 'NOT SET')}")
+    
     mcp.run(transport='streamable-http', host='0.0.0.0', port=9010)

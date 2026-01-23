@@ -8,7 +8,109 @@ state_crops_golden_dataset={'AR': '["Apple","Arecanut","Banana","Bannana","Betel
  'UP': '["Bengal Gram GramChick PeaKabuliChana"]'}
 
 
-
+state_crop_review_dataset={
+    "CH": [
+      "Onion"
+    ],
+    "DL": [
+      "Paddy",
+      "Potato"
+    ],
+    "HP": [
+      "Unknown"
+    ],
+    "KA": [
+      "Drumstick",
+      "General",
+      "Paddy",
+      "Sugarcane",
+      "Wheat"
+    ],
+    "MP": [
+      "Barley Jau",
+      "Coriander",
+      "Wheat"
+    ],
+    "MH": [
+      "Gram",
+      "Wheat"
+    ],
+    "--": [
+      "unknown"
+    ],
+    "OR": [
+      "Wheat"
+    ],
+    "PB": [
+      "Bajra (Pearl Millet)",
+      "Barley Jau",
+      "Basmati",
+      "Basmati Paddy",
+      "Bengal Gram GramChick PeaKabuliChana",
+      "Black Gram",
+      "Brown Sarson",
+      "Carrots",
+      "Cattle",
+      "Cauliflower",
+      "Coconut",
+      "Cotton",
+      "Crop Production",
+      "Cumin",
+      "Dairy Cow",
+      "Fodder Maize",
+      "Garlic",
+      "General",
+      "Groundnut",
+      "Indian rapeseed and mustard yellow sarson",
+      "Lentil Masur",
+      "Linseed alsi",
+      "Maize",
+      "Not specified",
+      "Paddy",
+      "Poplar",
+      "Poplar (Agroforestry)",
+      "Potato",
+      "Potatoes",
+      "Rice",
+      "Sugarcane",
+      "Summer Vegetables",
+      "Tomato",
+      "Toria",
+      "Turmeric",
+      "Weather",
+      "Wheat",
+      "sugarcane",
+      "\u0a27\u0a3e\u0a28"
+    ],
+    "RJ": [
+      "Onion"
+    ],
+    "TN": [
+      "Paddy",
+      "Wheat"
+    ],
+    "TG": [
+      "Paddy"
+    ],
+    "UP": [
+      "Bhindi",
+      "GramChick",
+      "Potato",
+      "Rice",
+      "Wheat",
+      "bhindi"
+    ],
+    "UT": [
+      "Paddy"
+    ],
+    "WB": [
+      "Brown Sarson",
+      "Chilli",
+      "Indian rapeseed and mustard yellow sarson",
+      "Mustard",
+      "Potato",
+      "Raya Indian Mustard"
+    ] }
 
 golden_state_codes = {
     'PUNJAB': 'PB',
@@ -20,5 +122,24 @@ golden_state_codes = {
     'TAMIL NADU': 'TN',
     'ARUNACHAL PRADESH': 'AR'
 }
+
+review_state_codes = {
+    'CHANDIGARH': 'CH',
+    'DELHI': 'DL',
+    'HIMACHAL PRADESH': 'HP',
+    'KARNATAKA': 'KA',
+    'MADHYA PRADESH': 'MP',
+    'MAHARASHTRA': 'MH',
+    'ODISHA': 'OR',
+    'PUNJAB': 'PB',
+    'RAJASTHAN': 'RJ',
+    'TAMIL NADU': 'TN',
+    'TAMILNADU': 'TN',
+    'TELANGANA': 'TG',
+    'UTTAR PRADESH': 'UP',
+    'UTTARAKHAND': 'UT',
+    'WEST BENGAL': 'WB'
+}
+
 
 pop_states={'PUNJAB': 'PB'}
