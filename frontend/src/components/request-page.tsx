@@ -177,7 +177,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
   return (
     <Card
       // className="bg-card"
-      className={`group bg-card relative transition-all duration-200 ${
+      className={`group bg-card relative transition-all duration-200 overflow-hidden${
         isHighlighted
           ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
           : "border-border hover:border-primary/40 hover:shadow-sm"
@@ -192,9 +192,9 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
       {isHighlighted && (
         <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none rounded-lg"></div>
       )}
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Avatar className="size-10">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 pb-2">
+        <div className="flex items-center gap-3 min-w-0">
+          <Avatar className="size-10 flex-shrink-0">
             <AvatarFallback className="bg-secondary text-secondary-foreground">
               {initials(
                 req?.requestedUser?.firstName +
@@ -203,13 +203,13 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
               )}
             </AvatarFallback>
           </Avatar>
-          <div className="space-y-1">
-            <CardTitle className="text-base">
+          <div className="space-y-1 min-w-0">
+            <CardTitle className="text-sm sm:text-base truncate">
               {req?.requestedUser?.firstName +
                 " " +
                 req?.requestedUser?.lastName || ""}
             </CardTitle>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-xs sm:text-sm text-muted-foreground">
               {req?.requestType === "question_flag"
                 ? "Question Flag"
                 : "Others"}
@@ -218,7 +218,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
         </div>
         {/* Status badge */}
         <span
-          className={`absolute top-11 right-5 px-3 py-1 rounded-full text-xs font-medium border ${
+          className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium border flex-shrink-0 whitespace-nowrap ${
             req?.status === "approved"
               ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
               : req?.status === "rejected"
@@ -288,34 +288,34 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
         />
       </CardHeader>
 
-      <CardContent className="space-y-3">
-        <div className="text-sm">
-          <div className="font-medium">Reason</div>
-          <p className="text-muted-foreground line-clamp-2">{req.reason}</p>
+      <CardContent className="space-y-2 pt-1 px-4 sm:px-6">
+        <div className="text-xs sm:text-sm">
+          <div className="font-medium text-xs sm:text-sm">Reason</div>
+          <p className="text-muted-foreground line-clamp-2 text-xs sm:text-sm">{req.reason}</p>
         </div>
         <div className="text-xs text-muted-foreground">
           Created: {new Date(req.createdAt).toLocaleString()}
         </div>
-        <div className="flex gap-2 justify-end">
+        <div className="flex gap-1 sm:gap-2 justify-end mt-2 flex-wrap sm:flex-nowrap">
           <div className="fixed inset-0 flex items-start justify-center z-50 p-6 pointer-events-none">
             {diffOpen && (
               <Card className="group bg-card w-[90vw] max-w-[95vw] h-[90vh] flex flex-col shadow-xl border border-border pointer-events-auto overflow-hidden">
-                <CardHeader className="p-6 border-b border-border flex flex-col gap-2">
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-4">
-                      <FileText className="w-5 h-5 text-primary" />
-                      <div className="flex flex-col">
-                        <CardTitle className="text-base font-semibold">
+                <CardHeader className="p-3 sm:p-6 border-b border-border flex flex-col gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between w-full gap-2 sm:gap-4">
+                    <div className="flex items-start gap-2 sm:gap-4 min-w-0">
+                      <FileText className="w-4 sm:w-5 h-4 sm:h-5 text-primary flex-shrink-0 mt-1" />
+                      <div className="flex flex-col min-w-0">
+                        <CardTitle className="text-sm sm:text-base font-semibold break-words">
                           Request Diff & Review
                         </CardTitle>
-                        <div className="text-sm text-muted-foreground flex gap-2">
+                        <div className="text-xs sm:text-sm text-muted-foreground flex gap-2 flex-col sm:flex-row mt-1">
                           <span>QuestionId: {req?.entityId}</span>
                           <span>RequestId: {req?._id}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div>
+                    <div className="flex-shrink-0">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium border ${
                           req?.status === "approved"
@@ -340,7 +340,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
                   </CardDescription>
                 </CardHeader>
 
-                <ScrollArea className="flex-1 p-4 px-8 bg-muted/30 overflow-y-auto">
+                <ScrollArea className="flex-1 p-2 sm:p-4 sm:px-8 bg-muted/30 overflow-y-auto">
                   <ReqDetailsDiff
                     request={request}
                     requestDiffLoading={reqDiffLoading}
@@ -379,7 +379,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
                         setNewStatus(value)
                       }
                     >
-                      <SelectTrigger className="w-[220px]">
+                      <SelectTrigger className="w-full sm:w-[220px]">
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -391,15 +391,15 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
                   </div>
                 </ScrollArea>
 
-                <CardFooter className="flex justify-end gap-3 border-t border-border p-6">
-                  <Button variant="outline" onClick={() => setDiffOpen(false)}>
+                <CardFooter className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 border-t border-border p-3 sm:p-6">
+                  <Button variant="outline" className="text-xs sm:text-sm" onClick={() => setDiffOpen(false)}>
                     Cancel
                   </Button>
                   {(req.status == "pending" || req.status == "in-review") && (
                     <Button
                       onClick={handleSubmit}
                       disabled={reqDiffLoading || updatingStatus}
-                      className="bg-primary text-primary-foreground"
+                      className="bg-primary text-primary-foreground text-xs sm:text-sm"
                     >
                       {updatingStatus ? "Submitting..." : "Submit Response"}
                     </Button>
@@ -504,22 +504,22 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
               </DialogContent>
             </Dialog>
           </div>
-          <div className="flex items-center gap-3 relative group">
+          <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
             <Button
               variant="outline"
-              className="flex items-center justify-center gap-2"
+              className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm h-auto sm:h-10"
               onClick={() => setResponseOpen(true)}
             >
-              <History className="w-4 h-4" aria-hidden="true" />
+              <History className="w-3 sm:w-4 h-3 sm:h-4" />
               <span>View History</span>
             </Button>
 
             <Button
               variant="default"
-              className="flex items-center justify-center gap-2"
+              className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm h-auto sm:h-10"
               onClick={() => setDiffOpen(true)}
             >
-              <GitCompare className="w-4 h-4" aria-hidden="true" />
+              <GitCompare className="w-3 sm:w-4 h-3 sm:h-4" aria-hidden="true" />
               <span>View Diff</span>
             </Button>
           </div>
