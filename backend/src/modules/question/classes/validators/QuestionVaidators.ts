@@ -224,6 +224,10 @@ class QuestionResponse {
   @ValidateNested({each: true})
   @Type(() => HistoryItem)
   history?: HistoryItem[];
+
+  @IsOptional()
+  @IsString()
+  context?: string;
 }
 class AddQuestionBodyDto {
   @IsString()
@@ -457,7 +461,7 @@ class GetDetailedQuestionsQuery {
     description: 'consecutive approvals',
     example: '1',
     type: 'string',
-    
+
   })
   @IsOptional()
   consecutiveApprovals?: string;

@@ -119,7 +119,7 @@ export class QuestionRepository implements IQuestionRepository {
         return {
           question,
           userId: new ObjectId(userId),
-          context: new ObjectId(contextId),
+          contextId: new ObjectId(contextId),
           status: 'open',
           details: randomDetails,
           source: randomSource,
@@ -219,69 +219,67 @@ export class QuestionRepository implements IQuestionRepository {
     contextId: string,
     session?: ClientSession,
   ): Promise<IQuestion[]> {
-    try {
-      await this.init();
+    await this.init();
 
-      if (!contextId || !isValidObjectId(contextId)) {
-        throw new BadRequestError('Invalid or missing contextId');
-      }
-
-      const questions = await this.QuestionCollection.find(
-        {
-          context: new ObjectId(contextId),
-        },
-        {session},
-      ).toArray();
-
-      const formattedQuestions: IQuestion[] = questions.map(q => ({
-        ...q,
-        _id: q._id?.toString(),
-        userId: q.userId?.toString(),
-        contextId: q.contextId?.toString(),
-      }));
-      return formattedQuestions;
-    } catch (error) {
-      throw new InternalServerError(`Failed to get Question:, More/ ${error}`);
+    if (!contextId || !isValidObjectId(contextId)) {
+      throw new BadRequestError('Invalid or missing contextId');
     }
+
+    const questions = await this.QuestionCollection.find(
+      {
+        $or: [
+          { contextId: new ObjectId(contextId) },
+          { context: new ObjectId(contextId) }
+        ]
+      },
+      {session},
+    ).toArray();
+
+    const formattedQuestions: IQuestion[] = questions.map(q => ({
+      ...q,
+      _id: q._id.toString(),
+      userId: q.userId?.toString(),
+      contextId: q.contextId?.toString(),
+    }));
+    return formattedQuestions;
   }
 
   async getById(
     questionId: string,
     session?: ClientSession,
   ): Promise<IQuestion> {
-    try {
-      await this.init();
+    await this.init();
 
-      if (!questionId || !isValidObjectId(questionId)) {
-        throw new BadRequestError('Invalid or missing questionId');
-      }
-
-      const question = await this.QuestionCollection.findOne(
-        {
-          _id: new ObjectId(questionId),
-        },
-        {session},
-      );
-
-      if (!question)
-        throw new NotFoundError(`Faile to find question ${questionId}`);
-
-      const formattedQuestion: IQuestion = {
-        ...question,
-        _id: question._id?.toString(),
-        userId: question.userId?.toString(),
-        contextId: question.contextId?.toString(),
-      };
-
-      return formattedQuestion;
-    } catch (error) {
-      throw new InternalServerError(`Failed to get Question:, More/ ${error}`);
+    if (!questionId || !isValidObjectId(questionId)) {
+      throw new BadRequestError('Invalid or missing questionId');
     }
+
+    const question = await this.QuestionCollection.findOne(
+      {
+        _id: new ObjectId(questionId),
+      },
+      { session },
+    );
+
+    if (!question)
+      throw new NotFoundError(`Failed to find question ${questionId}`);
+
+    const context = question.contextId ? await this.ContextCollection.findOne({ _id: new ObjectId(question.contextId) }) : null;
+
+    const formattedQuestion: IQuestion = {
+      ...question,
+      _id: question._id?.toString(),
+      userId: question.userId?.toString(),
+      contextId: question.contextId?.toString(),
+      context: context?.text || '',
+    };
+
+    return formattedQuestion;
   }
 
   async findDetailedQuestions(
-    query: GetDetailedQuestionsQuery & {searchEmbedding: number[] | null},
-  ): Promise<{questions: IQuestion[]; totalPages: number; totalCount: number}> {
+    query: GetDetailedQuestionsQuery & { searchEmbedding: number[] | null },
+  ): Promise<{ questions: IQuestion[]; totalPages: number; totalCount: number }> {
     try {
       await this.init();
 
@@ -313,9 +311,10 @@ export class QuestionRepository implements IQuestionRepository {
         closedAtEnd,
         consecutiveApprovals
       } = query;
-      
+
 
       const filter: any = {};
+
 
       // --- Filters ---
 
@@ -326,40 +325,40 @@ export class QuestionRepository implements IQuestionRepository {
       caseInsensitiveStringFilter('details.crop', crop);
       caseInsensitiveStringFilter('details.domain', domain);
       const approvalCount =
-  consecutiveApprovals && consecutiveApprovals !== 'all'
-    ? parseInt(consecutiveApprovals, 10)
-    : null;
-    // --- Consecutive Approvals Filter ---
-if (approvalCount !== null && !isNaN(approvalCount)) {
-  const answers = await this.AnswersCollection.find({
-    approvalCount: approvalCount,
-  })
-    .project({ questionId: 1 })
-    .toArray();
+        consecutiveApprovals && consecutiveApprovals !== 'all'
+          ? parseInt(consecutiveApprovals, 10)
+          : null;
+      // --- Consecutive Approvals Filter ---
+      if (approvalCount !== null && !isNaN(approvalCount)) {
+        const answers = await this.AnswersCollection.find({
+          approvalCount: approvalCount,
+        })
+          .project({ questionId: 1 })
+          .toArray();
 
-  const approvalFilteredIds = answers.map(a =>
-    a.questionId.toString(),
-  );
+        const approvalFilteredIds = answers.map(a =>
+          a.questionId.toString(),
+        );
 
-  if (approvalFilteredIds.length === 0) {
-    return { questions: [], totalPages: 0, totalCount: 0 };
-  }
+        if (approvalFilteredIds.length === 0) {
+          return { questions: [], totalPages: 0, totalCount: 0 };
+        }
 
-  // Intersect with existing _id filter if present
-  if (filter._id) {
-    filter._id = {
-      $in: approvalFilteredIds
-        .map(id => new ObjectId(id))
-        .filter(id =>
-          filter._id.$in.some((existing: any) => existing.equals(id)),
-        ),
-    };
-  } else {
-    filter._id = {
-      $in: approvalFilteredIds.map(id => new ObjectId(id)),
-    };
-  }
-}
+        // Intersect with existing _id filter if present
+        if (filter._id) {
+          filter._id = {
+            $in: approvalFilteredIds
+              .map(id => new ObjectId(id))
+              .filter(id =>
+                filter._id.$in.some((existing: any) => existing.equals(id)),
+              ),
+          };
+        } else {
+          filter._id = {
+            $in: approvalFilteredIds.map(id => new ObjectId(id)),
+          };
+        }
+      }
 
 
       if (answersCountMin !== undefined || answersCountMax !== undefined) {
@@ -450,7 +449,7 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
           // Special rule: Level 1 → history.length = 0
           /*  if (numericLevel === 1) {
       requiredSize = 0;
-    }*/
+      }*/
 
           const submissions = await this.QuestionSubmissionCollection.find({
             history: {$size: requiredSize},
@@ -532,6 +531,20 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
               as: 'submissionData',
             },
           },
+          {
+            $lookup: {
+              from: 'contexts',
+              localField: 'contextId',
+              foreignField: '_id',
+              as: 'contextData',
+            },
+          },
+          {
+            $unwind: {
+              path: '$contextData',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
 
           // ---- APPLY REVIEW LEVEL LOGIC ----
           {
@@ -582,6 +595,7 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
           ...q,
           _id: q._id.toString(),
           details: {...q.details},
+          context: q.contextData ? q.contextData.text : '',
         }));
 
         return {questions: formattedQuestions, totalPages, totalCount};
@@ -637,6 +651,20 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
           },
         },
         {
+          $lookup: {
+            from: 'contexts',
+            localField: 'contextId',
+            foreignField: '_id',
+            as: 'contextData',
+          },
+        },
+        {
+          $unwind: {
+            path: '$contextData',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
           $addFields: {
             review_level_number: {
               $let: {
@@ -646,7 +674,7 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
                       if: {$gt: [{$size: '$submissionData'}, 0]},
                       then: {
                         $size: {$arrayElemAt: ['$submissionData.history', 0]},
-                      },
+                    },
                       else: 0,
                     },
                   },
@@ -697,7 +725,8 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
       const formattedQuestions: IQuestion[] = result.map((q: any) => ({
         ...q,
         _id: q._id.toString(),
-        details: {...q.details},
+        details: { ...q.details },
+        context: q.contextData ? q.contextData.text : '',
       }));
 
       return {questions: formattedQuestions, totalPages, totalCount};
@@ -889,8 +918,24 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
 
       pipeline.push({$sort: {priorityOrder: 1, createdAt: 1, _id: 1}});
 
-      pipeline.push({$skip: skip});
-      pipeline.push({$limit: limit});
+      pipeline.push({ $skip: skip });
+      pipeline.push({ $limit: limit });
+
+      pipeline.push({
+        $lookup: {
+          from: 'contexts',
+          localField: 'contextId',
+          foreignField: '_id',
+          as: 'contextData',
+        },
+      });
+
+      pipeline.push({
+        $unwind: {
+          path: '$contextData',
+          preserveNullAndEmptyArrays: true,
+        },
+      });
 
       pipeline.push({
         $project: {
@@ -903,6 +948,7 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
           'details.crop': 1,
           'details.state': 1,
           source: 1,
+          context: { $ifNull: ['$contextData.text', ''] },
           _id: 0,
         },
       });
@@ -1073,20 +1119,20 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
 
           reviewer: reviewer
             ? {
-                _id: reviewer._id.toString(),
-                firstName: isExpert
-                  ? getReviewerQueuePosition(
-                      submission.queue,
-                      reviewer._id.toString(),
-                    ) == 0
-                    ? 'Author'
-                    : `Reviewer ${getReviewerQueuePosition(
-                        submission.queue,
-                        reviewer._id.toString(),
-                      )}`
-                  : reviewer.firstName + reviewer.lastName,
-                email: !isExpert && reviewer.email,
-              }
+              _id: reviewer._id.toString(),
+              firstName: isExpert
+                ? getReviewerQueuePosition(
+                  submission.queue,
+                  reviewer._id.toString(),
+                ) == 0
+                  ? 'Author'
+                  : `Reviewer ${getReviewerQueuePosition(
+                    submission.queue,
+                    reviewer._id.toString(),
+                  )}`
+                : reviewer.firstName + reviewer.lastName,
+              email: !isExpert && reviewer.email,
+            }
             : null,
         };
       });
@@ -1119,20 +1165,20 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
               rerouteHistoryMap.set(answerIdKey, {
                 updatedBy: r.reroutedTo
                   ? {
-                      _id: r.reroutedTo?.toString(),
-                      name: isExpert
-                        ? getReviewerQueuePosition(
-                            submission?.queue,
-                            r.reroutedTo?.toString(),
-                          ) == 0
-                          ? 'Author'
-                          : `Reviewer ${getReviewerQueuePosition(
-                              submission?.queue,
-                              r.reroutedTo?.toString(),
-                            )}`
-                        : reroutedToUser?.firstName,
-                      email: !isExpert && reroutedToUser?.email,
-                    }
+                    _id: r.reroutedTo?.toString(),
+                    name: isExpert
+                      ? getReviewerQueuePosition(
+                        submission?.queue,
+                        r.reroutedTo?.toString(),
+                      ) == 0
+                        ? 'Author'
+                        : `Reviewer ${getReviewerQueuePosition(
+                          submission?.queue,
+                          r.reroutedTo?.toString(),
+                        )}`
+                      : reroutedToUser?.firstName,
+                    email: !isExpert && reroutedToUser?.email,
+                  }
                   : null,
                 answer: {
                   _id: r.answerId?.toString(),
@@ -1169,20 +1215,20 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
             rerouteHistoryMap.set(uniqueKey, {
               updatedBy: r.reroutedTo
                 ? {
-                    _id: r.reroutedTo?.toString(),
-                    name: isExpert
-                      ? getReviewerQueuePosition(
-                          submission?.queue,
-                          r.reroutedTo?.toString(),
-                        ) == 0
-                        ? 'Author'
-                        : `Reviewer ${getReviewerQueuePosition(
-                            submission?.queue,
-                            r.reroutedTo?.toString(),
-                          )}`
-                      : reroutedToUser?.firstName,
-                    email: !isExpert && reroutedToUser?.email,
-                  }
+                  _id: r.reroutedTo?.toString(),
+                  name: isExpert
+                    ? getReviewerQueuePosition(
+                      submission?.queue,
+                      r.reroutedTo?.toString(),
+                    ) == 0
+                      ? 'Author'
+                      : `Reviewer ${getReviewerQueuePosition(
+                        submission?.queue,
+                        r.reroutedTo?.toString(),
+                      )}`
+                    : reroutedToUser?.firstName,
+                  email: !isExpert && reroutedToUser?.email,
+                }
                 : null,
               answer: null,
               status: r.status,
@@ -1204,41 +1250,41 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
         submission?.history?.map(h => ({
           updatedBy: h.updatedBy
             ? {
-                _id: h.updatedBy?.toString(),
-                name: isExpert
-                  ? getReviewerQueuePosition(
-                      submission.queue,
-                      h.updatedBy?.toString(),
-                    ) == 0
-                    ? 'Author'
-                    : `Reviewer ${getReviewerQueuePosition(
-                        submission.queue,
-                        h.updatedBy?.toString(),
-                      )}`
-                  : usersMap.get(h.updatedBy?.toString())?.firstName,
-                email:
-                  !isExpert && usersMap.get(h.updatedBy?.toString())?.email,
-              }
+              _id: h.updatedBy?.toString(),
+              name: isExpert
+                ? getReviewerQueuePosition(
+                  submission.queue,
+                  h.updatedBy?.toString(),
+                ) == 0
+                  ? 'Author'
+                  : `Reviewer ${getReviewerQueuePosition(
+                    submission.queue,
+                    h.updatedBy?.toString(),
+                  )}`
+                : usersMap.get(h.updatedBy?.toString())?.firstName,
+              email:
+                !isExpert && usersMap.get(h.updatedBy?.toString())?.email,
+            }
             : [],
           answer: h.answer
             ? {
-                _id: h.answer?.toString(),
-                authorId: answersMap
-                  .get(h.answer?.toString())
-                  ?.authorId?.toString(),
-                answerIteration: answersMap.get(h.answer?.toString())
-                  ?.answerIteration,
-                isFinalAnswer: answersMap.get(h.answer?.toString())
-                  ?.isFinalAnswer,
-                answer: answersMap.get(h.answer?.toString())?.answer,
-                sources: answersMap.get(h.answer?.toString())?.sources,
-                approvalCount: answersMap.get(h.answer?.toString())
-                  ?.approvalCount,
-                remarks: answersMap.get(h.answer?.toString())?.remarks,
-                createdAt: answersMap.get(h.answer?.toString())?.createdAt,
-                updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
-                reviews: reviewsByAnswer.get(h.answer?.toString()) || [],
-              }
+              _id: h.answer?.toString(),
+              authorId: answersMap
+                .get(h.answer?.toString())
+                ?.authorId?.toString(),
+              answerIteration: answersMap.get(h.answer?.toString())
+                ?.answerIteration,
+              isFinalAnswer: answersMap.get(h.answer?.toString())
+                ?.isFinalAnswer,
+              answer: answersMap.get(h.answer?.toString())?.answer,
+              sources: answersMap.get(h.answer?.toString())?.sources,
+              approvalCount: answersMap.get(h.answer?.toString())
+                ?.approvalCount,
+              remarks: answersMap.get(h.answer?.toString())?.remarks,
+              createdAt: answersMap.get(h.answer?.toString())?.createdAt,
+              updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
+              reviews: reviewsByAnswer.get(h.answer?.toString()) || [],
+            }
             : null,
           status: h.status,
           reasonForRejection: h.reasonForRejection,
@@ -1264,20 +1310,20 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
         questionId: submission?.questionId?.toString(),
         lastRespondedBy: lastRespondedId
           ? {
-              _id: lastRespondedId,
-              name: isExpert
-                ? getReviewerQueuePosition(
-                    submission?.queue,
-                    lastRespondedId,
-                  ) == 0
-                  ? 'Author'
-                  : `Reviewer ${getReviewerQueuePosition(
-                      submission?.queue,
-                      lastRespondedId,
-                    )}`
-                : usersMap.get(lastRespondedId)?.firstName,
-              email: !isExpert && usersMap.get(lastRespondedId)?.email,
-            }
+            _id: lastRespondedId,
+            name: isExpert
+              ? getReviewerQueuePosition(
+                submission?.queue,
+                lastRespondedId,
+              ) == 0
+                ? 'Author'
+                : `Reviewer ${getReviewerQueuePosition(
+                  submission?.queue,
+                  lastRespondedId,
+                )}`
+              : usersMap.get(lastRespondedId)?.firstName,
+            email: !isExpert && usersMap.get(lastRespondedId)?.email,
+          }
           : null,
         queue: submission?.queue?.map(q => ({
           _id: q.toString(),
@@ -1285,9 +1331,9 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
             ? getReviewerQueuePosition(submission.queue, q.toString()) == 0
               ? 'Author'
               : `Reviewer ${getReviewerQueuePosition(
-                  submission.queue,
-                  q.toString(),
-                )}`
+                submission.queue,
+                q.toString(),
+              )}`
             : usersMap.get(q.toString())?.firstName,
           email: !isExpert && usersMap.get(q.toString())?.email,
         })),
@@ -1551,15 +1597,15 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
 
     // 3. Recreate the same sorting pipeline
     const sortedQuestions = await this.QuestionCollection.aggregate([
-      {$match: filter},
+      { $match: filter },
       {
         $addFields: {
           priorityOrder: {
             $switch: {
               branches: [
-                {case: {$eq: ['$priority', 'high']}, then: 1},
-                {case: {$eq: ['$priority', 'medium']}, then: 2},
-                {case: {$eq: ['$priority', 'low']}, then: 3},
+                { case: { $eq: ['$priority', 'high'] }, then: 1 },
+                { case: { $eq: ['$priority', 'medium'] }, then: 2 },
+                { case: { $eq: ['$priority', 'low'] }, then: 3 },
               ],
               default: 4,
             },
@@ -1620,13 +1666,13 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
     session?: ClientSession,
   ): Promise<IQuestion[]> {
     await this.init();
-    return await this.QuestionCollection.find({status}, {session}).toArray();
+    return await this.QuestionCollection.find({ status }, { session }).toArray();
   }
 
   async getYearAnalytics(
     goldenDataSelectedYear: string,
     session?: ClientSession,
-  ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number}> {
+  ): Promise<{ yearData: GoldenDatasetEntry[]; totalEntriesByType: number }> {
     await this.init();
     const selectedYearNum = Number(goldenDataSelectedYear);
 
@@ -1739,7 +1785,7 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
         },
         {$sort: {'_id.week': 1}},
       ],
-      {session},
+      { session },
     ).toArray();
 
     const formattedWeeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
@@ -2114,9 +2160,9 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
     // Aggregate crop data
     const cropDataRaw = (await this.QuestionCollection.aggregate(
       [
-        {$match: matchStage},
-        {$group: {_id: '$details.crop', count: {$sum: 1}}},
-        {$project: {name: '$_id', count: 1, _id: 0}},
+        { $match: matchStage },
+        { $group: { _id: '$details.crop', count: { $sum: 1 } } },
+        { $project: { name: '$_id', count: 1, _id: 0 } },
       ],
       {session},
     ).toArray()) as AnalyticsItem[];
@@ -2124,9 +2170,9 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
     // Aggregate state data
     const stateDataRaw = (await this.QuestionCollection.aggregate(
       [
-        {$match: matchStage},
-        {$group: {_id: '$details.state', count: {$sum: 1}}},
-        {$project: {name: '$_id', count: 1, _id: 0}},
+        { $match: matchStage },
+        { $group: { _id: '$details.state', count: { $sum: 1 } } },
+        { $project: { name: '$_id', count: 1, _id: 0 } },
       ],
       {session},
     ).toArray()) as AnalyticsItem[];
@@ -2134,9 +2180,9 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
     // Aggregate domain data
     const domainDataRaw = (await this.QuestionCollection.aggregate(
       [
-        {$match: matchStage},
-        {$group: {_id: '$details.domain', count: {$sum: 1}}},
-        {$project: {name: '$_id', count: 1, _id: 0}},
+        { $match: matchStage },
+        { $group: { _id: '$details.domain', count: { $sum: 1 } } },
+        { $project: { name: '$_id', count: 1, _id: 0 } },
       ],
       {session},
     ).toArray()) as AnalyticsItem[];
@@ -2191,8 +2237,8 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
   }
   async getAll(session?: ClientSession): Promise<IQuestion[]> {
     await this.init();
-    return await this.QuestionCollection.find({}, {session})
-      .sort({createdAt: -1})
+    return await this.QuestionCollection.find({}, { session })
+      .sort({ createdAt: -1 })
       .toArray();
   }
 
@@ -2201,8 +2247,8 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
     session?: ClientSession,
   ): Promise<IQuestion[]> {
     await this.init();
-    return await this.QuestionCollection.find({status}, {session})
-      .sort({createdAt: -1})
+    return await this.QuestionCollection.find({ status }, { session })
+      .sort({ createdAt: -1 })
       .toArray();
   }
 
@@ -2230,14 +2276,14 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
     await this.init();
     const { page = 1, limit = 10, search } = query;
     const skip = (page - 1) * limit;
-     const { filter } = await buildQuestionFilter(
-    query,
-    this.QuestionSubmissionCollection,
-    this.AnswersCollection
-  );
+    const { filter } = await buildQuestionFilter(
+      query,
+      this.QuestionSubmissionCollection,
+      this.AnswersCollection
+    );
     if (search && search.trim().length) {
-    filter.question = { $regex: search.trim(), $options: "i" };
-  }
+      filter.question = { $regex: search.trim(), $options: "i" };
+    }
     const pipeline: any[] = [
       {$match: filter},
 
@@ -2278,10 +2324,10 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
 
                 currentLevel: {
                   $cond: [
-                    {$gt: [{$size: {$ifNull: ['$submission.history', []]}}, 0]},
+                    { $gt: [{ $size: { $ifNull: ['$submission.history', []] } }, 0] },
                     {
                       $subtract: [
-                        {$size: {$ifNull: ['$submission.history', []]}},
+                        { $size: { $ifNull: ['$submission.history', []] } },
                         1,
                       ],
                     },
@@ -2306,7 +2352,7 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
                             $arrayElemAt: ['$history', {$add: ['$$idx', 1]}],
                           },
 
-                          
+
                           isAuthorNoHistory: {
                             $and: [
                               {$eq: ['$$idx', 0]},
@@ -2512,11 +2558,11 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
                                           in: {
                                             time: {
                                               $concat: [
-                                                {$toString: '$$h'},
+                                                { $toString: '$$h' },
                                                 ':',
-                                                {$toString: '$$m'},
+                                                { $toString: '$$m' },
                                                 ':',
-                                                {$toString: '$$s'},
+                                                { $toString: '$$s' },
                                               ],
                                             },
 

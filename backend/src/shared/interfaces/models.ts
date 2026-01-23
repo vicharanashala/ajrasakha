@@ -58,6 +58,7 @@ export interface IQuestion {
   closedAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
+  context?: string | ObjectId;
 }
 
 export interface SourceItem {
@@ -244,28 +245,28 @@ export type RerouteStatus =
   |"rejected"
   |"modified"
   |"in-review";
-  export interface IRerouteHistory {
+export interface IRerouteHistory {
     reroutedBy: ObjectId|string;        // Moderator
     reroutedTo: ObjectId |string;        // Expert
     reroutedAt: Date|string;
-    answerId?: ObjectId | string
-    status: RerouteStatus;
+  answerId?: ObjectId | string
+  status: RerouteStatus;
     moderatorRejectionReason?:string;
-    rejectionReason?: string;    // Only when expert rejects
-    comment?: string;            // Mandatory when moderator reroutes
-  
+  rejectionReason?: string;    // Only when expert rejects
+  comment?: string;            // Mandatory when moderator reroutes
+
     updatedAt: Date|string;             // Updated on every status change
-  }
-  export interface IReroute {
+}
+export interface IReroute {
     _id?: ObjectId|string;
-  
+
     answerId: ObjectId|string;          // Which answer is being rerouted
     questionId: ObjectId|string;
-  
-    reroutes: IRerouteHistory[]; // Timeline of reroutes
-  
+
+  reroutes: IRerouteHistory[]; // Timeline of reroutes
+
     createdAt: Date|string;
     updatedAt: Date|string;
-  }
-    
+}
+
 

@@ -124,6 +124,19 @@ export const QuestionsTable = ({
       }
 
       if (updatedData) {
+        if (!updatedData.question?.trim()) {
+          toast.error("Question text is required.");
+          return;
+        }
+        if (!updatedData.context?.trim()) {
+          toast.error("Description (Context) is required.");
+          return;
+        }
+        if (!updatedData.details?.district?.trim()) {
+          toast.error("District is required.");
+          return;
+        }
+        
         const payload: IDetailedQuestion = status
           ? { ...updatedData, status }
           : updatedData;
