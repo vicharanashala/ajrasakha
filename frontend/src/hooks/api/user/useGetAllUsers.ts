@@ -16,6 +16,8 @@ interface BasicUser {
 export interface IUsersNameResponse {
   myPreference: IMyPreference;
   users: BasicUser[];
+  totalUsers: number;
+  totalPages: number;
 }
 
 
@@ -27,11 +29,8 @@ export const useGetAllUsers = (
   filter: string,
   options: { enabled?: boolean } = {}
 ) => {
-  const { data, isLoading, error } = useQuery<{
-    users: IUser[];
-    totalUsers: number;
-    totalPages: number;
-  } | null>({
+   const { data, isLoading, error } = useQuery<IUsersNameResponse | null>({
+    
     queryKey: ["users", page, limit, search, sort, filter],
     queryFn: async () => {
       return await userService.useGetAllUsers(page, limit, search, sort, filter);

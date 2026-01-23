@@ -19,8 +19,8 @@ export class UserService {
   search: string,
   sort: string,
   filter: string
-): Promise<{ users: IUser[]; totalUsers: number; totalPages: number } | null> {
-  return apiFetch<{ users: IUser[]; totalUsers: number; totalPages: number }>(
+): Promise<IUsersNameResponse | null>{
+  return apiFetch<IUsersNameResponse>(
     `${this._baseUrl}/all?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}`
   );
 }

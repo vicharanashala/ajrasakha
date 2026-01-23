@@ -124,9 +124,31 @@ export class UserController {
   @OpenAPI({summary: 'Get all user names'})
   async getAllUsersName(
     @CurrentUser() user: IUser,
+    @QueryParams()
+  query: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      sort: string;
+      filter: string;
+    },
   ): Promise<UsersNameResponseDto> {
+    const {
+    page = 1,
+    limit = 10,
+    search = '',
+    sort = '',
+    filter = '',
+  } = query;
     const userId = user._id.toString();
-    return await this.userService.getAllUsersforManualSelect(userId);
+    return await this.userService.getAllUsersforManualSelect(
+      userId,
+      Number(page),
+      Number(limit),
+      search,
+      sort,
+      filter,
+    );
   }
 
   @Patch('/')
