@@ -63,4 +63,13 @@ export interface IRequestRepository {
    * @returns A promise resolving to the updated request.
    */
   deleteByEntityId(entityId: string, session?: ClientSession): Promise<void>;
+
+
+  softDeleteById(
+  requestId: string,
+  deletedBy: string,
+  session?: ClientSession,
+): Promise<void>;
 }
+
+

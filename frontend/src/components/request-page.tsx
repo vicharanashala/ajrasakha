@@ -17,7 +17,10 @@ import {
   SelectValue,
 } from "@/components/atoms/select";
 import { Textarea } from "@/components/atoms/textarea";
-
+import { ConfirmationModal } from "./confirmation-modal";
+import { Trash2 } from "lucide-react";
+import { useSoftDeleteRequest } from "@/hooks/api/request/useDeleteRequest";
+import { useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback } from "@/components/atoms/avatar";
 import { cn } from "@/lib/utils";
 import type { IDetailedQuestion, IRequest, RequestStatus } from "@/types";
@@ -90,7 +93,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
   const [responseOpen, setResponseOpen] = useState(false);
 
   const { data: requestDiff, isLoading: reqDiffLoading } = useGetRequestDiff(
-    req._id
+    diffOpen ? req._id : "",
   );
 
   const { mutateAsync: updateStatus, isPending: updatingStatus } =
@@ -100,12 +103,17 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
     requestType: req.requestType,
     diff: requestDiff!,
   };
+  const queryClient = useQueryClient();
+  const { mutateAsync: softDelete, isPending: deleting } =
+    useSoftDeleteRequest();
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+
   useEffect(() => {}, [isHighlighted, req._id]);
   const handleSubmit = async () => {
     try {
       if (!newStatus || newStatus === req.status) {
         toast.error(
-          "Please select a new status different from the current one."
+          "Please select a new status different from the current one.",
         );
         return;
       }
@@ -169,7 +177,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
   return (
     <Card
       // className="bg-card"
-      className={`bg-card relative transition-all duration-200 ${
+      className={`group bg-card relative transition-all duration-200 ${
         isHighlighted
           ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
           : "border-border hover:border-primary/40 hover:shadow-sm"
@@ -191,7 +199,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
               {initials(
                 req?.requestedUser?.firstName +
                   " " +
-                  req?.requestedUser?.lastName || ""
+                  req?.requestedUser?.lastName || "",
               )}
             </AvatarFallback>
           </Avatar>
@@ -208,22 +216,78 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
             </div>
           </div>
         </div>
+        {/* Status badge */}
         <span
-          className={`px-3 py-1 rounded-full text-xs font-medium border ${
+          className={`absolute top-11 right-5 px-3 py-1 rounded-full text-xs font-medium border ${
             req?.status === "approved"
               ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
               : req?.status === "rejected"
-              ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
-              : req?.status === "in-review"
-              ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
-              : req?.status === "pending"
-              ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
-              : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
+                ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
+                : req?.status === "in-review"
+                  ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
+                  : req?.status === "pending"
+                    ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
+                    : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
           }`}
         >
           {req?.status?.toUpperCase() || "N/A"}
         </span>
+        {/* Delete button */}
+        <ConfirmationModal
+          title="Confirm Delete"
+          description="Are you sure you want to delete this request? This action cannot be undone."
+          confirmText="Delete"
+          type="delete"
+          open={deleteModalOpen}
+          onOpenChange={setDeleteModalOpen}
+          isLoading={deleting}
+          onConfirm={async () => {
+            try {
+              await softDelete(req._id);
+
+              // Remove and invalidate queries
+              queryClient.removeQueries({
+                queryKey: ["request_diff", req._id],
+              });
+              queryClient.invalidateQueries({ queryKey: ["requests"] });
+
+              toast.success("Request deleted successfully.");
+              setDeleteModalOpen(false);
+            } catch {
+              toast.error("Failed to delete request.");
+            }
+          }}
+          trigger={
+            <Button
+              variant="ghost"
+              className="
+  absolute top-0 right-0
+  h-10 w-10 p-0
+  flex items-center justify-center
+  rounded-full
+
+  bg-muted/70 dark:bg-white/10
+  text-black dark:text-muted-foreground
+
+  opacity-0 group-hover:opacity-100
+  transition-opacity duration-200
+
+  hover:text-red-500
+  dark:hover:text-white
+
+  cursor-pointer
+  !shadow-none
+  border-none
+  z-20
+"
+              disabled={deleting}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          }
+        />
       </CardHeader>
+
       <CardContent className="space-y-3">
         <div className="text-sm">
           <div className="font-medium">Reason</div>
@@ -235,7 +299,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
         <div className="flex gap-2 justify-end">
           <div className="fixed inset-0 flex items-start justify-center z-50 p-6 pointer-events-none">
             {diffOpen && (
-              <Card className="bg-card w-[90vw] max-w-[95vw] h-[90vh] flex flex-col shadow-xl border border-border pointer-events-auto overflow-hidden">
+              <Card className="group bg-card w-[90vw] max-w-[95vw] h-[90vh] flex flex-col shadow-xl border border-border pointer-events-auto overflow-hidden">
                 <CardHeader className="p-6 border-b border-border flex flex-col gap-2">
                   <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-4">
@@ -257,12 +321,12 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
                           req?.status === "approved"
                             ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
                             : req?.status === "rejected"
-                            ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
-                            : req?.status === "in-review"
-                            ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
-                            : req?.status === "pending"
-                            ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
-                            : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
+                              ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
+                              : req?.status === "in-review"
+                                ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
+                                : req?.status === "pending"
+                                  ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
+                                  : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
                         }`}
                       >
                         {req?.status?.toUpperCase() || "N/A"}
@@ -404,7 +468,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
                                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                     <Calendar className="h-3 w-3" />
                                     {new Date(
-                                      response.reviewedAt || ""
+                                      response.reviewedAt || "",
                                     ).toLocaleString()}
                                   </div>
                                 </div>
@@ -440,7 +504,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
               </DialogContent>
             </Dialog>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 relative group">
             <Button
               variant="outline"
               className="flex items-center justify-center gap-2"
@@ -472,12 +536,12 @@ export const RequestsPage = ({
 }) => {
   const [status, setStatus] = useState<"all" | RequestStatus>("all");
   const [reqType, setReqType] = useState<"all" | "question_flag" | "others">(
-    "all"
+    "all",
   );
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
-    null
+    null,
   );
   // const [isInitialLoad, setIsInitialLoad] = useState(true);
   const LIMIT = 10;
@@ -487,7 +551,7 @@ export const RequestsPage = ({
     LIMIT,
     status,
     reqType,
-    sortOrder
+    sortOrder,
   );
 
   useEffect(() => {
@@ -496,7 +560,7 @@ export const RequestsPage = ({
     }
 
     const matchingRequest = requestData.requests.find(
-      (req) => req.entityId === autoSelectId
+      (req) => req.entityId === autoSelectId,
     );
 
     if (matchingRequest) {
@@ -505,7 +569,7 @@ export const RequestsPage = ({
       // Scroll after component re-renders
       setTimeout(() => {
         const element = document.getElementById(
-          `request-${matchingRequest._id}`
+          `request-${matchingRequest._id}`,
         );
         if (element) {
           element.scrollIntoView({
@@ -546,10 +610,7 @@ export const RequestsPage = ({
           </div>
 
           <div
-            className={`flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto ${
-              !requestData?.requests ||
-              (requestData.requests.length === 0 && "hidden")
-            }`}
+            className={`flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto `}
           >
             <div className="flex-1 min-w-[180px]">
               <label className="text-sm font-medium mb-1 flex items-center gap-1">
@@ -742,7 +803,7 @@ export const ReqDetailsDiff = ({
                     key={f.path + "-old"}
                     className={cn(
                       "rounded-md border border-border p-3",
-                      f.changed ? "bg-destructive/10" : "bg-muted/20"
+                      f.changed ? "bg-destructive/10" : "bg-muted/20",
                     )}
                   >
                     <div className="text-xs text-muted-foreground mb-1 font-mono">
@@ -768,7 +829,7 @@ export const ReqDetailsDiff = ({
                     key={f.path + "-new"}
                     className={cn(
                       "rounded-md border border-border p-3",
-                      f.changed ? "bg-primary/10" : "bg-muted/20"
+                      f.changed ? "bg-primary/10" : "bg-muted/20",
                     )}
                   >
                     <div className="text-xs text-muted-foreground mb-1 font-mono">
@@ -806,7 +867,7 @@ const Legend = () => {
 
 export const diffQuestion = (
   oldDoc: Record<string, any>,
-  newDoc: Record<string, any>
+  newDoc: Record<string, any>,
 ): Array<{
   path: string;
   oldValue: unknown;
@@ -846,7 +907,7 @@ export const diffQuestion = (
     // Handle nested objects
     if (a && b && typeof a === "object" && typeof b === "object") {
       const keys = Array.from(
-        new Set([...Object.keys(a), ...Object.keys(b)])
+        new Set([...Object.keys(a), ...Object.keys(b)]),
       ).sort();
       for (const key of keys) {
         const path = prefix ? `${prefix}.${key}` : key;

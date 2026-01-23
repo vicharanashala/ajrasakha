@@ -6,6 +6,7 @@ import {
   Body,
   HttpCode,
   Params,
+  Param,
   Authorized,
   CurrentUser,
   NotFoundError,
@@ -15,10 +16,19 @@ import {
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
-import {IUser, NotificationRetentionType} from '#root/shared/interfaces/models.js';
+import {
+  IUser,
+  NotificationRetentionType,
+} from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {UserService} from '../services/UserService.js';
-import {BlockUnblockBody, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, UsersNameResponseDto,ExpertReviewLevelDto} from '../classes/validators/UserValidators.js';
+import {
+  BlockUnblockBody,
+  NotificationDeletePreferenceDTO,
+  UpdatePenaltyAndIncentive,
+  UsersNameResponseDto,
+  ExpertReviewLevelDto,
+} from '../classes/validators/UserValidators.js';
 
 @OpenAPI({
   tags: ['users'],
@@ -49,8 +59,10 @@ export class UserController {
   @HttpCode(200)
   @Authorized()
   @OpenAPI({summary: 'Get current user review level'})
-  async getUserReviewLevel( @QueryParams() query: ExpertReviewLevelDto): Promise<any> {
-   // const {userId }= params;
+  async getUserReviewLevel(
+    @QueryParams() query: ExpertReviewLevelDto,
+  ): Promise<any> {
+    // const {userId }= params;
     const result = await this.userService.getUserReviewLevel(query);
     if (!result) {
       throw new NotFoundError('not able to find review_levvel odf user');
@@ -75,6 +87,37 @@ export class UserController {
     return updatedUser;
   }
 
+  @Get('/admin/alluser')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  @OpenAPI({summary: 'Get all users with pagination (Admin)'})
+  async getAllUsers(
+    @CurrentUser() user: IUser,
+    @QueryParams()
+    query: {
+      page?: number | string;
+      limit?: number | string;
+      search?: string;
+      sort?: string;
+      filter?: string;
+    },
+    
+  ) {
+    const pageNum = Number(query.page) || 1;
+    const limitNum = Number(query.limit) || 10;
+    const search = query.search || '';
+    const sort = query.sort || '';
+    const filter = query.filter || '';
+
+    return this.userService.getAllUsers(
+      pageNum,
+      limitNum,
+      search,
+      sort,
+      filter,
+    );
+  }
+
   @Get('/all')
   @HttpCode(200)
   @Authorized()
@@ -83,7 +126,7 @@ export class UserController {
     @CurrentUser() user: IUser,
   ): Promise<UsersNameResponseDto> {
     const userId = user._id.toString();
-    return await this.userService.getAllUsers(userId);
+    return await this.userService.getAllUsersforManualSelect(userId);
   }
 
   @Patch('/')
@@ -94,11 +137,14 @@ export class UserController {
   async updateAutoDeleteNotificationPreference(
     @Body() body: NotificationDeletePreferenceDTO,
     @CurrentUser() currentUser: IUser,
-  ): Promise<{message:string}> {
+  ): Promise<{message: string}> {
     const userId = currentUser._id.toString();
-    const {preference} = body
-    await this.userService.updateAutoDeleteNotificationPreference(preference,userId)
-    return { message: 'Notification preference updated successfully' };
+    const {preference} = body;
+    await this.userService.updateAutoDeleteNotificationPreference(
+      preference,
+      userId,
+    );
+    return {message: 'Notification preference updated successfully'};
   }
 
   @Patch('/point')
@@ -107,22 +153,35 @@ export class UserController {
   @OpenAPI({summary: 'Update user information'})
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async updateIncentiveAndPenalty(
-    @Body() body:UpdatePenaltyAndIncentive,
-  ): Promise<{message:string}> {
-    const {type,userId} = body
-    await this.userService.updatePenaltyAndIncentive(userId,type)
-    return { message: `${type} updated successfully` };
+    @Body() body: UpdatePenaltyAndIncentive,
+  ): Promise<{message: string}> {
+    const {type, userId} = body;
+    await this.userService.updatePenaltyAndIncentive(userId, type);
+    return {message: `${type} updated successfully`};
   }
 
   @Get('/list')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get all users'})
-  async getAllUsers(
-    @QueryParams() query: {page?: number; limit?: number,search?:string,sort:string,filter:string}
+  @OpenAPI({summary: 'Get all Experts'})
+  async getAllExperts(
+    @QueryParams()
+    query: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      sort: string;
+      filter: string;
+    },
   ) {
-    const{page=1,limit=10,search='',sort='',filter=''} = query
-    return await this.userService.findAllExperts(Number(page),Number(limit),search,sort,filter)
+    const {page = 1, limit = 10, search = '', sort = '', filter = ''} = query;
+    return await this.userService.findAllExperts(
+      Number(page),
+      Number(limit),
+      search,
+      sort,
+      filter,
+    );
   }
 
   @Patch('/expert')
@@ -131,20 +190,35 @@ export class UserController {
   @OpenAPI({summary: 'Update user information'})
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async BlockAndUnblockExpert(
-    @Body() body:BlockUnblockBody,
-  ): Promise<{message:string}> {
-    const {action,userId} = body
-    await this.userService.blockUnblockExperts(userId,action)
-    return { message: `${action} Expert successfully` };
+    @Body() body: BlockUnblockBody,
+  ): Promise<{message: string}> {
+    const {action, userId} = body;
+    await this.userService.blockUnblockExperts(userId, action);
+    return {message: `${action} Expert successfully`};
+  }
+
+  @Authorized()
+  @Patch('/:id/role')
+  @HttpCode(200)
+  @OpenAPI({summary: 'Toggle user role between expert and moderator'})
+  async toggleUserRole(
+    @CurrentUser() currentUser: IUser,
+    @Param('id') userId: string,
+  ) {
+    const updatedUser = await this.userService.toggleUserRole(
+      currentUser,
+      userId,
+    );
+    return {message: `User promoted to moderator`, user: updatedUser};
   }
 
   @Get('/details/:email')
   @HttpCode(200)
   @OpenAPI({summary: 'Get all user names'})
   async getUserDetails(
-    @Params() params:{email:string}
+    @Params() params: {email: string},
   ): Promise<IUser | null> {
-    const {email} =params
-    return await this.userService.getUserByEmail(email) 
+    const {email} = params;
+    return await this.userService.getUserByEmail(email);
   }
 }

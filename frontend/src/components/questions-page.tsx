@@ -1,5 +1,7 @@
 import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetailedQuestions";
-import { QuestionsFilters, QuestionsTable } from "./questions-table";
+//import { QuestionsFilters, QuestionsTable } from "./questions-table";
+import {QuestionsTable} from '../features/question-table-page/questions-table'
+import {QuestionsFilters} from '../features/question-table-page/QuestionsFilters'
 import { useEffect, useMemo, useState } from "react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "./question-details";
@@ -172,6 +174,9 @@ export const QuestionsPage = ({
     if (next.review_level !== undefined) setReviewLevel(next.review_level);
     if (next.closedAtStart !== undefined) setClosedAtStart(next.closedAtStart);
     if (next.closedAtEnd !== undefined) setClosedAtEnd(next.closedAtEnd);
+    // Reset pagination to page 1 when filters are applied
+    setCurrentPage(1);
+    setReviewPage(1);
   };
   const [showClosedAt, setClosedAt] = useState(false);
   useEffect(() => {

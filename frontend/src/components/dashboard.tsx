@@ -25,6 +25,7 @@ import { useTheme } from "next-themes";
 import { Switch } from "./atoms/switch";
 import { Label } from "./atoms/label";
 import { ReviewLevelComponent } from "./ReviewLevelComponent";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 
 export type ViewType = "year" | "month" | "week" | "day";
 
@@ -77,6 +78,9 @@ export const Dashboard = () => {
   const [initialLoading, setInitialLoading] = useState(true);
   const [dashboardState, setDashboardState] =
     useState<DashboardAnalyticsResponse | null>(null);
+
+    const { data: user, isLoading: isUserLoading } = useGetCurrentUser();
+
 
   // Fetch dashboard data
   const {
@@ -146,7 +150,7 @@ export const Dashboard = () => {
         <div className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
-              Moderator Dashboard
+              {user?.role === "admin" ? "Admin Dashboard" : "Moderator Dashboard"}
             </h1>
             {/* <div className="relative inline-block">
               <ChristmasCap className="absolute -top-13 -left-4 w-20 h-18 -rotate-6 z-10" />
