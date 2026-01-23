@@ -331,10 +331,4 @@ export class QuestionController {
     if (!job) return {message: 'Job not found'};
     return job;
   }
-
-  @Get('/absent/run/script')
-  RunTheAbsentScript() {
-     this.questionService.runAbsentScript()
-    return {message:"Changed"} 
-  }
 }

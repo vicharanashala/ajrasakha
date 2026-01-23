@@ -1550,9 +1550,6 @@ export class QuestionService extends BaseService implements IQuestionService {
       absentExpertIds,
       session,
     );
-
-    console.log('Submissions ', submissions);
-    console.log('Submissions length ', submissions.length);
     for (const submission of submissions) {
       const {questionId, queue = [], history = []} = submission;
 
