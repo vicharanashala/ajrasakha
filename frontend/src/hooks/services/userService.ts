@@ -1,6 +1,5 @@
 import type { IUser,ReviewLevelCount } from "@/types";
 import { apiFetch } from "../api/api-fetch";
-import type { IUsersNameResponse } from "../api/user/useGetAllUsers";
 import { formatDateLocal } from "@/utils/formatDate";
 import { env } from "@/config/env";
 
@@ -21,7 +20,7 @@ export class UserService {
   filter: string
 ): Promise<{ users: IUser[]; totalUsers: number; totalPages: number } | null> {
   return apiFetch<{ users: IUser[]; totalUsers: number; totalPages: number }>(
-    `${this._baseUrl}/all?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}`
+    `${this._baseUrl}/admin/alluser?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}`
   );
 }
 

@@ -32,7 +32,7 @@ export const useGetAllUsers = (
     totalUsers: number;
     totalPages: number;
   } | null>({
-    queryKey: ["users", page, limit, search, sort, filter],
+    queryKey: ["admin", page, limit, search, sort, filter],
     queryFn: async () => {
       return await userService.useGetAllUsers(page, limit, search, sort, filter);
     },
