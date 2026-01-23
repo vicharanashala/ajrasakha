@@ -128,6 +128,10 @@ export const QuestionsTable = ({
           toast.error("Question text is required.");
           return;
         }
+        if (updatedData.question?.trim().length <= 10) {
+          toast.error("Question must be atleast 10 characters long.");
+          return;
+        }
         if (!updatedData.context?.trim()) {
           toast.error("Description (Context) is required.");
           return;
@@ -136,7 +140,7 @@ export const QuestionsTable = ({
           toast.error("District is required.");
           return;
         }
-        
+
         const payload: IDetailedQuestion = status
           ? { ...updatedData, status }
           : updatedData;
