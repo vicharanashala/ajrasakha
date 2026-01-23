@@ -285,10 +285,11 @@ export class QuestionService {
   pageParam: number,
   limit: number,
   search: string,
-  filter:AdvanceFilterValues
+  filter:AdvanceFilterValues,
+  sort: string
 ):Promise<ReviewLevelsApiResponse | null> {
   const params = new URLSearchParams();
-
+    if(sort) params.append('sort',sort)
     if (search) params.append("search", search);
     params.append("page", pageParam.toString());
     params.append("limit", limit.toString());

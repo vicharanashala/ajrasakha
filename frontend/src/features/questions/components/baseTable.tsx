@@ -12,6 +12,7 @@ export type Column<T> = {
   label: string;
   width?: string;
   render?: (row: T, index: number) => React.ReactNode;
+  sortable?: boolean;
 };
 
 type BaseTableProps<T> = {
@@ -19,6 +20,8 @@ type BaseTableProps<T> = {
   data: T[];
   isLoading?: boolean;
   emptyMessage?: string;
+  sort:string;
+  onSort:(key:string)=>void;
 };
 
 export function BaseTable<T>({
@@ -26,7 +29,11 @@ export function BaseTable<T>({
   data,
   isLoading,
   emptyMessage = "No records found",
+  sort,
+  onSort
 }: BaseTableProps<T>) {
+  
+console.log('sort:',sort)
   return (
     <Table className="min-w-[800px] table-fixed">
       <TableHeader className="bg-card sticky top-0 z-10">
@@ -37,7 +44,20 @@ export function BaseTable<T>({
               style={{ width: col.width }}
               className="text-center"
             >
-              {col.label}
+              {
+              col.sortable?(
+              <button
+                onClick={() => onSort(col.key as string)}
+                className="flex items-center gap-1 mx-auto select-none"
+              >
+                {col.label}
+                {sort === `${col.key as string}_asc` && <span>↑</span>}
+                {sort === `${col.key as string}_desc` && <span>↓</span>}
+              </button>
+              )
+              :
+              (col.label)
+              }
             </TableHead>
           ))}
         </TableRow>

@@ -65,6 +65,22 @@ export const QuestionsPage = ({
   const [reviewPage, setReviewPage] = useState(1);
   const [reviewLimit] = useState(10);
 
+  //mine
+  const [ sort,setSort] = useState("")
+   const toggleSort = (key: string) => {
+  if (key === "rank") {
+    setSort("");
+    return;
+  }
+  setSort((prev) => {
+    if (prev === `${key}_asc`) return `${key}_desc`;
+    return `${key}_asc`;
+    
+  });
+};
+
+//
+
   const { mutateAsync: bulkDeleteQuestions, isPending: bulkDeletingQuestions } =
     useBulkDeleteQuestions();
   
@@ -119,7 +135,8 @@ export const QuestionsPage = ({
   const {
     data: reviewData,
     isLoading: isReviewLoading,
-  } = useGetQuestionsAndLevel(reviewPage, reviewLimit, search,filter,viewMode==='review-level');
+  } = useGetQuestionsAndLevel(reviewPage, reviewLimit, search,filter,viewMode==='review-level',sort);
+  console.log('rows:',reviewData)
   const reviewRows = useMemo(
     () => (reviewData?.data ?? []).map(mapReviewQuestionToRow),
     [reviewData]
@@ -302,6 +319,8 @@ export const QuestionsPage = ({
               totalPages={reviewData?.totalPages || 0}
               onPageChange={setReviewPage}
               onViewMore={handleViewMore}
+              toggleSort={toggleSort}
+              sort={sort}
             />
           )}
         </>
