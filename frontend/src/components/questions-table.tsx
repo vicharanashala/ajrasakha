@@ -159,7 +159,7 @@ export const QuestionsTable = ({
 }: QuestionsTableProps) => {
   const [editOpen, setEditOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
-    null
+    null,
   );
   const [questionIdToDelete, setQuestionIdToDelete] = useState("");
   const [selectedQuestion, setSelectedQuestion] =
@@ -178,7 +178,7 @@ export const QuestionsTable = ({
     mode: "add" | "edit",
     entityId?: string,
     flagReason?: string,
-    status?: QuestionStatus
+    status?: QuestionStatus,
     // formData?: FormData
   ) => {
     try {
@@ -196,7 +196,7 @@ export const QuestionsTable = ({
       if (userRole === "expert" && !status) {
         if (!flagReason || flagReason.trim().length < 8) {
           toast.error(
-            "Please provide a valid reason for flagging (minimum 8 characters)."
+            "Please provide a valid reason for flagging (minimum 8 characters).",
           );
           return;
         }
@@ -209,7 +209,7 @@ export const QuestionsTable = ({
         });
 
         toast.success(
-          "Thank you for your feedback. Your flag request has been submitted successfully."
+          "Thank you for your feedback. Your flag request has been submitted successfully.",
         );
         setEditOpen(false);
         return;
@@ -229,7 +229,7 @@ export const QuestionsTable = ({
       if (!status)
         // if status is there that means, then updating question to delayed
         toast.error(
-          error?.message || "An error occurred while saving. Please try again."
+          error?.message || "An error occurred while saving. Please try again.",
         );
       setEditOpen(false);
     }
@@ -285,7 +285,7 @@ export const QuestionsTable = ({
 
       <div className="rounded-lg border bg-card min-h-[55vh] ">
         <div className="hidden md:block overflow-x-auto">
-          <Table className="min-w-[800px]  table-fixed">
+          <Table className="min-w-[800px]  table-auto">
             <TableHeader className="bg-card sticky top-0 z-10">
               <TableRow>
                 <TableHead className="text-center">Sl.No</TableHead>
@@ -300,7 +300,7 @@ export const QuestionsTable = ({
                 <TableHead className="text-center">Review Level</TableHead>
                 {!showClosedAt ? (
                   <TableHead className="text-center">Created</TableHead>
-                ):null}
+                ) : null}
                 {showClosedAt ? (
                   <TableHead className="text-center">Closed</TableHead>
                 ) : null}
@@ -431,7 +431,7 @@ interface QuestionRowProps {
     mode: "add" | "edit",
     entityId?: string,
     flagReason?: string,
-    status?: QuestionStatus
+    status?: QuestionStatus,
   ) => Promise<void>;
   onViewMore: (id: string) => void;
   showClosedAt?: boolean;
@@ -498,8 +498,8 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
       q.priority === "high"
         ? "bg-red-500/10 text-red-600 border-red-500/30"
         : q.priority === "medium"
-        ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-        : "bg-green-500/10 text-green-600 border-green-500/30";
+          ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+          : "bg-green-500/10 text-green-600 border-green-500/30";
 
     return (
       <Badge variant="outline" className={colorClass}>
@@ -521,10 +521,10 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
       effectiveStatus === "in-review"
         ? "bg-green-500/10 text-green-600 border-green-500/30"
         : effectiveStatus === "open"
-        ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-        : effectiveStatus === "closed"
-        ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-        : "bg-muted text-foreground";
+          ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+          : effectiveStatus === "closed"
+            ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
+            : "bg-muted text-foreground";
 
     return (
       <Badge variant="outline" className={colorClass}>
@@ -649,9 +649,9 @@ const QuestionRow: React.FC<QuestionRowProps> = ({
               : `Level ${q.review_level_number}`}
           </TableCell>
           {!showClosedAt ? (
-          <TableCell className="align-middle">
-            {formatDate(new Date(q.createdAt!), false)}
-          </TableCell>
+            <TableCell className="align-middle">
+              {formatDate(new Date(q.createdAt!), false)}
+            </TableCell>
           ) : null}
           {showClosedAt ? (
             <TableCell className="align-middle">
@@ -807,10 +807,10 @@ const MobileQuestionCard: React.FC<QuestionRowProps> = ({
       effectiveStatus === "in-review"
         ? "bg-green-500/10 text-green-600 border-green-500/30"
         : effectiveStatus === "open"
-        ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-        : effectiveStatus === "closed"
-        ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-        : "bg-muted text-foreground";
+          ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+          : effectiveStatus === "closed"
+            ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
+            : "bg-muted text-foreground";
 
     return (
       <Badge variant="outline" className={colorClass}>
@@ -831,8 +831,8 @@ const MobileQuestionCard: React.FC<QuestionRowProps> = ({
       q.priority === "high"
         ? "bg-red-500/10 text-red-600 border-red-500/30"
         : q.priority === "medium"
-        ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-        : "bg-green-500/10 text-green-600 border-green-500/30";
+          ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+          : "bg-green-500/10 text-green-600 border-green-500/30";
 
     return (
       <Badge variant="outline" className={colorClass}>
@@ -989,7 +989,7 @@ interface AddOrEditQuestionDialogProps {
     entityId?: string,
     flagReason?: string,
     status?: QuestionStatus,
-    formData?: FormData
+    formData?: FormData,
   ) => void;
   question?: IDetailedQuestion | null;
   userRole: UserRole;
@@ -1147,7 +1147,7 @@ export const AddOrEditQuestionDialog = ({
                     value={updatedData?.question || ""}
                     onChange={(e) =>
                       setUpdatedData((prev) =>
-                        prev ? { ...prev, question: e.target.value } : prev
+                        prev ? { ...prev, question: e.target.value } : prev,
                       )
                     }
                     rows={3}
@@ -1164,7 +1164,7 @@ export const AddOrEditQuestionDialog = ({
                         value={updatedData?.context || ""}
                         onChange={(e) =>
                           setUpdatedData((prev) =>
-                            prev ? { ...prev, context: e.target.value } : prev
+                            prev ? { ...prev, context: e.target.value } : prev,
                           )
                         }
                         className="h-32 resize-none overflow-y-auto"
@@ -1181,7 +1181,7 @@ export const AddOrEditQuestionDialog = ({
                       setUpdatedData((prev) =>
                         prev
                           ? { ...prev, priority: v as QuestionPriority }
-                          : prev
+                          : prev,
                       )
                     }
                   >
@@ -1208,7 +1208,7 @@ export const AddOrEditQuestionDialog = ({
                             setUpdatedData((prev) =>
                               prev
                                 ? { ...prev, status: v as QuestionStatus }
-                                : prev
+                                : prev,
                             )
                           }
                         >
@@ -1295,7 +1295,7 @@ export const AddOrEditQuestionDialog = ({
                                         [field]: val,
                                       },
                                     }
-                                  : prev
+                                  : prev,
                               )
                             }
                           >
@@ -1325,7 +1325,7 @@ export const AddOrEditQuestionDialog = ({
                                         district: e.target.value,
                                       },
                                     }
-                                  : prev
+                                  : prev,
                               )
                             }
                           />
@@ -1553,11 +1553,11 @@ export const QuestionsFilters = ({
       review_level: "all",
       closedAtStart: undefined,
       closedAtEnd: undefined,
-    }
+    },
   );
   const [addOpen, setAddOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
-    null
+    null,
   );
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
@@ -1571,7 +1571,7 @@ export const QuestionsFilters = ({
     entityId?: string,
     flagReason?: string,
     status?: QuestionStatus,
-    formData?: FormData
+    formData?: FormData,
   ) => {
     try {
       if (mode !== "add") return;
@@ -1609,7 +1609,7 @@ export const QuestionsFilters = ({
       }
       if (!["low", "medium", "high"].includes(payload.priority)) {
         toast.error(
-          "Invalid priority value. Please reselect from the options."
+          "Invalid priority value. Please reselect from the options.",
         );
         return;
       }
@@ -1620,7 +1620,7 @@ export const QuestionsFilters = ({
       }
       if (!["AJRASAKHA", "AGRI_EXPERT"].includes(payload.source)) {
         toast.error(
-          "Invalid source selected. Please reselect from the options."
+          "Invalid source selected. Please reselect from the options.",
         );
         return;
       }
