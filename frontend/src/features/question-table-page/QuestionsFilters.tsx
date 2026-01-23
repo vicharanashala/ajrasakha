@@ -88,6 +88,7 @@ export const QuestionsFilters = ({
       review_level: "all",
       closedAtStart: undefined,
       closedAtEnd: undefined,
+      consecutiveApprovals:'all'
     }
   );
   const [addOpen, setAddOpen] = useState(false);
@@ -222,6 +223,7 @@ export const QuestionsFilters = ({
       review_level: advanceFilter?.review_level,
       closedAtStart: advanceFilter?.closedAtStart,
       closedAtEnd: advanceFilter?.closedAtEnd,
+      consecutiveApprovals:advanceFilter?.consecutiveApprovals
     });
   };
 

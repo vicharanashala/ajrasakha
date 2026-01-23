@@ -4,7 +4,7 @@ import { ObjectId } from "mongodb";
 
 export const buildQuestionFilter = async (
   query: GetDetailedQuestionsQuery & { searchEmbedding: number[] | null },
-  QuestionSubmissionCollection,
+  QuestionSubmissionCollection,AnswersCollection
 ) => {
 
   const filter: any = {};
@@ -31,6 +31,7 @@ export const buildQuestionFilter = async (
     closedAtEnd,
     user,
     review_level,
+    consecutiveApprovals
   } = query;
 
   caseInsensitive("status", status);
@@ -107,6 +108,41 @@ export const buildQuestionFilter = async (
         : { $in: ids };
     }
   }
+  const approvalCount =
+  consecutiveApprovals && consecutiveApprovals !== 'all'
+    ? parseInt(consecutiveApprovals, 10)
+    : null;
+    // --- Consecutive Approvals Filter ---
+if (approvalCount !== null && !isNaN(approvalCount)) {
+  const answers = await AnswersCollection.find({
+    approvalCount: approvalCount,
+  })
+    .project({ questionId: 1 })
+    .toArray();
+
+  const approvalFilteredIds = answers.map(a =>
+    a.questionId.toString(),
+  );
+
+  if (approvalFilteredIds.length === 0) {
+    return { questions: [], totalPages: 0, totalCount: 0 };
+  }
+
+  // Intersect with existing _id filter if present
+  if (filter._id) {
+    filter._id = {
+      $in: approvalFilteredIds
+        .map(id => new ObjectId(id))
+        .filter(id =>
+          filter._id.$in.some((existing: any) => existing.equals(id)),
+        ),
+    };
+  } else {
+    filter._id = {
+      $in: approvalFilteredIds.map(id => new ObjectId(id)),
+    };
+  }
+}
 
   return { filter };
 };
