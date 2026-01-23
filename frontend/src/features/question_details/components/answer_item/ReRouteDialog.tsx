@@ -162,10 +162,10 @@ export const ReRouteDialog = ({
                       <div className="flex flex-col">
                         <div
                           className="font-medium truncate"
-                          title={expert.firstName}
+                          title={expert.userName}
                         >
-                          {expert?.firstName?.slice(0, 48)}
-                          {expert?.firstName?.length > 48 ? "..." : ""}
+                          {expert?.userName?.slice(0, 48)}
+                          {expert?.userName?.length > 48 ? "..." : ""}
                         </div>
                         <div
                           className="text-xs text-muted-foreground truncate"
