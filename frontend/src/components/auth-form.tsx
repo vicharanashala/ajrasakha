@@ -96,7 +96,7 @@ export const AuthForm = ({
       if (!formData.name) {
         newErrors.name = "Name is required";
       } else if(!formData.name.trim()) {
-        newErrors.name="Nam cannot be empty or blank spaces"
+        newErrors.name="Name cannot be empty or blank spaces"
       } else if (!/^[a-zA-Z\s]+$/.test(formData.name)) {
         newErrors.name = "Name cannot contain special characters or numbers";
       }
