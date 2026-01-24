@@ -20,8 +20,11 @@ import { Input } from "./atoms/input";
 
 import {
   AlertCircle,
+  ArrowDownNarrowWide,
+  ArrowUpNarrowWide,
   Check,
   CheckCircle,
+  Clock,
   Edit,
   Eye,
   File,
@@ -37,6 +40,7 @@ import {
   Plus,
   PlusCircle,
   RefreshCcw,
+  RotateCcw,
   Save,
   Search,
   Square,
@@ -1514,6 +1518,8 @@ type QuestionsFiltersProps = {
   setSelectedQuestionIds: (value: string[]) => void;
   viewMode: "all" | "review-level";
   setViewMode: (v: "all" | "review-level") => void;
+  onSort:(key:string)=>void;
+  sort:string;
 };
 
 export const QuestionsFilters = ({
@@ -1536,6 +1542,8 @@ export const QuestionsFilters = ({
   bulkDeletingQuestions,
   viewMode,
   setViewMode,
+  onSort,
+  sort
 }: QuestionsFiltersProps) => {
   const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
     {
@@ -1737,6 +1745,43 @@ export const QuestionsFilters = ({
         mode="add"
       />
 
+      {viewMode === "review-level" && (
+        <div className="flex items-center gap-1">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="flex items-center gap-2 px-3 py-2 rounded-md text-sm 
+               bg-primary text-white hover:opacity-90 select-none"
+                  onClick={() => onSort("totalTurnAround")}
+                >
+                  <Clock size={14} />
+
+                  {sort === `totalTurnAround___asc` && (
+                    <ArrowUpNarrowWide size={14} />
+                  )}
+                  {sort === `totalTurnAround___desc` && (
+                    <ArrowDownNarrowWide size={14} />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Sort questions by total turnaround time</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          {sort && (
+            <div className="flex justify-end">
+              <button
+                onClick={() => onSort("clearSort")}
+                className="ml-1 p-2 rounded-md text-sm bg-primary text-white hover:text-black"
+              >
+                <RotateCcw size={14} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       {/* SEARCH BAR – full width on mobile, fixed width on desktop */}
       <div className="w-full sm:flex-1 sm:min-w-[250px] sm:max-w-[400px]">
         <div className="relative w-full">
@@ -1762,7 +1807,6 @@ export const QuestionsFilters = ({
           )}
         </div>
       </div>
-
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-3 justify-between sm:justify-end">
         <div className="relative inline-block">
           <TopRightBadge label="New" />

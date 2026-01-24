@@ -290,6 +290,8 @@ export const QuestionsPage = ({
             bulkDeletingQuestions={bulkDeletingQuestions}
             viewMode={viewMode}
             setViewMode={setViewMode}
+            onSort={toggleSort}
+            sort={sort}
           />
 
           {viewMode === "all" ? (

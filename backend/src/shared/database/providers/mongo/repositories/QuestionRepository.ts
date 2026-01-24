@@ -2219,6 +2219,8 @@ export class QuestionRepository implements IQuestionRepository {
   const [levelKey, order] = sort.split('___');
   const levelIndex = levelMap[levelKey];
   const hasLevelSort = sort && sort.includes('___') && levelIndex !== undefined;
+  const isTotalTurnAroundTimeSort = sort && sort.startsWith('totalTurnAround___');
+
   const sortDir = order === 'asc' ? 1 : -1;
 
   const dataPipeLine: any[] = [
@@ -2516,7 +2518,25 @@ export class QuestionRepository implements IQuestionRepository {
             },
           ]
    
-    if(hasLevelSort){
+    if(isTotalTurnAroundTimeSort){
+      dataPipeLine.push(
+    {
+      $addFields: {
+        totalTurnAround: {
+          $sum: {
+            $filter: {
+              input: "$reviewLevels.sortSecs",
+              as: "s",
+              cond: { $ne: ["$$s", null] }
+            }
+          }
+        }
+      }
+    },
+    { $sort: { totalTurnAround: sortDir } }
+  );
+    }
+    else if(hasLevelSort){
       dataPipeLine.push(
          // Extract the requested level for sorting
             {
@@ -2544,6 +2564,7 @@ export class QuestionRepository implements IQuestionRepository {
                 status: 1,
                 createdAt: 1,
                 reviewLevels: 1,
+                totalTurnAround:1,
               },
             }
     )
@@ -2566,6 +2587,12 @@ export class QuestionRepository implements IQuestionRepository {
 
     const totalDocs = meta.totalDocs;
     const totalPages = Math.max(1, Math.ceil(totalDocs / limit));
+    console.log('ttts:',
+      docs.map((item,indx)=>
+      item.totalTurnAround
+      )
+
+    )
   
     return {
       page,
@@ -2581,6 +2608,7 @@ export class QuestionRepository implements IQuestionRepository {
         status: doc.status,
         createdAt: doc.createdAt,
         reviewLevels: doc.reviewLevels,
+        totalTurnAround: doc.totalTurnAround
       })),
     };
   }
