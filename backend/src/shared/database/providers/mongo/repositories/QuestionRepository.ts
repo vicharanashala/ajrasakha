@@ -2168,6 +2168,24 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
+  async getTodayApproved(session:ClientSession):Promise<{todayApproved:number}>{
+    await this.init();
+    const startOfToday = new Date();
+    startOfToday.setUTCHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setUTCHours(23, 59, 59, 999);
+    const count = await this.QuestionCollection.countDocuments(
+    {
+      status: "closed",
+      closedAt: {
+        $gte: startOfToday,
+        $lte: endOfToday,
+      },
+    },
+    { session })
+    return {todayApproved:count};
+  }
+
   async bulkDeleteByIds(
     questionIds: string[],
     session?: ClientSession,
