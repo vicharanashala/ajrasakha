@@ -88,7 +88,7 @@ export class UserService extends BaseService {
     try {
       if (!userId) throw new NotFoundError('User ID is required');
 
-      if(!data.firstName.trim()) throw new BadRequestError("First name cannot be empty or blank space")
+      if(!data.firstName.trim()) throw new BadRequestError("First name cannot be empty or blank space");
 
       const authService = getFromContainer(FirebaseAuthService);
 
