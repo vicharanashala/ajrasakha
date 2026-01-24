@@ -5,7 +5,7 @@ import { CORE_TYPES } from '#root/modules/core/types.js';
 import { QuestionService } from '#root/modules/core/index.js';
 
 
-// if (!appConfig.isDevelopment) {
+if (!appConfig.isDevelopment) {
   cron.schedule(
     '0 10 * * *',
     async () => {
@@ -25,4 +25,4 @@ import { QuestionService } from '#root/modules/core/index.js';
       timezone: 'Asia/Kolkata',
     },
   );
-// }
+}

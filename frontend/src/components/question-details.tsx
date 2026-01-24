@@ -1,113 +1,22 @@
 import type {
-  IAnswer,
   IQuestionFullData,
-  ISubmission,
-  ISubmissionHistory,
   IUser,
-  QuestionStatus,
-  ReRouteStatus,
-  SourceItem,
-  UserRole,
   IRerouteHistoryResponse,
 } from "@/types";
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { Badge } from "./atoms/badge";
-import { Card } from "./atoms/card";
-import { Separator } from "./atoms/separator";
-import { Textarea } from "./atoms/textarea";
-import { Button } from "./atoms/button";
-import { toast } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "./atoms/dialog";
-import { ScrollArea } from "./atoms/scroll-area";
+import { useMemo, useRef, useState } from "react";
 
-import {
-  AlertCircle,
-  AlertTriangle,
-  ArrowUpRight,
-  Calendar,
-  Check,
-  CheckCircle,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  Clock,
-  Eye,
-  FileText,
-  Gauge,
-  Info,
-  Landmark,
-  Layers,
-  Link2,
-  Loader2,
-  MapPin,
-  Pencil,
-  PlusCircle,
-  RefreshCcw,
-  RefreshCw,
-  Send,
-  Sprout,
-  Trash2,
-  User,
-  UserCheck,
-  UserPlus,
-  Users,
-  X,
-  XCircle,
-  ShieldCheck,
-  ShieldX,
-} from "lucide-react";
-import { useSubmitAnswer } from "@/hooks/api/answer/useSubmitAnswer";
-import { useGetComments } from "@/hooks/api/comment/useGetComments";
-import { SourceUrlManager } from "./source-url-manager";
-import { Timeline } from "primereact/timeline";
-import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "./atoms/tooltip";
-import { Checkbox } from "./atoms/checkbox";
-import { Label } from "./atoms/label";
-import { Switch } from "./atoms/switch";
-import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
-import { useAllocateExpert } from "@/hooks/api/question/useAllocateExperts";
-import { useGetReRouteAllocation } from "@/hooks/api/question/useGetReRouteAllocation";
-import { useToggleAutoAllocateQuestion } from "@/hooks/api/question/useToggleAutoAllocateQuestion";
-import { useRemoveAllocation } from "@/hooks/api/question/useRemoveAllocation";
-import { ConfirmationModal } from "./confirmation-modal";
-import { Input } from "./atoms/input";
-import { formatDate } from "@/utils/formatDate";
-import { useCountdown } from "@/hooks/ui/useCountdown";
-import { TimerDisplay } from "./timer-display";
-import { CommentsSection } from "./comments-section";
-import { parameterLabels } from "./QA-interface";
-import { ExpandableText } from "./expandable-text";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "./atoms/accordion";
-import { diffWords } from "@/utils/wordDifference";
+import { Button } from "./atoms/button";
+
+import { AlertTriangle, FileText, Loader2, RefreshCw } from "lucide-react";
+
 import { useGetReRoutedQuestionFullData } from "@/hooks/api/question/useGetReRoutedQuestionFullData";
-import { useReRouteRejectQuestion } from "@/hooks/api/question/useReRouteRejectQuestion";
+
+import { AnswerTimeline } from "@/features/question_details/components/AnswerTimeline";
+import { RerouteTimeline } from "@/features/question_details/components/RerouteTimeline";
+import { AllocationTimeline } from "@/features/question_details/components/AllocationTimeline";
+import { flattenAnswers } from "@/features/question_details/utils/flattenAnswers";
+import { QuestionHeader } from "@/features/question_details/components/QuestionHeader";
+import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -118,22 +27,6 @@ interface QuestionDetailProps {
   currentUser: IUser;
   rerouteQuestion?: IRerouteHistoryResponse[];
 }
-
-const flattenAnswers = (submission: ISubmission): IAnswer[] => {
-  const answers: IAnswer[] = [];
-
-  for (const h of submission.history) {
-    if (h.answer) {
-      answers.push(h.answer);
-    }
-  }
-
-  return answers.sort((a, b) => {
-    const aT = a.createdAt ? +new Date(a.createdAt) : 0;
-    const bT = b.createdAt ? +new Date(b.createdAt) : 0;
-    return bT - aT;
-  });
-};
 
 export const QuestionDetails = ({
   question,
@@ -146,23 +39,16 @@ export const QuestionDetails = ({
 }: QuestionDetailProps) => {
   //console.log("the question details====",question)
   // console.log("reroutedetail====",rerouteQuestion)
+  const ANSWER_VISIBLE_COUNT = 5;
 
   const answers = useMemo(
     () => flattenAnswers(question?.submission),
     [question.submission]
   );
-  const ANSWER_VISIBLE_COUNT = 5;
   const [answerVisibleCount, setAnswerVisibleCount] =
     useState(ANSWER_VISIBLE_COUNT);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showMoreDetails, setShowMoreDetails] = useState(false);
-  const [showFullContext, setShowFullContext] = useState(false);
-
-  const metrics = question.metrics;
-  const context = question.context;
-
-  const timer = useCountdown(question.createdAt!, 4, () => {});
 
   const commentRef = useRef<any>(null);
   const {
@@ -173,411 +59,9 @@ export const QuestionDetails = ({
 
   return (
     <main className="mx-auto p-6 pt-0 grid gap-6">
-      {/* <header className="grid gap-2">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-pretty">
-            {question.question}
-          </h1>
-          <div className="flex gap-8 items-center justify-center">
-            <TimerDisplay timer={timer} status={question.status} size="lg" />
-            <div className="flex justify-center gap-2 items-center">
-              <Button
-                size="sm"
-                variant="outline"
-                className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
-                onClick={() => goBack()}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                  className="w-4 h-4"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M17 8l4 4m0 0l-4 4m4-4H3"
-                  />
-                </svg>
-                <span className="leading-none">Exit</span>
-              </Button>
-            </div>
-          </div>
-        </div>
+      <QuestionHeader question={question} goBack={goBack} />
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge
-            className={
-              question.status === "in-review"
-                ? "bg-green-500/10 text-green-600 border-green-500/30"
-                : question.status === "open"
-                ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                : question.status === "closed"
-                ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-                : "bg-muted text-foreground"
-            }
-          >
-            {question.status.replace("_", " ")}
-          </Badge>
-
-          <Badge
-            className={
-              question.priority === "high"
-                ? "bg-red-500/10 text-red-600 border-red-500/30"
-                : question.priority === "medium"
-                ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-                : question.priority === "low"
-                ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
-                : "bg-muted text-foreground"
-            }
-          >
-            {question.priority ? question.priority.toUpperCase() : "NIL"}
-          </Badge>
-
-          <span className="text-sm text-muted-foreground">
-            Total answers: {question.totalAnswersCount}
-          </span>
-        </div>
-
-        <div className="text-xs text-muted-foreground">
-          Created: {formatDate(new Date(question.createdAt))} • Updated:{" "}
-          {formatDate(new Date(question.updatedAt))}
-        </div>
-      </header> */}
-
-      <header className="grid gap-3 w-full">
-        {/* Title + Timer + Exit */}
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-          {/* Question Title */}
-          <h1 className="text-xl sm:text-2xl font-semibold text-pretty break-words flex-1">
-            {question.question}
-          </h1>
-
-          {/* Right Side */}
-          <div className="flex sm:flex-row flex-col sm:items-center items-end gap-3 sm:gap-6">
-            <TimerDisplay timer={timer} status={question.status} size="lg" />
-
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                variant="outline"
-                className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
-                onClick={() => goBack()}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                  className="w-4 h-4"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M17 8l4 4m0 0l-4 4m4-4H3"
-                  />
-                </svg>
-                <span className="leading-none">Exit</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Status + Priority + Total answers */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge
-            className={
-              question.status === "in-review"
-                ? "bg-green-500/10 text-green-600 border-green-500/30"
-                : question.status === "open"
-                ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                : question.status === "closed"
-                ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-                : "bg-muted text-foreground"
-            }
-          >
-            {question.status.replace("_", " ")}
-          </Badge>
-
-          <Badge
-            className={
-              question.priority === "high"
-                ? "bg-red-500/10 text-red-600 border-red-500/30"
-                : question.priority === "medium"
-                ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-                : question.priority === "low"
-                ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
-                : "bg-muted text-foreground"
-            }
-          >
-            {question.priority ? question.priority.toUpperCase() : "NIL"}
-          </Badge>
-
-          <span className="text-sm text-muted-foreground whitespace-nowrap">
-            Total answers: {question.totalAnswersCount}
-          </span>
-        </div>
-
-        {/* Created / Updated */}
-        <div className="text-xs text-muted-foreground flex flex-wrap gap-1">
-          <span>Created: {formatDate(new Date(question.createdAt))}</span>
-          <span>•</span>
-          <span>Updated: {formatDate(new Date(question.updatedAt))}</span>
-        </div>
-      </header>
-
-      {/* <Card className="p-4 grid gap-3">
-        <p className="text-sm font-medium">Details</p>
-
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-primary" />
-            <span className="text-muted-foreground">State:</span>
-            <span className="truncate">{question.details?.state || "-"}</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Landmark className="w-4 h-4 text-primary" />
-            <span className="text-muted-foreground">District:</span>
-            <span className="truncate">
-              {question.details?.district || "-"}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Sprout className="w-4 h-4 text-primary" />
-            <span className="text-muted-foreground">Crop:</span>
-            <span className="truncate">{question.details?.crop || "-"}</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-primary" />
-            <span className="text-muted-foreground">Season:</span>
-            <span className="truncate">{question.details?.season || "-"}</span>
-          </div>
-
-          <div className="flex items-center gap-2 col-span-2">
-            <Layers className="w-4 h-4 text-primary" />
-            <span className="text-muted-foreground">Domain:</span>
-            <span className="truncate">{question.details?.domain || "-"}</span>
-          </div>
-        </div>
-
-        <Separator />
-
-        <div className="flex items-center gap-2 text-sm">
-          <Link2 className="w-4 h-4 text-primary" />
-          <span className="text-muted-foreground">Source:</span>
-          <span className="truncate">{question.source || "-"}</span>
-        </div>
-
-        {showMoreDetails && (
-          <>
-            <Separator className="my-2" />
-
-            {context && (
-              <div className="grid gap-1 text-sm">
-                <div className="flex items-center gap-2 ">
-                  <FileText className="w-4 h-4 text-primary" />
-                  <span className="text-muted-foreground">Context:</span>
-                </div>
-                <p className="text-muted-foreground ml-6">
-                  {showFullContext || context.length <= 180
-                    ? context
-                    : `${context.slice(0, 180)}... `}
-                  {context.length > 180 && (
-                    <button
-                      onClick={() => setShowFullContext((prev) => !prev)}
-                      className="text-primary text-xs font-medium"
-                    >
-                      {showFullContext ? "Show less" : "Read more"}
-                    </button>
-                  )}
-                </p>
-              </div>
-            )}
-
-            {metrics && (
-              <div className="grid gap-1 text-sm">
-                <div className="flex items-center gap-2 mt-2">
-                  <Gauge className="w-4 h-4 text-primary" />
-                  <span className="text-muted-foreground font-medium">
-                    Metrics
-                  </span>
-                </div>
-                <div className="ml-6 grid grid-cols-2 gap-1 text-muted-foreground">
-                  <span>Mean Similarity:</span>
-                  <span>{metrics.mean_similarity.toFixed(2)}</span>
-                  <span>Std Deviation:</span>
-                  <span>{metrics.std_similarity.toFixed(2)}</span>
-                  <span>Recent Similarity:</span>
-                  <span>{metrics.recent_similarity.toFixed(2)}</span>
-                  <span>Collusion Score:</span>
-                  <span>{metrics.collusion_score.toFixed(2)}</span>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {currentUser.role !== "expert" && (context || metrics) && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mt-2 flex items-center gap-1 justify-start text-primary"
-            onClick={() => setShowMoreDetails((prev) => !prev)}
-          >
-            {showMoreDetails ? (
-              <>
-                <ChevronUp className="w-4 h-4" /> View Less
-              </>
-            ) : (
-              <>
-                <ChevronDown className="w-4 h-4" /> View More
-              </>
-            )}
-          </Button>
-        )}
-      </Card> */}
-
-      <Card className="p-4 grid gap-4">
-        <p className="text-sm font-medium">Details</p>
-
-        {/* Basic Info */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-          <div className="flex items-start gap-2">
-            <MapPin className="w-4 h-4 text-primary shrink-0" />
-            <div className="flex flex-col">
-              <span className="text-muted-foreground">State</span>
-              <span className="truncate">{question.details?.state || "-"}</span>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2">
-            <Landmark className="w-4 h-4 text-primary shrink-0" />
-            <div className="flex flex-col">
-              <span className="text-muted-foreground">District</span>
-              <span className="truncate">
-                {question.details?.district || "-"}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2">
-            <Sprout className="w-4 h-4 text-primary shrink-0" />
-            <div className="flex flex-col">
-              <span className="text-muted-foreground">Crop</span>
-              <span className="truncate">{question.details?.crop || "-"}</span>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2">
-            <Calendar className="w-4 h-4 text-primary shrink-0" />
-            <div className="flex flex-col">
-              <span className="text-muted-foreground">Season</span>
-              <span className="truncate">
-                {question.details?.season || "-"}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2 sm:col-span-2">
-            <Layers className="w-4 h-4 text-primary shrink-0" />
-            <div className="flex flex-col">
-              <span className="text-muted-foreground">Domain</span>
-              <span className="truncate">
-                {question.details?.domain || "-"}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <Separator />
-
-        <div className="flex items-start gap-2 text-sm">
-          <Link2 className="w-4 h-4 text-primary shrink-0" />
-          <div className="flex flex-col">
-            <span className="text-muted-foreground">Source</span>
-            <span className="truncate">{question.source || "-"}</span>
-          </div>
-        </div>
-
-        {showMoreDetails && (
-          <>
-            <Separator className="my-2" />
-
-            {context && (
-              <div className="grid gap-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-primary" />
-                  <span className="text-muted-foreground">Context</span>
-                </div>
-
-                <p className="text-muted-foreground ml-6">
-                  {showFullContext || context.length <= 180
-                    ? context
-                    : `${context.slice(0, 180)}... `}
-                  {context.length > 180 && (
-                    <button
-                      onClick={() => setShowFullContext((prev) => !prev)}
-                      className="text-primary text-xs font-medium"
-                    >
-                      {showFullContext ? "Show less" : "Read more"}
-                    </button>
-                  )}
-                </p>
-              </div>
-            )}
-
-            {metrics && (
-              <div className="grid gap-2 text-sm">
-                <div className="flex items-center gap-2 mt-1">
-                  <Gauge className="w-4 h-4 text-primary" />
-                  <span className="text-muted-foreground font-medium">
-                    Metrics
-                  </span>
-                </div>
-
-                <div className="ml-6 grid grid-cols-1 sm:grid-cols-2 gap-1 text-muted-foreground">
-                  <span>Mean Similarity:</span>
-                  <span>{metrics.mean_similarity.toFixed(2)}</span>
-
-                  <span>Std Deviation:</span>
-                  <span>{metrics.std_similarity.toFixed(2)}</span>
-
-                  <span>Recent Similarity:</span>
-                  <span>{metrics.recent_similarity.toFixed(2)}</span>
-
-                  <span>Collusion Score:</span>
-                  <span>{metrics.collusion_score.toFixed(2)}</span>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {currentUser.role !== "expert" && (context || metrics) && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mt-2 flex items-center gap-1 text-primary"
-            onClick={() => setShowMoreDetails((prev) => !prev)}
-          >
-            {showMoreDetails ? (
-              <>
-                <ChevronUp className="w-4 h-4" /> View Less
-              </>
-            ) : (
-              <>
-                <ChevronDown className="w-4 h-4" /> View More
-              </>
-            )}
-          </Button>
-        )}
-      </Card>
+      <QuestionDetailsCard question={question} currentUser={currentUser} />
 
       {/* {currentUser.role !== "expert" && ( */}
       <AllocationTimeline
@@ -847,9 +331,8 @@ const AllocationQueueHeader = ({
                           sm:max-w-xl              
                           md:max-w-4xl             
                           lg:max-w-6xl             
-                          max-h-[85vh]             
-                          min-h-[60vh]             
-                          overflow-hidden           
+                          h-[90vh]             
+                          max-h-[90vh]          
                           p-4                       
                         "
                 >
@@ -980,7 +463,6 @@ const AllocationQueueHeader = ({
                     <Button
                       variant="outline"
                       onClick={handleCancel}
-                      className="hidden md:block"
                     >
                       Cancel
                     </Button>

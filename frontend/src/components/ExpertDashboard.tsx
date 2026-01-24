@@ -240,7 +240,7 @@ export const ExpertDashboard = ({
              </div> 
             } */}
             <p className="text-muted-foreground mt-1">
-              Monitor expert performance of : {userDetails?.[0]?.firstName}
+              Monitor {expertId?"expert":"your"} performance: {userDetails?.[0]?.firstName}
             </p>
           </div>
 
