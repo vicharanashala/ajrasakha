@@ -93,7 +93,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
   const [responseOpen, setResponseOpen] = useState(false);
 
   const { data: requestDiff, isLoading: reqDiffLoading } = useGetRequestDiff(
-    diffOpen ? req._id : ""
+    diffOpen ? req._id : "",
   );
 
   const { mutateAsync: updateStatus, isPending: updatingStatus } =
@@ -103,17 +103,17 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
     requestType: req.requestType,
     diff: requestDiff!,
   };
-   const queryClient = useQueryClient();
-  const { mutateAsync: softDelete, isPending: deleting } = useSoftDeleteRequest();
- const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-
+  const queryClient = useQueryClient();
+  const { mutateAsync: softDelete, isPending: deleting } =
+    useSoftDeleteRequest();
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   useEffect(() => {}, [isHighlighted, req._id]);
   const handleSubmit = async () => {
     try {
       if (!newStatus || newStatus === req.status) {
         toast.error(
-          "Please select a new status different from the current one."
+          "Please select a new status different from the current one.",
         );
         return;
       }
@@ -175,9 +175,9 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
   };
 
   return (
-    <Card 
+    <Card
       // className="bg-card"
-      className={`group bg-card relative transition-all duration-200 ${
+      className={`group bg-card relative transition-all duration-200 overflow-hidden${
         isHighlighted
           ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
           : "border-border hover:border-primary/40 hover:shadow-sm"
@@ -192,24 +192,24 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
       {isHighlighted && (
         <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none rounded-lg"></div>
       )}
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Avatar className="size-10">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 pb-2">
+        <div className="flex items-center gap-3 min-w-0">
+          <Avatar className="size-10 flex-shrink-0">
             <AvatarFallback className="bg-secondary text-secondary-foreground">
               {initials(
                 req?.requestedUser?.firstName +
                   " " +
-                  req?.requestedUser?.lastName || ""
+                  req?.requestedUser?.lastName || "",
               )}
             </AvatarFallback>
           </Avatar>
-          <div className="space-y-1">
-            <CardTitle className="text-base">
+          <div className="space-y-1 min-w-0">
+            <CardTitle className="text-sm sm:text-base truncate">
               {req?.requestedUser?.firstName +
                 " " +
                 req?.requestedUser?.lastName || ""}
             </CardTitle>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-xs sm:text-sm text-muted-foreground">
               {req?.requestType === "question_flag"
                 ? "Question Flag"
                 : "Others"}
@@ -217,48 +217,50 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
           </div>
         </div>
         {/* Status badge */}
-<span
-  className={`absolute top-11 right-5 px-3 py-1 rounded-full text-xs font-medium border ${
-    req?.status === "approved"
-      ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
-      : req?.status === "rejected"
-      ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
-      : req?.status === "in-review"
-      ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
-      : req?.status === "pending"
-      ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
-      : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
-  }`}
->
-  {req?.status?.toUpperCase() || "N/A"}
-</span>
-{/* Delete button */}
-<ConfirmationModal
-  title="Confirm Delete"
-  description="Are you sure you want to delete this request? This action cannot be undone."
-  confirmText="Delete"
-  type="delete"
-  open={deleteModalOpen}
-  onOpenChange={setDeleteModalOpen}
-  isLoading={deleting}
-  onConfirm={async () => {
-    try {
-      await softDelete(req._id);
+        <span
+          className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium border flex-shrink-0 whitespace-nowrap ${
+            req?.status === "approved"
+              ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
+              : req?.status === "rejected"
+                ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
+                : req?.status === "in-review"
+                  ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
+                  : req?.status === "pending"
+                    ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
+                    : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
+          }`}
+        >
+          {req?.status?.toUpperCase() || "N/A"}
+        </span>
+        {/* Delete button */}
+        <ConfirmationModal
+          title="Confirm Delete"
+          description="Are you sure you want to delete this request? This action cannot be undone."
+          confirmText="Delete"
+          type="delete"
+          open={deleteModalOpen}
+          onOpenChange={setDeleteModalOpen}
+          isLoading={deleting}
+          onConfirm={async () => {
+            try {
+              await softDelete(req._id);
 
-      // Remove and invalidate queries
-      queryClient.removeQueries({ queryKey: ["request_diff", req._id] });
-      queryClient.invalidateQueries({ queryKey: ["requests"] });
+              // Remove and invalidate queries
+              queryClient.removeQueries({
+                queryKey: ["request_diff", req._id],
+              });
+              queryClient.invalidateQueries({ queryKey: ["requests"] });
 
-      toast.success("Request deleted successfully.");
-      setDeleteModalOpen(false);
-    } catch {
-      toast.error("Failed to delete request.");
-    }
-  }}
-  trigger={
-    <Button
-      variant="ghost"
-      className="
+              toast.success("Request deleted successfully.");
+              setDeleteModalOpen(false);
+            } catch {
+              toast.error("Failed to delete request.");
+            }
+          }}
+          trigger={
+            <Button
+              variant="ghost"
+              className="
   absolute top-0 right-0
   h-10 w-10 p-0
   flex items-center justify-center
@@ -278,57 +280,53 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
   border-none
   z-20
 "
-
-      disabled={deleting}
-    >
-      <Trash2 className="w-4 h-4" />
-    </Button>
-  }
-/>
-
-
-
+              disabled={deleting}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          }
+        />
       </CardHeader>
 
-      <CardContent className="space-y-3">
-        <div className="text-sm">
-          <div className="font-medium">Reason</div>
-          <p className="text-muted-foreground line-clamp-2">{req.reason}</p>
+      <CardContent className="space-y-2 pt-1 px-4 sm:px-6">
+        <div className="text-xs sm:text-sm">
+          <div className="font-medium text-xs sm:text-sm">Reason</div>
+          <p className="text-muted-foreground line-clamp-2 text-xs sm:text-sm">{req.reason}</p>
         </div>
         <div className="text-xs text-muted-foreground">
           Created: {new Date(req.createdAt).toLocaleString()}
         </div>
-        <div className="flex gap-2 justify-end">
+        <div className="flex gap-1 sm:gap-2 justify-end mt-2 flex-wrap sm:flex-nowrap">
           <div className="fixed inset-0 flex items-start justify-center z-50 p-6 pointer-events-none">
             {diffOpen && (
               <Card className="group bg-card w-[90vw] max-w-[95vw] h-[90vh] flex flex-col shadow-xl border border-border pointer-events-auto overflow-hidden">
-                <CardHeader className="p-6 border-b border-border flex flex-col gap-2">
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-4">
-                      <FileText className="w-5 h-5 text-primary" />
-                      <div className="flex flex-col">
-                        <CardTitle className="text-base font-semibold">
+                <CardHeader className="p-3 sm:p-6 border-b border-border flex flex-col gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between w-full gap-2 sm:gap-4">
+                    <div className="flex items-start gap-2 sm:gap-4 min-w-0">
+                      <FileText className="w-4 sm:w-5 h-4 sm:h-5 text-primary flex-shrink-0 mt-1" />
+                      <div className="flex flex-col min-w-0">
+                        <CardTitle className="text-sm sm:text-base font-semibold break-words">
                           Request Diff & Review
                         </CardTitle>
-                        <div className="text-sm text-muted-foreground flex gap-2">
+                        <div className="text-xs sm:text-sm text-muted-foreground flex gap-2 flex-col sm:flex-row mt-1">
                           <span>QuestionId: {req?.entityId}</span>
                           <span>RequestId: {req?._id}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div>
+                    <div className="flex-shrink-0">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium border ${
                           req?.status === "approved"
                             ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
                             : req?.status === "rejected"
-                            ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
-                            : req?.status === "in-review"
-                            ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
-                            : req?.status === "pending"
-                            ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
-                            : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
+                              ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
+                              : req?.status === "in-review"
+                                ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
+                                : req?.status === "pending"
+                                  ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
+                                  : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
                         }`}
                       >
                         {req?.status?.toUpperCase() || "N/A"}
@@ -342,7 +340,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
                   </CardDescription>
                 </CardHeader>
 
-                <ScrollArea className="flex-1 p-4 px-8 bg-muted/30 overflow-y-auto">
+                <ScrollArea className="flex-1 p-2 sm:p-4 sm:px-8 bg-muted/30 overflow-y-auto">
                   <ReqDetailsDiff
                     request={request}
                     requestDiffLoading={reqDiffLoading}
@@ -381,7 +379,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
                         setNewStatus(value)
                       }
                     >
-                      <SelectTrigger className="w-[220px]">
+                      <SelectTrigger className="w-full sm:w-[220px]">
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -393,15 +391,15 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
                   </div>
                 </ScrollArea>
 
-                <CardFooter className="flex justify-end gap-3 border-t border-border p-6">
-                  <Button variant="outline" onClick={() => setDiffOpen(false)}>
+                <CardFooter className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 border-t border-border p-3 sm:p-6">
+                  <Button variant="outline" className="text-xs sm:text-sm" onClick={() => setDiffOpen(false)}>
                     Cancel
                   </Button>
                   {(req.status == "pending" || req.status == "in-review") && (
                     <Button
                       onClick={handleSubmit}
                       disabled={reqDiffLoading || updatingStatus}
-                      className="bg-primary text-primary-foreground"
+                      className="bg-primary text-primary-foreground text-xs sm:text-sm"
                     >
                       {updatingStatus ? "Submitting..." : "Submit Response"}
                     </Button>
@@ -470,7 +468,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
                                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                     <Calendar className="h-3 w-3" />
                                     {new Date(
-                                      response.reviewedAt || ""
+                                      response.reviewedAt || "",
                                     ).toLocaleString()}
                                   </div>
                                 </div>
@@ -506,26 +504,25 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
               </DialogContent>
             </Dialog>
           </div>
-      <div className="flex items-center gap-3 relative group">
-  <Button
-    variant="outline"
-    className="flex items-center justify-center gap-2"
-    onClick={() => setResponseOpen(true)}
-  >
-    <History className="w-4 h-4" aria-hidden="true" />
-    <span>View History</span>
-  </Button>
+          <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
+            <Button
+              variant="outline"
+              className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm h-auto sm:h-10"
+              onClick={() => setResponseOpen(true)}
+            >
+              <History className="w-3 sm:w-4 h-3 sm:h-4" />
+              <span>View History</span>
+            </Button>
 
-  <Button
-    variant="default"
-    className="flex items-center justify-center gap-2"
-    onClick={() => setDiffOpen(true)}
-  >
-    <GitCompare className="w-4 h-4" aria-hidden="true" />
-    <span>View Diff</span>
-  </Button>
-</div>
-
+            <Button
+              variant="default"
+              className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm h-auto sm:h-10"
+              onClick={() => setDiffOpen(true)}
+            >
+              <GitCompare className="w-3 sm:w-4 h-3 sm:h-4" aria-hidden="true" />
+              <span>View Diff</span>
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -539,12 +536,12 @@ export const RequestsPage = ({
 }) => {
   const [status, setStatus] = useState<"all" | RequestStatus>("all");
   const [reqType, setReqType] = useState<"all" | "question_flag" | "others">(
-    "all"
+    "all",
   );
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
-    null
+    null,
   );
   // const [isInitialLoad, setIsInitialLoad] = useState(true);
   const LIMIT = 10;
@@ -554,7 +551,7 @@ export const RequestsPage = ({
     LIMIT,
     status,
     reqType,
-    sortOrder
+    sortOrder,
   );
 
   useEffect(() => {
@@ -563,7 +560,7 @@ export const RequestsPage = ({
     }
 
     const matchingRequest = requestData.requests.find(
-      (req) => req.entityId === autoSelectId
+      (req) => req.entityId === autoSelectId,
     );
 
     if (matchingRequest) {
@@ -572,7 +569,7 @@ export const RequestsPage = ({
       // Scroll after component re-renders
       setTimeout(() => {
         const element = document.getElementById(
-          `request-${matchingRequest._id}`
+          `request-${matchingRequest._id}`,
         );
         if (element) {
           element.scrollIntoView({
@@ -613,10 +610,7 @@ export const RequestsPage = ({
           </div>
 
           <div
-            className={`flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto ${
-              !requestData?.requests ||
-              (requestData.requests.length === 0 && "hidden")
-            }`}
+            className={`flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto `}
           >
             <div className="flex-1 min-w-[180px]">
               <label className="text-sm font-medium mb-1 flex items-center gap-1">
@@ -693,7 +687,6 @@ export const RequestsPage = ({
         ) : (
           requestData.requests.map((req) => (
             <RequestCard
-            
               key={`${req._id}-${selectedRequestId === String(req._id)}`}
               req={req}
               isHighlighted={selectedRequestId === String(req._id)}
@@ -810,7 +803,7 @@ export const ReqDetailsDiff = ({
                     key={f.path + "-old"}
                     className={cn(
                       "rounded-md border border-border p-3",
-                      f.changed ? "bg-destructive/10" : "bg-muted/20"
+                      f.changed ? "bg-destructive/10" : "bg-muted/20",
                     )}
                   >
                     <div className="text-xs text-muted-foreground mb-1 font-mono">
@@ -836,7 +829,7 @@ export const ReqDetailsDiff = ({
                     key={f.path + "-new"}
                     className={cn(
                       "rounded-md border border-border p-3",
-                      f.changed ? "bg-primary/10" : "bg-muted/20"
+                      f.changed ? "bg-primary/10" : "bg-muted/20",
                     )}
                   >
                     <div className="text-xs text-muted-foreground mb-1 font-mono">
@@ -874,7 +867,7 @@ const Legend = () => {
 
 export const diffQuestion = (
   oldDoc: Record<string, any>,
-  newDoc: Record<string, any>
+  newDoc: Record<string, any>,
 ): Array<{
   path: string;
   oldValue: unknown;
@@ -914,7 +907,7 @@ export const diffQuestion = (
     // Handle nested objects
     if (a && b && typeof a === "object" && typeof b === "object") {
       const keys = Array.from(
-        new Set([...Object.keys(a), ...Object.keys(b)])
+        new Set([...Object.keys(a), ...Object.keys(b)]),
       ).sort();
       for (const key of keys) {
         const path = prefix ? `${prefix}.${key}` : key;

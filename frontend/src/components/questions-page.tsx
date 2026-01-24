@@ -1,5 +1,7 @@
 import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetailedQuestions";
-import { QuestionsFilters, QuestionsTable } from "./questions-table";
+//import { QuestionsFilters, QuestionsTable } from "./questions-table";
+import {QuestionsTable} from '../features/question-table-page/questions-table'
+import {QuestionsFilters} from '../features/question-table-page/QuestionsFilters'
 import { useEffect, useMemo, useState } from "react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "./question-details";
@@ -42,6 +44,7 @@ export const QuestionsPage = ({
   const [closedAtStart, setClosedAtStart] = useState<Date | undefined>(
     undefined,
   );
+  const [consecutiveApprovals,setConsecutiveApprovals]=useState("all")
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
 
   // const observerRef = useRef<IntersectionObserver | null>(null);
@@ -65,7 +68,7 @@ export const QuestionsPage = ({
   const [reviewPage, setReviewPage] = useState(1);
   const [reviewLimit] = useState(10);
 
-  //handle sort by level
+  //handle sort by turn around time
   const [sort, setSort] = useState("");
   const toggleSort = (key: string) => {
     if (key === "clearSort") {
@@ -98,6 +101,7 @@ export const QuestionsPage = ({
       review_level,
       closedAtStart,
       closedAtEnd,
+      consecutiveApprovals
     }),
     [
       status,
@@ -114,6 +118,7 @@ export const QuestionsPage = ({
       review_level,
       closedAtEnd,
       closedAtStart,
+      consecutiveApprovals
     ],
   );
 
@@ -179,6 +184,7 @@ export const QuestionsPage = ({
     review_level?: ReviewLevel;
     closedAtEnd?: Date | undefined;
     closedAtStart?: Date | undefined;
+    consecutiveApprovals?:string
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -194,6 +200,10 @@ export const QuestionsPage = ({
     if (next.review_level !== undefined) setReviewLevel(next.review_level);
     if (next.closedAtStart !== undefined) setClosedAtStart(next.closedAtStart);
     if (next.closedAtEnd !== undefined) setClosedAtEnd(next.closedAtEnd);
+    if (next.consecutiveApprovals !== undefined) setConsecutiveApprovals(next.consecutiveApprovals);
+    // Reset pagination to page 1 when filters are applied
+    setCurrentPage(1);
+    setReviewPage(1);
   };
   const [showClosedAt, setClosedAt] = useState(false);
   useEffect(() => {
@@ -219,6 +229,7 @@ export const QuestionsPage = ({
     setEndTime(undefined);
     setClosedAtEnd(undefined);
     setClosedAtStart(undefined);
+    setConsecutiveApprovals('all')
   };
 
   const handleViewMore = (questoinId: string) => {

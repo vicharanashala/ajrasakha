@@ -457,6 +457,15 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   closedAtEnd?: string;
+
+  @JSONSchema({
+    description: 'consecutive approvals',
+    example: '1',
+    type: 'string',
+    
+  })
+  @IsOptional()
+  consecutiveApprovals?: string;
 }
 
 export interface IQuestionWithAnswerTexts {

@@ -8,7 +8,7 @@ import type {
   ReroutedQuestionItem
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
-import type { QuestionFilter } from "@/components/QA-interface";
+import type { QuestionFilter } from "@/features/qa-interface-page/QA-interface";
 import type { GeneratedQuestion } from "@/components/voice-recorder-card";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
 import { formatDateLocal } from "@/utils/formatDate";
@@ -51,6 +51,9 @@ export class QuestionService {
     }
     if (filter.closedAtStart) {
       params.append("closedAtStart", formatDateLocal(filter.closedAtStart));
+    }
+    if (filter.consecutiveApprovals) {
+      params.append("consecutiveApprovals", filter.consecutiveApprovals);
     }
 
     if (filter.answersCount) {
@@ -318,6 +321,9 @@ export class QuestionService {
     if (filter.answersCount) {
       params.append("answersCountMin", filter.answersCount[0].toString());
       params.append("answersCountMax", filter.answersCount[1].toString());
+    }
+    if (filter.consecutiveApprovals) {
+      params.append("consecutiveApprovals", filter.consecutiveApprovals);
     }
 
     if (filter.dateRange && filter.dateRange !== "all")

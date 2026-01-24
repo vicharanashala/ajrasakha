@@ -7,12 +7,13 @@ export const validateEmail = (email: string, domain = "annam.ai") => {
 
 export const validatePassword = (password: string) => {
   if (!password) return "Password is required";
-  if (password.length < 6) return "Password must be at least 6 characters";
+  if (password.length < 8) return "Password must be at least 8 characters";
   return "";
 };
 
 export const validateName = (name: string) => {
   if (!name) return "Name is required";
+  if (!name.trim()) return "Name cannot be blank or empty spaces";
   if (!/^[a-zA-Z\s]+$/.test(name)) return "Name cannot contain numbers or special chars";
   return "";
 };
