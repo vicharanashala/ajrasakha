@@ -65,21 +65,19 @@ export const QuestionsPage = ({
   const [reviewPage, setReviewPage] = useState(1);
   const [reviewLimit] = useState(10);
 
-  //mine
+  //handle sort by level
   const [ sort,setSort] = useState("")
    const toggleSort = (key: string) => {
-  if (key === "rank") {
+  if (key === "clearSort") {
     setSort("");
     return;
   }
   setSort((prev) => {
-    if (prev === `${key}_asc`) return `${key}_desc`;
-    return `${key}_asc`;
+    if (prev === `${key}___asc`) return `${key}___desc`;
+    return `${key}___asc`;
     
   });
 };
-
-//
 
   const { mutateAsync: bulkDeleteQuestions, isPending: bulkDeletingQuestions } =
     useBulkDeleteQuestions();

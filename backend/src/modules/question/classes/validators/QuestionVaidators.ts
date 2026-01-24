@@ -295,6 +295,11 @@ class GetDetailedQuestionsQuery {
   @IsString()
   search?: string;
 
+  @JSONSchema({description: 'Level sort', example: 'asc', type: 'string'})
+  @IsOptional()
+  @IsString()
+  sort?: string;
+
   @JSONSchema({
     description: 'Question status filter',
     example: 'OPEN',

@@ -2190,28 +2190,38 @@ export class QuestionRepository implements IQuestionRepository {
     session?: ClientSession,
   ):Promise<QuestionLevelResponse> {
     await this.init();
-    const { page = 1, limit = 10, search } = query;
+    const { page = 1, limit = 10, search,sort="" } = query;
     const skip = (page - 1) * limit;
      const { filter } = await buildQuestionFilter(
     query,
     this.QuestionSubmissionCollection,
   );
+  
     if (search && search.trim().length) {
     filter.question = { $regex: search.trim(), $options: "i" };
   }
-    const pipeline: any[] = [
-      {$match: filter},
 
-      {$sort: {createdAt: -1}},
+  //implement sort by level
+  const levelMap:any ={
+    level_0: 0,
+    level_1: 1,
+    level_2: 2,
+    level_3: 3,
+    level_4: 4,
+    level_5: 5,
+    level_6: 6,
+    level_7: 7,
+    level_8: 8,
+    level_9: 9,
+    level_10: 10,
+  }
+  
+  const [levelKey, order] = sort.split('___');
+  const levelIndex = levelMap[levelKey];
+  const hasLevelSort = sort && sort.includes('___') && levelIndex !== undefined;
+  const sortDir = order === 'asc' ? 1 : -1;
 
-      {
-        $facet: {
-          metadata: [{$count: 'totalDocs'}],
-
-          data: [
-            {$skip: skip},
-            {$limit: limit},
-
+  const dataPipeLine: any[] = [
             {
               $project: {
                 _id: 1,
@@ -2267,7 +2277,6 @@ export class QuestionRepository implements IQuestionRepository {
                             $arrayElemAt: ['$history', {$add: ['$$idx', 1]}],
                           },
 
-                          
                           isAuthorNoHistory: {
                             $and: [
                               {$eq: ['$$idx', 0]},
@@ -2312,7 +2321,7 @@ export class QuestionRepository implements IQuestionRepository {
                                     },
                                   },
 
-                                  // normal 
+                                  // normal
                                   {
                                     $cond: [
                                       {$eq: ['$$idx', 0]},
@@ -2494,6 +2503,8 @@ export class QuestionRepository implements IQuestionRepository {
                                   },
                                 ],
                               },
+                              //time taken in seconds
+                              sortSecs: '$$secs',
                             },
                           },
                         },
@@ -2503,6 +2514,28 @@ export class QuestionRepository implements IQuestionRepository {
                 },
               },
             },
+          ]
+   
+    if(hasLevelSort){
+      dataPipeLine.push(
+         // Extract the requested level for sorting
+            {
+              $addFields: {
+                sortValue: {
+                  $arrayElemAt: ['$reviewLevels.sortSecs', levelIndex],
+                },
+              },
+            },
+            {$sort: {sortValue: sortDir}}
+      )
+    }else{
+      dataPipeLine.push(
+        {$sort: {createdAt: -1}},
+      )
+    }
+    dataPipeLine.push(
+      {$skip: skip},
+            {$limit: limit},
 
             {
               $project: {
@@ -2512,20 +2545,28 @@ export class QuestionRepository implements IQuestionRepository {
                 createdAt: 1,
                 reviewLevels: 1,
               },
-            },
-          ],
+            }
+    )
+     const pipeline: any[] = [
+      {$match: filter},
+
+      {
+        $facet: {
+          metadata: [{$count: 'totalDocs'}],
+          data: dataPipeLine
         },
       },
     ];
     const result = await this.QuestionCollection.aggregate(pipeline, {
       session,
     }).toArray();
+    
     const meta = result[0]?.metadata?.[0] ?? {totalDocs: 0};
     const docs = result[0]?.data ?? [];
 
     const totalDocs = meta.totalDocs;
     const totalPages = Math.max(1, Math.ceil(totalDocs / limit));
-
+  
     return {
       page,
       limit,
