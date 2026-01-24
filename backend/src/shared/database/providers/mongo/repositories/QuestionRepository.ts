@@ -331,11 +331,37 @@ export class QuestionRepository implements IQuestionRepository {
     : null;
     // --- Consecutive Approvals Filter ---
 if (approvalCount !== null && !isNaN(approvalCount)) {
-  const answers = await this.AnswersCollection.find({
-    approvalCount: approvalCount,
-  })
-    .project({ questionId: 1 })
-    .toArray();
+  const answers = await this.AnswersCollection.aggregate([
+    // 1. Sort so latest answer comes first per question
+    {
+      $sort: {
+        createdAt: -1, // or answerIteration: -1
+      },
+    },
+  
+    // 2. Group by questionId and take only the latest answer
+    {
+      $group: {
+        _id: "$questionId",
+        latestAnswer: { $first: "$$ROOT" },
+      },
+    },
+  
+    // 3. Replace root with the latest answer document
+    {
+      $replaceRoot: {
+        newRoot: "$latestAnswer",
+      },
+    },
+  
+    // 4. Match approvalCount with payload
+    {
+      $match: {
+        approvalCount: approvalCount,
+      },
+    },
+  ]).toArray();
+  
 
   const approvalFilteredIds = answers.map(a =>
     a.questionId.toString(),
