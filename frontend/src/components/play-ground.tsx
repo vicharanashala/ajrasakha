@@ -6,7 +6,7 @@ import {
 } from "@/components/atoms/tabs";
 import { UserProfileActions } from "@/components/atoms/user-profile-actions";
 import { ThemeToggleCompact } from "./atoms/ThemeToggle";
-import { QAInterface } from "./QA-interface";
+import { QAInterface } from "../features/qa-interface-page/QA-interface";
 import { FullSubmissionHistory } from "./submission-history";
 import { VoiceRecorderCard } from "./voice-recorder-card";
 import { QuestionsPage } from "./questions-page";

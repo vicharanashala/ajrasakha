@@ -48,7 +48,8 @@ import {
   ChevronDown,
   XCircle,
   Layers,
-  Send
+  Send,
+  BadgeCheck
 } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
@@ -102,7 +103,8 @@ export type AdvanceFilterValues = {
   endTime?: Date | undefined | null;
   review_level?: ReviewLevel;
   closedAtEnd?: Date | undefined | null,
-  closedAtStart?: Date | undefined | null
+  closedAtStart?: Date | undefined | null,
+  consecutiveApprovals?:string
 };
 
 // Define the props for your new component
@@ -636,6 +638,60 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
             </div>
 
             <Separator />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              
+                <div className="space-y-2 min-w-0 ">
+                  <Label className="flex items-center gap-2 text-sm font-semibold">
+                    <BadgeCheck className="h-4 w-4 text-primary" />
+                    Consecutive Approvals
+                  </Label>
+                  <Select
+                    value={advanceFilter.consecutiveApprovals}
+                    onValueChange={(v) => handleDialogChange("consecutiveApprovals", v)}
+                  >
+                    <SelectTrigger className="bg-background w-full w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        <div className="flex items-center gap-2">
+                        <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
+                          <span>All</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="1">
+                        <div className="flex items-center gap-2">
+                          <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
+                          <span>1</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="2">
+                        <div className="flex items-center gap-2">
+                        <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
+                          <span>2</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="3">
+                        <div className="flex items-center gap-2">
+                        <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
+                          <span>3</span>
+                        </div>
+                      </SelectItem>
+                      
+
+                      
+                    </SelectContent>
+                  </Select>
+                </div>
+              
+
+              
+            </div>
+
+            <Separator />
             
 
             {/* Number of Answers Slider */}
@@ -741,7 +797,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   endTime: undefined,
                   startTime:undefined,
                   closedAtStart:undefined,
-                  closedAtEnd:undefined
+                  closedAtEnd:undefined,
+                  consecutiveApprovals:"all"
                 });
                 onReset();
               }}
