@@ -108,7 +108,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
         throw new Error("Please enter a valid email")
       }
       if(!body.firstName.trim()){
-        throw new Error("Name cannot be empty or blank spaces")
+        throw new Error("Name cannot be blank or empty spaces");
       }
       // Create the user in Firebase Auth
       userRecord = await this.auth.createUser({

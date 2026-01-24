@@ -151,9 +151,6 @@ export class GoldenDataset {
 
   @JSONSchema({description: 'Hourly data breakdown by day'})
   dayHourlyData?: Record<string, GoldenDatasetEntry[]>;
-
-  @JSONSchema({description:'Total entries today to Golden Dataset'})
-  todayApproved?:number;
 }
 
 export class QuestionContributionTrend {

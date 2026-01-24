@@ -46,7 +46,6 @@ export interface GoldenDataset {
   type: "year" | "month" | "week" | "day";
   totalEntriesByType: number;
   verifiedEntries: number;
-  todayApproved:number;
   yearData: { month: string; entries: number; verified: number }[];
   weeksData: { week: string; entries: number; verified: number }[];
   dailyData: { day: string; entries: number; verified: number }[];
@@ -154,12 +153,6 @@ export const GoldenDatasetOverview = ({
                 <p className="text-3xl font-bold text-foreground">N/A</p>
                 <p className="text-xs text-green-600 mt-2 font-medium">
                   Total Questions in Golden DB{" "}
-                </p>
-                <p className="text-xs text-green-600 mt-2 font-medium">
-                    Total Questions Added Today
-                  <span className="ml-2 text-sm font-bold text-white">
-                    {data?.todayApproved}
-                  </span>
                 </p>
               </div>
               <Database className="w-8 h-8 text-chart-1 opacity-60" />

@@ -88,7 +88,7 @@ export class UserService extends BaseService {
     try {
       if (!userId) throw new NotFoundError('User ID is required');
 
-      if(!data.firstName.trim()) throw new BadRequestError("First name cannot be empty or blank space");
+      if(!data.firstName.trim()) throw new BadRequestError("Firstname cannot be empty or blank space");
 
       const authService = getFromContainer(FirebaseAuthService);
 
@@ -96,7 +96,6 @@ export class UserService extends BaseService {
         const updatedUser = await this.userRepo.edit(userId, data, session);
         if (!updatedUser)
           throw new NotFoundError(`User with ID ${userId} not found`);
-        
         if (data.firstName || data.lastName) {
           await authService.updateFirebaseUser(
             updatedUser.firebaseUID,
