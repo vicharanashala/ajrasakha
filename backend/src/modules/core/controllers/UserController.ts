@@ -87,7 +87,7 @@ export class UserController {
     return updatedUser;
   }
 
-  @Get('/admin/alluser')
+  @Get('/admin/all')
   @HttpCode(200)
   @Authorized(['admin'])
   @OpenAPI({summary: 'Get all users with pagination (Admin)'})
