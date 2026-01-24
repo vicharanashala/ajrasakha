@@ -1024,12 +1024,11 @@ export class QuestionService extends BaseService implements IQuestionService {
                  nextUserId,
                  IS_INCREMENT,
                  session,
-              );
+               );
               let message:string=`A Question has been assigned for answering`;
               let title:string='Answer Creation Assigned';
               let entityId= questionId;
               let type:INotificationType='answer_creation';
-              console.log("Send notification");
               await this.notificationService.saveTheNotifications(
                 message,
                 title,
