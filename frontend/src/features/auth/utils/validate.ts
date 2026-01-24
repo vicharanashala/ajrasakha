@@ -13,7 +13,7 @@ export const validatePassword = (password: string) => {
 
 export const validateName = (name: string) => {
   if (!name) return "Name is required";
-  if (!name) return "Name cannot be empty or blank spaces"
+  if (!name.trim()) return "Name cannot be blank or empty spaces";
   if (!/^[a-zA-Z\s]+$/.test(name)) return "Name cannot contain numbers or special chars";
   return "";
 };

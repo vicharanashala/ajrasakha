@@ -311,7 +311,9 @@ export class QuestionRepository implements IQuestionRepository {
         review_level,
         closedAtStart,
         closedAtEnd,
+        consecutiveApprovals
       } = query;
+      
 
       const filter: any = {};
 
@@ -323,6 +325,68 @@ export class QuestionRepository implements IQuestionRepository {
       caseInsensitiveStringFilter('details.state', state);
       caseInsensitiveStringFilter('details.crop', crop);
       caseInsensitiveStringFilter('details.domain', domain);
+      const approvalCount =
+  consecutiveApprovals && consecutiveApprovals !== 'all'
+    ? parseInt(consecutiveApprovals, 10)
+    : null;
+    // --- Consecutive Approvals Filter ---
+if (approvalCount !== null && !isNaN(approvalCount)) {
+  const answers = await this.AnswersCollection.aggregate([
+    // 1. Sort so latest answer comes first per question
+    {
+      $sort: {
+        createdAt: -1, // or answerIteration: -1
+      },
+    },
+  
+    // 2. Group by questionId and take only the latest answer
+    {
+      $group: {
+        _id: "$questionId",
+        latestAnswer: { $first: "$$ROOT" },
+      },
+    },
+  
+    // 3. Replace root with the latest answer document
+    {
+      $replaceRoot: {
+        newRoot: "$latestAnswer",
+      },
+    },
+  
+    // 4. Match approvalCount with payload
+    {
+      $match: {
+        approvalCount: approvalCount,
+      },
+    },
+  ]).toArray();
+  
+
+  const approvalFilteredIds = answers.map(a =>
+    a.questionId.toString(),
+  );
+
+  if (approvalFilteredIds.length === 0) {
+    return { questions: [], totalPages: 0, totalCount: 0 };
+  }
+
+  // Intersect with existing _id filter if present
+  if (filter._id) {
+    filter._id = {
+      $in: approvalFilteredIds
+        .map(id => new ObjectId(id))
+        .filter(id =>
+          filter._id.$in.some((existing: any) => existing.equals(id)),
+        ),
+    };
+  } else {
+    filter._id = {
+      $in: approvalFilteredIds.map(id => new ObjectId(id)),
+    };
+  }
+}
+
 
       if (answersCountMin !== undefined || answersCountMax !== undefined) {
         filter.totalAnswersCount = {};
@@ -2213,6 +2277,7 @@ export class QuestionRepository implements IQuestionRepository {
      const { filter } = await buildQuestionFilter(
     query,
     this.QuestionSubmissionCollection,
+    this.AnswersCollection
   );
     if (search && search.trim().length) {
     filter.question = { $regex: search.trim(), $options: "i" };
