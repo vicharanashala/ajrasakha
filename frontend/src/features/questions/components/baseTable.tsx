@@ -21,8 +21,8 @@ type BaseTableProps<T> = {
   data: T[];
   isLoading?: boolean;
   emptyMessage?: string;
-  sort:string;
-  onSort:(key:string)=>void;
+  sort: string;
+  onSort: (key: string) => void;
 };
 
 export function BaseTable<T>({
@@ -31,10 +31,8 @@ export function BaseTable<T>({
   isLoading,
   emptyMessage = "No records found",
   sort,
-  onSort
+  onSort,
 }: BaseTableProps<T>) {
-  
-console.log('sort:',sort)
   return (
     <Table className="min-w-[800px] table-fixed">
       <TableHeader className="bg-card sticky top-0 z-10">
@@ -51,8 +49,12 @@ console.log('sort:',sort)
                   className="flex items-center justify-around gap-0.5 mx-auto select-none"
                 >
                   {col.label}
-                  {sort === `${col.key as string}___asc` && <span className="text-md text-green-500">↑</span>}
-                  {sort === `${col.key as string}___desc` && <span className="text-md text-green-500">↓</span>}
+                  {sort === `${col.key as string}___asc` && (
+                    <span className="text-md text-green-500">↑</span>
+                  )}
+                  {sort === `${col.key as string}___desc` && (
+                    <span className="text-md text-green-500">↓</span>
+                  )}
                 </button>
               ) : (
                 col.label
@@ -66,7 +68,7 @@ console.log('sort:',sort)
                 onClick={() => onSort("clearSort")}
                 className="px-2 py-1 rounded-md text-xs bg-primary text-white hover:text-black cursor-pointer"
               >
-                <RotateCcw size={16}/>
+                <RotateCcw size={16} />
               </button>
             </TableHead>
           )}

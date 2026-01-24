@@ -9,10 +9,16 @@ type Props = {
   index: number;
   onViewMore: (id: string) => void;
   sort: string;
-  onSort: (key:string)=> void;
+  onSort: (key: string) => void;
 };
 
-export function ReviewLevelMobileCard({ row, index, onViewMore,sort,onSort }: Props) {
+export function ReviewLevelMobileCard({
+  row,
+  index,
+  onViewMore,
+  sort,
+  onSort,
+}: Props) {
   return (
     <div className="rounded-xl border border-foreground/20 bg-card shadow-sm p-4">
       <div className="flex justify-between mb-1">
@@ -30,12 +36,12 @@ export function ReviewLevelMobileCard({ row, index, onViewMore,sort,onSort }: Pr
 
       {sort && (
         <div className="flex justify-end">
-        <button
-          onClick={() => onSort("clearSort")}
-          className="ml-2 p-1 rounded-md text-xs bg-primary text-white hover:text-black"
-        >
-          <RotateCcw size={14} />
-        </button>
+          <button
+            onClick={() => onSort("clearSort")}
+            className="ml-2 p-1 rounded-md text-xs bg-primary text-white hover:text-black"
+          >
+            <RotateCcw size={14} />
+          </button>
         </div>
       )}
 

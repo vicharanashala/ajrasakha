@@ -38,9 +38,15 @@ import {
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {promises} from 'dns';
 import {getReviewerQueuePosition} from '#root/utils/getReviewerQueuePosition.js';
-import { QuestionLevelResponse, ReviewLevelTimeValue } from '#root/modules/core/classes/transformers/QuestionLevel.js';
-import { buildQuestionFilter } from '#root/utils/buildQuestionFilter.js';
-import { GetDetailedQuestionsQuery, QuestionResponse } from '#root/modules/question/classes/validators/QuestionVaidators.js';
+import {
+  QuestionLevelResponse,
+  ReviewLevelTimeValue,
+} from '#root/modules/core/classes/transformers/QuestionLevel.js';
+import {buildQuestionFilter} from '#root/utils/buildQuestionFilter.js';
+import {
+  GetDetailedQuestionsQuery,
+  QuestionResponse,
+} from '#root/modules/question/classes/validators/QuestionVaidators.js';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';
@@ -64,9 +70,8 @@ export class QuestionRepository implements IQuestionRepository {
   private async init() {
     this.ContextCollection = await this.db.getCollection<IContext>('contexts');
 
-    this.QuestionCollection = await this.db.getCollection<IQuestion>(
-      'questions',
-    );
+    this.QuestionCollection =
+      await this.db.getCollection<IQuestion>('questions');
     this.QuestionSubmissionCollection =
       await this.db.getCollection<IQuestionSubmission>('question_submissions');
     this.UsersCollection = await this.db.getCollection<IUser>('users');
@@ -463,9 +468,8 @@ export class QuestionRepository implements IQuestionRepository {
           {$count: 'count'},
         ];
 
-        const countResult = await this.QuestionCollection.aggregate(
-          countPipeline,
-        ).toArray();
+        const countResult =
+          await this.QuestionCollection.aggregate(countPipeline).toArray();
         totalCount = countResult[0]?.count ?? 0;
 
         const totalPages = Math.ceil(totalCount / limit);
@@ -2186,414 +2190,392 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   async getQuestionsAndReviewLevel(
-    query: GetDetailedQuestionsQuery & { searchEmbedding: number[] | null },
+    query: GetDetailedQuestionsQuery & {searchEmbedding: number[] | null},
     session?: ClientSession,
-  ):Promise<QuestionLevelResponse> {
+  ): Promise<QuestionLevelResponse> {
     await this.init();
-    const { page = 1, limit = 10, search,sort="" } = query;
+    const {page = 1, limit = 10, search, sort = ''} = query;
     const skip = (page - 1) * limit;
-     const { filter } = await buildQuestionFilter(
-    query,
-    this.QuestionSubmissionCollection,
-  );
-  
+    const {filter} = await buildQuestionFilter(
+      query,
+      this.QuestionSubmissionCollection,
+    );
+
     if (search && search.trim().length) {
-    filter.question = { $regex: search.trim(), $options: "i" };
-  }
+      filter.question = {$regex: search.trim(), $options: 'i'};
+    }
 
-  //implement sort by level
-  const levelMap:any ={
-    level_0: 0,
-    level_1: 1,
-    level_2: 2,
-    level_3: 3,
-    level_4: 4,
-    level_5: 5,
-    level_6: 6,
-    level_7: 7,
-    level_8: 8,
-    level_9: 9,
-    level_10: 10,
-  }
-  
-  const [levelKey, order] = sort.split('___');
-  const levelIndex = levelMap[levelKey];
-  const hasLevelSort = sort && sort.includes('___') && levelIndex !== undefined;
-  const isTotalTurnAroundTimeSort = sort && sort.startsWith('totalTurnAround___');
+    //implement sort by level
+    const levelMap: any = {
+      level_0: 0,
+      level_1: 1,
+      level_2: 2,
+      level_3: 3,
+      level_4: 4,
+      level_5: 5,
+      level_6: 6,
+      level_7: 7,
+      level_8: 8,
+      level_9: 9,
+      level_10: 10,
+    };
 
-  const sortDir = order === 'asc' ? 1 : -1;
+    const [levelKey, order] = sort.split('___');
+    const levelIndex = levelMap[levelKey];
+    const hasLevelSort =
+      sort && sort.includes('___') && levelIndex !== undefined;
+    const isTotalTurnAroundTimeSort =
+      sort && sort.startsWith('totalTurnAround___');
 
-  const dataPipeLine: any[] = [
-            {
-              $project: {
-                _id: 1,
-                question: 1,
-                status: 1,
-                createdAt: 1,
+    const sortDir = order === 'asc' ? 1 : -1;
+
+    const dataPipeLine: any[] = [
+      {
+        $project: {
+          _id: 1,
+          question: 1,
+          status: 1,
+          createdAt: 1,
+        },
+      },
+
+      {
+        $lookup: {
+          from: 'question_submissions',
+          localField: '_id',
+          foreignField: 'questionId',
+          as: 'submission',
+        },
+      },
+
+      {$unwind: {path: '$submission', preserveNullAndEmptyArrays: true}},
+
+      {
+        $addFields: {
+          history: {$ifNull: ['$submission.history', []]},
+          submissionCreatedAt: '$submission.createdAt',
+
+          currentLevel: {
+            $cond: [
+              {$gt: [{$size: {$ifNull: ['$submission.history', []]}}, 0]},
+              {
+                $subtract: [{$size: {$ifNull: ['$submission.history', []]}}, 1],
               },
-            },
+              -1,
+            ],
+          },
+        },
+      },
 
-            {
-              $lookup: {
-                from: 'question_submissions',
-                localField: '_id',
-                foreignField: 'questionId',
-                as: 'submission',
-              },
-            },
+      {
+        $addFields: {
+          reviewLevels: {
+            $map: {
+              input: {$range: [0, 11]},
+              as: 'idx',
 
-            {$unwind: {path: '$submission', preserveNullAndEmptyArrays: true}},
+              in: {
+                $let: {
+                  vars: {
+                    hist: {$arrayElemAt: ['$history', '$$idx']},
+                    nextHist: {
+                      $arrayElemAt: ['$history', {$add: ['$$idx', 1]}],
+                    },
 
-            {
-              $addFields: {
-                history: {$ifNull: ['$submission.history', []]},
-                submissionCreatedAt: '$submission.createdAt',
-
-                currentLevel: {
-                  $cond: [
-                    {$gt: [{$size: {$ifNull: ['$submission.history', []]}}, 0]},
-                    {
-                      $subtract: [
-                        {$size: {$ifNull: ['$submission.history', []]}},
-                        1,
+                    isAuthorNoHistory: {
+                      $and: [
+                        {$eq: ['$$idx', 0]},
+                        {$eq: ['$currentLevel', -1]},
+                        {$ne: ['$submissionCreatedAt', null]},
                       ],
                     },
-                    -1,
-                  ],
-                },
-              },
-            },
+                  },
 
-            {
-              $addFields: {
-                reviewLevels: {
-                  $map: {
-                    input: {$range: [0, 11]},
-                    as: 'idx',
-
-                    in: {
-                      $let: {
-                        vars: {
-                          hist: {$arrayElemAt: ['$history', '$$idx']},
-                          nextHist: {
-                            $arrayElemAt: ['$history', {$add: ['$$idx', 1]}],
-                          },
-
-                          isAuthorNoHistory: {
-                            $and: [
-                              {$eq: ['$$idx', 0]},
-                              {$eq: ['$currentLevel', -1]},
-                              {$ne: ['$submissionCreatedAt', null]},
-                            ],
-                          },
+                  in: {
+                    $let: {
+                      vars: {
+                        // pending only applies to last level
+                        isPending: {
+                          $and: [
+                            {$eq: ['$$idx', '$currentLevel']},
+                            {$ne: ['$$hist', null]},
+                            {
+                              $or: [
+                                {$eq: ['$$hist.updatedAt', null]},
+                                {
+                                  $eq: ['$$hist.updatedAt', '$$hist.createdAt'],
+                                },
+                              ],
+                            },
+                          ],
                         },
 
-                        in: {
-                          $let: {
-                            vars: {
-                              // pending only applies to last level
-                              isPending: {
-                                $and: [
-                                  {$eq: ['$$idx', '$currentLevel']},
-                                  {$ne: ['$$hist', null]},
-                                  {
-                                    $or: [
-                                      {$eq: ['$$hist.updatedAt', null]},
-                                      {
-                                        $eq: [
-                                          '$$hist.updatedAt',
-                                          '$$hist.createdAt',
-                                        ],
-                                      },
-                                    ],
-                                  },
-                                ],
-                              },
+                        secs: {
+                          $cond: [
+                            // submission exists + no history
+                            '$$isAuthorNoHistory',
 
-                              secs: {
-                                $cond: [
-                                  // submission exists + no history
-                                  '$$isAuthorNoHistory',
-
-                                  {
-                                    $dateDiff: {
-                                      startDate: '$submissionCreatedAt',
-                                      endDate: '$$NOW',
-                                      unit: 'second',
-                                    },
-                                  },
-
-                                  // normal
-                                  {
-                                    $cond: [
-                                      {$eq: ['$$idx', 0]},
-
-                                      {
-                                        $cond: [
-                                          {
-                                            $and: [
-                                              {$ne: ['$$hist', null]},
-                                              {
-                                                $ne: [
-                                                  '$submissionCreatedAt',
-                                                  null,
-                                                ],
-                                              },
-                                            ],
-                                          },
-                                          {
-                                            $dateDiff: {
-                                              startDate: '$submissionCreatedAt',
-                                              endDate: '$$hist.createdAt',
-                                              unit: 'second',
-                                            },
-                                          },
-                                          null,
-                                        ],
-                                      },
-
-                                      // ===== NON-AUTHOR =====
-                                      {
-                                        $cond: [
-                                          {$lt: ['$$idx', '$currentLevel']},
-
-                                          // non-last
-                                          {
-                                            $cond: [
-                                              {
-                                                $and: [
-                                                  {$ne: ['$$hist', null]},
-                                                  {$ne: ['$$nextHist', null]},
-                                                ],
-                                              },
-                                              {
-                                                $dateDiff: {
-                                                  startDate: '$$hist.createdAt',
-                                                  endDate:
-                                                    '$$nextHist.createdAt',
-                                                  unit: 'second',
-                                                },
-                                              },
-                                              null,
-                                            ],
-                                          },
-
-                                          // last level
-                                          {
-                                            $cond: [
-                                              {
-                                                $and: [
-                                                  {$ne: ['$$hist', null]},
-                                                  {
-                                                    $or: [
-                                                      {
-                                                        $eq: [
-                                                          '$$hist.updatedAt',
-                                                          null,
-                                                        ],
-                                                      },
-                                                      {
-                                                        $eq: [
-                                                          '$$hist.updatedAt',
-                                                          '$$hist.createdAt',
-                                                        ],
-                                                      },
-                                                    ],
-                                                  },
-                                                ],
-                                              },
-
-                                              // pending → now - createdAt
-                                              {
-                                                $dateDiff: {
-                                                  startDate: '$$hist.createdAt',
-                                                  endDate: '$$NOW',
-                                                  unit: 'second',
-                                                },
-                                              },
-
-                                              // completed → updatedAt - createdAt
-                                              {
-                                                $cond: [
-                                                  {$ne: ['$$hist', null]},
-                                                  {
-                                                    $dateDiff: {
-                                                      startDate:
-                                                        '$$hist.createdAt',
-                                                      endDate:
-                                                        '$$hist.updatedAt',
-                                                      unit: 'second',
-                                                    },
-                                                  },
-                                                  null,
-                                                ],
-                                              },
-                                            ],
-                                          },
-                                        ],
-                                      },
-                                    ],
-                                  },
-                                ],
+                            {
+                              $dateDiff: {
+                                startDate: '$submissionCreatedAt',
+                                endDate: '$$NOW',
+                                unit: 'second',
                               },
                             },
 
-                            in: {
-                              column: {
-                                $cond: [
-                                  {$eq: ['$$idx', 0]},
-                                  'author',
-                                  {$concat: ['level ', {$toString: '$$idx'}]},
-                                ],
-                              },
+                            // normal
+                            {
+                              $cond: [
+                                {$eq: ['$$idx', 0]},
 
-                              value: {
-                                $cond: [
-                                  {
-                                    $and: [
-                                      {$gt: ['$$idx', '$currentLevel']},
-                                      {$not: '$$isAuthorNoHistory'},
-                                    ],
-                                  },
-                                  'NA',
+                                {
+                                  $cond: [
+                                    {
+                                      $and: [
+                                        {$ne: ['$$hist', null]},
+                                        {
+                                          $ne: ['$submissionCreatedAt', null],
+                                        },
+                                      ],
+                                    },
+                                    {
+                                      $dateDiff: {
+                                        startDate: '$submissionCreatedAt',
+                                        endDate: '$$hist.createdAt',
+                                        unit: 'second',
+                                      },
+                                    },
+                                    null,
+                                  ],
+                                },
 
-                                  {
-                                    $cond: [
-                                      {$eq: ['$$secs', null]},
-                                      'NA',
+                                // ===== NON-AUTHOR =====
+                                {
+                                  $cond: [
+                                    {$lt: ['$$idx', '$currentLevel']},
 
-                                      {
-                                        $let: {
-                                          vars: {
-                                            h: {
-                                              $floor: {
-                                                $divide: ['$$secs', 3600],
-                                              },
-                                            },
-                                            m: {
-                                              $floor: {
-                                                $mod: [
-                                                  {$divide: ['$$secs', 60]},
-                                                  60,
-                                                ],
-                                              },
-                                            },
-                                            s: {$mod: ['$$secs', 60]},
-                                          },
-
-                                          in: {
-                                            time: {
-                                              $concat: [
-                                                {$toString: '$$h'},
-                                                ':',
-                                                {$toString: '$$m'},
-                                                ':',
-                                                {$toString: '$$s'},
-                                              ],
-                                            },
-
-                                            yet_to_complete: {
-                                              $or: [
-                                                '$$isPending',
-                                                '$$isAuthorNoHistory',
-                                              ],
-                                            },
+                                    // non-last
+                                    {
+                                      $cond: [
+                                        {
+                                          $and: [
+                                            {$ne: ['$$hist', null]},
+                                            {$ne: ['$$nextHist', null]},
+                                          ],
+                                        },
+                                        {
+                                          $dateDiff: {
+                                            startDate: '$$hist.createdAt',
+                                            endDate: '$$nextHist.createdAt',
+                                            unit: 'second',
                                           },
                                         },
-                                      },
-                                    ],
-                                  },
-                                ],
-                              },
-                              //time taken in seconds
-                              sortSecs: '$$secs',
+                                        null,
+                                      ],
+                                    },
+
+                                    // last level
+                                    {
+                                      $cond: [
+                                        {
+                                          $and: [
+                                            {$ne: ['$$hist', null]},
+                                            {
+                                              $or: [
+                                                {
+                                                  $eq: [
+                                                    '$$hist.updatedAt',
+                                                    null,
+                                                  ],
+                                                },
+                                                {
+                                                  $eq: [
+                                                    '$$hist.updatedAt',
+                                                    '$$hist.createdAt',
+                                                  ],
+                                                },
+                                              ],
+                                            },
+                                          ],
+                                        },
+
+                                        // pending → now - createdAt
+                                        {
+                                          $dateDiff: {
+                                            startDate: '$$hist.createdAt',
+                                            endDate: '$$NOW',
+                                            unit: 'second',
+                                          },
+                                        },
+
+                                        // completed → updatedAt - createdAt
+                                        {
+                                          $cond: [
+                                            {$ne: ['$$hist', null]},
+                                            {
+                                              $dateDiff: {
+                                                startDate: '$$hist.createdAt',
+                                                endDate: '$$hist.updatedAt',
+                                                unit: 'second',
+                                              },
+                                            },
+                                            null,
+                                          ],
+                                        },
+                                      ],
+                                    },
+                                  ],
+                                },
+                              ],
                             },
-                          },
+                          ],
                         },
+                      },
+
+                      in: {
+                        column: {
+                          $cond: [
+                            {$eq: ['$$idx', 0]},
+                            'author',
+                            {$concat: ['level ', {$toString: '$$idx'}]},
+                          ],
+                        },
+
+                        value: {
+                          $cond: [
+                            {
+                              $and: [
+                                {$gt: ['$$idx', '$currentLevel']},
+                                {$not: '$$isAuthorNoHistory'},
+                              ],
+                            },
+                            'NA',
+
+                            {
+                              $cond: [
+                                {$eq: ['$$secs', null]},
+                                'NA',
+
+                                {
+                                  $let: {
+                                    vars: {
+                                      h: {
+                                        $floor: {
+                                          $divide: ['$$secs', 3600],
+                                        },
+                                      },
+                                      m: {
+                                        $floor: {
+                                          $mod: [{$divide: ['$$secs', 60]}, 60],
+                                        },
+                                      },
+                                      s: {$mod: ['$$secs', 60]},
+                                    },
+
+                                    in: {
+                                      time: {
+                                        $concat: [
+                                          {$toString: '$$h'},
+                                          ':',
+                                          {$toString: '$$m'},
+                                          ':',
+                                          {$toString: '$$s'},
+                                        ],
+                                      },
+
+                                      yet_to_complete: {
+                                        $or: [
+                                          '$$isPending',
+                                          '$$isAuthorNoHistory',
+                                        ],
+                                      },
+                                    },
+                                  },
+                                },
+                              ],
+                            },
+                          ],
+                        },
+                        //time taken in seconds
+                        sortSecs: '$$secs',
                       },
                     },
                   },
                 },
               },
             },
-          ]
-   
-    if(isTotalTurnAroundTimeSort){
+          },
+        },
+      },
+    ];
+
+    if (isTotalTurnAroundTimeSort) {
       dataPipeLine.push(
-    {
-      $addFields: {
-        totalTurnAround: {
-          $sum: {
-            $filter: {
-              input: "$reviewLevels.sortSecs",
-              as: "s",
-              cond: { $ne: ["$$s", null] }
-            }
-          }
-        }
-      }
-    },
-    { $sort: { totalTurnAround: sortDir } }
-  );
-    }
-    else if(hasLevelSort){
-      dataPipeLine.push(
-         // Extract the requested level for sorting
-            {
-              $addFields: {
-                sortValue: {
-                  $arrayElemAt: ['$reviewLevels.sortSecs', levelIndex],
+        {
+          $addFields: {
+            totalTurnAround: {
+              $sum: {
+                $filter: {
+                  input: '$reviewLevels.sortSecs',
+                  as: 's',
+                  cond: {$ne: ['$$s', null]},
                 },
               },
             },
-            {$sort: {sortValue: sortDir}}
-      )
-    }else{
+          },
+        },
+        {$sort: {totalTurnAround: sortDir}},
+      );
+    } else if (hasLevelSort) {
       dataPipeLine.push(
-        {$sort: {createdAt: -1}},
-      )
+        // Extract the requested level for sorting
+        {
+          $addFields: {
+            sortValue: {
+              $arrayElemAt: ['$reviewLevels.sortSecs', levelIndex],
+            },
+          },
+        },
+        {$sort: {sortValue: sortDir}},
+      );
+    } else {
+      dataPipeLine.push({$sort: {createdAt: -1}});
     }
     dataPipeLine.push(
       {$skip: skip},
-            {$limit: limit},
+      {$limit: limit},
 
-            {
-              $project: {
-                _id: 1,
-                question: 1,
-                status: 1,
-                createdAt: 1,
-                reviewLevels: 1,
-                totalTurnAround:1,
-              },
-            }
-    )
-     const pipeline: any[] = [
+      {
+        $project: {
+          _id: 1,
+          question: 1,
+          status: 1,
+          createdAt: 1,
+          reviewLevels: 1,
+          totalTurnAround: 1,
+        },
+      },
+    );
+    const pipeline: any[] = [
       {$match: filter},
 
       {
         $facet: {
           metadata: [{$count: 'totalDocs'}],
-          data: dataPipeLine
+          data: dataPipeLine,
         },
       },
     ];
     const result = await this.QuestionCollection.aggregate(pipeline, {
       session,
     }).toArray();
-    
+
     const meta = result[0]?.metadata?.[0] ?? {totalDocs: 0};
     const docs = result[0]?.data ?? [];
 
     const totalDocs = meta.totalDocs;
     const totalPages = Math.max(1, Math.ceil(totalDocs / limit));
-    console.log('ttts:',
-      docs.map((item,indx)=>
-      item.totalTurnAround
-      )
 
-    )
-  
     return {
       page,
       limit,
@@ -2608,7 +2590,6 @@ export class QuestionRepository implements IQuestionRepository {
         status: doc.status,
         createdAt: doc.createdAt,
         reviewLevels: doc.reviewLevels,
-        totalTurnAround: doc.totalTurnAround
       })),
     };
   }
