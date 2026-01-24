@@ -53,6 +53,8 @@ export function ReviewLevelsTable({
               row={row}
               index={(page - 1) * data.length + i}
               onViewMore={onViewMore}
+              onSort={toggleSort}
+              sort={sort}
             />
           ))}
         </div>
