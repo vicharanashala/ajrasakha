@@ -1199,8 +1199,8 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                         toast.error("First name cannot be blank space");
                         return;
                       }
-                    }
                   }
+                }
                 >
                   <Save className="h-4 w-4" />
                   {isUpdating ? "Saving..." : "Save Changes"}

@@ -223,6 +223,13 @@ export interface IQuestionRepository {
   ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number}>;
 
   /**
+   * get yearly analytics.
+   * @param session -MongoDB client session for transactions.
+   * @returns A promise that resolves to question document
+   */
+  getTodayApproved(session:ClientSession):Promise<{todayApproved:number}>;
+
+  /**
    * get monthly analytics.
    * @param goldenDataSelectedYear - selected year.
    * @param goldenDataSelectedMonth - selected month
