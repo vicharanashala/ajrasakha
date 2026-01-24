@@ -127,7 +127,6 @@ export const Dashboard = () => {
       dayHourlyData: {} as GoldenDataset["dayHourlyData"],
       totalEntriesByType: 0,
       verifiedEntries: 0,
-      todayApproved:0,
     },
     questionContributionTrend: [],
     statusOverview: { questions: [], answers: [] },
