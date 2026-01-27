@@ -230,7 +230,9 @@ useEffect(() => {
       const format = (n: number) => n.toString().padStart(2, "0");
 
       setLateTimer(
-        `${format(hours)}:${format(minutes)}:${format(seconds)}`
+        `${hours.toString().padStart(2, "0")}hr ` +
+        `${minutes.toString().padStart(2, "0")}min ` +
+        `${seconds.toString().padStart(2, "0")}sec`
       );
     } else {
       setLateTimer(null);
@@ -359,16 +361,17 @@ useEffect(() => {
                 >
                   <p className="font-medium">⏰<b> Check-in Policy </b></p>
                   <p className="mt-1">
-                    -Check in before <b>9:00 AM</b>, otherwise you’ll be marked absent.
+                   • Check in before <b>9:00 AM</b>. Late check-ins will be marked <b>absent</b> and no questions will be allocated.
+
                   </p>
                   <p className="mt-1">
-                    -No checkout needed as it will resets automatically.
+                    • No checkout is required. The system resets automatically at the end of the day.
                   </p>
                 </div>
               </div>
               {lateTimer && !isCheckedInToday && (
                 <span className="text-xs font-semibold text-red-500 tracking-wide">
-                  ⏱ You are {lateTimer} late
+                  ⏱ You are <b>{lateTimer}</b> late
                 </span>
               )}
 
