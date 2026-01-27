@@ -57,6 +57,8 @@ class UsersNameResponseDto {
   @ValidateNested({each: true})
   @Type(() => UserDto)
   users: UserDto[];
+  totalUsers: number;
+  totalPages: number;
 }
 
 class NotificationDeletePreferenceDTO{
