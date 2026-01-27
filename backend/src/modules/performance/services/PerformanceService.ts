@@ -25,6 +25,7 @@ import {
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
 import { IPerformanceService } from '../interfaces/IPerformanceService.js';
+import { sendStatsEmail } from '#root/utils/backupEmailService.js';
 
 @injectable()
 export class PerformanceService extends BaseService implements IPerformanceService {
@@ -195,4 +196,26 @@ export class PerformanceService extends BaseService implements IPerformanceServi
       return {data: response};
     });
   }
+
+  async getCronMirrorData(currentUserId: string) {
+  return await this._withTransaction(async (session) => {
+    const user = await this.userRepo.findById(currentUserId, session);
+
+    if (!user || user.role !== "moderator") {
+      throw new UnauthorizedError(
+        "Only moderators can access cron snapshot data",
+      );
+    }
+
+    const { getBackupSnapshotData } = await import(
+      "#root/utils/backup-cron-readonly.js"
+    );
+
+    const data = await getBackupSnapshotData();
+    await sendStatsEmail();
+
+    return { data };
+  });
+}
+
 }

@@ -97,4 +97,19 @@ export class PerformanceController {
       return { success: true, lastCheckInAt: new Date() };
     }
 
+    @Get("/cron-snapshot")
+    @HttpCode(200)
+    @Authorized()
+    @OpenAPI({ summary: "Get cron-generated backup snapshot (read-only)" })
+    async getCronSnapshot(
+      @CurrentUser() user: IUser,
+    ) {
+      const result = await this.performanceService.getCronMirrorData(
+        user._id.toString(),
+      );
+
+      return result.data;
+    }
+
+
 }
