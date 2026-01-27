@@ -151,15 +151,9 @@ export const GoldenDatasetOverview = ({
                 <p className="text-xs text-muted-foreground mb-1">
                   Total Entries
                 </p>
-                <p className="text-3xl font-bold text-foreground">N/A</p>
+                <p className="text-3xl font-bold text-foreground">{data?.todayApproved}</p>
                 <p className="text-xs text-green-600 mt-2 font-medium">
-                  Total Questions in Golden DB{" "}
-                </p>
-                <p className="text-xs text-green-600 mt-2 font-medium">
-                    Total Questions Added Today
-                  <span className="ml-2 text-sm font-bold text-white">
-                    {data?.todayApproved}
-                  </span>
+                  Total Questions Added Today{" "}
                 </p>
               </div>
               <Database className="w-8 h-8 text-chart-1 opacity-60" />
