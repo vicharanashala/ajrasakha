@@ -13,7 +13,7 @@ class User implements IUser {
   _id: string | ObjectId | null;
 
   @Expose()
-  firebaseUID: string;
+  firebaseUID?: string;
 
   @Expose()
   email: string;
@@ -42,6 +42,12 @@ class User implements IUser {
   @Expose()
   notificationRetention?: NotificationRetentionType;
 
+  @Expose()
+  incentive?: number;
+
+  @Expose()
+  penalty?: number;
+
   constructor(data: Partial<IUser>) {
     this._id = data?._id ? new ObjectId(data?._id) : null;
     this.firebaseUID = data?.firebaseUID;
@@ -58,6 +64,8 @@ class User implements IUser {
     this.notificationRetention=data.notificationRetention;
     this.createdAt = data?.createdAt || new Date();
     this.updatedAt = data?.updatedAt || new Date();
+    this.incentive = data?.incentive ?? 0
+    this.penalty = data?.penalty ?? 0
   }
 }
 

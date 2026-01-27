@@ -10,7 +10,7 @@ export interface IPreference {
 export type NotificationRetentionType = '3d' | '1w' | '2w' | '1m' | 'never';
 export interface IUser {
   _id?: string | ObjectId;
-  firebaseUID: string;
+  firebaseUID?: string;
   email: string;
   firstName: string;
   lastName?: string;
@@ -26,6 +26,7 @@ export interface IUser {
   createdAt?: Date;
   updatedAt?: Date;
 }
+
 
 export type IQuestionPriority = 'low' | 'medium' | 'high';
 
