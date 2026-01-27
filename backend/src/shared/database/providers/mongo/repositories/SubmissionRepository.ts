@@ -3078,4 +3078,41 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       throw new InternalServerError('Failed to get absent submissions');
     }
   }
+  async findQuestionsNeedingEscalation(session?: ClientSession): Promise<IQuestionSubmission[]>  {
+    await this.init();
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  
+    return this.QuestionSubmissionCollection.find(
+      {
+        $or: [
+          // Type A — Never answered
+          {
+            history: { $size: 0 },
+            lastRespondedBy: null,
+            createdAt: { $lte: oneHourAgo },
+          },
+  
+          // Type B — Last update stuck in-review
+          {
+            history: { $ne: [] },
+            $expr: {
+              $let: {
+                vars: {
+                  lastHistory: { $arrayElemAt: ["$history", -1] },
+                },
+                in: {
+                  $and: [
+                    { $eq: ["$$lastHistory.status", "in-review"] },
+                    { $lte: ["$$lastHistory.createdAt", oneHourAgo] },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+      },
+      { session }
+    ).toArray();
+  }
+  
 }

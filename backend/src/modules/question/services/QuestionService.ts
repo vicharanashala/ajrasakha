@@ -1640,4 +1640,37 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
     console.log('Completed!');
   }
+  async balanceWorkload()
+  {
+    return await this._withTransaction(async session => {
+      try {
+        const lessWorkloadExperts = await this.userRepo.findActiveLowReputationExpertsToday(session);
+        const dealyQuestions=await this.questionSubmissionRepo.findQuestionsNeedingEscalation(session);
+        
+        const MAX_PER_EXPERT = 5;
+        const totalExperts = lessWorkloadExperts.length; // 23
+        const maxAssignments = totalExperts * MAX_PER_EXPERT; // 115
+
+        const questionsToAssign = dealyQuestions.slice(0, maxAssignments);
+        const assignments: Record<string, any[]> = {};
+        lessWorkloadExperts.forEach(e => (assignments[e._id.toString()] = []));
+       
+        let expertIndex = 0;
+
+        for (const q of questionsToAssign) {
+          const expert = lessWorkloadExperts[expertIndex];
+          assignments[expert._id.toString()].push(q._id);
+          expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
+        }
+       
+
+
+      } catch (error) {
+        throw new InternalServerError(
+          `Failed to get experts or delayQuestions: ${error}`,
+        );
+      }
+    });
+
+  }
 }

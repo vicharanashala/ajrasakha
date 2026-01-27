@@ -560,7 +560,35 @@ async findAllUsers(
 
     return allUsers;
   }
-
+  async findActiveLowReputationExpertsToday(
+    session?: ClientSession,
+  ): Promise<IUser[]> {
+    await this.init();
+  
+    // Start & end of today (server time)
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+  
+    const startOfTomorrow = new Date(startOfDay);
+    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+  
+    const users = await this.usersCollection
+      .find(
+        {
+          role: 'expert',
+          isBlocked: false,
+          reputation_score: { $lte: 5 },
+          lastCheckInAt: { $gte: startOfDay, $lt: startOfTomorrow },
+        },
+        { session },
+      )
+      .sort({ reputation_score: 1 }) // lowest score first
+      .toArray();
+     
+  
+    return users;
+  }
+  
   async findModerators(): Promise<IUser[]> {
     await this.init();
     return await this.usersCollection.find({role: 'moderator'}).toArray();
