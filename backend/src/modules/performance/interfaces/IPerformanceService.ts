@@ -31,4 +31,7 @@ export interface IPerformanceService {
   ): Promise<{
     data: DashboardResponse;
   }>;
+
+  updateCheckInTime(userId: string, time: Date): Promise<void>;
+
 }

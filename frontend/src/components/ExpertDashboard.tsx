@@ -20,6 +20,7 @@ import {
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useGetReviewLevel } from "@/hooks/api/user/useGetReviewLevel";
 import { useGetAllExperts } from "@/hooks/api/user/useGetAllUsers";
+import { useCheckIn } from "@/hooks/api/performance/useCheckIn";
 import {
   Table,
   TableBody,
@@ -75,6 +76,11 @@ export const ExpertDashboard = ({
     startTime: undefined,
     endTime: undefined,
   });
+
+  const isSameDay = (d1: Date, d2: Date) =>
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate();
 
   const { data: user, isLoading } = useGetCurrentUser({ enabled: shouldFetch });
   let userId: string | undefined;
@@ -132,6 +138,8 @@ export const ExpertDashboard = ({
   );
   const [userDetails, setUserDetails] = useState<any[]>([]);
   const [totalUsers, setTotalUsers] = useState<number>(0);
+  const [checkInTimer, setCheckInTimer] = useState<string>("00:00:00");
+
   const expertArr = expertDetailsList || expertDetails;
   useEffect(() => {
     if (!expertArr || !expertArr.experts) return; // safety check
@@ -142,12 +150,76 @@ export const ExpertDashboard = ({
     setUserDetails(filteredUsers);
   }, [expertArr, user?.email]);
 
+
+  const lastCheckIn = userDetails?.[0]?.lastCheckInAt
+    ? new Date(userDetails[0].lastCheckInAt)
+    : null;
+    useEffect(() => {
+  if (!lastCheckIn) return;
+
+  const interval = setInterval(() => {
+    const now = new Date().getTime();
+    const diff = now - lastCheckIn.getTime();
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff / (1000 * 60)) % 60);
+    const seconds = Math.floor((diff / 1000) % 60);
+
+    const format = (n: number) => n.toString().padStart(2, "0");
+
+    setCheckInTimer(
+      `${format(hours)}:${format(minutes)}:${format(seconds)}`
+    );
+  }, 1000);
+
+  return () => clearInterval(interval);
+}, [lastCheckIn]);
+
+
+  const isCheckInDisabled = (lastCheckIn: Date | null) => {
+    if (!lastCheckIn) return false;
+
+    const now = new Date();
+
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      0, 0, 0, 0
+    );
+
+    const endOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      23, 59, 59, 999
+    );
+
+    return lastCheckIn >= startOfToday && lastCheckIn <= endOfToday;
+  };
+  const isCheckedInToday = isCheckInDisabled(lastCheckIn);
+  const isLateCheckIn = (() => {
+  if (!lastCheckIn) return false;
+  const checkInTime = new Date(lastCheckIn);
+
+  const nineAM = new Date(checkInTime);
+  nineAM.setHours(9, 0, 0, 0);
+
+  return checkInTime > nineAM;
+})();
+
+
+  const { checkIn, isPending } = useCheckIn();
+
   const handleDateChange = (key: string, value?: Date) => {
     setExpertDate((prev) => ({
       ...prev,
       [key]: value,
     }));
   };
+ 
+
+
 
   return (
     <main
@@ -206,8 +278,54 @@ export const ExpertDashboard = ({
           </div>
 
           {/* <DashboardClock /> */}
+          <div className="flex flex-col items-center gap-1">
+           <div className="flex flex-col items-center gap-1">
+             
+                  <div className="flex flex-col items-center gap-0.5">
+                   {isCheckedInToday &&(
+                    <span className="text-lg px-1 font-semibold tracking-widest w-full text-right">
+                     {checkInTimer}
+                    </span>
 
-          <div className="flex items-center gap-4">
+                      )}
+
+                  <button
+                disabled={isCheckedInToday || isPending}
+                onClick={() => {
+                  if (!isCheckedInToday) checkIn();
+                }}
+                className={`
+                  flex items-center gap-2 px-2 py-2 rounded-xl border
+                  transition-all duration-200 
+                  ${
+                    isCheckedInToday
+                      ? "bg-green-50 border-green-200 text-green-600 cursor-not-allowed"
+                      : "bg-card border-green-300 text-green-600 hover:bg-green-50 cursor-pointer"
+                  }
+                  ${isPending ? "opacity-60" : ""}
+                `}
+              >
+                {isCheckedInToday ? (
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                ) : (
+                  <Clock className="w-5 h-5 text-green-500 " />
+                )}
+
+                <span className="text-sm font-medium">
+                  {isCheckedInToday ? "Checked In" : "Check In"}
+                </span>
+              </button>
+
+              {(isLateCheckIn  && isCheckedInToday) && (
+                    <span className="text-xs text-red-500 px-2 font-medium w-full text-right">
+                      Late Check-in
+                    </span>
+                  )}
+               
+                </div>
+            </div>
+
+
             {/* ANIMATION SWITCH */}
             {/* {theme == "dark" && (
               <div className="flex items-center gap-2">
@@ -228,7 +346,7 @@ export const ExpertDashboard = ({
             )} */}
 
             {/* CLOCK */}
-            <DashboardClock />
+            {/* <DashboardClock /> */}
           </div>
         </div>
         {/* Summary Cards */}
@@ -277,7 +395,7 @@ export const ExpertDashboard = ({
                     Incentive Points
                   </p>
                   <p className="text-3xl font-bold text-foreground">
-                    { userDetails?.[0]?.incentive||user?.incentive || 0}
+                    {userDetails?.[0]?.incentive || user?.incentive || 0}
                   </p>
                   <p className="text-xs text-green-600 mt-2 font-medium">
                     Total Approved Answers
@@ -294,7 +412,7 @@ export const ExpertDashboard = ({
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Penality</p>
                   <p className="text-3xl font-bold text-foreground">
-                    {userDetails?.[0]?.penalty ||user?.penalty || 0}
+                    {userDetails?.[0]?.penalty || user?.penalty || 0}
                   </p>
                   <p className="text-xs text-green-600 mt-2 font-medium">
                     Total Rejected Answers

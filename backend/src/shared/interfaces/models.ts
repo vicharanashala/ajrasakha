@@ -22,6 +22,7 @@ export interface IUser {
   incentive?: number;
   penalty?: number;
   isBlocked?: boolean;
+  lastCheckInAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 }

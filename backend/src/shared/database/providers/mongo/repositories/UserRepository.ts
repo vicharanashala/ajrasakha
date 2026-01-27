@@ -1115,4 +1115,58 @@ async findAllUsers(
     });
     return performance;
   }
+
+  async updateCheckInTime(userId: string, time: Date) {
+  await this.init();
+  await this.usersCollection.updateOne(
+    { _id: new ObjectId(userId) },
+    {
+      $set: {
+        lastCheckInAt: time,
+        updatedAt: new Date(),
+      },
+    }
+  );
+}
+
+async findUnblockedUsers(session?:ClientSession):Promise<IUser[]>{
+  try {
+    await this.init()
+    const experts = await this.usersCollection.find(
+      {
+        role: 'expert',
+        isBlocked: { $ne: true },
+      },
+      session,
+    ).toArray()
+    return experts
+  } catch (error) {
+    throw new InternalServerError('Failed to fetch users');
+  }
+}
+
+async blockExperts(expertIds:string[],session:ClientSession):Promise<void>{
+  try {
+    await this.init()
+      await this.usersCollection.updateMany(
+      { _id: { $in: expertIds.map(id => new ObjectId(id)) } },
+      { $set: { isBlocked: true } },
+      session,
+    );
+  } catch (error) {
+    throw new InternalServerError('Failed to block users');
+  }
+}
+
+async unBlockExperts():Promise<void>{
+  try {
+    await this.init()
+      await this.usersCollection.updateMany(
+      { inactive: { $ne: true } },
+      { $set: { isBlocked: false } },
+    );
+  } catch (error) {
+    throw new InternalServerError('Failed to block users');
+  }
+}
 }

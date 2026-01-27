@@ -209,4 +209,17 @@ findAllUsers(
    * @param session
    */
   getExpertPerformance(session?: ClientSession): Promise<ExpertPerformance[]>;
+
+  /**
+ * Updates the last check-in time for a user.
+ * @param userId - The ID of the user.
+ * @param time - The new check-in time.
+ */
+updateCheckInTime(userId: string, time: Date, session?: ClientSession): Promise<void>;
+
+findUnblockedUsers(session?:ClientSession):Promise<IUser[]>
+
+blockExperts(expertIds:string[],session:ClientSession):Promise<void>
+
+unBlockExperts():Promise<void>
 }

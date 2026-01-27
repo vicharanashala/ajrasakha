@@ -331,5 +331,4 @@ export class QuestionController {
     if (!job) return {message: 'Job not found'};
     return job;
   }
-
 }

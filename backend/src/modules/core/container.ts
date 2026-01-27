@@ -25,6 +25,7 @@ import { CORE_TYPES } from './types.js';
 import { PerformanceService } from '../performance/services/PerformanceService.js';
 import { RequestController } from '../request/controllers/RequestController.js';
 import { RequestService } from '../request/services/RequestService.js';
+import { UserRepository } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 
 export const coreContainerModule = new ContainerModule(options => {
   // Controllers
@@ -80,4 +81,5 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CORE_TYPES.NotificationRepository).to(NotificationRepository).inSingletonScope()
   
   options.bind(CORE_TYPES.ReviewRepository).to(ReviewRepository).inSingletonScope()
+  options.bind(CORE_TYPES.UserRepository).to(UserRepository).inSingletonScope()
 });
