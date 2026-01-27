@@ -22,19 +22,11 @@ export interface IUsersNameResponse {
 
 
 export const useGetAllUsers = (
-  page: number,
-  limit: number,
-  search: string,
-  sort: string,
-  filter: string,
   options: { enabled?: boolean } = {}
 ) => {
-   const { data, isLoading, error } = useQuery<IUsersNameResponse | null>({
-    
-    queryKey: ["users", page, limit, search, sort, filter],
-    queryFn: async () => {
-      return await userService.useGetAllUsers(page, limit, search, sort, filter);
-    },
+  const { data, isLoading, error } = useQuery<IUsersNameResponse| null>({
+    queryKey: ["users"],
+    queryFn:()=> userService.useGetAllUsers(),
     enabled: options.enabled,
   });
 

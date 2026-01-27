@@ -881,7 +881,8 @@ async findAllUsers(
       
       const result = await this.usersCollection.aggregate([
       /** Match experts */
-      { $match: matchQuery },
+      { $match: {role:"expert"} },
+     
 
       /** Default isBlocked */
       {
@@ -992,6 +993,7 @@ async findAllUsers(
           ...selectedSort,
         },
       },
+      { $match: matchQuery },
 
       /** Pagination */
       {

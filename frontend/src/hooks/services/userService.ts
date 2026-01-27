@@ -13,16 +13,8 @@ export class UserService {
     return apiFetch<IUser>(`${this._baseUrl}/me`);
   }
 
-   async useGetAllUsers(
-  page: number,
-  limit: number,
-  search: string,
-  sort: string,
-  filter: string
-): Promise<IUsersNameResponse | null>{
-  return apiFetch<IUsersNameResponse>(
-    `${this._baseUrl}/all?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}`
-  );
+   async useGetAllUsers(): Promise<IUsersNameResponse | null> {
+  return apiFetch<IUsersNameResponse>(`${this._baseUrl}/all`);
 }
 
 
