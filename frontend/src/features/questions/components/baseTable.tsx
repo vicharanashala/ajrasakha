@@ -6,12 +6,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/atoms/table";
+import { RotateCcw } from "lucide-react";
 
 export type Column<T> = {
   key: keyof T | string;
   label: string;
   width?: string;
   render?: (row: T, index: number) => React.ReactNode;
+  sortable?: boolean;
 };
 
 type BaseTableProps<T> = {
@@ -19,6 +21,8 @@ type BaseTableProps<T> = {
   data: T[];
   isLoading?: boolean;
   emptyMessage?: string;
+  sort: string;
+  onSort: (key: string) => void;
 };
 
 export function BaseTable<T>({
@@ -26,6 +30,8 @@ export function BaseTable<T>({
   data,
   isLoading,
   emptyMessage = "No records found",
+  sort,
+  onSort,
 }: BaseTableProps<T>) {
   return (
     <Table className="min-w-[800px] table-fixed">
@@ -37,9 +43,35 @@ export function BaseTable<T>({
               style={{ width: col.width }}
               className="text-center"
             >
-              {col.label}
+              {col.sortable ? (
+                <button
+                  onClick={() => onSort(col.key as string)}
+                  className="flex items-center justify-around gap-0.5 mx-auto select-none"
+                >
+                  {col.label}
+                  {sort === `${col.key as string}___asc` && (
+                    <span className="text-md text-green-500">↑</span>
+                  )}
+                  {sort === `${col.key as string}___desc` && (
+                    <span className="text-md text-green-500">↓</span>
+                  )}
+                </button>
+              ) : (
+                col.label
+              )}
             </TableHead>
           ))}
+          {/* Clear sort column */}
+          {sort && (
+            <TableHead className="text-center w-[60px]">
+              <button
+                onClick={() => onSort("clearSort")}
+                className="px-2 py-1 rounded-md text-xs bg-primary text-white hover:text-black cursor-pointer"
+              >
+                <RotateCcw size={16} />
+              </button>
+            </TableHead>
+          )}
         </TableRow>
       </TableHeader>
 

@@ -42,7 +42,7 @@ export const QuestionsPage = ({
   const [endTime, setEndTime] = useState<Date | undefined>(undefined);
   const [review_level, setReviewLevel] = useState<ReviewLevel>("all");
   const [closedAtStart, setClosedAtStart] = useState<Date | undefined>(
-    undefined
+    undefined,
   );
   const [consecutiveApprovals,setConsecutiveApprovals]=useState("all")
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
@@ -54,7 +54,7 @@ export const QuestionsPage = ({
   const [domain, setDomain] = useState("all");
   const [user, setUser] = useState("all");
   const [selectedQuestionId, setSelectedQuestionId] = useState(
-    autoOpenQuestionId || ""
+    autoOpenQuestionId || "",
   );
 
   const [uploadedQuestionsCount, setUploadedQuestionsCount] = useState(0); // to track the bulk uploaded file size to run timer
@@ -68,10 +68,21 @@ export const QuestionsPage = ({
   const [reviewPage, setReviewPage] = useState(1);
   const [reviewLimit] = useState(10);
 
+  //handle sort by turn around time
+  const [sort, setSort] = useState("");
+  const toggleSort = (key: string) => {
+    if (key === "clearSort") {
+      setSort("");
+      return;
+    }
+    setSort((prev) => {
+      if (prev === `${key}___asc`) return `${key}___desc`;
+      return `${key}___asc`;
+    });
+  };
+
   const { mutateAsync: bulkDeleteQuestions, isPending: bulkDeletingQuestions } =
     useBulkDeleteQuestions();
-  
-  
 
   const LIMIT = 11;
   const filter = useMemo(
@@ -108,26 +119,37 @@ export const QuestionsPage = ({
       closedAtEnd,
       closedAtStart,
       consecutiveApprovals
-    ]
+    ],
   );
 
   const {
     data: questionData,
     isLoading,
     refetch,
-  } = useGetAllDetailedQuestions(currentPage, LIMIT, filter, debouncedSearch,viewMode==='all');
+  } = useGetAllDetailedQuestions(
+    currentPage,
+    LIMIT,
+    filter,
+    debouncedSearch,
+    viewMode === "all",
+  );
   const {
     data: questionDetails,
     refetch: refechSelectedQuestion,
     isLoading: isLoadingSelectedQuestion,
   } = useGetQuestionFullDataById(selectedQuestionId);
-  const {
-    data: reviewData,
-    isLoading: isReviewLoading,
-  } = useGetQuestionsAndLevel(reviewPage, reviewLimit, search,filter,viewMode==='review-level');
+  const { data: reviewData, isLoading: isReviewLoading } =
+    useGetQuestionsAndLevel(
+      reviewPage,
+      reviewLimit,
+      search,
+      filter,
+      viewMode === "review-level",
+      sort,
+    );
   const reviewRows = useMemo(
     () => (reviewData?.data ?? []).map(mapReviewQuestionToRow),
-    [reviewData]
+    [reviewData],
   );
   useEffect(() => {
     if (autoOpenQuestionId && autoOpenQuestionId !== selectedQuestionId) {
@@ -144,7 +166,7 @@ export const QuestionsPage = ({
 
   useEffect(() => {
     if (debouncedSearch === "") return;
-    if (currentUser?.role !== "expert") onReset(); 
+    if (currentUser?.role !== "expert") onReset();
   }, [debouncedSearch]);
 
   const onChangeFilters = (next: {
@@ -276,7 +298,11 @@ export const QuestionsPage = ({
                 setIsRefreshing(false);
               }, 2000);
             }}
-            totalQuestions={viewMode==='all' ? questionData?.totalCount || 0 : reviewData?.totalDocs || 0}
+            totalQuestions={
+              viewMode === "all"
+                ? questionData?.totalCount || 0
+                : reviewData?.totalDocs || 0
+            }
             userRole={currentUser?.role!}
             isSelectionModeOn={isSelectionModeOn}
             handleBulkDelete={handleBulkDelete}
@@ -286,6 +312,8 @@ export const QuestionsPage = ({
             bulkDeletingQuestions={bulkDeletingQuestions}
             viewMode={viewMode}
             setViewMode={setViewMode}
+            onSort={toggleSort}
+            sort={sort}
           />
 
           {viewMode === "all" ? (
@@ -313,6 +341,8 @@ export const QuestionsPage = ({
               totalPages={reviewData?.totalPages || 0}
               onPageChange={setReviewPage}
               onViewMore={handleViewMore}
+              toggleSort={toggleSort}
+              sort={sort}
             />
           )}
         </>

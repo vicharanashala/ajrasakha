@@ -5,8 +5,12 @@ import {
 import { Button } from "../../components/atoms/button";
 import { Input } from "../../components/atoms/input";
 import {
+  ArrowDownNarrowWide,
+  ArrowUpNarrowWide,
+  Clock,
   Plus,
  RefreshCcw,
+ RotateCcw,
  Search,
   Trash,
   X,
@@ -28,6 +32,7 @@ import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
 
 import { TopRightBadge } from "../../components/NewBadge";
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -49,6 +54,8 @@ type QuestionsFiltersProps = {
   setSelectedQuestionIds: (value: string[]) => void;
   viewMode: "all" | "review-level";
   setViewMode: (v: "all" | "review-level") => void;
+  sort: string;
+  onSort: (key:string)=>void;
 };
 
 export const QuestionsFilters = ({
@@ -71,6 +78,8 @@ export const QuestionsFilters = ({
   bulkDeletingQuestions,
   viewMode,
   setViewMode,
+  sort,
+  onSort,
 }: QuestionsFiltersProps) => {
   const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
     {
@@ -273,7 +282,43 @@ export const QuestionsFilters = ({
         isLoadingAction={addingQuestion}
         mode="add"
       />
+      {viewMode === "review-level" && (
+        <div className="flex items-center gap-1">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="flex items-center gap-2 px-3 py-2 rounded-md text-sm 
+               bg-primary text-white hover:opacity-90 select-none"
+                  onClick={() => onSort("totalTurnAround")}
+                >
+                  <Clock size={14} />
 
+                  {sort === `totalTurnAround___asc` && (
+                    <ArrowUpNarrowWide size={14} />
+                  )}
+                  {sort === `totalTurnAround___desc` && (
+                    <ArrowDownNarrowWide size={14} />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Sort questions by total turnaround time</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          {sort && (
+            <div className="flex justify-end">
+              <button
+                onClick={() => onSort("clearSort")}
+                className="ml-1 p-2 rounded-md text-sm bg-primary text-white hover:text-black"
+              >
+                <RotateCcw size={14} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       {/* SEARCH BAR – full width on mobile, fixed width on desktop */}
       <div className="w-full sm:flex-1 sm:min-w-[250px] sm:max-w-[400px]">
         <div className="relative w-full">
