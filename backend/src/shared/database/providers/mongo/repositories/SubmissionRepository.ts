@@ -3078,7 +3078,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       throw new InternalServerError('Failed to get absent submissions');
     }
   }
-  async findQuestionsNeedingEscalation(session?: ClientSession): Promise<IQuestionSubmission[]>  {
+  async findQuestionsNeedingEscalation(limit?:number,session?: ClientSession): Promise<IQuestionSubmission[]>  {
     await this.init();
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
   
@@ -3112,7 +3112,26 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         ],
       },
       { session }
-    ).toArray();
+    )
+    .limit(limit || 0)
+    .toArray();
+  }
+  async updateById(
+    id: string,
+    update: any,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission | null> {
+    await this.init();
+    const result = await this.QuestionSubmissionCollection.findOneAndUpdate(
+      { _id: new ObjectId(id) }, // filter
+      update,                    // update operators
+      {
+        returnDocument: 'after', // return updated doc
+        session,
+      },
+    );
+  
+    return result; // contains the updated document
   }
   
 }
