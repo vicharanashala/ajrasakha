@@ -11,7 +11,7 @@ import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepos
 import {
   CreateRequestBodyDto,
   GetAllRequestsQueryDto,
-} from '#root/modules/core/classes/validators/RequestValidators.js';
+} from '#root/modules/request/classes/validators/RequestValidators.js';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {InternalServerError, NotFoundError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
