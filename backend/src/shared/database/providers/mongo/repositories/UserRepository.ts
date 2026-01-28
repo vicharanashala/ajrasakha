@@ -389,6 +389,11 @@ async findAllUsers(
             ...selectedSort,
           },
         },
+        {
+          $project:{
+            firebaseUID:0
+          }
+        },
 
         /** Pagination */
         {
