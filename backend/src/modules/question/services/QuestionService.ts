@@ -1664,7 +1664,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         // -----------------------------
         // 🎯 Round Robin Distribution
         // -----------------------------
-        const assignments: Record<string, any[]> = {};
+       /* const assignments: Record<string, any[]> = {};
         lessWorkloadExperts.forEach(e => (assignments[e._id.toString()] = []));
   
         let expertIndex = 0;
@@ -1672,7 +1672,60 @@ export class QuestionService extends BaseService implements IQuestionService {
           const expert = lessWorkloadExperts[expertIndex];
           assignments[expert._id.toString()].push(submission);
           expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
-        }
+        }*/
+        // -----------------------------
+// 🎯 Smart Round Robin Distribution
+// -----------------------------
+const assignments: Record<string, any[]> = {};
+const expertLoad: Record<string, number> = {};
+
+lessWorkloadExperts.forEach(e => {
+  const id = e._id.toString();
+  assignments[id] = [];
+  expertLoad[id] = 0;
+});
+
+let expertIndex = 0;
+
+for (const submission of submissionsToProcess) {
+  let attempts = 0;
+  let assigned = false;
+
+  // Build a set of experts who already handled this submission
+  const historyExpertIds = new Set(
+    (submission.history || []).map(h => h.updatedBy?.toString()),
+  );
+
+  const queueExpertIds = new Set(
+    (submission.queue || []).map(q => q.toString()),
+  );
+
+  while (attempts < lessWorkloadExperts.length && !assigned) {
+    const expert = lessWorkloadExperts[expertIndex];
+    const expertId = expert._id.toString();
+
+    const alreadyInHistory = historyExpertIds.has(expertId);
+    const alreadyInQueue = queueExpertIds.has(expertId);
+    const overloaded = expertLoad[expertId] >= MAX_PER_EXPERT;
+
+    if (!alreadyInHistory && !alreadyInQueue && !overloaded) {
+      assignments[expertId].push(submission);
+      expertLoad[expertId]++;
+      assigned = true;
+    }
+
+    expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
+    attempts++;
+  }
+
+  if (!assigned) {
+    console.warn(
+      `No eligible expert found for submission ${submission._id}`,
+    );
+    // Optional: push to fallback/manual bucket
+  }
+}
+
   
         // -----------------------------
         // 🔄 Process Each Assignment
@@ -1706,6 +1759,8 @@ export class QuestionService extends BaseService implements IQuestionService {
                 {
                   $set: {
                     queue: [new ObjectId(expertId)],
+                    createdAt: now,
+                    updatedAt: now,
                   },
                 },
                 session,
