@@ -43,7 +43,7 @@ import {
   getJobById,
   startBackgroundProcessing,
 } from '#root/workers/workerManager.js';
-import { ContextIdParam } from '#root/modules/core/classes/validators/ContextValidators.js';
+import { ContextIdParam } from '#root/modules/context/classes/validators/ContextValidator.js';
 import { QuestionService } from '../services/QuestionService.js';
 import { UploadFileOptions } from '#root/modules/core/classes/validators/fileUploadOptions.js';
 import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
