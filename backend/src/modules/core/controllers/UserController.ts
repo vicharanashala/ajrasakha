@@ -79,13 +79,13 @@ export class UserController {
   async updateUser(
     @Body() body: Partial<IUser>,
     @CurrentUser() currentUser: IUser,
-  ): Promise<IUser> {
+  ): Promise<{firstName:string,lastName:string}> {
     const userId = currentUser._id.toString();
     const updatedUser = await this.userService.updateUser(userId, body);
     if (!updatedUser) {
       throw new NotFoundError('User not found');
     }
-    return updatedUser;
+    return {firstName:updatedUser.firstName,lastName:updatedUser.lastName};
   }
 
   @Get('/admin/all')
