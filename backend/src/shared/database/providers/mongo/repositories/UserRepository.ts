@@ -995,6 +995,12 @@ async findAllUsers(
       },
       { $match: matchQuery },
 
+      {
+            $project: {
+              firebaseUID: 0,
+            },
+      },
+
       /** Pagination */
       {
         $facet: {
