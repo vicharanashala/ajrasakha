@@ -1,14 +1,16 @@
 import {
   IsArray,
-  isBoolean,
+  IsBoolean,
   IsEnum,
   IsObject,
   IsOptional,
   IsString,
   ValidateNested,
+  IsNotEmpty
 } from 'class-validator';
-import {Type} from 'class-transformer';
+import {Type, Transform} from 'class-transformer';
 import { NotificationRetentionType } from '#root/shared/index.js';
+import { UserRole } from '#root/shared/interfaces/models.js';
 
 class PreferenceDto {
   @IsOptional()
@@ -121,4 +123,22 @@ class ExpertReviewLevelDto{
 
 export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive,BlockUnblockBody];
 
-export {PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive,BlockUnblockBody,ExpertReviewLevelDto};
+class UpdateUserDto {
+  @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @IsString()
+  @IsNotEmpty({ message: 'First name cannot be empty or spaces' })
+  firstName?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @IsString()
+  @IsNotEmpty({ message: 'Last name cannot be empty or spaces' })
+  lastName?: string;
+
+  @IsOptional()
+  @IsEnum(['expert', 'moderator', 'admin'])
+  role?: UserRole;
+}
+
+export {PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive,BlockUnblockBody,ExpertReviewLevelDto, UpdateUserDto};

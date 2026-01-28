@@ -28,6 +28,7 @@ import {
   UpdatePenaltyAndIncentive,
   UsersNameResponseDto,
   ExpertReviewLevelDto,
+  UpdateUserDto
 } from '../classes/validators/UserValidators.js';
 
 @OpenAPI({
@@ -76,7 +77,7 @@ export class UserController {
   @OpenAPI({summary: 'Update user information'})
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async updateUser(
-    @Body() body: Partial<IUser>,
+    @Body() body: UpdateUserDto,
     @CurrentUser() currentUser: IUser,
   ): Promise<IUser> {
     const userId = currentUser._id.toString();
