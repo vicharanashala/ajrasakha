@@ -17,6 +17,7 @@ import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {
+  GetUserByEmailType,
   IUser,
   NotificationRetentionType,
 } from '#root/shared/interfaces/models.js';
@@ -239,8 +240,9 @@ export class UserController {
   @OpenAPI({summary: 'Get all user names'})
   async getUserDetails(
     @Params() params: {email: string},
-  ): Promise<IUser | null> {
+  ): Promise<GetUserByEmailType | null> {
     const {email} = params;
-    return await this.userService.getUserByEmail(email);
+    const result = await this.userService.getUserByEmail(email);
+    return {isBlocked:result.isBlocked}
   }
 }

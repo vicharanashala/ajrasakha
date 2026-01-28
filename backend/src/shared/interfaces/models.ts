@@ -27,6 +27,12 @@ export interface IUser {
   updatedAt?: Date;
 }
 
+//get user by email type
+export type GetUserByEmailType = Pick<
+IUser,
+|'isBlocked'
+>
+
 
 export type IQuestionPriority = 'low' | 'medium' | 'high';
 
