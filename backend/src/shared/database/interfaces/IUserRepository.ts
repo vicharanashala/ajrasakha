@@ -77,6 +77,9 @@ export interface IUserRepository {
     details: PreferenceDto,
     session?: ClientSession,
   ): Promise<IUser[]>;
+  findActiveLowReputationExpertsToday(
+    session?: ClientSession,
+    ): Promise<IUser[]>;
 
   /**
    * Creates a User Anomaly Document to the database.
