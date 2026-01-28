@@ -97,19 +97,20 @@ export class PerformanceController {
       return { success: true, lastCheckInAt: new Date() };
     }
 
-    @Get("/cron-snapshot")
-    @HttpCode(200)
-    @Authorized()
-    @OpenAPI({ summary: "Get cron-generated backup snapshot (read-only)" })
-    async getCronSnapshot(
-      @CurrentUser() user: IUser,
-    ) {
-      const result = await this.performanceService.getCronMirrorData(
-        user._id.toString(),
-      );
+@Post("/cron-snapshot/send-report")
+@HttpCode(200)
+@Authorized()
+@OpenAPI({ summary: "Send cron snapshot report via email" })
+async sendCronSnapshotReport(
+  @CurrentUser() user: IUser,
+) {
+  await this.performanceService.sendCronSnapshotEmail(
+    user._id.toString(),
+  );
 
-      return result.data;
-    }
-
+  return {
+    message: "Cron snapshot report email sent successfully.",
+  };
+}
 
 }

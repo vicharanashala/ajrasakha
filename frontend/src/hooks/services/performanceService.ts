@@ -77,9 +77,11 @@ export class PerformaneService {
     );
   }
 
-  async getCronSnapshot(): Promise<{database: string;generatedAt: string;totalCollections: number;collections:
-  { collectionName: string; documentCount: number }[];} | null> {
-  return apiFetch(`${this._baseUrl}/cron-snapshot`);
-  }
+  async sendCronSnapshotReport(): Promise<void> {
+   apiFetch(`${this._baseUrl}/cron-snapshot/send-report`, {
+    method: "POST",
+  });
+}
+
 
 } 

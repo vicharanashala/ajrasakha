@@ -34,10 +34,9 @@
 
     updateCheckInTime(userId: string, time: Date): Promise<void>;
 
-    getCronMirrorData(
+    sendCronSnapshotEmail(
       currentUserId: string
-    ): Promise<{
-      data: any;
-    }>;
+    ): Promise<void>;
+
 
   }

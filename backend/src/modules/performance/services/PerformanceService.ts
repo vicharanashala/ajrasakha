@@ -197,24 +197,17 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  async getCronMirrorData(currentUserId: string) {
+async sendCronSnapshotEmail(currentUserId: string) {
   return await this._withTransaction(async (session) => {
     const user = await this.userRepo.findById(currentUserId, session);
 
     if (!user || user.role !== "admin") {
       throw new UnauthorizedError(
-        "Only moderators can access cron snapshot data",
+        "Only admins can send cron snapshot report",
       );
     }
 
-    const { getBackupSnapshotData } = await import(
-      "#root/utils/backup-cron-readonly.js"
-    );
-
-    const data = await getBackupSnapshotData();
     await sendStatsEmail();
-
-    return { data };
   });
 }
 
