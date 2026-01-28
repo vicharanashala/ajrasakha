@@ -232,7 +232,7 @@ export class UserController {
       currentUser,
       userId,
     );
-    return {message: `User promoted to moderator`, user: updatedUser};
+    return {message: `User promoted to moderator`, user: {firstName:updatedUser.firstName,role:updatedUser.role}};
   }
 
   @Get('/details/:email')
