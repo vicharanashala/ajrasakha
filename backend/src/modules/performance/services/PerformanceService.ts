@@ -201,7 +201,7 @@ export class PerformanceService extends BaseService implements IPerformanceServi
   return await this._withTransaction(async (session) => {
     const user = await this.userRepo.findById(currentUserId, session);
 
-    if (!user || user.role !== "moderator") {
+    if (!user || user.role !== "admin") {
       throw new UnauthorizedError(
         "Only moderators can access cron snapshot data",
       );

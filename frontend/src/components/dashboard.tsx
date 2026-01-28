@@ -273,7 +273,7 @@ export const Dashboard = () => {
           <ReviewLevelComponent />
         </div>
       </div>
-      {user?.role === "moderator" && (
+      {user?.role === "admin" && (
         <div className="flex justify-end px-6">
           <button
             onClick={handleFetchCronSnapshot}
