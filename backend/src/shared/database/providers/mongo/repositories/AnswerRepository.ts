@@ -1475,7 +1475,7 @@ if (selectedHistoryId) {
           _id: 0,
           action: "finalized",
           createdAt: "$createdAt",
-          updatedAt: "$updatedAt",
+          // updatedAt: "$updatedAt",
           question: {
             _id: { $toString: "$questionDoc._id" },
             question: "$questionDoc.question",
