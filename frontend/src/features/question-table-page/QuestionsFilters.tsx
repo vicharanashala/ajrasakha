@@ -37,6 +37,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 type QuestionsFiltersProps = {
   search: string;
   states: string[];
+  appliedFilters: AdvanceFilterValues
   onChange: (next: AdvanceFilterValues) => void;
   crops: string[];
   onReset: () => void;
@@ -61,6 +62,7 @@ type QuestionsFiltersProps = {
 export const QuestionsFilters = ({
   search,
   setSearch,
+  appliedFilters,
   setUploadedQuestionsCount,
   setIsBulkUpload,
   crops,
@@ -81,25 +83,7 @@ export const QuestionsFilters = ({
   sort,
   onSort,
 }: QuestionsFiltersProps) => {
-  const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
-    {
-      status: "all",
-      source: "all",
-      state: "all",
-      answersCount: [0, 100],
-      dateRange: "all",
-      crop: "all",
-      priority: "all",
-      domain: "all",
-      user: "all",
-      endTime: undefined,
-      startTime: undefined,
-      review_level: "all",
-      closedAtStart: undefined,
-      closedAtEnd: undefined,
-      consecutiveApprovals:'all'
-    }
-  );
+  const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(appliedFilters);
   const [addOpen, setAddOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
     null

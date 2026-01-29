@@ -285,6 +285,7 @@ export const QuestionsPage = ({
           <QuestionsFilters
             search={search}
             setSearch={setSearch}
+            appliedFilters={filter}
             setUploadedQuestionsCount={setUploadedQuestionsCount}
             setIsBulkUpload={setIsBulkUpload}
             states={STATES}
