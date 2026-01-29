@@ -135,16 +135,6 @@ export const QuestionsTable = ({
           return;
         }
 
-        if (!updatedData.context?.trim()) {
-          toast.error("Description (Context) is required.");
-          return;
-        }
-
-        if (updatedData.context?.trim().length < 10) {
-          toast.error("Description (Context) must be atleast 10 characters long.");
-          return;
-        }
-
         if (!updatedData.priority) {
           toast.error("Priority is required.");
           return;
