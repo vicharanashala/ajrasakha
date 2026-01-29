@@ -124,21 +124,21 @@ export interface HistoryItem {
   // If an expert is modifying, it store the modified answer id
   modifiedAnswer?: string;
   // timestamp
- 
+
   moderator?: ModeratorRerouteRepo;
   question?: QuestionEntityRerouteRepo;
- 
+
   rerouteId?: string;
   reroute?: RerouteRerouteRepo;
   text?: string;
-  
+
   details?: QuestionDetailsRerouteRepo;
   createdAt?: Date;
   priority?: Priority;
   id?: string;
- 
+
   updatedAt?:Date,
- 
+
 }
 
 export type QuestionPriority = "low" | "medium" | "high";
@@ -325,7 +325,7 @@ export interface HeatMapResult {
   };
 }
 export interface WorkLoad {
-  currentUserAnswers: CurrentUserAnswer[];
+  currentUserAnswersCount: number;
   totalQuestionsCount: number;
   totalInreviewQuestionsCount: number;
 }
@@ -594,7 +594,7 @@ export interface IRerouteHistoryResponse {
 export type RerouteHistoryApiResponse = IRerouteHistoryResponse[];
 type Priority = "high" | "medium" | "low";
 
- export interface ReroutedQuestionItem {
+export interface ReroutedQuestionItem {
   id: string;
   text: string;
   status: QuestionStatus;
@@ -692,7 +692,7 @@ export interface QuestionHistoryRerouteRepo {
   createdAt?: string;
   priority?: Priority;
   id?: string;
- 
+
   updatedAt?:Date,
   updatedBy?: {
     // who's submission is this
@@ -700,8 +700,8 @@ export interface QuestionHistoryRerouteRepo {
     userName: string;
     // email: string;
   };
-  
-  
+
+
 }
 
 /* =========================
@@ -788,10 +788,10 @@ export interface RerouteRerouteRepo {
 }
 export type QuestionResponse =
   | {
-      kind: "normal";
-      data: IQuestion;
-    }
+    kind: "normal";
+    data: IQuestion;
+  }
   | {
-      kind: "reroute";
-      data: QuestionRerouteRepo;
-    };
+    kind: "reroute";
+    data: QuestionRerouteRepo;
+  };
