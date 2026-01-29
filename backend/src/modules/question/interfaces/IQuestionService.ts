@@ -126,6 +126,8 @@ export interface IQuestionService {
 
     balanceWorkload(
       session?: ClientSession,
-    ): Promise<void>
+    ): Promise<{message: string;
+      expertsInvolved: number;
+      submissionsProcessed: number;}>
   runAbsentScript()
 }

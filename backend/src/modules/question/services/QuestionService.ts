@@ -1641,6 +1641,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     console.log('Completed!');
   }
   async balanceWorkload() {
+   
     
     return await this._withTransaction(async session => {
       try {
@@ -1655,11 +1656,19 @@ export class QuestionService extends BaseService implements IQuestionService {
             session,
           );
             
-        if (!lessWorkloadExperts.length || !delayedSubmissions.length) return;
+        if (!lessWorkloadExperts.length || !delayedSubmissions.length) 
+        {
+          return {
+            message: "No Expert present to allocate question or no delayed questions present",
+            expertsInvolved: lessWorkloadExperts.length,
+            submissionsProcessed: 0,
+          };
+        }
+        
   
        
   
-        const submissionsToProcess = delayedSubmissions.slice(0, maxAssignments);
+      //  const submissionsToProcess = delayedSubmissions.slice(0, maxAssignments);
   
         // -----------------------------
         // 🎯 Round Robin Distribution
@@ -1687,7 +1696,7 @@ lessWorkloadExperts.forEach(e => {
 
 let expertIndex = 0;
 
-for (const submission of submissionsToProcess) {
+for (const submission of delayedSubmissions) {
   let attempts = 0;
   let assigned = false;
 
@@ -1840,6 +1849,11 @@ for (const submission of submissionsToProcess) {
             }
           }
         }
+        return {
+          message: "Successfully ReAllocated delayed Questions",
+          expertsInvolved: lessWorkloadExperts.length,
+          submissionsProcessed: delayedSubmissions.length,
+        };
       } catch (error) {
         throw new InternalServerError(
           `Failed to balance workload: ${error}`,
