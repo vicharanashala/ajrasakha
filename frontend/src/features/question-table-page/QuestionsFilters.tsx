@@ -338,8 +338,8 @@ export const QuestionsFilters = ({
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs text-sm">
           <p>
-            This option allows reallocating questions  that have been
-            delayed by atleast 1 hour for those who has less workload( less than 5) .
+            {`This option allows reallocating questions  that have been
+            delayed by atleast 1 hour for those who has less workload( <= 5)`} .
           </p>
         </TooltipContent>
       </Tooltip>
