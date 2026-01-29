@@ -78,7 +78,7 @@ export class PerformaneService {
   }
 
   async sendCronSnapshotReport(): Promise<void> {
-   apiFetch(`${this._baseUrl}/cron-snapshot/send-report`, {
+   await apiFetch(`${this._baseUrl}/cron-snapshot/send-report`, {
     method: "POST",
   });
 }
