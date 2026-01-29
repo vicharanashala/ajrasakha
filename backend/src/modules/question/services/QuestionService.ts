@@ -1823,6 +1823,7 @@ for (const submission of delayedSubmissions) {
                   $set: {
                     queue: newQueue,
                     history: updatedHistory,
+                    updatedAt: now,
                   },
                 },
                 session,
