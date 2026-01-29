@@ -37,7 +37,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 type QuestionsFiltersProps = {
   search: string;
   states: string[];
-  appliedFilters: AdvanceFilterValues
+  appliedFilters: AdvanceFilterValues;
   onChange: (next: AdvanceFilterValues) => void;
   crops: string[];
   onReset: () => void;
