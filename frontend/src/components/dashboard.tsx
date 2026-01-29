@@ -100,7 +100,7 @@ export const Dashboard = () => {
   });
 
   useEffect(() => {
-    if (dashboardData) {
+    if (dashboardData?.userRoleOverview) {
       setDashboardState(dashboardData);
       setInitialLoading(false);
     }
