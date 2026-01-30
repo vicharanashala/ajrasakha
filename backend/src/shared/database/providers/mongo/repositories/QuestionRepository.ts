@@ -598,6 +598,9 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
               contextId: 0,
               metrics: 0,
               embedding: 0,
+              isAutoAllocate:0,
+              text:0,
+              aiInitialAnswer:0,
               score: {$meta: 'vectorSearchScore'},
             },
           },
@@ -701,6 +704,9 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
             contextId: 0,
             metrics: 0,
             embedding: 0,
+            isAutoAllocate:0,
+            text:0,
+            aiInitialAnswer:0
           },
         },
       ]).toArray();
