@@ -124,21 +124,21 @@ export interface HistoryItem {
   // If an expert is modifying, it store the modified answer id
   modifiedAnswer?: string;
   // timestamp
- 
+
   moderator?: ModeratorRerouteRepo;
   question?: QuestionEntityRerouteRepo;
- 
+
   rerouteId?: string;
   reroute?: RerouteRerouteRepo;
   text?: string;
-  
+
   details?: QuestionDetailsRerouteRepo;
   createdAt?: Date;
   priority?: Priority;
   id?: string;
- 
+
   updatedAt?:Date,
- 
+
 }
 
 export type QuestionPriority = "low" | "medium" | "high";
@@ -498,14 +498,12 @@ export type IRequest = RequestDetails & {
 export type INotificationType = "flag" | "answer_creation" | "peer_review";
 export interface INotification {
   _id: string;
-  userId: string;
   enitity_id: string;
   title: string;
   type: INotificationType;
   message: string;
   is_read: boolean;
   createdAt: string;
-  updatedAt: string;
 }
 // =====================
 // Reroute History Types
@@ -594,7 +592,7 @@ export interface IRerouteHistoryResponse {
 export type RerouteHistoryApiResponse = IRerouteHistoryResponse[];
 type Priority = "high" | "medium" | "low";
 
- export interface ReroutedQuestionItem {
+export interface ReroutedQuestionItem {
   id: string;
   text: string;
   status: QuestionStatus;
@@ -692,7 +690,7 @@ export interface QuestionHistoryRerouteRepo {
   createdAt?: string;
   priority?: Priority;
   id?: string;
- 
+
   updatedAt?:Date,
   updatedBy?: {
     // who's submission is this
@@ -700,8 +698,8 @@ export interface QuestionHistoryRerouteRepo {
     userName: string;
     // email: string;
   };
-  
-  
+
+
 }
 
 /* =========================
@@ -788,10 +786,10 @@ export interface RerouteRerouteRepo {
 }
 export type QuestionResponse =
   | {
-      kind: "normal";
-      data: IQuestion;
-    }
+    kind: "normal";
+    data: IQuestion;
+  }
   | {
-      kind: "reroute";
-      data: QuestionRerouteRepo;
-    };
+    kind: "reroute";
+    data: QuestionRerouteRepo;
+  };

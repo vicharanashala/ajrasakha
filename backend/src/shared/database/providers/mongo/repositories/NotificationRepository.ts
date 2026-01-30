@@ -72,134 +72,132 @@ export class NotificationRepository implements INotificationRepository {
       ])
       if (!notification) return null;
 
-    // Convert ObjectId → string
+      // Convert ObjectId → string
 
-    const response = notification.map((n) => ({
-      ...n,
-      _id:n._id.toString(),
-      userId:n.userId.toString(),
-      enitity_id:n.enitity_id.toString(),
-      message:n.message,
-      is_read:n.is_read,
-      title:n.title,
-      createdAt:n.createdAt.toString(),
-      updatedAt:n.updatedAt.toString()
-    }))
+      const response = notification.map((n) => ({
+        _id:n._id.toString(),
+        enitity_id:n.enitity_id.toString(),
+        message:n.message,
+        is_read:n.is_read,
+        title:n.title,
+        type: n.type,
+        createdAt:n.createdAt.toString()
+      }))
 
     return {notifications:response,page,totalCount,totalPages:Math.ceil(totalCount/limit)}
-  }
+    }
   catch(error){
-    throw new InternalServerError(
+      throw new InternalServerError(
         `Error while adding Notification, More/ ${error}`,
       );
+    }
   }
-}
 
 async getNotificationsCount(userId: string,session?:ClientSession): Promise<number> {
-  try {
-    await this.init()
+    try {
+      await this.init()
     const notifications = await this.notificationCollection.countDocuments({userId:new ObjectId(userId),is_read:false},{session})
-    return notifications
-  } catch (error) {
-     throw new InternalServerError(
+      return notifications
+    } catch (error) {
+      throw new InternalServerError(
         `Error while getting Notification, More/ ${error}`,
       );
+    }
   }
-}
 
 async deleteNotification(notificationId: string, session: ClientSession): Promise<{deletedCount: number}> {
-  try {
-    await this.init()
-    if (!notificationId || !isValidObjectId(notificationId)) {
+    try {
+      await this.init()
+      if (!notificationId || !isValidObjectId(notificationId)) {
         throw new BadRequestError('Invalid or missing NotificationId');
       }
       const result =await this.notificationCollection.deleteOne({_id: new ObjectId(notificationId)},{session})
       return result
-  } catch (error) {
-     throw new InternalServerError(
+    } catch (error) {
+      throw new InternalServerError(
         `Error while deleting Notification, More/ ${error}`,
       );
+    }
   }
-}
 
 async markAsRead(notificationId: string,session?:ClientSession): Promise<{modifiedCount: number}> {
-  try {
-    await this.init()
-     if (!notificationId || !isValidObjectId(notificationId)) {
+    try {
+      await this.init()
+      if (!notificationId || !isValidObjectId(notificationId)) {
         throw new BadRequestError('Invalid or missing NotificationId');
       }
     const result= await this.notificationCollection.updateOne({_id:new ObjectId(notificationId)},{$set:{is_read:true}},{session})
-    return result
-  } catch (error) {
-    throw new InternalServerError(
+      return result
+    } catch (error) {
+      throw new InternalServerError(
         `Error while deleting Notification, More/ ${error}`,
       );
+    }
   }
-}
 
 async markAllAsRead(userId:string,session?:ClientSession): Promise<{modifiedCount: number}> {
-  try {
-    await this.init()
+    try {
+      await this.init()
     const result= await this.notificationCollection.updateMany({userId:new ObjectId(userId)},{$set:{is_read:true}},{session})
-    return result
-  } catch (error) {
-    throw new InternalServerError(
+      return result
+    } catch (error) {
+      throw new InternalServerError(
         `Error while deleting Notification, More/ ${error}`,
       );
+    }
   }
-}
 
 async saveSubscription(userId: string, subscription: any,session?:ClientSession) {
-  try {
-    await this.init()
-    return await this.subscriptionCollection.findOneAndUpdate(
-      { userId: new ObjectId(userId) },
+    try {
+      await this.init()
+      return await this.subscriptionCollection.findOneAndUpdate(
+        { userId: new ObjectId(userId) },
       { $set:{userId: new ObjectId(userId),subscription:subscription} },{upsert: true}
-    );
-  } catch (error) {
-     throw new InternalServerError(
+      );
+    } catch (error) {
+      throw new InternalServerError(
         `Error while saving subscription, More/ ${error}`,
       );
-  } 
-}
+    }
+  }
 
-async getSubscriptionByUserId(userId: string) {
+  async getSubscriptionByUserId(userId: string) {
     await this.init()
     return this.subscriptionCollection.findOne({ userId: new ObjectId(userId) })
-}
+  }
 
 async autoDeleteNotifications(){
-  await this.init()
-  try {
-    const retentionPeriods = {    
-  "3d": 3,
-  "1w": 7,
-  "2w": 14,
-  "1m": 30,
-  "never": null, 
-};
-    const users = await this.userCollection.find().toArray()
+    await this.init()
+    try {
+      const retentionPeriods = {
+        "3d": 3,
+        "1w": 7,
+        "2w": 14,
+        "1m": 30,
+        "never": null,
+      };
+      const users = await this.userCollection.find().toArray()
     for(const user of users){
-      const retention = user.notificationRetention || 'never'
+        const retention = user.notificationRetention || 'never'
       const days =retentionPeriods[retention]
       if(!days){
-        // console.log(`Skipping user ${user._id} (retention: never)`);
-        continue;
-      }
+          // console.log(`Skipping user ${user._id} (retention: never)`);
+          continue;
+        }
       const cutoff = new Date(Date.now() - days * 24 * 60 * 60  *1000)
       const result =await this.notificationCollection.deleteMany({
         userId:new ObjectId(user._id),
         createdAt:{$lt:cutoff},
-      })
-      console.log(
-      `Deleted ${result.deletedCount} notifications for user ${user._id} older than ${days} days.`
-    );
+        })
+        console.log(
+          `Deleted ${result.deletedCount} notifications for user ${user._id} older than ${days} days.`
+        );
+      }
+      console.log("✅ Notification cleanup complete.");
+    } catch (error) {
+      throw new InternalServerError(
+        "Error In Cleanup"
+      )
     }
-    console.log("✅ Notification cleanup complete.");
-  } catch (error) {
-    throw new InternalServerError(
-      "Error In Cleanup"
-    )
   }
-}
 }
