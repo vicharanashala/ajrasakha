@@ -173,6 +173,8 @@ export class QuestionController {
           payload,
         );
         setImmediate(() => startBackgroundProcessing(insertedIds));
+
+        
         return {
           message: `✅ ${insertedIds.length} questions have been uploaded successfully. The expert allocation process has been initiated.`,
           insertedIds,
@@ -184,8 +186,8 @@ export class QuestionController {
         );
       }
     } else {
-      const inserted = this.questionService.addQuestion(userId, body);
-      return inserted;
+      await this.questionService.addQuestion(userId, body);
+      return {message:"Question added successfully!"};
     }
   }
 
