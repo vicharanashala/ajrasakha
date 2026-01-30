@@ -1,0 +1,11 @@
+fastmcp
+langgraph
+langchain-openai
+langchain-core
+langchain-huggingface
+langchain-mongodb
+pymongo
+aiohttp
+requests
+sentence-transformers
+torch
