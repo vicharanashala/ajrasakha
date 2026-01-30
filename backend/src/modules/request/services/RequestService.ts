@@ -84,7 +84,7 @@ export class RequestService extends BaseService implements IRequestService{
     userId: string,
     query: GetAllRequestsQueryDto,
   ): Promise<{
-    requests: (IRequest & {userName: string})[];
+    requests: IRequest[];
     totalPages: number;
     totalCount: number;
   }> {
@@ -99,14 +99,8 @@ export class RequestService extends BaseService implements IRequestService{
         const {requests, totalPages, totalCount} =
           await this.requestRepository.getAllRequests(query);
 
-        const sanitizedRequests: (IRequest & {userName: string})[] =
-          requests.map(req => ({
-            ...req,
-            userName: `${user.firstName} ${user.lastName}`,
-          }));
-
         return {
-          requests: sanitizedRequests,
+          requests,
           totalPages,
           totalCount,
         };
@@ -240,33 +234,33 @@ export class RequestService extends BaseService implements IRequestService{
   }
 
   async softDeleteRequest(
-  requestId: string,
-  userId: string,
-): Promise<void> {
-  return this._withTransaction(async session => {
-    const user = await this.userRepo.findById(userId, session);
+    requestId: string,
+    userId: string,
+  ): Promise<void> {
+    return this._withTransaction(async session => {
+      const user = await this.userRepo.findById(userId, session);
 
-    if (!user || user.role !== 'moderator') {
-      throw new UnauthorizedError('Only moderators can delete requests');
-    }
+      if (!user || user.role !== 'moderator') {
+        throw new UnauthorizedError('Only moderators can delete requests');
+      }
 
-    const request = await this.requestRepository.getRequestById(
-      requestId,
-      session,
-    );
+      const request = await this.requestRepository.getRequestById(
+        requestId,
+        session,
+      );
 
-    log(request);
+      log(request);
 
-    if (!request || request.isDeleted) {
-      throw new NotFoundError('Request not found');
-    }
+      if (!request || request.isDeleted) {
+        throw new NotFoundError('Request not found');
+      }
 
-    await this.requestRepository.softDeleteById(
-      requestId,
-      userId,
-      session,
-    );
-  });
-}
+      await this.requestRepository.softDeleteById(
+        requestId,
+        userId,
+        session,
+      );
+    });
+  }
 
 }

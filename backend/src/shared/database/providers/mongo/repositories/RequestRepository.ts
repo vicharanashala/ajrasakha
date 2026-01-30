@@ -121,28 +121,25 @@ export class RequestRepository implements IRequestRepository {
       const totalPages = Math.ceil(totalCount / limit);
       const sanitizedData: IRequest[] = await Promise.all(
         data.map(async req => {
-          const responses: IRequestResponse[] =
-            req.responses?.map(r => ({
-              ...r,
-              reviewedBy: r.reviewedBy?.toString(),
-            })) || [];
-
-          const details =
-            req.requestType === 'question_flag'
-              ? (req.details as IQuestion | null)
-              : (req.details as Record<string, any> | null);
-
-          const requestedUser = await this.usersCollection.findOne({
-            _id: req.requestedBy,
-          });
+          const requestedUser = await this.usersCollection.findOne(
+            {
+              _id: req.requestedBy,
+            },
+            {
+              projection: {
+                firstName: 1,
+                lastName: 1,
+              },
+            },
+          );
 
           return {
             ...req,
             _id: req._id?.toString(),
             requestedBy: req.requestedBy?.toString(),
             entityId: req.entityId?.toString(),
-            responses,
-            details,
+            responses: [],
+            details: null,
             createdAt:
               req.createdAt instanceof Date
                 ? req.createdAt.toISOString()
@@ -227,7 +224,7 @@ export class RequestRepository implements IRequestRepository {
       await this.init();
       return await this.RequestCollection.findOne(
         {_id: new ObjectId(requestId),
-           isDeleted: { $ne: true },
+          isDeleted: { $ne: true },
         },
         {session},
       );
@@ -237,31 +234,31 @@ export class RequestRepository implements IRequestRepository {
   }
 
   async softDeleteById(
-  requestId: string,
-  deletedBy: string,
-  session?: ClientSession,
-): Promise<void> {
-  try {
-    await this.init();
+    requestId: string,
+    deletedBy: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    try {
+      await this.init();
 
-    await this.RequestCollection.updateOne(
-      {
-        _id: new ObjectId(requestId),
+      await this.RequestCollection.updateOne(
+        {
+          _id: new ObjectId(requestId),
         isDeleted: {$ne: true},
-      },
-      {
-        $set: {
-          isDeleted: true,
-          deletedAt: new Date(),
-          deletedBy: new ObjectId(deletedBy),
         },
-      },
+        {
+          $set: {
+            isDeleted: true,
+            deletedAt: new Date(),
+            deletedBy: new ObjectId(deletedBy),
+          },
+        },
       {session},
-    );
+      );
 
-  } catch (error) {
-    throw new InternalServerError(`Failed to soft delete request: ${error}`);
+    } catch (error) {
+      throw new InternalServerError(`Failed to soft delete request: ${error}`);
+    }
   }
-}
 
 }

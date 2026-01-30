@@ -26,7 +26,7 @@ export interface IRequestService {
     userId: string,
     query: GetAllRequestsQueryDto
   ): Promise<{
-    requests: (IRequest & { userName: string })[];
+    requests: IRequest[];
     totalPages: number;
     totalCount: number;
   }>;
@@ -54,8 +54,8 @@ export interface IRequestService {
   }>;
 
   softDeleteRequest(
-  requestId: string,
-  userId: string,
-): Promise<void>;
+    requestId: string,
+    userId: string,
+  ): Promise<void>;
 }
 
