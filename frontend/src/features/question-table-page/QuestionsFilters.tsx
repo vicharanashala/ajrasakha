@@ -391,7 +391,9 @@ export const QuestionsFilters = ({
       </Tooltip>
          
         )}
+         {userRole !== "expert" && (
         <TopRightBadge label="New" />
+         )}
       </div>
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-3 justify-between sm:justify-end">
