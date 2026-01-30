@@ -61,6 +61,7 @@ export { STATES, CROPS, DOMAINS };
 import type { DateRange } from "react-day-picker";
 import { Calendar } from "./atoms/calendar";
 import { DateRangeFilter } from "./DateRangeFilter";
+import { TopRightBadge } from "./NewBadge";
 
 export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed";
 export type QuestionDateRangeFilter =
@@ -641,9 +642,10 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               
                 <div className="space-y-2 min-w-0 ">
-                  <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <Label className="relative flex items-center gap-2 text-sm font-semibold">
                     <BadgeCheck className="h-4 w-4 text-primary" />
                     Consecutive Approvals
+                  <TopRightBadge label="New" />
                   </Label>
                   <Select
                     value={advanceFilter.consecutiveApprovals}
