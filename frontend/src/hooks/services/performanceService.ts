@@ -76,4 +76,12 @@ export class PerformaneService {
       }
     );
   }
+
+  async sendCronSnapshotReport(): Promise<void> {
+   await apiFetch(`${this._baseUrl}/cron-snapshot/send-report`, {
+    method: "POST",
+  });
 }
+
+
+} 

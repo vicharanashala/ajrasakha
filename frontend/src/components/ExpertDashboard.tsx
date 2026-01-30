@@ -36,6 +36,7 @@ import { DateRangeFilter } from "./DateRangeFilter";
 import { useTheme } from "next-themes";
 import { Label } from "./atoms/label";
 import { Switch } from "./atoms/switch";
+import { TopRightBadge } from "./NewBadge";
 interface ExpertDashboardProps {
   expertId?: string | null;
   goBack?: () => void;
@@ -139,6 +140,8 @@ export const ExpertDashboard = ({
   const [userDetails, setUserDetails] = useState<any[]>([]);
   const [totalUsers, setTotalUsers] = useState<number>(0);
   const [checkInTimer, setCheckInTimer] = useState<string>("00:00:00");
+  const [lateTimer, setLateTimer] = useState<string | null>(null);
+
 
   const expertArr = expertDetailsList || expertDetails;
   useEffect(() => {
@@ -175,7 +178,6 @@ export const ExpertDashboard = ({
   return () => clearInterval(interval);
 }, [lastCheckIn]);
 
-
   const isCheckInDisabled = (lastCheckIn: Date | null) => {
     if (!lastCheckIn) return false;
 
@@ -207,6 +209,39 @@ export const ExpertDashboard = ({
 
   return checkInTime > nineAM;
 })();
+
+useEffect(() => {
+  if (isCheckedInToday) {
+    setLateTimer(null);
+    return;
+  }
+
+  const interval = setInterval(() => {
+    const now = new Date();
+    const nineAM = new Date();
+    nineAM.setHours(9, 0, 0, 0);
+
+    if (now > nineAM) {
+      const diff = now.getTime() - nineAM.getTime();
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff / (1000 * 60)) % 60);
+      const seconds = Math.floor((diff / 1000) % 60);
+
+      const format = (n: number) => n.toString().padStart(2, "0");
+
+      setLateTimer(
+        `${hours.toString().padStart(2, "0")}hr ` +
+        `${minutes.toString().padStart(2, "0")}min ` +
+        `${seconds.toString().padStart(2, "0")}sec`
+      );
+    } else {
+      setLateTimer(null);
+    }
+  }, 1000);
+
+  return () => clearInterval(interval);
+}, [isCheckedInToday]);
 
 
   const { checkIn, isPending } = useCheckIn();
@@ -289,6 +324,9 @@ export const ExpertDashboard = ({
 
                       )}
 
+                      <div className="relative group">
+                      <TopRightBadge label="New" />
+
                   <button
                 disabled={isCheckedInToday || isPending}
                 onClick={() => {
@@ -315,6 +353,30 @@ export const ExpertDashboard = ({
                   {isCheckedInToday ? "Checked In" : "Check In"}
                 </span>
               </button>
+              <div
+                  className="
+                    absolute top-full mt-2 left-1/2 -translate-x-[70%]
+                    hidden group-hover:block
+                    w-74 text-xs text-white bg-green-500 rounded-lg px-3 py-2
+                    shadow-lg z-50
+                  "
+                >
+                  <p className="font-medium">⏰<b> Check-in Policy </b></p>
+                  <p className="mt-1">
+                   • Check in before <b>9:00 AM</b>. Late check-ins will be marked <b>absent</b> and no questions will be allocated.
+
+                  </p>
+                  <p className="mt-1">
+                    • No checkout is required. The system resets automatically at the end of the day.
+                  </p>
+                </div>
+              </div>
+              {lateTimer && !isCheckedInToday && (
+                <span className="text-xs font-semibold text-red-500 tracking-wide">
+                  ⏱ You are <b>{lateTimer}</b> late
+                </span>
+              )}
+
 
               {(isLateCheckIn  && isCheckedInToday) && (
                     <span className="text-xs text-red-500 px-2 font-medium w-full text-right">

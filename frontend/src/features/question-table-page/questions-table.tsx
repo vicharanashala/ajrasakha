@@ -11,13 +11,13 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/atoms/table";
-import {Loader2,} from "lucide-react";
+import { Loader2, } from "lucide-react";
 
 import { Pagination } from "../../components/pagination";
 
 import type {
   IDetailedQuestion,
- QuestionStatus,
+  QuestionStatus,
   UserRole,
 } from "@/types";
 
@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { useDeleteQuestion } from "@/hooks/api/question/useDeleteQuestion";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 
-import { STATES, CROPS, DOMAINS, SEASONS, DISTRICTS} from "../../components/MetaData";
+import { STATES, CROPS, DOMAINS, SEASONS, DISTRICTS } from "../../components/MetaData";
 import { QuestionRow } from "./QuestionRow";
 import { MobileQuestionCard } from "./MobileQuestionCard";
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
@@ -124,6 +124,47 @@ export const QuestionsTable = ({
       }
 
       if (updatedData) {
+
+        if (!updatedData.question?.trim()) {
+          toast.error("Question text is required.");
+          return;
+        }
+
+        if (updatedData.question?.trim().length < 10) {
+          toast.error("Question must be atleast 10 characters long.");
+          return;
+        }
+
+        if (!updatedData.priority) {
+          toast.error("Priority is required.");
+          return;
+        }
+        
+        if (!updatedData.details?.state?.trim()) {
+          toast.error("State is required.");
+          return;
+        }
+
+        if (!updatedData.details?.district?.trim()) {
+          toast.error("District is required.");
+          return;
+        }
+
+        if (!updatedData.details?.crop?.trim()) {
+          toast.error("Crop is required.");
+          return;
+        }
+
+        if (!updatedData.details?.season?.trim()) {
+          toast.error("Season is required.");
+          return;
+        }
+
+        if (!updatedData.details?.domain?.trim()) {
+          toast.error("Domain is required.");
+          return;
+        }
+
         const payload: IDetailedQuestion = status
           ? { ...updatedData, status }
           : updatedData;
@@ -256,7 +297,7 @@ export const QuestionsTable = ({
                 <TableHead className="text-center">Review Level</TableHead>
                 {!showClosedAt ? (
                   <TableHead className="text-center">Created</TableHead>
-                ):null}
+                ) : null}
                 {showClosedAt ? (
                   <TableHead className="text-center">Closed</TableHead>
                 ) : null}

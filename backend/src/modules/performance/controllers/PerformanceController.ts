@@ -97,4 +97,20 @@ export class PerformanceController {
       return { success: true, lastCheckInAt: new Date() };
     }
 
+@Post("/cron-snapshot/send-report")
+@HttpCode(200)
+@Authorized()
+@OpenAPI({ summary: "Send cron snapshot report via email" })
+async sendCronSnapshotReport(
+  @CurrentUser() user: IUser,
+) {
+  await this.performanceService.sendCronSnapshotEmail(
+    user._id.toString(),
+  );
+
+  return {
+    message: "Cron snapshot report email sent successfully.",
+  };
+}
+
 }

@@ -16,6 +16,7 @@ export type ReviewRow = {
         yet_to_complete: boolean;
       }
   )[];
+  sortable?: boolean;
 };
 
 export const reviewLevelColumns = (
@@ -56,6 +57,7 @@ export const reviewLevelColumns = (
   ...Array.from({ length: 10 }).map((_, i) => ({
     key: `level_${i}`,
     label: i ===0 ? 'Author' : `Level ${i}`,
+    sortable: true,
     render: (row: ReviewRow) => renderLevelBadge(row, i),
   }))
 ];

@@ -88,7 +88,7 @@
             <Table className="min-w-[800px]">
               <TableHeader className="bg-card sticky top-0 z-10">
                 <TableRow>
-                  <TableHead className="text-center w-12" onClick={() => onSort("rank")}>{isAdmin ? "#" : "Rank"}</TableHead>
+                  <TableHead className="text-center w-12" onClick={() => onSort("rank")}>{isAdmin ? "S.No" : "Rank"}</TableHead>
                   <TableHead className="w-[35%] text-center w-52">
                     Full Name
                   </TableHead>

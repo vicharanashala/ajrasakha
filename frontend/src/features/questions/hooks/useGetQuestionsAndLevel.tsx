@@ -8,12 +8,13 @@ export const useGetQuestionsAndLevel = (
   limit: number,
   search: string,
   filter: AdvanceFilterValues,
-  enabled: boolean
+  enabled: boolean,
+  sort?: string
 ) => {
   return useQuery({
-    queryKey: ["questions_levels", page, limit, search, filter],
+    queryKey: ["questions_levels", page, limit, search, filter, sort],
     queryFn: async () =>
-      questionService.GetQuestionsAndLevels(page, limit, search, filter),
+      questionService.GetQuestionsAndLevels(page, limit, search, filter, sort??""),
     enabled,
   });
 };
