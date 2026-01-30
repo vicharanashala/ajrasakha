@@ -320,7 +320,7 @@ export const QuestionsFilters = ({
           )}
         </div>
       </div>
-      <div>
+      <div className="relative inline-block">
       {userRole !== "expert" && (
         <Tooltip>
         <TooltipTrigger asChild>
@@ -329,11 +329,12 @@ export const QuestionsFilters = ({
             size="sm"
             className="flex items-center gap-2 w-full md:w-fit"
             onClick={() => handleReAllocateLessWorkload ()}
+            disabled={reAllocateQuestion}
           >
              <Info className="h-4 w-4" /> ReAllocate
             
-           
           </Button>
+          
           
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs text-sm">
@@ -345,6 +346,7 @@ export const QuestionsFilters = ({
       </Tooltip>
          
         )}
+        <TopRightBadge label="New" />
       </div>
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-3 justify-between sm:justify-end">

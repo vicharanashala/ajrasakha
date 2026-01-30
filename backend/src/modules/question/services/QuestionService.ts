@@ -1656,14 +1656,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             session,
           );
             
-        if (!lessWorkloadExperts.length || !delayedSubmissions.length) 
-        {
-          return {
-            message: "No Expert present to allocate question or no delayed questions present",
-            expertsInvolved: lessWorkloadExperts.length,
-            submissionsProcessed: 0,
-          };
-        }
+        
         
   
        
@@ -1734,7 +1727,16 @@ for (const submission of delayedSubmissions) {
     // Optional: push to fallback/manual bucket
   }
 }
-
+const totalAssigned = Object.values(assignments)
+  .reduce((sum, arr) => sum + arr.length, 0);
+  if (!lessWorkloadExperts.length || !delayedSubmissions.length||totalAssigned==0) 
+        {
+          return {
+            message: "No Expert present to allocate question or no delayed questions present",
+            expertsInvolved: 0,
+            submissionsProcessed: 0,
+          };
+        }
   
         // -----------------------------
         // 🔄 Process Each Assignment
@@ -1853,7 +1855,7 @@ for (const submission of delayedSubmissions) {
         return {
           message: "Successfully ReAllocated delayed Questions",
           expertsInvolved: lessWorkloadExperts.length,
-          submissionsProcessed: delayedSubmissions.length,
+          submissionsProcessed: totalAssigned,
         };
       } catch (error) {
         throw new InternalServerError(
