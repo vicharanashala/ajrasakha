@@ -9,8 +9,8 @@ from langchain_core.messages import HumanMessage, SystemMessage
 load_dotenv()
 
 # Configuration
-INTENT_MODEL_URL = "http://localhost:8013/v1"
-INTENT_MODEL_NAME = "google/gemma-3-12b-it"
+INTENT_MODEL_URL = os.getenv("INTENT_MODEL_URL", "http://100.100.108.27:8013/v1")
+INTENT_MODEL_NAME = os.getenv("INTENT_MODEL_NAME", "google/gemma-3-12b-it")
 
 logger = logging.getLogger("vllm-proxy")
 
