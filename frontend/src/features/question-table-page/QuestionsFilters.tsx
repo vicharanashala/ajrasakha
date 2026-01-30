@@ -28,7 +28,7 @@ import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
 
 import { TopRightBadge } from "../../components/NewBadge";
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/atoms/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
 import {useReAllocateLessWorkload} from '@/hooks/api/question/useReAllocateLessWorkload'
 
 type QuestionsFiltersProps = {
