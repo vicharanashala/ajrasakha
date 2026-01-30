@@ -24,7 +24,7 @@ async def detect_language(text: str) -> str:
                 json={
                     "model": MODEL_NAME,
                     "messages": [
-                        {"role": "system", "content": """Detect the language of the following sentence.\n\n"
+                        {"role": "system", "content": """Detect the language of the following sentence.Dont assume language base on geograhical location\n\n"
                         "answer in one word only which language is this"""},
                         {"role": "user", "content": text}
                     ],

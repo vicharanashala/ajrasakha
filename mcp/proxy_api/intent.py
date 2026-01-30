@@ -44,13 +44,23 @@ async def classify_intent(messages: List[Dict[str, Any]]) -> str:
     
     # Take last 3 user messages for context
     recent_user_messages = user_messages[-3:]
-    conversation_history = "\n".join(
-        [f"user: {msg.get('content', '')}" for msg in recent_user_messages]
-    )
+    # Reverse so most recent is at the top
+    recent_user_messages.reverse()
+    
+    labels = ["users most recent message", "users second last message", "user third last"]
+    history_lines = []
+    
+    for i, msg in enumerate(recent_user_messages):
+        label = labels[i] if i < len(labels) else "user older message"
+        content = msg.get('content', '')
+        history_lines.append(f"{label}: {content}")
+
+    conversation_history = "\n".join(history_lines)
 
     system_prompt = (
         "You are an intelligent intent classifier. "
         "Analyze the following conversation history and determine the user's current intent. "
+        "Analyse based on most recent message first."
         "Classify it into one of these categories: "
         "WEATHER, MARKET, AGRICULTURE. "
         "Do not output anything else. Just the category name."

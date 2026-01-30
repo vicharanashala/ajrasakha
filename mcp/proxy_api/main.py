@@ -233,7 +233,7 @@ async def proxy(path: str, request: Request):
                 agriculture_context = """You are an expert agricultural advisor for Indian farmers.
                 Always reply in English.
                 Mention source of information like links and name of agriculture experts. 
-always ask state and crop name from user. and then call get_agricultural_context_mcp_golden tool with state and crop name."""
+                always ask state and crop name from user. and then call get_agricultural_context_mcp_golden tool with state and crop name."""
                 
                 # Override system prompt
                 if messages and messages[0].get("role") == "system":
@@ -244,7 +244,7 @@ always ask state and crop name from user. and then call get_agricultural_context
                 # Add additional guidance to the last user message
                 if user_msg_idx >= 0:
                     original_user_content = messages[user_msg_idx].get("content", "")
-                    additional_guidance = "\n\n(Please call mcp tool  get_agricultural_context_mcp_golden with my query to get context)"
+                    additional_guidance = "\n\n(Please call mcp tool if available with my query to get context, also provide all sources which you get from tool like names, links, etc in table format)"
                     messages[user_msg_idx]["content"] = original_user_content + additional_guidance
                 
                 parsed_body["messages"] = messages
