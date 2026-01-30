@@ -36,6 +36,7 @@ import { DateRangeFilter } from "./DateRangeFilter";
 import { useTheme } from "next-themes";
 import { Label } from "./atoms/label";
 import { Switch } from "./atoms/switch";
+import { TopRightBadge } from "./NewBadge";
 interface ExpertDashboardProps {
   expertId?: string | null;
   goBack?: () => void;
@@ -324,6 +325,7 @@ useEffect(() => {
                       )}
 
                       <div className="relative group">
+                      <TopRightBadge label="New" />
 
                   <button
                 disabled={isCheckedInToday || isPending}
