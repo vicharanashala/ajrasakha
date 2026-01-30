@@ -1,37 +1,42 @@
-import { IReviewerHeatmapRow } from '#root/shared/interfaces/models.js';
-import {
-  DashboardResponse,
-  GetDashboardQuery,
-  GetHeatMapQuery,
-} from '#root/modules/core/classes/validators/DashboardValidators.js';
+  import { IReviewerHeatmapRow } from '#root/shared/interfaces/models.js';
+  import {
+    DashboardResponse,
+    GetDashboardQuery,
+    GetHeatMapQuery,
+  } from '#root/modules/core/classes/validators/DashboardValidators.js';
 
-export interface IPerformanceService {
-  /**
-   * Reviewer heatmap data
-   */
-  getHeatMapresults(
-    query: GetHeatMapQuery
-  ): Promise<IReviewerHeatmapRow[] | null>;
+  export interface IPerformanceService {
+    /**
+     * Reviewer heatmap data
+     */
+    getHeatMapresults(
+      query: GetHeatMapQuery
+    ): Promise<IReviewerHeatmapRow[] | null>;
 
-  /**
-   * Current logged-in user's workload
-   */
-  getCurrentUserWorkLoad(currentUserId: string): Promise<{
-    currentUserAnswers: any[];
-    totalQuestionsCount: number;
-    totalInreviewQuestionsCount: number;
-  }>;
+    /**
+     * Current logged-in user's workload
+     */
+    getCurrentUserWorkLoad(currentUserId: string): Promise<{
+      currentUserAnswers: any[];
+      totalQuestionsCount: number;
+      totalInreviewQuestionsCount: number;
+    }>;
 
-  /**
-   * Complete dashboard data for admin/moderator
-   */
-  getDashboardData(
-    currentUserId: string,
-    query: GetDashboardQuery
-  ): Promise<{
-    data: DashboardResponse;
-  }>;
+    /**
+     * Complete dashboard data for admin/moderator
+     */
+    getDashboardData(
+      currentUserId: string,
+      query: GetDashboardQuery
+    ): Promise<{
+      data: DashboardResponse;
+    }>;
 
-  updateCheckInTime(userId: string, time: Date): Promise<void>;
+    updateCheckInTime(userId: string, time: Date): Promise<void>;
 
-}
+    sendCronSnapshotEmail(
+      currentUserId: string
+    ): Promise<void>;
+
+
+  }
