@@ -1640,4 +1640,229 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
     console.log('Completed!');
   }
+  async balanceWorkload() {
+   
+    
+    return await this._withTransaction(async session => {
+      try {
+        const lessWorkloadExperts =
+          await this.userRepo.findActiveLowReputationExpertsToday(session);
+          const MAX_PER_EXPERT = 5;
+          const maxAssignments = lessWorkloadExperts.length * MAX_PER_EXPERT;
+  
+        const delayedSubmissions =
+          await this.questionSubmissionRepo.findQuestionsNeedingEscalation(
+            maxAssignments,
+            session,
+          );
+            
+        
+        
+  
+       
+  
+      //  const submissionsToProcess = delayedSubmissions.slice(0, maxAssignments);
+  
+        // -----------------------------
+        // 🎯 Round Robin Distribution
+        // -----------------------------
+       /* const assignments: Record<string, any[]> = {};
+        lessWorkloadExperts.forEach(e => (assignments[e._id.toString()] = []));
+  
+        let expertIndex = 0;
+        for (const submission of submissionsToProcess) {
+          const expert = lessWorkloadExperts[expertIndex];
+          assignments[expert._id.toString()].push(submission);
+          expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
+        }*/
+        // -----------------------------
+// 🎯 Smart Round Robin Distribution
+// -----------------------------
+const assignments: Record<string, any[]> = {};
+const expertLoad: Record<string, number> = {};
+
+lessWorkloadExperts.forEach(e => {
+  const id = e._id.toString();
+  assignments[id] = [];
+  expertLoad[id] = 0;
+});
+
+let expertIndex = 0;
+
+for (const submission of delayedSubmissions) {
+  let attempts = 0;
+  let assigned = false;
+
+  // Build a set of experts who already handled this submission
+  const historyExpertIds = new Set(
+    (submission.history || []).map(h => h.updatedBy?.toString()),
+  );
+
+  const queueExpertIds = new Set(
+    (submission.queue || []).map(q => q.toString()),
+  );
+
+  while (attempts < lessWorkloadExperts.length && !assigned) {
+    const expert = lessWorkloadExperts[expertIndex];
+    const expertId = expert._id.toString();
+
+    const alreadyInHistory = historyExpertIds.has(expertId);
+    const alreadyInQueue = queueExpertIds.has(expertId);
+    const overloaded = expertLoad[expertId] >= MAX_PER_EXPERT;
+
+    if (!alreadyInHistory && !alreadyInQueue && !overloaded) {
+      assignments[expertId].push(submission);
+      expertLoad[expertId]++;
+      assigned = true;
+    }
+
+    expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
+    attempts++;
+  }
+
+  if (!assigned) {
+    console.warn(
+      `No eligible expert found for submission ${submission._id}`,
+    );
+    // Optional: push to fallback/manual bucket
+  }
+}
+const totalAssigned = Object.values(assignments)
+  .reduce((sum, arr) => sum + arr.length, 0);
+  if (!lessWorkloadExperts.length || !delayedSubmissions.length||totalAssigned==0) 
+        {
+          return {
+            message: "No Expert present to allocate question or no delayed questions present",
+            expertsInvolved: 0,
+            submissionsProcessed: 0,
+          };
+        }
+  
+        // -----------------------------
+        // 🔄 Process Each Assignment
+        // -----------------------------
+        for (const expertId in assignments) {
+          const expertSubmissions = assignments[expertId];
+  
+          for (const submission of expertSubmissions) {
+            const submissionId = submission._id;
+            const queue = submission.queue || [];
+            const history = submission.history || [];
+            const now = new Date();
+  
+            // =========================
+            // 🟢 TYPE A — No History
+            // =========================
+            if (history.length === 0) {
+              const firstExpert = queue[0]?.toString();
+  
+              // Penalize only first queued expert
+              if (firstExpert) {
+                await this.userRepo.updateReputationScore(
+                  firstExpert,
+                  false,
+                  session,
+                );
+              }
+  
+              await this.questionSubmissionRepo.updateById(
+                submissionId,
+                {
+                  $set: {
+                    queue: [new ObjectId(expertId)],
+                    createdAt: now,
+                    updatedAt: now,
+                  },
+                },
+                session,
+              );
+  
+              await this.userRepo.updateReputationScore(expertId, true, session);
+           
+  
+              await this.notificationService.saveTheNotifications(
+                'A Question has been assigned for answering',
+                'Answer Creation Assigned',
+                submission.questionId.toString(),
+                expertId,
+                'answer_creation',
+              );
+  
+              continue;
+            }
+  
+            // =========================
+            // 🔵 TYPE B — Has History
+            // =========================
+            const lastHistory = history[history.length - 1];
+  
+            if (lastHistory?.status === 'in-review') {
+              const stuckExpertId = lastHistory.updatedBy?.toString();
+  
+              // Find stuck expert index
+              const stuckIndex = queue.findIndex(
+                q => q.toString() === stuckExpertId,
+              );
+  
+              // Keep only experts before stuck one
+              const newQueue =
+                stuckIndex > -1 ? queue.slice(0, stuckIndex) : [];
+  
+              // Add new expert
+              newQueue.push(new ObjectId(expertId));
+              // rebuild history safely
+              const updatedHistory = history.slice(0, -1);
+              updatedHistory.push({
+                updatedBy: new ObjectId(expertId),
+                status: 'in-review',
+                createdAt: now,
+                updatedAt: now,
+              });
+  
+              await this.questionSubmissionRepo.updateById(
+                submissionId,
+                {
+                  $set: {
+                    queue: newQueue,
+                    history: updatedHistory,
+                    updatedAt: now,
+                  },
+                },
+                session,
+              );
+  
+              // Penalize stuck expert
+              if (stuckExpertId) {
+                await this.userRepo.updateReputationScore(
+                  stuckExpertId,
+                  false,
+                  session,
+                );
+              }
+  
+              // Reward new expert
+              await this.userRepo.updateReputationScore(expertId, true, session);
+              await this.notificationService.saveTheNotifications(
+                'A new Review has been assigned to you',
+                'New Review Assigned',
+                submission.questionId.toString(),
+                expertId,
+                'peer_review',
+              );
+            }
+          }
+        }
+        return {
+          message: "Successfully ReAllocated delayed Questions",
+          expertsInvolved: lessWorkloadExperts.length,
+          submissionsProcessed: totalAssigned,
+        };
+      } catch (error) {
+        throw new InternalServerError(
+          `Failed to balance workload: ${error}`,
+        );
+      }
+    });
+  }
+  
 }
