@@ -318,7 +318,7 @@ export class QuestionRepository implements IQuestionRepository {
         closedAtEnd,
         consecutiveApprovals
       } = query;
-      
+
 
       const filter: any = {};
 
@@ -331,66 +331,66 @@ export class QuestionRepository implements IQuestionRepository {
       caseInsensitiveStringFilter('details.crop', crop);
       caseInsensitiveStringFilter('details.domain', domain);
       const approvalCount =
-  consecutiveApprovals && consecutiveApprovals !== 'all'
-    ? parseInt(consecutiveApprovals, 10)
-    : null;
-    // --- Consecutive Approvals Filter ---
-if (approvalCount !== null && !isNaN(approvalCount)) {
-  const answers = await this.AnswersCollection.aggregate([
-    // 1. Sort so latest answer comes first per question
-    {
-      $sort: {
-        createdAt: -1, // or answerIteration: -1
-      },
-    },
-  
-    // 2. Group by questionId and take only the latest answer
-    {
-      $group: {
-        _id: "$questionId",
-        latestAnswer: { $first: "$$ROOT" },
-      },
-    },
-  
-    // 3. Replace root with the latest answer document
-    {
-      $replaceRoot: {
-        newRoot: "$latestAnswer",
-      },
-    },
-  
-    // 4. Match approvalCount with payload
-    {
-      $match: {
-        approvalCount: approvalCount,
-      },
-    },
-  ]).toArray();
-  
+        consecutiveApprovals && consecutiveApprovals !== 'all'
+          ? parseInt(consecutiveApprovals, 10)
+          : null;
+      // --- Consecutive Approvals Filter ---
+      if (approvalCount !== null && !isNaN(approvalCount)) {
+        const answers = await this.AnswersCollection.aggregate([
+          // 1. Sort so latest answer comes first per question
+          {
+            $sort: {
+              createdAt: -1, // or answerIteration: -1
+            },
+          },
 
-  const approvalFilteredIds = answers.map(a =>
-    a.questionId.toString(),
-  );
+          // 2. Group by questionId and take only the latest answer
+          {
+            $group: {
+              _id: "$questionId",
+              latestAnswer: { $first: "$$ROOT" },
+            },
+          },
 
-  if (approvalFilteredIds.length === 0) {
-    return { questions: [], totalPages: 0, totalCount: 0 };
-  }
+          // 3. Replace root with the latest answer document
+          {
+            $replaceRoot: {
+              newRoot: "$latestAnswer",
+            },
+          },
 
-  // Intersect with existing _id filter if present
-  if (filter._id) {
-    filter._id = {
-      $in: approvalFilteredIds
-        .map(id => new ObjectId(id))
-        .filter(id =>
-          filter._id.$in.some((existing: any) => existing.equals(id)),
-        ),
-    };
-  } else {
-    filter._id = {
-      $in: approvalFilteredIds.map(id => new ObjectId(id)),
-    };
-  }
-}
+          // 4. Match approvalCount with payload
+          {
+            $match: {
+              approvalCount: approvalCount,
+            },
+          },
+        ]).toArray();
+
+
+        const approvalFilteredIds = answers.map(a =>
+          a.questionId.toString(),
+        );
+
+        if (approvalFilteredIds.length === 0) {
+          return { questions: [], totalPages: 0, totalCount: 0 };
+        }
+
+        // Intersect with existing _id filter if present
+        if (filter._id) {
+          filter._id = {
+            $in: approvalFilteredIds
+              .map(id => new ObjectId(id))
+              .filter(id =>
+                filter._id.$in.some((existing: any) => existing.equals(id)),
+              ),
+          };
+        } else {
+          filter._id = {
+            $in: approvalFilteredIds.map(id => new ObjectId(id)),
+          };
+        }
+      }
 
 
       if (answersCountMin !== undefined || answersCountMax !== undefined) {
@@ -591,6 +591,21 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
             },
           },
           {
+            $lookup: {
+              from: 'contexts',
+              localField: 'contextId',
+              foreignField: '_id',
+              as: 'contextDoc',
+            },
+          },
+          {
+            $addFields: {
+              context: {
+                $ifNull: ['$context', { $arrayElemAt: ['$contextDoc.text', 0] }],
+              },
+            },
+          },
+          {
             $project: {
               submissionData: 0,
               userId: 0,
@@ -601,7 +616,8 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
               isAutoAllocate:0,
               text:0,
               aiInitialAnswer:0,
-              score: {$meta: 'vectorSearchScore'},
+              contextDoc: 0,
+              score: { $meta: 'vectorSearchScore' },
             },
           },
           {$sort: {score: -1}},
@@ -697,6 +713,22 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
         },
 
         {
+          $lookup: {
+            from: 'contexts',
+            localField: 'contextId',
+            foreignField: '_id',
+            as: 'contextDoc',
+          },
+        },
+        {
+          $addFields: {
+            context: {
+              $ifNull: ['$context', { $arrayElemAt: ['$contextDoc.text', 0] }],
+            },
+          },
+        },
+
+        {
           $project: {
             submissionData: 0,
             userId: 0,
@@ -706,7 +738,8 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
             embedding: 0,
             isAutoAllocate:0,
             text:0,
-            aiInitialAnswer:0
+            aiInitialAnswer:0,
+            contextDoc: 0,
           },
         },
       ]).toArray();
@@ -1109,20 +1142,20 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
 
           reviewer: reviewer
             ? {
-                _id: reviewer._id.toString(),
-                firstName: isExpert
-                  ? getReviewerQueuePosition(
-                      submission.queue,
-                      reviewer._id.toString(),
-                    ) == 0
-                    ? 'Author'
-                    : `Reviewer ${getReviewerQueuePosition(
-                        submission.queue,
-                        reviewer._id.toString(),
-                      )}`
-                  : reviewer.firstName + reviewer.lastName,
-                email: !isExpert && reviewer.email,
-              }
+              _id: reviewer._id.toString(),
+              firstName: isExpert
+                ? getReviewerQueuePosition(
+                  submission.queue,
+                  reviewer._id.toString(),
+                ) == 0
+                  ? 'Author'
+                  : `Reviewer ${getReviewerQueuePosition(
+                    submission.queue,
+                    reviewer._id.toString(),
+                  )}`
+                : reviewer.firstName + reviewer.lastName,
+              email: !isExpert && reviewer.email,
+            }
             : null,
         };
       });
@@ -1155,20 +1188,20 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
               rerouteHistoryMap.set(answerIdKey, {
                 updatedBy: r.reroutedTo
                   ? {
-                      _id: r.reroutedTo?.toString(),
-                      name: isExpert
-                        ? getReviewerQueuePosition(
-                            submission?.queue,
-                            r.reroutedTo?.toString(),
-                          ) == 0
-                          ? 'Author'
-                          : `Reviewer ${getReviewerQueuePosition(
-                              submission?.queue,
-                              r.reroutedTo?.toString(),
-                            )}`
-                        : reroutedToUser?.firstName,
-                      email: !isExpert && reroutedToUser?.email,
-                    }
+                    _id: r.reroutedTo?.toString(),
+                    name: isExpert
+                      ? getReviewerQueuePosition(
+                        submission?.queue,
+                        r.reroutedTo?.toString(),
+                      ) == 0
+                        ? 'Author'
+                        : `Reviewer ${getReviewerQueuePosition(
+                          submission?.queue,
+                          r.reroutedTo?.toString(),
+                        )}`
+                      : reroutedToUser?.firstName,
+                    email: !isExpert && reroutedToUser?.email,
+                  }
                   : null,
                 answer: {
                   _id: r.answerId?.toString(),
@@ -1205,20 +1238,20 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
             rerouteHistoryMap.set(uniqueKey, {
               updatedBy: r.reroutedTo
                 ? {
-                    _id: r.reroutedTo?.toString(),
-                    name: isExpert
-                      ? getReviewerQueuePosition(
-                          submission?.queue,
-                          r.reroutedTo?.toString(),
-                        ) == 0
-                        ? 'Author'
-                        : `Reviewer ${getReviewerQueuePosition(
-                            submission?.queue,
-                            r.reroutedTo?.toString(),
-                          )}`
-                      : reroutedToUser?.firstName,
-                    email: !isExpert && reroutedToUser?.email,
-                  }
+                  _id: r.reroutedTo?.toString(),
+                  name: isExpert
+                    ? getReviewerQueuePosition(
+                      submission?.queue,
+                      r.reroutedTo?.toString(),
+                    ) == 0
+                      ? 'Author'
+                      : `Reviewer ${getReviewerQueuePosition(
+                        submission?.queue,
+                        r.reroutedTo?.toString(),
+                      )}`
+                    : reroutedToUser?.firstName,
+                  email: !isExpert && reroutedToUser?.email,
+                }
                 : null,
               answer: null,
               status: r.status,
@@ -1240,41 +1273,41 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
         submission?.history?.map(h => ({
           updatedBy: h.updatedBy
             ? {
-                _id: h.updatedBy?.toString(),
-                name: isExpert
-                  ? getReviewerQueuePosition(
-                      submission.queue,
-                      h.updatedBy?.toString(),
-                    ) == 0
-                    ? 'Author'
-                    : `Reviewer ${getReviewerQueuePosition(
-                        submission.queue,
-                        h.updatedBy?.toString(),
-                      )}`
-                  : usersMap.get(h.updatedBy?.toString())?.firstName,
-                email:
-                  !isExpert && usersMap.get(h.updatedBy?.toString())?.email,
-              }
+              _id: h.updatedBy?.toString(),
+              name: isExpert
+                ? getReviewerQueuePosition(
+                  submission.queue,
+                  h.updatedBy?.toString(),
+                ) == 0
+                  ? 'Author'
+                  : `Reviewer ${getReviewerQueuePosition(
+                    submission.queue,
+                    h.updatedBy?.toString(),
+                  )}`
+                : usersMap.get(h.updatedBy?.toString())?.firstName,
+              email:
+                !isExpert && usersMap.get(h.updatedBy?.toString())?.email,
+            }
             : [],
           answer: h.answer
             ? {
-                _id: h.answer?.toString(),
-                authorId: answersMap
-                  .get(h.answer?.toString())
-                  ?.authorId?.toString(),
-                answerIteration: answersMap.get(h.answer?.toString())
-                  ?.answerIteration,
-                isFinalAnswer: answersMap.get(h.answer?.toString())
-                  ?.isFinalAnswer,
-                answer: answersMap.get(h.answer?.toString())?.answer,
-                sources: answersMap.get(h.answer?.toString())?.sources,
-                approvalCount: answersMap.get(h.answer?.toString())
-                  ?.approvalCount,
-                remarks: answersMap.get(h.answer?.toString())?.remarks,
-                createdAt: answersMap.get(h.answer?.toString())?.createdAt,
-                updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
-                reviews: reviewsByAnswer.get(h.answer?.toString()) || [],
-              }
+              _id: h.answer?.toString(),
+              authorId: answersMap
+                .get(h.answer?.toString())
+                ?.authorId?.toString(),
+              answerIteration: answersMap.get(h.answer?.toString())
+                ?.answerIteration,
+              isFinalAnswer: answersMap.get(h.answer?.toString())
+                ?.isFinalAnswer,
+              answer: answersMap.get(h.answer?.toString())?.answer,
+              sources: answersMap.get(h.answer?.toString())?.sources,
+              approvalCount: answersMap.get(h.answer?.toString())
+                ?.approvalCount,
+              remarks: answersMap.get(h.answer?.toString())?.remarks,
+              createdAt: answersMap.get(h.answer?.toString())?.createdAt,
+              updatedAt: answersMap.get(h.answer?.toString())?.updatedAt,
+              reviews: reviewsByAnswer.get(h.answer?.toString()) || [],
+            }
             : null,
           status: h.status,
           reasonForRejection: h.reasonForRejection,
@@ -1300,20 +1333,20 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
         questionId: submission?.questionId?.toString(),
         lastRespondedBy: lastRespondedId
           ? {
-              _id: lastRespondedId,
-              name: isExpert
-                ? getReviewerQueuePosition(
-                    submission?.queue,
-                    lastRespondedId,
-                  ) == 0
-                  ? 'Author'
-                  : `Reviewer ${getReviewerQueuePosition(
-                      submission?.queue,
-                      lastRespondedId,
-                    )}`
-                : usersMap.get(lastRespondedId)?.firstName,
-              email: !isExpert && usersMap.get(lastRespondedId)?.email,
-            }
+            _id: lastRespondedId,
+            name: isExpert
+              ? getReviewerQueuePosition(
+                submission?.queue,
+                lastRespondedId,
+              ) == 0
+                ? 'Author'
+                : `Reviewer ${getReviewerQueuePosition(
+                  submission?.queue,
+                  lastRespondedId,
+                )}`
+              : usersMap.get(lastRespondedId)?.firstName,
+            email: !isExpert && usersMap.get(lastRespondedId)?.email,
+          }
           : null,
         queue: submission?.queue?.map(q => ({
           _id: q.toString(),
@@ -1321,9 +1354,9 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
             ? getReviewerQueuePosition(submission.queue, q.toString()) == 0
               ? 'Author'
               : `Reviewer ${getReviewerQueuePosition(
-                  submission.queue,
-                  q.toString(),
-                )}`
+                submission.queue,
+                q.toString(),
+              )}`
             : usersMap.get(q.toString())?.firstName,
           email: !isExpert && usersMap.get(q.toString())?.email,
         })),
@@ -1461,10 +1494,33 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
         updates.closedAt = new Date(updates.closedAt);
       }
 
+      const contextValue = (updates as any).context;
+      if (contextValue) {
+        delete (updates as any).context;
+      }
+
+      const updateOperation: any = { $set: { ...updates, updatedAt: new Date() } };
+
+      if (contextValue) {
+        const q = await this.QuestionCollection.findOne(
+          { _id: new ObjectId(questionId) },
+          { session },
+        );
+        if (q && q.contextId) {
+          await this.ContextCollection.updateOne(
+            { _id: q.contextId },
+            { $set: { text: contextValue } },
+            { session },
+          );
+        }
+        // Unset the context field from the question document to ensure it uses the one from context collection
+        (updateOperation as any).$unset = { context: 1 };
+      }
+
       const result = await this.QuestionCollection.updateOne(
-        {_id: new ObjectId(questionId)},
-        {$set: {...updates, updatedAt: new Date()}},
-        {session},
+        { _id: new ObjectId(questionId) },
+        updateOperation,
+        { session },
       );
 
       if (updates.status === 'in-review') {
@@ -1679,11 +1735,11 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
         },
         {
           $group: {
-            _id: {month: {$month: '$closedAt'}},
-            totalClosed: {$sum: 1},
+            _id: { month: { $month: '$closedAt' } },
+            totalClosed: { $sum: 1 },
           },
         },
-        {$sort: {'_id.month': 1}},
+        { $sort: { '_id.month': 1 } },
       ],
       {session},
     ).toArray();
@@ -2116,7 +2172,7 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
           },
         },
       ],
-      {session},
+      { session },
     ).toArray();
 
     const allStatuses = ['open', 'delayed', 'in-review'];
@@ -2266,14 +2322,14 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
     const endOfToday = new Date();
     endOfToday.setUTCHours(23, 59, 59, 999);
     const count = await this.QuestionCollection.countDocuments(
-    {
-      status: "closed",
-      closedAt: {
-        $gte: startOfToday,
-        $lte: endOfToday,
+      {
+        status: "closed",
+        closedAt: {
+          $gte: startOfToday,
+          $lte: endOfToday,
+        },
       },
-    },
-    { session })
+      { session })
     return {todayApproved:count};
   }
 
@@ -2284,16 +2340,16 @@ if (approvalCount !== null && !isNaN(approvalCount)) {
     await this.init();
     const {page = 1, limit = 10, search, sort = ''} = query;
     const skip = (page - 1) * limit;
-    
-     const { filter } = await buildQuestionFilter(
-    query,
-    this.QuestionSubmissionCollection,
-    this.AnswersCollection
-  );
+
+    const { filter } = await buildQuestionFilter(
+      query,
+      this.QuestionSubmissionCollection,
+      this.AnswersCollection
+    );
     if (search && search.trim().length) {
-    filter.question = { $regex: search.trim(), $options: "i" };
-  }
-   
+      filter.question = { $regex: search.trim(), $options: "i" };
+    }
+
     //implement sort by level
     const levelMap: any = {
       level_0: 0,

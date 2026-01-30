@@ -184,15 +184,8 @@ async getAllUsersforManualSelect(
   try {
     return await this._withTransaction(async session => {
       const me = await this.userRepo.findById(userId, session);
-      const users = await this.userRepo.findAllUsers(
-        page,
-        limit,
-        search,
-        sort,
-        filter,
-        session,
-      );
-      const usersExceptMe = users.users.filter(
+      const users = await this.userRepo.findAll(session);
+      const usersExceptMe = users.filter(
         user => user._id.toString() !== userId,
       );
 
@@ -218,8 +211,8 @@ async getAllUsersforManualSelect(
           createdAt: u.createdAt ?? null,
           isBlocked:u.isBlocked
         })),
-        totalUsers: users.totalUsers,
-        totalPages: users.totalPages,
+        totalUsers: users.length,
+        totalPages: 5,
       };
     });
   } catch (error) {

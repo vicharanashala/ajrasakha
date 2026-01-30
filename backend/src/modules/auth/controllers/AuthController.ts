@@ -24,6 +24,9 @@ import {
 import {AUTH_TYPES} from '#auth/types.js';
 import {OpenAPI} from 'routing-controllers-openapi';
 import {appConfig} from '#root/config/app.js';
+import { UseBefore } from 'routing-controllers';
+import { AuthRateLimiter } from '#root/shared/middleware/rateLimiter.js';
+
 
 @OpenAPI({
   tags: ['Authentication'],
@@ -90,6 +93,7 @@ export class AuthController {
   }
 
   @Post('/login')
+  @UseBefore(AuthRateLimiter)
   async login(@Body() body: LoginBody) {
     try {
       const {email, password} = body;
