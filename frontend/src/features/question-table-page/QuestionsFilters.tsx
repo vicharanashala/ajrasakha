@@ -30,7 +30,7 @@ import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
 
-import { TopRightBadge } from "../../components/NewBadge";
+import { TopLeftBadge, TopRightBadge } from "../../components/NewBadge";
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
 import {useReAllocateLessWorkload} from '@/hooks/api/question/useReAllocateLessWorkload'
@@ -303,7 +303,7 @@ export const QuestionsFilters = ({
         mode="add"
       />
       {viewMode === "review-level" && (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 relative">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -337,6 +337,7 @@ export const QuestionsFilters = ({
               </button>
             </div>
           )}
+          <TopLeftBadge label="New" />
         </div>
       )}
       {/* SEARCH BAR – full width on mobile, fixed width on desktop */}
@@ -394,8 +395,7 @@ export const QuestionsFilters = ({
       </div>
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-3 justify-between sm:justify-end">
-        <div className="relative inline-block">
-          <TopRightBadge label="New" />
+        <div className="inline-block">
           <div className="flex gap-2 border rounded-md p-1 bg-muted/40">
             <button
               className={`px-3 py-1 rounded-md text-sm ${
