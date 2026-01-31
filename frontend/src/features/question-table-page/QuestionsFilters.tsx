@@ -349,7 +349,7 @@ export const QuestionsFilters = ({
           )}
         </div>
       </div>
-      <div className="relative inline-block">
+      {/*<div className="relative inline-block">
       {userRole !== "expert" && (
         <Tooltip>
         <TooltipTrigger asChild>
@@ -378,7 +378,7 @@ export const QuestionsFilters = ({
          {userRole !== "expert" && (
         <TopRightBadge label="New" />
          )}
-      </div>
+         </div>*/}
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-3 justify-between sm:justify-end">
         <div className="inline-block">
