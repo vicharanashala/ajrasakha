@@ -95,7 +95,7 @@ async def translate_stream(text: str, target_lang: str):
                     ],
                     "temperature": 0.1,
                     "stream": True,
-                    "max_tokens": 1000
+                    "max_tokens": 4096
                 },
                 timeout=60.0
             ) as response:
