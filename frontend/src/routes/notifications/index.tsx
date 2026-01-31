@@ -38,7 +38,6 @@ export interface Notification {
   // type: "info" | "success" | "warning" | "error" | "Flag_Response";
   type: string;
   createdAt: string;
-  updatedAt: string;
 }
 import {
   useNavigateToComment,
@@ -75,7 +74,7 @@ export default function Notification() {
       setDeletePreference(user.notificationRetention);
     }
   }, [user]);
-  
+
   useEffect(() => {
     if (notificationPages?.pages) {
       const allNotifications = notificationPages?.pages.flatMap(
@@ -299,9 +298,9 @@ export default function Notification() {
   transition-all duration-200 hover:bg-black/10 dark:hover:bg-white/10 hover:shadow-md cursor-pointer 
   ${
     notification.is_read
-      ? "border-l-4 border-l-transparent"
-      : "border-l-4 border-l-blue-500"
-  }`}
+                          ? "border-l-4 border-l-transparent"
+                          : "border-l-4 border-l-blue-500"
+                        }`}
                     >
                       <div className="flex items-start sm:items-center gap-2"></div>
 
@@ -313,10 +312,10 @@ export default function Notification() {
                                 notification.type === "success"
                                   ? "default"
                                   : notification.type === "error"
-                                  ? "destructive"
-                                  : notification.type === "warning"
-                                  ? "secondary"
-                                  : "outline"
+                                    ? "destructive"
+                                    : notification.type === "warning"
+                                      ? "secondary"
+                                      : "outline"
                               }
                               className="text-[10px] sm:text-xs"
                             >
