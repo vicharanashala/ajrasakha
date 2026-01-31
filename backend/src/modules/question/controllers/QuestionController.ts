@@ -250,11 +250,13 @@ export class QuestionController {
     const {_id: userId} = user;
     const {questionId} = params;
     const {experts} = body;
-    return await this.questionService.allocateExperts(
+     await this.questionService.allocateExperts(
       userId.toString(),
       questionId,
       experts,
     );
+    return {message:"expert allocated successfully"}
+    
   }
 
   @Put('/:questionId')
