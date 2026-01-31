@@ -309,14 +309,14 @@ export const QuestionsTable = ({
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-10 ">
+                  <TableCell colSpan={11} className="text-center py-10 ">
                     <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
                   </TableCell>
                 </TableRow>
               ) : items?.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={10}
+                    colSpan={11}
                     rowSpan={10}
                     className="text-center py-10 text-muted-foreground"
                   >
