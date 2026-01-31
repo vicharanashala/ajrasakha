@@ -280,15 +280,17 @@ export class QuestionController {
     @Params() params: QuestionIdParam,
     @Body() body: RemoveAllocateBody,
     @CurrentUser() user: IUser,
-  ): Promise<IQuestionSubmission> {
+  ): Promise<{message:string}> {
     const {_id: userId} = user;
     const {questionId} = params;
     const {index} = body;
-    return this.questionService.removeExpertFromQueue(
+    
+     await this.questionService.removeExpertFromQueue(
       userId.toString(),
       questionId,
       index,
     );
+    return {message:' allocation removed successfully'}
   }
 
   @Delete('/bulk')
