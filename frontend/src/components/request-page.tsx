@@ -505,6 +505,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
             </Dialog>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
+            {requestDiff?.responses?.length !== 0 && (
             <Button
               variant="outline"
               className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm h-auto sm:h-10"
@@ -513,6 +514,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
               <History className="w-3 sm:w-4 h-3 sm:h-4" />
               <span>View History</span>
             </Button>
+            )}
 
             <Button
               variant="default"
