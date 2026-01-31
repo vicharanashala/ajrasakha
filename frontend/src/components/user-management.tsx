@@ -21,8 +21,8 @@ import { Input } from "./atoms/input";
 import { UsersTable } from "./user-table";
 import {
   useGetAllExperts,
-  useGetAllUsers,
 } from "@/hooks/api/user/useGetAllUsers";
+import { useAdminGetAllUsers } from "@/hooks/api/Admin/useAdminGetAllUsers";
 import { Label } from "./atoms/label";
 import {
   Select,
@@ -47,7 +47,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const isAdmin = currentUser?.role === "admin";
   const isModerator = currentUser?.role === "moderator";
 
-  const { data: adminUsers, isLoading: adminLoading } = useGetAllUsers(
+  const { data: adminUsers, isLoading: adminLoading } = useAdminGetAllUsers(
     page,
     LIMIT,
     search,

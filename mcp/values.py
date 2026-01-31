@@ -1,0 +1,271 @@
+# state_crops_golden_dataset={'AR': '["Apple","Arecanut","Banana","Bannana","Betelvine","Bitter Gourd","Bovine/Cow/Buffalo","BovineCowBuffalo","Brinjal, Okra","Broccoli","Broiler","CITRONELA","COW","Cardamom","Castor","Cattle","Chilli","Chillies","Coconut","Colocasia","Cotton","Cotton Kapas","Cow","Dog","FINGER MILLET","FISH","Fish","GEN","Gen","Ginger","Goat","Jatropha Ratanjot","Kiwi Fruit","Lemon","Litchi","MIthun","MUSHROOM","Maize Makka","Mango","Mithun","Mushroom","Mustard","Orange","POULTRY","POULTRY FARM","Paddy","Paddy (Dhan)","Paddy Dhan","Pig","Pineapple","Poultry","QUAIL","Quail","Rubber","Tea","Tobacco","Tomato","Vanraja","Walnut","Yaks"]',
+#  'HR': '["Aonla","Arhar (Pigeon pea)","BAJRA","BERSSEM","BHINDI","BOTTLE GOURD","Bajra","Bajra (Pearl Millet)","Barley","Barseem","Bengal Gram / Gram / Chick Pea / Kabuli Chana","Bengal gram","Ber","Berseem","Bhindi","Bhindi (Okra)","Bitter Gourd","Bitter gourd","Black Gram (Urd Bean]","Bottle Gourd","Bottle gourd","Brinjal","CHILLI","CUCUMBER","Cabbage","Carrot","Cauliflower","Chickpea (Gram)","Chilli","Chillies","Citrus","Coriander","Cotton","Cowpea(Lobia)","Cucumber","Dhaincha","Fenugreek","GEN","GRAM","Garlic","Gaur","Gen","Ginger","Gourd","Gram","Gram (chickpea)","Gram/Chick pea","Grape","Green gram","Green gram/Moong","Greengram","Groundnut","Guar","Guar (Cluster bean)","Guar (cluster bean)","Guava","Jamun","Jowar","Jowar (Sorghum)","KADDU (Chappan Kaddu)","Lemon","Lentil","Lime","MANGO","MUSKMELON","MUSTERD","Maize","Mango","Methi (Fenugreek)","Monng","Moong","Moong (Green Gram)","Mushroom","Muskmelon","Mustard","Mustard (Indian Rapeseed)","Mustard -Yellow (Indian Rapeseed)","Musterd","Oats","Oil palm","Okra","Okra / Lady finger","Okra/Ladyfinger/Bhindi","Onion","POTATO","Paddy","Papaya","Pea","Pigeon pea","Pigeon pea(Arhar)","Pomegranate","Poplar","Potato","Pumpkin","Radish","Rajma","Rapeseed (Toria)","Rice","Rose","SUGARCANE","Sesame","Sorghum","SoyAbean","Soybean","Spinach (Palak)","Sponge Gourd","Sugarcane","Sunflower","Tamato","Teak","Tomato","Tomto","Toria","Turmeric","Watermelon","Wheat","cauliflower","chilli","okra","potato"]',
+#  'MP': '["Ajwain","Aloe Vera","Alsi","Aonla","Arhar","Arhar(pigeon pea)","BEE","BRINJAL","BRNJAL","Bajra","Banana","Basmati Rice","Beans","Beekeeping","Bengal Gram","Bengal Gram GramChick PeaKabuliChana","Bengal Gram and Wheat","Bengal gram","Ber","Bhindi","BhindiOkraLadysfinger","Bishopes","Biter Gourd","Bitter Gourd","Bitter gourd","Bittergourd","Black Gram urd bean","Bonsai","Bottle Gourd","Bottle gourd","Bottle guard","BovineCowBuffalo","Brinjal","Buffallo","Buffalo","CATTLE","CAULIFLOWER","CHICKPEA","CHILLI","COW","COW/ BUFFALO","COWPEA","CUCUMBER","Cabbage","Carrot","Castor Rehri Rendi Arandi","Cattle","Cauliflower","Chick pea","Chickpea","Chili","Chilli","Chillies","Chilly","Citrus","Cluster bean","Colocassia","Coriander","Cotton","Cotton Kapas","Cow","Cow Pea","Cow pea","Cow, Goat","Cow/Buffalo","Cow/Buffalo/Goat","Cowpea","Cucumber","DATURA","Fenugreek","Fish","Fisheries","Fishery","French Bean","French bean","Frenchbean","GARLIC","GEN","GENERAL","GRAM","GREEN GRAM","Garlic","Gen","General","Ginger","Goat","Gram","Gram (Chickpea)","Green Gram","Green Gram Moong Bean Moong","Green gram","Ground Nut","Groundnut","Groundnut pea nutmung phalli","Guar","Guava","HONEYBEE","Indian rapeseed and mustard yellow sarson","JACK FRUIT","JACKFRUIT","Jack Fruit","Jackfruit","LENTIL","Lemon","Lentil","Lentil Masur","Lime","Linseed alsi","MAIZE","MANGO","MELON GOURD","MOONG","MUNG","Maize","Maize Makka","Mango","Masur","Mentha","Methi","Money Plant","Moong","Moong (Green gram)","Moong(green gram)","Mung","Mung Bean","Mushroom","Muskmelon","Mustard","OKRA","OPIUM POPY","Okra","Okra ( Bhindi )","Okra (Bhindi)","Onion","Orange","Ornamentals","Others","PAPAYA","PIGEON PEA","PINEAPPLE","Paddy","Paddy (Dhan)","Paddy Dhan","Paddy/Rice","Papaya","Pea","Pea Vegetable","Peanut","Peas field peas garden peasmatar","Pigeon Pea","Pigeon Pea(Arhar)","Pigeon pea","Pigeon pea (Arhar)","Pigeon pea (arhar)","Pigeon pea red gramarhartur","Pomegranate","Pomogranate","Potato","Poultry","Pumpkin","ROSE","Radish","Red Gram","Rice","Rose","SOYABEAN","SOYBEAN","SUGARCANE","Safflower kusumkardi","Sagwan","Sesame GingellyTilSesamum","Snake Gourd","Soyabean","Soybean","Soybean bhat","Spinach","Sponge Gourd","Sugarbeat","Sugarcane","Sugarcane Noble Cane","Sunflower suryamukhi","Sunnhemp Patua","TOMATO","Til","Til (sesame)","Tomato","Turmeric","Urd (Black Gram)","Urd/Black gram","Vegetables","Vermi compost","Watermelon","Wheat","bitter guard","brinjal","chick pea","chilli","chlli","cowpea","cucumber","fisheries","gen","general","gourd","gram","green gram","lemon","lentil","maize","mango","moong","okra","papaya","pigeon pea","potato","rice","soyabean","sugarcane","urad","wheat"]',
+#  'MH': '["Aghave","Amaranthus","Amla","Ashoka","BHINDI (Ladyfinger, Okra)","BULLOCK","Banana","Bannana","Beekeeping","Bitter gourd","Black pepper","Brinjal","Brocolli","Bufallo","Buffalo","Bullock","CITRUS","COCONUT","CUSTARD APPLE","Cabbage","Calf","Capcicum","Capsicum","Cattle","Chilli","Congress grass","Cotton","Cow","Curd","DASHPARNI ARKA (MEDICINAL PLANT)","Drumstick","Elaichi","Elephant Plant","FREANCHBEAN","Fodder","GEN","GROUNDNUT","Gen","Giripushpa","Glyricidia","Grapes","Grapes, Banana","Guava","Hen","Jatropha","Khajoor (date PLUM)","LEMON (CITRUS)","MAUSAMBI","MOSABMI","Mango","Marigold","Mung","Napier grass","Neem","ORANGE","OX","Okra","Onion","Orange","Orchid","Ox","PAPAYA","Paddy","Paneer","Pig","Pigeon Pea","Pomegranate","Potato","Poultry","Pumpkin","ROSE","Rabbit","Rice/Paddy","Safflower","Sheep","Sonchafa","Sorghum","Soybean","Squirrel","Subabhul","Sugarcane","Sunhemp","Sweet corn","TOBBACO","Tobacco","Watermelon","Wild Castor","bitter gourd","citrus","jute","linseed","marigold","orange","pomegranate","soyabean","spinach"]',
+#  'PB': '["ARUM","AZOLLA","Acid Lime","African Sarson","Almond","Aloe Vera","Aloe vera","Anthurium","Aonla","Apple","Arhar (Pigeon pea)","Arum","Ash Gourd Petha","BAJRA","BAJRA NAPIER HYBRID","BARSEEM","BEE","BER","Bajra","Bajra (Millet)","Banana","Barley","Barley Jau","Barseem","Basmati","Beekeeping","Bell Pepper","Bell pepper","Bengal Gram GramChick PeaKabuliChana","Ber","Berseem","Bhindi (Okra)","BhindiOkraLadysfinger","Bitter Gourd","Bitter gourd","Black Gram (urd bean)","Black Gram urd bean","Bottle Gourd","BovineCowBuffalo","Brinjal","Broccoli","Brocolli","Bt Cotton","Bufallo","Buffallo","Buffalo","CONGRESS WEED","COW","Cabbage","Camel","Capsicum","Carom seeds","Carom seeds (Ajwain)","Carrot","Castor","Cattles","Cauliflower","Celery","Chilli","Chillies","Chrysanthemum","Cineraria","Citrus","Citrus/Malta","Colocasia (Arbi)","Colocasia Arvi Arbi","Coriander","Cotton","Cotton ( Kapah)","Cotton (Kapah)","Cotton Kapas","Cow or Buffalo","Cow/ Buffallo","Cow/Buffalo","Cow/buffalo","Cowpea","Cruciferous Vegetables","Cucumber","Cumin","Datepalm","Dhaincha","Dinanath Grass","Dog","Duck","Eculeptous","Eucalyptus","Eucalyptus tereticornis","FENNEL","Fennel","Fenugreek","Fig","FingerMillet","FingerMillet (Ragi)","Fish","Flax","Fodder maize","French Bean","Fresh Water","GEN","GENERAL","GUAR","Garlic","Gen","Gen( Weedicide)","Gerbera","Ginger","Goat","Goats","Gram","Grape","Green Gram","Green Gram Moong Bean Moong","Green gram(Moong)","Groundnut","Groundnut pea nutmung phalli","Guar","Guar(Cluster bean)","Guava","Gunnie Grass","Horse","Indian rapeseed and mustard yellow sarson","Indian rapeseed/Mustard/yellow sarson","JIMKIKHAND","Jacaranda","Jamun","Jasmine","Jojoba","Jowar","Jowar (Sorghum)","KESAR","Keshar (saffron)","Kinnow","Knol-Khol","Leafy Vegetable","Lemon","Lentil","Lettuce","Litchi","Loquat","Lucerne","MAIZE","MINT","MOONG","MUSHROOM","MUSTARD","Maize","Maize Makka","Makhan Grass","Mango","Marigold","Marine","Mentha","Methi","Methi Fenugreek","Mint","Mint (Pudina)","Moong","Moong (Green gram)","Moong Dal","Moth Bean kidney bean deww gram","Mulberry","Mushroom","Mustard","Mustard, Rapseed","Napier Grass( Weed)","Neem","OATS","Oats","Okra( Bhindi)","Onion","Orange","Orchid","Others","PEA","POPLAR","POTATO","POULTRY FARM","POULTRY FARM(HENS)","Paddy","Paddy Dhan","Paddy/Rice","Papaya","Pea","Pea Vegetable","Peach","Pear","Peas field peas garden peasmatar","Pig","Pigeon Pea","Pilkhan plant","Pineapple","Piper Mint","Plum","Pomegranate","Poplar","Popular","Potato","Poultry","Poultry management","Pulses","Pumpkin","RADISH","Rabbit","Radish","Rajmash Bean","Raya Indian Mustard","Rice","Rice/Paddy","Ridge Gourd( Kali Torai)","Ridge gourd","Rocket salad taramira","Rose","Ryegrass","SORGHUM","SUNFLOWER","Safed Musli","Sagwan (Teak","Sandal Wood","Sapota","Sarson","Sesame","Sesame GingellyTilSesamum","Sheep","Silage ( Fodder)","Snap Melon","Sorghum JowarGreat Millet","Sorghum(Jowar)","Soybean","Soybean bhat","Spinach Palak","Stevia","Strawberry","Sugarbeat","Sugarcane","Sugarcane Noble Cane","Sugarcane/Noble Cane","Summer Squash Vegetable Marrow","Sunnhemp","Sunnhemp Patua","TOMATO","Taramira( Mustard)","Teak","Teosinte","Teosinte(Maize)","Tinda (round gourd)","Tomato","Torai","Toria","Triticale","Turmeric","Turnip Saljam","Vegetables","WHEAT","Watermelon","Wheat","Wheat and Barley","cattle, buffalo, goats, and sheep","fodder maize","fodder sorghum","gooseberry","okra","onion","phalsa","pigeon pea","wheat"]',
+#  'RJ': '["Coriander"]',
+#  'TN': '["Amaranthus","Amla (Indian Gooseberry)","Aonla","Arecanut","BIRD","Bamboo","Banana","Betel vine","Bhendi","Birds","Brinjal","Buffalo","Cashew","Cassava (Tapioca)","Castor","Casuarina","Chicken","Chilli","Chow chow","Chrysanthemum","Citrus","Cocoa","Coconut","Colocasia","Cow","Crossandra( Crossandra infundibuliformis L . )","Cumbu (Pearl millet)","Cumbu Napier","Custard apple","Dove Bird","Drumstick","Duck","Durian (Durky)","Dwarf Cavendish (Banana)","EMU","Fish","Fodder","Gen","Glory Lily","Glory lilly","Green gram/Black gram","Groundnut","Hen (chicks)","Honeybee","Jamine","Jasmine","Kaadai (Japanese Quail)","Keelanelli (Phyllanthus amarus)","Khasi Kateri","Kumil trees","Lab-lab","Lemon","Lime","Maize","Mango","Match wood","Millet","Mushroom","Nutmeg","Okra","Paddy","Padhimugam (Tamarind)","Palm","Pathimugam","Pathimugam (sappan wood or East Indian red wood)","Pearl millet (combu)","Pearl millet (cumbu)","Peenari","Periwinkle (Catharanthus roseus)","Ragi (Finger millet)","Rose","Sesame","She-oak/Singuenia","Singunia (Syngonium)","Snake Gourd","Sugarcane","Sunflower","TURKEY","Tapioca","Tuberose","Turkey","Vasambu (Acorus calamus)","Vasambu(Acorus calamus)","sesame (gingelly)"]',
+#  'UP': '["Bengal Gram GramChick PeaKabuliChana"]'}
+
+
+# state_crops_golden_dataset={
+#     "CH": [
+#       "Onion"
+#     ],
+#     "DL": [
+#       "Paddy",
+#       "Potato"
+#     ],
+#     "HP": [
+#       "Unknown"
+#     ],
+#     "KA": [
+#       "Drumstick",
+#       "General",
+#       "Paddy",
+#       "Sugarcane",
+#       "Wheat"
+#     ],
+#     "MP": [
+#       "Barley Jau",
+#       "Coriander",
+#       "Wheat"
+#     ],
+#     "MH": [
+#       "Gram",
+#       "Wheat"
+#     ],
+#     "--": [
+#       "unknown"
+#     ],
+#     "OR": [
+#       "Wheat"
+#     ],
+#     "PB": [
+#       "Bajra (Pearl Millet)",
+#       "Barley Jau",
+#       "Basmati",
+#       "Basmati Paddy",
+#       "Bengal Gram GramChick PeaKabuliChana",
+#       "Black Gram",
+#       "Brown Sarson",
+#       "Carrots",
+#       "Cattle",
+#       "Cauliflower",
+#       "Coconut",
+#       "Cotton",
+#       "Crop Production",
+#       "Cumin",
+#       "Dairy Cow",
+#       "Fodder Maize",
+#       "Garlic",
+#       "General",
+#       "Groundnut",
+#       "Indian rapeseed and mustard yellow sarson",
+#       "Lentil Masur",
+#       "Linseed alsi",
+#       "Maize",
+#       "Not specified",
+#       "Paddy",
+#       "Poplar",
+#       "Poplar (Agroforestry)",
+#       "Potato",
+#       "Potatoes",
+#       "Rice",
+#       "Sugarcane",
+#       "Summer Vegetables",
+#       "Tomato",
+#       "Toria",
+#       "Turmeric",
+#       "Weather",
+#       "Wheat",
+#       "sugarcane",
+#       "\u0a27\u0a3e\u0a28"
+#     ],
+#     "RJ": [
+#       "Onion"
+#     ],
+#     "TN": [
+#       "Paddy",
+#       "Wheat"
+#     ],
+#     "TG": [
+#       "Paddy"
+#     ],
+#     "UP": [
+#       "Bhindi",
+#       "GramChick",
+#       "Potato",
+#       "Rice",
+#       "Wheat",
+#       "bhindi"
+#     ],
+#     "UT": [
+#       "Paddy"
+#     ],
+#     "WB": [
+#       "Brown Sarson",
+#       "Chilli",
+#       "Indian rapeseed and mustard yellow sarson",
+#       "Mustard",
+#       "Potato",
+#       "Raya Indian Mustard"
+#     ] }
+
+# golden_state_codes = {
+#     'PUNJAB': 'PB',
+#     'HARYANA': 'HR',
+#     'UTTAR PRADESH': 'UP',
+#     'MADHYA PRADESH': 'MP',
+#     'MAHARASHTRA': 'MH',
+#     'RAJASTHAN': 'RJ',
+#     'TAMIL NADU': 'TN',
+#     'ARUNACHAL PRADESH': 'AR'
+# }
+
+# golden_state_codes = {
+#     'CHANDIGARH': 'CH',
+#     'DELHI': 'DL',
+#     'HIMACHAL PRADESH': 'HP',
+#     'KARNATAKA': 'KA',
+#     'MADHYA PRADESH': 'MP',
+#     'MAHARASHTRA': 'MH',
+#     'ODISHA': 'OR',
+#     'PUNJAB': 'PB',
+#     'RAJASTHAN': 'RJ',
+#     'TAMIL NADU': 'TN',
+#     'TAMILNADU': 'TN',
+#     'TELANGANA': 'TG',
+#     'UTTAR PRADESH': 'UP',
+#     'UTTARAKHAND': 'UT',
+#     'WEST BENGAL': 'WB'
+# }
+state_crops_golden_dataset = {
+    "Chandigarh": [
+        "Onion"
+    ],
+    "Delhi": [
+        "Paddy",
+        "Potato"
+    ],
+    "Himachal Pradesh": [
+        "Unknown"
+    ],
+    "Karnataka": [
+        "Drumstick",
+        "General",
+        "Paddy",
+        "Sugarcane",
+        "Wheat"
+    ],
+    "Madhya Pradesh": [
+        "Barley Jau",
+        "Coriander",
+        "Wheat"
+    ],
+    "Maharashtra": [
+        "Gram",
+        "Wheat"
+    ],
+    "Unknown": [
+        "unknown"
+    ],
+    "Odisha": [
+        "Wheat"
+    ],
+    "Punjab": [
+        "Bajra (Pearl Millet)",
+        "Barley Jau",
+        "Basmati",
+        "Basmati Paddy",
+        "Bengal Gram GramChick PeaKabuliChana",
+        "Black Gram",
+        "Brown Sarson",
+        "Carrots",
+        "Cattle",
+        "Cauliflower",
+        "Coconut",
+        "Cotton",
+        "Crop Production",
+        "Cumin",
+        "Dairy Cow",
+        "Fodder Maize",
+        "Garlic",
+        "General",
+        "Groundnut",
+        "Indian rapeseed and mustard yellow sarson",
+        "Lentil Masur",
+        "Linseed alsi",
+        "Maize",
+        "Not specified",
+        "Paddy",
+        "Poplar",
+        "Poplar (Agroforestry)",
+        "Potato",
+        "Potatoes",
+        "Rice",
+        "Sugarcane",
+        "Summer Vegetables",
+        "Tomato",
+        "Toria",
+        "Turmeric",
+        "Weather",
+        "Wheat",
+        "sugarcane",
+        "ਧਾਨ"
+    ],
+    "Rajasthan": [
+        "Onion"
+    ],
+    "Tamil Nadu": [
+        "Paddy",
+        "Wheat"
+    ],
+    "Telangana": [
+        "Paddy"
+    ],
+    "Uttar Pradesh": [
+        "Bhindi",
+        "GramChick",
+        "Potato",
+        "Rice",
+        "Wheat",
+        "bhindi"
+    ],
+    "Uttarakhand": [
+        "Paddy"
+    ],
+    "West Bengal": [
+        "Brown Sarson",
+        "Chilli",
+        "Indian rapeseed and mustard yellow sarson",
+        "Mustard",
+        "Potato",
+        "Raya Indian Mustard"
+    ]
+}
+
+golden_state_codes = {
+    'CHANDIGARH': 'Chandigarh',
+    'DELHI': 'Delhi',
+    'HIMACHAL PRADESH': 'Himachal Pradesh',
+    'KARNATAKA': 'Karnataka',
+    'MADHYA PRADESH': 'Madhya Pradesh',
+    'MAHARASHTRA': 'Maharashtra',
+    'ODISHA': 'Odisha',
+    'PUNJAB': 'Punjab',
+    'RAJASTHAN': 'Rajasthan',
+    'TAMIL NADU': 'Tamil Nadu',
+    'TAMILNADU': 'Tamil Nadu',
+    'TELANGANA': 'Telangana',
+    'UTTAR PRADESH': 'Uttar Pradesh',
+    'UTTARAKHAND': 'Uttarakhand',
+    'WEST BENGAL': 'West Bengal',
+    'ARUNACHAL PRADESH': 'Arunachal Pradesh',
+    'BIHAR': 'Bihar',
+    'GUJARAT': 'Gujarat',
+
+}
+
+
+pop_states={'PUNJAB': 'PB'}

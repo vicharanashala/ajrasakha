@@ -43,7 +43,7 @@ import {
   getJobById,
   startBackgroundProcessing,
 } from '#root/workers/workerManager.js';
-import { ContextIdParam } from '#root/modules/core/classes/validators/ContextValidators.js';
+import { ContextIdParam } from '#root/modules/context/classes/validators/ContextValidator.js';
 import { QuestionService } from '../services/QuestionService.js';
 import { UploadFileOptions } from '#root/modules/core/classes/validators/fileUploadOptions.js';
 import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
@@ -187,6 +187,26 @@ export class QuestionController {
       const inserted = this.questionService.addQuestion(userId, body);
       return inserted;
     }
+  }
+  @Post('/reAllocateLessWorkload')
+  @HttpCode(200)
+ // @ResponseSchema(Object, {statusCode: 400})
+  @OpenAPI({summary: 'ReAllocating questions which are delayed to those who has less workload'})
+  async reAllocateLessWorkload() {
+   try{
+   return await this.questionService.balanceWorkload()
+
+   }
+   catch (err: any) {
+    throw new BadRequestError(
+      err?.message || 'Failed to process uploaded file',
+    );
+    
+  }
+
+    
+     
+   
   }
 
   @Get('/:questionId')

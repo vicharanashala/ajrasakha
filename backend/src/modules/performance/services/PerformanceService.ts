@@ -107,6 +107,8 @@ export class PerformanceService extends BaseService implements IPerformanceServi
 
       const verifiedEntries = closedQuestions.length;
 
+       const {todayApproved}=await this.questionRepo.getTodayApproved(session);
+
       let goldenDataset = {} as GoldenDataset;
 
       if (goldenDataViewType == 'year') {
@@ -115,7 +117,7 @@ export class PerformanceService extends BaseService implements IPerformanceServi
             goldenDataSelectedYear,
             session,
           );
-        goldenDataset = {yearData, verifiedEntries, totalEntriesByType};
+        goldenDataset = {yearData, verifiedEntries, totalEntriesByType,todayApproved};
       } else if (goldenDataViewType == 'month') {
         const {weeksData, totalEntriesByType} =
           await this.questionRepo.getMonthAnalytics(
@@ -123,7 +125,7 @@ export class PerformanceService extends BaseService implements IPerformanceServi
             goldenDataSelectedMonth,
             session,
           );
-        goldenDataset = {weeksData, verifiedEntries, totalEntriesByType};
+        goldenDataset = {weeksData, verifiedEntries, totalEntriesByType,todayApproved};
       } else if (goldenDataViewType == 'week') {
         const {dailyData, totalEntriesByType} =
           await this.questionRepo.getWeekAnalytics(
@@ -132,7 +134,7 @@ export class PerformanceService extends BaseService implements IPerformanceServi
             goldenDataSelectedWeek,
             session,
           );
-        goldenDataset = {dailyData, verifiedEntries, totalEntriesByType};
+        goldenDataset = {dailyData, verifiedEntries, totalEntriesByType,todayApproved};
       } else if (goldenDataViewType == 'day') {
         const {dayHourlyData, totalEntriesByType} =
           await this.questionRepo.getDailyAnalytics(
@@ -142,7 +144,7 @@ export class PerformanceService extends BaseService implements IPerformanceServi
             goldenDataSelectedDay,
             session,
           );
-        goldenDataset = {dayHourlyData, verifiedEntries, totalEntriesByType};
+        goldenDataset = {dayHourlyData, verifiedEntries, totalEntriesByType,todayApproved};
       }
 
       //questionContributionTrend

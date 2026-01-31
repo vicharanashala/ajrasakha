@@ -28,6 +28,7 @@ import { ReviewLevelComponent } from "./ReviewLevelComponent";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { PerformaneService } from "@/hooks/services/performanceService";
 import { toast } from "sonner";
+import { TopRightBadge } from "./NewBadge";
 
 export type ViewType = "year" | "month" | "week" | "day";
 
@@ -102,7 +103,7 @@ export const Dashboard = () => {
   });
 
   useEffect(() => {
-    if (dashboardData) {
+    if (dashboardData?.userRoleOverview) {
       setDashboardState(dashboardData);
       setInitialLoading(false);
     }
@@ -129,6 +130,7 @@ export const Dashboard = () => {
       dayHourlyData: {} as GoldenDataset["dayHourlyData"],
       totalEntriesByType: 0,
       verifiedEntries: 0,
+      todayApproved:0,
     },
     questionContributionTrend: [],
     statusOverview: { questions: [], answers: [] },
@@ -280,9 +282,10 @@ export const Dashboard = () => {
         <div className="flex justify-end px-6">
           <button
             onClick={handleSendCronReport}
-            className="px-4 py-2 rounded-md bg-primary text-white text-sm hover:opacity-90"
+            className="px-4 py-2 rounded-md bg-primary text-white text-sm hover:opacity-90 relative"
           >
             Send Report
+            <TopRightBadge label="New" />
           </button>
         </div>
       )}

@@ -165,12 +165,18 @@ async getAllUsers(
     return { users, totalUsers, totalPages };
   });
 }
-async getAllUsersforManualSelect(userId: string): Promise<UsersNameResponseDto> {
+async getAllUsersforManualSelect(
+  userId: string,
+  page: number,
+  limit: number,
+  search: string,
+  sort: string,
+  filter: string,
+): Promise<UsersNameResponseDto> {
   try {
     return await this._withTransaction(async session => {
       const me = await this.userRepo.findById(userId, session);
       const users = await this.userRepo.findAll(session);
-
       const usersExceptMe = users.filter(
         user => user._id.toString() !== userId,
       );
@@ -183,14 +189,22 @@ async getAllUsersforManualSelect(userId: string): Promise<UsersNameResponseDto> 
 
       return {
         myPreference,
-        users: users.map(u => ({
+        users: usersExceptMe.map(u => ({
           _id: u._id.toString(),
           role: u.role,
           email: u.email,
           preference: u.preference,
           userName: `${u.firstName} ${u.lastName ? u.lastName : ''}`.trim(),
+          firstName: u.firstName ?? "",
+          lastName: u.lastName ?? "",
+          reputation_score: u.reputation_score ?? 0,
+          incentive: u.incentive ?? 0,
+          penaltyPercentage: u.penalty ?? 0,
+          createdAt: u.createdAt ?? null,
           isBlocked:u.isBlocked
         })),
+        totalUsers: users.length,
+        totalPages: 5,
       };
     });
   } catch (error) {

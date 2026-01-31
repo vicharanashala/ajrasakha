@@ -792,6 +792,11 @@ export type QuestionResponse =
     data: IQuestion;
   }
   | {
-    kind: "reroute";
-    data: QuestionRerouteRepo;
-  };
+      kind: "reroute";
+      data: QuestionRerouteRepo;
+    };
+    export interface WorkloadBalanceResponse {
+      message: string;
+      expertsInvolved: number;
+      submissionsProcessed: number;
+    }

@@ -1,6 +1,16 @@
 import { ResponsiveHeatMap } from "@nivo/heatmap";
 import { useGetHeapMap } from "@/hooks/api/performance/useGetHeatMap";
 import type { DateRange } from "./dashboard/questions-analytics";
+import { useState, useEffect } from "react";
+import { Button } from "./atoms/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./atoms/select";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // interface HeatMapRow {
 //   reviewerId: string;
@@ -14,10 +24,35 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
     endTime: heatMapDate.endTime,
   });
 
-  if (isLoading) return <div>Loading heatmap...</div>;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Reset to page 1 when date range changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [heatMapDate.startTime?.getTime(), heatMapDate.endTime?.getTime()]);
+
+  if (isLoading) {
+    return (
+      <div className="min-w-[80vw] border rounded-lg overflow-auto text-gray-900 dark:text-white">
+        <div className="flex items-center justify-center min-h-[450px]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <p className="text-sm text-muted-foreground">Loading heatmap data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!heatMapData || heatMapData.length === 0) {
-    return <div>No reviewer performance data found.</div>;
+    return (
+      <div className="min-w-[80vw] border rounded-lg overflow-auto text-gray-900 dark:text-white">
+        <div className="flex items-center justify-center min-h-[450px]">
+          <p className="text-sm text-muted-foreground">No reviewer performance data found.</p>
+        </div>
+      </div>
+    );
   }
 
   const allBuckets = [
@@ -39,8 +74,16 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
   const formatBucket = (bucket: string) =>
     bucket === "12_plus" ? "12+" : bucket.replace("_", "–");
 
-  const data = heatMapData.map((r) => ({
-    id: r.reviewerName,
+  // Pagination logic
+  const totalItems = heatMapData.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedData = heatMapData.slice(startIndex, endIndex);
+
+  const data = paginatedData.map((r, idx) => ({
+    id: `${r.reviewerName}_${idx}`,
+    reviewerName: r.reviewerName,
     data: allBuckets.map((bucket) => ({
       x: formatBucket(bucket),
       y: r.counts?.[bucket] ?? 0,
@@ -141,6 +184,12 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
             legend: "Experts",
             legendPosition: "middle",
             legendOffset: -150,
+            format: (value) => {
+              // Extract reviewer name from "name_idx" format
+              const parts = value.toString().split('_');
+              parts.pop(); // Remove the index
+              return parts.join('_');
+            },
           }}
           legends={[
             {
@@ -184,9 +233,9 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
 
           {/* Body */}
           <tbody>
-            {heatMapData.map((row) => (
+            {paginatedData.map((row, idx) => (
               <tr
-                key={`${row.reviewerId}-${Math.random()}`}
+                key={`${row.reviewerId}_${idx}`}
                 className="border-t"
               >
                 <td className="px-4 py-2 font-medium  left-0  z-10">
@@ -210,6 +259,104 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50 dark:bg-gray-900">
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-gray-700 dark:text-gray-300">
+            Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of{" "}
+            {totalItems} experts
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              Rows per page:
+            </span>
+            <Select
+              value={itemsPerPage.toString()}
+              onValueChange={(value) => {
+                setItemsPerPage(Number(value));
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[70px] h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="5">5</SelectItem>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="15">15</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectContent>
+            </Select>
+          </div> 
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+            className="px-3"
+          >
+            Previous
+          </Button>
+          
+          {/* Page Numbers */}
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+            const showPage =
+              page === 1 ||
+              page === totalPages ||
+              (page >= currentPage - 1 && page <= currentPage + 1);
+
+            const showEllipsisBefore =
+              page === currentPage - 2 && currentPage > 3;
+            const showEllipsisAfter =
+              page === currentPage + 2 && currentPage < totalPages - 2;
+
+            if (showEllipsisBefore || showEllipsisAfter) {
+              return (
+                <span
+                  key={page}
+                  className="px-2 text-gray-700 dark:text-gray-300"
+                >
+                  ...
+                </span>
+              );
+            }
+
+            if (!showPage) return null;
+
+            return (
+              <Button
+                key={page}
+                variant={currentPage === page ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCurrentPage(page)}
+                className={`w-9 h-9 ${
+                  currentPage === page
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : ""
+                }`}
+              >
+                {page}
+              </Button>
+            );
+          })}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+            }
+            disabled={currentPage === totalPages}
+            className="px-3"
+          >
+            Next
+          </Button>
+        </div>
       </div>
     </div>
   );

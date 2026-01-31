@@ -1,7 +1,7 @@
 import {
   CreateRequestBodyDto,
   GetAllRequestsQueryDto,
-} from '#root/modules/core/classes/validators/RequestValidators.js';
+} from '#root/modules/request/classes/validators/RequestValidators.js';
 import {IRequest, IRequestResponse, RequestStatus} from '#root/shared/index.js';
 import {ClientSession} from 'mongodb';
 

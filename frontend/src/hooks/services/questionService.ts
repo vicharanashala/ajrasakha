@@ -5,7 +5,8 @@ import type {
   QuestionFullDataResponse,
   RejectReRoutePayload,
   IRerouteHistoryResponse,
-  ReroutedQuestionItem
+  ReroutedQuestionItem,
+  WorkloadBalanceResponse
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { QuestionFilter } from "@/features/qa-interface-page/QA-interface";
@@ -288,10 +289,11 @@ export class QuestionService {
   pageParam: number,
   limit: number,
   search: string,
-  filter:AdvanceFilterValues
+  filter:AdvanceFilterValues,
+  sort: string
 ):Promise<ReviewLevelsApiResponse | null> {
   const params = new URLSearchParams();
-
+    if(sort) params.append('sort',sort)
     if (search) params.append("search", search);
     params.append("page", pageParam.toString());
     params.append("limit", limit.toString());
@@ -330,6 +332,9 @@ export class QuestionService {
     return apiFetch(
     `${this._baseUrl}?${params.toString()}`
    );
+}
+async reAllocateLessWorkload(): Promise<WorkloadBalanceResponse|null> {
+  return apiFetch<WorkloadBalanceResponse|null>(`${this._baseUrl}/reAllocateLessWorkload`,{method: "POST",});
 }
 
 }

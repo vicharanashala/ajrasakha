@@ -5,11 +5,15 @@ import {
 import { Button } from "../../components/atoms/button";
 import { Input } from "../../components/atoms/input";
 import {
+  ArrowDownNarrowWide,
+  ArrowUpNarrowWide,
+  Clock,
   Plus,
  RefreshCcw,
+ RotateCcw,
  Search,
   Trash,
-  X,
+  X,Info
 } from "lucide-react";
 import {
   AdvanceFilterDialog,
@@ -26,12 +30,15 @@ import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
 
-import { TopRightBadge } from "../../components/NewBadge";
+import { TopLeftBadge, TopRightBadge } from "../../components/NewBadge";
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
+import {useReAllocateLessWorkload} from '@/hooks/api/question/useReAllocateLessWorkload'
 
 type QuestionsFiltersProps = {
   search: string;
   states: string[];
+  appliedFilters: AdvanceFilterValues;
   onChange: (next: AdvanceFilterValues) => void;
   crops: string[];
   onReset: () => void;
@@ -49,11 +56,14 @@ type QuestionsFiltersProps = {
   setSelectedQuestionIds: (value: string[]) => void;
   viewMode: "all" | "review-level";
   setViewMode: (v: "all" | "review-level") => void;
+  sort: string;
+  onSort: (key:string)=>void;
 };
 
 export const QuestionsFilters = ({
   search,
   setSearch,
+  appliedFilters,
   setUploadedQuestionsCount,
   setIsBulkUpload,
   crops,
@@ -71,26 +81,10 @@ export const QuestionsFilters = ({
   bulkDeletingQuestions,
   viewMode,
   setViewMode,
+  sort,
+  onSort,
 }: QuestionsFiltersProps) => {
-  const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
-    {
-      status: "all",
-      source: "all",
-      state: "all",
-      answersCount: [0, 100],
-      dateRange: "all",
-      crop: "all",
-      priority: "all",
-      domain: "all",
-      user: "all",
-      endTime: undefined,
-      startTime: undefined,
-      review_level: "all",
-      closedAtStart: undefined,
-      closedAtEnd: undefined,
-      consecutiveApprovals:'all'
-    }
-  );
+  const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(appliedFilters);
   const [addOpen, setAddOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
     null
@@ -101,6 +95,25 @@ export const QuestionsFilters = ({
       setUploadedQuestionsCount(count);
       setIsBulkUpload(isBulkUpload);
     });
+    const { mutateAsync: reAllocateLessWorkload, isPending: reAllocateQuestion } =
+    useReAllocateLessWorkload();
+    const handleReAllocateLessWorkload = async () => {
+       try {
+       
+        const res = await reAllocateLessWorkload();
+
+    if (!res) {
+      toast.error("No response from server");
+      return;
+    }
+
+    toast.success(res.message);
+    
+      } catch (error) {
+        toast.error("Failed to reAllocate question for those who has less workload");
+        console.error("Error reAllocating question who has less workload question:", error);
+      }
+    };
 
   const handleAddQuestion = async (
     mode: "add" | "edit",
@@ -273,7 +286,44 @@ export const QuestionsFilters = ({
         isLoadingAction={addingQuestion}
         mode="add"
       />
+      {viewMode === "review-level" && (
+        <div className="flex items-center gap-1 relative">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="flex items-center gap-2 px-3 py-2 rounded-md text-sm 
+               bg-primary text-white hover:opacity-90 select-none"
+                  onClick={() => onSort("totalTurnAround")}
+                >
+                  <Clock size={14} />
 
+                  {sort === `totalTurnAround___asc` && (
+                    <ArrowUpNarrowWide size={14} />
+                  )}
+                  {sort === `totalTurnAround___desc` && (
+                    <ArrowDownNarrowWide size={14} />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Sort questions by total turnaround time</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          {sort && (
+            <div className="flex justify-end">
+              <button
+                onClick={() => onSort("clearSort")}
+                className="ml-1 p-2 rounded-md text-sm bg-primary text-white hover:text-black"
+              >
+                <RotateCcw size={14} />
+              </button>
+            </div>
+          )}
+          <TopLeftBadge label="New" />
+        </div>
+      )}
       {/* SEARCH BAR – full width on mobile, fixed width on desktop */}
       <div className="w-full sm:flex-1 sm:min-w-[250px] sm:max-w-[400px]">
         <div className="relative w-full">
@@ -299,10 +349,39 @@ export const QuestionsFilters = ({
           )}
         </div>
       </div>
+      {/*<div className="relative inline-block">
+      {userRole !== "expert" && (
+        <Tooltip>
+        <TooltipTrigger asChild>
+        <Button
+            variant="default"
+            size="sm"
+            className="flex items-center gap-2 w-full md:w-fit"
+            onClick={() => handleReAllocateLessWorkload ()}
+            disabled={reAllocateQuestion}
+          >
+             <Info className="h-4 w-4" /> ReAllocate
+            
+          </Button>
+          
+          
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-sm">
+          <p>
+            {`This option allows reallocating questions  that have been
+            delayed by atleast 1 hour for those who has less workload( <= 5)`} .
+          </p>
+        </TooltipContent>
+      </Tooltip>
+         
+        )}
+         {userRole !== "expert" && (
+        <TopRightBadge label="New" />
+         )}
+         </div>*/}
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-3 justify-between sm:justify-end">
-        <div className="relative inline-block">
-          <TopRightBadge label="New" />
+        <div className="inline-block">
           <div className="flex gap-2 border rounded-md p-1 bg-muted/40">
             <button
               className={`px-3 py-1 rounded-md text-sm ${

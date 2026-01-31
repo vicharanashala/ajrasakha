@@ -13,6 +13,9 @@ type Props = {
 
   onPageChange: (page: number) => void;
   onViewMore: (id: string) => void;
+
+  sort: string;
+  toggleSort: (key: string) => void;
 };
 
 export function ReviewLevelsTable({
@@ -21,20 +24,21 @@ export function ReviewLevelsTable({
   page,
   totalPages,
   onPageChange,
-  onViewMore
+  onViewMore,
+  toggleSort,
+  sort,
 }: Props) {
-
   return (
     <div className="ps-4 md:ps-0">
-
       <TableContainer>
-
         {/* Desktop Table */}
         <div className="hidden md:block overflow-x-auto">
           <BaseTable
             columns={reviewLevelColumns(onViewMore)}
             data={data}
             isLoading={isLoading}
+            onSort={toggleSort}
+            sort={sort}
           />
         </div>
 
@@ -46,6 +50,8 @@ export function ReviewLevelsTable({
               row={row}
               index={(page - 1) * data.length + i}
               onViewMore={onViewMore}
+              onSort={toggleSort}
+              sort={sort}
             />
           ))}
         </div>
