@@ -13,7 +13,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Local Tools
 from golden.golden_rag_tool import golden_retriever_tool
-from values import state_crops_golden_dataset, pop_states, golden_state_codes
+import values
 
 # MCP Client Imports
 from mcp.client.streamable_http import streamablehttp_client
@@ -153,7 +153,7 @@ async def intent_extractor(state: AgentState):
              s_code = None
              
              # Merge Name->Code maps
-             all_states = {**pop_states, **golden_state_codes}
+             all_states = {**values.pop_states, **values.golden_state_codes}
              state_map = {k.upper(): v for k, v in all_states.items()}
              
              if s_name.upper() in state_map:
@@ -262,13 +262,13 @@ async def search_golden_dataset_node(state: AgentState):
     print(f"DEBUG: Validating Golden Search for State: {code}, Crop: {crop}")
     
     # 1. Validation: Check State
-    if code not in state_crops_golden_dataset:
+    if code not in values.state_crops_golden_dataset:
         print(f"DEBUG: State {code} not in Golden Dataset. Skipping.")
         return {"golden_data": None} 
         
     # 2. Validation: Check Crop
     try:
-        allowed_crops_data = state_crops_golden_dataset[code]
+        allowed_crops_data = values.state_crops_golden_dataset[code]
         
         if isinstance(allowed_crops_data, list):
             allowed_crops = allowed_crops_data
@@ -409,9 +409,9 @@ async def search_pop_node(state: AgentState):
     
     is_supported = False
     
-    if code in pop_states.values():
+    if code in values.pop_states.values():
         is_supported = True
-    elif s_name and s_name.upper() in pop_states:
+    elif s_name and s_name.upper() in values.pop_states:
          is_supported = True
          
     if not is_supported:
