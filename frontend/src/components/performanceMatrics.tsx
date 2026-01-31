@@ -59,9 +59,9 @@ export const PerformanceMatrics = () => {
   const { data: WorkLoad } = useGetWorkLoad();
 
   const finalized = finalizedAnswers?.finalizedSubmissions || [];
-  const currentUserAnswers = WorkLoad?.currentUserAnswers || [];
+  const approvedCount = WorkLoad?.currentUserAnswersCount || 0;
   const totalQuestionsCount = WorkLoad?.totalQuestionsCount || 0;
-  const approvedCount = currentUserAnswers.length;
+  // const approvedCount = currentUserAnswers.length;
   // const heatMapResults = finalizedAnswers?.heatMapResults || [];
   const approvalPercentage =
     totalQuestionsCount > 0

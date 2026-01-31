@@ -64,7 +64,7 @@ export interface IAnswerRepository {
     currentUserId: string,
     session?: ClientSession,
   ): Promise<{
-    currentUserAnswers: any[];
+    currentUserAnswersCount: number;
     totalQuestionsCount: number;
     totalInreviewQuestionsCount: number;
   }>;
@@ -123,12 +123,12 @@ export interface IAnswerRepository {
     answerId: string,
     session?: ClientSession,
   ): Promise<number>;
- /**
-   * Updates an existing answer.
-   * @param answerId - The ID of the answer to update.
-   * @param session - Optional MongoDB client session for transactions.
-   * @returns void
-   */
+  /**
+    * Updates an existing answer.
+    * @param answerId - The ID of the answer to update.
+    * @param session - Optional MongoDB client session for transactions.
+    * @returns void
+    */
   resetApprovalCount(
     answerId: string,
     session?: ClientSession,
@@ -183,7 +183,7 @@ export interface IAnswerRepository {
     answerId: string,
     modification: PreviousAnswersItem,
     session?: ClientSession
-  ): Promise<{ modifiedCount: number }> 
+  ): Promise<{ modifiedCount: number }>
 
 
   /**
@@ -205,20 +205,20 @@ export interface IAnswerRepository {
   ): Promise<{analytics: Analytics}>;
 
 
-   /**
-   * Retrieves historyy of moderator .
-   * @param userId- Moderator Id 
-   * @param page - Current page count.
-   * @param limit - Total limit count.
-   * @param session - Optional MongoDB client session for transactions.
-   * @returns A promise that resolves to an array of submissions.
-   */
+  /**
+  * Retrieves historyy of moderator .
+  * @param userId- Moderator Id 
+  * @param page - Current page count.
+  * @param limit - Total limit count.
+  * @param session - Optional MongoDB client session for transactions.
+  * @returns A promise that resolves to an array of submissions.
+  */
   getModeratorActivityHistory(
-  moderatorId: string,
-  page: number,
-  limit: number,
-  dateRange?: { from?: string; to?: string },
+    moderatorId: string,
+    page: number,
+    limit: number,
+    dateRange?: { from?: string; to?: string },
   selectedHistoryId?:string,
   session?:ClientSession
-) 
+  )
 }

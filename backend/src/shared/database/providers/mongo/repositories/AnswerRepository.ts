@@ -723,46 +723,46 @@ export class AnswerRepository implements IAnswerRepository {
         ...(userId !== 'all'
           ? status == 'in-review'
             ? [
-                {
-                  $match: {
-                    status: 'pending-with-moderator',
-                  },
+              {
+                $match: {
+                  status: 'pending-with-moderator',
                 },
+              },
 
-                // Sort latest answers first so we can pick the final/latest one
+              // Sort latest answers first so we can pick the final/latest one
                 {$sort: {createdAt: -1}},
 
-                // ✅ Group → get only the latest answer for each question
-                {
-                  $group: {
-                    _id: '$questionId',
+              // ✅ Group → get only the latest answer for each question
+              {
+                $group: {
+                  _id: '$questionId',
                     latestAnswer: {$first: '$$ROOT'},
-                  },
                 },
+              },
                 {$replaceRoot: {newRoot: '$latestAnswer'}}, // flatten result
-              ]
+            ]
             : [
-                {
-                  $match: {
-                    approvedBy: userObjectId,
-                    ...statusFilter, // applies status only if status != "all"
-                  },
+              {
+                $match: {
+                  approvedBy: userObjectId,
+                  ...statusFilter, // applies status only if status != "all"
                 },
+              },
 
-                // Sort latest answers first so we can pick the final/latest one
+              // Sort latest answers first so we can pick the final/latest one
                 {$sort: {createdAt: -1}},
 
-                // ✅ Group → get only the latest answer for each question
-                {
-                  $group: {
-                    _id: '$questionId',
+              // ✅ Group → get only the latest answer for each question
+              {
+                $group: {
+                  _id: '$questionId',
                     latestAnswer: {$first: '$$ROOT'},
-                  },
                 },
+              },
                 {$replaceRoot: {newRoot: '$latestAnswer'}}, // flatten result
-              ]
+            ]
           : status !== 'all'
-          ? [
+            ? [
               // ✅ If status chosen while user = all → just filter status
               {
                 $match: {
@@ -770,7 +770,7 @@ export class AnswerRepository implements IAnswerRepository {
                 },
               },
             ]
-          : []),
+            : []),
 
         // ✅ Sort final results newest first (applies to both cases)
         {$sort: {createdAt: -1}},
@@ -814,63 +814,20 @@ export class AnswerRepository implements IAnswerRepository {
     currentUserId: string,
     session?: ClientSession,
   ): Promise<{
-    currentUserAnswers: any[];
+    currentUserAnswersCount: number;
     totalQuestionsCount: number;
     totalInreviewQuestionsCount: number;
   }> {
     try {
       await this.init();
 
-      const currentUserAnswers = await this.AnswerCollection.aggregate([
+      const currentUserAnswersCount = await this.AnswerCollection.countDocuments(
         {
-          $match: {
-            isFinalAnswer: true,
-            approvedBy: new ObjectId(currentUserId),
-          },
-        },
+          isFinalAnswer: true,
+          approvedBy: new ObjectId(currentUserId),
+        }
+      );
 
-        // Sort latest answers first so we can pick the final/latest one
-        {$sort: {createdAt: -1}},
-
-        // ✅ Group → get only the latest answer for each question
-        {
-          $group: {
-            _id: '$questionId',
-            latestAnswer: {$first: '$$ROOT'},
-          },
-        },
-        {
-          $lookup: {
-            from: 'questions',
-            localField: '_id', // since _id now holds questionId
-            foreignField: '_id',
-            as: 'question',
-          },
-        },
-        {$unwind: {path: '$question', preserveNullAndEmptyArrays: true}},
-
-        {
-          $group: {
-            _id: {$toString: '$question._id'},
-            text: {$first: '$question.question'},
-            createdAt: {$first: '$question.createdAt'},
-            updatedAt: {$first: '$question.updatedAt'},
-            totalAnswersCount: {$sum: 1},
-            details: {$first: '$question.details'},
-            status: {$first: '$question.status'},
-            responses: {
-              $push: {
-                answer: '$answer',
-                id: {$toString: '$_id'},
-                isFinalAnswer: '$isFinalAnswer',
-                createdAt: '$createdAt',
-              },
-            },
-          },
-        },
-
-        {$sort: {createdAt: -1}},
-      ]).toArray();
       const totalInreviewQuestionsCount =
         await this.QuestionCollection.countDocuments({
           status: {$in: ['in-review']},
@@ -880,7 +837,7 @@ export class AnswerRepository implements IAnswerRepository {
       );
       //console.log("the total questions====",totalQuestionsCount)
       return {
-        currentUserAnswers,
+        currentUserAnswersCount,
         totalQuestionsCount,
         totalInreviewQuestionsCount,
       };
@@ -918,34 +875,34 @@ export class AnswerRepository implements IAnswerRepository {
     }
   }
   async addAnswerModification(
-  answerId: string,
-  modification: PreviousAnswersItem,
-  session?: ClientSession
-): Promise<{ modifiedCount: number }> {
-  try {
-    await this.init();
+    answerId: string,
+    modification: PreviousAnswersItem,
+    session?: ClientSession
+  ): Promise<{ modifiedCount: number }> {
+    try {
+      await this.init();
 
-    if (!answerId || !isValidObjectId(answerId)) {
-      throw new BadRequestError('Invalid or missing answerId');
+      if (!answerId || !isValidObjectId(answerId)) {
+        throw new BadRequestError('Invalid or missing answerId');
+      }
+
+      const result = await this.AnswerCollection.updateOne(
+        { _id: new ObjectId(answerId) },
+        {
+          $push: {
+            modifications: modification
+          }
+        },
+        { session }
+      );
+
+      return { modifiedCount: result.modifiedCount };
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while adding modification entry, More/ ${error}`
+      );
     }
-
-    const result = await this.AnswerCollection.updateOne(
-      { _id: new ObjectId(answerId) },
-      {
-        $push: {
-          modifications: modification
-        }
-      },
-      { session }
-    );
-
-    return { modifiedCount: result.modifiedCount };
-  } catch (error) {
-    throw new InternalServerError(
-      `Error while adding modification entry, More/ ${error}`
-    );
   }
-}
 
   async deleteAnswer(
     answerId: string,
@@ -1083,17 +1040,17 @@ export class AnswerRepository implements IAnswerRepository {
         approvedBy: faq.approvedBy?.toString(),
         question: faq.question
           ? {
-              ...faq.question,
-              _id: faq.question._id?.toString(),
-              userId: faq.question.userId?.toString(),
-              contextId: faq.question.contextId?.toString() ?? null,
-            }
+            ...faq.question,
+            _id: faq.question._id?.toString(),
+            userId: faq.question.userId?.toString(),
+            contextId: faq.question.contextId?.toString() ?? null,
+          }
           : null,
         moderator: faq.moderator
           ? {
-              ...faq.moderator,
-              _id: faq.moderator._id?.toString(),
-            }
+            ...faq.moderator,
+            _id: faq.moderator._id?.toString(),
+          }
           : null,
       }));
       return {faqs: formattedFaqs, totalFaqs};
@@ -1285,35 +1242,35 @@ export class AnswerRepository implements IAnswerRepository {
     session?: ClientSession,
   ) {
     await this.init();
-  
+
     const safePage = Math.max(1, page);
     const safeLimit = Math.max(1, limit);
     const skip = (safePage - 1) * safeLimit;
-  
+
     const fromDate = dateRange?.from ? new Date(dateRange.from) : null;
     const toDate = dateRange?.to ? new Date(dateRange.to) : null;
-  
+
     const dateFilter: any = {};
     if (fromDate) dateFilter.$gte = fromDate;
     if (toDate) dateFilter.$lte = toDate;
-  
+
     let rerouteMatchStage: any;
 
-if (selectedHistoryId) {
-  // If selectedHistoryId is provided, match that specific question
-  rerouteMatchStage = {
-    questionId: new ObjectId(selectedHistoryId),
-    };
-} else {
-  // Otherwise, match all questions where moderator has rerouted
-  rerouteMatchStage = {
-    reroutes: {
-      $elemMatch: {
-        reroutedBy: new ObjectId(moderatorId),
-      },
-    },
-  };
-}
+    if (selectedHistoryId) {
+      // If selectedHistoryId is provided, match that specific question
+      rerouteMatchStage = {
+        questionId: new ObjectId(selectedHistoryId),
+      };
+    } else {
+      // Otherwise, match all questions where moderator has rerouted
+      rerouteMatchStage = {
+        reroutes: {
+          $elemMatch: {
+            reroutedBy: new ObjectId(moderatorId),
+          },
+        },
+      };
+    }
     // Pipeline 1: Get Rerouted Questions
     const reroutePipeline = [
       {
@@ -1336,12 +1293,12 @@ if (selectedHistoryId) {
       },
       ...(Object.keys(dateFilter).length > 0
         ? [
-            {
-              $match: {
-                "moderatorReroute.updatedAt": dateFilter,
-              },
+          {
+            $match: {
+              "moderatorReroute.updatedAt": dateFilter,
             },
-          ]
+          },
+        ]
         : []),
       {
         $lookup: {
@@ -1440,16 +1397,16 @@ if (selectedHistoryId) {
         },
       },
     ];
-  
+
     // Pipeline 2: Get Finalized Answers
     const matchStage: any = {
       approvedBy: new ObjectId(moderatorId),
     };
-  
+
     if (Object.keys(dateFilter).length > 0) {
       matchStage.updatedAt = dateFilter;
     }
-  
+
     const finalizedPipeline = [
       { $match: matchStage },
       {
@@ -1506,7 +1463,7 @@ if (selectedHistoryId) {
     ];
     let rerouteResults: any[] = [];
     let finalizedResults: any[] = [];
-    
+
     if (selectedHistoryId) {
       // ✅ Only reroute history
       rerouteResults = await this.ReRouteCollection
@@ -1518,21 +1475,21 @@ if (selectedHistoryId) {
         this.ReRouteCollection.aggregate(reroutePipeline, { session }).toArray(),
         this.AnswerCollection.aggregate(finalizedPipeline, { session }).toArray(),
       ]);
-    
+
       [rerouteResults, finalizedResults] = results;
     }
     // Execute both pipelines in parallel
-   
-  
+
+
     // Combine and sort by updatedAt
     const combinedData = [...rerouteResults, ...finalizedResults].sort(
       (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
-  
+
     // Apply pagination to combined results
     const totalCount = combinedData.length;
     const paginatedData = combinedData.slice(skip, skip + safeLimit);
-  
+
     return {
       totalCount,
       page: safePage,
@@ -1541,7 +1498,7 @@ if (selectedHistoryId) {
       data: paginatedData,
     };
   }
-  
+
 
 
   async resetApprovalCount(

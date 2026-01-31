@@ -76,7 +76,7 @@ export class PerformanceController {
   @OpenAPI({summary: 'Get workload count of User'})
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async getWorkLoadCount(@CurrentUser() user: IUser): Promise<{
-    currentUserAnswers: any[];
+    currentUserAnswersCount: number;
     totalQuestionsCount: number;
     totalInreviewQuestionsCount: number;
   }> {
@@ -89,28 +89,28 @@ export class PerformanceController {
   }
 
   @Post('/check-in')
-    @HttpCode(200)
-    @Authorized()
-    @OpenAPI({ summary: 'Check-in for the current user' })
-    async checkIn(@CurrentUser() user: IUser) {
-      await this.performanceService.updateCheckInTime(user._id.toString(), new Date());
-      return { success: true, lastCheckInAt: new Date() };
-    }
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Check-in for the current user' })
+  async checkIn(@CurrentUser() user: IUser) {
+    await this.performanceService.updateCheckInTime(user._id.toString(), new Date());
+    return { success: true, lastCheckInAt: new Date() };
+  }
 
-@Post("/cron-snapshot/send-report")
-@HttpCode(200)
-@Authorized()
-@OpenAPI({ summary: "Send cron snapshot report via email" })
-async sendCronSnapshotReport(
-  @CurrentUser() user: IUser,
-) {
-  await this.performanceService.sendCronSnapshotEmail(
-    user._id.toString(),
-  );
+  @Post("/cron-snapshot/send-report")
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: "Send cron snapshot report via email" })
+  async sendCronSnapshotReport(
+    @CurrentUser() user: IUser,
+  ) {
+    await this.performanceService.sendCronSnapshotEmail(
+      user._id.toString(),
+    );
 
-  return {
-    message: "Cron snapshot report email sent successfully.",
-  };
-}
+    return {
+      message: "Cron snapshot report email sent successfully.",
+    };
+  }
 
 }
