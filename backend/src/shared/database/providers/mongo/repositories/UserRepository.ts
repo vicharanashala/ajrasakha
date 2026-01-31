@@ -292,6 +292,12 @@ async findAllUsers(
           },
         },
 
+        {
+          $addFields: {
+          status: { $ifNull: ["$status", "active"] },
+          },
+        },
+
         /** Answers count */
         {
           $lookup: {
@@ -982,6 +988,7 @@ async findAllUsers(
       /** Ranking sort (global rank order) */
       {
         $sort: {
+          status: 1,
           isBlocked: 1,
           rankValue: -1,
           reputation_score: -1,
@@ -1068,6 +1075,24 @@ async findAllUsers(
       throw new InternalServerError(`Failed to update IsBlock`);
     }
   }
+
+  async updateActivityStatus(
+    userId: string,
+    status: 'active' | 'in-active',
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    try {
+      await this.usersCollection.updateOne(
+        {_id: new ObjectId(userId)},
+        {$set: {status, updatedAt: new Date()}},
+        {session},
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to update activity status`);
+    }
+  }
+
 
   async getUserRoleCount(session?: ClientSession): Promise<UserRoleOverview[]> {
     try {
