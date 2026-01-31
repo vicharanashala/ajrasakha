@@ -134,12 +134,8 @@ export class CommentRepository implements ICommentRepository {
                 {
                   $project: {
                     _id: {$toString: '$_id'},
-                    questionId: {$toString: '$questionId'},
-                    answerId: {$toString: '$answerId'},
-                    userId: {$toString: '$userId'},
                     text: 1,
                     createdAt: 1,
-                    updatedAt: 1,
                     userName: {
                       $trim: {
                         input: {
