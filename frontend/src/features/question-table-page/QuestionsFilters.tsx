@@ -13,7 +13,7 @@ import {
  RotateCcw,
  Search,
   Trash,
-  X,
+  X,Info
 } from "lucide-react";
 import {
   AdvanceFilterDialog,
@@ -30,9 +30,10 @@ import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
 
-import { TopRightBadge } from "../../components/NewBadge";
+import { TopLeftBadge, TopRightBadge } from "../../components/NewBadge";
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
+import {useReAllocateLessWorkload} from '@/hooks/api/question/useReAllocateLessWorkload'
 
 type QuestionsFiltersProps = {
   search: string;
@@ -110,6 +111,25 @@ export const QuestionsFilters = ({
       setUploadedQuestionsCount(count);
       setIsBulkUpload(isBulkUpload);
     });
+    const { mutateAsync: reAllocateLessWorkload, isPending: reAllocateQuestion } =
+    useReAllocateLessWorkload();
+    const handleReAllocateLessWorkload = async () => {
+       try {
+       
+        const res = await reAllocateLessWorkload();
+
+    if (!res) {
+      toast.error("No response from server");
+      return;
+    }
+
+    toast.success(res.message);
+    
+      } catch (error) {
+        toast.error("Failed to reAllocate question for those who has less workload");
+        console.error("Error reAllocating question who has less workload question:", error);
+      }
+    };
 
   const handleAddQuestion = async (
     mode: "add" | "edit",
@@ -283,7 +303,7 @@ export const QuestionsFilters = ({
         mode="add"
       />
       {viewMode === "review-level" && (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 relative">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -317,6 +337,7 @@ export const QuestionsFilters = ({
               </button>
             </div>
           )}
+          <TopLeftBadge label="New" />
         </div>
       )}
       {/* SEARCH BAR – full width on mobile, fixed width on desktop */}
@@ -344,10 +365,39 @@ export const QuestionsFilters = ({
           )}
         </div>
       </div>
+      <div className="relative inline-block">
+      {userRole !== "expert" && (
+        <Tooltip>
+        <TooltipTrigger asChild>
+        <Button
+            variant="default"
+            size="sm"
+            className="flex items-center gap-2 w-full md:w-fit"
+            onClick={() => handleReAllocateLessWorkload ()}
+            disabled={reAllocateQuestion}
+          >
+             <Info className="h-4 w-4" /> ReAllocate
+            
+          </Button>
+          
+          
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-sm">
+          <p>
+            {`This option allows reallocating questions  that have been
+            delayed by atleast 1 hour for those who has less workload( <= 5)`} .
+          </p>
+        </TooltipContent>
+      </Tooltip>
+         
+        )}
+         {userRole !== "expert" && (
+        <TopRightBadge label="New" />
+         )}
+      </div>
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-3 justify-between sm:justify-end">
-        <div className="relative inline-block">
-          <TopRightBadge label="New" />
+        <div className="inline-block">
           <div className="flex gap-2 border rounded-md p-1 bg-muted/40">
             <button
               className={`px-3 py-1 rounded-md text-sm ${

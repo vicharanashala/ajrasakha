@@ -796,3 +796,8 @@ export type QuestionResponse =
       kind: "reroute";
       data: QuestionRerouteRepo;
     };
+    export interface WorkloadBalanceResponse {
+      message: string;
+      expertsInvolved: number;
+      submissionsProcessed: number;
+    }
