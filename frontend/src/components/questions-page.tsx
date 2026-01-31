@@ -217,8 +217,8 @@ export const QuestionsPage = ({
   const onReset = () => {
     setStatus("all");
     setSource("all");
-    setState("");
-    setCrop("");
+    setState("all");
+    setCrop("all");
     setAnswersCount([0, 100]);
     setDateRange("all");
     setPriority("all");
