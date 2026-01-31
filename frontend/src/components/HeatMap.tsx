@@ -37,7 +37,7 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
       <div className="min-w-[80vw] border rounded-lg overflow-auto text-gray-900 dark:text-white">
         <div className="flex items-center justify-center min-h-[450px]">
           <div className="flex flex-col items-center gap-3">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             <p className="text-sm text-muted-foreground">Loading heatmap data...</p>
           </div>
         </div>
@@ -81,8 +81,9 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
   const endIndex = startIndex + itemsPerPage;
   const paginatedData = heatMapData.slice(startIndex, endIndex);
 
-  const data = paginatedData.map((r) => ({
-    id: r.reviewerName,
+  const data = paginatedData.map((r, idx) => ({
+    id: `${r.reviewerName}_${idx}`,
+    reviewerName: r.reviewerName,
     data: allBuckets.map((bucket) => ({
       x: formatBucket(bucket),
       y: r.counts?.[bucket] ?? 0,
@@ -183,6 +184,12 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
             legend: "Experts",
             legendPosition: "middle",
             legendOffset: -150,
+            format: (value) => {
+              // Extract reviewer name from "name_idx" format
+              const parts = value.toString().split('_');
+              parts.pop(); // Remove the index
+              return parts.join('_');
+            },
           }}
           legends={[
             {
@@ -226,9 +233,9 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
 
           {/* Body */}
           <tbody>
-            {paginatedData.map((row) => (
+            {paginatedData.map((row, idx) => (
               <tr
-                key={`${row.reviewerId}-${Math.random()}`}
+                key={`${row.reviewerId}_${idx}`}
                 className="border-t"
               >
                 <td className="px-4 py-2 font-medium  left-0  z-10">

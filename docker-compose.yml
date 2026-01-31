@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  proxy_api:
+    build:
+      context: ./mcp/proxy_api/api_container
+      dockerfile: Dockerfile
+    ports:
+      - "9012:9012"
+    env_file:
+      - ./mcp/proxy_api/api_container/.env
+    restart: unless-stopped
+    container_name: proxy_api
+
+  agriculture:
+    build:
+      context: ./mcp/proxy_api/mcp_containers/agriculture
+      dockerfile: Dockerfile
+    ports:
+      - "9023:9023"
+    restart: unless-stopped
+    container_name: agriculture
+
+  market:
+    build:
+      context: ./mcp/proxy_api/mcp_containers/market
+      dockerfile: Dockerfile
+    ports:
+      - "9022:9022"
+    restart: unless-stopped
+    container_name: market

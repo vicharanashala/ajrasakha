@@ -114,6 +114,7 @@ export const AddOrEditQuestionDialog = ({
     } else if (mode === "add") {
       setUpdatedData({
         question: "",
+        context: "",
         priority: "medium",
         source: "AGRI_EXPERT",
         details: {
@@ -249,8 +250,7 @@ export const AddOrEditQuestionDialog = ({
                     }
                     rows={3}
                   />
-                  {mode === "add" && (
-                    <>
+
                       <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                         <Info className="h-4 w-4" aria-hidden="true" />
                         <label>Context</label>
@@ -266,8 +266,7 @@ export const AddOrEditQuestionDialog = ({
                         }
                         className="h-32 resize-none overflow-y-auto"
                       />
-                    </>
-                  )}
+                    
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <FlagTriangleRight className="h-4 w-4" aria-hidden="true" />
                     <label>Priority*</label>

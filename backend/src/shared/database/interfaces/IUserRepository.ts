@@ -77,6 +77,9 @@ export interface IUserRepository {
     details: PreferenceDto,
     session?: ClientSession,
   ): Promise<IUser[]>;
+  findActiveLowReputationExpertsToday(
+    session?: ClientSession,
+    ): Promise<IUser[]>;
 
   /**
    * Creates a User Anomaly Document to the database.
@@ -197,6 +200,18 @@ findAllUsers(
   updateIsBlocked(
     userId: string,
     action: string,
+    session?: ClientSession,
+  ): Promise<void>;
+
+   /**
+   * Updates user activity status
+   * @param userId - userid of expert to update
+   * @param status - either active or in-active
+   * @returns void
+   */
+  updateActivityStatus(
+    userId: string,
+    status: 'active' | 'in-active',
     session?: ClientSession,
   ): Promise<void>;
 

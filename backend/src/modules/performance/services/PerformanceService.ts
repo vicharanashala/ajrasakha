@@ -25,6 +25,7 @@ import {
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
 import { IPerformanceService } from '../interfaces/IPerformanceService.js';
+import { sendStatsEmail } from '#root/utils/backupEmailService.js';
 
 @injectable()
 export class PerformanceService extends BaseService implements IPerformanceService {
@@ -197,4 +198,19 @@ export class PerformanceService extends BaseService implements IPerformanceServi
       return {data: response};
     });
   }
+
+async sendCronSnapshotEmail(currentUserId: string) {
+  return await this._withTransaction(async (session) => {
+    const user = await this.userRepo.findById(currentUserId, session);
+
+    if (!user || user.role !== "admin") {
+      throw new UnauthorizedError(
+        "Only admins can send cron snapshot report",
+      );
+    }
+
+    await sendStatsEmail();
+  });
+}
+
 }

@@ -26,6 +26,9 @@ import { Switch } from "./atoms/switch";
 import { Label } from "./atoms/label";
 import { ReviewLevelComponent } from "./ReviewLevelComponent";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { PerformaneService } from "@/hooks/services/performanceService";
+import { toast } from "sonner";
+import { TopRightBadge } from "./NewBadge";
 
 export type ViewType = "year" | "month" | "week" | "day";
 
@@ -134,6 +137,19 @@ export const Dashboard = () => {
     expertPerformance: [],
     analytics: { cropData: [], stateData: [], domainData: [] },
   };
+
+  const handleSendCronReport = async () => {
+  try {
+    const service = new PerformaneService();
+    await service.sendCronSnapshotReport();
+    toast.success("Cron snapshot report sent successfully");
+  } catch (err) {
+    toast.error("Failed to send cron snapshot report");
+    console.error("Failed to fetch cron snapshot", err);
+  }
+};
+
+
 
   const dataToShow = dashboardState ?? emptyDashboard;
 
@@ -262,8 +278,20 @@ export const Dashboard = () => {
           <ReviewLevelComponent />
         </div>
       </div>
+      {user?.role === "admin" && (
+        <div className="flex justify-end px-6">
+          <button
+            onClick={handleSendCronReport}
+            className="px-4 py-2 rounded-md bg-primary text-white text-sm hover:opacity-90 relative"
+          >
+            Send Report
+            <TopRightBadge label="New" />
+          </button>
+        </div>
+      )}
+      
     </main>
-  );
+  );  
 };
 
 export const ChristmasCap = ({ className = "" }: { className?: string }) => {

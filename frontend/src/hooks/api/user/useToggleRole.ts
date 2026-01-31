@@ -22,6 +22,7 @@ export const useToggleRole = () => {
 
     onSuccess: (updatedUser:any) => {
       queryClient.invalidateQueries({queryKey:['users']})
+      queryClient.invalidateQueries({queryKey:['experts']})
       toast.success(
         `Role of user ${updatedUser?.user?.firstName} switched successfully to ${updatedUser?.user?.role}`,
       );
