@@ -18,14 +18,10 @@ import {currentUserChecker} from './shared/functions/currentUserChecker.js';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import { initJobs } from './bootstrap/jobs/index.js';
-import { rateLimiter } from './shared/middleware/rateLimiter.js';
 
 const app = express();
 
 app.use(loggingHandler);
-
-app.set('trust proxy', 1);
-app.use('/api', rateLimiter);
 
 const {controllers, validators} = await loadAppModules(
   appConfig.module.toLowerCase(),
