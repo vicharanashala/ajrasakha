@@ -8,7 +8,7 @@ const start=false
 if (appConfig.isDevelopment){
  //if (start) {
    cron.schedule(
-     '58 11 * * *',
+     '25 12 * * *',
      async () => {
       console.log('<<CRON>> Running Remove absent Experts job...');
 

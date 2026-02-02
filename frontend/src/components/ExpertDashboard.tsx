@@ -314,7 +314,7 @@ useEffect(() => {
 
           {/* <DashboardClock /> */}
           <div className="flex flex-col items-center gap-1">
-          {user?.role==='expert' && (
+          {/* {user?.role==='expert' && ( */}
            <div className="flex flex-col items-center gap-1">
              
                   <div className="flex flex-col items-center gap-0.5">
@@ -387,7 +387,7 @@ useEffect(() => {
                
                 </div>
             </div>
-          )}
+          {/* )}   */}
 
             {/* ANIMATION SWITCH */}
             {/* {theme == "dark" && (
