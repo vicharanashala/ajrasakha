@@ -5,10 +5,10 @@ import { CORE_TYPES } from '#root/modules/core/types.js';
 import { QuestionService } from '#root/modules/core/index.js';
 
 const start=false
-//if (!appConfig.isDevelopment)
- if (start) {
+if (appConfig.isDevelopment){
+ //if (start) {
    cron.schedule(
-     '0 10 * * *',
+     '58 11 * * *',
      async () => {
       console.log('<<CRON>> Running Remove absent Experts job...');
 

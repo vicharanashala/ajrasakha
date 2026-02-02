@@ -1550,6 +1550,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       absentExpertIds,
       session,
     );
+    console.log("submissions=======",submissions.length)
     for (const submission of submissions) {
       const {questionId, queue = [], history = []} = submission;
 
@@ -1638,7 +1639,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         );
       }
     }
-    console.log('Completed!');
+    console.log('Completed!*************************');
   }
   async balanceWorkload() {
    
