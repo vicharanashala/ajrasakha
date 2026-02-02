@@ -33,6 +33,7 @@ interface AnswerItemProps {
   questionStatus: QuestionStatus;
   queue: ISubmission["queue"];
   rerouteQuestion?: IRerouteHistoryResponse[];
+  lastAnswerApprovalCount?: number;
 }
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
@@ -287,6 +288,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         reviews={reviews}
         firstTrueIndex={firstTrueIndex}
         firstFalseOrMissingIndex={firstFalseOrMissingIndex}
+        lastAnswerApprovalCount={props.lastAnswerApprovalCount}
       />
 
       <AnswerContent answer={props.answer} />

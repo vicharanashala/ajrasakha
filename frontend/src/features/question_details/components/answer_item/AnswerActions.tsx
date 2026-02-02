@@ -48,6 +48,7 @@ interface AnswerActionsProps {
   reviews: any[];
   firstTrueIndex?: number;
   firstFalseOrMissingIndex?: number;
+  lastAnswerApprovalCount?: number;
 }
 
 export const AnswerActions = ({
@@ -87,17 +88,21 @@ export const AnswerActions = ({
   reviews,
   firstTrueIndex,
   firstFalseOrMissingIndex,
+  lastAnswerApprovalCount,
 }: AnswerActionsProps) => {
   const showActions =
     userRole !== "expert" &&
     (questionStatus === "in-review" || questionStatus === "re-routed") &&
     lastAnswerId === answer?._id;
+  const showAprroveButton = userRole !== "expert" &&
+    (questionStatus === "in-review" || questionStatus === "re-routed") &&
+    (lastAnswerApprovalCount??0) >= 3
 
   return (
     <div className="flex items-center justify-center gap-2">
-      {showActions && (
-        <>
-          <ApproveAnswerDialog
+      {
+        showAprroveButton &&(
+           <ApproveAnswerDialog
             editOpen={editOpen}
             setEditOpen={setEditOpen}
             editableAnswer={editableAnswer}
@@ -109,7 +114,11 @@ export const AnswerActions = ({
             lastReroutedTo={lastReroutedTo}
             approvalCount={answer.approvalCount}
           />
-
+        )
+      }
+      {showActions && (
+        <>
+         
           <ReRouteDialog
             isModalOpen={isModalOpen}
             setIsModalOpen={setIsModalOpen}

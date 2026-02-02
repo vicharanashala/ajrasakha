@@ -34,7 +34,7 @@ export const AnswerTimeline = ({
     const submission = question.submission.history.find(
       (h) => h.answer?._id === ans?._id
     );
-
+  
     return {
       lastAnswerId: answers[0]?._id, // first one will be the last one
       firstAnswerId: answers[answers?.length - 1]?._id, // last one will be the first one
@@ -96,6 +96,7 @@ export const AnswerTimeline = ({
               userRole={userRole}
               queue={queue}
               rerouteQuestion={rerouteQuestion}
+              lastAnswerApprovalCount= {answers[0].approvalCount}
             />
           </div>
         )}
