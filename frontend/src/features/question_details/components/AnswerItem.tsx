@@ -21,6 +21,7 @@ import { AnswerItemHeader } from "./answer_item/AnswerItemHeader";
 import { AnswerContent } from "./answer_item/AnswerContent";
 import { AnswerActions } from "./answer_item/AnswerActions";
 import { CommentsSection } from "@/components/comments-section";
+import { useGetReRoutedQuestionFullData } from "@/hooks/api/question/useGetReRoutedQuestionFullData";
 
 interface AnswerItemProps {
   answer: IAnswer;
@@ -46,6 +47,11 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     props.questionId,
     props.answer._id
   );
+
+  // need to refresh after action
+  const {
+      refetch: refechrerouteSelectedQuestion,
+    } = useGetReRoutedQuestionFullData(props.questionId);
 
   const [editableAnswer, setEditableAnswer] = useState(props.answer.answer);
   const [editOpen, setEditOpen] = useState(false);
@@ -131,14 +137,16 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         comment: comment.trim(),
         status: "pending" as ReRouteStatus,
       });
-      toast.success("You have successfully Re Routed the question");
       setSelectedExperts([]);
-      setIsModalOpen(false);
+      refechrerouteSelectedQuestion();
+      toast.success("You have successfully Re Routed the question");
     } catch (error: any) {
       console.error("Error allocating experts:", error);
       toast.error(
         error?.message || "Failed to allocate experts. Please try again."
       );
+    }finally{
+      setIsModalOpen(false);
     }
   };
 
@@ -173,7 +181,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     const userId = lastReroutedTo.reroutedTo._id;
 
     try {
-      let result = await rejectReRoute({
+       await rejectReRoute({
         reason,
         rerouteId: rerouteId,
         questionId: questionId,
@@ -181,7 +189,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         expertId: userId,
         role: "moderator",
       });
-      console.log("the result coming====", result);
+      refechrerouteSelectedQuestion();
       toast.success("You have successfully rejected the Re Route Question");
     } catch (error: any) {
       console.error("Failed to reject reroute question:", error);
