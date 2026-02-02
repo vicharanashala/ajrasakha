@@ -198,6 +198,8 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         error?.message ||
         "Something went wrong";
       toast.error(message);
+    }finally{
+      setIsRejectDialogOpen(false);
     }
   };
 
@@ -283,6 +285,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         filteredExperts={filteredExperts}
         selectedExperts={selectedExperts}
         handleSelectExpert={handleSelectExpert}
+        isAllocatingExperts={allocatingExperts}
         handleSubmit={handleSubmit}
         handleCancel={handleCancel}
         isRejectDialogOpen={isRejectDialogOpen}
@@ -290,6 +293,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         rejectionReason={rejectionReason}
         setRejectionReason={setRejectionReason}
         handleRejectReRouteAnswer={handleRejectReRouteAnswer}
+        isRejecting={isRejecting}
         isRejected={isRejected}
         submissionData={props.submissionData}
         questionId={props.questionId}

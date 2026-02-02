@@ -35,6 +35,7 @@ interface AnswerActionsProps {
   filteredExperts: IUser[];
   selectedExperts: string[];
   handleSelectExpert: (expertId: string) => void;
+  isAllocatingExperts?: boolean;
   handleSubmit: () => void;
   handleCancel: () => void;
   isRejectDialogOpen: boolean;
@@ -42,6 +43,7 @@ interface AnswerActionsProps {
   rejectionReason: string;
   setRejectionReason: (reason: string) => void;
   handleRejectReRouteAnswer: (reason: string) => void;
+  isRejecting?: boolean;
   isRejected: boolean|undefined;
   submissionData?: ISubmissionHistory;
   questionId: string;
@@ -75,6 +77,7 @@ export const AnswerActions = ({
   filteredExperts,
   selectedExperts,
   handleSelectExpert,
+  isAllocatingExperts,
   handleSubmit,
   handleCancel,
   isRejectDialogOpen,
@@ -82,6 +85,7 @@ export const AnswerActions = ({
   rejectionReason,
   setRejectionReason,
   handleRejectReRouteAnswer,
+  isRejecting,
   isRejected,
   submissionData,
   questionId,
@@ -133,6 +137,7 @@ export const AnswerActions = ({
             handleSubmit={handleSubmit}
             handleCancel={handleCancel}
             lastReroutedTo={lastReroutedTo}
+            isAllocatingExperts={isAllocatingExperts}
           />
 
           {lastReroutedTo?.status === "pending" && (
@@ -142,6 +147,7 @@ export const AnswerActions = ({
               rejectionReason={rejectionReason}
               setRejectionReason={setRejectionReason}
               handleRejectReRouteAnswer={handleRejectReRouteAnswer}
+              isRejecting={isRejecting}
               lastReroutedTo={lastReroutedTo}
             />
           )}

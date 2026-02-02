@@ -13,7 +13,7 @@ import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Textarea } from "@/components/atoms/textarea";
 import { Checkbox } from "@/components/atoms/checkbox";
 import type { IUser } from "@/types";
-import { Send, UserPlus, User, X } from "lucide-react";
+import { Send, UserPlus, User, X, Loader2 } from "lucide-react";
 
 interface ReRouteDialogProps {
   isModalOpen: boolean;
@@ -26,6 +26,7 @@ interface ReRouteDialogProps {
   filteredExperts: IUser[];
   selectedExperts: string[];
   handleSelectExpert: (expertId: string) => void;
+  isAllocatingExperts?: boolean;
   handleSubmit: () => void;
   handleCancel: () => void;
   lastReroutedTo: any;
@@ -45,6 +46,7 @@ export const ReRouteDialog = ({
   handleSubmit,
   handleCancel,
   lastReroutedTo,
+  isAllocatingExperts,
 }: ReRouteDialogProps) => {
   return (
     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -199,14 +201,23 @@ export const ReRouteDialog = ({
             variant="outline"
             onClick={handleCancel}
             className="hidden md:block"
+            disabled={isAllocatingExperts}
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={selectedExperts.length === 0 || !comment.trim()}
+            disabled={selectedExperts.length === 0 || !comment.trim() || isAllocatingExperts}
           >
-            {`Submit (${selectedExperts.length} selected)`}
+            {
+             isAllocatingExperts?
+             <>
+             <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
+             Allocating...
+             </>
+             :
+            `Submit (${selectedExperts.length} selected)`
+            }
           </Button>
         </DialogFooter>
       </DialogContent>
