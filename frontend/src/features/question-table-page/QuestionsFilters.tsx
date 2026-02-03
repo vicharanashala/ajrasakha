@@ -110,12 +110,12 @@ export const QuestionsFilters = ({
     }
     if (res.message === "Workload balancing started in background") {
       toast.success(
-        "Workload balancing has started in the background. Please wait 30 seconds before reallocating again."
+        "Workload balancing has started in the background. Please wait 50 seconds before reallocating again."
       );
       // Re-enable button after 30 seconds
       setTimeout(() => {
         setIsReAllocateDisabled(false);
-      }, 30000);
+      }, 50000);
     } else if (res.message) {
       // Any other message from backend
       toast.success(res.message);
