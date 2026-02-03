@@ -97,21 +97,35 @@ export const QuestionsFilters = ({
     });
     const { mutateAsync: reAllocateLessWorkload, isPending: reAllocateQuestion } =
     useReAllocateLessWorkload();
+    const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
     const handleReAllocateLessWorkload = async () => {
        try {
-       
+        setIsReAllocateDisabled(true);
         const res = await reAllocateLessWorkload();
 
     if (!res) {
       toast.error("No response from server");
+      setIsReAllocateDisabled(false);
       return;
     }
-
-    toast.success(res.message);
+    if (res.message === "Workload balancing started in background") {
+      toast.success(
+        "Workload balancing has started in the background. Please wait 30 seconds before reallocating again."
+      );
+      // Re-enable button after 30 seconds
+      setTimeout(() => {
+        setIsReAllocateDisabled(false);
+      }, 30000);
+    } else if (res.message) {
+      // Any other message from backend
+      toast.success(res.message);
+      setIsReAllocateDisabled(false);
+    }
     
       } catch (error) {
         toast.error("Failed to reAllocate question for those who has less workload");
         console.error("Error reAllocating question who has less workload question:", error);
+        setIsReAllocateDisabled(false);
       }
     };
 
@@ -358,7 +372,7 @@ export const QuestionsFilters = ({
             size="sm"
             className="flex items-center gap-2 w-full md:w-fit"
             onClick={() => handleReAllocateLessWorkload ()}
-            disabled={reAllocateQuestion}
+            disabled={isReAllocateDisabled}
           >
              <Info className="h-4 w-4" /> ReAllocate
             
