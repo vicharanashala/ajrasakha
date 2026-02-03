@@ -2,6 +2,7 @@ import { Button } from "@/components/atoms/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -13,7 +14,7 @@ import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Textarea } from "@/components/atoms/textarea";
 import { Checkbox } from "@/components/atoms/checkbox";
 import type { IUser } from "@/types";
-import { Send, UserPlus, User, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Send, UserPlus, User, X } from "lucide-react";
 
 interface ReRouteDialogProps {
   isModalOpen: boolean;
@@ -29,6 +30,9 @@ interface ReRouteDialogProps {
   handleSubmit: () => void;
   handleCancel: () => void;
   lastReroutedTo: any;
+  currentPage: number;
+  setCurrentPage: (page: number | ((prev: number) => number)) => void;
+  itemsPerPage: number;
 }
 
 export const ReRouteDialog = ({
@@ -45,7 +49,14 @@ export const ReRouteDialog = ({
   handleSubmit,
   handleCancel,
   lastReroutedTo,
+  currentPage,
+  setCurrentPage,
+  itemsPerPage,
 }: ReRouteDialogProps) => {
+  const totalPages = Math.ceil(filteredExperts.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedExperts = filteredExperts.slice(startIndex, endIndex);
   return (
     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
       <DialogTrigger asChild>
@@ -86,6 +97,9 @@ export const ReRouteDialog = ({
             </div>
             Select Experts Manually
           </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            Search and select an expert to re-route this question for review.
+          </DialogDescription>
 
           <div className="mt-1 relative">
             <Input
@@ -129,7 +143,7 @@ export const ReRouteDialog = ({
             )}
 
             {!isUsersLoading &&
-              filteredExperts.map((expert) => (
+              paginatedExperts.map((expert) => (
                 <div
                   key={expert._id}
                   className={`flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors ${
@@ -193,6 +207,36 @@ export const ReRouteDialog = ({
               ))}
           </div>
         </ScrollArea>
+
+        {/* Pagination Controls */}
+        {!isUsersLoading && filteredExperts.length > 0 && (
+          <div className="flex items-center justify-between py-3 border-t border-border">
+            <div className="text-sm text-muted-foreground">
+              Showing {startIndex + 1}-{Math.min(endIndex, filteredExperts.length)} of {filteredExperts.length} experts
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm px-2">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
 
         <DialogFooter className="flex gap-2 justify-end pt-4">
           <Button

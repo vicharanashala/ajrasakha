@@ -3,6 +3,7 @@ import { Checkbox } from "@/components/atoms/checkbox";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTrigger,
@@ -22,8 +23,8 @@ import { useToggleAutoAllocateQuestion } from "@/hooks/api/question/useToggleAut
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import type { IQuestionFullData, ISubmission, IUser } from "@/types";
 import { DialogTitle } from "@radix-ui/react-dialog";
-import { Info, Loader2, User, UserPlus, Users, X } from "lucide-react";
-import { useState } from "react";
+import { ChevronLeft, ChevronRight, Info, Loader2, User, UserPlus, Users, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 interface AllocationQueueHeaderProps {
@@ -41,6 +42,8 @@ export const AllocationQueueHeader = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const { data: usersData, isLoading: isUsersLoading } = useGetAllUsers();
   const { mutateAsync: allocateExpert, isPending: allocatingExperts } =
@@ -52,7 +55,9 @@ export const AllocationQueueHeader = ({
 
   const experts =
     usersData?.users.filter(
-      (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id)
+      (user) => 
+        user.role === "expert" && 
+        !expertsIdsInQueue.has(user._id)
     ) || [];
 
   const filteredExperts = experts.filter(
@@ -60,6 +65,16 @@ export const AllocationQueueHeader = ({
       expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       expert.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const totalPages = Math.ceil(filteredExperts.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedExperts = filteredExperts.slice(startIndex, endIndex);
+
+  // Reset to page 1 when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const handleToggle = async (checked: boolean) => {
     try {
@@ -104,6 +119,7 @@ export const AllocationQueueHeader = ({
   const handleCancel = () => {
     setSelectedExperts([]);
     setIsModalOpen(false);
+    setCurrentPage(1);
   };
 
   return (
@@ -193,6 +209,9 @@ export const AllocationQueueHeader = ({
                       </div>
                       Select Experts Manually
                     </DialogTitle>
+                    <DialogDescription className="text-sm text-muted-foreground">
+                      Search and select experts to allocate to this question.
+                    </DialogDescription>
 
                     <div className="mt-1 relative">
                       <Input
@@ -244,7 +263,7 @@ export const AllocationQueueHeader = ({
                       )}
 
                       {!isUsersLoading &&
-                        filteredExperts.map((expert) => (
+                        paginatedExperts.map((expert) => (
                           <div
                             key={expert._id}
                             className={`flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors ${
@@ -308,6 +327,36 @@ export const AllocationQueueHeader = ({
                         ))}
                     </div>
                   </ScrollArea>
+
+                  {/* Pagination Controls */}
+                  {!isUsersLoading && filteredExperts.length > 0 && (
+                    <div className="flex items-center justify-between py-3 border-t border-border">
+                      <div className="text-sm text-muted-foreground">
+                        Showing {startIndex + 1}-{Math.min(endIndex, filteredExperts.length)} of {filteredExperts.length} experts
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-sm px-2">
+                          Page {currentPage} of {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
 
                   <DialogFooter className="flex gap-2 justify-end pt-4">
                     <Button

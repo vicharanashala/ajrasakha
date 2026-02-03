@@ -48,6 +48,9 @@ interface AnswerActionsProps {
   reviews: any[];
   firstTrueIndex?: number;
   firstFalseOrMissingIndex?: number;
+  currentPage: number;
+  setCurrentPage: (page: number | ((prev: number) => number)) => void;
+  itemsPerPage: number;
 }
 
 export const AnswerActions = ({
@@ -87,6 +90,9 @@ export const AnswerActions = ({
   reviews,
   firstTrueIndex,
   firstFalseOrMissingIndex,
+  currentPage,
+  setCurrentPage,
+  itemsPerPage,
 }: AnswerActionsProps) => {
   const showActions =
     userRole !== "expert" &&
@@ -124,6 +130,9 @@ export const AnswerActions = ({
             handleSubmit={handleSubmit}
             handleCancel={handleCancel}
             lastReroutedTo={lastReroutedTo}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            itemsPerPage={itemsPerPage}
           />
 
           {lastReroutedTo?.status === "pending" && (

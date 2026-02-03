@@ -15,7 +15,7 @@ import type {
   SourceItem,
   UserRole,
 } from "@/types";
-import { forwardRef, useImperativeHandle, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { toast } from "sonner";
 import { AnswerItemHeader } from "./answer_item/AnswerItemHeader";
 import { AnswerContent } from "./answer_item/AnswerContent";
@@ -54,6 +54,13 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Reset to page 1 when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const { mutateAsync: updateAnswer, isPending: isUpdatingAnswer } =
     useUpdateAnswer();
@@ -195,6 +202,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const handleCancel = () => {
     setSelectedExperts([]);
     setIsModalOpen(false);
+    setCurrentPage(1);
   };
 
   const isRejected =
@@ -214,7 +222,9 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     : null;
 
   const experts =
-    usersData?.users.filter((user) => user.role === "expert") || [];
+    usersData?.users.filter(
+      (user) => user.role === "expert"
+    ) || [];
 
   const filteredExperts = experts.filter(
     (expert) =>
@@ -287,6 +297,9 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         reviews={reviews}
         firstTrueIndex={firstTrueIndex}
         firstFalseOrMissingIndex={firstFalseOrMissingIndex}
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        itemsPerPage={itemsPerPage}
       />
 
       <AnswerContent answer={props.answer} />
