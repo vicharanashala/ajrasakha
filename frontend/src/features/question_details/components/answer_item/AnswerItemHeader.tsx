@@ -37,10 +37,6 @@ export const AnswerItemHeader = ({
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
       <div className="flex items-center gap-2">
-        <span className="font-medium text-foreground">
-          Iteration {answer.answerIteration}
-        </span>
-
         {answer.isFinalAnswer && (
           <Badge variant="outline" className="text-green-600 border-green-600">
             Final
@@ -66,6 +62,9 @@ export const AnswerItemHeader = ({
 
         {isMine && <UserCheck className="w-4 h-4 text-blue-600 ml-1" />}
       </div>
+       {answer?.approvalCount !== undefined && answer?.approvalCount > 0 && (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 text-green-400 font-medium text-xs whitespace-nowrap border border-primary/20">{answer.approvalCount} Approvals</span>
+        )}
     </div>
   );
 };

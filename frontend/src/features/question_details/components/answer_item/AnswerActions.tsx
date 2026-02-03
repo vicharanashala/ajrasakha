@@ -104,6 +104,9 @@ export const AnswerActions = ({
 
   return (
     <div className="flex items-center justify-center gap-2">
+      <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-background text-foreground font-medium text-xs sm:text-sm whitespace-nowrap border-l-2 border-primary pl-2.5">
+          Iteration {answer.answerIteration}
+        </span>
       {
         showAprroveButton &&(
            <ApproveAnswerDialog

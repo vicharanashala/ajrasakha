@@ -36,9 +36,6 @@ export const ViewMoreDialog = ({
   return (
     <Dialog>
       <div className="flex items-center gap-2 ml-auto text-right">
-        {answer?.approvalCount !== undefined && answer?.approvalCount > 0 && (
-          <p className="text-sm">Approval count: {answer.approvalCount}</p>
-        )}
         <DialogTrigger asChild>
           <Button variant="outline" size="sm" className="w-full sm:w-auto">
             <Eye className="w-4 h-4 mr-2" />
