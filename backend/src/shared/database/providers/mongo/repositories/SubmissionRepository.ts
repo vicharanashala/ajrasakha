@@ -3112,7 +3112,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   
           // Type B — Last update stuck in-review
           {
-            history: { $ne: [] },
+            "history.1": { $exists: true },
             $expr: {
               $let: {
                 vars: {
@@ -3133,6 +3133,12 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     )
     .limit(limit || 0)
     .toArray();
+  }
+  async findById(id: string): Promise<IQuestionSubmission | null> {
+    if (!id) return null;
+    return await this.QuestionSubmissionCollection.findOne({
+      _id: new ObjectId(id),
+    });
   }
   async updateById(
     id: string,

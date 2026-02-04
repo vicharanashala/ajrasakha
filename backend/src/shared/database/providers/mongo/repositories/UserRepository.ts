@@ -590,7 +590,7 @@ async findAllUsers(
       )
       .sort({ reputation_score: 1 }) // lowest score first
       .toArray();
-     
+      
   
     return users;
   }
