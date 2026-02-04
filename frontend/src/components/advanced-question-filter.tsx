@@ -49,7 +49,11 @@ import {
   XCircle,
   Layers,
   Send,
-  BadgeCheck
+  BadgeCheck,
+  Hand,
+  Users
+
+
 } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
@@ -105,7 +109,8 @@ export type AdvanceFilterValues = {
   review_level?: ReviewLevel;
   closedAtEnd?: Date | undefined | null,
   closedAtStart?: Date | undefined | null,
-  consecutiveApprovals?:string
+  consecutiveApprovals?:string,
+  autoAllocateFilter?:string,
 };
 
 // Define the props for your new component
@@ -688,10 +693,51 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2 min-w-0 ">
+                  <Label className="relative flex items-center gap-2 text-sm font-semibold">
+                    <Users className="h-4 w-4 text-primary" />
+                    Auto Allocate Experts
+                  <TopRightBadge label="New" />
+                  </Label>
+                  <Select
+                    value={advanceFilter.autoAllocateFilter}
+                    onValueChange={(v) => handleDialogChange("autoAllocateFilter", v)}
+                  >
+                    <SelectTrigger className="bg-background w-full w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        <div className="flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-green-500 fill-green-500/20" />
+                          <span>All</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="on">
+                        <div className="flex items-center gap-2">
+                          <Bot className="w-4 h-4 text-green-500 fill-green-500/20" />
+                          <span>ON</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="off">
+                        <div className="flex items-center gap-2">
+                        <Hand className="w-4 h-4 text-red-500 fill-green-500/20" />
+                          <span>OFF</span>
+                        </div>
+                      </SelectItem>
+
+
+                      
+                    </SelectContent>
+                  </Select>
+                </div>
               
 
               
             </div>
+            
 
             <Separator />
             
@@ -800,7 +846,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   startTime:undefined,
                   closedAtStart:undefined,
                   closedAtEnd:undefined,
-                  consecutiveApprovals:"all"
+                  consecutiveApprovals:"all",
+                  autoAllocateFilter:"all"
                 });
                 onReset();
               }}
