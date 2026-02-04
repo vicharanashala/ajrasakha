@@ -45,6 +45,7 @@ export const QuestionsPage = ({
     undefined,
   );
   const [consecutiveApprovals,setConsecutiveApprovals]=useState("all")
+  const [autoAllocateFilter,setAutoAllocateFilter]=useState('all')
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
 
   // const observerRef = useRef<IntersectionObserver | null>(null);
@@ -101,7 +102,8 @@ export const QuestionsPage = ({
       review_level,
       closedAtStart,
       closedAtEnd,
-      consecutiveApprovals
+      consecutiveApprovals,
+      autoAllocateFilter
     }),
     [
       status,
@@ -118,7 +120,8 @@ export const QuestionsPage = ({
       review_level,
       closedAtEnd,
       closedAtStart,
-      consecutiveApprovals
+      consecutiveApprovals,
+      autoAllocateFilter
     ],
   );
 
@@ -184,7 +187,9 @@ export const QuestionsPage = ({
     review_level?: ReviewLevel;
     closedAtEnd?: Date | undefined;
     closedAtStart?: Date | undefined;
-    consecutiveApprovals?:string
+    consecutiveApprovals?:string,
+    autoAllocateFilter?:string,
+
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -201,6 +206,7 @@ export const QuestionsPage = ({
     if (next.closedAtStart !== undefined) setClosedAtStart(next.closedAtStart);
     if (next.closedAtEnd !== undefined) setClosedAtEnd(next.closedAtEnd);
     if (next.consecutiveApprovals !== undefined) setConsecutiveApprovals(next.consecutiveApprovals);
+    if(next.autoAllocateFilter!==undefined) setAutoAllocateFilter(next.autoAllocateFilter)
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);
@@ -230,6 +236,7 @@ export const QuestionsPage = ({
     setClosedAtEnd(undefined);
     setClosedAtStart(undefined);
     setConsecutiveApprovals('all')
+    setAutoAllocateFilter('all')
   };
 
   const handleViewMore = (questoinId: string) => {

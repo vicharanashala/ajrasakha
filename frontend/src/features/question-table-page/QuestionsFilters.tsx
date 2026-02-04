@@ -236,7 +236,8 @@ export const QuestionsFilters = ({
       review_level: advanceFilter?.review_level,
       closedAtStart: advanceFilter?.closedAtStart,
       closedAtEnd: advanceFilter?.closedAtEnd,
-      consecutiveApprovals:advanceFilter?.consecutiveApprovals
+      consecutiveApprovals:advanceFilter?.consecutiveApprovals,
+      autoAllocateFilter:advanceFilter?.autoAllocateFilter
     });
   };
 
