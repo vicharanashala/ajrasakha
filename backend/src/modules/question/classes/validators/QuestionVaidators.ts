@@ -289,6 +289,13 @@ class GeneratedQuestionResponse {
   @IsString()
   answer!: string;
 }
+
+class DateRangeRequest {
+  startDate!: string; 
+  endDate!: string;  
+  email:string;
+}
+
 class GetDetailedQuestionsQuery {
   @JSONSchema({description: 'Search term', example: 'wheat', type: 'string'})
   @IsOptional()
@@ -510,7 +517,8 @@ export const QUESTION_VALIDATORS = [
   RemoveAllocateBody,
   UpdatedBy,
   HistoryItem,
-  BulkDeleteQuestionDto
+  BulkDeleteQuestionDto,
+  DateRangeRequest
 ];
 
 export {
@@ -526,5 +534,6 @@ export {
   RemoveAllocateBody,
   UpdatedBy,
   HistoryItem,
-  BulkDeleteQuestionDto
+  BulkDeleteQuestionDto,
+  DateRangeRequest
 };

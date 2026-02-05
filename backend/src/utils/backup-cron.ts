@@ -51,7 +51,7 @@ export const createLocalBackup = async (mongoUri: string, dbName: string) => {
     await sendStatsEmail();
     return; 
   }
-
+  
   const tempDir = path.join(process.cwd(), 'temp_db_backup');
   const dumpFolder = path.join(tempDir, dbName);
   const jsonFolder = path.join(tempDir, `${dbName}_json`);

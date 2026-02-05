@@ -30,6 +30,7 @@ import {
   AddQuestionBodyDto,
   AllocateExpertsRequest,
   BulkDeleteQuestionDto,
+  DateRangeRequest,
   GeneratedQuestionResponse,
   GenerateQuestionsBody,
   GetDetailedQuestionsQuery,
@@ -351,4 +352,46 @@ export class QuestionController {
     if (!job) return {message: 'Job not found'};
     return job;
   }
+
+  // @Post('/data/out-reach/date')
+  // @HttpCode(200)
+  // // @Authorized()
+  // @OpenAPI({summary: 'Get Ajrasakha Questions '})
+  // @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  // async outreachQuestions(
+  //   @Body() body: DateRangeRequest,
+  //   @CurrentUser() user: IUser,
+  // ) {
+  //   const { startDate, endDate } = body;
+
+  //   return await this.questionService.getQuestionsByDateRange(
+  //     startDate,
+  //     endDate,
+  //   );
+  // }
+
+
+  @Post('/data/out-reach/date')
+@HttpCode(200)
+// @Authorized()
+@OpenAPI({ summary: 'Send Ajrasakha Questions via Email' })
+@ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+async outreachQuestions(
+  @Body() body: DateRangeRequest,
+  @CurrentUser() user: IUser,
+) {
+  const { startDate, endDate,email } = body;
+
+  await this.questionService.sendOutReachQuestionsMail(
+    startDate,
+    endDate,
+    email,
+  );
+
+  return {
+    success: true,
+    message: 'Outreach questions report sent via email',
+  };
+}
+
 }
