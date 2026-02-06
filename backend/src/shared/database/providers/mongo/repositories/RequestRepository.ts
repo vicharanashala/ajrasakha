@@ -139,7 +139,7 @@ export class RequestRepository implements IRequestRepository {
             requestedBy: req.requestedBy?.toString(),
             entityId: req.entityId?.toString(),
             responses: [],
-            details: null,
+            ...(req.details ? { details: req.details } : {}),
             createdAt:
               req.createdAt instanceof Date
                 ? req.createdAt.toISOString()
@@ -148,7 +148,13 @@ export class RequestRepository implements IRequestRepository {
               req.updatedAt instanceof Date
                 ? req.updatedAt.toISOString()
                 : req.updatedAt,
-            requestedUser: requestedUser || null,
+            requestedUser: requestedUser
+              ? {
+                  _id: requestedUser._id.toString(),
+                  firstName: requestedUser.firstName,
+                  lastName: requestedUser.lastName,
+                }
+              : null,
           } as IRequest;
         }),
       );
