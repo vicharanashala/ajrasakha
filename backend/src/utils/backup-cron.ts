@@ -53,13 +53,12 @@ export const createLocalBackup = async (mongoUri: string, dbName: string) => {
     return; 
   }
   const baseTempDir = path.join(os.tmpdir(), 'mongo_backups');
-  console.log('base trmpp dir ',baseTempDir)
   // const tempDir = path.join(process.cwd(), 'temp_db_backup');
   const tempDir = path.join(baseTempDir, 'temp_db_backup');
   const dumpFolder = path.join(tempDir, dbName);
   const jsonFolder = path.join(tempDir, `${dbName}_json`);
   const zipFileName = `${timestamp}.zip`;
-  const zipFilePath = path.join(process.cwd(), zipFileName);
+  const zipFilePath = path.join(baseTempDir, zipFileName);
 
   fs.mkdirSync(tempDir, {recursive: true});
   fs.mkdirSync(jsonFolder, {recursive: true});
