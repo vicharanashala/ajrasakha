@@ -1,7 +1,7 @@
 import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetailedQuestions";
 //import { QuestionsFilters, QuestionsTable } from "./questions-table";
-import {QuestionsTable} from '../features/question-table-page/questions-table'
-import {QuestionsFilters} from '../features/question-table-page/QuestionsFilters'
+import { QuestionsTable } from "../features/question-table-page/questions-table";
+import { QuestionsFilters } from "../features/question-table-page/QuestionsFilters";
 import { useEffect, useMemo, useState } from "react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "./question-details";
@@ -44,8 +44,8 @@ export const QuestionsPage = ({
   const [closedAtStart, setClosedAtStart] = useState<Date | undefined>(
     undefined,
   );
-  const [consecutiveApprovals,setConsecutiveApprovals]=useState("all")
-  const [autoAllocateFilter,setAutoAllocateFilter]=useState('all')
+  const [consecutiveApprovals, setConsecutiveApprovals] = useState("all");
+  const [autoAllocateFilter, setAutoAllocateFilter] = useState("all");
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
 
   // const observerRef = useRef<IntersectionObserver | null>(null);
@@ -103,7 +103,7 @@ export const QuestionsPage = ({
       closedAtStart,
       closedAtEnd,
       consecutiveApprovals,
-      autoAllocateFilter
+      autoAllocateFilter,
     }),
     [
       status,
@@ -121,7 +121,7 @@ export const QuestionsPage = ({
       closedAtEnd,
       closedAtStart,
       consecutiveApprovals,
-      autoAllocateFilter
+      autoAllocateFilter,
     ],
   );
 
@@ -187,9 +187,8 @@ export const QuestionsPage = ({
     review_level?: ReviewLevel;
     closedAtEnd?: Date | undefined;
     closedAtStart?: Date | undefined;
-    consecutiveApprovals?:string,
-    autoAllocateFilter?:string,
-
+    consecutiveApprovals?: string;
+    autoAllocateFilter?: string;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -205,8 +204,10 @@ export const QuestionsPage = ({
     if (next.review_level !== undefined) setReviewLevel(next.review_level);
     if (next.closedAtStart !== undefined) setClosedAtStart(next.closedAtStart);
     if (next.closedAtEnd !== undefined) setClosedAtEnd(next.closedAtEnd);
-    if (next.consecutiveApprovals !== undefined) setConsecutiveApprovals(next.consecutiveApprovals);
-    if(next.autoAllocateFilter!==undefined) setAutoAllocateFilter(next.autoAllocateFilter)
+    if (next.consecutiveApprovals !== undefined)
+      setConsecutiveApprovals(next.consecutiveApprovals);
+    if (next.autoAllocateFilter !== undefined)
+      setAutoAllocateFilter(next.autoAllocateFilter);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);
@@ -235,8 +236,8 @@ export const QuestionsPage = ({
     setEndTime(undefined);
     setClosedAtEnd(undefined);
     setClosedAtStart(undefined);
-    setConsecutiveApprovals('all')
-    setAutoAllocateFilter('all')
+    setConsecutiveApprovals("all");
+    setAutoAllocateFilter("all");
   };
 
   const handleViewMore = (questoinId: string) => {

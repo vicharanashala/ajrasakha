@@ -98,7 +98,9 @@ export function BaseTable<T>({
             <TableRow key={i} className="text-center hover:bg-muted/40">
               {columns.map((col) => (
                 <TableCell key={col.key as string}>
-                  {col.render ? col.render(row, (startIndex ?? 0) + i) : (row as any)[col.key]}
+                  {col.render
+                    ? col.render(row, (startIndex ?? 0) + i)
+                    : (row as any)[col.key]}
                 </TableCell>
               ))}
             </TableRow>
