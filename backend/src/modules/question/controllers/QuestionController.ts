@@ -380,12 +380,12 @@ async outreachQuestions(
   @Body() body: DateRangeRequest,
   @CurrentUser() user: IUser,
 ) {
-  const { startDate, endDate,email } = body;
+  const { startDate, endDate,emails } = body;
 
   await this.questionService.sendOutReachQuestionsMail(
     startDate,
     endDate,
-    email,
+    emails,
   );
 
   return {

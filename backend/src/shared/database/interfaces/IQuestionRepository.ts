@@ -330,6 +330,6 @@ export interface IQuestionRepository {
   findByDateRangeAndSource(
       startDate: Date,
       endDate: Date,
-      source: 'AJRASAKHA' | 'AGRI_EXPERT',
+      sources: ('AJRASAKHA' | 'AGRI_EXPERT')[],
     ): Promise<IQuestion[]>
 }

@@ -2746,13 +2746,13 @@ export class QuestionRepository implements IQuestionRepository {
   async findByDateRangeAndSource(
     startDate: Date,
     endDate: Date,
-    source: 'AJRASAKHA' | 'AGRI_EXPERT',
+    sources: ('AJRASAKHA' | 'AGRI_EXPERT')[],
   ): Promise<IQuestion[]> {
     await this.init()
     const questions = await this.QuestionCollection
     .find(
       {
-        source,
+        source: { $in: sources },
         createdAt: {
           $gte: startDate,
           $lte: endDate,

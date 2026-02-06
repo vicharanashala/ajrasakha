@@ -139,6 +139,6 @@ export interface IQuestionService {
   sendOutReachQuestionsMail(
     startDate: string,
     endDate: string,
-    email: string | string[],
+    emails: string | string[],
   ): Promise<void>
 }

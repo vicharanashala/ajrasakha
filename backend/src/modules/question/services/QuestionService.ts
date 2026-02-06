@@ -1987,21 +1987,27 @@ async sendOutReachQuestionsMail(
       throw new Error('startDate and endDate are required');
     }
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
+    const start = new Date(startDate + 'T00:00:00.000Z');
+    const end = new Date(endDate + 'T23:59:59.999Z'); 
+    console.log('questions from', start, 'to', end);
 
     const questions =
       await this.questionRepo.findByDateRangeAndSource(
         start,
         end,
-        'AJRASAKHA',
+        ['AJRASAKHA', 'AGRI_EXPERT'],
       );
+      console.log(`Found ${questions.length} questions`);
+
+       if (!questions.length) {
+    
+    console.warn('No questions found for the specified date range');
+  }
 
     const csv = this.convertQuestionsToCSV(questions,startDate,endDate);
 
     await sendEmailWithAttachment(
-      email,
+      emails,
       'Ajrasakha Outreach Questions Report',
       `
         <p>Hello,</p>

@@ -22,7 +22,9 @@ import Spinner from "./atoms/spinner";
 import { ReviewLevelsTable } from "@/features/questions/components/review-level/ReviewLevelsTable";
 import { useGetQuestionsAndLevel } from "@/features/questions/hooks/useGetQuestionsAndLevel";
 import { mapReviewQuestionToRow } from "@/features/questions/utils/mapReviewLevel";
-
+import { Button } from "@/components/atoms/button";        // ← ADD THIS
+import { Mail } from "lucide-react"; 
+import { OutreachReport } from "@/features/question_details/components/OutreachReport";
 export const QuestionsPage = ({
   currentUser,
   autoOpenQuestionId,
@@ -68,6 +70,7 @@ export const QuestionsPage = ({
   const [viewMode, setViewMode] = useState<"all" | "review-level">("all");
   const [reviewPage, setReviewPage] = useState(1);
   const [reviewLimit] = useState(10);
+  const [showOutreachPanel, setShowOutreachPanel] = useState(false);
 
   //handle sort by turn around time
   const [sort, setSort] = useState("");
@@ -352,6 +355,30 @@ export const QuestionsPage = ({
               toggleSort={toggleSort}
               sort={sort}
             />
+          )}
+
+          {currentUser?.role !== "expert" && (
+            <div className="pt-6 border-t">
+              {/* Left side: Outreach Report Component */}
+                <div className="flex items-center gap-2 mb-4">
+                  <Button
+                    variant={showOutreachPanel ? "default" : "outline"}
+                    onClick={() => setShowOutreachPanel(!showOutreachPanel)}
+                    className="gap-2 justify-start"
+                  >
+                    <Mail className="w-4 h-4" />
+                    {showOutreachPanel ? "Hide Outreach Report" : "Send Outreach Report"}
+                  </Button>
+                </div>
+                
+                {showOutreachPanel && (
+                  <div className="max-w-4xl mx-auto">
+                  <OutreachReport />
+                </div>
+                )}
+              
+
+            </div>
           )}
         </>
       )}
