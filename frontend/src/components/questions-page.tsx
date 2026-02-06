@@ -351,6 +351,7 @@ export const QuestionsPage = ({
               onViewMore={handleViewMore}
               toggleSort={toggleSort}
               sort={sort}
+              limit={reviewLimit}
             />
           )}
         </>

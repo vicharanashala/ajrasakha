@@ -23,6 +23,7 @@ type BaseTableProps<T> = {
   emptyMessage?: string;
   sort: string;
   onSort: (key: string) => void;
+  startIndex?: number;
 };
 
 export function BaseTable<T>({
@@ -32,6 +33,7 @@ export function BaseTable<T>({
   emptyMessage = "No records found",
   sort,
   onSort,
+  startIndex,
 }: BaseTableProps<T>) {
   return (
     <Table className="min-w-[800px] table-fixed">
@@ -96,7 +98,7 @@ export function BaseTable<T>({
             <TableRow key={i} className="text-center hover:bg-muted/40">
               {columns.map((col) => (
                 <TableCell key={col.key as string}>
-                  {col.render ? col.render(row, i) : (row as any)[col.key]}
+                  {col.render ? col.render(row, (startIndex ?? 0) + i) : (row as any)[col.key]}
                 </TableCell>
               ))}
             </TableRow>
