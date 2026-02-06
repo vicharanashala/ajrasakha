@@ -9,7 +9,7 @@ import { getContainer } from '../loadModules.js';
 
 // cron.schedule('* * * * *', async () => {
 cron.schedule(
-  '0 8,20 * * *',
+  '17 8,13 * * *',
   async () => {
     console.log('🚀 Cron Job Started: Creating MongoDB Backup...');
 
