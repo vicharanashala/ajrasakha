@@ -1,5 +1,6 @@
 import {exec} from 'child_process';
 import fs from 'fs';
+import os from 'os'
 import path from 'path';
 import archiver from 'archiver';
 import {MongoClient} from 'mongodb';
@@ -51,12 +52,13 @@ export const createLocalBackup = async (mongoUri: string, dbName: string) => {
     await sendStatsEmail();
     return; 
   }
-  
-  const tempDir = path.join(process.cwd(), 'temp_db_backup');
+  const baseTempDir = path.join(os.tmpdir(), 'mongo_backups');
+  // const tempDir = path.join(process.cwd(), 'temp_db_backup');
+  const tempDir = path.join(baseTempDir, 'temp_db_backup');
   const dumpFolder = path.join(tempDir, dbName);
   const jsonFolder = path.join(tempDir, `${dbName}_json`);
   const zipFileName = `${timestamp}.zip`;
-  const zipFilePath = path.join(process.cwd(), zipFileName);
+  const zipFilePath = path.join(baseTempDir, zipFileName);
 
   fs.mkdirSync(tempDir, {recursive: true});
   fs.mkdirSync(jsonFolder, {recursive: true});
