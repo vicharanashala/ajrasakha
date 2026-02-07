@@ -250,7 +250,8 @@ export class QuestionController {
   @Authorized()
   @OpenAPI({summary: 'Toggle auto-allocate option for the selected question'})
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async toggleAutoAllocate(@Params() params: QuestionIdParam) {
+  async toggleAutoAllocate(@Params() params: QuestionIdParam,@CurrentUser() user: IUser,) {
+    console.log("the current user===",user)
     const {questionId} = params;
     return await this.questionService.toggleAutoAllocate(questionId);
   }

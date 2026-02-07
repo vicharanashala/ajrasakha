@@ -78,10 +78,18 @@ export const PlaygroundPage = () => {
     } else if (selectedHistoryId) {
       calculatedTab = "history";
     } else if (selectedQuestionId) {
+    if (user.role === "expert" && selectedQuestionType === "peer_review") {
       calculatedTab = "questions";
-    } else if (selectedCommentId) {
+    }
+    // For other cases with questions, check role
+    else if (user.role === "expert") {
+      calculatedTab = "questions";
+    } else {
       calculatedTab = "all_questions";
     }
+  } else if (selectedCommentId) {
+    calculatedTab = "all_questions";
+  }
     const storageKey = getStorageKey(user);
     if (!storageKey) return;
     // Only update if we have a specific tab to navigate to
@@ -95,7 +103,7 @@ export const PlaygroundPage = () => {
     selectedRequestId,
     selectedCommentId,
     selectedHistoryId,
-    activeTab
+    selectedQuestionType
   ]);
 
 
@@ -119,6 +127,7 @@ export const PlaygroundPage = () => {
     
     if (value !== "questions") {
       setSelectedQuestionId(null);
+      setSelectedQuestionType(null)
     }
 
     if (value !== "request_queue") {
@@ -436,6 +445,7 @@ export const PlaygroundPage = () => {
                     autoSelectQuestionId={selectedQuestionId}
                     onManualSelect={setSelectedQuestionId}
                     selectQuestionType={selectedQuestionType}
+                    onManualSelectQuestionType={setSelectedQuestionType}
                   />
                 </TabsContent>
               )}

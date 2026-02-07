@@ -56,11 +56,13 @@ export type QuestionFilter =
 export const QAInterface = ({
   autoSelectQuestionId,
   onManualSelect,
-  selectQuestionType
+  selectQuestionType,
+  onManualSelectQuestionType
 }: {
   autoSelectQuestionId: string | null;
   onManualSelect: (id: string | null) => void;
-  selectQuestionType:string|null
+  selectQuestionType:string|null;
+  onManualSelectQuestionType: (type: string | null) => void;
 }) => {
   
   const [actionType, setActionType] = useState<"allocated" | "reroute">(
@@ -75,6 +77,7 @@ export const QAInterface = ({
     else{
       setActionType("allocated")
     }
+    console.log("the selected type===",selectQuestionType)
   },[selectQuestionType])
   
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
@@ -318,7 +321,7 @@ export const QAInterface = ({
       return;
 
     const findAndSelectQuestion = async () => {
-      setIsLoadingTargetQuestion(true);
+     // setIsLoadingTargetQuestion(true);
 
       // Check if question is in currently loaded pages
       const allLoadedQuestions = questionPages?.pages.flat() || [];
@@ -352,6 +355,7 @@ export const QAInterface = ({
           if (questions.length > 0) {
             setSelectedQuestion(questions[0]!.id);
             onManualSelect?.(null); // Clear the auto-select since question doesn't exist
+            onManualSelectQuestionType?.(null)
           }
           setIsLoadingTargetQuestion(false);
         }
@@ -480,6 +484,7 @@ export const QAInterface = ({
 
       // Reset UI
       onManualSelect?.(null);
+      onManualSelectQuestionType?.(null)
       setDrafts((prev) => {
         const updated = { ...prev };
         delete updated[selectedQuestion];
@@ -498,6 +503,7 @@ export const QAInterface = ({
     setSelectedQuestion(id);
     if (autoSelectQuestionId && id !== autoSelectQuestionId) {
       onManualSelect(null);
+      onManualSelectQuestionType?.(null)
     }
     handleReset();
   };
@@ -509,6 +515,9 @@ export const QAInterface = ({
 const handleActionChange = (value: string) => {
   setActionType(value as "allocated" | "reroute");
   setSelectedQuestion(null);
+  onManualSelect?.(null); // Clear the auto-select since question doesn't exist
+  onManualSelectQuestionType?.(null)
+
 };
   return (
     <div className=" mx-auto px-4 md:px-6 bg-transparent py-4 ">
@@ -527,7 +536,7 @@ const handleActionChange = (value: string) => {
   isFetchingNextPage={isFetchingNextPage}
   onRefresh={refetch}
   actionType={actionType}
-  onActionTypeChange={(type) => setActionType(type as any)}
+  onActionTypeChange={handleActionChange}
   reviewLevel={reviewLevel}
   onReviewLevelChange={setReviewLevel}
   scrollRef={scrollRef}
