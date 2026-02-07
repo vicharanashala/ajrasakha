@@ -756,6 +756,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         //1. Validate question existence
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
+        console.log("toggleAutoAllocate*****",question)
 
         const updated = await this.questionRepo.updateAutoAllocate(
           questionId,

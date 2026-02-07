@@ -127,6 +127,7 @@ export const PlaygroundPage = () => {
     
     if (value !== "questions") {
       setSelectedQuestionId(null);
+      setSelectedQuestionType(null)
     }
 
     if (value !== "request_queue") {
@@ -444,6 +445,7 @@ export const PlaygroundPage = () => {
                     autoSelectQuestionId={selectedQuestionId}
                     onManualSelect={setSelectedQuestionId}
                     selectQuestionType={selectedQuestionType}
+                    onManualSelectQuestionType={setSelectedQuestionType}
                   />
                 </TabsContent>
               )}
