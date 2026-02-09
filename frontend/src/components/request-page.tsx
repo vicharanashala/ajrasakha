@@ -93,7 +93,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
   const [responseOpen, setResponseOpen] = useState(false);
 
   const { data: requestDiff, isLoading: reqDiffLoading } = useGetRequestDiff(
-    diffOpen ? req._id : "",
+     diffOpen || responseOpen ? req._id : "",
   );
 
   const { mutateAsync: updateStatus, isPending: updatingStatus } =
