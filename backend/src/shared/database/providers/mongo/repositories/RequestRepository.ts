@@ -52,10 +52,9 @@ export class RequestRepository implements IRequestRepository {
         'details' in details &&
         details.details
       ) {
-        const {_id, id, createdAt, text, updatedAt, requestType, ...rest} =
+        const {_id, createdAt, updatedAt,metrics,embedding, ...allowedFields} =
           details.details as Record<string, any>;
-        cleanedDetails =
-          requestType === 'question_flag' ? {...rest} : {...rest, text};
+        cleanedDetails = allowedFields;
       }
 
       const payload: IRequest = {

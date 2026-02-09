@@ -189,7 +189,6 @@ export class RequestService extends BaseService implements IRequestService{
         const entityId = request.entityId.toString();
         if (request.requestType == 'question_flag') {
           const question = await this.questionRepo.getById(entityId, session);
-          const requestedDetails = request.details || question;
           if (!question)
             throw new NotFoundError(`Question not found for ID: ${entityId}`);
 
@@ -204,6 +203,9 @@ export class RequestService extends BaseService implements IRequestService{
             embedding,
             ...questionWithoutMeta
           } = question;
+          const requestedDetails = { ...questionWithoutMeta,
+          ...(request.details || {}),
+          };
           const {
             _id: rid,
             createdAt: rCreated,
