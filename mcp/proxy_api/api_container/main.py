@@ -27,6 +27,7 @@ logging.basicConfig(
 logger = logging.getLogger("vllm-proxy")
 
 TARGET_URL = os.getenv("TARGET_URL")
+VISION_API_URL = os.getenv("VISION_API_URL") # Default to internal docker alias
 TIMEOUT = 60.0
 
 # -------------------------------------------------------------------
@@ -39,9 +40,22 @@ def safe_parse_json(data: bytes):
     except Exception:
         return None
 
-# -------------------------------------------------------------------
-# App & HTTP client
-# -------------------------------------------------------------------
+    except Exception:
+        return None
+
+def extract_text_from_content(content) -> str:
+    """
+    Extracts text from message content which can be a string or a list of blocks.
+    """
+    if isinstance(content, str):
+        return content
+    elif isinstance(content, list):
+        text_parts = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                text_parts.append(block.get("text", ""))
+        return " ".join(text_parts)
+    return ""
 
 app = FastAPI()
 
@@ -58,6 +72,75 @@ async def stream_response(response: httpx.Response) -> AsyncIterator[bytes]:
         yield chunk.encode("utf-8")
 
     await response.aclose()
+
+
+async def process_images_in_messages(messages: list):
+    """
+    Scans messages for image_url content.
+    If found, calls the Vision API to get a prediction.
+    Replaces the image_url block with a text block containing the prediction.
+    """
+    if not VISION_API_URL:
+        logger.warning("VISION_API_URL is not set. Skipping image processing.")
+        return messages
+
+    for msg in messages:
+        if msg.get("role") == "user" and isinstance(msg.get("content"), list):
+            new_content = []
+            for block in msg["content"]:
+                if isinstance(block, dict) and block.get("type") == "image_url":
+                    image_url_data = block.get("image_url", {})
+                    url = image_url_data.get("url")
+                    
+                    if url:
+                        logger.info(f"Intercepted image URL. Sending to Vision API: {VISION_API_URL}")
+                        try:
+                            # Call Vision API
+                            async with httpx.AsyncClient(timeout=30.0) as vision_client:
+                                resp = await vision_client.post(
+                                    VISION_API_URL,
+                                    json={"url": url}
+                                )
+                                if resp.status_code == 200:
+                                    prediction_data = resp.json()
+                                    class_name = prediction_data.get("class_name", "Unknown")
+                                    confidence = prediction_data.get("confidence", 0.0)
+                                    
+                                    # Create prediction text
+                                    prediction_text = (
+                                        f"User has provided an image. "
+                                        f"The vision model predicts: {class_name} "
+                                        f"with confidence {confidence:.2%}. "
+                                        f"(This text replaced the actual image)."
+                                    )
+                                    
+                                    logger.info(f"Vision API Prediction: {class_name} ({confidence:.2%})")
+                                    
+                                    # Replace image block with text prediction
+                                    new_content.append({
+                                        "type": "text",
+                                        "text": prediction_text
+                                    })
+                                else:
+                                    logger.error(f"Vision API Error: {resp.status_code} - {resp.text}")
+                                    # Keep the image block if we failed? Or remove it?
+                                    # Request says: "pass Prediction test to llm"
+                                    # It implies we should probably just fail gracefully or keep it.
+                                    # For now, let's keep it if vision fails, or maybe convert to error text?
+                                    # Let's keep existing block if failure, but log error.
+                                    new_content.append(block)
+                        except Exception as e:
+                            logger.error(f"Failed to call Vision API: {e}")
+                            new_content.append(block)
+                    else:
+                        new_content.append(block)
+                else:
+                    new_content.append(block)
+            
+            # Update the message content with processed blocks
+            msg["content"] = new_content
+    
+    return messages
 
 
 # -------------------------------------------------------------------
@@ -84,6 +167,17 @@ async def proxy(path: str, request: Request):
     if parsed_body and isinstance(parsed_body, dict):
         messages = parsed_body.get("messages", [])
         
+        # 0. IMAGE INTERCEPTION & PROCESSING (NEW)
+        # We do this FIRST so that language detection and intent classification 
+        # run on the *text* representation of the image if needed (though usually they look at text).
+        # But mostly to ensure the predicting logic happens before we do anything else.
+        if any(msg.get("role") == "user" and isinstance(msg.get("content"), list) for msg in messages):
+            logger.info(f"[{request_id}] Checking for images in messages...")
+            messages = await process_images_in_messages(messages)
+            parsed_body["messages"] = messages
+            # Reserialize immediately to update body_bytes if we modified it
+            final_body_bytes = json.dumps(parsed_body).encode("utf-8")
+
         # 1. LANGUAGE DETECTION & TRANSLATION
         user_msg_idx = -1
         user_msg_content = None
@@ -100,15 +194,17 @@ async def proxy(path: str, request: Request):
             messages_for_detection = []
             
             # Add last user message
-            messages_for_detection.append(user_msg_content)
+            messages_for_detection.append(extract_text_from_content(user_msg_content))
             
             # Find and add last non-null assistant message
             for i in range(len(messages)-1, -1, -1):
                 if messages[i].get("role") == "assistant":
                     assistant_content = messages[i].get("content")
-                    if assistant_content and isinstance(assistant_content, str) and assistant_content.strip():
-                        messages_for_detection.append(assistant_content)
-                        break
+                    if assistant_content:
+                        text_content = extract_text_from_content(assistant_content)
+                        if text_content.strip():
+                            messages_for_detection.append(text_content)
+                            break
             
             combined_content = " ".join(messages_for_detection)
             
@@ -121,7 +217,8 @@ async def proxy(path: str, request: Request):
             
             if detected_lang.lower() != "english":
                 logger.info(f"[{request_id}] Translating user request to English...")
-                english_text = await translate_text(user_msg_content, "English")
+                text_to_translate = extract_text_from_content(user_msg_content)
+                english_text = await translate_text(text_to_translate, "English")
                 
                 # Update the message in place
                 messages[user_msg_idx]["content"] = english_text
