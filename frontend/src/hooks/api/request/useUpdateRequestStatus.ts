@@ -17,8 +17,11 @@ export const useUpdateRequestStatus = () => {
     mutationFn: async ({ requestId, status, response }: UpdateStatusPayload): Promise<IRequest | null> => {
       return await requestService.updateStatus(requestId, status, response);
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({queryKey: ["requests"]});
+      queryClient.invalidateQueries({
+        queryKey: ["request_diff", variables.requestId],
+      });
     },
   });
 };

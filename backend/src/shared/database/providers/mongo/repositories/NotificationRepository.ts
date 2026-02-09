@@ -150,9 +150,10 @@ async markAllAsRead(userId:string,session?:ClientSession): Promise<{modifiedCoun
 async saveSubscription(userId: string, subscription: any,session?:ClientSession) {
     try {
       await this.init()
+      const expirytime = subscription.expirationTime || null;
       return await this.subscriptionCollection.findOneAndUpdate(
         { userId: new ObjectId(userId) },
-      { $set:{userId: new ObjectId(userId),subscription:subscription} },{upsert: true}
+        { $set:{userId: new ObjectId(userId),subscription:subscription, expirytime: expirytime } },{upsert: true}
       );
     } catch (error) {
       throw new InternalServerError(
@@ -166,7 +167,7 @@ async saveSubscription(userId: string, subscription: any,session?:ClientSession)
     return this.subscriptionCollection.findOne({ userId: new ObjectId(userId) })
   }
 
-async autoDeleteNotifications(){
+  async autoDeleteNotifications(){
     await this.init()
     try {
       const retentionPeriods = {

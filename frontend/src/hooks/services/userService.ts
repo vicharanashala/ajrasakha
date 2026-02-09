@@ -43,6 +43,20 @@ export class UserService {
     })
   }
 
+  async updateUserStatus(userId: string, status: string) {
+    return apiFetch<{message: string}>(`${this._baseUrl}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ userId, status }),
+    });
+  }
+
+  async updateUserActivity(userId: string, isActive: boolean): Promise<{ message: string } | null> {
+    return apiFetch<{ message: string }>(`${this._baseUrl}/activity`, {
+      method: "PATCH",
+      body: JSON.stringify({ userId, isActive }),
+    });
+  }
+
   async toggleUserRole(userId: string, currentRole: string): Promise<IUser | null> {
     if (currentRole === "admin") {
       throw new Error("Admin role cannot be changed");

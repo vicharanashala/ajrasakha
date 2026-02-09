@@ -316,11 +316,21 @@ export class QuestionRepository implements IQuestionRepository {
         review_level,
         closedAtStart,
         closedAtEnd,
-        consecutiveApprovals
+        consecutiveApprovals,
+        autoAllocateFilter
       } = query;
 
 
       const filter: any = {};
+      // --- Auto Allocate Filter ---
+        if (autoAllocateFilter && autoAllocateFilter !== 'all') {
+          if (autoAllocateFilter === 'on') {
+            filter.isAutoAllocate = true;
+          } else if (autoAllocateFilter === 'off') {
+            filter.isAutoAllocate = false;
+          }
+        }
+
 
       // --- Filters ---
 
