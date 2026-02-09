@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useRef } from "react";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/atoms/card";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/atoms/dialog";
 import { Button } from "@/components/atoms/button";
 import { Label } from "@/components/atoms/label";
 import { Input } from "@/components/atoms/input";
@@ -17,9 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/atoms/popover";
-import { Checkbox } from "@/components/atoms/checkbox";
 import { Badge } from "@/components/atoms/badge";
-import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Separator } from "@/components/atoms/separator";
 import { cn } from "@/lib/utils";
 import { format, subDays } from "date-fns";
@@ -28,73 +28,75 @@ import {
   Loader2, 
   Mail, 
   Send, 
-  Users, 
-  Search,
-  Check,
-  X
+  X,
+  AlertCircle,
 } from "lucide-react";
 import { useSendOutreachReport } from "@/hooks/api/question/useSendOutreachReport";
-import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { toast } from "sonner";
 
-// Roles allowed to receive outreach reports
-const ALLOWED_ROLES = ['admin', 'moderator'];
+// Simple email validation regex
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export const OutreachReport = () => {
+export const OutreachReportModal = () => {
+  const [open, setOpen] = useState(false);
+  
   // Date states - default to last 7 days
   const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 7));
   const [endDate, setEndDate] = useState<Date>(new Date());
   const [startOpen, setStartOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
 
-  const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const { data: usersResponse, isLoading: isLoadingUsers } = useGetAllUsers();
+  // Email input states
+  const [emails, setEmails] = useState<string[]>([]);
+  const [inputValue, setInputValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const { mutateAsync: sendReport, isPending: isSending } = useSendOutreachReport();
-  const users = useMemo(() => {
-    return usersResponse?.users || [];
-  }, [usersResponse]);
 
-  // Filter eligible users by role, search, and not blocked
-  const eligibleUsers = useMemo(() => {
-    return users.filter((user) => {
-      // Only allowed roles
-      const hasAllowedRole = ALLOWED_ROLES.includes(user.role?.toLowerCase());
-      // Not blocked
-      const isActive = !user.isBlocked;
-      // Matches search
-      const matchesSearch = searchQuery === "" || 
-        user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.userName?.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      return hasAllowedRole && isActive && matchesSearch;
-    });
-  }, [users, searchQuery]);
-
-  // Toggle email selection
-  const toggleEmail = (email: string) => {
-    setSelectedEmails(prev => 
-      prev.includes(email)
-        ? prev.filter(e => e !== email)
-        : [...prev, email]
-    );
+  const addEmail = (email: string) => {
+    const trimmed = email.trim().toLowerCase();
+    
+    if (!trimmed) return;
+    
+    if (!EMAIL_REGEX.test(trimmed)) {
+      setError(`"${email}" is not a valid email address`);
+      return;
+    }
+    
+    if (emails.includes(trimmed)) {
+      setError(`"${email}" is already added`);
+      return;
+    }
+    
+    setEmails(prev => [...prev, trimmed]);
+    setInputValue("");
+    setError(null);
   };
 
-  // Select/deselect all visible users
-  const toggleAll = () => {
-    const visibleEmails = eligibleUsers.map(u => u.email).filter(Boolean);
-    const allSelected = visibleEmails.every(email => selectedEmails.includes(email));
-    
-    if (allSelected) {
-      setSelectedEmails(prev => prev.filter(e => !visibleEmails.includes(e)));
-    } else {
-      setSelectedEmails(prev => [...new Set([...prev, ...visibleEmails])]);
+  const removeEmail = (emailToRemove: string) => {
+    setEmails(prev => prev.filter(email => email !== emailToRemove));
+    setError(null);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === ',') {
+      e.preventDefault();
+      addEmail(inputValue);
+    } else if (e.key === 'Backspace' && inputValue === "" && emails.length > 0) {
+      removeEmail(emails[emails.length - 1]);
     }
   };
 
-  // Handle form submission
+  const resetForm = () => {
+    setStartDate(subDays(new Date(), 7));
+    setEndDate(new Date());
+    setEmails([]);
+    setInputValue("");
+    setError(null);
+  };
+
   const handleSubmit = async () => {
-    // Validation
     if (!startDate || !endDate) {
       toast.error("Please select both start and end dates");
       return;
@@ -103,8 +105,8 @@ export const OutreachReport = () => {
       toast.error("Start date cannot be after end date");
       return;
     }
-    if (selectedEmails.length === 0) {
-      toast.error("Please select at least one recipient");
+    if (emails.length === 0) {
+      toast.error("Please add at least one recipient email");
       return;
     }
 
@@ -112,246 +114,224 @@ export const OutreachReport = () => {
       await sendReport({
         startDate,
         endDate,
-        emails: selectedEmails,
+        emails: emails,
       });
-      
-      // Reset after success
-      setSelectedEmails([]);
+      setOpen(false);
+      setTimeout(resetForm, 300);
     } catch (error) {
+      toast.error("Failed to send report. Please try again.");
     }
   };
 
-  const isSubmitDisabled = isSending || selectedEmails.length === 0;
+  const isSubmitDisabled = isSending || emails.length === 0;
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Mail className="w-5 h-5 text-primary" />
-          Outreach Data Report
-        </CardTitle>
-        <CardDescription>
-          Export questions by date range and send to selected recipients
-        </CardDescription>
-      </CardHeader>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isSending) {
+        setOpen(isOpen);
+        if (!isOpen) setTimeout(resetForm, 300);
+      }
+    }}>
+      <DialogTrigger asChild>
+        <Button className="gap-2">
+          <Mail/>
+        </Button>
+      </DialogTrigger>
 
-      <CardContent className="space-y-6">
-        {/* DATE RANGE SECTION */}
-        <div className="space-y-3">
-          <Label className="text-sm font-semibold flex items-center gap-2">
-            <CalendarIcon className="w-4 h-4" />
-            Date Range
-          </Label>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Start Date */}
-            <Popover open={startOpen} onOpenChange={setStartOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !startDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-                  {startDate ? format(startDate, "PPP") : "Pick start date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={startDate}
-                  onSelect={(date) => {
-                    setStartDate(date);
-                    setStartOpen(false);
-                  }}
-                    disabled={(date) => endDate ? date > endDate : false}
-                />
-              </PopoverContent>
-            </Popover>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Mail className="w-5 h-5 text-primary" />
+            Outreach Data Report
+          </DialogTitle>
+          <DialogDescription>
+            Select date range and enter recipient emails to send the CSV report.
+          </DialogDescription>
+        </DialogHeader>
 
-            {/* End Date */}
-            <Popover open={endOpen} onOpenChange={setEndOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !endDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-                  {endDate ? format(endDate, "PPP") : "Pick end date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={endDate}
-                  onSelect={(date) => {
-                    setEndDate(date);
-                    setEndOpen(false);
-                  }}
-                  disabled={(date) => startDate ? date < startDate : false}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* RECIPIENTS SECTION */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
+        <div className="space-y-6 py-4">
+          {/* DATE RANGE SECTION */}
+          <div className="space-y-3">
             <Label className="text-sm font-semibold flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Recipients
-              {selectedEmails.length > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {selectedEmails.length} selected
-                </Badge>
-              )}
+              <CalendarIcon className="w-4 h-4" />
+              Date Range
             </Label>
             
-            {eligibleUsers.length > 0 && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={toggleAll}
-                className="h-7 text-xs"
-              >
-                {eligibleUsers.every(u => selectedEmails.includes(u.email)) 
-                  ? "Deselect All" 
-                  : "Select All"}
-              </Button>
-            )}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Start Date */}
+              <Popover open={startOpen} onOpenChange={setStartOpen} modal={true}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-10",
+                      !startDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                    {startDate ? format(startDate, "MMM d, yyyy") : "Start date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={startDate}
+                    onSelect={(date) => {
+                      setStartDate(date);
+                      setStartOpen(false);
+                    }}
+                    disabled={(date) => endDate ? date > endDate : false}
+                  />
+                </PopoverContent>
+              </Popover>
+
+              {/* End Date */}
+              <Popover open={endOpen} onOpenChange={setEndOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-10",
+                      !endDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                    {endDate ? format(endDate, "MMM d, yyyy") : "End date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={endDate}
+                    onSelect={(date) => {
+                      setEndDate(date);
+                      setEndOpen(false);
+                    }}
+                    disabled={(date) => startDate ? date < startDate : false}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by username or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-              disabled={isLoadingUsers}
-            />
-          </div>
+          <Separator />
 
-          {/* User List */}
-          <div className="border rounded-md">
-            {isLoadingUsers ? (
-              <div className="p-8 flex items-center justify-center text-muted-foreground">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Loading users...
-              </div>
-            ) : eligibleUsers.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground text-sm">
-                {searchQuery 
-                  ? "No users match your search" 
-                  : "No eligible users found"}
-              </div>
-            ) : (
-              <ScrollArea className="h-64">
-                <div className="p-2 space-y-1">
-                  {eligibleUsers.map((user) => {
-                    const isSelected = selectedEmails.includes(user.email);
-                    
-                    return (
-                      <label
-                        key={user._id}
-                        className={cn(
-                          "flex items-start gap-3 p-2 rounded-md cursor-pointer transition-colors",
-                          "hover:bg-muted/50",
-                          isSelected && "bg-primary/5"
-                        )}
-                      >
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => toggleEmail(user.email)}
-                          className="mt-1"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm truncate">
-                              {user.userName}
-                            </span>
-                            {isSelected && (
-                              <Check className="w-3 h-3 text-primary" />
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {user.email}
-                          </p>
-                          <Badge variant="outline" className="mt-1 text-[10px] capitalize">
-                            {user.role}
-                          </Badge>
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
-            )}
-          </div>
+          {/* RECIPIENTS SECTION */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-semibold flex items-center gap-2">
+                <Mail className="w-4 h-4" />
+                Recipients
+                {emails.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {emails.length}
+                  </Badge>
+                )}
+              </Label>
+              
+              {emails.length > 0 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    setEmails([]);
+                    setError(null);
+                  }}
+                  className="h-7 text-xs"
+                  disabled={isSending}
+                >
+                  Clear All
+                </Button>
+              )}
+            </div>
 
-          {/* Selected Chips */}
-          {selectedEmails.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {selectedEmails.map((email) => {
-                const user = users.find(u => u.email === email);
-                
-                return (
+            {/* Email Input Field with Chips */}
+            <div 
+              className={cn(
+                "min-h-[48px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors",
+                "focus-within:outline-none focus-within:ring-1 focus-within:ring-ring",
+                error && "border-red-500 focus-within:ring-red-500"
+              )}
+              onClick={() => inputRef.current?.focus()}
+            >
+              <div className="flex flex-wrap gap-2 items-center">
+                {emails.map((email) => (
                   <Badge 
                     key={email} 
                     variant="secondary"
-                    className="flex items-center gap-1 pr-1"
+                    className="flex items-center gap-1 pr-1 bg-primary/10 text-primary hover:bg-primary/20"
                   >
-                    <span className="max-w-[150px] truncate" title={email}>
-                      {user?.userName || email}
+                    <span className="max-w-[150px] truncate text-xs" title={email}>
+                      {email}
                     </span>
                     <button
-                      onClick={() => toggleEmail(email)}
-                      className="ml-1 hover:bg-muted rounded-sm p-0.5"
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeEmail(email);
+                      }}
+                      className="ml-1 hover:bg-primary/20 rounded-sm p-0.5 transition-colors"
+                      disabled={isSending}
                     >
                       <X className="w-3 h-3" />
                     </button>
                   </Badge>
-                );
-              })}
+                ))}
+                
+                <input
+                  ref={inputRef}
+                  type="email"
+                  value={inputValue}
+                  onChange={(e) => {
+                    setInputValue(e.target.value);
+                    setError(null);
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder={emails.length === 0 ? "Type email and press Enter..." : "Add more..."}
+                  className="flex-1 min-w-[120px] bg-transparent outline-none placeholder:text-muted-foreground text-sm"
+                  disabled={isSending}
+                />
+              </div>
             </div>
-          )}
+
+            {/* Error Message */}
+            {error && (
+              <div className="flex items-center gap-2 text-sm text-red-500">
+                <AlertCircle className="w-4 h-4" />
+                <span>{error}</span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* SUBMIT BUTTON */}
-        <Button
-          onClick={handleSubmit}
-          disabled={isSubmitDisabled}
-          className="w-full"
-          size="lg"
-        >
-          {isSending ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Sending Report...
-            </>
-          ) : (
-            <>
-              <Send className="mr-2 h-4 w-4" />
-              Send Report to {selectedEmails.length} Recipient{selectedEmails.length !== 1 ? 's' : ''}
-            </>
-          )}
-        </Button>
-
-        <p className="text-xs text-muted-foreground text-center">
-          This will export questions from{" "}
-          {startDate ? format(startDate, "MMM d, yyyy") : "..."} to{" "}
-          {endDate ? format(endDate, "MMM d, yyyy") : "..."} and email as CSV.
-        </p>
-      </CardContent>
-    </Card>
+        <DialogFooter className="flex-col gap-2 sm:flex-row">
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={isSending}
+            className="w-full sm:w-auto"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitDisabled}
+            className="w-full sm:w-auto gap-2"
+          >
+            {isSending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Sending...
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4" />
+                Send Report
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
-};
+};  

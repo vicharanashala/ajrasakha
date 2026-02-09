@@ -1981,8 +1981,8 @@ async balanceWorkload() {
 async sendOutReachQuestionsMail(
     startDate: string,
     endDate: string,
-    email: string | string[],
-  ): Promise<void> {
+    emails: string | string[],
+  ): Promise<{ success: boolean; message: string }> {
     if (!startDate || !endDate) {
       throw new Error('startDate and endDate are required');
     }
@@ -1995,7 +1995,7 @@ async sendOutReachQuestionsMail(
       await this.questionRepo.findByDateRangeAndSource(
         start,
         end,
-        ['AJRASAKHA', 'AGRI_EXPERT'],
+        'AJRASAKHA'
       );
       console.log(`Found ${questions.length} questions`);
 
@@ -2003,6 +2003,13 @@ async sendOutReachQuestionsMail(
     
     console.warn('No questions found for the specified date range');
   }
+
+  if (questions.length === 0) {
+      return {
+        success: true,
+        message: 'There are no Outreach questions in the selected time',
+      };
+    }
 
     const csv = this.convertQuestionsToCSV(questions,startDate,endDate);
 
@@ -2019,6 +2026,10 @@ async sendOutReachQuestionsMail(
       csv,
       'out_reach_questions.csv',
     );
+    return {
+      success: true,
+      message: 'Outreach questions report sent via email',
+    };
   }
 
 private convertQuestionsToCSV(

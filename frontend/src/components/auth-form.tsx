@@ -80,11 +80,11 @@ export const AuthForm = ({
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.email) {
-      newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@annam\.ai$/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email";
-    }
+    // if (!formData.email) {
+    //   newErrors.email = "Email is required";
+    // } else if (!/^[^\s@]+@annam\.ai$/.test(formData.email)) {
+    //   newErrors.email = "Please enter a valid email";
+    // }
 
     if (!formData.password) {
       newErrors.password = "Password is required";

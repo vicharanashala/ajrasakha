@@ -140,5 +140,5 @@ export interface IQuestionService {
     startDate: string,
     endDate: string,
     emails: string | string[],
-  ): Promise<void>
+  ): Promise<{ success: boolean; message: string }>
 }

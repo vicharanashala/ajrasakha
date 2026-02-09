@@ -382,16 +382,13 @@ async outreachQuestions(
 ) {
   const { startDate, endDate,emails } = body;
 
-  await this.questionService.sendOutReachQuestionsMail(
+  const result=await this.questionService.sendOutReachQuestionsMail(
     startDate,
     endDate,
     emails,
   );
 
-  return {
-    success: true,
-    message: 'Outreach questions report sent via email',
-  };
+  return result
 }
 
 }
