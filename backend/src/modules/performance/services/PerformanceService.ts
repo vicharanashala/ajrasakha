@@ -199,7 +199,7 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-async sendCronSnapshotEmail(currentUserId: string) {
+/*async sendCronSnapshotEmail(currentUserId: string) {
   return await this._withTransaction(async (session) => {
     const user = await this.userRepo.findById(currentUserId, session);
 
@@ -210,6 +210,22 @@ async sendCronSnapshotEmail(currentUserId: string) {
     }
 
     await sendStatsEmail();
+  });
+}*/
+
+async sendCronSnapshotEmail(currentUserId: string) {
+  return await this._withTransaction(async (session) => {
+    const user = await this.userRepo.findById(currentUserId, session);
+
+    if (!user || user.role !== "admin") {
+      throw new UnauthorizedError("Only admins can send cron snapshot report");
+    }
+
+    if (!user.email) {
+      throw new Error("Target admin user does not have an email address defined.");
+    }
+
+    await sendStatsEmail(user.email); 
   });
 }
 

@@ -282,7 +282,8 @@ export const Dashboard = () => {
         <div className="flex justify-end px-6">
           <button
             onClick={handleSendCronReport}
-            className="px-4 py-2 rounded-md bg-primary text-white text-sm hover:opacity-90 relative"
+            // className="px-4 py-2 rounded-md bg-primary text-white text-sm hover:opacity-90 relative"
+            className="px-4 py-2 rounded-md bg-green-500 text-white text-sm hover:bg-green-600 shadow-md transition-all relative"
           >
             Send Report
             <TopRightBadge label="New" />

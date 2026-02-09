@@ -13,9 +13,7 @@ import {IUser} from '#root/shared/interfaces/models.js';
 import {BaseService} from '#root/shared/classes/BaseService.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {MongoDatabase} from '#root/shared/database/providers/mongo/MongoDatabase.js';
-import path from 'path';
-import {fileURLToPath} from 'url';
-import serviceAccount from '../../../../agriai-a2fba-firebase-adminsdk-fbsvc-452072d744.json' with {type: 'json'};
+import {getFirebaseAuth} from '#root/config/firebase.js';
 import { error } from 'console';
 
 /**
@@ -45,14 +43,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     private database: MongoDatabase,
   ) {
     super(database);
-    if (!admin.apps.length) {
-      admin.initializeApp({
-        credential: admin.credential.cert(
-          serviceAccount as admin.ServiceAccount,
-        ),
-      });
-    }
-    this.auth = admin.auth();
+    this.auth = getFirebaseAuth();
   }
   async getCurrentUserFromToken(token: string): Promise<IUser> {
     // Verify the token and decode it to get the Firebase UID
@@ -105,7 +96,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     let userRecord: any;
     try {
       if(!/^[^\s@]+@annam\.ai$/.test(body.email)){
-        throw new Error("Please enter a valid email")
+        // throw new Error("Please enter a valid email")
       }
       if(!body.firstName.trim()){
         throw new Error("Name cannot be blank or empty spaces");

@@ -20,12 +20,37 @@ export async function sendBackupSuccessEmail(publicUrl: string) {
   await sendEmailNotification(recipient, title, '', template);
 }
 
-export async function sendStatsEmail() {
+/*export async function sendStatsEmail() {
   // const recipient = emailConfig.BACKUP_NOTIFICATION_EMAIL;
 
   const recipients = emailConfig.BACKUP_NOTIFICATION_EMAIL?.split(',')
     .map(email => email.trim())
     .filter(Boolean);
+
+  const stats = await getDailyStats();
+  const template = buildDailyStatsEmailTemplate(stats);
+  const title = 'Daily Question Review System Report';
+
+  await sendEmailNotification(recipients, title, '', template);
+}*/
+
+export async function sendStatsEmail(recipientEmail?: string) {
+  let recipients: string[] = [];
+
+  if (recipientEmail) {
+    recipients = [recipientEmail];
+  } else {
+    recipients = emailConfig.BACKUP_NOTIFICATION_EMAIL?.split(',')
+      .map(email => email.trim())
+      .filter(Boolean) || [];
+  }
+
+  console.log("Verification: Sending report to:", recipients)
+
+  if (recipients.length === 0) {
+    console.error("No recipients found for stats email.");
+    return; 
+  }
 
   const stats = await getDailyStats();
   const template = buildDailyStatsEmailTemplate(stats);
