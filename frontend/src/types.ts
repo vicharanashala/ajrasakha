@@ -42,6 +42,7 @@ export interface IUser {
   totalAnswers_Created?:number;
   penaltyPercentage?:number;
   rankPosition?:number;
+  status?: 'active' | 'in-active';
 }
 export interface ReviewLevelCount {
   Review_level: 'Author' | 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4' | 'Level 5' | 'Level 6' | 'Level 7' | 'Level 8' | 'Level 9';
@@ -425,9 +426,6 @@ export interface QuestionFullDataResponse {
 
 export interface IComment {
   _id: string;
-  questionId: string;
-  answerId: string;
-  userId: string;
   userName?: string;
   text: string;
   createdAt: string;
@@ -792,11 +790,11 @@ export type QuestionResponse =
     data: IQuestion;
   }
   | {
-      kind: "reroute";
-      data: QuestionRerouteRepo;
-    };
-    export interface WorkloadBalanceResponse {
-      message: string;
-      expertsInvolved: number;
-      submissionsProcessed: number;
-    }
+    kind: "reroute";
+    data: QuestionRerouteRepo;
+  };
+export interface WorkloadBalanceResponse {
+  message: string;
+  expertsInvolved: number;
+  submissionsProcessed: number;
+}

@@ -1,8 +1,4 @@
-import {
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import {
   Table,
   TableBody,
@@ -11,26 +7,28 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/atoms/table";
-import { Loader2, } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { Pagination } from "../../components/pagination";
 
-import type {
-  IDetailedQuestion,
-  QuestionStatus,
-  UserRole,
-} from "@/types";
+import type { IDetailedQuestion, QuestionStatus, UserRole } from "@/types";
 
 import { useCreateRequest } from "@/hooks/api/request/useCreateRequest";
 import { toast } from "sonner";
 import { useDeleteQuestion } from "@/hooks/api/question/useDeleteQuestion";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 
-import { STATES, CROPS, DOMAINS, SEASONS, DISTRICTS } from "../../components/MetaData";
+import {
+  STATES,
+  CROPS,
+  DOMAINS,
+  SEASONS,
+  DISTRICTS,
+} from "../../components/MetaData";
 import { QuestionRow } from "./QuestionRow";
 import { MobileQuestionCard } from "./MobileQuestionCard";
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
-import { Checkbox } from '@/components/atoms/checkbox';
+import { Checkbox } from "@/components/atoms/checkbox";
 
 type QuestionsTableProps = {
   items?: IDetailedQuestion[] | null;
@@ -67,7 +65,7 @@ export const QuestionsTable = ({
 }: QuestionsTableProps) => {
   const [editOpen, setEditOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
-    null
+    null,
   );
   const [questionIdToDelete, setQuestionIdToDelete] = useState("");
   const [selectedQuestion, setSelectedQuestion] =
@@ -86,7 +84,7 @@ export const QuestionsTable = ({
     mode: "add" | "edit",
     entityId?: string,
     flagReason?: string,
-    status?: QuestionStatus
+    status?: QuestionStatus,
     // formData?: FormData
   ) => {
     try {
@@ -104,7 +102,7 @@ export const QuestionsTable = ({
       if (userRole === "expert" && !status) {
         if (!flagReason || flagReason.trim().length < 8) {
           toast.error(
-            "Please provide a valid reason for flagging (minimum 8 characters)."
+            "Please provide a valid reason for flagging (minimum 8 characters).",
           );
           return;
         }
@@ -117,14 +115,13 @@ export const QuestionsTable = ({
         });
 
         toast.success(
-          "Thank you for your feedback. Your flag request has been submitted successfully."
+          "Thank you for your feedback. Your flag request has been submitted successfully.",
         );
         setEditOpen(false);
         return;
       }
 
       if (updatedData) {
-
         if (!updatedData.question?.trim()) {
           toast.error("Question text is required.");
           return;
@@ -139,7 +136,7 @@ export const QuestionsTable = ({
           toast.error("Priority is required.");
           return;
         }
-        
+
         if (!updatedData.details?.state?.trim()) {
           toast.error("State is required.");
           return;
@@ -178,7 +175,7 @@ export const QuestionsTable = ({
       if (!status)
         // if status is there that means, then updating question to delayed
         toast.error(
-          error?.message || "An error occurred while saving. Please try again."
+          error?.message || "An error occurred while saving. Please try again.",
         );
       setEditOpen(false);
     }
@@ -221,7 +218,9 @@ export const QuestionsTable = ({
   const handleSelectAll = () => {
     if (!items) return;
     const visibleIds = items.map((q) => q._id).filter(Boolean) as string[];
-    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedQuestionIds.includes(id));
+    const allVisibleSelected =
+      visibleIds.length > 0 &&
+      visibleIds.every((id) => selectedQuestionIds.includes(id));
 
     setSelectedQuestionIds((prev) => {
       let next: string[];
@@ -244,9 +243,7 @@ export const QuestionsTable = ({
     items.every((q) => q._id && selectedQuestionIds.includes(q._id));
 
   const someVisibleSelected =
-    items &&
-    items.some((q) => q._id && selectedQuestionIds.includes(q._id));
-
+    items && items.some((q) => q._id && selectedQuestionIds.includes(q._id));
 
   return (
     <div className="ps-4 md:ps-0">
@@ -264,7 +261,7 @@ export const QuestionsTable = ({
 
       <div className="rounded-lg border bg-card min-h-[55vh] ">
         <div className="hidden md:block overflow-x-auto">
-          <Table className="min-w-[800px]  table-fixed">
+          <Table className="min-w-[800px]  table-auto">
             <TableHeader className="bg-card sticky top-0 z-10">
               <TableRow>
                 <TableHead className="text-center">
@@ -309,14 +306,14 @@ export const QuestionsTable = ({
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-10 ">
+                  <TableCell colSpan={11} className="text-center py-10 ">
                     <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
                   </TableCell>
                 </TableRow>
               ) : items?.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={10}
+                    colSpan={11}
                     rowSpan={10}
                     className="text-center py-10 text-muted-foreground"
                   >
@@ -400,11 +397,3 @@ export const QuestionsTable = ({
     </div>
   );
 };
-
-
-
-
-
-
-
-

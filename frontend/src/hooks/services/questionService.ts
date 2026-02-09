@@ -56,6 +56,9 @@ export class QuestionService {
     if (filter.consecutiveApprovals) {
       params.append("consecutiveApprovals", filter.consecutiveApprovals);
     }
+    if (filter.autoAllocateFilter) {
+      params.append("autoAllocateFilter", filter.autoAllocateFilter);
+    }
 
     if (filter.answersCount) {
       params.append("answersCountMin", filter.answersCount[0].toString());
@@ -325,6 +328,9 @@ export class QuestionService {
     }
     if (filter.consecutiveApprovals) {
       params.append("consecutiveApprovals", filter.consecutiveApprovals);
+    }
+    if (filter.autoAllocateFilter) {
+      params.append("autoAllocateFilter", filter.autoAllocateFilter);
     }
 
     if (filter.dateRange && filter.dateRange !== "all")
