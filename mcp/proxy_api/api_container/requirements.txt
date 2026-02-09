@@ -4,3 +4,4 @@ httpx
 python-dotenv
 langchain
 langchain-openai
+pydantic
