@@ -208,8 +208,11 @@ async sendCronSnapshotEmail(currentUserId: string) {
         "Only admins can send cron snapshot report",
       );
     }
+    if (!user.email) {
+      throw new Error("Target admin user does not have an email address defined.");
+    }
 
-    await sendStatsEmail();
+    await sendStatsEmail(user.email);
   });
 }
 
