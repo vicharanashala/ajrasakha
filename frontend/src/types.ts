@@ -326,7 +326,7 @@ export interface HeatMapResult {
   };
 }
 export interface WorkLoad {
-  currentUserAnswers: CurrentUserAnswer[];
+  currentUserAnswersCount: number;
   totalQuestionsCount: number;
   totalInreviewQuestionsCount: number;
 }
