@@ -121,25 +121,29 @@ export class RequestRepository implements IRequestRepository {
       const totalPages = Math.ceil(totalCount / limit);
       const sanitizedData: IRequest[] = await Promise.all(
         data.map(async req => {
-          const requestedUser = await this.usersCollection.findOne(
-            {
-              _id: req.requestedBy,
-            },
-            {
-              projection: {
-                firstName: 1,
-                lastName: 1,
-              },
-            },
-          );
+          const responses: IRequestResponse[] =
+            req.responses?.map(r => ({
+              ...r,
+              reviewedBy: r.reviewedBy?.toString(),
+            })) || [];
+
+          const requestedUser = await this.usersCollection.findOne({
+            _id: req.requestedBy,
+          },
+          {
+        projection: {
+          firstName: 1,
+          lastName: 1,
+        },
+      },
+        );
 
           return {
             ...req,
             _id: req._id?.toString(),
             requestedBy: req.requestedBy?.toString(),
             entityId: req.entityId?.toString(),
-            responses: [],
-            ...(req.details ? { details: req.details } : {}),
+            responses,
             createdAt:
               req.createdAt instanceof Date
                 ? req.createdAt.toISOString()
