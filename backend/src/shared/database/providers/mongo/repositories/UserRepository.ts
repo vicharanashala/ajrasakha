@@ -292,6 +292,12 @@ async findAllUsers(
           },
         },
 
+        {
+          $addFields: {
+          status: { $ifNull: ["$status", "active"] },
+          },
+        },
+
         /** Answers count */
         {
           $lookup: {
@@ -560,7 +566,35 @@ async findAllUsers(
 
     return allUsers;
   }
-
+  async findActiveLowReputationExpertsToday(
+    session?: ClientSession,
+  ): Promise<IUser[]> {
+    await this.init();
+  
+    // Start & end of today (server time)
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+  
+    const startOfTomorrow = new Date(startOfDay);
+    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+  
+    const users = await this.usersCollection
+      .find(
+        {
+          role: 'expert',
+          isBlocked: false,
+          reputation_score: { $lte: 5 },
+          lastCheckInAt: { $gte: startOfDay, $lt: startOfTomorrow },
+        },
+        { session },
+      )
+      .sort({ reputation_score: 1 }) // lowest score first
+      .toArray();
+      
+  
+    return users;
+  }
+  
   async findModerators(): Promise<IUser[]> {
     await this.init();
     return await this.usersCollection.find({role: 'moderator'}).toArray();
@@ -954,6 +988,7 @@ async findAllUsers(
       /** Ranking sort (global rank order) */
       {
         $sort: {
+          status: 1,
           isBlocked: 1,
           rankValue: -1,
           reputation_score: -1,
@@ -1040,6 +1075,24 @@ async findAllUsers(
       throw new InternalServerError(`Failed to update IsBlock`);
     }
   }
+
+  async updateActivityStatus(
+    userId: string,
+    status: 'active' | 'in-active',
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    try {
+      await this.usersCollection.updateOne(
+        {_id: new ObjectId(userId)},
+        {$set: {status, updatedAt: new Date()}},
+        {session},
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to update activity status`);
+    }
+  }
+
 
   async getUserRoleCount(session?: ClientSession): Promise<UserRoleOverview[]> {
     try {

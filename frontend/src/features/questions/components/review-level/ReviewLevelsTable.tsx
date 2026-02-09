@@ -16,6 +16,8 @@ type Props = {
 
   sort: string;
   toggleSort: (key: string) => void;
+
+  limit: number;
 };
 
 export function ReviewLevelsTable({
@@ -27,6 +29,7 @@ export function ReviewLevelsTable({
   onViewMore,
   toggleSort,
   sort,
+  limit,
 }: Props) {
   return (
     <div className="ps-4 md:ps-0">
@@ -39,6 +42,7 @@ export function ReviewLevelsTable({
             isLoading={isLoading}
             onSort={toggleSort}
             sort={sort}
+            startIndex={(page - 1) * limit}
           />
         </div>
 

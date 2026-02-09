@@ -2,14 +2,18 @@
 import httpx
 import logging
 import json
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger("vllm-proxy")
 
-SARVAM_URL = "http://localhost:8013/v1/chat/completions"
-MODEL_NAME = "google/gemma-3-12b-it"
+LANG_DETECTION_MODEL_URL = os.getenv("LANG_DETECTION_MODEL_URL", "http://localhost:8013/v1/chat/completions")
+LANG_DETECTION_MODEL_NAME = os.getenv("LANG_DETECTION_MODEL_NAME", "google/gemma-3-12b-it")
 
-TRANSLATOR_URL = "http://localhost:8012/v1/chat/completions"
-TRANSLATOR_MODEL_NAME = "sarvamai/sarvam-translate"
+TRANSLATOR_URL = os.getenv("TRANSLATOR_URL", "http://localhost:8012/v1/chat/completions")
+TRANSLATOR_MODEL_NAME = os.getenv("TRANSLATOR_MODEL_NAME", "sarvamai/sarvam-translate")
 
 async def detect_language(text: str) -> str:
     """
@@ -20,11 +24,11 @@ async def detect_language(text: str) -> str:
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                SARVAM_URL,
+                LANG_DETECTION_MODEL_URL,
                 json={
-                    "model": MODEL_NAME,
+                    "model": LANG_DETECTION_MODEL_NAME,
                     "messages": [
-                        {"role": "system", "content": """Detect the language of the following sentence.\n\n"
+                        {"role": "system", "content": """Detect the language of the following sentence.Dont assume language base on geograhical location\n\n"
                         "answer in one word only which language is this"""},
                         {"role": "user", "content": text}
                     ],
@@ -91,7 +95,7 @@ async def translate_stream(text: str, target_lang: str):
                     ],
                     "temperature": 0.1,
                     "stream": True,
-                    "max_tokens": 1000
+                    "max_tokens": 4096
                 },
                 timeout=60.0
             ) as response:

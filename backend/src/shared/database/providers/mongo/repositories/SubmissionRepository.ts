@@ -645,14 +645,32 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             counts: {$arrayToObject: '$counts'},
           },
         },
-        {
+        /*{
           $lookup: {
             from: 'users',
             localField: 'reviewerId',
             foreignField: '_id',
             as: 'reviewer',
           },
+        },*/
+        {
+          $lookup: {
+            from: "users",
+            let: { reviewerId: "$reviewerId" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$_id", "$$reviewerId"] }
+                }
+              },
+              {
+                $match: { status: { $ne: "in-active" } }
+              }
+            ],
+            as: "reviewer"
+          }
         },
+        
         {$unwind: '$reviewer'},
         {
           $project: {
@@ -3078,4 +3096,66 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       throw new InternalServerError('Failed to get absent submissions');
     }
   }
+  async findQuestionsNeedingEscalation(limit?:number,session?: ClientSession): Promise<IQuestionSubmission[]>  {
+    await this.init();
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  
+    return this.QuestionSubmissionCollection.find(
+      {
+        $or: [
+          // Type A — Never answered
+          {
+            history: { $size: 0 },
+            lastRespondedBy: null,
+            createdAt: { $lte: oneHourAgo },
+          },
+  
+          // Type B — Last update stuck in-review
+          {
+            "history.1": { $exists: true },
+            $expr: {
+              $let: {
+                vars: {
+                  lastHistory: { $arrayElemAt: ["$history", -1] },
+                },
+                in: {
+                  $and: [
+                    { $eq: ["$$lastHistory.status", "in-review"] },
+                    { $lte: ["$$lastHistory.createdAt", oneHourAgo] },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+      },
+      { session }
+    )
+    .limit(limit || 0)
+    .toArray();
+  }
+  async findById(id: string): Promise<IQuestionSubmission | null> {
+    if (!id) return null;
+    return await this.QuestionSubmissionCollection.findOne({
+      _id: new ObjectId(id),
+    });
+  }
+  async updateById(
+    id: string,
+    update: any,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission | null> {
+    await this.init();
+    const result = await this.QuestionSubmissionCollection.findOneAndUpdate(
+      { _id: new ObjectId(id) }, // filter
+      update,                    // update operators
+      {
+        returnDocument: 'after', // return updated doc
+        session,
+      },
+    );
+  
+    return result; // contains the updated document
+  }
+  
 }
