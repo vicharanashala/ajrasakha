@@ -182,10 +182,10 @@ export class RequestService extends BaseService implements IRequestService{
           throw new NotFoundError('Request not found');
         }
 
-         const responses = (request.responses || []).map(res => ({
-            ...res,
-            reviewedBy: res.reviewedBy?.toString(),
-          }));
+        const responses = request.responses.map(res => ({
+          ...res,
+          reviewedBy: res.reviewedBy.toString(),
+        }));
         const entityId = request.entityId.toString();
         if (request.requestType == 'question_flag') {
           const question = await this.questionRepo.getById(entityId, session);
@@ -224,7 +224,7 @@ export class RequestService extends BaseService implements IRequestService{
 
           return {currentDoc, existingDoc, responses};
         }
-        return {currentDoc: null, existingDoc: null, responses};
+        return {currentDoc: null, existingDoc: null, responses:[]};
       });
     } catch (error) {
       throw error;
