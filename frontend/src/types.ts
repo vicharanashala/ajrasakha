@@ -42,6 +42,7 @@ export interface IUser {
   totalAnswers_Created?:number;
   penaltyPercentage?:number;
   rankPosition?:number;
+  status?: 'active' | 'in-active';
 }
 export interface ReviewLevelCount {
   Review_level: 'Author' | 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4' | 'Level 5' | 'Level 6' | 'Level 7' | 'Level 8' | 'Level 9';
@@ -124,21 +125,21 @@ export interface HistoryItem {
   // If an expert is modifying, it store the modified answer id
   modifiedAnswer?: string;
   // timestamp
- 
+
   moderator?: ModeratorRerouteRepo;
   question?: QuestionEntityRerouteRepo;
- 
+
   rerouteId?: string;
   reroute?: RerouteRerouteRepo;
   text?: string;
-  
+
   details?: QuestionDetailsRerouteRepo;
   createdAt?: Date;
   priority?: Priority;
   id?: string;
- 
+
   updatedAt?:Date,
- 
+
 }
 
 export type QuestionPriority = "low" | "medium" | "high";
@@ -425,9 +426,6 @@ export interface QuestionFullDataResponse {
 
 export interface IComment {
   _id: string;
-  questionId: string;
-  answerId: string;
-  userId: string;
   userName?: string;
   text: string;
   createdAt: string;
@@ -594,7 +592,7 @@ export interface IRerouteHistoryResponse {
 export type RerouteHistoryApiResponse = IRerouteHistoryResponse[];
 type Priority = "high" | "medium" | "low";
 
- export interface ReroutedQuestionItem {
+export interface ReroutedQuestionItem {
   id: string;
   text: string;
   status: QuestionStatus;
@@ -692,7 +690,7 @@ export interface QuestionHistoryRerouteRepo {
   createdAt?: string;
   priority?: Priority;
   id?: string;
- 
+
   updatedAt?:Date,
   updatedBy?: {
     // who's submission is this
@@ -700,8 +698,8 @@ export interface QuestionHistoryRerouteRepo {
     userName: string;
     // email: string;
   };
-  
-  
+
+
 }
 
 /* =========================
@@ -788,10 +786,15 @@ export interface RerouteRerouteRepo {
 }
 export type QuestionResponse =
   | {
-      kind: "normal";
-      data: IQuestion;
-    }
+    kind: "normal";
+    data: IQuestion;
+  }
   | {
-      kind: "reroute";
-      data: QuestionRerouteRepo;
-    };
+    kind: "reroute";
+    data: QuestionRerouteRepo;
+  };
+export interface WorkloadBalanceResponse {
+  message: string;
+  expertsInvolved: number;
+  submissionsProcessed: number;
+}

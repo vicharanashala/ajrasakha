@@ -13,10 +13,15 @@ export const sendPushNotification = async (
   subscription: any,
   payload: { title: string; body: string; url: string }
 ) => {
-  try { 
+  try {
     await webPush.sendNotification(subscription, JSON.stringify(payload));
-  } catch (err) {
-    console.error('Push notification failed', err);
+    console.log('[Push Notification] Sent successfully');
+  } catch (err: any) {
+    if (err.statusCode === 410 || err.statusCode === 404) {
+      console.warn('[Push Notification] Subscription has expired or is no longer valid.');
+    } else {
+      console.error('Push notification failed', err);
+    }
   }
 };
 
@@ -28,5 +33,11 @@ export const notifyUser = async (userId: string, message: string,subscription:an
     body: message,
     url: '/notifications'
   };
+  // Check if the subscription is expired before attempting to send
+  if (subscription.expirytime && subscription.expirytime < Date.now()) {
+    console.warn(`[Push Notification] Subscription for user ${userId} has expired. Skipping.`);
+    return;
+  }
+
   await sendPushNotification(subscription.subscription, payload);
 };

@@ -93,7 +93,7 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
   const [responseOpen, setResponseOpen] = useState(false);
 
   const { data: requestDiff, isLoading: reqDiffLoading } = useGetRequestDiff(
-     diffOpen || responseOpen ? req._id : "",
+    diffOpen || responseOpen ? req._id : "",
   );
 
   const { mutateAsync: updateStatus, isPending: updatingStatus } =
@@ -179,9 +179,9 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
       // className="bg-card"
       className={`group bg-card relative transition-all duration-200 overflow-hidden${
         isHighlighted
-          ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
-          : "border-border hover:border-primary/40 hover:shadow-sm"
-      }`}
+        ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
+        : "border-border hover:border-primary/40 hover:shadow-sm"
+        }`}
       id={id}
     >
       {isHighlighted && (
@@ -198,8 +198,8 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
             <AvatarFallback className="bg-secondary text-secondary-foreground">
               {initials(
                 req?.requestedUser?.firstName +
-                  " " +
-                  req?.requestedUser?.lastName || "",
+                " " +
+                req?.requestedUser?.lastName || "",
               )}
             </AvatarFallback>
           </Avatar>
@@ -220,15 +220,15 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
         <span
           className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium border flex-shrink-0 whitespace-nowrap ${
             req?.status === "approved"
-              ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
-              : req?.status === "rejected"
-                ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
-                : req?.status === "in-review"
-                  ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
-                  : req?.status === "pending"
-                    ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
-                    : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
-          }`}
+            ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
+            : req?.status === "rejected"
+              ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
+              : req?.status === "in-review"
+                ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
+                : req?.status === "pending"
+                  ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
+                  : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
+            }`}
         >
           {req?.status?.toUpperCase() || "N/A"}
         </span>
@@ -319,15 +319,15 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium border ${
                           req?.status === "approved"
-                            ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
-                            : req?.status === "rejected"
-                              ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
-                              : req?.status === "in-review"
-                                ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
-                                : req?.status === "pending"
-                                  ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
-                                  : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
-                        }`}
+                          ? "bg-green-500/10 text-green-600 border-green-500/30 dark:bg-green-600/20 dark:text-green-300 dark:border-green-500/50"
+                          : req?.status === "rejected"
+                            ? "bg-red-500/10 text-red-600 border-red-500/30 dark:bg-red-600/20 dark:text-red-300 dark:border-red-500/50"
+                            : req?.status === "in-review"
+                              ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:bg-yellow-600/20 dark:text-yellow-300 dark:border-yellow-500/50"
+                              : req?.status === "pending"
+                                ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50"
+                                : "bg-gray-200/10 text-gray-700 border-gray-200/30 dark:bg-gray-700/20 dark:text-gray-300 dark:border-gray-600/50"
+                          }`}
                       >
                         {req?.status?.toUpperCase() || "N/A"}
                       </span>
@@ -505,14 +505,16 @@ const RequestCard = ({ req, isHighlighted = false, id }: RequestCardProps) => {
             </Dialog>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
-            <Button
-              variant="outline"
-              className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm h-auto sm:h-10"
-              onClick={() => setResponseOpen(true)}
-            >
-              <History className="w-3 sm:w-4 h-3 sm:h-4" />
-              <span>View History</span>
-            </Button>
+            {req.responses && req.responses.length > 0 && (
+              <Button
+                variant="outline"
+                className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm h-auto sm:h-10"
+                onClick={() => setResponseOpen(true)}
+              >
+                <History className="w-3 sm:w-4 h-3 sm:h-4" />
+                <span>View History</span>
+              </Button>
+            )}
 
             <Button
               variant="default"

@@ -466,6 +466,15 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   consecutiveApprovals?: string;
+
+  @JSONSchema({
+    description: 'to get the questions based on allocation ',
+    example: 'on',
+    type: 'string',
+    
+  })
+  @IsOptional()
+  autoAllocateFilter?: string;
 }
 
 export interface IQuestionWithAnswerTexts {

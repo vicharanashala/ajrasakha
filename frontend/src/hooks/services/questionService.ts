@@ -5,7 +5,8 @@ import type {
   QuestionFullDataResponse,
   RejectReRoutePayload,
   IRerouteHistoryResponse,
-  ReroutedQuestionItem
+  ReroutedQuestionItem,
+  WorkloadBalanceResponse
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { QuestionFilter } from "@/features/qa-interface-page/QA-interface";
@@ -54,6 +55,9 @@ export class QuestionService {
     }
     if (filter.consecutiveApprovals) {
       params.append("consecutiveApprovals", filter.consecutiveApprovals);
+    }
+    if (filter.autoAllocateFilter) {
+      params.append("autoAllocateFilter", filter.autoAllocateFilter);
     }
 
     if (filter.answersCount) {
@@ -325,12 +329,18 @@ export class QuestionService {
     if (filter.consecutiveApprovals) {
       params.append("consecutiveApprovals", filter.consecutiveApprovals);
     }
+    if (filter.autoAllocateFilter) {
+      params.append("autoAllocateFilter", filter.autoAllocateFilter);
+    }
 
     if (filter.dateRange && filter.dateRange !== "all")
       params.append("dateRange", filter.dateRange);
     return apiFetch(
     `${this._baseUrl}?${params.toString()}`
    );
+}
+async reAllocateLessWorkload(): Promise<WorkloadBalanceResponse|null> {
+  return apiFetch<WorkloadBalanceResponse|null>(`${this._baseUrl}/reAllocateLessWorkload`,{method: "POST",});
 }
 
 }

@@ -188,6 +188,26 @@ export class QuestionController {
       return inserted;
     }
   }
+  @Post('/reAllocateLessWorkload')
+  @HttpCode(200)
+ // @ResponseSchema(Object, {statusCode: 400})
+  @OpenAPI({summary: 'ReAllocating questions which are delayed to those who has less workload'})
+  async reAllocateLessWorkload() {
+   try{
+   return await this.questionService.balanceWorkload()
+
+   }
+   catch (err: any) {
+    throw new BadRequestError(
+      err?.message || 'Failed to process uploaded file',
+    );
+    
+  }
+
+    
+     
+   
+  }
 
   @Get('/:questionId')
   @HttpCode(200)
@@ -230,7 +250,8 @@ export class QuestionController {
   @Authorized()
   @OpenAPI({summary: 'Toggle auto-allocate option for the selected question'})
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async toggleAutoAllocate(@Params() params: QuestionIdParam) {
+  async toggleAutoAllocate(@Params() params: QuestionIdParam,@CurrentUser() user: IUser,) {
+    console.log("the current user===",user)
     const {questionId} = params;
     return await this.questionService.toggleAutoAllocate(questionId);
   }

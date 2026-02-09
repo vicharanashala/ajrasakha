@@ -20,44 +20,24 @@ from multilingual import detect_language, translate_text, translate_stream, smar
 
 load_dotenv()
 
-TARGET_URL = os.getenv("TARGET_URL")
-TIMEOUT = 60.0
-
-REQUEST_LOG_FILE = "requests.log.json"
-RESPONSE_LOG_FILE = "responses.log.json"
-STREAM_LOG_FILE = "stream_chunks.log.json"
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(levelname)s: %(message)s"
 )
 logger = logging.getLogger("vllm-proxy")
 
+TARGET_URL = os.getenv("TARGET_URL")
+TIMEOUT = 60.0
+
 # -------------------------------------------------------------------
 # Helpers
 # -------------------------------------------------------------------
-
-SEPARATOR = "\n" + ("=" * 80) + "\n"
-
-
-def log_pretty_json(filename: str, payload: dict) -> None:
-    """
-    Append a pretty-printed JSON object with a clear separator.
-    Safe for humans, not intended for strict JSON parsing.
-    """
-    with open(filename, "a", encoding="utf-8") as f:
-        f.write(SEPARATOR)
-        json.dump(payload, f, indent=2, ensure_ascii=False)
-        f.write("\n")
-
 
 def safe_parse_json(data: bytes):
     try:
         return json.loads(data)
     except Exception:
-        # return data.decode("utf-8", errors="ignore")
-        return None  # Return None if it's not valid JSON, to handle gracefully
-
+        return None
 
 # -------------------------------------------------------------------
 # App & HTTP client
@@ -69,39 +49,13 @@ client = httpx.AsyncClient(
     timeout=httpx.Timeout(TIMEOUT),
 )
 
-# -------------------------------------------------------------------
-# Streaming handler
-# -------------------------------------------------------------------
 
-async def stream_and_log_response(
-    response: httpx.Response,
-    request_id: str
-) -> AsyncIterator[bytes]:
+async def stream_response(response: httpx.Response) -> AsyncIterator[bytes]:
     """
-    Stream response chunks to the client and log them safely.
+    Stream response chunks to the client.
     """
-    collected_chunks = []
-
     async for chunk in response.aiter_text():
-        collected_chunks.append(chunk)
-
-        # Log each streamed chunk (useful for tool calls / SSE)
-        log_pretty_json(STREAM_LOG_FILE, {
-            "timestamp": datetime.utcnow().isoformat(),
-            "request_id": request_id,
-            "type": "stream_chunk",
-            "chunk": chunk
-        })
-
         yield chunk.encode("utf-8")
-
-    # Final assembled response (best-effort)
-    log_pretty_json(RESPONSE_LOG_FILE, {
-        "timestamp": datetime.utcnow().isoformat(),
-        "request_id": request_id,
-        "status_code": response.status_code,
-        "full_response": "".join(collected_chunks)
-    })
 
     await response.aclose()
 
@@ -233,7 +187,7 @@ async def proxy(path: str, request: Request):
                 agriculture_context = """You are an expert agricultural advisor for Indian farmers.
                 Always reply in English.
                 Mention source of information like links and name of agriculture experts. 
-always ask state and crop name from user. and then call get_agricultural_context_mcp_golden tool with state and crop name."""
+                always ask state and crop name from user. and then call get_agricultural_context_mcp_golden tool with state and crop name."""
                 
                 # Override system prompt
                 if messages and messages[0].get("role") == "system":
@@ -244,7 +198,7 @@ always ask state and crop name from user. and then call get_agricultural_context
                 # Add additional guidance to the last user message
                 if user_msg_idx >= 0:
                     original_user_content = messages[user_msg_idx].get("content", "")
-                    additional_guidance = "\n\n(Please call mcp tool  get_agricultural_context_mcp_golden with my query to get context)"
+                    additional_guidance = "\n\n(Please call mcp tool if available with my query to get context, also provide all sources which you get from tool like names, links, etc in table format)"
                     messages[user_msg_idx]["content"] = original_user_content + additional_guidance
                 
                 parsed_body["messages"] = messages
@@ -256,14 +210,10 @@ always ask state and crop name from user. and then call get_agricultural_context
     # Log request (pretty, readable)
     # ---------------------------------------------------------------
 
-    log_pretty_json(REQUEST_LOG_FILE, {
-        "timestamp": datetime.utcnow().isoformat(),
-        "request_id": request_id,
-        "method": request.method,
-        "url": f"{TARGET_URL}{url}",
-        "headers": dict(request.headers),
-        "body": parsed_body # Logs the modified body
-    })
+    # ---------------------------------------------------------------
+    # Log request (standard logger)
+    # ---------------------------------------------------------------
+    logger.info(f"[{request_id}] {request.method} {TARGET_URL}{url}")
 
     # ---------------------------------------------------------------
     # Prepare upstream request
@@ -318,7 +268,7 @@ always ask state and crop name from user. and then call get_agricultural_context
     else:
         # Standard English streaming
         return StreamingResponse(
-            stream_and_log_response(upstream_response, request_id),
+            stream_response(upstream_response),
             status_code=upstream_response.status_code,
             headers=dict(upstream_response.headers),
         )

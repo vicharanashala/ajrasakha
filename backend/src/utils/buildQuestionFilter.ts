@@ -31,8 +31,18 @@ export const buildQuestionFilter = async (
     closedAtEnd,
     user,
     review_level,
-    consecutiveApprovals
+    consecutiveApprovals,
+    autoAllocateFilter
   } = query;
+  // --- Auto Allocate Filter ---
+if (autoAllocateFilter && autoAllocateFilter !== 'all') {
+  if (autoAllocateFilter === 'on') {
+    filter.isAutoAllocate = true;
+  } else if (autoAllocateFilter === 'off') {
+    filter.isAutoAllocate = false;
+  }
+}
+
 
   caseInsensitive("status", status);
   caseInsensitive("source", source);
