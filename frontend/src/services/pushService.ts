@@ -14,11 +14,17 @@ export const initializeNotifications = async () => {
     // ✅ If subscription exists, check if the keys match
     if (existingSubscription) {
       const existingKey = existingSubscription.options.applicationServerKey;
+
+      // Check if it's expiring soon (e.g., within 24 hours)
+      const EXPIRY_THRESHOLD = 24 * 60 * 60 * 1000; 
+      const isExpiringSoon = existingSubscription.expirationTime &&
+        (existingSubscription.expirationTime - Date.now() < EXPIRY_THRESHOLD);
+
       if (
-        existingKey &&
-        !arraysEqual(new Uint8Array(existingKey), newKey)
+        (existingKey && !arraysEqual(new Uint8Array(existingKey), newKey)) ||
+        isExpiringSoon
       ) {
-        // console.log('Different VAPID key detected. Unsubscribing old subscription...');
+        // console.log('Subscription is outdated or expiring soon. Unsubscribing...');
         await existingSubscription.unsubscribe();
       } else {
         // console.log('Reusing existing push subscription.');
