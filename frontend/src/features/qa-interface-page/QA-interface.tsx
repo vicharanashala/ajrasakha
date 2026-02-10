@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState,  } from "react";
-import {CheckCircle,RefreshCw,RotateCcw,Info,Loader2,Send,FileText,Bot} from "lucide-react";
+import {CheckCircle,RefreshCw,RotateCcw,Info,Loader2,Send,FileText,Bot, ChevronRight} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/atoms/card";
 import { RadioGroup, RadioGroupItem } from "../../components/atoms/radio-group";
 import { Label } from "../../components/atoms/label";
@@ -64,6 +64,9 @@ export const QAInterface = ({
   selectQuestionType:string|null;
   onManualSelectQuestionType: (type: string | null) => void;
 }) => {
+
+  // toggle sidebar
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   
   const [actionType, setActionType] = useState<"allocated" | "reroute">(
     "reroute"
@@ -523,10 +526,30 @@ const handleActionChange = (value: string) => {
     <div className=" mx-auto px-4 md:px-6 bg-transparent py-4 ">
       <div className="flex flex-col space-y-6">
         <div
-          className={`grid grid-cols-1 ${
-            questions.length && !isLoadingTargetQuestion && "lg:grid-cols-2"
-          } gap-6`}
+           className={`grid grid-cols-1 ${
+            questions.length && !isLoadingTargetQuestion
+              ? isSidebarCollapsed
+                ? "lg:grid-cols-[minmax(0,_1fr)]"
+                : "lg:grid-cols-[minmax(400px,_1fr)_minmax(400px,_1fr)]"
+              : ""
+          } gap-6 transition-all duration-300 relative`}
         >
+           {isSidebarCollapsed && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsSidebarCollapsed(false)}
+              className="absolute -left-12  h-full text-center ml-2 px-2 z-10  border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0"
+              title="Expand sidebar"
+            >
+              <ChevronRight className="w-4 h-4" />
+              <span className="sr-only">Expand sidebar</span>
+            </Button>
+          )}
+        
+          <div
+            className={`transition-all duration-300 ${isSidebarCollapsed ? "hidden" : "w-full"}`}
+          >
          <QaHeader
   questions={questions}
   selectedQuestion={selectedQuestion}
@@ -542,10 +565,13 @@ const handleActionChange = (value: string) => {
   scrollRef={scrollRef}
   questionItemRefs={questionItemRefs}
   setQuestionRef={setQuestionRef}
+  isCollapsed={isSidebarCollapsed}
+  onToggleCollapse={() =>setIsSidebarCollapsed(!isSidebarCollapsed)}
 />
-
+</div>
           {selectedQuestionData &&
             selectedQuestionData?.history?.length == 0 && (
+              <div className={`transition-all duration-300 w-full`}>
               <Card className="w-full  border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
                 <CardHeader className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700">
                   <div className="p-2 rounded-lg bg-primary/10">
@@ -730,12 +756,14 @@ const handleActionChange = (value: string) => {
                   )}
                 </CardContent>
               </Card>
+              </div>
             )}
 
           {questions &&
             questions.length != 0 && actionType=="allocated" &&
             selectedQuestionData &&
             selectedQuestionData?.history?.length > 0 && (
+              <div className={`transition-all duration-300 w-full`}> 
               <ResponseTimeline
                 SourceUrlManager={SourceUrlManager}
                 handleReset={handleReset}
@@ -753,12 +781,14 @@ const handleActionChange = (value: string) => {
                 setSelectedQuestion={setSelectedQuestion}
                 refetchQuestions={refetch}
               />
+              </div>
             )}
             {questions &&
             questions.length != 0 && actionType=="reroute" &&
             selectedQuestionData &&selectedQuestionData?.history?.length > 0 &&
             
              (
+              <div className={`transition-all duration-300 w-full`}>
               <ReRouteResponseTimeline
                 SourceUrlManager={SourceUrlManager}
                 handleReset={handleReset}
@@ -778,6 +808,7 @@ const handleActionChange = (value: string) => {
                 setSelectedQuestion={setSelectedQuestion}
                 refetchQuestions={refetch}
               />
+              </div>
             )}
         </div>
       </div>
