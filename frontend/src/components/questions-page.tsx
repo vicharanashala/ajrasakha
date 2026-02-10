@@ -71,6 +71,7 @@ export const QuestionsPage = ({
 
   //handle sort by turn around time
   const [sort, setSort] = useState("");
+  const [questionSort, setQuestionSort] = useState("");
   const toggleSort = (key: string) => {
     if (key === "clearSort") {
       setSort("");
@@ -79,6 +80,17 @@ export const QuestionsPage = ({
     setSort((prev) => {
       if (prev === `${key}___asc`) return `${key}___desc`;
       return `${key}___asc`;
+    });
+  };
+  
+  const toggleQuestionSort = (key: string) => {
+    if (key === "slno") {
+      setQuestionSort("");
+      return;
+    }
+    setQuestionSort((prev) => {
+      if (prev === `${key}_asc`) return `${key}_desc`;
+      return `${key}_asc`;
     });
   };
 
@@ -135,6 +147,7 @@ export const QuestionsPage = ({
     filter,
     debouncedSearch,
     viewMode === "all",
+    questionSort,
   );
   const {
     data: questionDetails,
@@ -341,6 +354,8 @@ export const QuestionsPage = ({
               setIsSelectionModeOn={setIsSelectionModeOn}
               setSelectedQuestionIds={setSelectedQuestionIds}
               showClosedAt={showClosedAt}
+              sort={questionSort}
+              onSort={toggleQuestionSort}
             />
           ) : (
             <ReviewLevelsTable

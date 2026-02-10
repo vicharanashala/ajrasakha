@@ -317,7 +317,8 @@ export class QuestionRepository implements IQuestionRepository {
         closedAtStart,
         closedAtEnd,
         consecutiveApprovals,
-        autoAllocateFilter
+        autoAllocateFilter,
+        sort
       } = query;
 
 
@@ -665,6 +666,28 @@ export class QuestionRepository implements IQuestionRepository {
       totalCount = await this.QuestionCollection.countDocuments(filter);
       const totalPages = Math.ceil(totalCount / limit);
 
+      // Determine sort order
+      let sortStage: any = {createdAt: -1, _id: -1};
+      let needsPriorityMapping = false;
+      
+      if (sort) {
+        const [field, order] = sort.split('_');
+        const sortOrder = order === 'asc' ? 1 : -1;
+        
+        if (field === 'question') {
+          sortStage = {question: sortOrder, _id: -1};
+        } else if (field === 'state') {
+          sortStage = {'details.state': sortOrder, _id: -1};
+        } else if (field === 'crop') {
+          sortStage = {'details.crop': sortOrder, _id: -1};
+        } else if (field === 'domain') {
+          sortStage = {'details.domain': sortOrder, _id: -1};
+        } else if (field === 'priority') {
+          needsPriorityMapping = true;
+          sortStage = {priorityOrder: sortOrder, _id: -1};
+        }
+      }
+
       /*  result = await this.QuestionCollection.find(filter)
         .sort({createdAt: -1})
         .skip((page - 1) * limit)
@@ -677,11 +700,37 @@ export class QuestionRepository implements IQuestionRepository {
           embedding: 0,
         })
         .toArray();*/
-      result = await this.QuestionCollection.aggregate([
+      
+      const aggregationPipeline: any[] = [
         {$match: filter},
-        {$sort: {createdAt: -1, _id: -1}},
+      ];
+      
+      // Add priority mapping if needed
+      if (needsPriorityMapping) {
+        aggregationPipeline.push({
+          $addFields: {
+            priorityOrder: {
+              $switch: {
+                branches: [
+                  {case: {$eq: ['$priority', 'high']}, then: 1},
+                  {case: {$eq: ['$priority', 'medium']}, then: 2},
+                  {case: {$eq: ['$priority', 'low']}, then: 3},
+                ],
+                default: 4,
+              },
+            },
+          },
+        });
+      }
+      
+      aggregationPipeline.push(
+        {$sort: sortStage},
         {$skip: (page - 1) * limit},
         {$limit: limit},
+      );
+      
+      result = await this.QuestionCollection.aggregate([
+        ...aggregationPipeline,
 
         // JOIN submissions → extract history length
         {
@@ -744,6 +793,7 @@ export class QuestionRepository implements IQuestionRepository {
             metrics: 0,
             embedding: 0,
             contextDoc: 0,
+            priorityOrder: 0,
           },
         },
       ]).toArray();
