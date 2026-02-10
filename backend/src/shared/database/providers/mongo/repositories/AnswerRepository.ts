@@ -1311,7 +1311,7 @@ export class AnswerRepository implements IAnswerRepository {
       { $unwind: "$questionDoc" },
       {
         $match: {
-          "questionDoc.status": "re-routed",
+          "questionDoc.status": "in-review",
         },
       },
       {

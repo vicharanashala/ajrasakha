@@ -203,14 +203,17 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     return await this._withTransaction(async (session) => {
       const user = await this.userRepo.findById(currentUserId, session);
 
-      if (!user || user.role !== "admin") {
-        throw new UnauthorizedError(
-          "Only admins can send cron snapshot report",
-        );
-      }
+    if (!user || user.role !== "admin") {
+      throw new UnauthorizedError(
+        "Only admins can send cron snapshot report",
+      );
+    }
+    if (!user.email) {
+      throw new Error("Target admin user does not have an email address defined.");
+    }
 
-      await sendStatsEmail();
-    });
-  }
+    await sendStatsEmail(user.email);
+  });
+}
 
 }
