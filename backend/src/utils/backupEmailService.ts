@@ -20,13 +20,20 @@ export async function sendBackupSuccessEmail(publicUrl: string) {
   await sendEmailNotification(recipient, title, '', template);
 }
 
-export async function sendStatsEmail() {
+export async function sendStatsEmail(adminEmail?:string) {
   // const recipient = emailConfig.BACKUP_NOTIFICATION_EMAIL;
+  let recipients: string[] = [];
+  if(adminEmail)
+  {
+    recipients = [adminEmail];
 
-  const recipients = emailConfig.BACKUP_NOTIFICATION_EMAIL?.split(',')
+  }
+  else{
+    recipients = emailConfig.BACKUP_NOTIFICATION_EMAIL?.split(',')
     .map(email => email.trim())
     .filter(Boolean);
 
+  }
   const stats = await getDailyStats();
   const template = buildDailyStatsEmailTemplate(stats);
   const title = 'Daily Question Review System Report';

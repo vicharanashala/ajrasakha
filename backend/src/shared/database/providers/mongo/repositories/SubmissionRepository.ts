@@ -645,14 +645,32 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             counts: {$arrayToObject: '$counts'},
           },
         },
-        {
+        /*{
           $lookup: {
             from: 'users',
             localField: 'reviewerId',
             foreignField: '_id',
             as: 'reviewer',
           },
+        },*/
+        {
+          $lookup: {
+            from: "users",
+            let: { reviewerId: "$reviewerId" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$_id", "$$reviewerId"] }
+                }
+              },
+              {
+                $match: { status: { $ne: "in-active" } }
+              }
+            ],
+            as: "reviewer"
+          }
         },
+        
         {$unwind: '$reviewer'},
         {
           $project: {
@@ -3095,7 +3113,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   
           // Type B — Last update stuck in-review
           {
-            history: { $ne: [] },
+            "history.1": { $exists: true },
             $expr: {
               $let: {
                 vars: {
@@ -3116,6 +3134,12 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     )
     .limit(limit || 0)
     .toArray();
+  }
+  async findById(id: string): Promise<IQuestionSubmission | null> {
+    if (!id) return null;
+    return await this.QuestionSubmissionCollection.findOne({
+      _id: new ObjectId(id),
+    });
   }
   async updateById(
     id: string,

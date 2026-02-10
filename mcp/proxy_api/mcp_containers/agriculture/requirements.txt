@@ -9,3 +9,5 @@ aiohttp
 requests
 sentence-transformers
 torch
+motor
+python-dotenv

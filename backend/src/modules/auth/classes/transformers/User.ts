@@ -40,6 +40,12 @@ class User implements IUser {
   role: 'admin' | 'moderator' | 'expert';
 
   @Expose()
+  status: 'active' | 'in-active' ;
+
+  @Expose()
+  isBlocked: boolean ;
+
+  @Expose()
   notificationRetention?: NotificationRetentionType;
 
   @Expose()
@@ -55,6 +61,8 @@ class User implements IUser {
     this.firstName = data?.firstName;
     this.lastName = data?.lastName;
     this.role = data?.role || 'expert';
+    this.status =  'active';
+    this.isBlocked=false;
     this.preference = {
       crop: data?.preference?.crop || 'all',
       state: data?.preference?.state || 'all',

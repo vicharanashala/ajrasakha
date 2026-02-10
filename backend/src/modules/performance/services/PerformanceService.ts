@@ -58,7 +58,7 @@ export class PerformanceService extends BaseService implements IPerformanceServi
   }
 
   async getCurrentUserWorkLoad(currentUserId: string): Promise<{
-    currentUserAnswers: any[];
+    currentUserAnswersCount: number;
     totalQuestionsCount: number;
     totalInreviewQuestionsCount: number;
   }> {
@@ -66,8 +66,8 @@ export class PerformanceService extends BaseService implements IPerformanceServi
   }
 
   async updateCheckInTime(userId: string, time: Date) {
-  await this.userRepo.updateCheckInTime(userId, time); 
-}
+    await this.userRepo.updateCheckInTime(userId, time);
+  }
 
   async getDashboardData(
     currentUserId: string,
@@ -199,17 +199,20 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-async sendCronSnapshotEmail(currentUserId: string) {
-  return await this._withTransaction(async (session) => {
-    const user = await this.userRepo.findById(currentUserId, session);
+  async sendCronSnapshotEmail(currentUserId: string) {
+    return await this._withTransaction(async (session) => {
+      const user = await this.userRepo.findById(currentUserId, session);
 
     if (!user || user.role !== "admin") {
       throw new UnauthorizedError(
         "Only admins can send cron snapshot report",
       );
     }
+    if (!user.email) {
+      throw new Error("Target admin user does not have an email address defined.");
+    }
 
-    await sendStatsEmail();
+    await sendStatsEmail(user.email);
   });
 }
 

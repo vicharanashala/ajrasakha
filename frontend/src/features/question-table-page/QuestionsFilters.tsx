@@ -38,6 +38,7 @@ import {useReAllocateLessWorkload} from '@/hooks/api/question/useReAllocateLessW
 type QuestionsFiltersProps = {
   search: string;
   states: string[];
+  appliedFilters: AdvanceFilterValues;
   onChange: (next: AdvanceFilterValues) => void;
   crops: string[];
   onReset: () => void;
@@ -62,6 +63,7 @@ type QuestionsFiltersProps = {
 export const QuestionsFilters = ({
   search,
   setSearch,
+  appliedFilters,
   setUploadedQuestionsCount,
   setIsBulkUpload,
   crops,
@@ -82,25 +84,7 @@ export const QuestionsFilters = ({
   sort,
   onSort,
 }: QuestionsFiltersProps) => {
-  const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
-    {
-      status: "all",
-      source: "all",
-      state: "all",
-      answersCount: [0, 100],
-      dateRange: "all",
-      crop: "all",
-      priority: "all",
-      domain: "all",
-      user: "all",
-      endTime: undefined,
-      startTime: undefined,
-      review_level: "all",
-      closedAtStart: undefined,
-      closedAtEnd: undefined,
-      consecutiveApprovals:'all'
-    }
-  );
+  const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(appliedFilters);
   const [addOpen, setAddOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
     null
@@ -113,21 +97,35 @@ export const QuestionsFilters = ({
     });
     const { mutateAsync: reAllocateLessWorkload, isPending: reAllocateQuestion } =
     useReAllocateLessWorkload();
+    const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
     const handleReAllocateLessWorkload = async () => {
        try {
-       
+        setIsReAllocateDisabled(true);
         const res = await reAllocateLessWorkload();
 
     if (!res) {
       toast.error("No response from server");
+      setIsReAllocateDisabled(false);
       return;
     }
-
-    toast.success(res.message);
+    if (res.message === "Workload balancing started in background") {
+      toast.success(
+        "Workload balancing has started in the background. Please wait 50 seconds before reallocating again."
+      );
+      // Re-enable button after 30 seconds
+      setTimeout(() => {
+        setIsReAllocateDisabled(false);
+      }, 50000);
+    } else if (res.message) {
+      // Any other message from backend
+      toast.success(res.message);
+      setIsReAllocateDisabled(false);
+    }
     
       } catch (error) {
         toast.error("Failed to reAllocate question for those who has less workload");
         console.error("Error reAllocating question who has less workload question:", error);
+        setIsReAllocateDisabled(false);
       }
     };
 
@@ -252,7 +250,8 @@ export const QuestionsFilters = ({
       review_level: advanceFilter?.review_level,
       closedAtStart: advanceFilter?.closedAtStart,
       closedAtEnd: advanceFilter?.closedAtEnd,
-      consecutiveApprovals:advanceFilter?.consecutiveApprovals
+      consecutiveApprovals:advanceFilter?.consecutiveApprovals,
+      autoAllocateFilter:advanceFilter?.autoAllocateFilter
     });
   };
 
@@ -374,7 +373,7 @@ export const QuestionsFilters = ({
             size="sm"
             className="flex items-center gap-2 w-full md:w-fit"
             onClick={() => handleReAllocateLessWorkload ()}
-            disabled={reAllocateQuestion}
+            disabled={isReAllocateDisabled}
           >
              <Info className="h-4 w-4" /> ReAllocate
             
@@ -394,7 +393,7 @@ export const QuestionsFilters = ({
          {userRole !== "expert" && (
         <TopRightBadge label="New" />
          )}
-      </div>
+         </div>
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-3 justify-between sm:justify-end">
         <div className="inline-block">

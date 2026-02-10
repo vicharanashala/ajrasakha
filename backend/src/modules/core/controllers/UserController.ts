@@ -221,6 +221,19 @@ export class UserController {
     return {message: `${action} Expert successfully`};
   }
 
+  @Patch('/status')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Update expert activity status'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async updateActivityStatus(
+    @Body() body: {userId: string; status: 'active' | 'in-active'},
+  ): Promise<{message: string}> {
+    const {userId, status} = body;
+    await this.userService.updateActivityStatus(userId, status);
+    return {message: `Expert status updated to ${status} successfully`};
+  }
+
   @Authorized()
   @Patch('/:id/role')
   @HttpCode(200)

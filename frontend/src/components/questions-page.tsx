@@ -1,7 +1,7 @@
 import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetailedQuestions";
 //import { QuestionsFilters, QuestionsTable } from "./questions-table";
-import {QuestionsTable} from '../features/question-table-page/questions-table'
-import {QuestionsFilters} from '../features/question-table-page/QuestionsFilters'
+import { QuestionsTable } from "../features/question-table-page/questions-table";
+import { QuestionsFilters } from "../features/question-table-page/QuestionsFilters";
 import { useEffect, useMemo, useState } from "react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "./question-details";
@@ -34,8 +34,8 @@ export const QuestionsPage = ({
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
   const [source, setSource] = useState<QuestionSourceFilter>("all");
   const [priority, setPriority] = useState<QuestionPriorityFilter>("all");
-  const [state, setState] = useState("");
-  const [crop, setCrop] = useState("");
+  const [state, setState] = useState("all");
+  const [crop, setCrop] = useState("all");
   const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
   const [startTime, setStartTime] = useState<Date | undefined>(undefined);
@@ -44,7 +44,8 @@ export const QuestionsPage = ({
   const [closedAtStart, setClosedAtStart] = useState<Date | undefined>(
     undefined,
   );
-  const [consecutiveApprovals,setConsecutiveApprovals]=useState("all")
+  const [consecutiveApprovals, setConsecutiveApprovals] = useState("all");
+  const [autoAllocateFilter, setAutoAllocateFilter] = useState("all");
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
 
   // const observerRef = useRef<IntersectionObserver | null>(null);
@@ -101,7 +102,8 @@ export const QuestionsPage = ({
       review_level,
       closedAtStart,
       closedAtEnd,
-      consecutiveApprovals
+      consecutiveApprovals,
+      autoAllocateFilter,
     }),
     [
       status,
@@ -118,7 +120,8 @@ export const QuestionsPage = ({
       review_level,
       closedAtEnd,
       closedAtStart,
-      consecutiveApprovals
+      consecutiveApprovals,
+      autoAllocateFilter,
     ],
   );
 
@@ -184,7 +187,8 @@ export const QuestionsPage = ({
     review_level?: ReviewLevel;
     closedAtEnd?: Date | undefined;
     closedAtStart?: Date | undefined;
-    consecutiveApprovals?:string
+    consecutiveApprovals?: string;
+    autoAllocateFilter?: string;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -200,7 +204,10 @@ export const QuestionsPage = ({
     if (next.review_level !== undefined) setReviewLevel(next.review_level);
     if (next.closedAtStart !== undefined) setClosedAtStart(next.closedAtStart);
     if (next.closedAtEnd !== undefined) setClosedAtEnd(next.closedAtEnd);
-    if (next.consecutiveApprovals !== undefined) setConsecutiveApprovals(next.consecutiveApprovals);
+    if (next.consecutiveApprovals !== undefined)
+      setConsecutiveApprovals(next.consecutiveApprovals);
+    if (next.autoAllocateFilter !== undefined)
+      setAutoAllocateFilter(next.autoAllocateFilter);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);
@@ -217,8 +224,8 @@ export const QuestionsPage = ({
   const onReset = () => {
     setStatus("all");
     setSource("all");
-    setState("");
-    setCrop("");
+    setState("all");
+    setCrop("all");
     setAnswersCount([0, 100]);
     setDateRange("all");
     setPriority("all");
@@ -229,7 +236,8 @@ export const QuestionsPage = ({
     setEndTime(undefined);
     setClosedAtEnd(undefined);
     setClosedAtStart(undefined);
-    setConsecutiveApprovals('all')
+    setConsecutiveApprovals("all");
+    setAutoAllocateFilter("all");
   };
 
   const handleViewMore = (questoinId: string) => {
@@ -285,6 +293,7 @@ export const QuestionsPage = ({
           <QuestionsFilters
             search={search}
             setSearch={setSearch}
+            appliedFilters={filter}
             setUploadedQuestionsCount={setUploadedQuestionsCount}
             setIsBulkUpload={setIsBulkUpload}
             states={STATES}
@@ -343,6 +352,7 @@ export const QuestionsPage = ({
               onViewMore={handleViewMore}
               toggleSort={toggleSort}
               sort={sort}
+              limit={reviewLimit}
             />
           )}
         </>
