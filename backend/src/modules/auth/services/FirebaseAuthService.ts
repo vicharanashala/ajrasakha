@@ -104,9 +104,9 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
   async signup(body: SignUpBody): Promise<{ user: { uid: string; email: string; displayName: string; photoURL: string }} | null>{
     let userRecord: any;
     try {
-      // if(!/^[^\s@]+@annam\.ai$/.test(body.email)){
-      //   throw new Error("Please enter a valid email")
-      // }
+      if(!/^[^\s@]+@annam\.ai$/.test(body.email)){
+        throw new Error("Please enter a valid email")
+      }
       if(!body.firstName.trim()){
         throw new Error("Name cannot be blank or empty spaces");
       }
