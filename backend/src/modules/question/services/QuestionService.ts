@@ -1989,20 +1989,12 @@ async sendOutReachQuestionsMail(
 
     const start = new Date(startDate + 'T00:00:00.000Z');
     const end = new Date(endDate + 'T23:59:59.999Z'); 
-    console.log('questions from', start, 'to', end);
-
     const questions =
       await this.questionRepo.findByDateRangeAndSource(
         start,
         end,
         'AJRASAKHA'
       );
-      console.log(`Found ${questions.length} questions`);
-
-       if (!questions.length) {
-    
-    console.warn('No questions found for the specified date range');
-  }
 
   if (questions.length === 0) {
       return {
