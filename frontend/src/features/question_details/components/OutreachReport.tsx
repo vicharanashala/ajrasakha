@@ -30,6 +30,7 @@ import {
   Send, 
   X,
   AlertCircle,
+  PlusCircle,
 } from "lucide-react";
 import { useSendOutreachReport } from "@/hooks/api/question/useSendOutreachReport";
 import { toast } from "sonner";
@@ -287,10 +288,18 @@ export const OutreachReportModal = () => {
                     setError(null);
                   }}
                   onKeyDown={handleKeyDown}
-                  placeholder={emails.length === 0 ? "Type email and press Enter..." : "Add more..."}
+                  placeholder={emails.length === 0 ? "Enter email..." : "Add more..."}
                   className="flex-1 min-w-[120px] bg-transparent outline-none placeholder:text-muted-foreground text-sm"
                   disabled={isSending}
                 />
+                <button
+                  type="button"
+                  onClick={() => addEmail(inputValue)}
+                  disabled={isSending || !inputValue.trim()}
+                  className="ml-2 p-1 text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
+                >
+                  <PlusCircle className="h-5 w-5" />
+                </button>
               </div>
             </div>
 
