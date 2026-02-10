@@ -62,23 +62,13 @@ class NotificationResponse {
   @IsString()
   _id: string;
 
-   @JSONSchema({
+  @JSONSchema({
     description: 'Unique question identifier',
     example: 'q1',
     type: 'string',
   })
   @IsString()
   enitity_id: string;
-
-
-   @JSONSchema({
-    description: 'Unique question identifier',
-    example: 'q1',
-    type: 'string',
-  })
-  @IsString()
-  userId: string;
-
 
   @JSONSchema({
     description: 'Question text',
@@ -97,7 +87,15 @@ class NotificationResponse {
   title: string;
 
   @JSONSchema({
-    description:'Is Notification Read?',
+    description: 'Notification type',
+    example: 'answer_creation',
+    type: 'string',
+  })
+  @IsString()
+  type: string;
+
+  @JSONSchema({
+    description: 'Is Notification Read?',
     example:true,
     type:'boolean'
   })
@@ -111,14 +109,6 @@ class NotificationResponse {
   })
   @IsString()
   createdAt: string;
-
-  @JSONSchema({
-    description: 'Question last updated timestamp',
-    example: '2025-09-12T12:00:00Z',
-    type: 'string',
-  })
-  @IsString()
-  updatedAt: string;
 
 }
 

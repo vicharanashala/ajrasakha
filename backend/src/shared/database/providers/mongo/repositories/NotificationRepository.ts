@@ -75,15 +75,13 @@ export class NotificationRepository implements INotificationRepository {
       // Convert ObjectId → string
 
       const response = notification.map((n) => ({
-        ...n,
-      _id:n._id.toString(),
-      userId:n.userId.toString(),
-      enitity_id:n.enitity_id.toString(),
-      message:n.message,
-      is_read:n.is_read,
-      title:n.title,
-      createdAt:n.createdAt.toString(),
-      updatedAt:n.updatedAt.toString()
+        _id:n._id.toString(),
+        enitity_id:n.enitity_id.toString(),
+        message:n.message,
+        is_read:n.is_read,
+        title:n.title,
+        type: n.type,
+        createdAt:n.createdAt.toString()
       }))
 
     return {notifications:response,page,totalCount,totalPages:Math.ceil(totalCount/limit)}
