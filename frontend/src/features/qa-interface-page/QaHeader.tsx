@@ -119,7 +119,10 @@ export const QaHeader=({ questions,
                   <span className="sr-only">Refresh</span>
                 </Button>
 
-                 <Button
+                {
+                  !isLoading && questions.length !== 0
+                   && (
+                    <Button
                   variant="ghost"
                   size="sm"
                   onClick={onToggleCollapse}
@@ -129,6 +132,9 @@ export const QaHeader=({ questions,
                   <ChevronLeft className="w-4 h-4" />
                   <span className="sr-only">Collapse Questions</span>
                 </Button>
+                   )
+                }
+                 
               </div>
             </CardHeader>
             {isLoading || isLoadingTarget ? (
