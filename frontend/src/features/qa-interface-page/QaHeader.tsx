@@ -35,7 +35,6 @@ type QaHeaderProps={
   scrollRef: React.RefObject<HTMLDivElement|null>;
   questionItemRefs: React.MutableRefObject<Record<string, HTMLDivElement>>;
   setQuestionRef: (id: string, el: HTMLDivElement | null) => void;
-  isCollapsed: boolean;
   onToggleCollapse: () => void;
 }
 export const QaHeader=({ questions,
@@ -51,7 +50,6 @@ export const QaHeader=({ questions,
   onReviewLevelChange,
   scrollRef,
   setQuestionRef,
-  isCollapsed,
   onToggleCollapse,
 }:QaHeaderProps)=>{
   return(
@@ -60,15 +58,6 @@ export const QaHeader=({ questions,
             <CardHeader className="border-b flex flex-row items-center justify-between pb-4">
               <TooltipProvider>
                 <div className="flex items-center gap-2">
-                  <Button
-                variant="outline"
-                size="sm"
-                onClick={onToggleCollapse}
-                className="h-9 px-2"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span className="sr-only">Collapse sidebar</span>
-              </Button>
                   <CardTitle className="text-md md:text-lg font-semibold">
                     Question Queues
                   </CardTitle>
@@ -128,6 +117,17 @@ export const QaHeader=({ questions,
                 >
                   <RefreshCw className="w-4 h-4" />
                   <span className="sr-only">Refresh</span>
+                </Button>
+
+                 <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onToggleCollapse}
+                  className="h-9 px-2 ml-2"
+                  title="Collapse Questions"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span className="sr-only">Collapse Questions</span>
                 </Button>
               </div>
             </CardHeader>

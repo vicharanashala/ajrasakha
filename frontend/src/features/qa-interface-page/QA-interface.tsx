@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState,  } from "react";
-import {CheckCircle,RefreshCw,RotateCcw,Info,Loader2,Send,FileText,Bot, ChevronRight} from "lucide-react";
+import {CheckCircle,RefreshCw,RotateCcw,Info,Loader2,Send,FileText,Bot, ChevronsRight} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/atoms/card";
 import { RadioGroup, RadioGroupItem } from "../../components/atoms/radio-group";
 import { Label } from "../../components/atoms/label";
@@ -540,10 +540,10 @@ const handleActionChange = (value: string) => {
               size="sm"
               onClick={() => setIsSidebarCollapsed(false)}
               className="absolute -left-12  h-full text-center ml-2 px-2 z-10  border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0"
-              title="Expand sidebar"
+              title="Expand Questions"
             >
-              <ChevronRight className="w-4 h-4" />
-              <span className="sr-only">Expand sidebar</span>
+              <ChevronsRight className="w-4 h-4" />
+              <span className="sr-only">Expand Questions</span>
             </Button>
           )}
         
@@ -565,7 +565,6 @@ const handleActionChange = (value: string) => {
   scrollRef={scrollRef}
   questionItemRefs={questionItemRefs}
   setQuestionRef={setQuestionRef}
-  isCollapsed={isSidebarCollapsed}
   onToggleCollapse={() =>setIsSidebarCollapsed(!isSidebarCollapsed)}
 />
 </div>
