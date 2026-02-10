@@ -13,7 +13,7 @@ import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Textarea } from "@/components/atoms/textarea";
 import { Checkbox } from "@/components/atoms/checkbox";
 import type { IUser } from "@/types";
-import { Send, UserPlus, User, X } from "lucide-react";
+import { Send, UserPlus, User, X, Loader2 } from "lucide-react";
 
 interface ReRouteDialogProps {
   isModalOpen: boolean;
@@ -26,6 +26,7 @@ interface ReRouteDialogProps {
   filteredExperts: IUser[];
   selectedExperts: string[];
   handleSelectExpert: (expertId: string) => void;
+  isAllocatingExperts?: boolean;
   handleSubmit: () => void;
   handleCancel: () => void;
   lastReroutedTo: any;
@@ -45,17 +46,25 @@ export const ReRouteDialog = ({
   handleSubmit,
   handleCancel,
   lastReroutedTo,
+  isAllocatingExperts,
 }: ReRouteDialogProps) => {
   return (
     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
       <DialogTrigger asChild>
         <button
           disabled={lastReroutedTo?.status === "pending"}
-          className={`bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded
+          className={`
+             bg-primary text-primary-foreground 
+                      flex items-center gap-2 
+                      px-3 py-1 sm:px-4 sm:py-1
+                      rounded-md
+                      text-sm
+                      whitespace-nowrap
+                      transition-all duration-200
             ${
               lastReroutedTo?.status === "pending"
                 ? "opacity-50 cursor-not-allowed"
-                : "hover:bg-primary/90"
+                : "hover:bg-primary/90 hover:shadow-md active:scale-95"
             }
           `}
         >
@@ -199,14 +208,23 @@ export const ReRouteDialog = ({
             variant="outline"
             onClick={handleCancel}
             className="hidden md:block"
+            disabled={isAllocatingExperts}
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={selectedExperts.length === 0 || !comment.trim()}
+            disabled={selectedExperts.length === 0 || !comment.trim() || isAllocatingExperts}
           >
-            {`Submit (${selectedExperts.length} selected)`}
+            {
+             isAllocatingExperts?
+             <>
+             <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
+             Allocating...
+             </>
+             :
+            `Submit (${selectedExperts.length} selected)`
+            }
           </Button>
         </DialogFooter>
       </DialogContent>

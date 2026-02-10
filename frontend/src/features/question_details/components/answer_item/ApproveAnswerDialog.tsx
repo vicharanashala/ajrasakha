@@ -41,11 +41,18 @@ export const ApproveAnswerDialog = ({
       <DialogTrigger asChild>
         <button
           disabled={lastReroutedTo?.status === "pending" || approvalCount < 3}
-          className={`bg-primary text-primary-foreground flex items-center gap-2 px-2 py-2 rounded
+          className={`
+             bg-primary text-primary-foreground 
+                      flex items-center gap-2 
+                      px-3 py-1 sm:px-4 sm:py-1
+                      rounded-md
+                      text-sm
+                      whitespace-nowrap
+                      transition-all duration-200
             ${
               lastReroutedTo?.status === "pending" || approvalCount < 3
                 ? "opacity-50 cursor-not-allowed"
-                : "hover:bg-primary/90"
+                : "hover:bg-primary/90 hover:shadow-md active:scale-95"
             }
           `}
         >
