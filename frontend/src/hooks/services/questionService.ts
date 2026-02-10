@@ -343,4 +343,23 @@ async reAllocateLessWorkload(): Promise<WorkloadBalanceResponse|null> {
   return apiFetch<WorkloadBalanceResponse|null>(`${this._baseUrl}/reAllocateLessWorkload`,{method: "POST",});
 }
 
+
+async sendOutreachReport(
+  startDate: Date,
+  endDate: Date,
+  emails: string[]
+): Promise<{ success: boolean; message: string } | null> {
+  return apiFetch<{ success: boolean; message: string } | null>(
+    `${this._baseUrl}/data/out-reach/date`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        startDate: formatDateLocal(startDate),
+        endDate: formatDateLocal(endDate),
+        emails,
+      }),
+    }
+  );
+}
+
 }

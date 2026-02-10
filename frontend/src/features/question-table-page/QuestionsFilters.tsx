@@ -28,6 +28,7 @@ import type {
 } from "@/types";
 import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
+import { OutreachReportModal } from "@/features/question_details/components/OutreachReport";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
 
 import { TopLeftBadge, TopRightBadge } from "../../components/NewBadge";
@@ -394,6 +395,23 @@ export const QuestionsFilters = ({
         <TopRightBadge label="New" />
          )}
          </div>
+
+        {/* Outreach Report Button with tooltip */}
+
+        {userRole !== "expert" && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <OutreachReportModal />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Send Outreach Report</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-3 justify-between sm:justify-end">
         <div className="inline-block">

@@ -12,6 +12,7 @@ import {
   Max,
   ValidateNested,
   ArrayNotEmpty,
+  IsEmail,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 import {ObjectId} from 'mongodb';
@@ -289,6 +290,40 @@ class GeneratedQuestionResponse {
   @IsString()
   answer!: string;
 }
+
+class DateRangeRequest {
+  @JSONSchema({
+    description: 'Start date for filtering questions',
+    example: '2025-01-01',
+    type: 'string',
+    format: 'date',
+  })
+  @IsNotEmpty()
+  @IsString()
+  startDate!: string;
+
+  @JSONSchema({
+    description: 'End date for filtering questions',
+    example: '2025-01-31',
+    type: 'string',
+    format: 'date',
+  })
+  @IsNotEmpty()
+  @IsString()
+  endDate!: string;
+
+  @JSONSchema({
+    description: 'Array of recipient email addresses',
+    example: ['admin@example.com', 'manager@example.com'],
+    type: 'array',
+    items: { type: 'string', format: 'email' },
+  })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsEmail({}, { each: true })  
+  emails!: string[]; 
+}
+
 class GetDetailedQuestionsQuery {
   @JSONSchema({description: 'Search term', example: 'wheat', type: 'string'})
   @IsOptional()
@@ -510,7 +545,8 @@ export const QUESTION_VALIDATORS = [
   RemoveAllocateBody,
   UpdatedBy,
   HistoryItem,
-  BulkDeleteQuestionDto
+  BulkDeleteQuestionDto,
+  DateRangeRequest
 ];
 
 export {
@@ -526,5 +562,6 @@ export {
   RemoveAllocateBody,
   UpdatedBy,
   HistoryItem,
-  BulkDeleteQuestionDto
+  BulkDeleteQuestionDto,
+  DateRangeRequest
 };

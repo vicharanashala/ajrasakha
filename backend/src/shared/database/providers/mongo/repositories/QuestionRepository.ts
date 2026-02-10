@@ -2742,4 +2742,34 @@ export class QuestionRepository implements IQuestionRepository {
       })),
     };
   }
+
+  async findByDateRangeAndSource(
+    startDate: Date,
+    endDate: Date,
+    sources: 'AJRASAKHA',
+  ): Promise<IQuestion[]> {
+    await this.init()
+    const questions = await this.QuestionCollection
+    .find(
+      {
+        source:  sources ,
+        createdAt: {
+          $gte: startDate,
+          $lte: endDate,
+        },
+      },
+      {
+        projection: {
+          userId: 0,
+          contextId: 0,
+        },
+      },
+    )
+    .sort({ createdAt: -1 })
+    .toArray();
+  return questions.map((q) => ({
+    ...q,
+    _id: q._id?.toString(),
+  }));
+}
 }
