@@ -301,10 +301,10 @@ export const QuestionsFilters = ({
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     // Optimized Draggable Logic
   // Optimized Draggable Logic
-  const [position, setPosition] = useState({ x: 100, y: 100 }); // Initial screen position
+  const [position, setPosition] = useState({ x: 10, y: window.innerHeight-70 }); // Initial screen position
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef(null); // Defined the missing ref here
-  const offset = useRef({ x: 40, y: window.innerHeight-80 });
+  const offset = useRef({ x: 0, y: 0 });
 
   const handleMouseDown = (e:any) => {
     setIsDragging(true);
