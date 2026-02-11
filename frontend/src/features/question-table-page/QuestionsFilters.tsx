@@ -300,11 +300,10 @@ export const QuestionsFilters = ({
     (advanceFilter.closedAtStart || advanceFilter.closedAtEnd ? 1 : 0);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    // Optimized Draggable Logic
   // Optimized Draggable Logic
   const [position, setPosition] = useState({ x: 10, y: window.innerHeight-70 }); // Initial screen position
   const [isDragging, setIsDragging] = useState(false);
-  const dragRef = useRef(null); // Defined the missing ref here
+  const dragRef = useRef(null);
   const offset = useRef({ x: 0, y: 0 });
 
   const handleMouseDown = (e:any) => {
@@ -344,7 +343,7 @@ export const QuestionsFilters = ({
 
   return (
     <div className="w-full p-4 border-b bg-card ms-2 md:ms-0  rounded flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-      {/* Add Dialog (No change) */}
+      {/* Add Dialog */}
       <AddOrEditQuestionDialog
         open={addOpen}
         setOpen={setAddOpen}
@@ -383,7 +382,6 @@ export const QuestionsFilters = ({
       </div>
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
-        {/* filter */}
 
         {/* tools and filters */}
         <button
@@ -512,6 +510,7 @@ export const QuestionsFilters = ({
               Management Actions
             </h3>
             <div className="space-y-3">
+              {/* total turn around time sort */}
               {viewMode === "review-level" && (
                 <div className="relative">
                   <button
