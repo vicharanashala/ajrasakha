@@ -154,6 +154,9 @@ export class GoldenDataset {
 
   @JSONSchema({description:'Total entries today to Golden Dataset'})
   todayApproved?:number;
+
+  @JSONSchema({ description: 'Moderator breakdown with names and approval counts' })
+  moderatorBreakdown?: { moderatorName: string, count: number }[];
 }
 
 export class QuestionContributionTrend {

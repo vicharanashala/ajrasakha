@@ -112,31 +112,31 @@ export class PerformanceService extends BaseService implements IPerformanceServi
       let goldenDataset = {} as GoldenDataset;
 
       if (goldenDataViewType == 'year') {
-        const {yearData, totalEntriesByType} =
+        const {yearData, totalEntriesByType, moderatorBreakdown } =
           await this.questionRepo.getYearAnalytics(
             goldenDataSelectedYear,
             session,
           );
-        goldenDataset = {yearData, verifiedEntries, totalEntriesByType,todayApproved};
+        goldenDataset = {yearData, verifiedEntries, totalEntriesByType,todayApproved, moderatorBreakdown };
       } else if (goldenDataViewType == 'month') {
-        const {weeksData, totalEntriesByType} =
+        const {weeksData, totalEntriesByType, moderatorBreakdown } =
           await this.questionRepo.getMonthAnalytics(
             goldenDataSelectedYear,
             goldenDataSelectedMonth,
             session,
           );
-        goldenDataset = {weeksData, verifiedEntries, totalEntriesByType,todayApproved};
+        goldenDataset = {weeksData, verifiedEntries, totalEntriesByType,todayApproved, moderatorBreakdown };
       } else if (goldenDataViewType == 'week') {
-        const {dailyData, totalEntriesByType} =
+        const {dailyData, totalEntriesByType, moderatorBreakdown } =
           await this.questionRepo.getWeekAnalytics(
             goldenDataSelectedYear,
             goldenDataSelectedMonth,
             goldenDataSelectedWeek,
             session,
           );
-        goldenDataset = {dailyData, verifiedEntries, totalEntriesByType,todayApproved};
+        goldenDataset = {dailyData, verifiedEntries, totalEntriesByType,todayApproved, moderatorBreakdown };
       } else if (goldenDataViewType == 'day') {
-        const {dayHourlyData, totalEntriesByType} =
+        const {dayHourlyData, totalEntriesByType, moderatorBreakdown } =
           await this.questionRepo.getDailyAnalytics(
             goldenDataSelectedYear,
             goldenDataSelectedMonth,
@@ -144,7 +144,7 @@ export class PerformanceService extends BaseService implements IPerformanceServi
             goldenDataSelectedDay,
             session,
           );
-        goldenDataset = {dayHourlyData, verifiedEntries, totalEntriesByType,todayApproved};
+        goldenDataset = {dayHourlyData, verifiedEntries, totalEntriesByType,todayApproved, moderatorBreakdown };
       }
 
       //questionContributionTrend
@@ -203,17 +203,17 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     return await this._withTransaction(async (session) => {
       const user = await this.userRepo.findById(currentUserId, session);
 
-    if (!user || user.role !== "admin") {
-      throw new UnauthorizedError(
-        "Only admins can send cron snapshot report",
-      );
-    }
-    if (!user.email) {
-      throw new Error("Target admin user does not have an email address defined.");
-    }
+      if (!user || user.role !== "admin") {
+        throw new UnauthorizedError(
+          "Only admins can send cron snapshot report",
+        );
+      }
+      if (!user.email) {
+        throw new Error("Target admin user does not have an email address defined.");
+      }
 
-    await sendStatsEmail(user.email);
-  });
-}
+      await sendStatsEmail(user.email);
+    });
+  }
 
 }

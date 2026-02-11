@@ -323,13 +323,13 @@ export class QuestionRepository implements IQuestionRepository {
 
       const filter: any = {};
       // --- Auto Allocate Filter ---
-        if (autoAllocateFilter && autoAllocateFilter !== 'all') {
-          if (autoAllocateFilter === 'on') {
-            filter.isAutoAllocate = true;
-          } else if (autoAllocateFilter === 'off') {
-            filter.isAutoAllocate = false;
-          }
+      if (autoAllocateFilter && autoAllocateFilter !== 'all') {
+        if (autoAllocateFilter === 'on') {
+          filter.isAutoAllocate = true;
+        } else if (autoAllocateFilter === 'off') {
+          filter.isAutoAllocate = false;
         }
+      }
 
 
       // --- Filters ---
@@ -1722,7 +1722,7 @@ export class QuestionRepository implements IQuestionRepository {
   async getYearAnalytics(
     goldenDataSelectedYear: string,
     session?: ClientSession,
-  ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number}> {
+  ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
     await this.init();
     const selectedYearNum = Number(goldenDataSelectedYear);
 
@@ -1779,13 +1779,97 @@ export class QuestionRepository implements IQuestionRepository {
       0,
     );
 
-    return {yearData: formattedData, totalEntriesByType};
+    const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
+    return {yearData: formattedData, totalEntriesByType, moderatorBreakdown };
+  }
+
+  /**
+  * get yearly analytics.
+  * @param session -MongoDB client session for transactions.
+  * @returns A promise that resolves to question document
+  */
+  async getTodayApproved(session?: ClientSession, startDate?: Date, endDate?: Date): Promise<{ todayApproved: number, moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
+    await this.init();
+
+    let start = startDate;
+    let end = endDate;
+
+    if (!start || !end) {
+      start = new Date();
+      start.setHours(0, 0, 0, 0);
+      end = new Date(start);
+      end.setDate(end.getDate() + 1);
+    }
+
+    // Get moderator breakdown
+    const answersCollection = await this.db.getCollection('answers');
+
+    const moderatorBreakdown = await answersCollection.aggregate(
+      [
+        {
+          $match: {
+            status: 'approved',
+            isFinalAnswer: true,
+            updatedAt: {
+              $gte: start,
+              $lt: end,
+            },
+            approvedBy: { $exists: true, $ne: null }
+          },
+        },
+        {
+          $group: {
+            _id: '$approvedBy',
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'moderator',
+          },
+        },
+        {
+          $unwind: {
+            path: '$moderator',
+            preserveNullAndEmptyArrays: false,
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            moderatorName: {
+              $concat: [
+                '$moderator.firstName',
+                ' ',
+                { $ifNull: ['$moderator.lastName', ''] },
+              ],
+            },
+            count: 1,
+          },
+        },
+        {
+          $sort: { count: -1 },
+        },
+      ],
+      { session }
+    ).toArray() as { moderatorName: string, count: number }[];
+
+    // Calculate total from the breakdown
+    const totalApproved = moderatorBreakdown.reduce((sum, item) => sum + item.count, 0);
+
+    return {
+      todayApproved: totalApproved,
+      moderatorBreakdown: moderatorBreakdown
+    };
   }
   async getMonthAnalytics(
     goldenDataSelectedYear: string,
     goldenDataSelectedMonth: string,
     session?: ClientSession,
-  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number}> {
+  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
     await this.init();
 
     const monthNames = [
@@ -1852,7 +1936,10 @@ export class QuestionRepository implements IQuestionRepository {
       (acc, curr) => acc + curr.totalClosed,
       0,
     );
-    return {weeksData, totalEntriesByType};
+
+    const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
+
+    return {weeksData, totalEntriesByType, moderatorBreakdown };
   }
 
   async getWeekAnalytics(
@@ -1860,7 +1947,7 @@ export class QuestionRepository implements IQuestionRepository {
     goldenDataSelectedMonth: string,
     goldenDataSelectedWeek: string,
     session?: ClientSession,
-  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number}> {
+  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
     await this.init();
     const monthNames = [
       'January',
@@ -1932,7 +2019,8 @@ export class QuestionRepository implements IQuestionRepository {
       0,
     );
 
-    return {dailyData, totalEntriesByType};
+    const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
+    return {dailyData, totalEntriesByType, moderatorBreakdown };
   }
 
   async getDailyAnalytics(
@@ -1944,6 +2032,7 @@ export class QuestionRepository implements IQuestionRepository {
   ): Promise<{
     dayHourlyData: Record<string, GoldenDatasetEntry[]>;
     totalEntriesByType: number;
+    moderatorBreakdown?: { moderatorName: string, count: number }[];
   }> {
     await this.init();
     const monthNames = [
@@ -2064,7 +2153,7 @@ export class QuestionRepository implements IQuestionRepository {
 
     // Initialize all 24 hours with 0 entries
     const hourlyData: GoldenDatasetEntry[] = Array.from(
-      {length: 24},
+      { length: 24 },
       (_, i) => {
         const match = answers.find(a => a._id === i);
         return {
@@ -2080,9 +2169,41 @@ export class QuestionRepository implements IQuestionRepository {
       0,
     );
 
+    // Filter moderator breakdown for the specific day
+    const dayStartDate = new Date(yearNum, monthNum, startDay + selectedDayNum - dayMap[Object.keys(dayMap).find(key => dayMap[key] === (startDay % 7 === 0 ? 0 : startDay % 7))!]);
+
+    const startOfWeekDate = new Date(yearNum, monthNum, startDay);
+    const startOfWeekDayNum = startOfWeekDate.getDay();
+
+    const diff = selectedDayNum - startOfWeekDayNum;
+    const targetDate = new Date(yearNum, monthNum, startDay + diff);
+
+    const targetDayNum = selectedDayNum;
+
+    let specificDayStart: Date | null = null;
+    let current = new Date(startDate);
+
+    while (current < endDate) {
+      if (current.getDay() === targetDayNum) {
+        specificDayStart = new Date(current);
+        break;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    let moderatorBreakdown: { moderatorName: string, count: number }[] = [];
+
+    if (specificDayStart) {
+      const specificDayEnd = new Date(specificDayStart);
+      specificDayEnd.setDate(specificDayEnd.getDate() + 1);
+      const result = await this.getTodayApproved(session, specificDayStart, specificDayEnd);
+      moderatorBreakdown = result.moderatorBreakdown || [];
+    }
+
     return {
-      dayHourlyData: {[goldenDataSelectedDay]: hourlyData},
+      dayHourlyData: {[goldenDataSelectedDay]: hourlyData },
       totalEntriesByType,
+      moderatorBreakdown
     };
   }
 
@@ -2319,23 +2440,7 @@ export class QuestionRepository implements IQuestionRepository {
     };
   }
 
-   async getTodayApproved(session?:ClientSession):Promise<{todayApproved:number}>{
-    await this.init();
-    const startOfToday = new Date();
-    startOfToday.setUTCHours(0, 0, 0, 0);
-    const endOfToday = new Date();
-    endOfToday.setUTCHours(23, 59, 59, 999);
-    const count = await this.QuestionCollection.countDocuments(
-      {
-        status: "closed",
-        closedAt: {
-          $gte: startOfToday,
-          $lte: endOfToday,
-        },
-      },
-      { session })
-    return {todayApproved:count};
-  }
+
 
   async getQuestionsAndReviewLevel(
     query: GetDetailedQuestionsQuery & {searchEmbedding: number[] | null},

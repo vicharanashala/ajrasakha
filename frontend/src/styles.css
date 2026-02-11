@@ -358,3 +358,12 @@ code {
 .shimmer-gold {
   animation: shimmer 3s ease-in-out infinite;
 }
+
+.scrollbar-hiding {
+  -ms-overflow-style: none;
+  scrollbar-width: none;   
+}
+.scrollbar-hiding::-webkit-scrollbar {
+  display: none;           
+}
+
