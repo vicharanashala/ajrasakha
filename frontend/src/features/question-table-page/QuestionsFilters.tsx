@@ -1,4 +1,6 @@
 import {
+  useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -297,6 +299,47 @@ export const QuestionsFilters = ({
     (advanceFilter.closedAtStart || advanceFilter.closedAtEnd ? 1 : 0);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    // Optimized Draggable Logic
+  // Optimized Draggable Logic
+  const [position, setPosition] = useState({ x: 100, y: 100 }); // Initial screen position
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef(null); // Defined the missing ref here
+  const offset = useRef({ x: 40, y: window.innerHeight-80 });
+
+  const handleMouseDown = (e:any) => {
+    setIsDragging(true);
+    const rect = e.currentTarget.getBoundingClientRect();
+    offset.current = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e:any) => {
+      if (!isDragging) return;
+      
+      // Calculate new position based on viewport
+      setPosition({
+        x: e.clientX - offset.current.x,
+        y: e.clientY - offset.current.y
+      });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
 
   return (
     <div className="w-full p-4 border-b bg-card ms-2 md:ms-0  rounded flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
@@ -586,13 +629,20 @@ export const QuestionsFilters = ({
           </section>
         </div>
       </div>
-      {/* Stats Badge */}
-      <div className="fixed bottom-6 left-6 bg-[#1a1a1a] border border-gray-800 px-4 py-2 rounded-full flex items-center gap-3 shadow-xl backdrop-blur-md">
-        <Activity size={14} className="text-green-500" />
-        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-          Total: <span className="text-white">{totalQuestions}</span>
-        </span>
-      </div>
+      {/* Draggable Stats Badge */}
+        <div 
+          ref={dragRef}
+          onMouseDown={handleMouseDown}
+          className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 px-4 py-2 rounded-full flex items-center gap-3 shadow-xl backdrop-blur-md select-none transition-shadow ${isDragging ? 'cursor-grabbing shadow-2xl scale-105' : 'cursor-grab hover:shadow-2xl'}`}
+          style={{ 
+            left: `${position.x}px`, 
+            top: `${position.y}px`,
+            touchAction: 'none'
+          }}
+        >
+          <Activity size={14} className="text-green-600 dark:text-green-500" />
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Total: <span className="text-gray-900 dark:text-white">{totalQuestions}</span></span>
+        </div>
     </div>
   );
 };
