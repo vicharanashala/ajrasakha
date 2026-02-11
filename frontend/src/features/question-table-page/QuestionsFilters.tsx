@@ -22,7 +22,8 @@ import {
   Settings,
   Mail,
   LayoutGrid,
-  Activity
+  Activity,
+  ArrowUpDown
 } from "lucide-react";
 import {
   AdvanceFilterDialog,
@@ -381,16 +382,16 @@ export const QuestionsFilters = ({
         </div>
       </div>
 
-      <div className="w-full sm:w-auto flex flex-wrap items-center gap-3 justify-between sm:justify-end">
+      <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
         {/* filter */}
 
         {/* tools and filters */}
         <button
           onClick={() => setIsSidebarOpen(true)}
-          className="flex items-center gap-2 px-4 py-1.5 cursor-pointer bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-md hover:border-gray-300 dark:hover:border-gray-600 transition-all shadow-sm dark:shadow-none"
+          className="flex-1 sm:flex-none flex items-center justify-center sm:justify-start gap-2 px-3 sm:px-4 py-2 sm:py-1.5 cursor-pointer bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-md hover:border-gray-300 dark:hover:border-gray-600 transition-all shadow-sm dark:shadow-none text-xs sm:text-sm"
         >
-          <Filter className="h-4 w-4" />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+          <Filter className="h-4 w-4 flex-shrink-0" />
+          <span className="sm:inline font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">
             Tools & Filters
           </span>
         </button>
@@ -399,11 +400,11 @@ export const QuestionsFilters = ({
           <Button
             variant="default"
             size="sm"
-            className="flex items-center gap-2 w-full md:w-fit"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 text-xs sm:text-sm py-2 sm:py-1.5 whitespace-nowrap"
             onClick={() => setAddOpen(true)}
           >
-            <Plus className="h-4 w-4" />
-            New Question
+            <Plus className="h-4 w-4 flex-shrink-0" />
+            <span className="xs:inline">New Question</span>
           </Button>
         )}
 
@@ -518,12 +519,12 @@ export const QuestionsFilters = ({
                       onSort("totalTurnAround")
                       setIsSidebarOpen(false);
                     } }
-                    className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl hover:bg-green-50 dark:hover:bg-green-500/5 hover:border-green-500/40 transition-all group"
+                    className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-500/5 hover:border-indigo-500/40 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   >
                     {/* Left Section */}
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-500/10 flex items-center justify-center text-green-600 dark:text-green-400">
-                        <RotateCcw size={18} />
+                      <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                        <ArrowUpDown size={18} />
                       </div>
 
                       <div className="text-left">
