@@ -38,7 +38,7 @@ import { toast } from "sonner";
 // Simple email validation regex
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export const OutreachReportModal = () => {
+export const OutreachReportModal = ({setIsSidebarOpen}:{setIsSidebarOpen:(value:boolean) => void}) => {
   const [open, setOpen] = useState(false);
   
   // Date states - default to last 7 days
@@ -132,11 +132,27 @@ export const OutreachReportModal = () => {
         setOpen(isOpen);
         if (!isOpen) setTimeout(resetForm, 300);
       }
+      setIsSidebarOpen(false);
     }}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
-          <Mail/>
-        </Button>
+        <button className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-blue-50 dark:hover:bg-blue-500/5 border border-gray-200 dark:border-gray-800 hover:border-blue-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none">
+           <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-500/10 flex items-center justify-center text-blue-500 dark:text-blue-400">
+                      <Mail size={20} />
+                    </div>
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">
+                          Outreach Report
+                        </p>
+                        <span className="bg-red-500 text-[8px] text-white px-1 rounded uppercase font-bold">
+                          New
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-500">Generate & send summary</p>
+                    </div>
+                  </div>
+        </button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-[500px]">
