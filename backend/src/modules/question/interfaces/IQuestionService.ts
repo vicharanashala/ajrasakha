@@ -130,4 +130,5 @@ export interface IQuestionService {
       expertsInvolved: number;
       submissionsProcessed: number;}>
   runAbsentScript()
+  generateQuestionReport()
 }

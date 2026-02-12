@@ -1528,4 +1528,182 @@ export class AnswerRepository implements IAnswerRepository {
       );
     }
   }
+  async groupbyquestion( session?: ClientSession): Promise<any>
+  {
+    try {
+      await this.init();
+
+      const result = await this.AnswerCollection.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: new Date("2025-09-01T00:00:00.000Z") }
+          }
+        },
+      
+        // Count modifications per answer
+        {
+          $addFields: {
+            modificationsCount: { $size: { $ifNull: ["$modifications", []] } }
+          }
+        },
+      
+        // Group per question
+        {
+          $group: {
+            _id: "$questionId",
+            totalAnswers: { $sum: 1 },
+            hasModifiedAnswer: {
+              $max: { $cond: [{ $gte: ["$modificationsCount", 1] }, 1, 0] }
+            },
+            latestCreatedAt: { $max: "$createdAt" }
+          }
+        },
+      
+        // Month-wise metrics
+        {
+          $group: {
+            _id: {
+              year: { $year: "$latestCreatedAt" },
+              month: { $month: "$latestCreatedAt" }
+            },
+      
+            // Modified questions
+            modifiedCount: {
+              $sum: {
+                $cond: [{ $eq: ["$hasModifiedAnswer", 1] }, 1, 0]
+              }
+            },
+      
+            // Rejected = multiple answers BUT no modifications
+            rejectedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $gte: ["$totalAnswers", 2] },
+                      { $eq: ["$hasModifiedAnswer", 0] }
+                    ]
+                  },
+                  1,
+                  0
+                ]
+              }
+            }
+          }
+        },
+      
+        { $sort: { "_id.year": 1, "_id.month": 1 } }
+      ], {
+        allowDiskUse: true
+      }).toArray();
+      
+      
+      const questionsPerMonth = await this.QuestionCollection.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: new Date("2025-9-01T00:00:00.000Z") }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              year: { $year: "$createdAt" },
+              month: { $month: "$createdAt" }
+            },
+            questionsCount: { $sum: 1 }
+          }
+        },
+        { $sort: { "_id.year": 1, "_id.month": 1 } }
+      ]).toArray();
+     const reasons= await this.QuestionSubmissionCollection.aggregate([
+
+        { $unwind: "$history" },
+        {
+          $match: {
+            "createdAt": {
+              $gte: new Date("2026-02-01T00:00:00.000Z"),
+              $lt: new Date("2026-03-01T00:00:00.000Z")
+            }
+          }
+        },
+      
+        {
+          $project: {
+            submissionCreatedAt: "$createdAt",
+            questionId: 1,
+            reasonForModification: "$history.reasonForLastModification",
+            reasonForRejection: "$history.reasonForRejection"
+          }
+        },
+      
+        {
+          $group: {
+            _id: "$questionId",
+            createdAt: { $first: "$submissionCreatedAt" },
+            reasonForModification: { $addToSet: "$reasonForModification" },
+            reasonForRejection: { $addToSet: "$reasonForRejection" }
+          }
+        },
+      
+        // Remove null / empty values
+        {
+          $project: {
+            questionId: "$_id",
+            createdAt: 1,
+            reasonForModification: {
+              $filter: {
+                input: "$reasonForModification",
+                as: "r",
+                cond: { $and: [{ $ne: ["$$r", null] }, { $ne: ["$$r", ""] }] }
+              }
+            },
+            reasonForRejection: {
+              $filter: {
+                input: "$reasonForRejection",
+                as: "r",
+                cond: { $and: [{ $ne: ["$$r", null] }, { $ne: ["$$r", ""] }] }
+              }
+            }
+          }
+        },
+      
+        // Join question text
+        {
+          $lookup: {
+            from: "questions",
+            localField: "questionId",
+            foreignField: "_id",
+            as: "q"
+          }
+        },
+        { $unwind: "$q" },
+      
+        {
+          $project: {
+            _id: 0,
+            question: "$q.question",
+            reasonForModification: 1,
+            reasonForRejection: 1,
+            createdAt:1,
+          }
+        },
+        { $sort: { createdAt: 1 } }
+      
+      ]).toArray();
+      // Create Excel
+      // Create Excel
+ 
+  
+
+    
+      if (!result) {
+        throw new InternalServerError(`error in finding answers`);
+      }
+return {result,questionsPerMonth,reasons}
+    } catch (error) {
+      throw new InternalServerError(
+        `error in finding answers. More: ${error}`,
+      );
+    }
+  }
 }

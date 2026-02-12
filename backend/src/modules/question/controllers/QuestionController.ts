@@ -16,6 +16,7 @@ import {
   Patch,
   UploadedFile,
   BadRequestError,
+  ContentType
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -352,4 +353,21 @@ export class QuestionController {
     if (!job) return {message: 'Job not found'};
     return job;
   }
+
+  @Get("/download-question-report")
+@Authorized()
+@ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+async downloadQuestionReport(
+  @CurrentUser() user: IUser,
+) {
+  const userId = user._id.toString();
+  const data = await this.questionService.generateQuestionReport();
+
+  if (!data) {
+    throw new NotFoundError("No report data found");
+  }
+
+  return Buffer.from(data as ArrayBuffer);
+}
+
 }

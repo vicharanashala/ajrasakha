@@ -40,6 +40,8 @@ import {NotificationService} from '#root/modules/core/services/NotificationServi
 import {CORE_TYPES} from '#root/modules/core/types.js';
 import {IQuestionService} from '../interfaces/IQuestionService.js';
 import {isToday} from '#root/utils/date.utils.js';
+import fs from "fs";
+import ExcelJS from "exceljs";
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -1475,12 +1477,48 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
       if (!question) {
         return null;
-      }
+      }  
       return question;
     } catch (error) {
       throw new InternalServerError(`Failed to fetch question data: ${error}`);
     }
   }
+  async generateQuestionReport() {
+    const result = await this.answerRepo.groupbyquestion();
+  
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Question Reasons");
+  
+    sheet.columns = [
+      { header: "Created At", key: "createdAt", width: 22 },
+      { header: "Question", key: "question", width: 50 },
+      { header: "Reason For Modification", key: "mod", width: 50 },
+      { header: "Reason For Rejection", key: "rej", width: 50 }
+    ];
+  
+    result.reasons.forEach(item => {
+      const modList = (item.reasonForModification || []).filter(Boolean);
+      const rejList = (item.reasonForRejection || []).filter(Boolean);
+      if (!modList.length && !rejList.length) return;
+  
+      const row = sheet.addRow({
+        createdAt: item.createdAt,
+        question: item.question,
+        mod: modList.map((r, i) => `${i + 1}) ${r}`).join("\n"),
+        rej: rejList.map((r, i) => `${i + 1}) ${r}`).join("\n"),
+      });
+  
+      row.getCell("mod").alignment = { wrapText: true };
+      row.getCell("rej").alignment = { wrapText: true };
+    });
+  
+    // ExcelJS weird return type → cast to ArrayBufferLike safely
+    const data = await workbook.xlsx.writeBuffer();
+    return data;
+  }
+  
+  
+  
 
   async getAllocatedQuestionPage(userId: string, questionId: string) {
     return this._withTransaction(async session => {
