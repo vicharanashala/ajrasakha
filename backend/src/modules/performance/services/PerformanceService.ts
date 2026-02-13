@@ -5,7 +5,7 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {inject, injectable} from 'inversify';
 import {ClientSession, ObjectId} from 'mongodb';
 import {
-  IReviewerHeatmapRow,
+  IReviewerHeatmapResponse,
 } from '#root/shared/interfaces/models.js';
 import {
   UnauthorizedError,
@@ -53,7 +53,7 @@ export class PerformanceService extends BaseService implements IPerformanceServi
 
   async getHeatMapresults(
     query: GetHeatMapQuery,
-  ): Promise<IReviewerHeatmapRow[] | null> {
+  ): Promise<IReviewerHeatmapResponse | null> {
     return await this.questionSubmissionRepo.heatMapResultsForReviewer(query);
   }
 

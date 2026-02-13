@@ -1,7 +1,7 @@
 import {GetHeatMapQuery} from '#root/modules/core/classes/validators/DashboardValidators.js';
 import {
   IQuestionSubmission,
-  IReviewerHeatmapRow,
+  IReviewerHeatmapResponse,
   ISubmissionHistory,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
@@ -119,7 +119,7 @@ export interface IQuestionSubmissionRepository {
 
   heatMapResultsForReviewer(
     query: GetHeatMapQuery,
-  ): Promise<IReviewerHeatmapRow[] | null>;
+  ): Promise<IReviewerHeatmapResponse | null>;
 
   /**
    * @param userId - Userid of the expeet

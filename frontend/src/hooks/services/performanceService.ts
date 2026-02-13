@@ -1,4 +1,4 @@
-import type { HeatMapResult, WorkLoad } from "@/types";
+import type { HeatmapResponse, WorkLoad } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type {
   DashboardAnalyticsResponse,
@@ -16,7 +16,10 @@ export class PerformaneService {
   async getheatMapOfReviewers({
     startTime,
     endTime,
-  }: DateRange): Promise<HeatMapResult[] | null> {
+    page,
+    limit,
+  }: DateRange & {page:number,limit:number}): Promise<HeatmapResponse | null> {
+    console.log("HeatMap of reviews in performance service");
     const params = new URLSearchParams();
 
     if (startTime) {
@@ -26,8 +29,10 @@ export class PerformaneService {
     if (endTime) {
       params.append("endTime", formatDateLocal(endTime));
     }
+    params.append("page",page.toString());
+    params.append("limit",limit.toString());
 
-    return apiFetch<HeatMapResult[]>(
+    return apiFetch<HeatmapResponse>(
       `${this._baseUrl}/heatMapofReviewers?${params.toString()}`
     );
   }
