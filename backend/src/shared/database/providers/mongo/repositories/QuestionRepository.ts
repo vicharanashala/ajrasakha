@@ -1802,9 +1802,7 @@ export class QuestionRepository implements IQuestionRepository {
     }
 
     // Get moderator breakdown
-    const answersCollection = await this.db.getCollection('answers');
-
-    const moderatorBreakdown = await answersCollection.aggregate(
+    const moderatorBreakdown = await this.AnswersCollection.aggregate(
       [
         {
           $match: {
