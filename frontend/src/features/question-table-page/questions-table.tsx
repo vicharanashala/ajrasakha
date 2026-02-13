@@ -45,6 +45,8 @@ type QuestionsTableProps = {
   selectedQuestionIds: string[];
   setSelectedQuestionIds: Dispatch<SetStateAction<string[]>>;
   showClosedAt?: boolean;
+  sort?: string;
+  onSort?: (key: string) => void;
 };
 
 export const QuestionsTable = ({
@@ -62,6 +64,8 @@ export const QuestionsTable = ({
   selectedQuestionIds,
   setSelectedQuestionIds,
   showClosedAt,
+  sort,
+  onSort,
 }: QuestionsTableProps) => {
   const [editOpen, setEditOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
@@ -264,7 +268,7 @@ export const QuestionsTable = ({
           <Table className="min-w-[800px]  table-auto">
             <TableHeader className="bg-card sticky top-0 z-10">
               <TableRow>
-                <TableHead className="text-center">
+                <TableHead className="text-center" onClick={() => onSort?.("slno")}>
                   {selectedQuestionIds.length > 0 ? (
                     <div className="flex justify-center">
                       <Checkbox
@@ -280,14 +284,79 @@ export const QuestionsTable = ({
                       />
                     </div>
                   ) : (
-                    "Sl.No"
+                    <span className="cursor-pointer select-none">Sl.No</span>
                   )}
                 </TableHead>
-                <TableHead className="w-[25%] text-center">Question</TableHead>
-                <TableHead className="text-center">Priority</TableHead>
-                <TableHead className="text-center">State</TableHead>
-                <TableHead className="text-center">Crop</TableHead>
-                <TableHead className="text-center">Domain</TableHead>
+                <TableHead className="w-[25%] text-center">
+                  <button
+                    onClick={() => onSort?.("question")}
+                    className="flex items-center gap-1 mx-auto select-none"
+                  >
+                    Question
+                    {sort === "question_asc" && (
+                      <span className="text-sm font-medium">↑</span>
+                    )}
+                    {sort === "question_desc" && (
+                      <span className="text-sm font-medium">↓</span>
+                    )}
+                  </button>
+                </TableHead>
+                <TableHead className="text-center">
+                  <button
+                    onClick={() => onSort?.("priority")}
+                    className="flex items-center gap-1 mx-auto select-none"
+                  >
+                    Priority
+                    {sort === "priority_asc" && (
+                      <span className="text-sm font-medium">↑</span>
+                    )}
+                    {sort === "priority_desc" && (
+                      <span className="text-sm font-medium">↓</span>
+                    )}
+                  </button>
+                </TableHead>
+                <TableHead className="text-center">
+                  <button
+                    onClick={() => onSort?.("state")}
+                    className="flex items-center gap-1 mx-auto select-none"
+                  >
+                    State
+                    {sort === "state_asc" && (
+                      <span className="text-sm font-medium">↑</span>
+                    )}
+                    {sort === "state_desc" && (
+                      <span className="text-sm font-medium">↓</span>
+                    )}
+                  </button>
+                </TableHead>
+                <TableHead className="text-center">
+                  <button
+                    onClick={() => onSort?.("crop")}
+                    className="flex items-center gap-1 mx-auto select-none"
+                  >
+                    Crop
+                    {sort === "crop_asc" && (
+                      <span className="text-sm font-medium">↑</span>
+                    )}
+                    {sort === "crop_desc" && (
+                      <span className="text-sm font-medium">↓</span>
+                    )}
+                  </button>
+                </TableHead>
+                <TableHead className="text-center">
+                  <button
+                    onClick={() => onSort?.("domain")}
+                    className="flex items-center gap-1 mx-auto select-none"
+                  >
+                    Domain
+                    {sort === "domain_asc" && (
+                      <span className="text-sm font-medium">↑</span>
+                    )}
+                    {sort === "domain_desc" && (
+                      <span className="text-sm font-medium">↓</span>
+                    )}
+                  </button>
+                </TableHead>
                 <TableHead className="text-center">Source</TableHead>
                 <TableHead className="text-center">Status</TableHead>
                 <TableHead className="text-center">Answers</TableHead>

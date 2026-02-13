@@ -25,11 +25,13 @@ export class QuestionService {
     pageParam: number,
     limit: number,
     filter: AdvanceFilterValues,
-    search: string
+    search: string,
+    sort?: string
   ): Promise<IDetailedQuestionResponse | null> {
     const params = new URLSearchParams();
 
     if (search) params.append("search", search);
+    if (sort) params.append("sort", sort);
     params.append("page", pageParam.toString());
     params.append("limit", limit.toString());
 
