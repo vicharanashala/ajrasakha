@@ -357,6 +357,14 @@ code {
   animation: shimmer 3s ease-in-out infinite;
 }
 
+.scrollbar-hiding {
+  -ms-overflow-style: none;
+  scrollbar-width: none;   
+}
+.scrollbar-hiding::-webkit-scrollbar {
+  display: none;           
+}
+
 /* Hide scrollbar for sidebar at allquestions page */
 .sidebar-scroll-hidden::-webkit-scrollbar {
   display: none;

@@ -220,14 +220,14 @@ export interface IQuestionRepository {
   getYearAnalytics(
     goldenDataSelectedYear: string,
     session?: ClientSession,
-  ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number}>;
+  ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }>;
 
-   /**
-   * get yearly analytics.
-   * @param session -MongoDB client session for transactions.
-   * @returns A promise that resolves to question document
-   */
-  getTodayApproved(session?:ClientSession):Promise<{todayApproved:number}>;
+  /**
+  * get yearly analytics.
+  * @param session -MongoDB client session for transactions.
+  * @returns A promise that resolves to question document
+  */
+  getTodayApproved(session?:ClientSession):Promise<{todayApproved: number, moderatorBreakdown?: { moderatorName: string, count: number}[]}>;
 
   /**
    * get monthly analytics.
@@ -240,7 +240,7 @@ export interface IQuestionRepository {
     goldenDataSelectedYear: string,
     goldenDataSelectedMonth: string,
     session?: ClientSession,
-  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number}>;
+  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }>;
 
   /**
    * get weekly analytics.
@@ -255,7 +255,7 @@ export interface IQuestionRepository {
     goldenDataSelectedMonth: string,
     goldenDataSelectedWeek: string,
     session?: ClientSession,
-  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number}>;
+  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }>;
 
   /**
    * get daily analytics.
@@ -275,6 +275,7 @@ export interface IQuestionRepository {
   ): Promise<{
     dayHourlyData: Record<string, GoldenDatasetEntry[]>;
     totalEntriesByType: number;
+    moderatorBreakdown?: { moderatorName: string, count: number }[];
   }>;
 
   /**
