@@ -130,4 +130,15 @@ export interface IQuestionService {
       expertsInvolved: number;
       submissionsProcessed: number;}>
   runAbsentScript()
+
+  // getQuestionsByDateRange(
+  //   startDate: string,
+  //   endDate: string,
+  // ):Promise<IQuestion[]>
+
+  sendOutReachQuestionsMail(
+    startDate: string,
+    endDate: string,
+    emails: string | string[],
+  ): Promise<{ success: boolean; message: string }>
 }

@@ -52,10 +52,9 @@ export class RequestRepository implements IRequestRepository {
         'details' in details &&
         details.details
       ) {
-        const {_id, id, createdAt, text, updatedAt, requestType, ...rest} =
+        const {_id, createdAt, updatedAt,metrics,embedding, ...allowedFields} =
           details.details as Record<string, any>;
-        cleanedDetails =
-          requestType === 'question_flag' ? {...rest} : {...rest, text};
+        cleanedDetails = allowedFields;
       }
 
       const payload: IRequest = {
@@ -127,14 +126,16 @@ export class RequestRepository implements IRequestRepository {
               reviewedBy: r.reviewedBy?.toString(),
             })) || [];
 
-          const details =
-            req.requestType === 'question_flag'
-              ? (req.details as IQuestion | null)
-              : (req.details as Record<string, any> | null);
-
           const requestedUser = await this.usersCollection.findOne({
             _id: req.requestedBy,
-          });
+          },
+          {
+        projection: {
+          firstName: 1,
+          lastName: 1,
+        },
+      },
+        );
 
           return {
             ...req,
@@ -142,7 +143,6 @@ export class RequestRepository implements IRequestRepository {
             requestedBy: req.requestedBy?.toString(),
             entityId: req.entityId?.toString(),
             responses,
-            details,
             createdAt:
               req.createdAt instanceof Date
                 ? req.createdAt.toISOString()
@@ -151,7 +151,13 @@ export class RequestRepository implements IRequestRepository {
               req.updatedAt instanceof Date
                 ? req.updatedAt.toISOString()
                 : req.updatedAt,
-            requestedUser: requestedUser || null,
+            requestedUser: requestedUser
+              ? {
+                  _id: requestedUser._id.toString(),
+                  firstName: requestedUser.firstName,
+                  lastName: requestedUser.lastName,
+                }
+              : null,
           } as IRequest;
         }),
       );
@@ -227,7 +233,7 @@ export class RequestRepository implements IRequestRepository {
       await this.init();
       return await this.RequestCollection.findOne(
         {_id: new ObjectId(requestId),
-           isDeleted: { $ne: true },
+          isDeleted: { $ne: true },
         },
         {session},
       );
@@ -237,31 +243,31 @@ export class RequestRepository implements IRequestRepository {
   }
 
   async softDeleteById(
-  requestId: string,
-  deletedBy: string,
-  session?: ClientSession,
-): Promise<void> {
-  try {
-    await this.init();
+    requestId: string,
+    deletedBy: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    try {
+      await this.init();
 
-    await this.RequestCollection.updateOne(
-      {
-        _id: new ObjectId(requestId),
+      await this.RequestCollection.updateOne(
+        {
+          _id: new ObjectId(requestId),
         isDeleted: {$ne: true},
-      },
-      {
-        $set: {
-          isDeleted: true,
-          deletedAt: new Date(),
-          deletedBy: new ObjectId(deletedBy),
         },
-      },
+        {
+          $set: {
+            isDeleted: true,
+            deletedAt: new Date(),
+            deletedBy: new ObjectId(deletedBy),
+          },
+        },
       {session},
-    );
+      );
 
-  } catch (error) {
-    throw new InternalServerError(`Failed to soft delete request: ${error}`);
+    } catch (error) {
+      throw new InternalServerError(`Failed to soft delete request: ${error}`);
+    }
   }
-}
 
 }

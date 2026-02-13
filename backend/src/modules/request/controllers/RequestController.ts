@@ -57,7 +57,7 @@ export class RequestController {
     @CurrentUser() user: IUser,
     @QueryParams() query: GetAllRequestsQueryDto,
   ): Promise<{
-    requests: (IRequest & {userName: string})[];
+    requests: IRequest[];
     totalPages: number;
     totalCount: number;
   }> {
@@ -100,17 +100,15 @@ export class RequestController {
   }
 
   @Put('/:requestId/delete')
-@HttpCode(204)
-@Authorized()
-@OpenAPI({summary: 'Soft delete a request'})
-async softDelete(
-  @Params() params: RequestParamsDto,
-  @CurrentUser() user: IUser,
-): Promise<void> {
+  @HttpCode(204)
+  @Authorized()
+  @OpenAPI({summary: 'Soft delete a request'})
+  async softDelete(
+    @Params() params: RequestParamsDto,
+    @CurrentUser() user: IUser,
+  ): Promise<void> {
   const {requestId} = params;
-  const userId = user._id.toString();
-
-  await this.requestService.softDeleteRequest(requestId, userId);
-}
-
+    const userId = user._id.toString();
+    await this.requestService.softDeleteRequest(requestId, userId);
+  }
 }

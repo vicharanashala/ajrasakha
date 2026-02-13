@@ -1,4 +1,6 @@
 import {
+  useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -13,7 +15,15 @@ import {
  RotateCcw,
  Search,
   Trash,
-  X,Info
+  X,Info,
+  Filter,
+  RefreshCw,
+  ChevronRight,
+  Settings,
+  Mail,
+  LayoutGrid,
+  Activity,
+  ArrowUpDown
 } from "lucide-react";
 import {
   AdvanceFilterDialog,
@@ -28,6 +38,7 @@ import type {
 } from "@/types";
 import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
+import { OutreachReportModal } from "@/features/question_details/components/OutreachReport";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
 
 import { TopLeftBadge, TopRightBadge } from "../../components/NewBadge";
@@ -288,9 +299,51 @@ export const QuestionsFilters = ({
     // ✅ ClosedAt date range counts as ONE
     (advanceFilter.closedAtStart || advanceFilter.closedAtEnd ? 1 : 0);
 
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  // Optimized Draggable Logic
+  const [position, setPosition] = useState({ x: 10, y: window.innerHeight-70 }); // Initial screen position
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef(null);
+  const offset = useRef({ x: 0, y: 0 });
+
+  const handleMouseDown = (e:any) => {
+    setIsDragging(true);
+    const rect = e.currentTarget.getBoundingClientRect();
+    offset.current = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e:any) => {
+      if (!isDragging) return;
+      
+      // Calculate new position based on viewport
+      setPosition({
+        x: e.clientX - offset.current.x,
+        y: e.clientY - offset.current.y
+      });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
   return (
     <div className="w-full p-4 border-b bg-card ms-2 md:ms-0  rounded flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-      {/* Add Dialog (No change) */}
+      {/* Add Dialog */}
       <AddOrEditQuestionDialog
         open={addOpen}
         setOpen={setAddOpen}
@@ -301,44 +354,7 @@ export const QuestionsFilters = ({
         isLoadingAction={addingQuestion}
         mode="add"
       />
-      {viewMode === "review-level" && (
-        <div className="flex items-center gap-1 relative">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="flex items-center gap-2 px-3 py-2 rounded-md text-sm 
-               bg-primary text-white hover:opacity-90 select-none"
-                  onClick={() => onSort("totalTurnAround")}
-                >
-                  <Clock size={14} />
 
-                  {sort === `totalTurnAround___asc` && (
-                    <ArrowUpNarrowWide size={14} />
-                  )}
-                  {sort === `totalTurnAround___desc` && (
-                    <ArrowDownNarrowWide size={14} />
-                  )}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Sort questions by total turnaround time</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          {sort && (
-            <div className="flex justify-end">
-              <button
-                onClick={() => onSort("clearSort")}
-                className="ml-1 p-2 rounded-md text-sm bg-primary text-white hover:text-black"
-              >
-                <RotateCcw size={14} />
-              </button>
-            </div>
-          )}
-          <TopLeftBadge label="New" />
-        </div>
-      )}
       {/* SEARCH BAR – full width on mobile, fixed width on desktop */}
       <div className="w-full sm:flex-1 sm:min-w-[250px] sm:max-w-[400px]">
         <div className="relative w-full">
@@ -364,154 +380,270 @@ export const QuestionsFilters = ({
           )}
         </div>
       </div>
-      <div className="relative inline-block">
-      {userRole !== "expert" && (
-        <Tooltip>
-        <TooltipTrigger asChild>
-        <Button
-            variant="default"
-            size="sm"
-            className="flex items-center gap-2 w-full md:w-fit"
-            onClick={() => handleReAllocateLessWorkload ()}
-            disabled={isReAllocateDisabled}
-          >
-             <Info className="h-4 w-4" /> ReAllocate
-            
-          </Button>
-          
-          
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-xs text-sm">
-          <p>
-            {`This option allows reallocating questions  that have been
-            delayed by atleast 1 hour for those who has less workload( <= 5)`} .
-          </p>
-        </TooltipContent>
-      </Tooltip>
-         
-        )}
-         {userRole !== "expert" && (
-        <TopRightBadge label="New" />
-         )}
-         </div>
 
-      <div className="w-full sm:w-auto flex flex-wrap items-center gap-3 justify-between sm:justify-end">
-        <div className="inline-block">
-          <div className="flex gap-2 border rounded-md p-1 bg-muted/40">
-            <button
-              className={`px-3 py-1 rounded-md text-sm ${
-                viewMode === "all"
-                  ? "bg-primary text-white"
-                  : "text-muted-foreground"
-              }`}
-              onClick={() => setViewMode("all")}
-            >
-              Normal
-            </button>
+      <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
 
-            <button
-              className={`px-3 py-1 rounded-md text-sm ${
-                viewMode === "review-level"
-                  ? "bg-primary text-white"
-                  : "text-muted-foreground"
-              }`}
-              onClick={() => setViewMode("review-level")}
-            >
-              Turn Around
-            </button>
-          </div>
-        </div>
-
-        <AdvanceFilterDialog
-          advanceFilter={advanceFilter}
-          setAdvanceFilterValues={setAdvanceFilterValues}
-          handleDialogChange={handleDialogChange}
-          handleApplyFilters={handleApplyFilters}
-          normalizedStates={states}
-          crops={crops}
-          activeFiltersCount={activeFiltersCount}
-          onReset={onReset}
-          isForQA={false}
-        />
-
-        <Button
-          variant="outline"
-          size="icon"
-          className="w-10 h-10 sm:w-12 sm:h-10 flex-none hidden md:flex"
-          onClick={refetch}
+        {/* tools and filters */}
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="flex-1 sm:flex-none flex items-center justify-center sm:justify-start gap-2 px-3 sm:px-4 py-2 sm:py-1.5 cursor-pointer bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-md hover:border-gray-300 dark:hover:border-gray-600 transition-all shadow-sm dark:shadow-none text-xs sm:text-sm"
         >
-          <RefreshCcw className="h-4 w-4" />
-        </Button>
+          <Filter className="h-4 w-4 flex-shrink-0" />
+          <span className="sm:inline font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">
+            Tools & Filters
+          </span>
+        </button>
 
         {userRole !== "expert" && (
           <Button
             variant="default"
             size="sm"
-            className="flex items-center gap-2 w-full md:w-fit"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 text-xs sm:text-sm py-2 sm:py-1.5 whitespace-nowrap"
             onClick={() => setAddOpen(true)}
           >
-            <Plus className="h-4 w-4" />
-            Add Question
+            <Plus className="h-4 w-4 flex-shrink-0" />
+            <span className="xs:inline">New Question</span>
           </Button>
         )}
 
-        {
-          isSelectionModeOn && (
-            <div className="hidden md:flex items-center gap-4 whitespace-nowrap">
-              {/* Bulk delete with count */}
-              <ConfirmationModal
-                title="Delete Selected Questions?"
-                description={`Are you sure you want to delete ${
-                  selectedQuestionIds.length
-                } selected question${
-                  selectedQuestionIds.length > 1 ? "s" : ""
-                }? This action is irreversible.`}
-                confirmText="Delete"
-                cancelText="Cancel"
-                isLoading={bulkDeletingQuestions}
-                type="delete"
-                onConfirm={handleBulkDelete}
-                trigger={
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    disabled={
-                      selectedQuestionIds.length === 0 || bulkDeletingQuestions
-                    }
-                    className="flex items-center gap-2 transition-all"
-                  >
-                    <Trash className="h-4 w-4" />
-                    {bulkDeletingQuestions
-                      ? `Deleting (${selectedQuestionIds.length})...`
-                      : `Delete (${selectedQuestionIds.length})`}
-                  </Button>
-                }
-              />
+        {isSelectionModeOn && (
+          <div className="hidden md:flex items-center gap-4 whitespace-nowrap">
+            {/* Bulk delete with count */}
+            <ConfirmationModal
+              title="Delete Selected Questions?"
+              description={`Are you sure you want to delete ${
+                selectedQuestionIds.length
+              } selected question${
+                selectedQuestionIds.length > 1 ? "s" : ""
+              }? This action is irreversible.`}
+              confirmText="Delete"
+              cancelText="Cancel"
+              isLoading={bulkDeletingQuestions}
+              type="delete"
+              onConfirm={handleBulkDelete}
+              trigger={
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={
+                    selectedQuestionIds.length === 0 || bulkDeletingQuestions
+                  }
+                  className="flex items-center gap-2 transition-all"
+                >
+                  <Trash className="h-4 w-4" />
+                  {bulkDeletingQuestions
+                    ? `Deleting (${selectedQuestionIds.length})...`
+                    : `Delete (${selectedQuestionIds.length})`}
+                </Button>
+              }
+            />
 
-              {/* Cancel selection */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setIsSelectionModeOn(false);
-                  setSelectedQuestionIds([]);
-                }}
-                className="flex items-center gap-2 transition-all"
-              >
-                Cancel
-              </Button>
-            </div>
-          )
-          // ) : (
-          //   <span className="hidden md:block text-sm text-muted-foreground whitespace-nowrap">
-          //     Total: {totalQuestions}
-          //   </span>
-          // )
-        }
-        <span className="hidden md:block text-sm text-muted-foreground whitespace-nowrap">
-          Total: {totalQuestions}
-        </span>
+            {/* Cancel selection */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsSelectionModeOn(false);
+                setSelectedQuestionIds([]);
+              }}
+              className="flex items-center gap-2 transition-all"
+            >
+              Cancel
+            </Button>
+          </div>
+        )}
       </div>
+      {/* Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Side Action Drawer */}
+      <div
+        className={`fixed top-0 right-0 h-full w-[380px] bg-white dark:bg-[#141414] border-l border-gray-200 dark:border-gray-800 z-[60] shadow-2xl dark:shadow-[0_0_50px_rgba(0,0,0,0.5)] transform transition-transform duration-300 ease-out ${isSidebarOpen ? "translate-x-0" : "translate-x-full"}`}
+      >
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#1a1a1a]">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+              Management Tools
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Configure view and bulk actions
+            </p>
+          </div>
+          <button
+            onClick={() => setIsSidebarOpen(false)}
+            className="p-2 hover:bg-gray-200 dark:hover:bg-white/5 rounded-full transition-colors text-gray-500 dark:text-gray-400"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-8 overflow-y-auto h-[calc(100%-80px)] sidebar-scroll-hidden">
+          {/* Section: View Mode */}
+          <section>
+            <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
+              Display Settings
+            </h3>
+            <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 dark:bg-[#0d0d0d] rounded-lg border border-gray-200 dark:border-gray-800">
+              <button
+                className={`py-2.5 px-3 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all ${viewMode === "all" ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 hover:text-gray-900 dark:hover:text-white"}`}
+                onClick={() => setViewMode("all")}
+              >
+                <LayoutGrid size={14} /> Normal
+              </button>
+              <button
+                className={`py-2.5 px-3 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all ${viewMode === "review-level" ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 hover:text-gray-900 dark:hover:text-white"}`}
+                onClick={() => setViewMode("review-level")}
+              >
+                <Clock size={14} /> Turn Around
+              </button>
+            </div>
+          </section>
+
+          {/* Section: Critical Actions */}
+          <section>
+            <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
+              Management Actions
+            </h3>
+            <div className="space-y-3">
+              {/* total turn around time sort */}
+              {viewMode === "review-level" && (
+                <div className="relative">
+                  <button
+                    onClick={() =>{
+                      onSort("totalTurnAround")
+                      setIsSidebarOpen(false);
+                    } }
+                    className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-500/5 hover:border-indigo-500/40 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  >
+                    {/* Left Section */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                        <ArrowUpDown size={18} />
+                      </div>
+
+                      <div className="text-left">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                            Turnaround Time
+                          </p>
+                          <span className="bg-red-500 text-[8px] text-white px-1 rounded uppercase font-bold">
+                            New
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-gray-500">
+                          Sort by total response duration
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Right Section */}
+                    <div className="flex items-center gap-2">
+                      {sort === "totalTurnAround___asc" && (
+                        <ArrowUpNarrowWide
+                          size={22}
+                          className="text-green-500"
+                        />
+                      )}
+
+                      {sort === "totalTurnAround___desc" && (
+                        <ArrowDownNarrowWide
+                          size={22}
+                          className="text-green-500"
+                        />
+                      )}
+                    </div>
+                  </button>
+                </div>
+              )}
+
+              {/* reallocate */}
+              {userRole !== "expert" && (
+                <button
+                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  onClick={() => {
+                    handleReAllocateLessWorkload();
+                    setIsSidebarOpen(false);
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-500/10 flex items-center justify-center text-green-600 dark:text-green-500">
+                      <RotateCcw size={20} />
+                    </div>
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">
+                          ReAllocate Questions
+                        </p>
+                        <span className="bg-red-500 text-[8px] text-white px-1 rounded uppercase font-bold">
+                          New
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-500">
+                        Assign to different experts
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              )}
+
+              {/* send outreach rport */}
+              {userRole !== "expert" && <OutreachReportModal setIsSidebarOpen={setIsSidebarOpen} />}
+              {/* preferences */}
+              <AdvanceFilterDialog
+                advanceFilter={advanceFilter}
+                setAdvanceFilterValues={setAdvanceFilterValues}
+                handleDialogChange={handleDialogChange}
+                handleApplyFilters={handleApplyFilters}
+                normalizedStates={states}
+                crops={crops}
+                activeFiltersCount={activeFiltersCount}
+                onReset={onReset}
+                isForQA={false}
+                setIsSidebarOpen={setIsSidebarOpen}
+              />
+            </div>
+          </section>
+
+          {/* Section: Global Controls */}
+          <section>
+            <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
+              System
+            </h3>
+            <div className="flex gap-3">
+              <button
+                className="flex-1 flex items-center justify-center gap-2 py-3 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-lg text-sm hover:border-gray-400 dark:hover:border-gray-600 transition-colors text-gray-700 dark:text-gray-300 shadow-sm dark:shadow-none"
+                onClick={()=>{
+                  refetch();
+                  onSort("clearSort")
+                  setIsSidebarOpen(false);
+                }}
+              >
+                <RefreshCw size={14} /> Refresh Data
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+      {/* Draggable Stats Badge */}
+        <div 
+          ref={dragRef}
+          onMouseDown={handleMouseDown}
+          className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 px-4 py-2 rounded-full flex items-center gap-3 shadow-xl backdrop-blur-md select-none transition-shadow ${isDragging ? 'cursor-grabbing shadow-2xl scale-105' : 'cursor-grab hover:shadow-2xl'}`}
+          style={{ 
+            left: `${position.x}px`, 
+            top: `${position.y}px`,
+            touchAction: 'none'
+          }}
+        >
+          <Activity size={14} className="text-green-600 dark:text-green-500" />
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Total: <span className="text-gray-900 dark:text-white">{totalQuestions}</span></span>
+        </div>
     </div>
   );
 };

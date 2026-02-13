@@ -327,4 +327,10 @@ export interface IQuestionRepository {
     query: GetDetailedQuestionsQuery & {searchEmbedding: number[] | null},
     session?: ClientSession,
   ): Promise<QuestionLevelResponse>;
+
+  findByDateRangeAndSource(
+      startDate: Date,
+      endDate: Date,
+      sources: 'AJRASAKHA',
+    ): Promise<IQuestion[]>
 }

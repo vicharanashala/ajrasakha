@@ -84,7 +84,7 @@ export class RequestService extends BaseService implements IRequestService{
     userId: string,
     query: GetAllRequestsQueryDto,
   ): Promise<{
-    requests: (IRequest & {userName: string})[];
+    requests: IRequest[];
     totalPages: number;
     totalCount: number;
   }> {
@@ -99,14 +99,8 @@ export class RequestService extends BaseService implements IRequestService{
         const {requests, totalPages, totalCount} =
           await this.requestRepository.getAllRequests(query);
 
-        const sanitizedRequests: (IRequest & {userName: string})[] =
-          requests.map(req => ({
-            ...req,
-            userName: `${user.firstName} ${user.lastName}`,
-          }));
-
         return {
-          requests: sanitizedRequests,
+          requests,
           totalPages,
           totalCount,
         };
@@ -188,16 +182,13 @@ export class RequestService extends BaseService implements IRequestService{
           throw new NotFoundError('Request not found');
         }
 
-        const responses = request.responses.map(res => {
-          return {
-            ...res,
-            reviewedBy: res.reviewedBy.toString(),
-          };
-        });
+        const responses = request.responses.map(res => ({
+          ...res,
+          reviewedBy: res.reviewedBy.toString(),
+        }));
         const entityId = request.entityId.toString();
         if (request.requestType == 'question_flag') {
           const question = await this.questionRepo.getById(entityId, session);
-          const requestedDetails = request.details || question;
           if (!question)
             throw new NotFoundError(`Question not found for ID: ${entityId}`);
 
@@ -212,6 +203,9 @@ export class RequestService extends BaseService implements IRequestService{
             embedding,
             ...questionWithoutMeta
           } = question;
+          const requestedDetails = { ...questionWithoutMeta,
+          ...(request.details || {}),
+          };
           const {
             _id: rid,
             createdAt: rCreated,
@@ -232,7 +226,7 @@ export class RequestService extends BaseService implements IRequestService{
 
           return {currentDoc, existingDoc, responses};
         }
-        return {currentDoc: null, existingDoc: null, responses: []};
+        return {currentDoc: null, existingDoc: null, responses:[]};
       });
     } catch (error) {
       throw error;
@@ -240,33 +234,33 @@ export class RequestService extends BaseService implements IRequestService{
   }
 
   async softDeleteRequest(
-  requestId: string,
-  userId: string,
-): Promise<void> {
-  return this._withTransaction(async session => {
-    const user = await this.userRepo.findById(userId, session);
+    requestId: string,
+    userId: string,
+  ): Promise<void> {
+    return this._withTransaction(async session => {
+      const user = await this.userRepo.findById(userId, session);
 
-    if (!user || user.role !== 'moderator') {
-      throw new UnauthorizedError('Only moderators can delete requests');
-    }
+      if (!user || user.role !== 'moderator') {
+        throw new UnauthorizedError('Only moderators can delete requests');
+      }
 
-    const request = await this.requestRepository.getRequestById(
-      requestId,
-      session,
-    );
+      const request = await this.requestRepository.getRequestById(
+        requestId,
+        session,
+      );
 
-    log(request);
+      log(request);
 
-    if (!request || request.isDeleted) {
-      throw new NotFoundError('Request not found');
-    }
+      if (!request || request.isDeleted) {
+        throw new NotFoundError('Request not found');
+      }
 
-    await this.requestRepository.softDeleteById(
-      requestId,
-      userId,
-      session,
-    );
-  });
-}
+      await this.requestRepository.softDeleteById(
+        requestId,
+        userId,
+        session,
+      );
+    });
+  }
 
 }

@@ -30,3 +30,41 @@ export async function sendEmailNotification(
     html,
   });
 }
+
+
+export async function sendEmailWithAttachment(
+  email: string | string[],
+  title: string,
+  html: string,
+  fileContent: string,
+  filename: string,
+) {
+  const user = emailConfig.EMAIL_USER;
+  const pass = emailConfig.EMAIL_PASS;
+  // const transporter = nodemailer.createTransport({
+  //   service: 'gmail',
+  //   auth: {user, pass},
+  // });
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.zoho.in',
+    port: 465,
+    secure: true,
+    auth: {
+      user,
+      pass,
+    },
+  });
+  await transporter.sendMail({
+    from: `"Review System Report" <${emailConfig.EMAIL_USER}>`,
+    to: email,
+    subject: title,
+    html,
+    attachments: [
+      {
+        filename,
+        content: fileContent,
+        contentType: 'text/csv',
+      },
+    ],
+  });
+}

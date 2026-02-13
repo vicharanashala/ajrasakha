@@ -9,7 +9,7 @@ import {
 import { Button } from "../../components/atoms/button";
 import { Review_Level_QAI } from "@/components/MetaData";
 import {Select,SelectTrigger, SelectValue,SelectContent,SelectItem,} from "@/components/atoms/select";
-import {CheckCircle,RefreshCw,RotateCcw,Info,Loader2,Send,FileText,Bot} from "lucide-react";
+import {CheckCircle,RefreshCw,RotateCcw,Info,Loader2,Send,FileText,Bot, ChevronLeft} from "lucide-react";
 import type {
   HistoryItem,
   IQuestion,
@@ -35,6 +35,7 @@ type QaHeaderProps={
   scrollRef: React.RefObject<HTMLDivElement|null>;
   questionItemRefs: React.MutableRefObject<Record<string, HTMLDivElement>>;
   setQuestionRef: (id: string, el: HTMLDivElement | null) => void;
+  onToggleCollapse: () => void;
 }
 export const QaHeader=({ questions,
   selectedQuestion,
@@ -48,7 +49,9 @@ export const QaHeader=({ questions,
   reviewLevel,
   onReviewLevelChange,
   scrollRef,
-  setQuestionRef}:QaHeaderProps)=>{
+  setQuestionRef,
+  onToggleCollapse,
+}:QaHeaderProps)=>{
   return(
     <div>
       <Card className="w-full md:max-h-[120vh]  max-h-[80vh] min-h-[90vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent">
@@ -115,6 +118,23 @@ export const QaHeader=({ questions,
                   <RefreshCw className="w-4 h-4" />
                   <span className="sr-only">Refresh</span>
                 </Button>
+
+                {
+                  !isLoading && questions.length !== 0
+                   && (
+                    <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onToggleCollapse}
+                  className="h-9 px-2 ml-2"
+                  title="Collapse Questions"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span className="sr-only">Collapse Questions</span>
+                </Button>
+                   )
+                }
+                 
               </div>
             </CardHeader>
             {isLoading || isLoadingTarget ? (

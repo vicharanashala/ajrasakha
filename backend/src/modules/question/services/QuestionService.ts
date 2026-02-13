@@ -40,6 +40,7 @@ import {NotificationService} from '#root/modules/core/services/NotificationServi
 import {CORE_TYPES} from '#root/modules/core/types.js';
 import {IQuestionService} from '../interfaces/IQuestionService.js';
 import {isToday} from '#root/utils/date.utils.js';
+import { sendEmailWithAttachment } from '#root/utils/mailer.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -1957,5 +1958,136 @@ async balanceWorkload() {
   };
 }
 
+// async getQuestionsByDateRange(
+//     startDate: string,
+//     endDate: string,
+//   ):Promise<IQuestion[]> {
+//     if (!startDate || !endDate) {
+//       throw new Error('startDate and endDate are required');
+//     }
+
+//     const start = new Date(startDate);
+//     const end = new Date(endDate);
+
+//     // make end date inclusive
+//     end.setHours(23, 59, 59, 999);
+
+//     return await this.questionRepo.findByDateRangeAndSource(
+//       start,
+//       end,
+//       'AJRASAKHA',
+//     );
+//   }
   
+async sendOutReachQuestionsMail(
+    startDate: string,
+    endDate: string,
+    emails: string | string[],
+  ): Promise<{ success: boolean; message: string }> {
+    if (!startDate || !endDate) {
+      throw new Error('startDate and endDate are required');
+    }
+
+    const start = new Date(startDate + 'T00:00:00.000Z');
+    const end = new Date(endDate + 'T23:59:59.999Z'); 
+    const questions =
+      await this.questionRepo.findByDateRangeAndSource(
+        start,
+        end,
+        'AJRASAKHA'
+      );
+
+  if (questions.length === 0) {
+      return {
+        success: true,
+        message: 'There are no Outreach questions in the selected time',
+      };
+    }
+
+    const csv = this.convertQuestionsToCSV(questions,startDate,endDate);
+
+    await sendEmailWithAttachment(
+      emails,
+      'Ajrasakha Outreach Questions Report',
+      `
+        <p>Hello,</p>
+        <p>Please find attached the <b>Ajrasakha Outreach Questions</b> report.</p>
+        <p>Date Range: <b>${startDate}</b> to <b>${endDate}</b></p>
+        <br />
+        <p>Regards,<br/>Ajrasakha System</p>
+      `,
+      csv,
+      'out_reach_questions.csv',
+    );
+    return {
+      success: true,
+      message: 'Outreach questions report sent via email',
+    };
+  }
+
+private convertQuestionsToCSV(
+  data: IQuestion[],
+  startDate?: string,
+  endDate?: string,
+): string {
+  if (!data.length) return '';
+
+  const reportHeader = [
+    'Out Reach Data Report',
+    `Date Range: ${this.formatDate(startDate)} - ${this.formatDate(endDate)}`,
+    '', // empty line
+  ].join('\n');
+
+  const headers = [
+    'Question',
+    'Status',
+    'Priority',
+    // 'Is Auto Allocate',
+    'Source',
+    'State',
+    'District',
+    'Crop',
+    'Season',
+    'Domain',
+    // 'Total Answers',
+    // 'AI Initial Answer',
+    'Text',
+    // 'Closed At',
+    'Created At',
+    // 'Updated At',
+  ];
+
+  const rows = data.map((q) => [
+    this.escape(q.question),
+    q.status,
+    q.priority,
+    // q.isAutoAllocate,
+    q.source,
+    q.details?.state,
+    q.details?.district,
+    q.details?.crop,
+    q.details?.season,
+    q.details?.domain,
+    // q.totalAnswersCount,
+    // this.escape(q.aiInitialAnswer),
+    this.escape(q.text),
+    // q.closedAt ? this.formatDate(q.closedAt) : '',
+    q.createdAt ? this.formatDate(q.createdAt) : '',
+    // q.updatedAt ? this.formatDate(q.updatedAt) : '',
+  ]);
+
+  return [
+    reportHeader,
+    headers.join(','),
+    ...rows.map((r) => r.join(',')),
+  ].join('\n');
+}
+
+private formatDate(date: Date | string): string {
+  return new Date(date).toISOString().split('T')[0]; // YYYY-MM-DD
+}
+  private escape(value: any): string {
+    if (value === null || value === undefined) return '';
+    return `"${String(value).replace(/"/g, '""')}"`;
+  }
 }
