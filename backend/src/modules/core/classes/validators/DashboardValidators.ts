@@ -30,7 +30,7 @@ export class GetHeatMapQuery {
   endTime?: string;
 
   @JSONSchema({
-    example:'1',
+    example:1,
     description:"Page number",
   })
   @IsOptional()
@@ -38,7 +38,8 @@ export class GetHeatMapQuery {
   page?:number;
 
   @JSONSchema({
-
+    example:10,
+    description:"Limit"
   })
   @IsOptional()
   @IsNumber()
