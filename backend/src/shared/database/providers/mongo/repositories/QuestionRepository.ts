@@ -2449,17 +2449,52 @@ export class QuestionRepository implements IQuestionRepository {
 
       {$unwind: {path: '$submission', preserveNullAndEmptyArrays: true}},
 
+      //normalize date
+       {
+        $addFields: {
+          submissionCreatedAt: {
+            $cond: [
+              {$eq: [{$type: '$submission.createdAt'}, 'string']},
+              {$toDate: '$submission.createdAt'},
+              '$submission.createdAt',
+            ],
+          },
+
+          history: {
+            $map: {
+              input: {$ifNull: ['$submission.history', []]},
+              as: 'h',
+              in: {
+                $mergeObjects: [
+                  '$$h',
+                  {
+                    createdAt: {
+                      $cond: [
+                        {$eq: [{$type: '$$h.createdAt'}, 'string']},
+                        {$toDate: '$$h.createdAt'},
+                        '$$h.createdAt',
+                      ],
+                    },
+                    updatedAt: {
+                      $cond: [
+                        {$eq: [{$type: '$$h.updatedAt'}, 'string']},
+                        {$toDate: '$$h.updatedAt'},
+                        '$$h.updatedAt',
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
       {
         $addFields: {
-          history: {$ifNull: ['$submission.history', []]},
-          submissionCreatedAt: '$submission.createdAt',
-
           currentLevel: {
             $cond: [
-              {$gt: [{$size: {$ifNull: ['$submission.history', []]}}, 0]},
-              {
-                $subtract: [{$size: {$ifNull: ['$submission.history', []]}}, 1],
-              },
+              {$gt: [{$size: '$history'}, 0]},
+              {$subtract: [{$size: '$history'}, 1]},
               -1,
             ],
           },
