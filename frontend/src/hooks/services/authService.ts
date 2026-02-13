@@ -50,7 +50,7 @@ export class AuthService {
       const backendUrl = `${this._baseUrl}/signup`;
       const res = await fetch(backendUrl, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password, firstName, lastName }),
@@ -66,6 +66,31 @@ export class AuthService {
       return res.json();
     } catch (error) {
       console.error("Signup failed!", error);
+      throw error;
+    }
+  }
+
+  async accountSync(idToken: string) {
+    try {
+      const backendUrl = `${this._baseUrl}/sync`;
+      const res = await fetch(backendUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(
+          `Sync failed: ${res.status} ${res.statusText} - ${errorText}`
+        );
+      }
+
+      return res.json();
+    } catch (error) {
+      console.error("Account sync failed!", error);
       throw error;
     }
   }

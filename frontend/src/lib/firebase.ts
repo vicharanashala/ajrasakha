@@ -29,11 +29,23 @@ export const loginWithEmail = async (email: string, password: string) => {
     }
     if(!user?.isBlocked || user === null){
       const result = await signInWithEmailAndPassword(auth, email, password);
+
+      // Enforce email verification
+      if (!result.user.emailVerified) {
+        await signOut(auth);
+        throw new Error("Please verify your email before logging in.");
+      }
+
+      // Sync user with backend database
+      const idToken = await result.user.getIdToken();
+      const authService = new (await import("@/hooks/services/authService")).AuthService();
+      await authService.accountSync(idToken);
+
       return result;
     }
   } catch (error: unknown) {
     // If it's a "User Is Blocked" error, re-throw it
-    if (error instanceof Error && error.message === "User Is Blocked Please Contact Moderator") {
+    if (error instanceof Error && (error.message === "User Is Blocked Please Contact Moderator" || error.message === "Please verify your email before logging in.")) {
       throw error;
     }
     // Otherwise, if it's a network/fetch error from userService.Getuser, 

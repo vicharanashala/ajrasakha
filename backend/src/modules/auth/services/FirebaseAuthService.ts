@@ -17,6 +17,7 @@ import path from 'path';
 import {fileURLToPath} from 'url';
 import serviceAccount from '../../../../agriai-a2fba-firebase-adminsdk-fbsvc-452072d744.json' with {type: 'json'};
 import { error } from 'console';
+import { sendEmailNotification } from '#root/utils/mailer.js';
 
 /**
  * Custom error thrown during password change operations.
@@ -62,12 +63,8 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     // Retrieve the user from our database using the Firebase UID
     const user = await this.userRepository.findByFirebaseUID(firebaseUID);
     if(!user){
-      console.warn(`Firebase user ${firebaseUID} not found in DB. Deleting from firebase`)
-      await this.auth.deleteUser(firebaseUID).catch(err => {
-        console.error("failed to delete firebase user ",error)
-      })
-      console.log("deleted firebase user ")
-      throw new UnauthorizedError("User not found in database")
+      console.warn(`Firebase user ${firebaseUID} not found in DB.`);
+      throw new UnauthorizedError("User not found in database");
     }
     user._id = user._id.toString();
     return user;
@@ -123,7 +120,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
 
       if (error.code === "auth/email-already-exists") {
         message = "An account with this email already exists, Please try login!";
-      } 
+      }
       else if (error.code === "auth/invalid-password") {
         message = "The password does not meet Firebase requirements.";
       }
@@ -143,23 +140,29 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       role: 'expert',
     };
 
-    let createdUserId: string;
+    // create the user in the database will happen on the first successful login after email verification.
+    try {
+      
+      const link = await this.auth.generateEmailVerificationLink(body.email);
 
-    await this._withTransaction(async session => {
-      const newUser = new User(user);
-      createdUserId = await this.userRepository.create(newUser, session);
-      if (!createdUserId) {
-        throw new InternalServerError('Failed to create the user');
-      }
-    });
-     return {
-    user: {
-      uid: userRecord.uid,
-      email: userRecord.email,
-      displayName: userRecord.displayName || `${body.firstName} ${body.lastName || ''}`,
-      photoURL: userRecord.photoURL || '',
+      await sendEmailNotification(
+        body.email,
+        'Verify your email',
+        `Please verify your email by clicking on the link below: ${link}`,
+        `<p>Please verify your email by clicking on the link below:</p><a href="${link}">${link}</a>`,
+      );
+    } catch (err) {
+      console.error('Failed to send verification email:', err);
     }
-  }
+
+    return {
+      user: {
+        uid: userRecord.uid,
+        email: userRecord.email,
+        displayName: userRecord.displayName || `${body.firstName} ${body.lastName || ''}`,
+        photoURL: userRecord.photoURL || '',
+      }
+    }
   }
   async googleSignup(body: GoogleSignUpBody, token: string): Promise<any> {
     await this.verifyToken(token);
@@ -220,5 +223,32 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
 
   async findByFirebaseUID(uid:string):Promise<IUser>{
     return await this.userRepository.findByFirebaseUID(uid)
+  }
+
+  async syncUserWithDb(firebaseUID: string, email: string, displayName: string): Promise<IUser> {
+    let user = await this.userRepository.findByFirebaseUID(firebaseUID);
+
+    if (!user) {
+      console.log(`User ${firebaseUID} not found in DB, creating...`);
+      const names = displayName.split(' ');
+      const newUser: Partial<IUser> = {
+        firebaseUID: firebaseUID,
+        email: email,
+        firstName: names[0] || email.split('@')[0],
+        lastName: names.slice(1).join(' ') || '',
+        role: 'expert',
+      };
+
+      await this._withTransaction(async (session) => {
+        const userObj = new User(newUser as IUser); // Assuming User class takes Partial<IUser>
+        const createdId = await this.userRepository.create(userObj, session);
+        if (!createdId) throw new InternalServerError('Failed to create user in database');
+      });
+
+      user = await this.userRepository.findByFirebaseUID(firebaseUID);
+    }
+
+    if (!user) throw new InternalServerError('User syncing failed');
+    return user;
   }
 }

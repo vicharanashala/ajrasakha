@@ -10,6 +10,7 @@ import {
 } from '#auth/interfaces/IAuthService.js';
 import {ChangePasswordError} from '#auth/services/FirebaseAuthService.js';
 import {injectable, inject} from 'inversify';
+import admin from 'firebase-admin';
 import {
   JsonController,
   Post,
@@ -18,6 +19,7 @@ import {
   Authorized,
   Patch,
   Req,
+  HeaderParam,
   HttpError,
   OnUndefined,
 } from 'routing-controllers';
@@ -46,7 +48,7 @@ export class AuthController {
   @OnUndefined(201)
   async signup(@Body() body: SignUpBody) {
     const result = await this.authService.signup(body);
-    return {success: true, message: 'User registered successfully', ...result};
+    return { success: true, message:' Please check your email to verify your account.', ...result };
   }
 
   @OpenAPI({
@@ -113,37 +115,66 @@ export class AuthController {
       }
 
       //alternative 
-    //   const decoded = await admin.auth().verifyIdToken(result.idToken);
+      //   const decoded = await admin.auth().verifyIdToken(result.idToken);
 
-    // if (!decoded.email_verified) {
-    //   throw new Error('Please verify your email before logging in.');
-    // }
+      // if (!decoded.email_verified) {
+      //   throw new Error('Please verify your email before logging in.');
+      // }
 
-    // 2️⃣ Verify email status
-    const lookup = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${appConfig.firebase.apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken: result.idToken }),
-      }
-    );
+      // 2️⃣ Verify email status
+      const lookup = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${appConfig.firebase.apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken: result.idToken }),
+        }
+      );
 
     const lookupData:any = await lookup.json();
-    const userInfo = lookupData.users?.[0];
+      const userInfo = lookupData.users?.[0];
 
-    if (!userInfo?.emailVerified) {
-      throw new HttpError(401, 'Please verify your email before logging in.');
-    }
+      if (!userInfo?.emailVerified) {
+        throw new HttpError(401, 'Please verify your email before logging in.');
+      }
+
+      // Ensure the user exists in database
+      await this.authService.syncUserWithDb(
+        userInfo.localId,
+        userInfo.email,
+        userInfo.displayName || ''
+      );
+
       return result;
     } catch (error) {
-      if (error instanceof HttpError) {
-        throw error;
+      if (error instanceof HttpError) throw error;
+      throw new HttpError(500, 'Internal server error during login');
+    }
+  }
+
+  @Post('/sync')
+  async syncAccount(@HeaderParam('Authorization') token: string) {
+    const firebaseToken = token?.split(' ')[1];
+    if (!firebaseToken) throw new HttpError(401, 'No token provided');
+
+    try {
+      // Decode the token manually
+      const decodedEmail = await admin.auth().verifyIdToken(firebaseToken);
+
+      if (!decodedEmail.email_verified) {
+        throw new HttpError(401, 'Please verify your email before syncing account.');
       }
-      if (error instanceof Error) {
-        throw new HttpError(401, error.message || 'Invalid email or password');
-      }
-      throw new HttpError(500, 'Internal server error');
+
+      const user = await this.authService.syncUserWithDb(
+        decodedEmail.uid,
+        decodedEmail.email || '',
+        decodedEmail.name || ''
+      );
+
+      return { success: true, user };
+    } catch (error) {
+      if (error instanceof HttpError) throw error;
+      throw new HttpError(500, error.message || 'Sync failed');
     }
   }
 }
