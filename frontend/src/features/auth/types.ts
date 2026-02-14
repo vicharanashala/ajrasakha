@@ -31,6 +31,7 @@ export type UseAuthFormReturn = {
     color: string;
   };
   hasSubmitted: boolean;
+  isEmailSent: boolean;
 
   setShowPassword: Dispatch<SetStateAction<boolean>>;
   setShowConfirmPassword: Dispatch<SetStateAction<boolean>>;

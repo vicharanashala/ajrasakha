@@ -55,6 +55,8 @@ export interface IAuthService {
    */
   getCurrentUserFromToken(token: string): Promise<IUser | null>;
   updateFirebaseUser(firebaseUID: string, body: Partial<IUser>): Promise<void>;
+  syncUserWithDb(firebaseUID: string, email: string, displayName: string): Promise<IUser>;
+  sendVerificationEmail(email: string): Promise<void>;
 }
 
 /**
