@@ -591,14 +591,20 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                 // ✅ Index 0: from ROOT createdAt to history.updatedAt
                 then: {
                   $divide: [
-                    {$subtract: ['$history.updatedAt', '$createdAt']},
+                    {$subtract: [
+                      { $toDate: '$history.updatedAt' },
+                      { $toDate: '$createdAt' }
+                    ]},
                     1000 * 60 * 60,
                   ],
                 },
                 // ✅ Index >= 1: from history.createdAt to history.updatedAt
                 else: {
                   $divide: [
-                    {$subtract: ['$history.updatedAt', '$history.createdAt']},
+                    {$subtract: [
+                      { $toDate: '$history.updatedAt' },
+                      { $toDate: '$createdAt' }
+                    ]},
                     1000 * 60 * 60,
                   ],
                 },
