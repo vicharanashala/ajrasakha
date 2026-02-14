@@ -107,7 +107,6 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       if(!body.firstName.trim()){
         throw new Error("Name cannot be blank or empty spaces");
       }
-      // Create the user in Firebase Auth
       userRecord = await this.auth.createUser({
         email: body.email,
         emailVerified: false,
@@ -115,20 +114,27 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
         displayName: `${body.firstName} ${body.lastName || ''}`,
         disabled: false,
       });
-    } catch (error) {
-      let message = "Failed to create user";
-
-      if (error.code === "auth/email-already-exists") {
-        message = "An account with this email already exists, Please try login!";
+    } catch (error: any) {
+      if (error.code === 'auth/email-already-exists') {
+        const existingUser = await this.auth.getUserByEmail(body.email);
+        if (!existingUser.emailVerified) {
+          // If unverified, update details and allow re-signup
+          userRecord = await this.auth.updateUser(existingUser.uid, {
+            password: body.password,
+            displayName: `${body.firstName} ${body.lastName || ''}`,
+          });
+        } else {
+          throw new BadRequestError('An account with this email already exists, Please try login!');
+        }
+      } else {
+        let message = 'Failed to create user';
+        if (error.code === 'auth/invalid-password') {
+          message = 'The password does not meet Firebase requirements.';
+        } else if (error.code === 'auth/invalid-email') {
+          message = 'Invalid email format.';
+        }
+        throw new BadRequestError(message);
       }
-      else if (error.code === "auth/invalid-password") {
-        message = "The password does not meet Firebase requirements.";
-      }
-      else if (error.code === "auth/invalid-email") {
-        message = "Invalid email format.";
-      }
-
-      throw new BadRequestError(message);
     }
 
     // Prepare user object for storage in our database
@@ -142,7 +148,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
 
     // create the user in the database will happen on the first successful login after email verification.
     try {
-      
+
       const link = await this.auth.generateEmailVerificationLink(body.email);
 
       await sendEmailNotification(
