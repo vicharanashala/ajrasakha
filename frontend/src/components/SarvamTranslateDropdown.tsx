@@ -24,6 +24,18 @@ const LANGUAGES: Language[] = [
   { code: "pa-IN", name: "Punjabi (ਪੰਜਾਬੀ)" },
   { code: "ta-IN", name: "Tamil (தமிழ்)" },
   { code: "te-IN", name: "Telugu (తెలుగు)" },
+  { code: "as-IN", name: "Assamese (অসমীয়া)" },
+  { code: "brx-IN", name: "Bodo (बर')" },
+  { code: "doi-IN", name: "Dogri (डोगरी)" },
+  { code: "kok-IN", name: "Konkani (कोंकणी)" },
+  { code: "ks-IN", name: "Kashmiri (کٲشُر)" },
+  { code: "mai-IN", name: "Maithili (मैथिली)" },
+  { code: "mni-IN", name: "Manipuri (Meiteilon) (ꯃꯤꯇꯩꯂꯣꯟ)" },
+  { code: "ne-IN", name: "Nepali (नेपाली)" },
+  { code: "sa-IN", name: "Sanskrit (संस्कृतम्)" },
+  { code: "sat-IN", name: "Santali (ᱥᱟᱱᱛᱟᱲᱤ)" },
+  { code: "sd-IN", name: "Sindhi (سنڌي)" },
+  { code: "ur-IN", name: "Urdu (اردو)" },
 ];
 
 export default function SarvamTranslateDropdown({ query, onTranslate }: Props) {
