@@ -21,7 +21,7 @@ import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {
   IAnswer,
   IUser,
-  IReviewerHeatmapRow,
+  IReviewerHeatmapResponse,
 } from '#root/shared/interfaces/models.js';
 import { PerformanceService } from '../services/PerformanceService.js';
 import { DashboardResponse, GetDashboardQuery, GetHeatMapQuery } from '#root/modules/core/classes/validators/DashboardValidators.js';
@@ -64,7 +64,8 @@ export class PerformanceController {
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async getHeatMapresults(
     @QueryParams() query: GetHeatMapQuery,
-  ): Promise<IReviewerHeatmapRow[] | null> {
+  ): Promise<IReviewerHeatmapResponse | null> {
+    
     const result = await this.performanceService.getHeatMapresults(query);
 
     return result;

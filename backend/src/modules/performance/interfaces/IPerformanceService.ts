@@ -1,4 +1,4 @@
-import { IReviewerHeatmapRow } from '#root/shared/interfaces/models.js';
+import { IReviewerHeatmapResponse } from '#root/shared/interfaces/models.js';
 import {
   DashboardResponse,
   GetDashboardQuery,
@@ -11,7 +11,7 @@ export interface IPerformanceService {
    */
   getHeatMapresults(
     query: GetHeatMapQuery
-  ): Promise<IReviewerHeatmapRow[] | null>;
+  ): Promise<IReviewerHeatmapResponse | null>;
 
   /**
    * Current logged-in user's workload
