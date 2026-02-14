@@ -127,7 +127,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
           throw new BadRequestError('An account with this email already exists, Please try login!');
         }
       } else {
-        let message = 'Failed to create user';
+        let message = error.message || 'Failed to create user';
         if (error.code === 'auth/invalid-password') {
           message = 'The password does not meet Firebase requirements.';
         } else if (error.code === 'auth/invalid-email') {
@@ -147,19 +147,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     };
 
     // create the user in the database will happen on the first successful login after email verification.
-    try {
-
-      const link = await this.auth.generateEmailVerificationLink(body.email);
-
-      await sendEmailNotification(
-        body.email,
-        'Verify your email',
-        `Please verify your email by clicking on the link below: ${link}`,
-        `<p>Please verify your email by clicking on the link below:</p><a href="${link}">${link}</a>`,
-      );
-    } catch (err) {
-      console.error('Failed to send verification email:', err);
-    }
+    await this.sendVerificationEmail(body.email);
 
     return {
       user: {
@@ -256,5 +244,22 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
 
     if (!user) throw new InternalServerError('User syncing failed');
     return user;
+  }
+
+  async sendVerificationEmail(email: string): Promise<void> {
+    try {
+      const link = await this.auth.generateEmailVerificationLink(email);
+
+      await sendEmailNotification(
+        email,
+        'Verify your email',
+        `Please verify your email by clicking on the link below: ${link}`,
+        `<p>Please verify your email by clicking on the link below:</p><a href="${link}">${link}</a>`,
+      );
+      console.log(`Verification email sent successfully to ${email}`);
+    } catch (err: any) {
+      console.error(`Failed to send verification email to ${email}:`, err);
+      throw new BadRequestError(`Failed to send verification email: ${err.message || 'Unknown error'}`);
+    }
   }
 }

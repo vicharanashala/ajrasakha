@@ -3,6 +3,7 @@ import {
   ChangePasswordBody,
   LoginBody,
   GoogleSignUpBody,
+  ResendVerificationBody,
 } from '#auth/classes/validators/AuthValidators.js';
 import {
   IAuthService,
@@ -91,6 +92,16 @@ export class AuthController {
     }
   }
 
+  @OpenAPI({
+    summary: 'Resend verification email',
+    description: 'Resends the verification email to the provided email address.',
+  })
+  @Post('/resend-verification')
+  async resendVerification(@Body() body: ResendVerificationBody) {
+    await this.authService.sendVerificationEmail(body.email);
+    return { success: true, message: 'Verification email sent successfully' };
+  }
+
   @Post('/login')
   async login(@Body() body: LoginBody) {
     try {
@@ -131,11 +142,15 @@ export class AuthController {
         }
       );
 
-    const lookupData:any = await lookup.json();
+      const lookupData:any = await lookup.json();
       const userInfo = lookupData.users?.[0];
 
       if (!userInfo?.emailVerified) {
-        throw new HttpError(401, 'Please verify your email before logging in.');
+        await this.authService.sendVerificationEmail(userInfo.email);
+        throw new HttpError(
+          401,
+          'Please verify your email before logging in. A new verification link has been sent to your email.'
+        );
       }
 
       // Ensure the user exists in database

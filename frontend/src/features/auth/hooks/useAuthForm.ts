@@ -137,6 +137,10 @@ export const useAuthForm = (
       console.error("Auth failed", error);
 
       const code = authError.code || authError.message;
+
+      if (!authError.message?.includes("verify your email")) {
+        console.error("Auth failed", error);
+      }
       if (code === "auth/email-already-in-use" || code === "EMAIL_EXISTS") {
         toast.error("This email is already registered. Please log in instead.");
       } else if (

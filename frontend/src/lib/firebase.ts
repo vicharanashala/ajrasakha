@@ -15,6 +15,9 @@ import {
 import { firebaseConfig } from "@/config/firebase";
 import { useAuthStore } from "@/stores/auth-store";
 import { UserService } from "@/hooks/services/userService";
+import { AuthService } from "@/hooks/services/authService";
+const authService = new AuthService();
+
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -32,13 +35,18 @@ export const loginWithEmail = async (email: string, password: string) => {
 
       // Enforce email verification
       if (!result.user.emailVerified) {
+        try {
+          await authService.resendVerification(email);
+        } catch (resendError) {
+          console.error("Failed to trigger verification resend:", resendError);
+        }
+
         await signOut(auth);
-        throw new Error("Please verify your email before logging in.");
+        throw new Error("Please verify your email before logging in. A new verification link has been sent to your email.");
       }
 
       // Sync user with backend database
       const idToken = await result.user.getIdToken();
-      const authService = new (await import("@/hooks/services/authService")).AuthService();
       await authService.accountSync(idToken);
 
       return result;
@@ -68,7 +76,6 @@ export const createUserWithEmail = async (
   password: string,
   displayName?: string
 ) => {
-  const auth = getAuth(app);
   const userCredential = await createUserWithEmailAndPassword(
     auth,
     email,

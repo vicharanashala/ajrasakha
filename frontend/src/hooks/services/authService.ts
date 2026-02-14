@@ -94,4 +94,29 @@ export class AuthService {
       throw error;
     }
   }
+
+  async resendVerification(email: string) {
+    try {
+      const backendUrl = `${this._baseUrl}/resend-verification`;
+      const res = await fetch(backendUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(
+          `Failed to resend verification: ${res.status} ${res.statusText} - ${errorText}`
+        );
+      }
+
+      return res.json();
+    } catch (error) {
+      console.error("Resend verification failed!", error);
+      throw error;
+    }
+  }
 }
