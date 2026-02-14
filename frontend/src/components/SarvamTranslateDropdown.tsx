@@ -48,6 +48,11 @@ export default function SarvamTranslateDropdown({ query, onTranslate }: Props) {
       document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Reset selected language when query changes
+  useEffect(() => {
+    setSelectedLang(null);
+  }, [query]);
+
   const handleSelect = async (lang: Language) => {
     if (!query) return;
 
@@ -110,10 +115,10 @@ export default function SarvamTranslateDropdown({ query, onTranslate }: Props) {
               <button
                 key={lang.code}
                 onClick={() => handleSelect(lang)}
-                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-between group transition-colors"
+                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-primary flex items-center justify-between group transition-colors"
               >
                 <span>{lang.name}</span>
-                <span className="opacity-0 group-hover:opacity-100 text-indigo-500 text-xs font-medium bg-indigo-100 px-1.5 py-0.5 rounded">
+                <span className="opacity-0 group-hover:opacity-100 text-primary text-xs font-medium bg-indigo-100 px-1.5 py-0.5 rounded">
                   AI
                 </span>
               </button>

@@ -264,6 +264,8 @@ export const QAInterface = ({
       setNewAnswer("");
       setSources([]);
     }
+    // Reset translation state when question changes
+    setTranslatedText("");
   }, [selectedQuestion]);
 
   useEffect(() => {
