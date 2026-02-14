@@ -69,6 +69,7 @@
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.6.0",
     "recharts": "^2.15.4",
+    "sarvamai": "^1.1.4",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.0.2",
     "tailwindcss": "^4.0.6",
