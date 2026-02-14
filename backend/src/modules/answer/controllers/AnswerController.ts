@@ -117,7 +117,8 @@ export class AnswerController {
   ) {
     const {answerId} = params;
     const {_id: userId} = user;
-    return this.answerService.approveAnswer(userId.toString(), answerId, body);
+    await this.answerService.approveAnswer(userId.toString(), answerId, body);
+    return {message:'answer approved successfully'}
   }
 
   @OpenAPI({summary: 'Delete an answer and update the related question state'})

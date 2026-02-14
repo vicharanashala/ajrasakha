@@ -174,6 +174,8 @@ export class QuestionController {
           payload,
         );
         setImmediate(() => startBackgroundProcessing(insertedIds));
+
+        
         return {
           message: `✅ ${insertedIds.length} questions have been uploaded successfully. The expert allocation process has been initiated.`,
           insertedIds,
@@ -185,8 +187,8 @@ export class QuestionController {
         );
       }
     } else {
-      const inserted = this.questionService.addQuestion(userId, body);
-      return inserted;
+      await this.questionService.addQuestion(userId, body);
+      return {message:"Question added successfully!"};
     }
   }
   @Post('/reAllocateLessWorkload')
@@ -270,11 +272,13 @@ export class QuestionController {
     const {_id: userId} = user;
     const {questionId} = params;
     const {experts} = body;
-    return await this.questionService.allocateExperts(
+     await this.questionService.allocateExperts(
       userId.toString(),
       questionId,
       experts,
     );
+    return {message:"expert allocated successfully"}
+    
   }
 
   @Put('/:questionId')
@@ -298,15 +302,17 @@ export class QuestionController {
     @Params() params: QuestionIdParam,
     @Body() body: RemoveAllocateBody,
     @CurrentUser() user: IUser,
-  ): Promise<IQuestionSubmission> {
+  ): Promise<{message:string}> {
     const {_id: userId} = user;
     const {questionId} = params;
     const {index} = body;
-    return this.questionService.removeExpertFromQueue(
+    
+     await this.questionService.removeExpertFromQueue(
       userId.toString(),
       questionId,
       index,
     );
+    return {message:' allocation removed successfully'}
   }
 
   @Delete('/bulk')

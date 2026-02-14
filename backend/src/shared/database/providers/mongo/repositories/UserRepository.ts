@@ -395,6 +395,11 @@ async findAllUsers(
             ...selectedSort,
           },
         },
+        {
+          $project:{
+            firebaseUID:0
+          }
+        },
 
         /** Pagination */
         {
@@ -1029,6 +1034,12 @@ async findAllUsers(
         },
       },
       { $match: matchQuery },
+
+      {
+            $project: {
+              firebaseUID: 0,
+            },
+      },
 
       /** Pagination */
       {

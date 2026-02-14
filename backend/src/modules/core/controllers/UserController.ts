@@ -17,6 +17,7 @@ import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {
+  GetUserByEmailType,
   IUser,
   NotificationRetentionType,
 } from '#root/shared/interfaces/models.js';
@@ -79,13 +80,13 @@ export class UserController {
   async updateUser(
     @Body() body: UpdateUserDto,
     @CurrentUser() currentUser: IUser,
-  ): Promise<IUser> {
+  ): Promise<{firstName:string,lastName:string}> {
     const userId = currentUser._id.toString();
     const updatedUser = await this.userService.updateUser(userId, body);
     if (!updatedUser) {
       throw new NotFoundError('User not found');
     }
-    return updatedUser;
+    return {firstName:updatedUser.firstName,lastName:updatedUser.lastName};
   }
 
   @Get('/admin/all')
@@ -245,7 +246,7 @@ export class UserController {
       currentUser,
       userId,
     );
-    return {message: `User promoted to moderator`, user: updatedUser};
+    return {message: `User promoted to moderator`, user: {firstName:updatedUser.firstName,role:updatedUser.role}};
   }
 
   @Get('/details/:email')
@@ -253,8 +254,9 @@ export class UserController {
   @OpenAPI({summary: 'Get all user names'})
   async getUserDetails(
     @Params() params: {email: string},
-  ): Promise<IUser | null> {
+  ): Promise<GetUserByEmailType | null> {
     const {email} = params;
-    return await this.userService.getUserByEmail(email);
+    const result = await this.userService.getUserByEmail(email);
+    return {isBlocked:result.isBlocked}
   }
 }

@@ -49,8 +49,16 @@ export class UserService extends BaseService {
             userId,
             session,
           );
+         const  {
+          reputation_score,
+          isBlocked,
+          updatedAt,
+          createdAt,
+          firebaseUID,
+          ...rest
+        } = user
         const usersWithNotification = {
-          ...user,
+          ...rest,
           notifications,
         };
         return usersWithNotification;

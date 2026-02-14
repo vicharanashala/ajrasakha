@@ -624,6 +624,9 @@ export class QuestionRepository implements IQuestionRepository {
               contextId: 0,
               metrics: 0,
               embedding: 0,
+              isAutoAllocate:0,
+              text:0,
+              aiInitialAnswer:0,
               contextDoc: 0,
               score: { $meta: 'vectorSearchScore' },
             },
@@ -792,6 +795,9 @@ export class QuestionRepository implements IQuestionRepository {
             contextId: 0,
             metrics: 0,
             embedding: 0,
+            isAutoAllocate:0,
+            text:0,
+            aiInitialAnswer:0,
             contextDoc: 0,
             priorityOrder: 0,
           },
@@ -1430,14 +1436,15 @@ export class QuestionRepository implements IQuestionRepository {
       }
 
       // 9 Final assembled question
+      const {aiInitialAnswer,text,contextId:_contextId,...rest} = question
       const result = {
         ...{
-          ...question,
-          contextId: question.contextId?.toString(),
+          ...rest,
+          // contextId: question.contextId?.toString(),
           isAutoAllocate: question.isAutoAllocate ?? true,
         },
         _id: question._id?.toString(),
-        userId: question.userId?.toString(),
+        // userId: question.userId?.toString(),
         isAlreadySubmitted,
         context,
         submission: populatedSubmission,

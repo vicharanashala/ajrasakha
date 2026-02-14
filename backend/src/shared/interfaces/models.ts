@@ -11,7 +11,7 @@ export type NotificationRetentionType = '3d' | '1w' | '2w' | '1m' | 'never';
 export type UserStatus = "active" | "in-active";
 export interface IUser {
   _id?: string | ObjectId;
-  firebaseUID: string;
+  firebaseUID?: string;
   email: string;
   firstName: string;
   lastName?: string;
@@ -28,6 +28,13 @@ export interface IUser {
   updatedAt?: Date;
   status?: UserStatus;
 }
+
+//get user by email type
+export type GetUserByEmailType = Pick<
+IUser,
+|'isBlocked'
+>
+
 
 export type IQuestionPriority = 'low' | 'medium' | 'high';
 

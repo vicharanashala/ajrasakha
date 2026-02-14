@@ -42,6 +42,7 @@ export interface IUser {
   totalAnswers_Created?:number;
   penaltyPercentage?:number;
   rankPosition?:number;
+  lastCheckInAt?:Date;
   status?: 'active' | 'in-active';
 }
 export interface ReviewLevelCount {

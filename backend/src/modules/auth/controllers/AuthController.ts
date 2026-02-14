@@ -45,8 +45,8 @@ export class AuthController {
   @HttpCode(201)
   @OnUndefined(201)
   async signup(@Body() body: SignUpBody) {
-    const result = await this.authService.signup(body);
-    return {success: true, message: 'User registered successfully', ...result};
+    await this.authService.signup(body);
+    return {success: true, message: 'User registered successfully'};
   }
 
   @OpenAPI({

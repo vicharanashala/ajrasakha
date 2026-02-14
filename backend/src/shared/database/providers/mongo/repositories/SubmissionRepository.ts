@@ -1149,18 +1149,19 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
       {
         $project: {
-          _id: {
-            $concat: [
-              {$toString: '$_id'},
-              '_history_',
-              {$toString: '$historyIndex'},
-            ],
-          },
+          // _id: {
+          //   $concat: [
+          //     {$toString: '$_id'},
+          //     '_history_',
+          //     {$toString: '$historyIndex'},
+          //   ],
+          // },
+          _id:0,
           activityType: 1,
           action: 1,
-          mainDate: 1,
+          // mainDate: 1,
           createdAt: '$mainDate',
-          updatedAt: '$history.updatedAt',
+          // updatedAt: '$history.updatedAt',
           reviewType: '$reviewDoc.reviewType',
           reason: {
             $ifNull: ['$reviewDoc.reason', '$history.reasonForRejection'],
