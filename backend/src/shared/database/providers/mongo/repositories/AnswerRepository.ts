@@ -1528,18 +1528,26 @@ export class AnswerRepository implements IAnswerRepository {
       );
     }
   }
-  async groupbyquestion( session?: ClientSession): Promise<any>
+  async groupbyquestion(consecutiveApprovals?: number, startDate?: Date, endDate?: Date, session?: ClientSession): Promise<any>
   {
     try {
       await this.init();
 
+      // Set default dates if not provided
+      const defaultStartDate = startDate || new Date("2025-09-01T00:00:00.000Z");
+      let defaultEndDate = endDate || new Date();
+      // Set end of day for endDate
+      if (endDate) {
+        defaultEndDate = new Date(endDate);
+        defaultEndDate.setHours(23, 59, 59, 999);
+      }
+
       const result = await this.AnswerCollection.aggregate([
         {
           $match: {
-            createdAt: { $gte: new Date("2025-09-01T00:00:00.000Z") }
+            createdAt: { $gte: defaultStartDate, $lte: defaultEndDate }
           }
         },
-      
         // Count modifications per answer
         {
           $addFields: {
@@ -1601,7 +1609,7 @@ export class AnswerRepository implements IAnswerRepository {
       const questionsPerMonth = await this.QuestionCollection.aggregate([
         {
           $match: {
-            createdAt: { $gte: new Date("2025-9-01T00:00:00.000Z") }
+            createdAt: { $gte: defaultStartDate, $lte: defaultEndDate }
           }
         },
         {
@@ -1615,14 +1623,14 @@ export class AnswerRepository implements IAnswerRepository {
         },
         { $sort: { "_id.year": 1, "_id.month": 1 } }
       ]).toArray();
-     const reasons= await this.QuestionSubmissionCollection.aggregate([
-
+     
+     let reasonsPipeline: any[] = [
         { $unwind: "$history" },
         {
           $match: {
             "createdAt": {
-              $gte: new Date("2026-02-01T00:00:00.000Z"),
-              $lt: new Date("2026-03-01T00:00:00.000Z")
+              $gte: defaultStartDate,
+              $lte: defaultEndDate
             }
           }
         },
@@ -1644,52 +1652,57 @@ export class AnswerRepository implements IAnswerRepository {
             reasonForRejection: { $addToSet: "$reasonForRejection" }
           }
         },
-      
-        // Remove null / empty values
-        {
-          $project: {
-            questionId: "$_id",
-            createdAt: 1,
-            reasonForModification: {
-              $filter: {
-                input: "$reasonForModification",
-                as: "r",
-                cond: { $and: [{ $ne: ["$$r", null] }, { $ne: ["$$r", ""] }] }
-              }
-            },
-            reasonForRejection: {
-              $filter: {
-                input: "$reasonForRejection",
-                as: "r",
-                cond: { $and: [{ $ne: ["$$r", null] }, { $ne: ["$$r", ""] }] }
-              }
-            }
-          }
-        },
-      
-        // Join question text
-        {
-          $lookup: {
-            from: "questions",
-            localField: "questionId",
-            foreignField: "_id",
-            as: "q"
-          }
-        },
-        { $unwind: "$q" },
-      
-        {
-          $project: {
-            _id: 0,
-            question: "$q.question",
-            reasonForModification: 1,
-            reasonForRejection: 1,
-            createdAt:1,
-          }
-        },
-        { $sort: { createdAt: 1 } }
-      
-      ]).toArray();
+     ];
+
+
+     reasonsPipeline = [
+       ...reasonsPipeline,
+       // Remove null / empty values
+       {
+         $project: {
+           questionId: "$_id",
+           createdAt: 1,
+           reasonForModification: {
+             $filter: {
+               input: "$reasonForModification",
+               as: "r",
+               cond: { $and: [{ $ne: ["$$r", null] }, { $ne: ["$$r", ""] }] }
+             }
+           },
+           reasonForRejection: {
+             $filter: {
+               input: "$reasonForRejection",
+               as: "r",
+               cond: { $and: [{ $ne: ["$$r", null] }, { $ne: ["$$r", ""] }] }
+             }
+           }
+         }
+       },
+     
+       // Join question text
+       {
+         $lookup: {
+           from: "questions",
+           localField: "questionId",
+           foreignField: "_id",
+           as: "q"
+         }
+       },
+       { $unwind: "$q" },
+     
+       {
+         $project: {
+           _id: 0,
+           question: "$q.question",
+           reasonForModification: 1,
+           reasonForRejection: 1,
+           createdAt:1,
+         }
+       },
+       { $sort: { createdAt: 1 } }
+     ];
+
+     const reasons = await this.QuestionSubmissionCollection.aggregate(reasonsPipeline).toArray();
       // Create Excel
       // Create Excel
  

@@ -15,6 +15,9 @@ import type { AdvanceFilterValues } from "@/components/advanced-question-filter"
 import { formatDateLocal } from "@/utils/formatDate";
 import { env } from "@/config/env";
 import type { ReviewLevelsApiResponse } from "@/features/questions/types";
+import { auth } from "@/config/firebase";
+import { getIdToken } from "firebase/auth";
+
 
 const API_BASE_URL = env.apiBaseUrl();
 export class QuestionService {
@@ -286,6 +289,74 @@ export class QuestionService {
       body: JSON.stringify({ questionIds }),
     });
   }
+/*
+  async downloadQuestionReport(consecutiveApprovals?: string, startDate?: string, endDate?: string): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (consecutiveApprovals && consecutiveApprovals !== "all") {
+      params.append("consecutiveApprovals", consecutiveApprovals);
+    }
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
+    
+    const response = await fetch(
+      `${this._baseUrl}/download-question-report?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error("Failed to download report");
+    }
+    
+    return await response.blob();
+  }
+*/
+
+async downloadQuestionReport(consecutiveApprovals?: string, startDate?: string, endDate?: string): Promise<Blob> {
+  
+  const params = new URLSearchParams();
+  if (consecutiveApprovals && consecutiveApprovals !== "all") {
+    params.append("consecutiveApprovals", consecutiveApprovals);
+  }
+  if (startDate) {
+    params.append("startDate", startDate);
+  }
+  if (endDate) {
+    params.append("endDate", endDate);
+  }
+  
+  // Get the current Firebase user and token
+  const firebaseUser = auth.currentUser;
+  if (!firebaseUser) {
+    throw new Error("User not authenticated");
+  }
+  
+  const token = await getIdToken(firebaseUser);
+  
+  const response = await fetch(
+    `${this._baseUrl}/download-question-report?${params.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`, 
+      },
+    }
+  );
+  
+  if (!response.ok) {
+    throw new Error("Failed to download report");
+  }
+  
+  return await response.blob();
+}
 
   
   async GetQuestionsAndLevels(

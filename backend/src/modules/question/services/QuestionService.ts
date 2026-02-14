@@ -1483,8 +1483,16 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new InternalServerError(`Failed to fetch question data: ${error}`);
     }
   }
-  async generateQuestionReport() {
-    const result = await this.answerRepo.groupbyquestion();
+  async generateQuestionReport(consecutiveApprovals?: number, startDate?: Date, endDate?: Date) {
+    const result = await this.answerRepo.groupbyquestion(consecutiveApprovals, startDate, endDate);
+  
+    // console.log('=== REPORT DEBUG ===');
+    // console.log('consecutiveApprovals:', consecutiveApprovals);
+    // console.log('startDate:', startDate);
+    // console.log('endDate:', endDate);
+    // console.log('result.reasons length:', result.reasons?.length || 0);
+    // console.log('First 3 reasons:', JSON.stringify(result.reasons?.slice(0, 3), null, 2));
+    console.log("Result are there",result)
   
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Question Reasons");
@@ -1496,9 +1504,14 @@ export class QuestionService extends BaseService implements IQuestionService {
       { header: "Reason For Rejection", key: "rej", width: 50 }
     ];
   
+    let rowCount = 0;
     result.reasons.forEach(item => {
       const modList = (item.reasonForModification || []).filter(Boolean);
       const rejList = (item.reasonForRejection || []).filter(Boolean);
+      
+      console.log(`Question: ${item.question?.substring(0, 50)}...`);
+      console.log(`  modList length: ${modList.length}, rejList length: ${rejList.length}`);
+      
       if (!modList.length && !rejList.length) return;
   
       const row = sheet.addRow({
@@ -1510,7 +1523,11 @@ export class QuestionService extends BaseService implements IQuestionService {
   
       row.getCell("mod").alignment = { wrapText: true };
       row.getCell("rej").alignment = { wrapText: true };
+      rowCount++;
     });
+  
+    console.log('Total rows added to Excel:', rowCount);
+    console.log('===================');
   
     // ExcelJS weird return type → cast to ArrayBufferLike safely
     const data = await workbook.xlsx.writeBuffer();

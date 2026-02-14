@@ -130,5 +130,5 @@ export interface IQuestionService {
       expertsInvolved: number;
       submissionsProcessed: number;}>
   runAbsentScript()
-  generateQuestionReport()
+  generateQuestionReport(consecutiveApprovals?: number, startDate?: Date, endDate?: Date)
 }

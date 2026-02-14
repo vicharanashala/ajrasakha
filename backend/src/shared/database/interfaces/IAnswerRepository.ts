@@ -91,7 +91,7 @@ export interface IAnswerRepository {
     questionId: string,
     session?: ClientSession,
   ): Promise<Partial<IAnswer>[]>;
-  groupbyquestion(session?: ClientSession):Promise<any>
+  groupbyquestion(consecutiveApprovals?: number, startDate?: Date, endDate?: Date, session?: ClientSession):Promise<any>
 
   /**
    * Retrieves all answers for a specific question.

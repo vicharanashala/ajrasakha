@@ -210,6 +210,31 @@ export class QuestionController {
    
   }
 
+  @Get("/download-question-report")
+  @Authorized()
+  @ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+  @OpenAPI({summary: 'Download question report as Excel'})
+  async downloadQuestionReport(
+    @QueryParams() query: { consecutiveApprovals?: string; startDate?: string; endDate?: string },
+    @CurrentUser() user: IUser,
+  ) {
+    const userId = user._id.toString();
+    const consecutiveApprovals = query.consecutiveApprovals 
+      ? parseInt(query.consecutiveApprovals, 10) 
+      : undefined;
+    
+    const startDate = query.startDate ? new Date(query.startDate) : undefined;
+    const endDate = query.endDate ? new Date(query.endDate) : undefined;
+    
+    const data = await this.questionService.generateQuestionReport(consecutiveApprovals, startDate, endDate);
+
+    if (!data) {
+      throw new NotFoundError("No report data found");
+    }
+
+    return Buffer.from(data as ArrayBuffer);
+  }
+
   @Get('/:questionId')
   @HttpCode(200)
   @Authorized()
@@ -353,21 +378,5 @@ export class QuestionController {
     if (!job) return {message: 'Job not found'};
     return job;
   }
-
-  @Get("/download-question-report")
-@Authorized()
-@ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-async downloadQuestionReport(
-  @CurrentUser() user: IUser,
-) {
-  const userId = user._id.toString();
-  const data = await this.questionService.generateQuestionReport();
-
-  if (!data) {
-    throw new NotFoundError("No report data found");
-  }
-
-  return Buffer.from(data as ArrayBuffer);
-}
 
 }
