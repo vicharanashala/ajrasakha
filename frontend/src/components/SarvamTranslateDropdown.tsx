@@ -65,30 +65,28 @@ export default function SarvamTranslateDropdown({ query, onTranslate }: Props) {
       <button
         onClick={() => !loading && setIsOpen((prev) => !prev)}
         disabled={loading}
-        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 shadow-sm border
+        className={`flex items-center gap-2 px-4 py-1 rounded-md text-sm font-medium transition-all duration-200 shadow-sm border
           ${
             loading
-              ? "bg-indigo-50 text-indigo-400 border-indigo-100 cursor-wait"
-              : "bg-white text-gray-700 border-gray-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50"
+              ? "bg-indigo-50 text-primary border-primary/30 cursor-wait"
+              : "bg-white text-gray-700 border-primary/30 hover:border-primary hover:bg-primary/5 transition-all"
           }`}
       >
         {loading ? (
           <>
             <Loader2 size={16} className="animate-spin" />
-            <span className="text-indigo-600">Translating...</span>
+            <span className="text-primary">Translating...</span>
           </>
         ) : (
           <>
             <Sparkles
               size={16}
-              className={
-                selectedLang ? "text-indigo-600" : "text-yellow-500"
-              }
+              className="text-primary"
             />
-            <span className={selectedLang ? "text-indigo-900" : ""}>
+            <span>
               {selectedLang
-                ? `Translated to ${selectedLang.name}`
-                : "Translate Query"}
+                ? `${selectedLang.name}`
+                : "Translate"}
             </span>
             <ChevronDown
               size={14}
@@ -101,31 +99,30 @@ export default function SarvamTranslateDropdown({ query, onTranslate }: Props) {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2">
-          <div className="px-3 py-2 border-b border-gray-50 mb-1">
+        <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100">
+          <div className="px-3 py-2 border-b border-gray-100 bg-white">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
               Select Language
             </p>
           </div>
-
-          {LANGUAGES.map((lang) => (
-            <button
-              key={lang.code}
-              onClick={() => handleSelect(lang)}
-              className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-between group transition-colors"
-            >
-              <span>{lang.name}</span>
-              <span className="opacity-0 group-hover:opacity-100 text-indigo-500 text-xs font-medium bg-indigo-100 px-1.5 py-0.5 rounded">
-                AI
-              </span>
-            </button>
-          ))}
+          <div className="max-h-60 overflow-y-auto py-2">
+            {LANGUAGES.map((lang) => (
+              <button
+                key={lang.code}
+                onClick={() => handleSelect(lang)}
+                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-between group transition-colors"
+              >
+                <span>{lang.name}</span>
+                <span className="opacity-0 group-hover:opacity-100 text-indigo-500 text-xs font-medium bg-indigo-100 px-1.5 py-0.5 rounded">
+                  AI
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
-      {error && (
-        <p className="text-xs text-red-500 mt-2">{error}</p>
-      )}
+      {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
     </div>
   );
 }
