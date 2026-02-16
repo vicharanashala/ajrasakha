@@ -16,6 +16,7 @@ import {
   Patch,
   UploadedFile,
   BadRequestError,
+  ContentType,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -208,6 +209,80 @@ export class QuestionController {
     
      
    
+  }
+
+  @Get("/download-question-report")
+  @Authorized()
+  @ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+  @OpenAPI({summary: 'Download question report as Excel'})
+  async downloadQuestionReport(
+    @QueryParams() query: { consecutiveApprovals?: string; startDate?: string; endDate?: string },
+    @CurrentUser() user: IUser,
+  ) {
+    const userId = user._id.toString();
+    const consecutiveApprovals = query.consecutiveApprovals 
+      ? parseInt(query.consecutiveApprovals, 10) 
+      : undefined;
+    
+    const startDate = query.startDate ? new Date(query.startDate) : undefined;
+    const endDate = query.endDate ? new Date(query.endDate) : undefined;
+    
+    const data = await this.questionService.generateQuestionReport(consecutiveApprovals, startDate, endDate);
+
+    if (!data) {
+      throw new NotFoundError("No report data found");
+    }
+
+    return Buffer.from(data as ArrayBuffer);
+  }
+
+  @Get("/download-overall-report")
+  @Authorized()
+  @ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+  @OpenAPI({summary: 'Download overall questions report by month as Excel'})
+  async downloadOverallReport(
+    @QueryParams() query: { startDate?: string; endDate?: string },
+    @CurrentUser() user: IUser,
+  ) {
+    const startDate = query.startDate ? new Date(query.startDate) : undefined;
+    const endDate = query.endDate ? new Date(query.endDate) : undefined;
+    
+    const data = await this.questionService.generateOverallQuestionReport(startDate, endDate);
+
+    if (!data) {
+      throw new NotFoundError("No report data found");
+    }
+
+    return Buffer.from(data);
+  }
+
+  @Get("/download-filtered-report")
+  @Authorized()
+  @ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+  @OpenAPI({summary: 'Download filtered questions report as Excel'})
+  async downloadFilteredReport(
+    @QueryParams() query: { 
+      state?: string; 
+      crop?: string; 
+      season?: string; 
+      domain?: string; 
+      status?: string; 
+    },
+    @CurrentUser() user: IUser,
+  ) {
+    const data = await this.questionService.generateStateCropQuestionReport({
+      state: query.state,
+      crop: query.crop,
+      season: query.season,
+      domain: query.domain,
+      status: query.status,
+    });
+
+    if (!data) {
+      throw new NotFoundError("No questions found for the selected filters");
+    }
+
+    return Buffer.from(data);
   }
 
   @Get('/:questionId')

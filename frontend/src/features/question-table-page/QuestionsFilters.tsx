@@ -11,19 +11,16 @@ import {
   ArrowUpNarrowWide,
   Clock,
   Plus,
- RefreshCcw,
- RotateCcw,
- Search,
+  RefreshCcw,
+  RotateCcw,
+  Search,
   Trash,
-  X,Info,
+  X,
+  Info,
   Filter,
-  RefreshCw,
-  ChevronRight,
-  Settings,
-  Mail,
   LayoutGrid,
+  ArrowUpDown,
   Activity,
-  ArrowUpDown
 } from "lucide-react";
 import {
   AdvanceFilterDialog,
@@ -44,7 +41,10 @@ import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
 import { TopLeftBadge, TopRightBadge } from "../../components/NewBadge";
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
-import {useReAllocateLessWorkload} from '@/hooks/api/question/useReAllocateLessWorkload'
+import {useReAllocateLessWorkload} from '@/hooks/api/question/useReAllocateLessWorkload';
+import { DownloadReportButton } from "./DownloadReportButton";
+import { DownloadOverallReportButton } from "./DownloadOverallReportButton";
+import { DownloadFilteredReportButton } from "./DownloadFilteredReportButton";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -109,7 +109,8 @@ export const QuestionsFilters = ({
     const { mutateAsync: reAllocateLessWorkload, isPending: reAllocateQuestion } =
     useReAllocateLessWorkload();
     const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
-    const handleReAllocateLessWorkload = async () => {
+    
+  const handleReAllocateLessWorkload = async () => {
        try {
         setIsReAllocateDisabled(true);
         const res = await reAllocateLessWorkload();
@@ -452,6 +453,10 @@ export const QuestionsFilters = ({
             </Button>
           </div>
         )}
+        
+        <span className="hidden md:block text-sm text-muted-foreground whitespace-nowrap">
+          Total: {totalQuestions}
+        </span>
       </div>
       {/* Sidebar Overlay */}
       {isSidebarOpen && (
@@ -610,6 +615,40 @@ export const QuestionsFilters = ({
             </div>
           </section>
 
+          {/* Section: Download Reports */}
+          {userRole !== "expert" && (
+            <section>
+              <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
+                Download Reports
+              </h3>
+              <p className="text-xs text-gray-500 mb-4">
+                Export question reports with custom date ranges and filters for analysis and record-keeping.
+              </p>
+              <div className="space-y-3">
+                <div className="p-4 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl">
+                  <DownloadReportButton />
+                  <p className="text-[10px] text-gray-500 mt-2">
+                    Questions with modification/rejection
+                  </p>
+                </div>
+                
+                <div className="p-4 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl">
+                  <DownloadOverallReportButton />
+                  <p className="text-[10px] text-gray-500 mt-2">
+                    Monthly statistics of total, modified, and rejected questions
+                  </p>
+                </div>
+                
+                <div className="p-4 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl">
+                  <DownloadFilteredReportButton />
+                  <p className="text-[10px] text-gray-500 mt-2">
+                    Questions filtered by State, Crop, Season, Domain, and Status
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* Section: Global Controls */}
           <section>
             <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
@@ -624,7 +663,7 @@ export const QuestionsFilters = ({
                   setIsSidebarOpen(false);
                 }}
               >
-                <RefreshCw size={14} /> Refresh Data
+                <RefreshCcw size={14} /> Refresh Data
               </button>
             </div>
           </section>

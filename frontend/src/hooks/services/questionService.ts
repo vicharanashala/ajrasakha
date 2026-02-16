@@ -15,6 +15,8 @@ import type { AdvanceFilterValues } from "@/components/advanced-question-filter"
 import { formatDateLocal } from "@/utils/formatDate";
 import { env } from "@/config/env";
 import type { ReviewLevelsApiResponse } from "@/features/questions/types";
+import { auth } from "@/config/firebase";
+import { getIdToken } from "firebase/auth";
 
 const API_BASE_URL = env.apiBaseUrl();
 export class QuestionService {
@@ -345,6 +347,43 @@ async reAllocateLessWorkload(): Promise<WorkloadBalanceResponse|null> {
   return apiFetch<WorkloadBalanceResponse|null>(`${this._baseUrl}/reAllocateLessWorkload`,{method: "POST",});
 }
 
+async downloadQuestionReport(consecutiveApprovals?: string, startDate?: string, endDate?: string): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (consecutiveApprovals && consecutiveApprovals !== "all") {
+    params.append("consecutiveApprovals", consecutiveApprovals);
+  }
+  if (startDate) {
+    params.append("startDate", startDate);
+  }
+  if (endDate) {
+    params.append("endDate", endDate);
+  }
+  
+  // Get the current Firebase user and token
+  const firebaseUser = auth.currentUser;
+  if (!firebaseUser) {
+    throw new Error("User not authenticated");
+  }
+  
+  const token = await getIdToken(firebaseUser);
+  
+  const response = await fetch(
+    `${this._baseUrl}/download-question-report?${params.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`, 
+      },
+    }
+  );
+  
+  if (!response.ok) {
+    throw new Error("Failed to download report");
+  }
+  
+  return await response.blob();
+}
+
 
 async sendOutreachReport(
   startDate: Date,
@@ -362,6 +401,89 @@ async sendOutreachReport(
       }),
     }
   );
+}
+
+async downloadOverallReport(startDate?: string, endDate?: string): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (startDate) {
+    params.append("startDate", startDate);
+  }
+  if (endDate) {
+    params.append("endDate", endDate);
+  }
+  
+  // Get the current Firebase user and token
+  const firebaseUser = auth.currentUser;
+  if (!firebaseUser) {
+    throw new Error("User not authenticated");
+  }
+  
+  const token = await getIdToken(firebaseUser);
+  
+  const response = await fetch(
+    `${this._baseUrl}/download-overall-report?${params.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`, 
+      },
+    }
+  );
+  
+  if (!response.ok) {
+    throw new Error("Failed to download overall report");
+  }
+  
+  return await response.blob();
+}
+
+async downloadFilteredReport(filters: {
+  state?: string;
+  crop?: string;
+  season?: string;
+  domain?: string;
+  status?: string;
+}): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (filters.state && filters.state !== 'all') {
+    params.append("state", filters.state);
+  }
+  if (filters.crop && filters.crop !== 'all') {
+    params.append("crop", filters.crop);
+  }
+  if (filters.season && filters.season !== 'all') {
+    params.append("season", filters.season);
+  }
+  if (filters.domain && filters.domain !== 'all') {
+    params.append("domain", filters.domain);
+  }
+  if (filters.status && filters.status !== 'all') {
+    params.append("status", filters.status);
+  }
+  
+  // Get the current Firebase user and token
+  const firebaseUser = auth.currentUser;
+  if (!firebaseUser) {
+    throw new Error("User not authenticated");
+  }
+  
+  const token = await getIdToken(firebaseUser);
+  
+  const response = await fetch(
+    `${this._baseUrl}/download-filtered-report?${params.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`, 
+      },
+    }
+  );
+  
+  if (!response.ok) {
+    throw new Error("Failed to download filtered report");
+  }
+  
+  return await response.blob();
 }
 
 }

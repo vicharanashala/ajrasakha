@@ -2960,4 +2960,95 @@ export class QuestionRepository implements IQuestionRepository {
     _id: q._id?.toString(),
   }));
 }
+  async getMonthlyQuestionStats(
+    startDate?: Date,
+    endDate?: Date,
+    session?: ClientSession,
+  ): Promise<Array<{
+    year: number;
+    month: string;
+    totalQuestions: number;
+    modifiedAnswers: number;
+    rejectedAnswers: number;
+  }>> {
+    await this.init();
+
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    // Build date filter
+    const dateFilter: any = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) dateFilter.createdAt.$gte = startDate;
+      if (endDate) dateFilter.createdAt.$lte = endDate;
+    }
+
+    // Aggregate questions by month
+    const pipeline: any[] = [
+      ...(Object.keys(dateFilter).length > 0 ? [{ $match: dateFilter }] : []),
+      {
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' }
+          },
+          totalQuestions: { $sum: 1 },
+          questionIds: { $push: '$_id' }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ];
+
+    const questionStats = await this.QuestionCollection.aggregate(pipeline, { session }).toArray();
+
+    // For each month, get modified and rejected answer counts
+    const results = await Promise.all(
+      questionStats.map(async (stat) => {
+        const questionIds = stat.questionIds;
+
+        // Count modified answers
+        const modifiedCount = await this.AnswersCollection.countDocuments(
+          {
+            questionId: { $in: questionIds },
+            status: 'modified'
+          },
+          { session }
+        );
+
+        // Count rejected answers
+        const rejectedCount = await this.AnswersCollection.countDocuments(
+          {
+            questionId: { $in: questionIds },
+            status: 'rejected'
+          },
+          { session }
+        );
+
+        return {
+          year: stat._id.year,
+          month: monthNames[stat._id.month - 1],
+          totalQuestions: stat.totalQuestions,
+          modifiedAnswers: modifiedCount,
+          rejectedAnswers: rejectedCount
+        };
+      })
+    );
+
+    return results;
+  }
+
+  async getQuestionsByFilters(
+    filters: any,
+    session?: ClientSession,
+  ): Promise<IQuestion[]> {
+    await this.init();
+    
+    return await this.QuestionCollection
+      .find(filters, { session })
+      .sort({ createdAt: -1 })
+      .toArray();
+  }
 }

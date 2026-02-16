@@ -141,4 +141,13 @@ export interface IQuestionService {
     endDate: string,
     emails: string | string[],
   ): Promise<{ success: boolean; message: string }>
+  generateQuestionReport(consecutiveApprovals?: number, startDate?: Date, endDate?: Date)
+  generateOverallQuestionReport(startDate?: Date, endDate?: Date): Promise<ArrayBuffer>
+  generateStateCropQuestionReport(filters: {
+    state?: string;
+    crop?: string;
+    season?: string;
+    domain?: string;
+    status?: string;
+  }): Promise<ArrayBuffer | null>
 }

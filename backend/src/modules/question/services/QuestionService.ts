@@ -41,6 +41,7 @@ import {CORE_TYPES} from '#root/modules/core/types.js';
 import {IQuestionService} from '../interfaces/IQuestionService.js';
 import {isToday} from '#root/utils/date.utils.js';
 import { sendEmailWithAttachment } from '#root/utils/mailer.js';
+import ExcelJS from "exceljs";
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -2090,4 +2091,176 @@ private formatDate(date: Date | string): string {
     if (value === null || value === undefined) return '';
     return `"${String(value).replace(/"/g, '""')}"`;
   }
+
+  async generateQuestionReport(consecutiveApprovals?: number, startDate?: Date, endDate?: Date) {
+    const result = await this.answerRepo.groupbyquestion(consecutiveApprovals, startDate, endDate);
+  
+    console.log('=== REPORT DEBUG ===');
+    console.log('consecutiveApprovals:', consecutiveApprovals);
+    console.log('startDate:', startDate);
+    console.log('endDate:', endDate);
+    console.log('result.reasons length:', result.reasons?.length || 0);
+    console.log('First 3 reasons:', JSON.stringify(result.reasons?.slice(0, 3), null, 2));
+  
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Question Reasons");
+  
+    sheet.columns = [
+      { header: "Created At", key: "createdAt", width: 22 },
+      { header: "Question", key: "question", width: 50 },
+      { header: "Reason For Modification", key: "mod", width: 50 },
+      { header: "Reason For Rejection", key: "rej", width: 50 }
+    ];
+  
+    let rowCount = 0;
+    result.reasons.forEach(item => {
+      const modList = (item.reasonForModification || []).filter(Boolean);
+      const rejList = (item.reasonForRejection || []).filter(Boolean);
+      
+      console.log(`Question: ${item.question?.substring(0, 50)}...`);
+      console.log(`  modList length: ${modList.length}, rejList length: ${rejList.length}`);
+      
+      if (!modList.length && !rejList.length) return;
+  
+      const row = sheet.addRow({
+        createdAt: item.createdAt,
+        question: item.question,
+        mod: modList.map((r, i) => `${i + 1}) ${r}`).join("\n"),
+        rej: rejList.map((r, i) => `${i + 1}) ${r}`).join("\n"),
+      });
+  
+      row.getCell("mod").alignment = { wrapText: true };
+      row.getCell("rej").alignment = { wrapText: true };
+      rowCount++;
+    });
+  
+    console.log('Total rows added to Excel:', rowCount);
+    console.log('===================');
+  
+    const data = await workbook.xlsx.writeBuffer();
+    return data;
+  }
+
+  async generateOverallQuestionReport(startDate?: Date, endDate?: Date): Promise<ArrayBuffer> {
+    return this._withTransaction(async (session) => {
+      // Get monthly statistics from the repository
+      const stats = await this.questionRepo.getMonthlyQuestionStats(startDate, endDate, session);
+
+      // Create Excel workbook
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet("Overall Questions Report");
+
+      // Define columns matching the template
+      sheet.columns = [
+        { header: "Year", key: "year", width: 12 },
+        { header: "Month", key: "month", width: 15 },
+        { header: "Total No. of Q", key: "totalQuestions", width: 18 },
+        { header: "Modified Answ", key: "modifiedAnswers", width: 18 },
+        { header: "Rejected Answ", key: "rejectedAnswers", width: 18 },
+        { header: "Total (Modified + Rejected)", key: "total", width: 28 }
+      ];
+
+      // Add data rows
+      stats.forEach(stat => {
+        sheet.addRow({
+          year: stat.year,
+          month: stat.month,
+          totalQuestions: stat.totalQuestions,
+          modifiedAnswers: stat.modifiedAnswers,
+          rejectedAnswers: stat.rejectedAnswers,
+          total: stat.modifiedAnswers + stat.rejectedAnswers
+        });
+      });
+
+      // Style the header row
+      const headerRow = sheet.getRow(1);
+      headerRow.font = { bold: true };
+      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Generate buffer
+      const buffer = await workbook.xlsx.writeBuffer();
+      return buffer as ArrayBuffer;
+    });
+  }
+
+  async generateStateCropQuestionReport(filters: {
+    state?: string;
+    crop?: string;
+    season?: string;
+    domain?: string;
+    status?: string;
+  }): Promise<ArrayBuffer | null> {
+    return this._withTransaction(async (session) => {
+      // Build filter query
+      const query: any = {};
+      if (filters.state && filters.state !== 'all') {
+        query['details.state'] = filters.state;
+      }
+      if (filters.crop && filters.crop !== 'all') {
+        query['details.crop'] = filters.crop;
+      }
+      if (filters.season && filters.season !== 'all') {
+        query['details.season'] = filters.season;
+      }
+      if (filters.domain && filters.domain !== 'all') {
+        query['details.domain'] = filters.domain;
+      }
+      if (filters.status && filters.status !== 'all') {
+        query.status = filters.status;
+      }
+
+      // Get questions from repository
+      const questions = await this.questionRepo.getQuestionsByFilters(query, session);
+
+      if (!questions || questions.length === 0) {
+        console.log("No questions found for given filters");
+        return null;
+      }
+
+      // Create Excel workbook
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet("Questions");
+
+      // Define columns
+      sheet.columns = [
+        { header: "Created At", key: "createdAt", width: 22 },
+        { header: "Question", key: "question", width: 60 },
+        { header: "State", key: "state", width: 20 },
+        { header: "District", key: "district", width: 20 },
+        { header: "Crop", key: "crop", width: 20 },
+        { header: "Season", key: "season", width: 20 },
+        { header: "Domain", key: "domain", width: 25 },
+        { header: "Status", key: "status", width: 15 },
+        { header: "Priority", key: "priority", width: 15 },
+        { header: "Source", key: "source", width: 15 },
+      ];
+
+      // Add data rows
+      questions.forEach(q => {
+        sheet.addRow({
+          createdAt: q.createdAt,
+          question: q.question,
+          state: q.details?.state,
+          district: q.details?.district,
+          crop: q.details?.crop,
+          season: q.details?.season,
+          domain: q.details?.domain,
+          status: q.status,
+          priority: q.priority,
+          source: q.source,
+        });
+      });
+
+      // Style the header row
+      const headerRow = sheet.getRow(1);
+      headerRow.font = { bold: true };
+      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Generate buffer
+      const buffer = await workbook.xlsx.writeBuffer();
+      return buffer as ArrayBuffer;
+    });
+  }
+
+  
 }
