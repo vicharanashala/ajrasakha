@@ -37,6 +37,7 @@ export const useAuthForm = (
   const [showPassword, setShowPassword] = useState(false); // password visibility toggle
   const [showConfirmPassword, setShowConfirmPassword] = useState(false); // confirm password visibility
   const [hasSubmitted, setHasSubmitted] = useState(false); // tracks if the form has been submitted
+  const [isEmailSent, setIsEmailSent] = useState(false); // tracks if verification email was sent
 
   const { setUser } = useAuthStore(); // global auth store
   const { mutateAsync: signupMutation } = useSignup(); // signup API hook
@@ -55,6 +56,7 @@ export const useAuthForm = (
     setHasSubmitted(false); // reset submission state to avoid premature validation
     setMode(newMode); // update current mode
     setErrors({}); // clear errors
+    setIsEmailSent(false); // reset email sent state
     setFormData({ email: "", password: "", confirmPassword: "", name: "" }); // reset fields
   };
 
@@ -114,8 +116,8 @@ export const useAuthForm = (
       if (mode === "signup") {
         // Call signup API
         await signupMutation({ email, password, firstName, lastName });
-        // Auto-login after signup
-        result = await loginWithEmail(email, password);
+        setIsEmailSent(true);
+        return;
       } else {
         // Login API
         result = await loginWithEmail(email, password);
@@ -135,6 +137,10 @@ export const useAuthForm = (
       console.error("Auth failed", error);
 
       const code = authError.code || authError.message;
+
+      if (!authError.message?.includes("verify your email")) {
+        console.error("Auth failed", error);
+      }
       if (code === "auth/email-already-in-use" || code === "EMAIL_EXISTS") {
         toast.error("This email is already registered. Please log in instead.");
       } else if (
@@ -158,7 +164,7 @@ export const useAuthForm = (
 
           // Clean up verbose prefixes like “Signup failed: 500 Internal Server Error - ”
           message = message.replace(/^.*Internal Server Error - /, "").trim();
-          
+
           // Handle Firebase/backend specific error messages
           if (message.includes("EMAIL_NOT_FOUND")) {
             message = "Invalid Credentials";
@@ -197,5 +203,6 @@ export const useAuthForm = (
     handleInputChange,
     handleSubmit,
     hasSubmitted,
+    isEmailSent,
   };
 };
