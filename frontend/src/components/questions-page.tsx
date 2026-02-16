@@ -82,7 +82,7 @@ export const QuestionsPage = ({
       return `${key}___asc`;
     });
   };
-  
+
   const toggleQuestionSort = (key: string) => {
     if (key === "slno") {
       setQuestionSort("");

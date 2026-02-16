@@ -68,11 +68,8 @@ export const QuestionsTable = ({
   sort,
   onSort,
 }: QuestionsTableProps) => {
-
   //visible columns
-  const visibleColumns = useQuestionTableStore(
-    (state) => state.visibleColumns
-  );
+  const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
   const [editOpen, setEditOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
     null,
@@ -274,130 +271,122 @@ export const QuestionsTable = ({
           <Table className="min-w-[800px]  table-auto">
             <TableHeader className="bg-card sticky top-0 z-10">
               <TableRow>
-                {
-                  visibleColumns.sl_No &&
-                <TableHead className="text-center" onClick={() => onSort?.("slno")}>
-                  {selectedQuestionIds.length > 0 ? (
-                    <div className="flex justify-center">
-                      <Checkbox
-                        checked={
-                          allVisibleSelected
-                            ? true
-                            : someVisibleSelected
-                              ? "indeterminate"
-                              : false
-                        }
-                        onCheckedChange={handleSelectAll}
-                        aria-label="Select all questions"
-                      />
-                    </div>
-                  ) : (
-                    <span className="cursor-pointer select-none">Sl.No</span>
-                  )}
-                </TableHead>
-                }
-                {
-                  visibleColumns.question &&
-
-                <TableHead className="w-[25%] text-center">
-                  <button
-                    onClick={() => onSort?.("question")}
-                    className="flex items-center gap-1 mx-auto select-none"
+                {visibleColumns.sl_No && (
+                  <TableHead
+                    className="text-center"
+                    onClick={() => onSort?.("slno")}
                   >
-                    Question
-                    {sort === "question_asc" && (
-                      <span className="text-sm font-medium">↑</span>
+                    {selectedQuestionIds.length > 0 ? (
+                      <div className="flex justify-center">
+                        <Checkbox
+                          checked={
+                            allVisibleSelected
+                              ? true
+                              : someVisibleSelected
+                                ? "indeterminate"
+                                : false
+                          }
+                          onCheckedChange={handleSelectAll}
+                          aria-label="Select all questions"
+                        />
+                      </div>
+                    ) : (
+                      <span className="cursor-pointer select-none">Sl.No</span>
                     )}
-                    {sort === "question_desc" && (
-                      <span className="text-sm font-medium">↓</span>
-                    )}
-                  </button>
-                </TableHead>
-                }
-                {
-                  visibleColumns.priority &&
-
-                <TableHead className="text-center">
-                  <button
-                    onClick={() => onSort?.("priority")}
-                    className="flex items-center gap-1 mx-auto select-none"
-                  >
-                    Priority
-                    {sort === "priority_asc" && (
-                      <span className="text-sm font-medium">↑</span>
-                    )}
-                    {sort === "priority_desc" && (
-                      <span className="text-sm font-medium">↓</span>
-                    )}
-                  </button>
-                </TableHead>
-                }
-                {
-                  visibleColumns.state &&
-
-                <TableHead className="text-center">
-                  <button
-                    onClick={() => onSort?.("state")}
-                    className="flex items-center gap-1 mx-auto select-none"
-                  >
-                    State
-                    {sort === "state_asc" && (
-                      <span className="text-sm font-medium">↑</span>
-                    )}
-                    {sort === "state_desc" && (
-                      <span className="text-sm font-medium">↓</span>
-                    )}
-                  </button>
-                </TableHead>
-                }
-                {
-                  visibleColumns.crop &&
-
-                <TableHead className="text-center">
-                  <button
-                    onClick={() => onSort?.("crop")}
-                    className="flex items-center gap-1 mx-auto select-none"
-                  >
-                    Crop
-                    {sort === "crop_asc" && (
-                      <span className="text-sm font-medium">↑</span>
-                    )}
-                    {sort === "crop_desc" && (
-                      <span className="text-sm font-medium">↓</span>
-                    )}
-                  </button>
-                </TableHead>
-                }
-                {
-                  visibleColumns.domain &&
-
-                <TableHead className="text-center">
-                  <button
-                    onClick={() => onSort?.("domain")}
-                    className="flex items-center gap-1 mx-auto select-none"
-                  >
-                    Domain
-                    {sort === "domain_asc" && (
-                      <span className="text-sm font-medium">↑</span>
-                    )}
-                    {sort === "domain_desc" && (
-                      <span className="text-sm font-medium">↓</span>
-                    )}
-                  </button>
-                </TableHead>
-                }
-                {
-                  visibleColumns.source && <TableHead className="text-center">Source</TableHead>
-                }
-                {
-                  visibleColumns.status && <TableHead className="text-center">Status</TableHead>
-                }
-                {
-                  visibleColumns.answers && <TableHead className="text-center">Answers</TableHead>
-                }
-                {
-                  visibleColumns.review_level && <TableHead className="text-center">Review Level</TableHead>
-                }
+                  </TableHead>
+                )}
+                {visibleColumns.question && (
+                  <TableHead className="w-[25%] text-center">
+                    <button
+                      onClick={() => onSort?.("question")}
+                      className="flex items-center gap-1 mx-auto select-none"
+                    >
+                      Question
+                      {sort === "question_asc" && (
+                        <span className="text-sm font-medium">↑</span>
+                      )}
+                      {sort === "question_desc" && (
+                        <span className="text-sm font-medium">↓</span>
+                      )}
+                    </button>
+                  </TableHead>
+                )}
+                {visibleColumns.priority && (
+                  <TableHead className="text-center">
+                    <button
+                      onClick={() => onSort?.("priority")}
+                      className="flex items-center gap-1 mx-auto select-none"
+                    >
+                      Priority
+                      {sort === "priority_asc" && (
+                        <span className="text-sm font-medium">↑</span>
+                      )}
+                      {sort === "priority_desc" && (
+                        <span className="text-sm font-medium">↓</span>
+                      )}
+                    </button>
+                  </TableHead>
+                )}
+                {visibleColumns.state && (
+                  <TableHead className="text-center">
+                    <button
+                      onClick={() => onSort?.("state")}
+                      className="flex items-center gap-1 mx-auto select-none"
+                    >
+                      State
+                      {sort === "state_asc" && (
+                        <span className="text-sm font-medium">↑</span>
+                      )}
+                      {sort === "state_desc" && (
+                        <span className="text-sm font-medium">↓</span>
+                      )}
+                    </button>
+                  </TableHead>
+                )}
+                {visibleColumns.crop && (
+                  <TableHead className="text-center">
+                    <button
+                      onClick={() => onSort?.("crop")}
+                      className="flex items-center gap-1 mx-auto select-none"
+                    >
+                      Crop
+                      {sort === "crop_asc" && (
+                        <span className="text-sm font-medium">↑</span>
+                      )}
+                      {sort === "crop_desc" && (
+                        <span className="text-sm font-medium">↓</span>
+                      )}
+                    </button>
+                  </TableHead>
+                )}
+                {visibleColumns.domain && (
+                  <TableHead className="text-center">
+                    <button
+                      onClick={() => onSort?.("domain")}
+                      className="flex items-center gap-1 mx-auto select-none"
+                    >
+                      Domain
+                      {sort === "domain_asc" && (
+                        <span className="text-sm font-medium">↑</span>
+                      )}
+                      {sort === "domain_desc" && (
+                        <span className="text-sm font-medium">↓</span>
+                      )}
+                    </button>
+                  </TableHead>
+                )}
+                {visibleColumns.source && (
+                  <TableHead className="text-center">Source</TableHead>
+                )}
+                {visibleColumns.status && (
+                  <TableHead className="text-center">Status</TableHead>
+                )}
+                {visibleColumns.answers && (
+                  <TableHead className="text-center">Answers</TableHead>
+                )}
+                {visibleColumns.review_level && (
+                  <TableHead className="text-center">Review Level</TableHead>
+                )}
                 {!showClosedAt && visibleColumns.created ? (
                   <TableHead className="text-center">Created</TableHead>
                 ) : null}

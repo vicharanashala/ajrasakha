@@ -1,12 +1,5 @@
-import type {
-  IDetailedQuestion,
-  QuestionStatus,
-  UserRole,
-} from "@/types";
-import {
-  useMemo,
-  useRef,
-} from "react";
+import type { IDetailedQuestion, QuestionStatus, UserRole } from "@/types";
+import { useMemo, useRef } from "react";
 import { useCountdown } from "@/hooks/ui/useCountdown";
 import { Badge } from "../../components/atoms/badge";
 import {
@@ -16,10 +9,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "../../components/atoms/context-menu";
-import {
-  TableCell,
-  TableRow,
-} from "../../components/atoms/table";
+import { TableCell, TableRow } from "../../components/atoms/table";
 import { Checkbox } from "../../components/atoms/checkbox";
 import {
   Tooltip,
@@ -29,11 +19,7 @@ import {
 } from "../../components/atoms/tooltip";
 import { TimerDisplay } from "../../components/timer-display";
 import { formatDate } from "@/utils/formatDate";
-import {AlertCircle,
-  Edit,
-  Eye,Square,
-  Trash,
-} from "lucide-react";
+import { AlertCircle, Edit, Eye, Square, Trash } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import { useQuestionTableStore } from "@/stores/all-questions";
@@ -65,7 +51,7 @@ interface QuestionRowProps {
     mode: "add" | "edit",
     entityId?: string,
     flagReason?: string,
-    status?: QuestionStatus
+    status?: QuestionStatus,
   ) => Promise<void>;
   onViewMore: (id: string) => void;
   showClosedAt?: boolean;
@@ -95,11 +81,8 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   selectedQuestionIds,
   showClosedAt,
 }) => {
-
   //visible columns
-  const visibleColumns = useQuestionTableStore(
-    (state) => state.visibleColumns
-  );
+  const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
   // To track cont
 
   const uploadedCountRef = useRef(uploadedQuestionsCount);
@@ -141,8 +124,8 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
       q.priority === "high"
         ? "bg-red-500/10 text-red-600 border-red-500/30"
         : q.priority === "medium"
-        ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-        : "bg-green-500/10 text-green-600 border-green-500/30";
+          ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+          : "bg-green-500/10 text-green-600 border-green-500/30";
 
     return (
       <Badge variant="outline" className={colorClass}>
@@ -164,10 +147,10 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
       effectiveStatus === "in-review"
         ? "bg-green-500/10 text-green-600 border-green-500/30"
         : effectiveStatus === "open"
-        ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-        : effectiveStatus === "closed"
-        ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-        : "bg-muted text-foreground";
+          ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+          : effectiveStatus === "closed"
+            ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
+            : "bg-muted text-foreground";
 
     return (
       <Badge variant="outline" className={colorClass}>
@@ -193,142 +176,127 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           }}
         >
           {/* Serial Number */}
-          {
-            visibleColumns.sl_No &&
-          <TableCell
-            className="align-middle text-center p-4"
-            title={idx.toString()}
-          >
-            {hasSelectedQuestions ? (
-              <Checkbox
-                checked={q._id ? selectedQuestionIds.includes(q._id) : false}
-                onCheckedChange={() => {
-                  if (!q._id) return;
-                  handleQuestionsSelection?.(q._id);
-                }}
-              />
-            ) : (
-              (currentPage - 1) * limit + idx + 1
-            )}
-          </TableCell>
-          }
-          
+          {visibleColumns.sl_No && (
+            <TableCell
+              className="align-middle text-center p-4"
+              title={idx.toString()}
+            >
+              {hasSelectedQuestions ? (
+                <Checkbox
+                  checked={q._id ? selectedQuestionIds.includes(q._id) : false}
+                  onCheckedChange={() => {
+                    if (!q._id) return;
+                    handleQuestionsSelection?.(q._id);
+                  }}
+                />
+              ) : (
+                (currentPage - 1) * limit + idx + 1
+              )}
+            </TableCell>
+          )}
 
           {/* Question Text */}
-          {
-            visibleColumns.question &&
-
-          <TableCell className="text-start ps-3 " title={q.question}>
-            <div className="flex flex-col gap-1">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span
-                      className={`cursor-pointer ${
-                        isClickable
-                          ? hasSelectedQuestions
-                            ? ""
-                            : "hover:underline"
-                          : "opacity-50 cursor-not-allowed"
-                      }`}
-                      onClick={() => {
-                        if (!isClickable || hasSelectedQuestions) return;
-                        onViewMore(q._id?.toString() || "");
-                      }}
-                    >
-                      {truncate(q.question, 50)}
-                    </span>
-                  </TooltipTrigger>
-                  {!isClickable && (
-                    <TooltipContent side="top">
-                      <p>
-                        The question is currently being processed. Expert
-                        allocation is underway and may take{" "}
-                        {delayMinutes < 1
-                          ? "less than 1 minute"
-                          : `up to ${Math.ceil(delayMinutes)} ${
-                              Math.ceil(delayMinutes) === 1
-                                ? "minute"
-                                : "minutes"
-                            }`}{" "}
-                        to complete.
-                      </p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </TooltipProvider>
-              {q.status !== "delayed" && (
-                <TimerDisplay timer={timer} status={q.status} />
-              )}
-            </div>
-          </TableCell>
-          }
+          {visibleColumns.question && (
+            <TableCell className="text-start ps-3 " title={q.question}>
+              <div className="flex flex-col gap-1">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        className={`cursor-pointer ${
+                          isClickable
+                            ? hasSelectedQuestions
+                              ? ""
+                              : "hover:underline"
+                            : "opacity-50 cursor-not-allowed"
+                        }`}
+                        onClick={() => {
+                          if (!isClickable || hasSelectedQuestions) return;
+                          onViewMore(q._id?.toString() || "");
+                        }}
+                      >
+                        {truncate(q.question, 50)}
+                      </span>
+                    </TooltipTrigger>
+                    {!isClickable && (
+                      <TooltipContent side="top">
+                        <p>
+                          The question is currently being processed. Expert
+                          allocation is underway and may take{" "}
+                          {delayMinutes < 1
+                            ? "less than 1 minute"
+                            : `up to ${Math.ceil(delayMinutes)} ${
+                                Math.ceil(delayMinutes) === 1
+                                  ? "minute"
+                                  : "minutes"
+                              }`}{" "}
+                          to complete.
+                        </p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
+                {q.status !== "delayed" && (
+                  <TimerDisplay timer={timer} status={q.status} />
+                )}
+              </div>
+            </TableCell>
+          )}
 
           {/* Priority */}
-          {
-            visibleColumns.priority &&
-
-          <TableCell className="align-middle text-center">
-            {priorityBadge}
-          </TableCell>
-          }
+          {visibleColumns.priority && (
+            <TableCell className="align-middle text-center">
+              {priorityBadge}
+            </TableCell>
+          )}
 
           {/* Details */}
-          {
-            visibleColumns.state &&
+          {visibleColumns.state && (
+            <TableCell className="align-middle">
+              {" "}
+              {truncate(q.details.state, 10)}
+            </TableCell>
+          )}
 
-          <TableCell className="align-middle">
-            {" "}
-            {truncate(q.details.state, 10)}
-          </TableCell>
-          }
-
-          {
-            visibleColumns.crop &&
-          <TableCell className="align-middle">
-            {truncate(q.details.crop, 10)}
-          </TableCell>
-          }
-          {
-            visibleColumns.domain &&
-
-          <TableCell className="align-middle">
-            {truncate(q.details.domain, 12)}
-          </TableCell>
-          }
+          {visibleColumns.crop && (
+            <TableCell className="align-middle">
+              {truncate(q.details.crop, 10)}
+            </TableCell>
+          )}
+          {visibleColumns.domain && (
+            <TableCell className="align-middle">
+              {truncate(q.details.domain, 12)}
+            </TableCell>
+          )}
 
           {/* Source */}
-          {
-            visibleColumns.source &&
-
-          <TableCell className="align-middle">
-            <Badge variant="outline">{q.source}</Badge>
-          </TableCell>
-          }
+          {visibleColumns.source && (
+            <TableCell className="align-middle">
+              <Badge variant="outline">{q.source}</Badge>
+            </TableCell>
+          )}
           {/* Status */}
-          {
-            visibleColumns.status &&
-
-          <TableCell className="align-middle">{statusBadge}</TableCell>
-          }
+          {visibleColumns.status && (
+            <TableCell className="align-middle">{statusBadge}</TableCell>
+          )}
 
           {/* Total Answers */}
-          {
-            visibleColumns.answers &&
-          <TableCell className="align-middle">{q.totalAnswersCount}</TableCell>
-          }
-          {
-            visibleColumns.review_level &&
-          <TableCell className="align-middle">
-            {q.review_level_number?.toString() == "Author"
-              ? q.review_level_number
-              : `Level ${q.review_level_number}`}
-          </TableCell>
-          }
+          {visibleColumns.answers && (
+            <TableCell className="align-middle">
+              {q.totalAnswersCount}
+            </TableCell>
+          )}
+          {visibleColumns.review_level && (
+            <TableCell className="align-middle">
+              {q.review_level_number?.toString() == "Author"
+                ? q.review_level_number
+                : `Level ${q.review_level_number}`}
+            </TableCell>
+          )}
           {!showClosedAt && visibleColumns.created ? (
-          <TableCell className="align-middle">
-            {formatDate(new Date(q.createdAt!), false)}
-          </TableCell>
+            <TableCell className="align-middle">
+              {formatDate(new Date(q.createdAt!), false)}
+            </TableCell>
           ) : null}
           {showClosedAt && visibleColumns.closed ? (
             <TableCell className="align-middle">

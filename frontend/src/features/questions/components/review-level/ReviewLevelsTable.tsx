@@ -32,10 +32,8 @@ export function ReviewLevelsTable({
   sort,
   limit,
 }: Props) {
-    //hide question elements
-    const visibleColumns = useQuestionTableStore(
-      (state) => state.visibleColumns
-    );
+  //hide question elements
+  const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
   return (
     <div className="ps-4 md:ps-0">
       <TableContainer>

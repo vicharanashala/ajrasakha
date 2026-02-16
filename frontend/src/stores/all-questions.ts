@@ -25,11 +25,7 @@ export type ColumnKey =
   | "level_8"
   | "level_9";
 
-  export const commonColumns: ColumnKey[] = [
-  "sl_No",
-  "question",
-  "status",
-];
+export const commonColumns: ColumnKey[] = ["sl_No", "question", "status"];
 
 export const allModeColumns: ColumnKey[] = [
   "priority",
@@ -42,7 +38,6 @@ export const allModeColumns: ColumnKey[] = [
   "created",
   "closed",
 ];
-
 
 export const reviewModeColumns: ColumnKey[] = [
   "author",
