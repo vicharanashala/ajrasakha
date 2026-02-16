@@ -29,6 +29,7 @@ import { QuestionRow } from "./QuestionRow";
 import { MobileQuestionCard } from "./MobileQuestionCard";
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
 import { Checkbox } from "@/components/atoms/checkbox";
+import { useQuestionTableStore } from "@/stores/all-questions";
 
 type QuestionsTableProps = {
   items?: IDetailedQuestion[] | null;
@@ -67,6 +68,11 @@ export const QuestionsTable = ({
   sort,
   onSort,
 }: QuestionsTableProps) => {
+
+  //visible columns
+  const visibleColumns = useQuestionTableStore(
+    (state) => state.visibleColumns
+  );
   const [editOpen, setEditOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
     null,
@@ -268,6 +274,8 @@ export const QuestionsTable = ({
           <Table className="min-w-[800px]  table-auto">
             <TableHeader className="bg-card sticky top-0 z-10">
               <TableRow>
+                {
+                  visibleColumns.sl_No &&
                 <TableHead className="text-center" onClick={() => onSort?.("slno")}>
                   {selectedQuestionIds.length > 0 ? (
                     <div className="flex justify-center">
@@ -287,6 +295,10 @@ export const QuestionsTable = ({
                     <span className="cursor-pointer select-none">Sl.No</span>
                   )}
                 </TableHead>
+                }
+                {
+                  visibleColumns.question &&
+
                 <TableHead className="w-[25%] text-center">
                   <button
                     onClick={() => onSort?.("question")}
@@ -301,6 +313,10 @@ export const QuestionsTable = ({
                     )}
                   </button>
                 </TableHead>
+                }
+                {
+                  visibleColumns.priority &&
+
                 <TableHead className="text-center">
                   <button
                     onClick={() => onSort?.("priority")}
@@ -315,6 +331,10 @@ export const QuestionsTable = ({
                     )}
                   </button>
                 </TableHead>
+                }
+                {
+                  visibleColumns.state &&
+
                 <TableHead className="text-center">
                   <button
                     onClick={() => onSort?.("state")}
@@ -329,6 +349,10 @@ export const QuestionsTable = ({
                     )}
                   </button>
                 </TableHead>
+                }
+                {
+                  visibleColumns.crop &&
+
                 <TableHead className="text-center">
                   <button
                     onClick={() => onSort?.("crop")}
@@ -343,6 +367,10 @@ export const QuestionsTable = ({
                     )}
                   </button>
                 </TableHead>
+                }
+                {
+                  visibleColumns.domain &&
+
                 <TableHead className="text-center">
                   <button
                     onClick={() => onSort?.("domain")}
@@ -357,14 +385,23 @@ export const QuestionsTable = ({
                     )}
                   </button>
                 </TableHead>
-                <TableHead className="text-center">Source</TableHead>
-                <TableHead className="text-center">Status</TableHead>
-                <TableHead className="text-center">Answers</TableHead>
-                <TableHead className="text-center">Review Level</TableHead>
-                {!showClosedAt ? (
+                }
+                {
+                  visibleColumns.source && <TableHead className="text-center">Source</TableHead>
+                }
+                {
+                  visibleColumns.status && <TableHead className="text-center">Status</TableHead>
+                }
+                {
+                  visibleColumns.answers && <TableHead className="text-center">Answers</TableHead>
+                }
+                {
+                  visibleColumns.review_level && <TableHead className="text-center">Review Level</TableHead>
+                }
+                {!showClosedAt && visibleColumns.created ? (
                   <TableHead className="text-center">Created</TableHead>
                 ) : null}
-                {showClosedAt ? (
+                {showClosedAt && visibleColumns.closed ? (
                   <TableHead className="text-center">Closed</TableHead>
                 ) : null}
 

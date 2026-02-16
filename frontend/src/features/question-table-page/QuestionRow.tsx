@@ -36,6 +36,7 @@ import {AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
+import { useQuestionTableStore } from "@/stores/all-questions";
 
 interface QuestionRowProps {
   q: IDetailedQuestion;
@@ -94,6 +95,11 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   selectedQuestionIds,
   showClosedAt,
 }) => {
+
+  //visible columns
+  const visibleColumns = useQuestionTableStore(
+    (state) => state.visibleColumns
+  );
   // To track cont
 
   const uploadedCountRef = useRef(uploadedQuestionsCount);
@@ -187,6 +193,8 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           }}
         >
           {/* Serial Number */}
+          {
+            visibleColumns.sl_No &&
           <TableCell
             className="align-middle text-center p-4"
             title={idx.toString()}
@@ -203,8 +211,13 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
               (currentPage - 1) * limit + idx + 1
             )}
           </TableCell>
+          }
+          
 
           {/* Question Text */}
+          {
+            visibleColumns.question &&
+
           <TableCell className="text-start ps-3 " title={q.question}>
             <div className="flex flex-col gap-1">
               <TooltipProvider>
@@ -249,48 +262,75 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
               )}
             </div>
           </TableCell>
+          }
 
           {/* Priority */}
+          {
+            visibleColumns.priority &&
+
           <TableCell className="align-middle text-center">
             {priorityBadge}
           </TableCell>
+          }
 
           {/* Details */}
+          {
+            visibleColumns.state &&
+
           <TableCell className="align-middle">
             {" "}
             {truncate(q.details.state, 10)}
           </TableCell>
+          }
 
+          {
+            visibleColumns.crop &&
           <TableCell className="align-middle">
             {truncate(q.details.crop, 10)}
           </TableCell>
+          }
+          {
+            visibleColumns.domain &&
 
           <TableCell className="align-middle">
             {truncate(q.details.domain, 12)}
           </TableCell>
+          }
 
           {/* Source */}
+          {
+            visibleColumns.source &&
+
           <TableCell className="align-middle">
             <Badge variant="outline">{q.source}</Badge>
           </TableCell>
-
+          }
           {/* Status */}
+          {
+            visibleColumns.status &&
+
           <TableCell className="align-middle">{statusBadge}</TableCell>
+          }
 
           {/* Total Answers */}
+          {
+            visibleColumns.answers &&
           <TableCell className="align-middle">{q.totalAnswersCount}</TableCell>
-
+          }
+          {
+            visibleColumns.review_level &&
           <TableCell className="align-middle">
             {q.review_level_number?.toString() == "Author"
               ? q.review_level_number
               : `Level ${q.review_level_number}`}
           </TableCell>
-          {!showClosedAt ? (
+          }
+          {!showClosedAt && visibleColumns.created ? (
           <TableCell className="align-middle">
             {formatDate(new Date(q.createdAt!), false)}
           </TableCell>
           ) : null}
-          {showClosedAt ? (
+          {showClosedAt && visibleColumns.closed ? (
             <TableCell className="align-middle">
               {q.closedAt ? formatDate(new Date(q.closedAt!), false) : "N/C"}
             </TableCell>

@@ -20,9 +20,11 @@ export type ReviewRow = {
 };
 
 export const reviewLevelColumns = (
-  onViewMore: (id: string) => void
-): Column<ReviewRow>[] => [
-  { key: "sl", label: "Sl.No", width: "80px", render: (_row, i) => i + 1 },
+  onViewMore: (id: string) => void,
+  visibleColumns: Record<string, boolean>
+): Column<ReviewRow>[] => {
+  const baseColumns: Column<ReviewRow>[] = [
+  { key: "sl_No", label: "Sl.No", width: "80px", render: (_row, i) => i + 1 },
   {
   key: "question",
   label: "Question",
@@ -55,9 +57,13 @@ export const reviewLevelColumns = (
 ,
 
   ...Array.from({ length: 10 }).map((_, i) => ({
-    key: `level_${i}`,
+    key: i===0 ? 'author' : `level_${i}`,
     label: i ===0 ? 'Author' : `Level ${i}`,
     sortable: true,
     render: (row: ReviewRow) => renderLevelBadge(row, i),
   }))
-];
+]
+ return baseColumns.filter(
+    (col) => visibleColumns[col.key] !== false
+  );
+}

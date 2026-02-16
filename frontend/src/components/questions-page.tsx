@@ -336,6 +336,7 @@ export const QuestionsPage = ({
             setViewMode={setViewMode}
             onSort={toggleSort}
             sort={sort}
+            showClosedAt={showClosedAt}
           />
 
           {viewMode === "all" ? (

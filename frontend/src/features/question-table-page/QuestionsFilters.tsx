@@ -23,7 +23,9 @@ import {
   Mail,
   LayoutGrid,
   Activity,
-  ArrowUpDown
+  ArrowUpDown,
+  EyeOff,
+  Eye
 } from "lucide-react";
 import {
   AdvanceFilterDialog,
@@ -45,6 +47,8 @@ import { TopLeftBadge, TopRightBadge } from "../../components/NewBadge";
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
 import {useReAllocateLessWorkload} from '@/hooks/api/question/useReAllocateLessWorkload'
+import { allModeColumns, commonColumns, reviewModeColumns, useQuestionTableStore, type ColumnKey } from "@/stores/all-questions";
+
 
 type QuestionsFiltersProps = {
   search: string;
@@ -69,6 +73,7 @@ type QuestionsFiltersProps = {
   setViewMode: (v: "all" | "review-level") => void;
   sort: string;
   onSort: (key:string)=>void;
+  showClosedAt?: boolean;
 };
 
 export const QuestionsFilters = ({
@@ -94,7 +99,15 @@ export const QuestionsFilters = ({
   setViewMode,
   sort,
   onSort,
+  showClosedAt,
 }: QuestionsFiltersProps) => {
+
+  //question global state
+   const { visibleColumns, toggleColumn } = useQuestionTableStore();
+   const activeColumns = [
+  ...commonColumns,
+  ...(viewMode === "all" ? allModeColumns : reviewModeColumns),
+];
   const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(appliedFilters);
   const [addOpen, setAddOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
@@ -503,6 +516,48 @@ export const QuestionsFilters = ({
               </button>
             </div>
           </section>
+
+          <section className="hidden md:block">
+    <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
+              Hide Columns
+            </h3>
+
+    <div className="grid grid-cols-2 gap-2 p-1 rounded-lg">
+      {activeColumns.filter((key)=>{
+         if (key === "created" && showClosedAt) return false;
+         if (key === "closed" && !showClosedAt) return false;
+         return true;
+      }).map((key) =>{
+        const isVisible = visibleColumns[key];
+        return (
+          <button
+            key={key}
+            onClick={() => toggleColumn(key)}
+            className={`flex items-center justify-between px-5 py-2 rounded-lg border transition-all duration-300 hover:border-emerald-500/60
+              ${
+                isVisible
+                  ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
+                  : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
+              }
+            `}
+          >
+            <span className="text-xs font-semibold tracking-wider capitalize">
+              {key.replace(/_/g, " ")}
+            </span>
+
+            {isVisible ? (
+              <Eye size={16} className="text-emerald-400" />
+            ) : (
+              <EyeOff size={16} className="text-emerald-400/40" />
+            )}
+          </button>
+        )
+      } 
+      )}
+    </div>
+</section>
+
+
 
           {/* Section: Critical Actions */}
           <section>

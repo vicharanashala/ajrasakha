@@ -46,14 +46,14 @@ export function BaseTable<T>({
             >
               {col.sortable ? (
                 <button
-                  onClick={() => onSort(col.key as string)}
+                  onClick={() => onSort(col.key ==='author'?'level_0': col.key as string)}
                   className="flex items-center justify-around gap-0.5 mx-auto select-none"
                 >
                   {col.label}
-                  {sort === `${col.key as string}___asc` && (
+                  {sort === `${col.key === 'author'?'level_0':col.key as string}___asc` && (
                     <span className="text-md text-green-500">↑</span>
                   )}
-                  {sort === `${col.key as string}___desc` && (
+                  {sort === `${col.key === 'author'?'level_0':col.key as string}___desc` && (
                     <span className="text-md text-green-500">↓</span>
                   )}
                 </button>

@@ -3,6 +3,7 @@ import { BaseTable } from "../baseTable";
 import { TableContainer } from "../TableContainer";
 import { reviewLevelColumns, type ReviewRow } from "./reviewLevel.coloumn";
 import { ReviewLevelMobileCard } from "./ReviewLevelMobile";
+import { useQuestionTableStore } from "@/stores/all-questions";
 
 type Props = {
   data: ReviewRow[] | undefined;
@@ -31,13 +32,17 @@ export function ReviewLevelsTable({
   sort,
   limit,
 }: Props) {
+    //hide question elements
+    const visibleColumns = useQuestionTableStore(
+      (state) => state.visibleColumns
+    );
   return (
     <div className="ps-4 md:ps-0">
       <TableContainer>
         {/* Desktop Table */}
         <div className="hidden md:block overflow-x-auto">
           <BaseTable
-            columns={reviewLevelColumns(onViewMore)}
+            columns={reviewLevelColumns(onViewMore, visibleColumns)}
             data={data}
             isLoading={isLoading}
             onSort={toggleSort}
