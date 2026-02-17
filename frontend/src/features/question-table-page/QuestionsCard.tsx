@@ -184,7 +184,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
         ${
           isSelected
             ? "border-blue-500 ring-2 ring-blue-500/20 shadow-md bg-blue-50/10"
-            : "border-blue-500 ring-2 ring-blue-500/20 shadow-md bg-blue-50/10"
+            : "border-gray-200 hover:border-gray-300 hover:shadow-lg"
         }
       `}
     >
