@@ -129,10 +129,10 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
 
     const colorClass =
       q.priority === "high"
-        ? "bg-red-50 text-red-600 border-red-100 ring-1 ring-red-500/10"
+        ? "bg-red-50 text-red-600 border-red-100 ring-1 ring-red-500/10 dark:bg-red-900/30 dark:text-red-300 dark:border-red-900 dark:ring-red-500/30"
         : q.priority === "medium"
-          ? "bg-yellow-50 text-yellow-600 border-yellow-100 ring-1 ring-yellow-500/10"
-          : "bg-green-50 text-green-600 border-green-100 ring-1 ring-green-500/10";
+          ? "bg-yellow-50 text-yellow-600 border-yellow-100 ring-1 ring-yellow-500/10 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-900 dark:ring-yellow-500/30"
+          : "bg-green-50 text-green-600 border-green-100 ring-1 ring-green-500/10 dark:bg-green-900/30 dark:text-green-300 dark:border-green-900 dark:ring-green-500/30";
 
     return (
       <span
@@ -147,7 +147,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
     selectedQuestionIds && selectedQuestionIds.length > 0;
   // Handle Right Click
   const handleContextMenu = (e: any) => {
-    e.preventDefault(); 
+    e.preventDefault();
     if (!q._id) return;
     if (!isSelectionModeOn) {
       setIsSelectionModeOn?.(true);
@@ -168,11 +168,11 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
         onViewMore(q._id?.toString() ?? "");
       }}
       className={`
-        group relative w-full bg-white rounded-2xl border transition-all duration-300 ease-in-out cursor-pointer overflow-hidden
+        group relative w-full rounded-2xl border transition-all duration-300 ease-in-out cursor-pointer overflow-hidden
         ${
           isSelected
-            ? "border-blue-500 ring-2 ring-blue-500/20 shadow-md bg-blue-50/10"
-            : "border-gray-200 hover:border-gray-300 hover:shadow-lg"
+            ? "border-blue-500 ring-2 ring-blue-500/20 shadow-md bg-blue-50/10 dark:bg-blue-900/20 dark:ring-blue-400/30"
+            : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600 hover:shadow-lg dark:hover:shadow-gray-900/50"
         }
       `}
     >
@@ -186,7 +186,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
         <div
           className={`
           w-5 h-5 rounded border flex items-center justify-center transition-colors
-          ${isSelected ? "bg-blue-600 border-blue-600" : "bg-white border-gray-300"}
+          ${isSelected ? "bg-blue-600 border-blue-600" : "bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500"}
         `}
         >
           {isSelected && <CheckSquare size={14} className="text-white" />}
@@ -198,7 +198,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
       >
         {/* Header Row ( Line 1 — Serial + Status ) */}
         <div className="flex justify-between items-start">
-          <span className="text-sm font-medium text-gray-400 font-mono">
+          <span className="text-sm font-medium text-gray-400 font-mono dark:text-gray-500">
             #{(currentPage - 1) * limit + idx + 1}
           </span>
           {statusBadge}
@@ -206,7 +206,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
 
         {/* Title ( Question and timer )*/}
         <div className="flex flex-col h-[5rem] justify-between">
-          <h3 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-blue-700 transition-colors line-clamp-2">
+          <h3 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-blue-700 transition-colors line-clamp-2 dark:text-gray-100 dark:group-hover:text-blue-400">
             {truncate(q.question, 80)}
           </h3>
           <div className="mt-1 h-5 flex items-center">
@@ -215,10 +215,10 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
         </div>
 
         {/* Grid of details */}
-        <div className="grid grid-cols-2 gap-y-4 gap-x-2 pt-2 border-t border-gray-100">
+        <div className="grid grid-cols-2 gap-y-4 gap-x-2 pt-2 border-t border-gray-100 dark:border-gray-700">
           {/* Priority */}
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+            <span className="text-xs font-medium text-gray-400 dark:text-gray-500  uppercase tracking-wider">
               Priority
             </span>
             {priorityBadge}
@@ -226,22 +226,22 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
 
           {/* Review Level */}
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+            <span className="text-xs font-medium text-gray-400 uppercase dark:text-gray-500 tracking-wider">
               Review Level
             </span>
-            <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-              <User size={14} className="text-gray-400" />
+            <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <User size={14} className="text-gray-400 dark:text-gray-500" />
               {q.review_level_number}
             </div>
           </div>
 
           {/* State */}
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider dark:text-gray-500">
               State
             </span>
-            <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-              <MapPin size={14} className="text-gray-400" />
+            <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <MapPin size={14} className="text-gray-400 dark:text-gray-500" />
               <span className="truncate max-w-[150px]" title={q.details.state}>
                 {q.details.state}
               </span>
@@ -250,32 +250,38 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
 
           {/* Crop */}
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider dark:text-gray-500">
               Crop
             </span>
-            <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-              <Sprout size={14} className="text-green-500" />
+            <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <Sprout
+                size={14}
+                className="text-green-500 dark:text-green-400"
+              />
               <span className="truncate max-w-[150px]">{q.details.crop}</span>
             </div>
           </div>
 
           {/* Source */}
           <div className="truncate flex flex-col gap-1">
-            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider dark:text-gray-500">
               Source
             </span>
-            <span className="truncate max-w-[150px] inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+            <span className="truncate max-w-[150px] inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300">
               {q.source}
             </span>
           </div>
 
           {/* Created Date */}
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider dark:text-gray-500">
               Created
             </span>
-            <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-              <Calendar size={14} className="text-gray-400" />
+            <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <Calendar
+                size={14}
+                className="text-gray-400 dark:text-gray-500"
+              />
               {formatDate(new Date(q.createdAt!), false)}
             </div>
           </div>
@@ -283,8 +289,8 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
       </div>
 
       {/* Actions */}
-      <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
-        <div className="flex items-center gap-2 text-gray-500 text-sm">
+      <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center dark:bg-gray-900/50 dark:border-gray-700">
+        <div className="flex items-center gap-2 text-gray-500 text-sm dark:text-gray-400">
           <MessageCircle size={16} />
           <span className="font-medium">{q.totalAnswersCount} Answers</span>
         </div>
@@ -307,7 +313,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
               setSelectedQuestion(q);
               setEditOpen(true);
             }}
-            className={`p-1.5 rounded-full hover:bg-red-50 text-gray-400 hover:${userRole === "expert" ? "text-red-600" : "text-blue-600"} transition-colors`}
+            className={`p-1.5 rounded-full text-gray-400 dark:hover:${userRole === "expert" ? "text-red-400" : "text-blue-400"} hover:${userRole === "expert" ? "text-red-600" : "text-blue-600"} dark:hover:${userRole === "expert" ? "bg-red-900/30 " : "bg-blue-900/30"} hover:${userRole === "expert" ? "bg-red-500 " : "bg-blue-500"} transition-colors dark:text-gray-500`}
             title={`${userRole === "expert" ? "Raise Flag" : "Edit Card"}`}
           >
             {userRole === "expert" ? (
@@ -320,9 +326,9 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setIsDeleteOpen(true)
+                setIsDeleteOpen(true);
               }}
-              className="p-1.5 rounded-full hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
+              className="p-1.5 rounded-full dark:hover:bg-red-900/30 dark:text-gray-500 dark:hover:text-red-400 hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
               title="Delete Question"
             >
               <Trash2 size={18} />
