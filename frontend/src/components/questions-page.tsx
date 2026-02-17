@@ -358,6 +358,7 @@ export const QuestionsPage = ({
               uploadedQuestionsCount={uploadedQuestionsCount}
               selectedQuestionIds={selectedQuestionIds}
               setIsSelectionModeOn={setIsSelectionModeOn}
+              isSelectionModeOn = { isSelectionModeOn}
               setSelectedQuestionIds={setSelectedQuestionIds}
               showClosedAt={showClosedAt}
               sort={questionSort}

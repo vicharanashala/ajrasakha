@@ -1,22 +1,24 @@
-import type {
-  IDetailedQuestion,
-  QuestionStatus,
-  UserRole,
-} from "@/types";
-import {
-  useMemo,
-  useRef,
-} from "react";
+import type { IDetailedQuestion, QuestionStatus, UserRole } from "@/types";
+import React, { useMemo, useRef, useState } from "react";
 import { useCountdown } from "@/hooks/ui/useCountdown";
 import { Badge } from "../../components/atoms/badge";
 import { Button } from "../../components/atoms/button";
 import { TimerDisplay } from "../../components/timer-display";
 import { formatDate } from "@/utils/formatDate";
-import {AlertCircle,
+import {
+  AlertCircle,
+  Calendar,
+  CheckSquare,
   Edit,
   Eye,
+  Flag,
+  MapPin,
+  MessageCircle,
   MoreVertical,
+  Sprout,
   Trash,
+  Trash2,
+  User,
 } from "lucide-react";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import {
@@ -42,6 +44,7 @@ interface QuestionsCardProps {
   userRole: UserRole;
   updatingQuestion: boolean;
   setIsSelectionModeOn?: (val: boolean) => void;
+  isSelectionModeOn: boolean;
   handleQuestionsSelection?: (questionId: string) => void;
   isSelected?: boolean;
   deletingQuestion: boolean;
@@ -58,28 +61,34 @@ interface QuestionsCardProps {
     mode: "add" | "edit",
     entityId?: string,
     flagReason?: string,
-    status?: QuestionStatus
+    status?: QuestionStatus,
   ) => Promise<void>;
   onViewMore: (id: string) => void;
   showClosedAt?: boolean;
 }
 
- const QuestionsCard: React.FC<QuestionsCardProps> = ({
+const QuestionsCard: React.FC<QuestionsCardProps> = ({
   q,
   idx,
   currentPage,
   limit,
-  uploadedQuestionsCount,
-  isBulkUpload,
   userRole,
   // updatingQuestion,
+  uploadedQuestionsCount,
+  isBulkUpload,
   deletingQuestion,
   setEditOpen,
   setSelectedQuestion,
-  // setQuestionIdToDelete,
   handleDelete,
   onViewMore,
+  setIsSelectionModeOn,
+  isSelectionModeOn,
+  isSelected,
+  handleQuestionsSelection,
+  selectedQuestionIds,
 }) => {
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+
   const uploadedCountRef = useRef(uploadedQuestionsCount);
 
   const DURATION_HOURS = 4;
@@ -109,10 +118,10 @@ interface QuestionsCardProps {
       effectiveStatus === "in-review"
         ? "bg-green-500/10 text-green-600 border-green-500/30"
         : effectiveStatus === "open"
-        ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-        : effectiveStatus === "closed"
-        ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-        : "bg-muted text-foreground";
+          ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+          : effectiveStatus === "closed"
+            ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
+            : "bg-muted text-foreground";
 
     return (
       <Badge variant="outline" className={colorClass}>
@@ -131,152 +140,223 @@ interface QuestionsCardProps {
 
     const colorClass =
       q.priority === "high"
-        ? "bg-red-500/10 text-red-600 border-red-500/30"
+        ? "bg-red-50 text-red-600 border-red-100 ring-1 ring-red-500/10"
         : q.priority === "medium"
-        ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-        : "bg-green-500/10 text-green-600 border-green-500/30";
+          ? "bg-yellow-50 text-yellow-600 border-yellow-100 ring-1 ring-yellow-500/10"
+          : "bg-green-50 text-green-600 border-green-100 ring-1 ring-green-500/10";
 
     return (
-      <Badge variant="outline" className={colorClass}>
+      <span
+        className={`w-fit px-2 py-0.5 rounded text-xs font-semibold ${colorClass}`}
+      >
         {q.priority.charAt(0).toUpperCase() + q.priority.slice(1)}
-      </Badge>
+      </span>
     );
   }, [q.priority]);
 
+  //start
+  const hasSelectedQuestions =
+    selectedQuestionIds && selectedQuestionIds.length > 0;
+  // Handle Right Click
+  const handleContextMenu = (e: any) => {
+    e.preventDefault(); 
+    if (!q._id) return;
+    if (!isSelectionModeOn) {
+      setIsSelectionModeOn?.(true);
+      // Automatically select the card that was right-clicked
+      if (!isSelected) handleQuestionsSelection?.(q._id);
+    }
+  };
+
   return (
-    <div className="rounded-lg border p-4 bg-card shadow-sm text-sm leading-snug">
-      {/* Line 1 — Serial + Status */}
-      <div className="flex justify-between items-center mb-1">
-        <p className="text-muted-foreground font-medium">
-          #{(currentPage - 1) * limit + idx + 1}
-        </p>
-        <div className="flex-shrink-0">{statusBadge}</div>
-      </div>
-
-      {/* Question */}
-      <p
-        className={`mt-1 font-medium break-words ${
-          isClickable ? "hover:underline cursor-pointer" : "opacity-50"
-        }`}
-        onClick={() => isClickable && onViewMore(q._id!)}
+    <div
+      onContextMenu={handleContextMenu}
+      onClick={() => {
+        if (isSelectionModeOn || hasSelectedQuestions) {
+          handleQuestionsSelection?.(q._id ?? "");
+          return;
+        }
+        if (!isClickable) return;
+        onViewMore(q._id?.toString() ?? "");
+      }}
+      className={`
+        group relative w-full bg-white rounded-2xl border transition-all duration-300 ease-in-out cursor-pointer overflow-hidden
+        ${
+          isSelected
+            ? "border-blue-500 ring-2 ring-blue-500/20 shadow-md bg-blue-50/10"
+            : "border-gray-200 hover:border-gray-300 hover:shadow-lg"
+        }
+      `}
+    >
+      {/* Checkbox Overlay (Visible on Selection Mode) */}
+      <div
+        className={`
+        absolute top-4 left-4 z-20 transition-all duration-200
+        ${isSelectionModeOn ? "opacity-100 scale-100" : "opacity-0 scale-90 pointer-events-none"}
+      `}
       >
-        {truncate(q.question, 80)}
-      </p>
-
-      {/* Timer */}
-      <div className="mt-1 text-xs text-muted-foreground">
-        <TimerDisplay timer={timer} status={q.status} />
+        <div
+          className={`
+          w-5 h-5 rounded border flex items-center justify-center transition-colors
+          ${isSelected ? "bg-blue-600 border-blue-600" : "bg-white border-gray-300"}
+        `}
+        >
+          {isSelected && <CheckSquare size={14} className="text-white" />}
+        </div>
       </div>
 
-      {/* Grid of details */}
-      <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-3 text-xs">
-        <div className="flex gap-1">
-          <span className="text-muted-foreground">Priority:</span>
-          <span className="flex-shrink-0">{priorityBadge}</span>
-        </div>
-        <div className="flex gap-1">
-          <span className="text-muted-foreground">Review Level:</span>
-          <span className="flex-shrink-0">{q.review_level_number}</span>
-        </div>
-
-        <div className="truncate">
-          <span className="text-muted-foreground">State:</span>
-          <span className="ml-1">{truncate(q.details.state, 10)}</span>
-        </div>
-
-        <div className="truncate">
-          <span className="text-muted-foreground">Crop:</span>
-          <span className="ml-1">{truncate(q.details.crop, 10)}</span>
-        </div>
-
-        <div className="truncate flex items-center gap-1">
-          <span className="text-muted-foreground">Source:</span>
-          <Badge variant="outline" className="px-1 py-0 text-[10px]">
-            {q.source}
-          </Badge>
-        </div>
-
-        <div>
-          <span className="text-muted-foreground">Answers:</span>
-          <span className="ml-1">{q.totalAnswersCount}</span>
-        </div>
-
-        <div className="truncate">
-          <span className="text-muted-foreground">Created:</span>
-          <span className="ml-1">
-            {formatDate(new Date(q.createdAt!), false)}
+      <div
+        className={`p-5 space-y-4 ${isSelectionModeOn ? "pl-12" : ""} transition-all duration-300`}
+      >
+        {/* Header Row ( Line 1 — Serial + Status ) */}
+        <div className="flex justify-between items-start">
+          <span className="text-sm font-medium text-gray-400 font-mono">
+            #{(currentPage - 1) * limit + idx + 1}
           </span>
+          {statusBadge}
+        </div>
+
+        {/* Title ( Question and timer )*/}
+        <div className="flex flex-col h-[5rem] justify-between">
+          <h3 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-blue-700 transition-colors line-clamp-2">
+            {truncate(q.question, 80)}
+          </h3>
+          <div className="mt-1 h-5 flex items-center">
+            <TimerDisplay timer={timer} status={q.status} />
+          </div>
+        </div>
+
+        {/* Grid of details */}
+        <div className="grid grid-cols-2 gap-y-4 gap-x-2 pt-2 border-t border-gray-100">
+          {/* Priority */}
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+              Priority
+            </span>
+            {priorityBadge}
+          </div>
+
+          {/* Review Level */}
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+              Review Level
+            </span>
+            <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+              <User size={14} className="text-gray-400" />
+              {q.review_level_number}
+            </div>
+          </div>
+
+          {/* State */}
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+              State
+            </span>
+            <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+              <MapPin size={14} className="text-gray-400" />
+              <span className="truncate max-w-[150px]" title={q.details.state}>
+                {q.details.state}
+              </span>
+            </div>
+          </div>
+
+          {/* Crop */}
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+              Crop
+            </span>
+            <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+              <Sprout size={14} className="text-green-500" />
+              <span className="truncate max-w-[150px]">{q.details.crop}</span>
+            </div>
+          </div>
+
+          {/* Source */}
+          <div className="truncate flex flex-col gap-1">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+              Source
+            </span>
+            <span className="truncate max-w-[150px] inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+              {q.source}
+            </span>
+          </div>
+
+          {/* Created Date */}
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+              Created
+            </span>
+            <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+              <Calendar size={14} className="text-gray-400" />
+              {formatDate(new Date(q.createdAt!), false)}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end mt-4">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="outline" className="w-8 h-8 p-1">
-              <MoreVertical className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-
-          <DropdownMenuContent align="end" className="w-40 text-sm">
-            <DropdownMenuItem onClick={() => onViewMore(q._id!)}>
-              <Eye className="w-4 h-4 mr-2" />
-              View
-            </DropdownMenuItem>
-
-            <DropdownMenuSeparator />
-
+      <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+        <div className="flex items-center gap-2 text-gray-500 text-sm">
+          <MessageCircle size={16} />
+          <span className="font-medium">{q.totalAnswersCount} Answers</span>
+        </div>
+        <div className="flex gap-2 animate-in fade-in duration-200">
+          {isSelectionModeOn && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewMore(q._id!);
+              }}
+              className="p-1.5 rounded-full hover:bg-red-50 text-gray-400 hover:text-blue-600 transition-colors"
+              title="View Question"
+            >
+              <Eye size={18} />
+            </button>
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedQuestion(q);
+              setEditOpen(true);
+            }}
+            className={`p-1.5 rounded-full hover:bg-red-50 text-gray-400 hover:${userRole === "expert" ? "text-red-600" : "text-blue-600"} transition-colors`}
+            title={`${userRole === "expert" ? "Raise Flag" : "Edit Card"}`}
+          >
             {userRole === "expert" ? (
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  setSelectedQuestion(q);
-                  setEditOpen(true);
-                }}
-              >
-                <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
-                Raise Flag
-              </DropdownMenuItem>
+              <AlertCircle size={18} />
             ) : (
-              <>
-                <DropdownMenuItem
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    setSelectedQuestion(q);
-                    setEditOpen(true);
-                  }}
-                >
-                  <Edit className="w-4 h-4 mr-2 text-blue-500" />
-                  Edit
-                </DropdownMenuItem>
-
-                <DropdownMenuSeparator />
-
-                {/* Delete with confirmation */}
-                <DropdownMenuItem asChild>
-                  <ConfirmationModal
-                    title="Delete Question Permanently?"
-                    description="Are you sure you want to delete this question?"
-                    confirmText="Delete"
-                    cancelText="Cancel"
-                    isLoading={deletingQuestion}
-                    type="delete"
-                    onConfirm={() => handleDelete()}
-                    trigger={
-                      <button className="flex w-full items-center">
-                        <Trash className="w-4 h-4 mr-2 text-red-500" />
-                        {deletingQuestion ? "Deleting..." : "Delete"}
-                      </button>
-                    }
-                  />
-                </DropdownMenuItem>
-              </>
+              <Edit size={18} />
             )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </button>
+          {userRole !== "expert" && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsDeleteOpen(true)
+              }}
+              className="p-1.5 rounded-full hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
+              title="Delete Question"
+            >
+              <Trash2 size={18} />
+            </button>
+          )}
+        </div>
+        <ConfirmationModal
+          title="Delete Question Permanently?"
+          description="Are you sure you want to delete this question?"
+          confirmText="Delete"
+          cancelText="Cancel"
+          isLoading={deletingQuestion}
+          type="delete"
+          open={isDeleteOpen}
+          onOpenChange={setIsDeleteOpen}
+          onConfirm={() => {
+            handleDelete(q._id!);
+          }}
+        />
       </div>
     </div>
   );
 };
 
-export default QuestionsCard
+export default React.memo(QuestionsCard);

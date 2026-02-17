@@ -44,6 +44,7 @@ type QuestionsTableProps = {
   uploadedQuestionsCount: number;
   userRole?: UserRole;
   setIsSelectionModeOn: (value: boolean) => void;
+  isSelectionModeOn: boolean;
   selectedQuestionIds: string[];
   setSelectedQuestionIds: Dispatch<SetStateAction<string[]>>;
   showClosedAt?: boolean;
@@ -64,6 +65,7 @@ export const QuestionsTable = ({
   uploadedQuestionsCount,
   isBulkUpload,
   setIsSelectionModeOn,
+  isSelectionModeOn,
   selectedQuestionIds,
   setSelectedQuestionIds,
   showClosedAt,
@@ -269,7 +271,7 @@ export const QuestionsTable = ({
         mode="edit"
       />
 
-      <div className="rounded-lg border bg-card min-h-[55vh] ">
+      <div className={`rounded-lg bg-card min-h-[55vh] ${view ==='table'&& 'border'}`}>
         <div className="hidden md:block overflow-x-auto">
           {
             view === 'table' ?
@@ -456,7 +458,7 @@ export const QuestionsTable = ({
             :
             ( 
               <>
-              <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(400px,1fr))]">
+              <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(400px,1fr))] pb-3">
                 {
                   items?.map((q,idx)=>
                 <QuestionsCard
@@ -478,6 +480,12 @@ export const QuestionsTable = ({
                   updatingQuestion={updatingQuestion}
                   userRole={userRole!}
                   key={q._id}
+                  handleQuestionsSelection={handleQuestionsSelection}
+                  isSelected={!!q._id && selectedQuestionIds.includes(q._id)}
+                  setIsSelectionModeOn={setIsSelectionModeOn}
+                  isSelectionModeOn={isSelectionModeOn}
+                  selectedQuestionIds={selectedQuestionIds}
+                  showClosedAt={showClosedAt}
                 />
               )
                 }
