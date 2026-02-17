@@ -30,6 +30,9 @@ export const QuestionsPage = ({
   currentUser?: IUser;
   autoOpenQuestionId?: string | null;
 }) => {
+
+  //grid or table
+  const [view, setView] = useState<"table" | "grid">("table");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
   const [source, setSource] = useState<QuestionSourceFilter>("all");
@@ -337,6 +340,8 @@ export const QuestionsPage = ({
             onSort={toggleSort}
             sort={sort}
             showClosedAt={showClosedAt}
+            view={view}
+            setView={setView}
           />
 
           {viewMode === "all" ? (
@@ -357,6 +362,7 @@ export const QuestionsPage = ({
               showClosedAt={showClosedAt}
               sort={questionSort}
               onSort={toggleQuestionSort}
+              view={view}
             />
           ) : (
             <ReviewLevelsTable

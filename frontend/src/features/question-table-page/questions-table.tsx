@@ -30,6 +30,7 @@ import { MobileQuestionCard } from "./MobileQuestionCard";
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
 import { Checkbox } from "@/components/atoms/checkbox";
 import { useQuestionTableStore } from "@/stores/all-questions";
+import QuestionsCard from "./QuestionsCard";
 
 type QuestionsTableProps = {
   items?: IDetailedQuestion[] | null;
@@ -48,6 +49,7 @@ type QuestionsTableProps = {
   showClosedAt?: boolean;
   sort?: string;
   onSort?: (key: string) => void;
+  view: 'table' | 'grid'
 };
 
 export const QuestionsTable = ({
@@ -67,6 +69,7 @@ export const QuestionsTable = ({
   showClosedAt,
   sort,
   onSort,
+  view,
 }: QuestionsTableProps) => {
   //visible columns
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
@@ -268,7 +271,10 @@ export const QuestionsTable = ({
 
       <div className="rounded-lg border bg-card min-h-[55vh] ">
         <div className="hidden md:block overflow-x-auto">
-          <Table className="min-w-[800px]  table-auto">
+          {
+            view === 'table' ?
+            (
+              <Table className="min-w-[800px]  table-auto">
             <TableHeader className="bg-card sticky top-0 z-10">
               <TableRow>
                 {visibleColumns.sl_No && (
@@ -446,6 +452,39 @@ export const QuestionsTable = ({
               )}
             </TableBody>
           </Table>
+            )
+            :
+            ( 
+              <>
+              <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(400px,1fr))]">
+                {
+                  items?.map((q,idx)=>
+                <QuestionsCard
+                currentPage={currentPage}
+                  deletingQuestion={deletingQuestion}
+                  handleDelete={handleDelete}
+                  idx={idx}
+                  onViewMore={onViewMore}
+                  q={q}
+                  uploadedQuestionsCount={uploadedQuestionsCount}
+                  isBulkUpload={isBulkUpload}
+                  limit={limit}
+                  setUpdatedData={setUpdatedData}
+                  updateQuestion={handleUpdateQuestion}
+                  setEditOpen={setEditOpen}
+                  setQuestionIdToDelete={setQuestionIdToDelete}
+                  setSelectedQuestion={setSelectedQuestion}
+                  totalPages={totalPages}
+                  updatingQuestion={updatingQuestion}
+                  userRole={userRole!}
+                  key={q._id}
+                />
+              )
+                }
+              </div>
+              </>
+            )
+          }
         </div>
 
         <div className="md:hidden space-y-4 p-3">

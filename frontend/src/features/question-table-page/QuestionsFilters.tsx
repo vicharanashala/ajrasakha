@@ -25,7 +25,9 @@ import {
   Activity,
   ArrowUpDown,
   EyeOff,
-  Eye
+  Eye,
+  List,
+  LucideLayoutGrid
 } from "lucide-react";
 import {
   AdvanceFilterDialog,
@@ -74,6 +76,8 @@ type QuestionsFiltersProps = {
   sort: string;
   onSort: (key:string)=>void;
   showClosedAt?: boolean;
+  view: "grid" | "table";
+  setView: (v: "grid" | "table") => void;
 };
 
 export const QuestionsFilters = ({
@@ -100,8 +104,9 @@ export const QuestionsFilters = ({
   sort,
   onSort,
   showClosedAt,
+  view,
+  setView,
 }: QuestionsFiltersProps) => {
-
   //question global state
    const { visibleColumns, toggleColumn } = useQuestionTableStore();
    const activeColumns = [
@@ -395,7 +400,21 @@ export const QuestionsFilters = ({
       </div>
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
-
+        {/* view mode */}
+            <div className="hidden md:grid grid-cols-2 gap-2 p-1 rounded-lg border border-gray-200 dark:border-gray-800">
+              <button
+                className={`py-1.5 px-3 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all ${view === "table" ? "bg-primary text-gray-900 dark:text-white shadow-sm" : "text-gray-500 hover:text-gray-900 dark:hover:text-white"}`}
+                onClick={() => setView("table")}
+              >
+                <List size={14} /> List View
+              </button>
+              <button
+                className={`py-1.5 px-3 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all ${view === "grid" ? "bg-primary text-gray-900 dark:text-white shadow-sm" : "text-gray-500 hover:text-gray-900 dark:hover:text-white"}`}
+                onClick={() => setView("grid")}
+              >
+                <LayoutGrid size={14} /> Grid View
+              </button>
+            </div>
         {/* tools and filters */}
         <button
           onClick={() => setIsSidebarOpen(true)}
