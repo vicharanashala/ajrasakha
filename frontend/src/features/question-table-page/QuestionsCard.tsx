@@ -2,7 +2,6 @@ import type { IDetailedQuestion, QuestionStatus, UserRole } from "@/types";
 import React, { useMemo, useRef, useState } from "react";
 import { useCountdown } from "@/hooks/ui/useCountdown";
 import { Badge } from "../../components/atoms/badge";
-import { Button } from "../../components/atoms/button";
 import { TimerDisplay } from "../../components/timer-display";
 import { formatDate } from "@/utils/formatDate";
 import {
@@ -11,23 +10,14 @@ import {
   CheckSquare,
   Edit,
   Eye,
-  Flag,
   MapPin,
   MessageCircle,
-  MoreVertical,
   Sprout,
-  Trash,
   Trash2,
   User,
 } from "lucide-react";
 import { ConfirmationModal } from "../../components/confirmation-modal";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../../components/atoms/dropdown-menu";
+
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
@@ -73,7 +63,6 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
   currentPage,
   limit,
   userRole,
-  // updatingQuestion,
   uploadedQuestionsCount,
   isBulkUpload,
   deletingQuestion,
@@ -154,7 +143,6 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
     );
   }, [q.priority]);
 
-  //start
   const hasSelectedQuestions =
     selectedQuestionIds && selectedQuestionIds.length > 0;
   // Handle Right Click
