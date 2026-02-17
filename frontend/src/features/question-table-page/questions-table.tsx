@@ -50,7 +50,7 @@ type QuestionsTableProps = {
   showClosedAt?: boolean;
   sort?: string;
   onSort?: (key: string) => void;
-  view: 'table' | 'grid'
+  view: "table" | "grid";
 };
 
 export const QuestionsTable = ({
@@ -271,161 +271,232 @@ export const QuestionsTable = ({
         mode="edit"
       />
 
-      <div className={`rounded-lg bg-card min-h-[55vh] ${view ==='table'&& 'border'}`}>
+      <div
+        className={`rounded-lg bg-card min-h-[55vh] ${view === "table" && "border"}`}
+      >
         <div className="hidden md:block overflow-x-auto">
-          {
-            view === 'table' ?
-            (
-              <Table className="min-w-[800px]  table-auto">
-            <TableHeader className="bg-card sticky top-0 z-10">
-              <TableRow>
-                {visibleColumns.sl_No && (
-                  <TableHead
-                    className="text-center"
-                    onClick={() => onSort?.("slno")}
-                  >
-                    {selectedQuestionIds.length > 0 ? (
-                      <div className="flex justify-center">
-                        <Checkbox
-                          checked={
-                            allVisibleSelected
-                              ? true
-                              : someVisibleSelected
-                                ? "indeterminate"
-                                : false
-                          }
-                          onCheckedChange={handleSelectAll}
-                          aria-label="Select all questions"
-                        />
-                      </div>
-                    ) : (
-                      <span className="cursor-pointer select-none">Sl.No</span>
-                    )}
-                  </TableHead>
-                )}
-                {visibleColumns.question && (
-                  <TableHead className="w-[25%] text-center">
-                    <button
-                      onClick={() => onSort?.("question")}
-                      className="flex items-center gap-1 mx-auto select-none"
-                    >
-                      Question
-                      {sort === "question_asc" && (
-                        <span className="text-sm font-medium">↑</span>
-                      )}
-                      {sort === "question_desc" && (
-                        <span className="text-sm font-medium">↓</span>
-                      )}
-                    </button>
-                  </TableHead>
-                )}
-                {visibleColumns.priority && (
-                  <TableHead className="text-center">
-                    <button
-                      onClick={() => onSort?.("priority")}
-                      className="flex items-center gap-1 mx-auto select-none"
-                    >
-                      Priority
-                      {sort === "priority_asc" && (
-                        <span className="text-sm font-medium">↑</span>
-                      )}
-                      {sort === "priority_desc" && (
-                        <span className="text-sm font-medium">↓</span>
-                      )}
-                    </button>
-                  </TableHead>
-                )}
-                {visibleColumns.state && (
-                  <TableHead className="text-center">
-                    <button
-                      onClick={() => onSort?.("state")}
-                      className="flex items-center gap-1 mx-auto select-none"
-                    >
-                      State
-                      {sort === "state_asc" && (
-                        <span className="text-sm font-medium">↑</span>
-                      )}
-                      {sort === "state_desc" && (
-                        <span className="text-sm font-medium">↓</span>
-                      )}
-                    </button>
-                  </TableHead>
-                )}
-                {visibleColumns.crop && (
-                  <TableHead className="text-center">
-                    <button
-                      onClick={() => onSort?.("crop")}
-                      className="flex items-center gap-1 mx-auto select-none"
-                    >
-                      Crop
-                      {sort === "crop_asc" && (
-                        <span className="text-sm font-medium">↑</span>
-                      )}
-                      {sort === "crop_desc" && (
-                        <span className="text-sm font-medium">↓</span>
-                      )}
-                    </button>
-                  </TableHead>
-                )}
-                {visibleColumns.domain && (
-                  <TableHead className="text-center">
-                    <button
-                      onClick={() => onSort?.("domain")}
-                      className="flex items-center gap-1 mx-auto select-none"
-                    >
-                      Domain
-                      {sort === "domain_asc" && (
-                        <span className="text-sm font-medium">↑</span>
-                      )}
-                      {sort === "domain_desc" && (
-                        <span className="text-sm font-medium">↓</span>
-                      )}
-                    </button>
-                  </TableHead>
-                )}
-                {visibleColumns.source && (
-                  <TableHead className="text-center">Source</TableHead>
-                )}
-                {visibleColumns.status && (
-                  <TableHead className="text-center">Status</TableHead>
-                )}
-                {visibleColumns.answers && (
-                  <TableHead className="text-center">Answers</TableHead>
-                )}
-                {visibleColumns.review_level && (
-                  <TableHead className="text-center">Review Level</TableHead>
-                )}
-                {!showClosedAt && visibleColumns.created ? (
-                  <TableHead className="text-center">Created</TableHead>
-                ) : null}
-                {showClosedAt && visibleColumns.closed ? (
-                  <TableHead className="text-center">Closed</TableHead>
-                ) : null}
-
-                {/* <TableHead className="text-center">Action</TableHead> */}
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {isLoading ? (
+          {view === "table" ? (
+            <Table className="min-w-[800px]  table-auto">
+              <TableHeader className="bg-card sticky top-0 z-10">
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-10 ">
-                    <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
-                  </TableCell>
+                  {visibleColumns.sl_No && (
+                    <TableHead
+                      className="text-center"
+                      onClick={() => onSort?.("slno")}
+                    >
+                      {selectedQuestionIds.length > 0 ? (
+                        <div className="flex justify-center">
+                          <Checkbox
+                            checked={
+                              allVisibleSelected
+                                ? true
+                                : someVisibleSelected
+                                  ? "indeterminate"
+                                  : false
+                            }
+                            onCheckedChange={handleSelectAll}
+                            aria-label="Select all questions"
+                          />
+                        </div>
+                      ) : (
+                        <span className="cursor-pointer select-none">
+                          Sl.No
+                        </span>
+                      )}
+                    </TableHead>
+                  )}
+                  {visibleColumns.question && (
+                    <TableHead className="w-[25%] text-center">
+                      <button
+                        onClick={() => onSort?.("question")}
+                        className="flex items-center gap-1 mx-auto select-none"
+                      >
+                        Question
+                        {sort === "question_asc" && (
+                          <span className="text-sm font-medium">↑</span>
+                        )}
+                        {sort === "question_desc" && (
+                          <span className="text-sm font-medium">↓</span>
+                        )}
+                      </button>
+                    </TableHead>
+                  )}
+                  {visibleColumns.priority && (
+                    <TableHead className="text-center">
+                      <button
+                        onClick={() => onSort?.("priority")}
+                        className="flex items-center gap-1 mx-auto select-none"
+                      >
+                        Priority
+                        {sort === "priority_asc" && (
+                          <span className="text-sm font-medium">↑</span>
+                        )}
+                        {sort === "priority_desc" && (
+                          <span className="text-sm font-medium">↓</span>
+                        )}
+                      </button>
+                    </TableHead>
+                  )}
+                  {visibleColumns.state && (
+                    <TableHead className="text-center">
+                      <button
+                        onClick={() => onSort?.("state")}
+                        className="flex items-center gap-1 mx-auto select-none"
+                      >
+                        State
+                        {sort === "state_asc" && (
+                          <span className="text-sm font-medium">↑</span>
+                        )}
+                        {sort === "state_desc" && (
+                          <span className="text-sm font-medium">↓</span>
+                        )}
+                      </button>
+                    </TableHead>
+                  )}
+                  {visibleColumns.crop && (
+                    <TableHead className="text-center">
+                      <button
+                        onClick={() => onSort?.("crop")}
+                        className="flex items-center gap-1 mx-auto select-none"
+                      >
+                        Crop
+                        {sort === "crop_asc" && (
+                          <span className="text-sm font-medium">↑</span>
+                        )}
+                        {sort === "crop_desc" && (
+                          <span className="text-sm font-medium">↓</span>
+                        )}
+                      </button>
+                    </TableHead>
+                  )}
+                  {visibleColumns.domain && (
+                    <TableHead className="text-center">
+                      <button
+                        onClick={() => onSort?.("domain")}
+                        className="flex items-center gap-1 mx-auto select-none"
+                      >
+                        Domain
+                        {sort === "domain_asc" && (
+                          <span className="text-sm font-medium">↑</span>
+                        )}
+                        {sort === "domain_desc" && (
+                          <span className="text-sm font-medium">↓</span>
+                        )}
+                      </button>
+                    </TableHead>
+                  )}
+                  {visibleColumns.source && (
+                    <TableHead className="text-center">Source</TableHead>
+                  )}
+                  {visibleColumns.status && (
+                    <TableHead className="text-center">Status</TableHead>
+                  )}
+                  {visibleColumns.answers && (
+                    <TableHead className="text-center">Answers</TableHead>
+                  )}
+                  {visibleColumns.review_level && (
+                    <TableHead className="text-center">Review Level</TableHead>
+                  )}
+                  {!showClosedAt && visibleColumns.created ? (
+                    <TableHead className="text-center">Created</TableHead>
+                  ) : null}
+                  {showClosedAt && visibleColumns.closed ? (
+                    <TableHead className="text-center">Closed</TableHead>
+                  ) : null}
+
+                  {/* <TableHead className="text-center">Action</TableHead> */}
                 </TableRow>
-              ) : items?.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={11}
-                    rowSpan={10}
-                    className="text-center py-10 text-muted-foreground"
-                  >
-                    No questions found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items?.map((q, idx) => (
-                  <QuestionRow
+              </TableHeader>
+
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={11} className="text-center py-10 ">
+                      <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
+                    </TableCell>
+                  </TableRow>
+                ) : items?.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={11}
+                      rowSpan={10}
+                      className="text-center py-10 text-muted-foreground"
+                    >
+                      No questions found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  items?.map((q, idx) => (
+                    <QuestionRow
+                      currentPage={currentPage}
+                      deletingQuestion={deletingQuestion}
+                      handleDelete={handleDelete}
+                      idx={idx}
+                      onViewMore={onViewMore}
+                      q={q}
+                      uploadedQuestionsCount={uploadedQuestionsCount}
+                      isBulkUpload={isBulkUpload}
+                      limit={limit}
+                      setUpdatedData={setUpdatedData}
+                      updateQuestion={handleUpdateQuestion}
+                      setEditOpen={setEditOpen}
+                      setQuestionIdToDelete={setQuestionIdToDelete}
+                      setSelectedQuestion={setSelectedQuestion}
+                      totalPages={totalPages}
+                      updatingQuestion={updatingQuestion}
+                      userRole={userRole!}
+                      key={q._id}
+                      handleQuestionsSelection={handleQuestionsSelection}
+                      isSelected={
+                        !!q._id && selectedQuestionIds.includes(q._id)
+                      }
+                      setIsSelectionModeOn={setIsSelectionModeOn}
+                      selectedQuestionIds={selectedQuestionIds}
+                      showClosedAt={showClosedAt}
+                    />
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          ) : (
+            <>
+              {isSelectionModeOn && (
+                <div className="w-full flex items-center justify-between px-4 py-2 bg-blue-50 border border-blue-100 rounded-lg shadow-sm transition-all duration-200 mb-3">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      checked={
+                        allVisibleSelected
+                          ? true
+                          : someVisibleSelected
+                            ? "indeterminate"
+                            : false
+                      }
+                      onCheckedChange={handleSelectAll}
+                      aria-label="Select all questions"
+                      className="w-5 h-5 rounded border transition-all duration-200
+                data-[state=checked]:bg-blue-600
+                data-[state=checked]:border-blue-600
+                data-[state=unchecked]:bg-white
+                data-[state=unchecked]:border-gray-300
+                data-[state=checked]:text-white"
+                    />
+
+                    <span className="text-sm font-semibold text-blue-800">
+                      Select All Questions
+                    </span>
+                  </div>
+
+                  {selectedQuestionIds && selectedQuestionIds.length > 0 && (
+                    <span className="text-sm font-medium text-blue-700">
+                      {selectedQuestionIds.length} selected
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(400px,1fr))] pb-3">
+                {items?.map((q, idx) => (
+                  <QuestionsCard
                     currentPage={currentPage}
                     deletingQuestion={deletingQuestion}
                     handleDelete={handleDelete}
@@ -447,52 +518,14 @@ export const QuestionsTable = ({
                     handleQuestionsSelection={handleQuestionsSelection}
                     isSelected={!!q._id && selectedQuestionIds.includes(q._id)}
                     setIsSelectionModeOn={setIsSelectionModeOn}
+                    isSelectionModeOn={isSelectionModeOn}
                     selectedQuestionIds={selectedQuestionIds}
                     showClosedAt={showClosedAt}
                   />
-                ))
-              )}
-            </TableBody>
-          </Table>
-            )
-            :
-            ( 
-              <>
-              <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(400px,1fr))] pb-3">
-                {
-                  items?.map((q,idx)=>
-                <QuestionsCard
-                currentPage={currentPage}
-                  deletingQuestion={deletingQuestion}
-                  handleDelete={handleDelete}
-                  idx={idx}
-                  onViewMore={onViewMore}
-                  q={q}
-                  uploadedQuestionsCount={uploadedQuestionsCount}
-                  isBulkUpload={isBulkUpload}
-                  limit={limit}
-                  setUpdatedData={setUpdatedData}
-                  updateQuestion={handleUpdateQuestion}
-                  setEditOpen={setEditOpen}
-                  setQuestionIdToDelete={setQuestionIdToDelete}
-                  setSelectedQuestion={setSelectedQuestion}
-                  totalPages={totalPages}
-                  updatingQuestion={updatingQuestion}
-                  userRole={userRole!}
-                  key={q._id}
-                  handleQuestionsSelection={handleQuestionsSelection}
-                  isSelected={!!q._id && selectedQuestionIds.includes(q._id)}
-                  setIsSelectionModeOn={setIsSelectionModeOn}
-                  isSelectionModeOn={isSelectionModeOn}
-                  selectedQuestionIds={selectedQuestionIds}
-                  showClosedAt={showClosedAt}
-                />
-              )
-                }
+                ))}
               </div>
-              </>
-            )
-          }
+            </>
+          )}
         </div>
 
         <div className="md:hidden space-y-4 p-3">
