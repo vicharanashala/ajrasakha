@@ -22,13 +22,18 @@ export async function sendEmailNotification(
       pass,
     },
   });
-  await transporter.sendMail({
-    from: `"Review System Report" <${user}>`,
-    to: email,
-    subject: title,
+  
+  try {
+    const info = await transporter.sendMail({
+      from: `"Review System Report" <${user}>`,
+      to: email,
+      subject: title,
     // text: message,
-    html,
-  });
+      html,
+    });
+  } catch (error) {
+    throw error;
+  }
 }
 
 

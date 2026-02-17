@@ -218,13 +218,25 @@ class AuthErrorResponse {
 }
 
 
+class ResendVerificationBody {
+  @JSONSchema({
+    title: 'Email Address',
+    description: 'Email address of the user to resend verification to',
+    example: 'user@example.com',
+    type: 'string',
+    format: 'email',
+  })
+  @IsEmail()
+  email: string;
+}
+
 class LoginBody {
   @JSONSchema({
     title: 'Email Address',
     description: 'Email address of the user'
   })
   @IsEmail()
-  email: string;  
+  email: string;
 
   @JSONSchema({
     title: 'Password',
@@ -248,6 +260,7 @@ export const AUTH_VALIDATORS = [
   TokenVerificationResponse,
   AuthErrorResponse,
   LoginBody,
+  ResendVerificationBody,
 ];
 
 export {
@@ -260,4 +273,5 @@ export {
   TokenVerificationResponse,
   AuthErrorResponse,
   LoginBody,
+  ResendVerificationBody,
 };
