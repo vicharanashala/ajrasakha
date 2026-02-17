@@ -460,7 +460,20 @@ export const QuestionsTable = ({
             </Table>
           ) : (
             <>
-              {isSelectionModeOn && (
+           {isLoading ? (
+            <div className="text-center py-10">
+              <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
+            </div>
+          )
+          : items?.length === 0 ? (
+            <p className="text-center py-10 text-muted-foreground">
+              No questions found
+            </p>
+          )
+          :
+          (
+            <>
+            {isSelectionModeOn && (
                 <div className="w-full flex items-center justify-between px-4 py-2 bg-blue-50 border border-blue-100 rounded-lg shadow-sm transition-all duration-200 mb-3">
                   <div className="flex items-center gap-3">
                     <Checkbox
@@ -493,8 +506,8 @@ export const QuestionsTable = ({
                   )}
                 </div>
               )}
-
               <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(400px,1fr))] pb-3">
+                
                 {items?.map((q, idx) => (
                   <QuestionsCard
                     currentPage={currentPage}
@@ -525,6 +538,9 @@ export const QuestionsTable = ({
                 ))}
               </div>
             </>
+          )
+        }   
+      </>
           )}
         </div>
 
