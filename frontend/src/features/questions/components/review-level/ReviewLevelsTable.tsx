@@ -1,9 +1,10 @@
 import { Pagination } from "@/components/pagination";
 import { BaseTable } from "../baseTable";
-import { TableContainer } from "../TableContainer";
 import { reviewLevelColumns, type ReviewRow } from "./reviewLevel.coloumn";
 import { ReviewLevelMobileCard } from "./ReviewLevelMobile";
 import { useQuestionTableStore } from "@/stores/all-questions";
+import ReviewLevelsCard from "./ReviewLevelsCard";
+import { Loader2 } from "lucide-react";
 
 type Props = {
   data: ReviewRow[] | undefined;
@@ -19,6 +20,7 @@ type Props = {
   toggleSort: (key: string) => void;
 
   limit: number;
+  view: "table" | "grid";
 };
 
 export function ReviewLevelsTable({
@@ -31,22 +33,52 @@ export function ReviewLevelsTable({
   toggleSort,
   sort,
   limit,
+  view,
 }: Props) {
   //hide question elements
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
   return (
     <div className="ps-4 md:ps-0">
-      <TableContainer>
+      <div
+        className={`rounded-lg mb-2 bg-card min-h-[55vh] overflow-x-auto ${view === "table" && "border"}`}
+      >
         {/* Desktop Table */}
         <div className="hidden md:block overflow-x-auto">
-          <BaseTable
-            columns={reviewLevelColumns(onViewMore, visibleColumns)}
-            data={data}
-            isLoading={isLoading}
-            onSort={toggleSort}
-            sort={sort}
-            startIndex={(page - 1) * limit}
-          />
+          {view === "table" ? (
+            <BaseTable
+              columns={reviewLevelColumns(onViewMore, visibleColumns)}
+              data={data}
+              isLoading={isLoading}
+              onSort={toggleSort}
+              sort={sort}
+              startIndex={(page - 1) * limit}
+            />
+          ) : (
+            <>
+              {isLoading ? (
+                <div className="text-center py-10">
+                  <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
+                </div>
+              ) : data?.length === 0 ? (
+                <p className="text-center py-10 text-muted-foreground">
+                  No questions found
+                </p>
+              ) : (
+                <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(400px,1fr))] pb-3">
+                  {data.map((row, i) => (
+                    <ReviewLevelsCard
+                      key={i}
+                      row={row}
+                      index={(page - 1) * data.length + i}
+                      onViewMore={onViewMore}
+                      onSort={toggleSort}
+                      sort={sort}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* Mobile Cards */}
@@ -62,7 +94,7 @@ export function ReviewLevelsTable({
             />
           ))}
         </div>
-      </TableContainer>
+      </div>
 
       <Pagination
         currentPage={page}

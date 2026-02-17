@@ -376,6 +376,7 @@ export const QuestionsPage = ({
               toggleSort={toggleSort}
               sort={sort}
               limit={reviewLimit}
+              view={view}
             />
           )}
         </>
