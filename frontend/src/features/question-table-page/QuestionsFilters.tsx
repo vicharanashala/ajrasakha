@@ -402,7 +402,7 @@ export const QuestionsFilters = ({
       </div>
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
-        <div className="relative flex items-center gap-2">
+        <div className="relative hidden md:flex items-center gap-2">
           <ViewDropdown view={view} setView={setView} />
           <span className="absolute -top-2 -right-2 bg-red-500 text-[8px] text-white px-1 rounded uppercase font-bold">
             New
