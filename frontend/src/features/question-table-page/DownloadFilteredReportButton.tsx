@@ -20,12 +20,7 @@ import {
   SelectValue,
 } from "@/components/atoms/select";
 import { Label } from "@/components/atoms/label";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/atoms/tooltip";
+import { Separator } from "@/components/atoms/separator";
 import { STATES, CROPS, SEASONS, DOMAINS, STATUS } from "@/components/MetaData";
 
 export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void }) => {
@@ -81,7 +76,8 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
       setIsDialogOpen(false);
     } catch (error) {
       console.error("Download error:", error);
-      toast.error("Failed to download filtered report. No questions found for selected filters.");
+      const errorMessage = error instanceof Error ? error.message : "Failed to download filtered report";
+      toast.error(errorMessage);
     } finally {
       setIsDownloading(false);
     }
@@ -102,11 +98,10 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
   };
 
   return (
-    <TooltipProvider>
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogTrigger asChild>
           <button
-            className="w-full flex items-center justify-between p-0 bg-transparent hover:opacity-80 transition-all"
+            className="w-full flex items-center justify-between p-0 bg-transparent transition-all"
             disabled={isDownloading}
             onClick={() => onOpenDialog?.()}
           >
@@ -121,6 +116,9 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
               <div className="text-left">
                 <p className="text-sm font-bold text-gray-900 dark:text-white">
                   {isDownloading ? "Downloading..." : "Filtered Report"}
+                </p>
+                <p className="text-[11px] text-gray-500">
+                  Questions filtered by State, Crop, Season, Domain, and Status
                 </p>
               </div>
             </div>
@@ -174,6 +172,11 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
                 </Select>
               </div>
 
+              {/* Separator */}
+              <div className="col-span-2">
+                <Separator className="my-2" />
+              </div>
+
               {/* Season Filter */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Season</Label>
@@ -208,6 +211,11 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Separator */}
+              <div className="col-span-2">
+                <Separator className="my-2" />
               </div>
 
               {/* Status Filter - spans 2 columns */}
@@ -259,6 +267,5 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </TooltipProvider>
   );
 };

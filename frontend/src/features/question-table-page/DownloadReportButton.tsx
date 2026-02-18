@@ -16,12 +16,6 @@ import { Calendar } from "@/components/atoms/calendar";
 import { formatDateLocal } from "@/utils/formatDate";
 import type { DateRange } from "react-day-picker";
 import { format } from "date-fns";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/atoms/tooltip";
 
 export const DownloadReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void }) => {
   const questionService = new QuestionService();
@@ -79,18 +73,18 @@ export const DownloadReportButton = ({ onOpenDialog }: { onOpenDialog?: () => vo
       setIsDateDialogOpen(false);
     } catch (error) {
       console.error("Download error:", error);
-      toast.error("Failed to download report. No questions found for the selected date range.");
+      const errorMessage = error instanceof Error ? error.message : "Failed to download report";
+      toast.error(errorMessage);
     } finally {
       setIsDownloading(false);
     }
   };
 
   return (
-    <TooltipProvider>
-      <Dialog open={isDateDialogOpen} onOpenChange={setIsDateDialogOpen}>
+    <Dialog open={isDateDialogOpen} onOpenChange={setIsDateDialogOpen}>
         <DialogTrigger asChild>
           <button
-            className="w-full flex items-center justify-between p-0 bg-transparent hover:opacity-80 transition-all"
+            className="w-full flex items-center justify-between p-0 bg-transparent transition-all"
             disabled={isDownloading}
             onClick={() => onOpenDialog?.()}
           >
@@ -105,6 +99,9 @@ export const DownloadReportButton = ({ onOpenDialog }: { onOpenDialog?: () => vo
               <div className="text-left">
                 <p className="text-sm font-bold text-gray-900 dark:text-white">
                   {isDownloading ? "Downloading..." : "Download Report"}
+                </p>
+                <p className="text-[11px] text-gray-500">
+                  Questions with modification/rejection raise
                 </p>
               </div>
             </div>
@@ -178,6 +175,5 @@ export const DownloadReportButton = ({ onOpenDialog }: { onOpenDialog?: () => vo
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </TooltipProvider>
   );
 };

@@ -381,6 +381,15 @@ async downloadQuestionReport(consecutiveApprovals?: string, startDate?: string, 
     throw new Error("Failed to download report");
   }
   
+  // Check if response is JSON (no data case)
+  const contentType = response.headers.get("content-type");
+  if (contentType && contentType.includes("application/json")) {
+    const jsonResponse = await response.json();
+    if (!jsonResponse.success) {
+      throw new Error(jsonResponse.message || "No data found for the selected filters");
+    }
+  }
+  
   return await response.blob();
 }
 
@@ -434,6 +443,15 @@ async downloadOverallReport(startDate?: string, endDate?: string): Promise<Blob>
     throw new Error("Failed to download overall report");
   }
   
+  // Check if response is JSON (no data case)
+  const contentType = response.headers.get("content-type");
+  if (contentType && contentType.includes("application/json")) {
+    const jsonResponse = await response.json();
+    if (!jsonResponse.success) {
+      throw new Error(jsonResponse.message || "No data found for the selected date range");
+    }
+  }
+  
   return await response.blob();
 }
 
@@ -481,6 +499,15 @@ async downloadFilteredReport(filters: {
   
   if (!response.ok) {
     throw new Error("Failed to download filtered report");
+  }
+  
+  // Check if response is JSON (no data case)
+  const contentType = response.headers.get("content-type");
+  if (contentType && contentType.includes("application/json")) {
+    const jsonResponse = await response.json();
+    if (!jsonResponse.success) {
+      throw new Error(jsonResponse.message || "No questions found for the selected filters");
+    }
   }
   
   return await response.blob();

@@ -17,6 +17,7 @@ import {
   UploadedFile,
   BadRequestError,
   ContentType,
+  Res,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -218,6 +219,7 @@ export class QuestionController {
   async downloadQuestionReport(
     @QueryParams() query: { consecutiveApprovals?: string; startDate?: string; endDate?: string },
     @CurrentUser() user: IUser,
+    @Res() response: any,
   ) {
     const userId = user._id.toString();
     const consecutiveApprovals = query.consecutiveApprovals 
@@ -230,7 +232,11 @@ export class QuestionController {
     const data = await this.questionService.generateQuestionReport(consecutiveApprovals, startDate, endDate);
 
     if (!data) {
-      throw new NotFoundError("No report data found");
+      response.status(200).json({ 
+        success: false, 
+        message: "No data found for the selected filters" 
+      });
+      return;
     }
 
     return Buffer.from(data as ArrayBuffer);
@@ -243,6 +249,7 @@ export class QuestionController {
   async downloadOverallReport(
     @QueryParams() query: { startDate?: string; endDate?: string },
     @CurrentUser() user: IUser,
+    @Res() response: any,
   ) {
     const startDate = query.startDate ? new Date(query.startDate) : undefined;
     const endDate = query.endDate ? new Date(query.endDate) : undefined;
@@ -250,7 +257,11 @@ export class QuestionController {
     const data = await this.questionService.generateOverallQuestionReport(startDate, endDate);
 
     if (!data) {
-      throw new NotFoundError("No report data found");
+      response.status(200).json({ 
+        success: false, 
+        message: "No data found for the selected date range" 
+      });
+      return;
     }
 
     return Buffer.from(data);
@@ -269,6 +280,7 @@ export class QuestionController {
       status?: string; 
     },
     @CurrentUser() user: IUser,
+    @Res() response: any,
   ) {
     const data = await this.questionService.generateStateCropQuestionReport({
       state: query.state,
@@ -279,7 +291,11 @@ export class QuestionController {
     });
 
     if (!data) {
-      throw new NotFoundError("No questions found for the selected filters");
+      response.status(200).json({ 
+        success: false, 
+        message: "No questions found for the selected filters" 
+      });
+      return;
     }
 
     return Buffer.from(data);

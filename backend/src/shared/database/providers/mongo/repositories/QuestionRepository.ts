@@ -2978,64 +2978,115 @@ export class QuestionRepository implements IQuestionRepository {
       'July', 'August', 'September', 'October', 'November', 'December'
     ];
 
-    // Build date filter
-    const dateFilter: any = {};
-    if (startDate || endDate) {
-      dateFilter.createdAt = {};
-      if (startDate) dateFilter.createdAt.$gte = startDate;
-      if (endDate) dateFilter.createdAt.$lte = endDate;
+    // Set default dates if not provided
+    const defaultStartDate = startDate || new Date("2025-09-01T00:00:00.000Z");
+    let defaultEndDate = endDate || new Date();
+    // Set end of day for endDate
+    if (endDate) {
+      defaultEndDate = new Date(endDate);
+      defaultEndDate.setHours(23, 59, 59, 999);
     }
 
-    // Aggregate questions by month
-    const pipeline: any[] = [
-      ...(Object.keys(dateFilter).length > 0 ? [{ $match: dateFilter }] : []),
+    // Get total questions per month
+    const questionsPerMonth = await this.QuestionCollection.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: defaultStartDate, $lte: defaultEndDate }
+        }
+      },
       {
         $group: {
           _id: {
             year: { $year: '$createdAt' },
             month: { $month: '$createdAt' }
           },
-          totalQuestions: { $sum: 1 },
-          questionIds: { $push: '$_id' }
+          totalQuestions: { $sum: 1 }
         }
       },
       { $sort: { '_id.year': 1, '_id.month': 1 } }
-    ];
+    ], { session }).toArray();
 
-    const questionStats = await this.QuestionCollection.aggregate(pipeline, { session }).toArray();
-
-    // For each month, get modified and rejected answer counts
-    const results = await Promise.all(
-      questionStats.map(async (stat) => {
-        const questionIds = stat.questionIds;
-
-        // Count modified answers
-        const modifiedCount = await this.AnswersCollection.countDocuments(
-          {
-            questionId: { $in: questionIds },
-            status: 'modified'
+    
+    const answerStats = await this.AnswersCollection.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: defaultStartDate, $lte: defaultEndDate }
+        }
+      },
+      
+      // Count modifications per answer
+      {
+        $addFields: {
+          modificationsCount: { $size: { $ifNull: ["$modifications", []] } }
+        }
+      },
+      
+      // Group per question
+      {
+        $group: {
+          _id: "$questionId",
+          totalAnswers: { $sum: 1 },
+          hasModifiedAnswer: {
+            $max: { $cond: [{ $gte: ["$modificationsCount", 1] }, 1, 0] }
           },
-          { session }
-        );
-
-        // Count rejected answers
-        const rejectedCount = await this.AnswersCollection.countDocuments(
-          {
-            questionId: { $in: questionIds },
-            status: 'rejected'
+          latestCreatedAt: { $max: "$createdAt" }
+        }
+      },
+      
+      // Month-wise metrics
+      {
+        $group: {
+          _id: {
+            year: { $year: "$latestCreatedAt" },
+            month: { $month: "$latestCreatedAt" }
           },
-          { session }
-        );
+          
+          // Modified questions
+          modifiedCount: {
+            $sum: {
+              $cond: [{ $eq: ["$hasModifiedAnswer", 1] }, 1, 0]
+            }
+          },
+          
+          // Rejected = multiple answers BUT no modifications
+          rejectedCount: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $gte: ["$totalAnswers", 2] },
+                    { $eq: ["$hasModifiedAnswer", 0] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          }
+        }
+      },
+      
+      { $sort: { "_id.year": 1, "_id.month": 1 } }
+    ], { 
+      allowDiskUse: true,
+      session 
+    }).toArray();
 
-        return {
-          year: stat._id.year,
-          month: monthNames[stat._id.month - 1],
-          totalQuestions: stat.totalQuestions,
-          modifiedAnswers: modifiedCount,
-          rejectedAnswers: rejectedCount
-        };
-      })
-    );
+    // Merge the results
+    const results = questionsPerMonth.map((questionStat: any) => {
+      const answerStat = answerStats.find((a: any) => 
+        a._id.year === questionStat._id.year && 
+        a._id.month === questionStat._id.month
+      );
+
+      return {
+        year: questionStat._id.year,
+        month: monthNames[questionStat._id.month - 1],
+        totalQuestions: questionStat.totalQuestions,
+        modifiedAnswers: answerStat?.modifiedCount || 0,
+        rejectedAnswers: answerStat?.rejectedCount || 0
+      };
+    });
 
     return results;
   }
