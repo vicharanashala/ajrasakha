@@ -298,9 +298,6 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                                             <h4 className="font-bold text-sm text-foreground truncate pr-2">
                                                 {n.title || "Update Received"}
                                             </h4>
-                                            {!n.is_read && (
-                                                <div className="w-2.5 h-2.5 bg-primary rounded-full mt-1 shrink-0" />
-                                            )}
                                         </div>
                                         <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
                                             {n.message}
