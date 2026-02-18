@@ -3,18 +3,22 @@ import {
     BellIcon,
     CheckCircle,
     Clock,
-    User,
-    AlertTriangle,
-    Zap,
-    X
+    X,
+    Settings2,
+    ChevronDown,
 } from "lucide-react";
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger
-} from "@/components/atoms/dialog";
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from "@/components/atoms/sheet";
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/atoms/collapsible";
 import { Button } from "@/components/atoms/button";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import {
@@ -57,6 +61,7 @@ interface NotificationModalProps {
 export function NotificationModal({ trigger }: NotificationModalProps) {
     const [open, setOpen] = useState(false);
     const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const { data: user } = useGetCurrentUser();
     const {
         data: notificationPages,
@@ -153,80 +158,45 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
         }
     };
 
-    const getNotificationIcon = (type: string) => {
-        switch (type) {
-            case "answer_creation":
-            case "re-routed-answer-created":
-                return <User className="w-5 h-5 text-primary" />;
-            case "flag":
-                return <AlertTriangle className="w-5 h-5 text-destructive" />;
-            case "comment":
-                return <Zap className="w-5 h-5 text-primary" />;
-            default:
-                return <BellIcon className="w-5 h-5 text-muted-foreground" />;
-        }
-    };
-
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
+        <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
                 {trigger}
-            </DialogTrigger>
-            <DialogContent className="max-w-md p-0 overflow-hidden sm:rounded-2xl border-none shadow-2xl sm:left-auto sm:right-20 sm:top-20 sm:translate-x-0 sm:translate-y-0 translate-y-0 top-20">
-                <DialogHeader className="p-5 pb-2">
+            </SheetTrigger>
+            <SheetContent
+                side="right"
+                className="p-0 border-l bg-background shadow-2xl h-[calc(100vh-2rem)] my-4 mr-4 rounded-2xl flex flex-col w-full sm:max-w-md overflow-hidden"
+            >
+                <SheetHeader className="p-6 pb-2 shrink-0">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-3">
                             <div className="bg-primary/10 p-2 rounded-xl">
                                 <BellIcon className="w-5 h-5 text-primary" />
                             </div>
                             <div>
-                                <DialogTitle className="text-xl font-bold">Notifications</DialogTitle>
+                                <SheetTitle className="text-xl font-bold">Notifications</SheetTitle>
                                 <p className="text-sm text-muted-foreground">
                                     {notifications.length} total, {unreadCount} new
                                 </p>
                             </div>
                         </div>
                     </div>
-                </DialogHeader>
+                </SheetHeader>
 
-                <div className="px-5 py-2">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex bg-primary/10 p-1 rounded-lg">
-                            <button
-                                onClick={() => setFilter("all")}
-                                className={cn(
-                                    "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
-                                    filter === "all" ? "bg-primary text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                                )}
-                            >
-                                All
-                            </button>
-                            <button
-                                onClick={() => setFilter("unread")}
-                                className={cn(
-                                    "px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-1.5",
-                                    filter === "unread" ? "bg-primary text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                                )}
-                            >
-                                Unread
-                                {unreadCount > 0 && (
-                                    <span className="bg-primary/25 text-primary-foreground px-1.5 py-0.5 rounded-full text-[10px] font-bold">
-                                        {unreadCount}
-                                    </span>
-                                )}
-                            </button>
-                            <button
-                                onClick={() => setFilter("read")}
-                                className={cn(
-                                    "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
-                                    filter === "read" ? "bg-primary text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                                )}
-                            >
-                                Read
-                            </button>
-                        </div>
-
-                        <div className="flex items-center gap-2">
+                <div className="px-6 py-2 shrink-0 border-b">
+                    <Collapsible
+                        open={isSettingsOpen}
+                        onOpenChange={setIsSettingsOpen}
+                        className="w-full"
+                    >
+                        <div className="flex items-center justify-between mb-2">
+                            <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 px-2 text-muted-foreground hover:text-foreground">
+                                    <Settings2 className="w-4 h-4 mr-2" />
+                                    Filter & Settings
+                                    <ChevronDown className={cn("ml-2 h-4 w-4 transition-transform duration-200", isSettingsOpen && "rotate-180")} />
+                                </Button>
+                            </CollapsibleTrigger>
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -238,30 +208,67 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                                 Mark all read
                             </Button>
                         </div>
-                    </div>
 
-                    <div className="flex items-center gap-2 mb-4 p-2 bg-primary/5 rounded-lg border border-primary/20">
-                        <Clock className="w-4 h-4 text-primary" />
-                        <span className="text-xs font-medium text-primary-foreground">Auto-delete after:</span>
-                        <Select onValueChange={handlePreferenceChange} value={deletePreference}>
-                            <SelectTrigger className="h-7 w-28 text-xs bg-transparent border-none shadow-none focus:ring-0 text-primary-foreground">
-                                <SelectValue placeholder="Select" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="3d">3 days</SelectItem>
-                                <SelectItem value="1w">1 week</SelectItem>
-                                <SelectItem value="2w">2 weeks</SelectItem>
-                                <SelectItem value="1m">1 month</SelectItem>
-                                <SelectItem value="never">Never</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                        <CollapsibleContent className="space-y-4 py-2">
+                            <div className="flex bg-primary/10 p-1 rounded-lg w-fit">
+                                <button
+                                    onClick={() => setFilter("all")}
+                                    className={cn(
+                                        "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
+                                        filter === "all" ? "bg-primary text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                >
+                                    All
+                                </button>
+                                <button
+                                    onClick={() => setFilter("unread")}
+                                    className={cn(
+                                        "px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-1.5",
+                                        filter === "unread" ? "bg-primary text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                >
+                                    Unread
+                                    {unreadCount > 0 && (
+                                        <span className="bg-primary/25 text-primary-foreground px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                                            {unreadCount}
+                                        </span>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => setFilter("read")}
+                                    className={cn(
+                                        "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
+                                        filter === "read" ? "bg-primary text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                >
+                                    Read
+                                </button>
+                            </div>
+
+                            <div className="flex items-center gap-2 p-2 bg-primary/5 rounded-lg border border-primary/20">
+                                <Clock className="w-4 h-4 text-primary" />
+                                <span className="text-xs font-medium text-foreground">Auto-delete after:</span>
+                                <Select onValueChange={handlePreferenceChange} value={deletePreference}>
+                                    <SelectTrigger className="h-7 w-28 text-xs bg-transparent border-none shadow-none focus:ring-0 text-foreground">
+                                        <SelectValue placeholder="Select" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="3d">3 days</SelectItem>
+                                        <SelectItem value="1w">1 week</SelectItem>
+                                        <SelectItem value="2w">2 weeks</SelectItem>
+                                        <SelectItem value="1m">1 month</SelectItem>
+                                        <SelectItem value="never">Never</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </CollapsibleContent>
+                    </Collapsible>
                 </div>
 
-                <ScrollArea className="h-[400px] border-t border-b bg-muted/10">
-                    <div className="p-5 space-y-4">
+                <ScrollArea className="flex-1 bg-muted/10">
+                    <div className="p-6 space-y-4">
                         {filteredNotifications.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-10 text-center">
+                            <div className="flex flex-col items-center justify-center py-20 text-center">
                                 <div className="bg-muted p-4 rounded-full mb-4">
                                     <BellIcon className="w-8 h-8 text-muted-foreground" />
                                 </div>
@@ -280,7 +287,7 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                                 >
                                     <div className="shrink-0">
                                         <div className="w-12 h-12 rounded-xl bg-muted/30 flex items-center justify-center relative">
-                                            {getNotificationIcon(n.type)}
+                                            <BellIcon className="w-5 h-5 text-primary" />
                                             {!n.is_read && (
                                                 <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-card" />
                                             )}
@@ -307,7 +314,7 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                                     </div>
                                     <button
                                         onClick={(e) => handleDelete(e, n._id)}
-                                        className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-destructive/10 hover:text-destructive rounded-lg transition-all self-start"
+                                        className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive rounded-lg transition-all self-start"
                                     >
                                         <X className="w-4 h-4" />
                                     </button>
@@ -328,12 +335,12 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                     </div>
                 </ScrollArea>
 
-                <div className="p-4 bg-muted/20 text-center">
+                <div className="p-4 bg-muted/20 text-center shrink-0 border-t">
                     <p className="text-xs font-semibold text-muted-foreground">
                         {unreadCount} notifications require your attention
                     </p>
                 </div>
-            </DialogContent>
-        </Dialog>
+            </SheetContent>
+        </Sheet>
     );
 }
