@@ -474,7 +474,7 @@ export const QuestionsTable = ({
           (
             <>
             {isSelectionModeOn && (
-                <div className="w-full flex items-center justify-between px-4 py-2 bg-blue-50 border border-blue-100 rounded-lg shadow-sm transition-all duration-200 mb-3">
+                <div className="w-full flex items-center justify-between px-4 py-2 bg-green-50 dark:bg-[#1a1a1a] dark:border-gray-800 dark:hover:border-gray-600 dark:shadow-none  border border-green-100 rounded-lg shadow-sm transition-all duration-200 mb-3">
                   <div className="flex items-center gap-3">
                     <Checkbox
                       checked={
@@ -486,21 +486,22 @@ export const QuestionsTable = ({
                       }
                       onCheckedChange={handleSelectAll}
                       aria-label="Select all questions"
-                      className="w-5 h-5 rounded border transition-all duration-200
-                data-[state=checked]:bg-blue-600
-                data-[state=checked]:border-blue-600
+                      className="w-5 h-5 rounded border transition-all duration-200 
+                data-[state=checked]:bg-green-600
+                data-[state=checked]:border-green-600
                 data-[state=unchecked]:bg-white
                 data-[state=unchecked]:border-gray-300
-                data-[state=checked]:text-white"
+                data-[state=checked]:text-white
+                "
                     />
 
-                    <span className="text-sm font-semibold text-blue-800">
+                    <span className="text-sm font-semibold text-green-800 dark:text-gray-200">
                       Select All Questions
                     </span>
                   </div>
 
                   {selectedQuestionIds && selectedQuestionIds.length > 0 && (
-                    <span className="text-sm font-medium text-blue-700">
+                    <span className="text-sm font-medium text-green-700 dark:text-gray-200">
                       {selectedQuestionIds.length} selected
                     </span>
                   )}

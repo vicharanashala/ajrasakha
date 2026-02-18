@@ -156,6 +156,10 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
     }
   };
 
+  const hoverClasses = userRole === 'expert'
+  ? "hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400"
+  : "hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/30 dark:hover:text-green-400";
+
   return (
     <div
       onContextMenu={handleContextMenu}
@@ -171,7 +175,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
         group relative w-full rounded-2xl border transition-all duration-300 ease-in-out cursor-pointer overflow-hidden
         ${
           isSelected
-            ? "border-blue-500 ring-2 ring-blue-500/20 shadow-md bg-blue-50/10 dark:bg-blue-900/20 dark:ring-blue-400/30"
+            ? "border-green-500 ring-2 ring-green-500/20 shadow-md bg-green-50/10 dark:bg-green-900/20 dark:ring-green-400/30"
             : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600 hover:shadow-lg dark:hover:shadow-gray-900/50"
         }
       `}
@@ -186,7 +190,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
         <div
           className={`
           w-5 h-5 rounded border flex items-center justify-center transition-colors
-          ${isSelected ? "bg-blue-600 border-blue-600" : "bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500"}
+          ${isSelected ? "bg-green-600 border-green-600" : "bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500"}
         `}
         >
           {isSelected && <CheckSquare size={14} className="text-white" />}
@@ -206,7 +210,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
 
         {/* Title ( Question and timer )*/}
         <div className="flex flex-col h-[5rem] justify-between">
-          <h3 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-blue-700 transition-colors line-clamp-2 dark:text-gray-100 dark:group-hover:text-blue-400">
+          <h3 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-green-700 transition-colors line-clamp-2 dark:text-gray-100 dark:group-hover:text-green-400">
             {truncate(q.question, 80)}
           </h3>
           <div className="mt-1 h-5 flex items-center">
@@ -289,7 +293,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
       </div>
 
       {/* Actions */}
-      <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center dark:bg-gray-900/50 dark:border-gray-700">
+      <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center dark:bg-background/50 dark:border-gray-700">
         <div className="flex items-center gap-2 text-gray-500 text-sm dark:text-gray-400">
           <MessageCircle size={16} />
           <span className="font-medium">{q.totalAnswersCount} Answers</span>
@@ -301,7 +305,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
                 e.stopPropagation();
                 onViewMore(q._id!);
               }}
-              className="p-1.5 rounded-full hover:bg-red-50 text-gray-400 hover:text-blue-600 transition-colors"
+              className="p-1.5 rounded-full hover:bg-red-50 text-gray-400 hover:text-green-600 transition-colors"
               title="View Question"
             >
               <Eye size={18} />
@@ -313,7 +317,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
               setSelectedQuestion(q);
               setEditOpen(true);
             }}
-            className={`p-1.5 rounded-full text-gray-400 dark:hover:${userRole === "expert" ? "text-red-400" : "text-blue-400"} hover:${userRole === "expert" ? "text-red-600" : "text-blue-600"} dark:hover:${userRole === "expert" ? "bg-red-900/30 " : "bg-blue-900/30"} hover:${userRole === "expert" ? "bg-red-500 " : "bg-blue-500"} transition-colors dark:text-gray-500`}
+            className={`p-1.5 rounded-full transition-colors text-gray-400 dark:text-gray-500 ${hoverClasses}`}
             title={`${userRole === "expert" ? "Raise Flag" : "Edit Card"}`}
           >
             {userRole === "expert" ? (
