@@ -706,7 +706,7 @@ export const QuestionsFilters = ({
             <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
               System
             </h3>
-            <div className="flex gap-3">
+            <div className="flex gap-3 pb-5">
               <button
                 className="flex-1 flex items-center justify-center gap-2 py-3 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-lg text-sm hover:border-gray-400 dark:hover:border-gray-600 transition-colors text-gray-700 dark:text-gray-300 shadow-sm dark:shadow-none"
                 onClick={() => {
