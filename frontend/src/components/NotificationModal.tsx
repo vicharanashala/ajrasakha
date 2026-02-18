@@ -210,7 +210,7 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                         </div>
 
                         <CollapsibleContent className="space-y-4 py-2">
-                            <div className="flex bg-primary/10 p-1 rounded-lg w-fit">
+                            <div className="flex bg-primary/5 border border-primary/20 p-1 rounded-lg w-fit">
                                 <button
                                     onClick={() => setFilter("all")}
                                     className={cn(
