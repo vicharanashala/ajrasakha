@@ -158,7 +158,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
 
   const hoverClasses = userRole === 'expert'
   ? "hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400"
-  : "hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/30 dark:hover:text-green-400";
+  : "hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400";
 
   return (
     <div
@@ -318,7 +318,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
               setEditOpen(true);
             }}
             className={`p-1.5 rounded-full transition-colors text-gray-400 dark:text-gray-500 ${hoverClasses}`}
-            title={`${userRole === "expert" ? "Raise Flag" : "Edit Card"}`}
+            title={`${userRole === "expert" ? "Raise Flag" : "Edit Question"}`}
           >
             {userRole === "expert" ? (
               <AlertCircle size={18} />
