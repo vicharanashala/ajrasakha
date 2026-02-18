@@ -720,7 +720,7 @@ export const QuestionsFilters = ({
         </span>
       </div>
       <ConfirmationModal
-                title="ReAllocate Work load?"
+                title="ReAllocate work load?"
                 description="Are you sure you want to ReAllocate work load?"
                 confirmText="ReAllocate"
                 cancelText="Cancel"
