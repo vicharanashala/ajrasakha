@@ -7,24 +7,17 @@ import {
   ArrowUpNarrowWide,
   Clock,
   Plus,
-  RefreshCcw,
   RotateCcw,
   Search,
   Trash,
   X,
-  Info,
   Filter,
   RefreshCw,
-  ChevronRight,
-  Settings,
-  Mail,
   LayoutGrid,
   Activity,
   ArrowUpDown,
   EyeOff,
   Eye,
-  List,
-  LucideLayoutGrid,
 } from "lucide-react";
 import {
   AdvanceFilterDialog,
@@ -42,22 +35,15 @@ import { ConfirmationModal } from "../../components/confirmation-modal";
 import { OutreachReportModal } from "@/features/question_details/components/OutreachReport";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
 
-import { TopLeftBadge, TopRightBadge } from "../../components/NewBadge";
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/atoms/tooltip";
 import { useReAllocateLessWorkload } from "@/hooks/api/question/useReAllocateLessWorkload";
 import {
   allModeColumns,
   commonColumns,
   reviewModeColumns,
   useQuestionTableStore,
-  type ColumnKey,
 } from "@/stores/all-questions";
+import ViewDropdown from "../questions/components/ViewDropdown";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -416,20 +402,8 @@ export const QuestionsFilters = ({
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
         {/* view mode */}
-        <div className="hidden md:grid grid-cols-2 gap-2 p-1 rounded-lg border border-gray-200 dark:border-gray-800">
-          <button
-            className={`py-1.5 px-3 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all ${view === "table" ? "bg-primary text-gray-900 dark:text-white shadow-sm" : "text-gray-500 hover:text-gray-900 dark:hover:text-white"}`}
-            onClick={() => setView("table")}
-          >
-            <List size={14} /> List View
-          </button>
-          <button
-            className={`py-1.5 px-3 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all ${view === "grid" ? "bg-primary text-gray-900 dark:text-white shadow-sm" : "text-gray-500 hover:text-gray-900 dark:hover:text-white"}`}
-            onClick={() => setView("grid")}
-          >
-            <LayoutGrid size={14} /> Grid View
-          </button>
-        </div>
+        <ViewDropdown view={view} setView={setView} />
+
         {/* tools and filters */}
         <button
           onClick={() => setIsSidebarOpen(true)}
