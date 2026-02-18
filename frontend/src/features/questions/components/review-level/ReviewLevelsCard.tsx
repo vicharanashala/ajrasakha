@@ -23,7 +23,7 @@ const ReviewLevelsCard = ({ row, index, onViewMore, sort, onSort }: Props) => {
         </span>
         <Badge
           variant="outline"
-          className="text-[10px] tracking-widest uppercase font-semibold px-2.5 py-0.5 border-blue-600/30 text-blue-500/70 bg-blue-400/5"
+          className="text-[10px] tracking-widest uppercase font-semibold px-2.5 py-0.5 border-green-600/30 text-green-500/70 bg-green-400/5"
         >
           Review Levels
         </Badge>
@@ -35,7 +35,7 @@ const ReviewLevelsCard = ({ row, index, onViewMore, sort, onSort }: Props) => {
           onClick={() => onViewMore(row._id)}
           className="text-left w-full group/title"
         >
-          <h3 className="text-base font-semibold leading-snug text-foreground line-clamp-2 group-hover:text-blue-700  transition-colors duration-200">
+          <h3 className="text-base font-semibold leading-snug text-foreground line-clamp-2 group-hover:text-green-700  transition-colors duration-200">
             {truncate(row.question, 80)}
           </h3>
         </button>
@@ -60,7 +60,7 @@ const ReviewLevelsCard = ({ row, index, onViewMore, sort, onSort }: Props) => {
                 border transition-all duration-150
                 ${
                   isActive
-                    ? "border-blue-600/40 bg-blue-500/8 text-foreground"
+                    ? "border-green-600/40 bg-green-500/8 text-foreground"
                     : "border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:border-border"
                 }
               `}
