@@ -1,8 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "../../components/atoms/button";
 import { Input } from "../../components/atoms/input";
@@ -11,19 +7,17 @@ import {
   ArrowUpNarrowWide,
   Clock,
   Plus,
- RefreshCcw,
- RotateCcw,
- Search,
+  RotateCcw,
+  Search,
   Trash,
-  X,Info,
+  X,
   Filter,
   RefreshCw,
-  ChevronRight,
-  Settings,
-  Mail,
   LayoutGrid,
   Activity,
-  ArrowUpDown
+  ArrowUpDown,
+  EyeOff,
+  Eye,
 } from "lucide-react";
 import {
   AdvanceFilterDialog,
@@ -41,10 +35,15 @@ import { ConfirmationModal } from "../../components/confirmation-modal";
 import { OutreachReportModal } from "@/features/question_details/components/OutreachReport";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
 
-import { TopLeftBadge, TopRightBadge } from "../../components/NewBadge";
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
-import {useReAllocateLessWorkload} from '@/hooks/api/question/useReAllocateLessWorkload'
+import { useReAllocateLessWorkload } from "@/hooks/api/question/useReAllocateLessWorkload";
+import {
+  allModeColumns,
+  commonColumns,
+  reviewModeColumns,
+  useQuestionTableStore,
+} from "@/stores/all-questions";
+import ViewDropdown from "../questions/components/ViewDropdown";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -68,7 +67,10 @@ type QuestionsFiltersProps = {
   viewMode: "all" | "review-level";
   setViewMode: (v: "all" | "review-level") => void;
   sort: string;
-  onSort: (key:string)=>void;
+  onSort: (key: string) => void;
+  showClosedAt?: boolean;
+  view: "grid" | "table";
+  setView: (v: "grid" | "table") => void;
 };
 
 export const QuestionsFilters = ({
@@ -94,11 +96,21 @@ export const QuestionsFilters = ({
   setViewMode,
   sort,
   onSort,
+  showClosedAt,
+  view,
+  setView,
 }: QuestionsFiltersProps) => {
-  const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(appliedFilters);
+  //question global state
+  const { visibleColumns, toggleColumn } = useQuestionTableStore();
+  const activeColumns = [
+    ...commonColumns,
+    ...(viewMode === "all" ? allModeColumns : reviewModeColumns),
+  ];
+  const [advanceFilter, setAdvanceFilterValues] =
+    useState<AdvanceFilterValues>(appliedFilters);
   const [addOpen, setAddOpen] = useState(false);
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
-    null
+    null,
   );
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
@@ -106,46 +118,50 @@ export const QuestionsFilters = ({
       setUploadedQuestionsCount(count);
       setIsBulkUpload(isBulkUpload);
     });
-    const { mutateAsync: reAllocateLessWorkload, isPending: reAllocateQuestion } =
+  const { mutateAsync: reAllocateLessWorkload, isPending: reAllocateQuestion } =
     useReAllocateLessWorkload();
-    const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
-    const handleReAllocateLessWorkload = async () => {
-       try {
-        setIsReAllocateDisabled(true);
-        const res = await reAllocateLessWorkload();
+  const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
+  const handleReAllocateLessWorkload = async () => {
+    try {
+      setIsReAllocateDisabled(true);
+      const res = await reAllocateLessWorkload();
 
-    if (!res) {
-      toast.error("No response from server");
-      setIsReAllocateDisabled(false);
-      return;
-    }
-    if (res.message === "Workload balancing started in background") {
-      toast.success(
-        "Workload balancing has started in the background. Please wait 50 seconds before reallocating again."
-      );
-      // Re-enable button after 30 seconds
-      setTimeout(() => {
+      if (!res) {
+        toast.error("No response from server");
         setIsReAllocateDisabled(false);
-      }, 50000);
-    } else if (res.message) {
-      // Any other message from backend
-      toast.success(res.message);
-      setIsReAllocateDisabled(false);
-    }
-    
-      } catch (error) {
-        toast.error("Failed to reAllocate question for those who has less workload");
-        console.error("Error reAllocating question who has less workload question:", error);
+        return;
+      }
+      if (res.message === "Workload balancing started in background") {
+        toast.success(
+          "Workload balancing has started in the background. Please wait 50 seconds before reallocating again.",
+        );
+        // Re-enable button after 30 seconds
+        setTimeout(() => {
+          setIsReAllocateDisabled(false);
+        }, 50000);
+      } else if (res.message) {
+        // Any other message from backend
+        toast.success(res.message);
         setIsReAllocateDisabled(false);
       }
-    };
+    } catch (error) {
+      toast.error(
+        "Failed to reAllocate question for those who has less workload",
+      );
+      console.error(
+        "Error reAllocating question who has less workload question:",
+        error,
+      );
+      setIsReAllocateDisabled(false);
+    }
+  };
 
   const handleAddQuestion = async (
     mode: "add" | "edit",
     entityId?: string,
     flagReason?: string,
     status?: QuestionStatus,
-    formData?: FormData
+    formData?: FormData,
   ) => {
     try {
       if (mode !== "add") return;
@@ -183,7 +199,7 @@ export const QuestionsFilters = ({
       }
       if (!["low", "medium", "high"].includes(payload.priority)) {
         toast.error(
-          "Invalid priority value. Please reselect from the options."
+          "Invalid priority value. Please reselect from the options.",
         );
         return;
       }
@@ -194,7 +210,7 @@ export const QuestionsFilters = ({
       }
       if (!["AJRASAKHA", "AGRI_EXPERT"].includes(payload.source)) {
         toast.error(
-          "Invalid source selected. Please reselect from the options."
+          "Invalid source selected. Please reselect from the options.",
         );
         return;
       }
@@ -261,8 +277,8 @@ export const QuestionsFilters = ({
       review_level: advanceFilter?.review_level,
       closedAtStart: advanceFilter?.closedAtStart,
       closedAtEnd: advanceFilter?.closedAtEnd,
-      consecutiveApprovals:advanceFilter?.consecutiveApprovals,
-      autoAllocateFilter:advanceFilter?.autoAllocateFilter
+      consecutiveApprovals: advanceFilter?.consecutiveApprovals,
+      autoAllocateFilter: advanceFilter?.autoAllocateFilter,
     });
   };
 
@@ -299,30 +315,33 @@ export const QuestionsFilters = ({
     // ✅ ClosedAt date range counts as ONE
     (advanceFilter.closedAtStart || advanceFilter.closedAtEnd ? 1 : 0);
 
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   // Optimized Draggable Logic
-  const [position, setPosition] = useState({ x: 10, y: window.innerHeight-70 }); // Initial screen position
+  const [position, setPosition] = useState({
+    x: 10,
+    y: window.innerHeight - 70,
+  }); // Initial screen position
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef(null);
   const offset = useRef({ x: 0, y: 0 });
 
-  const handleMouseDown = (e:any) => {
+  const handleMouseDown = (e: any) => {
     setIsDragging(true);
     const rect = e.currentTarget.getBoundingClientRect();
     offset.current = {
       x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      y: e.clientY - rect.top,
     };
   };
 
   useEffect(() => {
-    const handleMouseMove = (e:any) => {
+    const handleMouseMove = (e: any) => {
       if (!isDragging) return;
-      
+
       // Calculate new position based on viewport
       setPosition({
         x: e.clientX - offset.current.x,
-        y: e.clientY - offset.current.y
+        y: e.clientY - offset.current.y,
       });
     };
 
@@ -331,13 +350,13 @@ export const QuestionsFilters = ({
     };
 
     if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
     }
 
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isDragging]);
 
@@ -382,6 +401,12 @@ export const QuestionsFilters = ({
       </div>
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
+        <div className="relative flex items-center gap-2">
+          <ViewDropdown view={view} setView={setView} />
+          <span className="absolute -top-2 -right-2 bg-red-500 text-[8px] text-white px-1 rounded uppercase font-bold">
+            New
+          </span>
+        </div>
 
         {/* tools and filters */}
         <button
@@ -503,6 +528,48 @@ export const QuestionsFilters = ({
               </button>
             </div>
           </section>
+          {view === "table" && (
+            <section className="hidden md:block">
+              <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
+                Hide Columns
+              </h3>
+
+              <div className="grid grid-cols-2 gap-2 p-1 rounded-lg">
+                {activeColumns
+                  .filter((key) => {
+                    if (key === "created" && showClosedAt) return false;
+                    if (key === "closed" && !showClosedAt) return false;
+                    return true;
+                  })
+                  .map((key) => {
+                    const isVisible = visibleColumns[key];
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => toggleColumn(key)}
+                        className={`flex items-center justify-between px-5 py-2 rounded-lg border transition-all duration-300 hover:border-emerald-500/60
+              ${
+                isVisible
+                  ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
+                  : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
+              }
+            `}
+                      >
+                        <span className="text-xs font-semibold tracking-wider capitalize">
+                          {key.replace(/_/g, " ")}
+                        </span>
+
+                        {isVisible ? (
+                          <Eye size={16} className="text-emerald-400" />
+                        ) : (
+                          <EyeOff size={16} className="text-emerald-400/40" />
+                        )}
+                      </button>
+                    );
+                  })}
+              </div>
+            </section>
+          )}
 
           {/* Section: Critical Actions */}
           <section>
@@ -514,10 +581,10 @@ export const QuestionsFilters = ({
               {viewMode === "review-level" && (
                 <div className="relative">
                   <button
-                    onClick={() =>{
-                      onSort("totalTurnAround")
+                    onClick={() => {
+                      onSort("totalTurnAround");
                       setIsSidebarOpen(false);
-                    } }
+                    }}
                     className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-500/5 hover:border-indigo-500/40 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   >
                     {/* Left Section */}
@@ -593,7 +660,9 @@ export const QuestionsFilters = ({
               )}
 
               {/* send outreach rport */}
-              {userRole !== "expert" && <OutreachReportModal setIsSidebarOpen={setIsSidebarOpen} />}
+              {userRole !== "expert" && (
+                <OutreachReportModal setIsSidebarOpen={setIsSidebarOpen} />
+              )}
               {/* preferences */}
               <AdvanceFilterDialog
                 advanceFilter={advanceFilter}
@@ -615,12 +684,12 @@ export const QuestionsFilters = ({
             <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
               System
             </h3>
-            <div className="flex gap-3">
+            <div className="flex gap-3 pb-5">
               <button
                 className="flex-1 flex items-center justify-center gap-2 py-3 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-lg text-sm hover:border-gray-400 dark:hover:border-gray-600 transition-colors text-gray-700 dark:text-gray-300 shadow-sm dark:shadow-none"
-                onClick={()=>{
+                onClick={() => {
                   refetch();
-                  onSort("clearSort")
+                  onSort("clearSort");
                   setIsSidebarOpen(false);
                 }}
               >
@@ -631,19 +700,24 @@ export const QuestionsFilters = ({
         </div>
       </div>
       {/* Draggable Stats Badge */}
-        <div 
-          ref={dragRef}
-          onMouseDown={handleMouseDown}
-          className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 px-4 py-2 rounded-full flex items-center gap-3 shadow-xl backdrop-blur-md select-none transition-shadow ${isDragging ? 'cursor-grabbing shadow-2xl scale-105' : 'cursor-grab hover:shadow-2xl'}`}
-          style={{ 
-            left: `${position.x}px`, 
-            top: `${position.y}px`,
-            touchAction: 'none'
-          }}
-        >
-          <Activity size={14} className="text-green-600 dark:text-green-500" />
-          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Total: <span className="text-gray-900 dark:text-white">{totalQuestions}</span></span>
-        </div>
+      <div
+        ref={dragRef}
+        onMouseDown={handleMouseDown}
+        className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 px-4 py-2 rounded-full flex items-center gap-3 shadow-xl backdrop-blur-md select-none transition-shadow ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
+        style={{
+          left: `${position.x}px`,
+          top: `${position.y}px`,
+          touchAction: "none",
+        }}
+      >
+        <Activity size={14} className="text-green-600 dark:text-green-500" />
+        <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+          Total:{" "}
+          <span className="text-gray-900 dark:text-white">
+            {totalQuestions}
+          </span>
+        </span>
+      </div>
     </div>
   );
 };
