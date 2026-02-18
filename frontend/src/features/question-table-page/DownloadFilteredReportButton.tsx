@@ -28,7 +28,7 @@ import {
 } from "@/components/atoms/tooltip";
 import { STATES, CROPS, SEASONS, DOMAINS, STATUS } from "@/components/MetaData";
 
-export const DownloadFilteredReportButton = () => {
+export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void }) => {
   const questionService = new QuestionService();
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -104,36 +104,28 @@ export const DownloadFilteredReportButton = () => {
   return (
     <TooltipProvider>
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DialogTrigger asChild>
-              <Button
-                variant="default"
-                size="sm"
-                className="flex items-center gap-2 w-full"
-                disabled={isDownloading}
-              >
+        <DialogTrigger asChild>
+          <button
+            className="w-full flex items-center justify-between p-0 bg-transparent hover:opacity-80 transition-all"
+            disabled={isDownloading}
+            onClick={() => onOpenDialog?.()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-500/10 flex items-center justify-center text-green-600 dark:text-green-400">
                 {isDownloading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Downloading...
-                  </>
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  <>
-                    <Filter className="h-4 w-4" />
-                    Filtered Report
-                  </>
+                  <Filter className="h-5 w-5" />
                 )}
-              </Button>
-            </DialogTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-xs">
-            <p className="text-sm">
-              Download questions filtered by State, Crop, Season, Domain, and Status.
-              Select at least one filter to download.
-            </p>
-          </TooltipContent>
-        </Tooltip>
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-bold text-gray-900 dark:text-white">
+                  {isDownloading ? "Downloading..." : "Filtered Report"}
+                </p>
+              </div>
+            </div>
+          </button>
+        </DialogTrigger>
         <DialogContent className="max-w-[min(90vw,600px)] w-full max-h-[90vh] overflow-hidden flex flex-col p-4">
           <DialogHeader className="space-y-2 flex-shrink-0">
             <DialogTitle className="text-lg font-semibold">
@@ -144,110 +136,113 @@ export const DownloadFilteredReportButton = () => {
             </div>
           </DialogHeader>
           
-          <div className="space-y-4 overflow-y-auto flex-1 py-2">
-            {/* State Filter */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">State</Label>
-              <Select value={filters.state} onValueChange={(val) => handleFilterChange("state", val)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select State" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All States</SelectItem>
-                  {STATES.map((state) => (
-                    <SelectItem key={state} value={state}>
-                      {state}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="overflow-y-auto flex-1 py-2">
+            <div className="grid grid-cols-2 gap-4">
+              {/* State Filter */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">State</Label>
+                <Select value={filters.state} onValueChange={(val) => handleFilterChange("state", val)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select State" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All States</SelectItem>
+                    {STATES.map((state) => (
+                      <SelectItem key={state} value={state}>
+                        {state}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Crop Filter */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Crop</Label>
-              <Select value={filters.crop} onValueChange={(val) => handleFilterChange("crop", val)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Crop" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Crops</SelectItem>
-                  {CROPS.map((crop) => (
-                    <SelectItem key={crop} value={crop}>
-                      {crop}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              {/* Crop Filter */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Crop</Label>
+                <Select value={filters.crop} onValueChange={(val) => handleFilterChange("crop", val)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select Crop" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Crops</SelectItem>
+                    {CROPS.map((crop) => (
+                      <SelectItem key={crop} value={crop}>
+                        {crop}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Season Filter */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Season</Label>
-              <Select value={filters.season} onValueChange={(val) => handleFilterChange("season", val)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Season" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Seasons</SelectItem>
-                  {SEASONS.map((season) => (
-                    <SelectItem key={season} value={season}>
-                      {season}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              {/* Season Filter */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Season</Label>
+                <Select value={filters.season} onValueChange={(val) => handleFilterChange("season", val)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select Season" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Seasons</SelectItem>
+                    {SEASONS.map((season) => (
+                      <SelectItem key={season} value={season}>
+                        {season}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Domain Filter */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Domain</Label>
-              <Select value={filters.domain} onValueChange={(val) => handleFilterChange("domain", val)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Domain" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Domains</SelectItem>
-                  {DOMAINS.map((domain) => (
-                    <SelectItem key={domain} value={domain}>
-                      {domain}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              {/* Domain Filter */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Domain</Label>
+                <Select value={filters.domain} onValueChange={(val) => handleFilterChange("domain", val)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select Domain" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Domains</SelectItem>
+                    {DOMAINS.map((domain) => (
+                      <SelectItem key={domain} value={domain}>
+                        {domain}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Status Filter */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Status</Label>
-              <Select value={filters.status} onValueChange={(val) => handleFilterChange("status", val)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  {STATUS.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Status Filter - spans 2 columns */}
+              <div className="space-y-2 col-span-2">
+                <Label className="text-sm font-medium">Status</Label>
+                <Select value={filters.status} onValueChange={(val) => handleFilterChange("status", val)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    {STATUS.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
-          <DialogFooter className="gap-2 pt-3 flex-shrink-0">
-            <Button variant="outline" type="button" onClick={handleReset}>
+          <DialogFooter className="gap-2 pt-3 flex-shrink-0 flex-row justify-end">
+            <Button variant="outline" type="button" onClick={handleReset} className="w-auto">
               Reset
             </Button>
             <DialogClose asChild>
-              <Button variant="outline" type="button">
+              <Button variant="outline" type="button" className="w-auto">
                 Cancel
               </Button>
             </DialogClose>
             <Button
               onClick={handleDownloadReport}
               disabled={isDownloading}
+              className="w-auto"
             >
               {isDownloading ? (
                 <>

@@ -626,21 +626,21 @@ export const QuestionsFilters = ({
               </p>
               <div className="space-y-3">
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl">
-                  <DownloadReportButton />
+                  <DownloadReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
                   <p className="text-[10px] text-gray-500 mt-2">
                     Questions with modification/rejection
                   </p>
                 </div>
                 
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl">
-                  <DownloadOverallReportButton />
+                  <DownloadOverallReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
                   <p className="text-[10px] text-gray-500 mt-2">
                     Monthly statistics of total, modified, and rejected questions
                   </p>
                 </div>
                 
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl">
-                  <DownloadFilteredReportButton />
+                  <DownloadFilteredReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
                   <p className="text-[10px] text-gray-500 mt-2">
                     Questions filtered by State, Crop, Season, Domain, and Status
                   </p>

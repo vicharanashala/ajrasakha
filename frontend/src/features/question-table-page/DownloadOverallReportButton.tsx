@@ -23,7 +23,7 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 
-export const DownloadOverallReportButton = () => {
+export const DownloadOverallReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void }) => {
   const questionService = new QuestionService();
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadDateRange, setDownloadDateRange] = useState<
@@ -66,7 +66,7 @@ export const DownloadOverallReportButton = () => {
       setIsDateDialogOpen(false);
     } catch (error) {
       console.error("Download error:", error);
-      toast.error("Failed to download overall report");
+      toast.error("Failed to download overall report. No data found for the selected date range.");
     } finally {
       setIsDownloading(false);
     }
@@ -75,36 +75,28 @@ export const DownloadOverallReportButton = () => {
   return (
     <TooltipProvider>
       <Dialog open={isDateDialogOpen} onOpenChange={setIsDateDialogOpen}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DialogTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-2 w-full"
-                disabled={isDownloading}
-              >
+        <DialogTrigger asChild>
+          <button
+            className="w-full flex items-center justify-between p-0 bg-transparent hover:opacity-80 transition-all"
+            disabled={isDownloading}
+            onClick={() => onOpenDialog?.()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400">
                 {isDownloading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Downloading...
-                  </>
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  <>
-                    <Download className="h-4 w-4" />
-                    Overall Report
-                  </>
+                  <Download className="h-5 w-5" />
                 )}
-              </Button>
-            </DialogTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-xs">
-            <p className="text-sm">
-              Download monthly statistics showing total questions, modified
-              answers, and rejected answers for the selected date range.
-            </p>
-          </TooltipContent>
-        </Tooltip>
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-bold text-gray-900 dark:text-white">
+                  {isDownloading ? "Downloading..." : "Overall Report"}
+                </p>
+              </div>
+            </div>
+          </button>
+        </DialogTrigger>
         <DialogContent className="max-w-[min(90vw,800px)] w-full max-h-[90vh] overflow-hidden flex flex-col p-4">
           <DialogHeader className="space-y-2 flex-shrink-0">
             <DialogTitle className="text-lg font-semibold">
@@ -130,6 +122,7 @@ export const DownloadOverallReportButton = () => {
                 selected={downloadDateRange}
                 onSelect={setDownloadDateRange}
                 numberOfMonths={2}
+                disabled={(date) => date > new Date()}
                 className="rounded-md border shadow-sm scale-95"
               />
             </div>

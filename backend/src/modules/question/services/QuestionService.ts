@@ -2094,14 +2094,19 @@ private formatDate(date: Date | string): string {
 
   async generateQuestionReport(consecutiveApprovals?: number, startDate?: Date, endDate?: Date) {
     const result = await this.answerRepo.groupbyquestion(consecutiveApprovals, startDate, endDate);
-  
-    console.log('=== REPORT DEBUG ===');
-    console.log('consecutiveApprovals:', consecutiveApprovals);
-    console.log('startDate:', startDate);
-    console.log('endDate:', endDate);
-    console.log('result.reasons length:', result.reasons?.length || 0);
-    console.log('First 3 reasons:', JSON.stringify(result.reasons?.slice(0, 3), null, 2));
-  
+
+    // Check if there's any data with reasons
+    const hasData = result.reasons.some(item => {
+      const modList = (item.reasonForModification || []).filter(Boolean);
+      const rejList = (item.reasonForRejection || []).filter(Boolean);
+      return modList.length > 0 || rejList.length > 0;
+    });
+
+    // Return null if no data found
+    if (!hasData) {
+      return null;
+    }
+
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Question Reasons");
   
@@ -2117,9 +2122,6 @@ private formatDate(date: Date | string): string {
       const modList = (item.reasonForModification || []).filter(Boolean);
       const rejList = (item.reasonForRejection || []).filter(Boolean);
       
-      console.log(`Question: ${item.question?.substring(0, 50)}...`);
-      console.log(`  modList length: ${modList.length}, rejList length: ${rejList.length}`);
-      
       if (!modList.length && !rejList.length) return;
   
       const row = sheet.addRow({
@@ -2134,17 +2136,19 @@ private formatDate(date: Date | string): string {
       rowCount++;
     });
   
-    console.log('Total rows added to Excel:', rowCount);
-    console.log('===================');
-  
     const data = await workbook.xlsx.writeBuffer();
     return data;
   }
 
-  async generateOverallQuestionReport(startDate?: Date, endDate?: Date): Promise<ArrayBuffer> {
+  async generateOverallQuestionReport(startDate?: Date, endDate?: Date): Promise<ArrayBuffer | null> {
     return this._withTransaction(async (session) => {
       // Get monthly statistics from the repository
       const stats = await this.questionRepo.getMonthlyQuestionStats(startDate, endDate, session);
+
+      // Check if there's any data
+      if (!stats || stats.length === 0) {
+        return null;
+      }
 
       // Create Excel workbook
       const workbook = new ExcelJS.Workbook();
