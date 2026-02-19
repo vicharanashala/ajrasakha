@@ -433,15 +433,21 @@ export const GoldenDatasetOverview = ({
                   }}
                 />
                 <Legend />
-                <Bar
+                 <Bar
                   dataKey="entries"
                   fill="var(--color-chart-1)"
                   name="Total Entries"
+                  isAnimationActive={true}
+                  animationDuration={800}
+                  animationBegin={0}
                 />
                 <Bar
                   dataKey="verified"
                   fill="var(--color-chart-2)"
                   name="Verified Entries"
+                  isAnimationActive={true}
+                  animationDuration={800}
+                  animationBegin={200}
                 />
               </BarChart>
             </ResponsiveContainer>
