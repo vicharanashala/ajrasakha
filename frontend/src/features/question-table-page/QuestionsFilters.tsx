@@ -7,30 +7,19 @@ import {
   ArrowUpNarrowWide,
   Clock,
   Plus,
-<<<<<<< feature/adding-download-report-buttons-in-tools-and-filters
   RefreshCcw,
-=======
->>>>>>> main
   RotateCcw,
   Search,
   Trash,
   X,
-<<<<<<< feature/adding-download-report-buttons-in-tools-and-filters
   Info,
   Filter,
-=======
-  Filter,
   RefreshCw,
->>>>>>> main
   LayoutGrid,
   ArrowUpDown,
   Activity,
-<<<<<<< feature/adding-download-report-buttons-in-tools-and-filters
-=======
-  ArrowUpDown,
   EyeOff,
   Eye,
->>>>>>> main
 } from "lucide-react";
 import {
   AdvanceFilterDialog,
@@ -49,14 +38,11 @@ import { OutreachReportModal } from "@/features/question_details/components/Outr
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
 
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
-<<<<<<< feature/adding-download-report-buttons-in-tools-and-filters
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
 import {useReAllocateLessWorkload} from '@/hooks/api/question/useReAllocateLessWorkload';
 import { DownloadReportButton } from "./DownloadReportButton";
 import { DownloadOverallReportButton } from "./DownloadOverallReportButton";
 import { DownloadFilteredReportButton } from "./DownloadFilteredReportButton";
-=======
-import { useReAllocateLessWorkload } from "@/hooks/api/question/useReAllocateLessWorkload";
 import {
   allModeColumns,
   commonColumns,
@@ -64,7 +50,6 @@ import {
   useQuestionTableStore,
 } from "@/stores/all-questions";
 import ViewDropdown from "../questions/components/ViewDropdown";
->>>>>>> main
 
 type QuestionsFiltersProps = {
   search: string;
@@ -141,26 +126,7 @@ export const QuestionsFilters = ({
     });
   const { mutateAsync: reAllocateLessWorkload, isPending: reAllocateQuestion } =
     useReAllocateLessWorkload();
-<<<<<<< feature/adding-download-report-buttons-in-tools-and-filters
-    const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
-    
-  const handleReAllocateLessWorkload = async () => {
-       try {
-        setIsReAllocateDisabled(true);
-        const res = await reAllocateLessWorkload();
-
-    if (!res) {
-      toast.error("No response from server");
-      setIsReAllocateDisabled(false);
-      return;
-    }
-    if (res.message === "Workload balancing started in background") {
-      toast.success(
-        "Workload balancing has started in the background. Please wait 50 seconds before reallocating again."
-      );
-      // Re-enable button after 30 seconds
-      setTimeout(() => {
-=======
+ 
   const [isReAllocateOpen,setIsReAllocateOpen] = useState(false);
   const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
   const handleReAllocateLessWorkload = async () => {
@@ -170,7 +136,6 @@ export const QuestionsFilters = ({
 
       if (!res) {
         toast.error("No response from server");
->>>>>>> main
         setIsReAllocateDisabled(false);
         return;
       }
