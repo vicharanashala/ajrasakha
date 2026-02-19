@@ -36,6 +36,7 @@ import {
   DialogTrigger,
 } from "@/components/atoms/dialog";
 import CountUp from "react-countup";
+import { useRestartOnView } from "@/hooks/ui/useRestartView";
 
 const monthNames = [
   "January",
@@ -95,6 +96,8 @@ export const GoldenDatasetOverview = ({
   setSelectedDay,
 }: GoldenDatasetOverviewProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const {ref,key} = useRestartOnView()
 
   const getLast10Years = () => {
     const currentYear = new Date().getFullYear();
@@ -162,7 +165,7 @@ export const GoldenDatasetOverview = ({
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div ref={ref} className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -171,7 +174,7 @@ export const GoldenDatasetOverview = ({
                   Total Entries
                 </p>
                 <p className="text-3xl font-bold text-foreground">
-                  <CountUp end={data?.todayApproved ?? 0} duration={2} preserveValue />
+                  <CountUp key={`totalEntries-${key}`} end={data?.todayApproved ?? 0} duration={2} preserveValue />
                   </p>
                 <p className="text-xs text-green-600 mt-2 font-medium">
                   Total Questions Added in Golden DB  Today{" "}
@@ -190,7 +193,7 @@ export const GoldenDatasetOverview = ({
                   Verified Entries
                 </p>
                 <p className="text-3xl font-bold text-foreground">
-                  <CountUp end={data?.verifiedEntries ?? 0} duration={2} preserveValue />
+                  <CountUp key={`verifiedEntries-${key}`} end={data?.verifiedEntries ?? 0} duration={2} preserveValue /> 
                 </p>
                 <p className="text-xs text-green-600 mt-2 font-medium">
                   Total questions verified through review/approval process
@@ -209,7 +212,7 @@ export const GoldenDatasetOverview = ({
                   Current Period
                 </p>
                     <p className="text-3xl font-bold text-foreground cursor-help">
-                      <CountUp end={data?.totalEntriesByType ?? 0} duration={2} preserveValue />
+                      <CountUp key={`currentPeriod-${key}`} end={data?.totalEntriesByType ?? 0} duration={2} preserveValue /> 
                     </p>
                      {moderatorBreakdown.length > 0 && (
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
