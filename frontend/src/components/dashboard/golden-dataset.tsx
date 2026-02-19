@@ -35,6 +35,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/atoms/dialog";
+import CountUp from "react-countup";
 
 const monthNames = [
   "January",
@@ -169,7 +170,9 @@ export const GoldenDatasetOverview = ({
                 <p className="text-xs text-muted-foreground mb-1">
                   Total Entries
                 </p>
-                <p className="text-3xl font-bold text-foreground">{data?.todayApproved}</p>
+                <p className="text-3xl font-bold text-foreground">
+                  <CountUp end={data?.todayApproved ?? 0} duration={2} preserveValue />
+                  </p>
                 <p className="text-xs text-green-600 mt-2 font-medium">
                   Total Questions Added in Golden DB  Today{" "}
                 </p>
@@ -187,7 +190,7 @@ export const GoldenDatasetOverview = ({
                   Verified Entries
                 </p>
                 <p className="text-3xl font-bold text-foreground">
-                  {data?.verifiedEntries}
+                  <CountUp end={data?.verifiedEntries ?? 0} duration={2} preserveValue />
                 </p>
                 <p className="text-xs text-green-600 mt-2 font-medium">
                   Total questions verified through review/approval process
@@ -206,7 +209,7 @@ export const GoldenDatasetOverview = ({
                   Current Period
                 </p>
                     <p className="text-3xl font-bold text-foreground cursor-help">
-                      {data?.totalEntriesByType}
+                      <CountUp end={data?.totalEntriesByType ?? 0} duration={2} preserveValue />
                     </p>
                      {moderatorBreakdown.length > 0 && (
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
