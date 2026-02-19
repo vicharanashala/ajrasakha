@@ -1,4 +1,6 @@
 import { CheckCircle2, Clock } from "lucide-react";
+import CountUp from "react-countup";
+import { motion } from "framer-motion";
 import {
   Card,
   CardContent,
@@ -33,14 +35,21 @@ export const ApprovalRateCard: React.FC<ApprovalRateCardProps> = ({ data }) => {
                 Approval Rate
               </span>
               <span className="text-2xl font-bold text-primary">
-                {data.approvalRate}%
+                <CountUp
+                  end={data.approvalRate}
+                  duration={2}
+                  suffix="%"
+                  preserveValue
+                />
               </span>
             </div>
             <div className="w-full bg-muted rounded-full h-2">
-              <div
-                className="bg-primary h-2 rounded-full transition-all duration-300"
-                style={{ width: `${data.approvalRate}%` }}
-              />
+            <motion.div
+              className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${data.approvalRate}%` }}
+              transition={{ duration: 1.2, ease: "easeInOut" }}
+            />
             </div>
           </div>
 
@@ -50,7 +59,7 @@ export const ApprovalRateCard: React.FC<ApprovalRateCardProps> = ({ data }) => {
               <div>
                 <p className="text-xs text-muted-foreground">Approved</p>
                 <p className="text-lg font-semibold text-foreground">
-                  {data.approved}
+                  <CountUp end={data.approved} duration={2} preserveValue />
                 </p>
               </div>
             </div>
@@ -59,7 +68,7 @@ export const ApprovalRateCard: React.FC<ApprovalRateCardProps> = ({ data }) => {
               <div>
                 <p className="text-xs text-muted-foreground">Pending</p>
                 <p className="text-lg font-semibold text-foreground">
-                  {data.pending}
+                  <CountUp end={data.pending} duration={2} preserveValue />
                 </p>
               </div>
             </div>
