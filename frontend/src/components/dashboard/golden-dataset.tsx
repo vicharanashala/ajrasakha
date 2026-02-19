@@ -163,9 +163,9 @@ export const GoldenDatasetOverview = ({
   );
 
   return (
-    <div className="space-y-6">
+    <div ref={ref} className="space-y-6">
       {/* Summary Cards */}
-      <div ref={ref} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -411,6 +411,7 @@ export const GoldenDatasetOverview = ({
           {(viewType === "year" || viewType === "month") && (
             <ResponsiveContainer width="100%" height={350}>
               <BarChart
+                key={`chart-${key}`} 
                 data={chartData}
                 margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
               >
@@ -450,6 +451,7 @@ export const GoldenDatasetOverview = ({
           {(viewType === "week" || viewType === "day") && (
             <ResponsiveContainer width="100%" height={350}>
               <LineChart
+                key={`lineChart-${key}`}
                 data={chartData}
                 margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
               >
