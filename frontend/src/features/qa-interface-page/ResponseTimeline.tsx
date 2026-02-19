@@ -219,9 +219,9 @@ ResponseTimelineProps) => {
 
   return (
     <div
-      className={`flex flex-col w-full md:max-h-[120vh] max-h-[80vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent gap-6`}
+      className={`flex flex-col w-full md:max-h-[120vh] max-h-[80vh]  min-h-0 border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent gap-6`}
     >
-      <Card className="border flex-1 flex flex-col h-full bg-transparent">
+      <Card className="border flex-1 flex flex-col h-full min-h-0 bg-transparent">
         <CardHeader className="border-b flex flex-row items-center justify-between pb-4">
           <div className="flex items-center gap-2">
             <History className="w-5 h-5 text-primary" />
@@ -232,8 +232,8 @@ ResponseTimelineProps) => {
           <QuestionDetailsDialog question={selectedQuestionData} />
         </CardHeader>
 
-        <CardContent className="p-6 py-4 flex-1 flex flex-col overflow-hidden">
-          <ScrollArea className="flex-1 pe-4">
+        <CardContent className="p-6 py-4 flex-1 flex flex-col min-h-0 overflow-hidden">
+          <ScrollArea className="flex-1 min-h-0 pe-4">
             <ReviewHistoryTimeline
               history={history}
               isSubmittingAnswer={isSubmittingAnswer}

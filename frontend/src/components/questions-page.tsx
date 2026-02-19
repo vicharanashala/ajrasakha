@@ -30,6 +30,9 @@ export const QuestionsPage = ({
   currentUser?: IUser;
   autoOpenQuestionId?: string | null;
 }) => {
+
+  //grid or table
+  const [view, setView] = useState<"table" | "grid">("table");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
   const [source, setSource] = useState<QuestionSourceFilter>("all");
@@ -67,7 +70,7 @@ export const QuestionsPage = ({
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"all" | "review-level">("all");
   const [reviewPage, setReviewPage] = useState(1);
-  const [reviewLimit] = useState(10);
+  const [reviewLimit] = useState(12);
 
   //handle sort by turn around time
   const [sort, setSort] = useState("");
@@ -82,7 +85,7 @@ export const QuestionsPage = ({
       return `${key}___asc`;
     });
   };
-  
+
   const toggleQuestionSort = (key: string) => {
     if (key === "slno") {
       setQuestionSort("");
@@ -97,7 +100,7 @@ export const QuestionsPage = ({
   const { mutateAsync: bulkDeleteQuestions, isPending: bulkDeletingQuestions } =
     useBulkDeleteQuestions();
 
-  const LIMIT = 11;
+  const LIMIT = 12;
   const filter = useMemo(
     () => ({
       status,
@@ -336,6 +339,9 @@ export const QuestionsPage = ({
             setViewMode={setViewMode}
             onSort={toggleSort}
             sort={sort}
+            showClosedAt={showClosedAt}
+            view={view}
+            setView={setView}
           />
 
           {viewMode === "all" ? (
@@ -352,10 +358,12 @@ export const QuestionsPage = ({
               uploadedQuestionsCount={uploadedQuestionsCount}
               selectedQuestionIds={selectedQuestionIds}
               setIsSelectionModeOn={setIsSelectionModeOn}
+              isSelectionModeOn = { isSelectionModeOn}
               setSelectedQuestionIds={setSelectedQuestionIds}
               showClosedAt={showClosedAt}
               sort={questionSort}
               onSort={toggleQuestionSort}
+              view={view}
             />
           ) : (
             <ReviewLevelsTable
@@ -368,6 +376,7 @@ export const QuestionsPage = ({
               toggleSort={toggleSort}
               sort={sort}
               limit={reviewLimit}
+              view={view}
             />
           )}
         </>
