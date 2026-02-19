@@ -333,20 +333,4 @@ export interface IQuestionRepository {
       endDate: Date,
       sources: 'AJRASAKHA',
     ): Promise<IQuestion[]>
-  getMonthlyQuestionStats(
-    startDate?: Date,
-    endDate?: Date,
-    session?: ClientSession,
-  ): Promise<Array<{
-    year: number;
-    month: string;
-    totalQuestions: number;
-    modifiedAnswers: number;
-    rejectedAnswers: number;
-  }>>;
-
-  getQuestionsByFilters(
-    filters: any,
-    session?: ClientSession,
-  ): Promise<IQuestion[]>;
 }
