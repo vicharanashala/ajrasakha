@@ -1,6 +1,6 @@
 import { CheckCircle2, Clock } from "lucide-react";
 import CountUp from "react-countup";
-import { motion } from "framer-motion";
+import { motion,useInView, } from "framer-motion";
 import {
   Card,
   CardContent,
@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../atoms/card";
+import { useEffect, useRef, useState } from "react";
 
 export interface ModeratorApprovalRate {
   approved: number;
@@ -20,8 +21,18 @@ interface ApprovalRateCardProps {
 }
 
 export const ApprovalRateCard: React.FC<ApprovalRateCardProps> = ({ data }) => {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { amount: 1 });
+  const [animateKey, setAnimateKey] = useState(0);
+
+  //Restart animation when entering viewport
+  useEffect(() => {
+    if (isInView) {
+      setAnimateKey((prev) => prev + 1);
+    }
+  }, [isInView]);
   return (
-    <Card className="h-full flex flex-col">
+    <Card ref={ref} className="h-full flex flex-col">
       <CardHeader>
         <CardTitle className="text-base">Moderator Approval Rate</CardTitle>
         <CardDescription>Based on pending and approved answers</CardDescription>
@@ -36,6 +47,7 @@ export const ApprovalRateCard: React.FC<ApprovalRateCardProps> = ({ data }) => {
               </span>
               <span className="text-2xl font-bold text-primary">
                 <CountUp
+                  key={animateKey}
                   end={data.approvalRate}
                   duration={2}
                   suffix="%"
@@ -46,6 +58,7 @@ export const ApprovalRateCard: React.FC<ApprovalRateCardProps> = ({ data }) => {
             <div className="w-full bg-muted rounded-full h-2">
             <motion.div
               className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full"
+              key={animateKey}
               initial={{ width: 0 }}
               animate={{ width: `${data.approvalRate}%` }}
               transition={{ duration: 1.2, ease: "easeInOut" }}
@@ -59,7 +72,7 @@ export const ApprovalRateCard: React.FC<ApprovalRateCardProps> = ({ data }) => {
               <div>
                 <p className="text-xs text-muted-foreground">Approved</p>
                 <p className="text-lg font-semibold text-foreground">
-                  <CountUp end={data.approved} duration={2} preserveValue />
+                  <CountUp key={`approved-${animateKey}`} end={data.approved} duration={2} preserveValue />
                 </p>
               </div>
             </div>
@@ -68,7 +81,7 @@ export const ApprovalRateCard: React.FC<ApprovalRateCardProps> = ({ data }) => {
               <div>
                 <p className="text-xs text-muted-foreground">Pending</p>
                 <p className="text-lg font-semibold text-foreground">
-                  <CountUp end={data.pending} duration={2} preserveValue />
+                  <CountUp key={`pending-${animateKey}`} end={data.pending} duration={2} preserveValue />
                 </p>
               </div>
             </div>
