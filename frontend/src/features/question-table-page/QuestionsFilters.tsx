@@ -120,6 +120,7 @@ export const QuestionsFilters = ({
     });
   const { mutateAsync: reAllocateLessWorkload, isPending: reAllocateQuestion } =
     useReAllocateLessWorkload();
+  const [isReAllocateOpen,setIsReAllocateOpen] = useState(false);
   const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
   const handleReAllocateLessWorkload = async () => {
     try {
@@ -401,7 +402,7 @@ export const QuestionsFilters = ({
       </div>
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
-        <div className="relative flex items-center gap-2">
+        <div className="relative hidden md:flex items-center gap-2">
           <ViewDropdown view={view} setView={setView} />
           <span className="absolute -top-2 -right-2 bg-red-500 text-[8px] text-white px-1 rounded uppercase font-bold">
             New
@@ -634,7 +635,7 @@ export const QuestionsFilters = ({
                 <button
                   className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   onClick={() => {
-                    handleReAllocateLessWorkload();
+                    setIsReAllocateOpen(true);
                     setIsSidebarOpen(false);
                   }}
                 >
@@ -718,6 +719,17 @@ export const QuestionsFilters = ({
           </span>
         </span>
       </div>
+      <ConfirmationModal
+                title="ReAllocate work load?"
+                description="Are you sure you want to ReAllocate work load?"
+                confirmText="ReAllocate"
+                cancelText="Cancel"
+                isLoading={reAllocateQuestion}
+                type="default"
+                open={isReAllocateOpen}
+                onOpenChange={setIsReAllocateOpen}
+                onConfirm={handleReAllocateLessWorkload}
+              />
     </div>
   );
 };
