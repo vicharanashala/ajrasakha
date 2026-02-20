@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
+import { useRestartOnView } from "@/hooks/ui/useRestartView";
 export const description = "An interactive area chart";
 // const chartData = [
 //   { date: "2024-04-01", Ajrasakha: 222, Moderator: 150 },
@@ -72,6 +73,8 @@ export const SourcesChart: React.FC<SourcesChartProps> = ({
   timeRange,
   setTimeRange,
 }) => {
+  const {ref,key} = useRestartOnView()
+
   // const filteredData = data.filter((item) => {
   //   const date = new Date(item.date);
   //   const referenceDate = new Date("2024-06-30");
@@ -88,7 +91,7 @@ export const SourcesChart: React.FC<SourcesChartProps> = ({
   // console.log("filteredData: ", filteredData)
 
   return (
-    <Card className="pt-0">
+    <Card ref={ref} className="pt-0">
       <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row">
         <div className="grid flex-1 gap-1">
           <CardTitle>Question Contribution Analysis</CardTitle>
@@ -123,7 +126,7 @@ export const SourcesChart: React.FC<SourcesChartProps> = ({
           config={chartConfig}
           className="aspect-auto h-[250px] w-full"
         >
-          <AreaChart data={data}>
+          <AreaChart data={data} key={key}>
             <defs>
               <linearGradient id="fillDesktop" x1="0" y1="0" x2="0" y2="1">
                 <stop

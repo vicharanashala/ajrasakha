@@ -35,6 +35,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/atoms/dialog";
+import CountUp from "react-countup";
+import { useRestartOnView } from "@/hooks/ui/useRestartView";
 
 const monthNames = [
   "January",
@@ -94,6 +96,8 @@ export const GoldenDatasetOverview = ({
   setSelectedDay,
 }: GoldenDatasetOverviewProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const {ref,key} = useRestartOnView()
 
   const getLast10Years = () => {
     const currentYear = new Date().getFullYear();
@@ -159,7 +163,7 @@ export const GoldenDatasetOverview = ({
   );
 
   return (
-    <div className="space-y-6">
+    <div ref={ref} className="space-y-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -169,7 +173,9 @@ export const GoldenDatasetOverview = ({
                 <p className="text-xs text-muted-foreground mb-1">
                   Total Entries
                 </p>
-                <p className="text-3xl font-bold text-foreground">{data?.todayApproved}</p>
+                <p className="text-3xl font-bold text-foreground">
+                  <CountUp key={`totalEntries-${key}`} end={data?.todayApproved ?? 0} duration={2} preserveValue />
+                  </p>
                 <p className="text-xs text-green-600 mt-2 font-medium">
                   Total Questions Added in Golden DB  Today{" "}
                 </p>
@@ -187,7 +193,7 @@ export const GoldenDatasetOverview = ({
                   Verified Entries
                 </p>
                 <p className="text-3xl font-bold text-foreground">
-                  {data?.verifiedEntries}
+                  <CountUp key={`verifiedEntries-${key}`} end={data?.verifiedEntries ?? 0} duration={2} preserveValue /> 
                 </p>
                 <p className="text-xs text-green-600 mt-2 font-medium">
                   Total questions verified through review/approval process
@@ -206,7 +212,7 @@ export const GoldenDatasetOverview = ({
                   Current Period
                 </p>
                     <p className="text-3xl font-bold text-foreground cursor-help">
-                      {data?.totalEntriesByType}
+                      <CountUp key={`currentPeriod-${key}`} end={data?.totalEntriesByType ?? 0} duration={2} preserveValue /> 
                     </p>
                      {moderatorBreakdown.length > 0 && (
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -405,6 +411,7 @@ export const GoldenDatasetOverview = ({
           {(viewType === "year" || viewType === "month") && (
             <ResponsiveContainer width="100%" height={350}>
               <BarChart
+                key={`chart-${key}`} 
                 data={chartData}
                 margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
               >
@@ -426,15 +433,21 @@ export const GoldenDatasetOverview = ({
                   }}
                 />
                 <Legend />
-                <Bar
+                 <Bar
                   dataKey="entries"
                   fill="var(--color-chart-1)"
                   name="Total Entries"
+                  isAnimationActive={true}
+                  animationDuration={800}
+                  animationBegin={0}
                 />
                 <Bar
                   dataKey="verified"
                   fill="var(--color-chart-2)"
                   name="Verified Entries"
+                  isAnimationActive={true}
+                  animationDuration={800}
+                  animationBegin={200}
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -444,6 +457,7 @@ export const GoldenDatasetOverview = ({
           {(viewType === "week" || viewType === "day") && (
             <ResponsiveContainer width="100%" height={350}>
               <LineChart
+                key={`lineChart-${key}`}
                 data={chartData}
                 margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
               >

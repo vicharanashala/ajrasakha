@@ -60,6 +60,7 @@ import {
   YAxis,
   Tooltip,
 } from "recharts";
+import { useRestartOnView } from "@/hooks/ui/useRestartView";
 interface DateRange {
   startTime?: Date;
   endTime?: Date;
@@ -117,7 +118,7 @@ const defaultFilters: Filters = {
 };
 export const ReviewLevelComponent = () => {
   const { data: userNameReponse, isLoading } = useGetAllUsers();
-
+  const {key,ref} = useRestartOnView()
   const [openFilter, setOpenFilter] = useState(false);
   const [draftFilters, setDraftFilters] = useState<Filters>(defaultFilters);
   const [filters, setFilters] = useState<Filters>(defaultFilters);
@@ -339,7 +340,7 @@ export const ReviewLevelComponent = () => {
           </div>
         </CardHeader>
 
-        <div className="rounded-lg border bg-card overflow-x-auto min-h-[55vh] ml-5 mr-5">
+        <div ref={ref} className="rounded-lg border bg-card overflow-x-auto min-h-[55vh] ml-5 mr-5">
           {/* <Table className="min-w-[800px]">
             <TableHeader className="bg-card sticky top-0 z-10">
               <TableRow>
@@ -398,6 +399,7 @@ export const ReviewLevelComponent = () => {
               </div>
             ) : (
               <BarChart
+                key={key}
                 data={chartData}
                 margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
               >
