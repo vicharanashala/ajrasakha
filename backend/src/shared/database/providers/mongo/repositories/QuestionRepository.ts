@@ -2960,4 +2960,146 @@ export class QuestionRepository implements IQuestionRepository {
     _id: q._id?.toString(),
   }));
 }
+  async getMonthlyQuestionStats(
+    startDate?: Date,
+    endDate?: Date,
+    session?: ClientSession,
+  ): Promise<Array<{
+    year: number;
+    month: string;
+    totalQuestions: number;
+    modifiedAnswers: number;
+    rejectedAnswers: number;
+  }>> {
+    await this.init();
+
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    // Set default dates if not provided
+    const defaultStartDate = startDate || new Date("2025-09-01T00:00:00.000Z");
+    let defaultEndDate = endDate || new Date();
+    // Set end of day for endDate
+    if (endDate) {
+      defaultEndDate = new Date(endDate);
+      defaultEndDate.setHours(23, 59, 59, 999);
+    }
+
+    // Get total questions per month
+    const questionsPerMonth = await this.QuestionCollection.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: defaultStartDate, $lte: defaultEndDate }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' }
+          },
+          totalQuestions: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ], { session }).toArray();
+
+    
+    const answerStats = await this.AnswersCollection.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: defaultStartDate, $lte: defaultEndDate }
+        }
+      },
+      
+      // Count modifications per answer
+      {
+        $addFields: {
+          modificationsCount: { $size: { $ifNull: ["$modifications", []] } }
+        }
+      },
+      
+      // Group per question
+      {
+        $group: {
+          _id: "$questionId",
+          totalAnswers: { $sum: 1 },
+          hasModifiedAnswer: {
+            $max: { $cond: [{ $gte: ["$modificationsCount", 1] }, 1, 0] }
+          },
+          latestCreatedAt: { $max: "$createdAt" }
+        }
+      },
+      
+      // Month-wise metrics
+      {
+        $group: {
+          _id: {
+            year: { $year: "$latestCreatedAt" },
+            month: { $month: "$latestCreatedAt" }
+          },
+          
+          // Modified questions
+          modifiedCount: {
+            $sum: {
+              $cond: [{ $eq: ["$hasModifiedAnswer", 1] }, 1, 0]
+            }
+          },
+          
+          // Rejected = multiple answers BUT no modifications
+          rejectedCount: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $gte: ["$totalAnswers", 2] },
+                    { $eq: ["$hasModifiedAnswer", 0] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          }
+        }
+      },
+      
+      { $sort: { "_id.year": 1, "_id.month": 1 } }
+    ], { 
+      allowDiskUse: true,
+      session 
+    }).toArray();
+
+    // Merge the results
+    const results = questionsPerMonth.map((questionStat: any) => {
+      const answerStat = answerStats.find((a: any) => 
+        a._id.year === questionStat._id.year && 
+        a._id.month === questionStat._id.month
+      );
+
+      return {
+        year: questionStat._id.year,
+        month: monthNames[questionStat._id.month - 1],
+        totalQuestions: questionStat.totalQuestions,
+        modifiedAnswers: answerStat?.modifiedCount || 0,
+        rejectedAnswers: answerStat?.rejectedCount || 0
+      };
+    });
+
+    return results;
+  }
+
+  async getQuestionsByFilters(
+    filters: any,
+    session?: ClientSession,
+  ): Promise<IQuestion[]> {
+    await this.init();
+    
+    return await this.QuestionCollection
+      .find(filters, { session })
+      .sort({ createdAt: -1 })
+      .toArray();
+  }
 }
