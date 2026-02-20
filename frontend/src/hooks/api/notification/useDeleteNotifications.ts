@@ -15,6 +15,7 @@ export const useDeleteNotification = () => {
     onSuccess: () => {
       // toast.success("Notification deleted successfully");
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["user"] });
     },
     onError: (error: any) => {
       toast.error("Failed to delete Notification");
