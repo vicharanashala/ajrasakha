@@ -1,34 +1,24 @@
+# Use python 3.11 slim (Debian)
 FROM python:3.11-slim
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    POETRY_VERSION=2.0.0
-
-# Set working directory
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        curl \
-        build-essential \
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Install poetry
-RUN pip install "poetry==$POETRY_VERSION"
+# Copy requirements
+COPY requirements.txt .
 
-# Copy pyproject.toml and poetry.lock
-COPY pyproject.toml poetry.lock ./
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install dependencies (no dev dependencies)
-RUN poetry config virtualenvs.create false \
-    && poetry lock \
-    && poetry install --no-interaction --no-ansi --no-root
-
-# Copy application code
+# Copy the application code
 COPY . .
 
-# Expose port
+# Expose the port
 EXPOSE 9001
 
 # Run the application
