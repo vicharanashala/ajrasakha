@@ -13,9 +13,10 @@ import {
   Trash,
   X,
   Filter,
+  RefreshCw,
   LayoutGrid,
-  ArrowUpDown,
   Activity,
+  ArrowUpDown,
   EyeOff,
   Eye,
 } from "lucide-react";
@@ -124,7 +125,7 @@ export const QuestionsFilters = ({
     
   const { mutateAsync: reAllocateLessWorkload, isPending: reAllocateQuestion } =
     useReAllocateLessWorkload();
-  const [isReAllocateOpen, setIsReAllocateOpen] = useState(false);
+  const [isReAllocateOpen,setIsReAllocateOpen] = useState(false);
   const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
     
   const handleReAllocateLessWorkload = async () => {
@@ -476,10 +477,6 @@ export const QuestionsFilters = ({
             </Button>
           </div>
         )}
-        
-        <span className="hidden md:block text-sm text-muted-foreground whitespace-nowrap">
-          Total: {totalQuestions}
-        </span>
       </div>
       {/* Sidebar Overlay */}
       {isSidebarOpen && (
@@ -677,31 +674,6 @@ export const QuestionsFilters = ({
             </div>
           </section>
 
-          {/* Section: Download Reports */}
-          {userRole !== "expert" && (
-            <section>
-              <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
-                Download Reports
-              </h3>
-              <p className="text-xs text-gray-500 mb-4">
-                Export question reports with custom date ranges and filters for analysis and record-keeping.
-              </p>
-              <div className="space-y-3">
-                <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-blue-50 dark:hover:bg-blue-500/5 border border-gray-200 dark:border-gray-800 hover:border-blue-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
-                  <DownloadReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
-                </div>
-                
-                <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
-                  <DownloadOverallReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
-                </div>
-                
-                <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
-                  <DownloadFilteredReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
-                </div>
-              </div>
-            </section>
-          )}
-
           {/* Section: Global Controls */}
           <section>
             <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
@@ -716,7 +688,7 @@ export const QuestionsFilters = ({
                   setIsSidebarOpen(false);
                 }}
               >
-                <RefreshCcw size={14} /> Refresh Data
+                <RefreshCw size={14} /> Refresh Data
               </button>
             </div>
           </section>

@@ -221,28 +221,4 @@ export interface IAnswerRepository {
   selectedHistoryId?:string,
   session?:ClientSession
   )
-
-  /**
-   * Groups questions by modification/rejection reasons within a date range
-   * @param consecutiveApprovals - Optional filter for approval count
-   * @param startDate - Start date for filtering
-   * @param endDate - End date for filtering
-   * @param session - Optional MongoDB client session for transactions
-   * @returns Promise with result, questionsPerMonth, and reasons arrays
-   */
-  groupbyquestion(
-    consecutiveApprovals?: number,
-    startDate?: Date,
-    endDate?: Date,
-    session?: ClientSession
-  ): Promise<{
-    result: any[];
-    questionsPerMonth: any[];
-    reasons: Array<{
-      question: string;
-      reasonForModification: string[];
-      reasonForRejection: string[];
-      createdAt: Date;
-    }>;
-  }>;
 }
