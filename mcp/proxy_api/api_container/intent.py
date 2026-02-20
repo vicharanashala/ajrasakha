@@ -1,50 +1,57 @@
+"""
+Intent classification using LangChain with PydanticOutputParser for structured output.
+"""
 import os
-import json
 import logging
 from typing import List, Dict, Any
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.output_parsers import PydanticOutputParser
 
 load_dotenv()
 
-# Configuration
 INTENT_MODEL_URL = os.getenv("INTENT_MODEL_URL", "http://100.100.108.27:8013/v1")
 INTENT_MODEL_NAME = os.getenv("INTENT_MODEL_NAME", "google/gemma-3-12b-it")
 
 logger = logging.getLogger("vllm-proxy")
 
-# Initialize LangChain LLM
 llm = ChatOpenAI(
     base_url=INTENT_MODEL_URL,
-    api_key="EMPTY",  # vLLM usually doesn't require a real key
+    api_key="EMPTY",
     model=INTENT_MODEL_NAME,
     temperature=0.0
 )
 
-# Tool keywords for pruning logic
 MARKET_KEYWORDS = ["mcp_market"]
 WEATHER_KEYWORDS = ["mcp_weather"]
 AGRICULTURE_KEYWORDS = ["mcp_pop", "mcp_golden", "mcp_faq-videos"]
 
 
+class IntentOutput(BaseModel):
+    """Pydantic model for intent classification output."""
+    intent: str = Field(description="The classified intent. Must be one of: WEATHER, MARKET, AGRICULTURE")
+
+
+output_parser = PydanticOutputParser(pydantic_object=IntentOutput)
+
+
 async def classify_intent(messages: List[Dict[str, Any]]) -> str:
     """
-    Classifies the intent of the user messages using an LLM.
+    Classifies the intent of the user messages using an LLM with structured output.
+    
     Returns: 'WEATHER', 'MARKET', or 'AGRICULTURE'.
     """
     if not messages:
         return "AGRICULTURE"
 
-    # Filter only user messages for intent classification
     user_messages = [msg for msg in messages if msg.get("role") == "user"]
     
     if not user_messages:
         return "AGRICULTURE"
     
-    # Take last 3 user messages for context
     recent_user_messages = user_messages[-3:]
-    # Reverse so most recent is at the top
     recent_user_messages.reverse()
     
     labels = ["users most recent message", "users second last message", "user third last"]
@@ -57,28 +64,38 @@ async def classify_intent(messages: List[Dict[str, Any]]) -> str:
 
     conversation_history = "\n".join(history_lines)
 
-    system_prompt = (
-        "You are an intelligent intent classifier. "
-        "Analyze the following conversation history and determine the user's current intent. "
-        "Analyse based on most recent message first."
-        "Classify it into one of these categories: "
-        "WEATHER, MARKET, AGRICULTURE. "
-        "Do not output anything else. Just the category name."
-        "\nExamples:\n"
-        "User: What is the price of cotton in Punjab?\nResponse: MARKET\n"
-        "User: Is it going to rain tomorrow?\nResponse: WEATHER\n"
-        "User: How to treat leaf folder in rice?\nResponse: AGRICULTURE"
-    )
+    format_instructions = output_parser.get_format_instructions()
+    
+    system_prompt = f"""You are an intelligent intent classifier.
+Analyze the following conversation history and determine the user's current intent.
+Analyse based on most recent message first.
+Classify it into one of these categories: WEATHER, MARKET, AGRICULTURE.
+
+Examples:
+User: What is the price of cotton in Punjab?
+Intent: MARKET
+
+User: Is it going to rain tomorrow?
+Intent: WEATHER
+
+User: How to treat leaf folder in rice?
+Intent: AGRICULTURE
+
+{format_instructions}"""
 
     try:
-        print(f"[Intent] Analyzing intent for conversation: {conversation_history}")
+        logger.info(f"[Intent] Analyzing intent for conversation: {conversation_history}")
         response = await llm.ainvoke([
             SystemMessage(content=system_prompt),
             HumanMessage(content=conversation_history)
         ])
-        intent = response.content.strip().upper()
         
-        # Fallback if model outputs extra text
+        try:
+            parsed_output = output_parser.parse(response.content)
+            intent = parsed_output.intent.strip().upper()
+        except Exception:
+            intent = response.content.strip().upper()
+        
         if "MARKET" in intent:
             return "MARKET"
         elif "WEATHER" in intent:
@@ -95,9 +112,7 @@ async def classify_intent(messages: List[Dict[str, Any]]) -> str:
 
 
 def prune_tools(tools: List[Dict[str, Any]], intent: str) -> List[Dict[str, Any]]:
-    """
-    Filters the tools list based on the classified intent.
-    """
+    """Filters the tools list based on the classified intent."""
     if not tools:
         return []
 
@@ -109,7 +124,6 @@ def prune_tools(tools: List[Dict[str, Any]], intent: str) -> List[Dict[str, Any]
         keep = False
         if intent == "MARKET":
             if any(k in function_name for k in MARKET_KEYWORDS):
-                # User requested to prune these specifically as context is provided in system prompt
                 if "get_state_list_from_enam" in function_name or "get_today_date_for_enam" in function_name:
                     keep = False
                 else:
@@ -121,15 +135,9 @@ def prune_tools(tools: List[Dict[str, Any]], intent: str) -> List[Dict[str, Any]
             if any(k in function_name for k in AGRICULTURE_KEYWORDS):
                 keep = True
         
-        # If intent logic fails or is overly aggressive, we might want to keep everything?
-        # But for this task, the goal is specifically to prune.
-        
-        # Optimization: Always keep general utility tools if they exist, but here we only see domain specific ones.
-        
         if keep:
             filtered_tools.append(tool)
-            
-    # Fallback: If pruning removed everything, return original tools (safer)
+    
     if not filtered_tools and tools:
         logger.warning(f"Pruning for intent {intent} removed all tools. Returning original list.")
         return tools
