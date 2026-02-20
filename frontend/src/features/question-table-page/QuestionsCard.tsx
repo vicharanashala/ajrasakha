@@ -210,7 +210,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
 
         {/* Title ( Question and timer )*/}
         <div className="flex flex-col h-[5rem] justify-between">
-          <h3 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-green-700 transition-colors line-clamp-2 dark:text-gray-100 dark:group-hover:text-green-400">
+          <h3 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-green-700 transition-colors line-clamp-2 dark:text-gray-100 dark:group-hover:text-green-400" title={q.question}>
             {truncate(q.question, 80)}
           </h3>
           <div className="mt-1 h-5 flex items-center">
