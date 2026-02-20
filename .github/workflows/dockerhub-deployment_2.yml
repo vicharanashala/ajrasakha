@@ -13,6 +13,7 @@ on:
           - proxy_api
           - market
           - agriculture
+          - reviewer
 
 permissions:
   contents: read
@@ -57,6 +58,11 @@ jobs:
           # Market (UPDATED: using the one in proxy_api/mcp_containers as requested)
           if [[ "$TARGET" == "all" || "$TARGET" == "market" ]]; then
             add_entry "market2" "./mcp/proxy_api/mcp_containers/market" "./mcp/proxy_api/mcp_containers/market/Dockerfile"
+          fi
+
+          # Reviewer
+          if [[ "$TARGET" == "all" || "$TARGET" == "reviewer" ]]; then
+            add_entry "reviewer" "./mcp/mcp_containers/reviewer_system" "./mcp/mcp_containers/reviewer_system/Dockerfile"
           fi
 
           # Compact the JSON to single line to avoid issues with GHA outputs
