@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Expose the port
-EXPOSE 9001
+EXPOSE 9023
 
-# Run the application
-CMD ["python", "gd.py"]
+# Run the MCP server
+CMD ["python", "reviewer_mcp.py"]

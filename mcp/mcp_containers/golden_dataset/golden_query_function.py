@@ -18,17 +18,41 @@ collection = db[COLLECTION_QA]
 
 # --- CONFIGURATION ---
 
+# STATE_CODES = {
+#     "AR": "ARUNACHAL PRADESH",
+#     "HR": "Haryana",
+#     "MP": "MADHYA PRADESH",
+#     "MH": "MAHARASHTRA",
+#     "PB": "PUNJAB",
+#     "RJ": "Rajasthan",
+#     "TN": "TAMILNADU",
+#     "UP": "Uttar Pradesh",
+#     "--": ""
+# }
 STATE_CODES = {
+    "AP": "ANDHRA PRADESH",
     "AR": "ARUNACHAL PRADESH",
-    "HR": "Haryana",
+    "AS": "ASSAM",
+    "BR": "BIHAR",
+    "CG": "CHHATTISGARH",
+    "HP": "HIMACHAL PRADESH",
+    "HR": "HARYANA",
+    "JH": "JHARKHAND",
+    "KL": "KERALA",
     "MP": "MADHYA PRADESH",
     "MH": "MAHARASHTRA",
+    "OD": "ODISHA",
+    "PY": "PUDUCHERRY",
     "PB": "PUNJAB",
-    "RJ": "Rajasthan",
+    "RJ": "RAJASTHAN",
     "TN": "TAMILNADU",
-    "UP": "Uttar Pradesh",
-    "--": ""
+    "TG": "TELANGANA",
+    "UP": "UTTAR PRADESH",
+    "UK": "UTTARAKHAND",
+    "WB": "WEST BENGAL"
 }
+
+
 
 VECTOR_INDEX_NAME = "vector_index"  # 🔁 Replace with your actual MongoDB Atlas vector index name
 
@@ -47,8 +71,37 @@ embedder = HuggingFaceEmbedding(
 )
 
 
+# def parse_mongo_docs_to_context_pairs(results: List[dict]) -> List[ContextQuestionAnswerPair]:
+#     """Convert MongoDB docs to structured ContextQuestionAnswerPair list."""
+#     context_pairs = []
+
+#     for doc in results:
+#         text = doc.get("text", "")
+#         metadata = doc.get("metadata", {})
+#         score = doc.get("score", 0.0)
+
+#         # Split text into Question and Answer
+#         q, a = text, ""
+#         if "\n\nAnswer:" in text:
+#             parts = text.split("\n\nAnswer:", 1)
+#             q = parts[0].replace("Question:", "", 1).strip()
+#             a = parts[1].strip()
+
+#         meta = QuestionAnswerPairMetaData(
+#             agri_specialist=metadata.get("Agri Specialist", "Not Available"),
+#             crop=metadata.get("Crop", "Not Available"),
+#             sources=metadata.get("Source [Name and Link]", "Source Not Available"),
+#             state=metadata.get("State", "Not Available"),
+#             similarity_score=score,
+#         )
+
+#         context_pairs.append(ContextQuestionAnswerPair(question=q, answer=a, meta_data=meta))
+
+#     return context_pairs
+
+
+
 def parse_mongo_docs_to_context_pairs(results: List[dict]) -> List[ContextQuestionAnswerPair]:
-    """Convert MongoDB docs to structured ContextQuestionAnswerPair list."""
     context_pairs = []
 
     for doc in results:
@@ -56,12 +109,23 @@ def parse_mongo_docs_to_context_pairs(results: List[dict]) -> List[ContextQuesti
         metadata = doc.get("metadata", {})
         score = doc.get("score", 0.0)
 
-        # Split text into Question and Answer
-        q, a = text, ""
-        if "\n\nAnswer:" in text:
+        q, a = "", ""
+
+        # OLD FORMAT: "Question: ... \n\nAnswer: ..."
+        if "Question:" in text and "\n\nAnswer:" in text:
             parts = text.split("\n\nAnswer:", 1)
             q = parts[0].replace("Question:", "", 1).strip()
             a = parts[1].strip()
+
+        # NEW FORMAT: "Question\n\nAnswer"
+        elif "\n\n" in text:
+            parts = text.split("\n\n", 1)
+            q = parts[0].strip()
+            a = parts[1].strip()
+
+        else:
+            q = text.strip()
+            a = ""
 
         meta = QuestionAnswerPairMetaData(
             agri_specialist=metadata.get("Agri Specialist", "Not Available"),
@@ -71,9 +135,16 @@ def parse_mongo_docs_to_context_pairs(results: List[dict]) -> List[ContextQuesti
             similarity_score=score,
         )
 
-        context_pairs.append(ContextQuestionAnswerPair(question=q, answer=a, meta_data=meta))
+        context_pairs.append(
+            ContextQuestionAnswerPair(
+                question=q,
+                answer=a,
+                meta_data=meta
+            )
+        )
 
     return context_pairs
+
 
 # --- MAIN FUNCTION ---
 

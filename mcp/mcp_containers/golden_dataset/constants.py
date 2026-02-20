@@ -12,7 +12,7 @@ API_KEY = "sk_s2j7cwtf_frU76CJMmVQi3Y4jwBfY3M3m"
 
 
 # Database Collections
-COLLECTION_QA = "agri_qa"
+COLLECTION_QA = "agri_qa_latest"
 COLLECTION_POP = "pop"
 
 # LLM
