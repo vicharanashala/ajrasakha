@@ -47,6 +47,7 @@ import { ResponseTimeline } from "./ResponseTimeline";
 import { ReRouteResponseTimeline } from "./ReRouteResponseTimeline";
 import { AnswerCreateDialog } from "./AnswerCreateDialog";
 import { QaHeader } from "./QaHeader";
+import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 
 export type QuestionFilter =
   | "newest"
@@ -64,6 +65,9 @@ export const QAInterface = ({
   selectQuestionType:string|null;
   onManualSelectQuestionType: (type: string | null) => void;
 }) => {
+
+  //translation state
+  const [translatedText, setTranslatedText] = useState<string>("");
 
   // toggle sidebar
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -260,6 +264,8 @@ export const QAInterface = ({
       setNewAnswer("");
       setSources([]);
     }
+    // Reset translation state when question changes
+    setTranslatedText("");
   }, [selectedQuestion]);
 
   useEffect(() => {
@@ -604,10 +610,15 @@ const handleActionChange = (value: string) => {
                           {/* <QuestionDetailsDialog
                             question={selectedQuestionData}
                           /> */}
+                         {/* Translate language dropdown */}
+                          <SarvamTranslateDropdown
+                            query={selectedQuestionData.text}
+                            onTranslate={(result) => setTranslatedText(result)}
+                          />
                         </div>
 
                         <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words">
-                          {selectedQuestionData.text}
+                          {translatedText || selectedQuestionData.text}
                         </p>
                       </div>
 

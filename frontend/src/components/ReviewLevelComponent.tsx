@@ -45,7 +45,11 @@ import {
 } from "./atoms/dialog";
 import { Button } from "@/components/atoms/button";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
-import { TooltipContent, TooltipTrigger } from "./atoms/tooltip";
+import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "./atoms/tooltip";
 import {
   Bar,
   BarChart,
@@ -268,7 +272,7 @@ export const ReviewLevelComponent = () => {
                     <Label className="flex items-center gap-2 text-sm font-semibold">
                       <UserIcon className="h-4 w-4 text-primary" />
                       User
-                      <Tooltip>
+                      <UITooltip>
                         <TooltipTrigger asChild>
                           <button
                             type="button"
@@ -283,7 +287,7 @@ export const ReviewLevelComponent = () => {
                             been submitted at least once by the selected user.
                           </p>
                         </TooltipContent>
-                      </Tooltip>
+                      </UITooltip>
                     </Label>
 
                     <Select
