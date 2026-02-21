@@ -44,6 +44,7 @@ import {
   useQuestionTableStore,
 } from "@/stores/all-questions";
 import ViewDropdown from "../questions/components/ViewDropdown";
+import { TopRightBadge } from "@/components/NewBadge";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -404,9 +405,7 @@ export const QuestionsFilters = ({
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
         <div className="relative hidden md:flex items-center gap-2">
           <ViewDropdown view={view} setView={setView} />
-          <span className="absolute -top-2 -right-2 bg-red-500 text-[8px] text-white px-1 rounded uppercase font-bold">
-            New
-          </span>
+          <TopRightBadge label="New" />
         </div>
 
         {/* tools and filters */}
@@ -418,9 +417,7 @@ export const QuestionsFilters = ({
           <span className="sm:inline font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">
             Tools & Filters
           </span>
-           <span className="absolute -top-2 -right-2 bg-red-500 text-[8px] text-white px-1 rounded uppercase font-bold">
-            New
-          </span>
+           <TopRightBadge label="New" />
         </button>
 
         {userRole !== "expert" && (
@@ -534,8 +531,9 @@ export const QuestionsFilters = ({
           </section>
           {view === "table" && (
             <section className="hidden md:block">
-              <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
+              <h3 className=" relative text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
                 Hide Columns
+                <TopRightBadge label="new" right={0} />
               </h3>
 
               <div className="grid grid-cols-2 gap-2 p-1 rounded-lg">
@@ -599,12 +597,10 @@ export const QuestionsFilters = ({
 
                       <div className="text-left">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                          <p className="relative text-sm font-semibold text-gray-900 dark:text-white">
                             Turnaround Time
+                          <TopRightBadge label="New" right={4} />
                           </p>
-                          <span className="bg-red-500 text-[8px] text-white px-1 rounded uppercase font-bold">
-                            New
-                          </span>
                         </div>
 
                         <p className="text-xs text-gray-500">
@@ -648,12 +644,10 @@ export const QuestionsFilters = ({
                     </div>
                     <div className="text-left">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">
+                        <p className="relative text-sm font-bold text-gray-900 dark:text-white">
                           ReAllocate Questions
+                        <TopRightBadge label="New" right={4} />
                         </p>
-                        <span className="bg-red-500 text-[8px] text-white px-1 rounded uppercase font-bold">
-                          New
-                        </span>
                       </div>
                       <p className="text-[11px] text-gray-500">
                         Assign to different experts
