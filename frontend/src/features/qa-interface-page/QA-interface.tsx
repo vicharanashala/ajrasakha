@@ -440,6 +440,7 @@ export const QAInterface = ({
     rejectionReason?: string
   ) => {
     if (!selectedQuestion || isResponding) return;
+    setIsSidebarCollapsed(false)
 
     const payload = {
       questionId: selectedQuestion,

@@ -63,7 +63,7 @@ export const ConfirmationModal = ({
           ) : null}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{cancelText}</AlertDialogCancel>
+          <AlertDialogCancel onClick={(e)=>e.stopPropagation()}>{cancelText}</AlertDialogCancel>
           <AlertDialogAction
             className={`flex items-center justify-center px-4 py-2 rounded  ${confirmButtonClass}`}
             onClick={(e)=>{
