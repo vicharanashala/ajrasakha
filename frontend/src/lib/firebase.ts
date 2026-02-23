@@ -15,6 +15,9 @@ import {
 import { firebaseConfig } from "@/config/firebase";
 import { useAuthStore } from "@/stores/auth-store";
 import { UserService } from "@/hooks/services/userService";
+import { AuthService } from "@/hooks/services/authService";
+const authService = new AuthService();
+
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -29,11 +32,28 @@ export const loginWithEmail = async (email: string, password: string) => {
     }
     if(!user?.isBlocked || user === null){
       const result = await signInWithEmailAndPassword(auth, email, password);
+
+      // Enforce email verification
+      if (!result.user.emailVerified) {
+        try {
+          await authService.resendVerification(email);
+        } catch (resendError) {
+          console.error("Failed to trigger verification resend:", resendError);
+        }
+
+        await signOut(auth);
+        throw new Error("Please verify your email before logging in. A new verification link has been sent to your email.");
+      }
+
+      // Sync user with backend database
+      const idToken = await result.user.getIdToken();
+      await authService.accountSync(idToken);
+
       return result;
     }
   } catch (error: unknown) {
     // If it's a "User Is Blocked" error, re-throw it
-    if (error instanceof Error && error.message === "User Is Blocked Please Contact Moderator") {
+    if (error instanceof Error && (error.message === "User Is Blocked Please Contact Moderator" || error.message === "Please verify your email before logging in.")) {
       throw error;
     }
     // Otherwise, if it's a network/fetch error from userService.Getuser, 
@@ -56,7 +76,6 @@ export const createUserWithEmail = async (
   password: string,
   displayName?: string
 ) => {
-  const auth = getAuth(app);
   const userCredential = await createUserWithEmailAndPassword(
     auth,
     email,

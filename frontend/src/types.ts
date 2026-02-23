@@ -325,6 +325,12 @@ export interface HeatMapResult {
     [bucket: string]: number; // e.g., "0_6": 4
   };
 }
+
+export interface HeatmapResponse {
+  data: HeatMapResult[];
+  total: number;
+}
+
 export interface WorkLoad {
   currentUserAnswersCount: number;
   totalQuestionsCount: number;

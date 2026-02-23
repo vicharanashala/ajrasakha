@@ -15,24 +15,21 @@ export const apiFetch = async <T>(
   options: RequestInit = {}
 ): Promise<T | null> => {
   const firebaseUser = await getCurrentUser();
-  // if (!firebaseUser) return null;
-  if(!firebaseUser){
-     return fetch(url, options).then((r) => r.json()) as Promise<T>;
-  }
 
-  let token: string;
-  try {
-    token = await getIdToken(firebaseUser);
-  } catch (err) {
-    console.error("Failed to get token:", err);
-    return null;
+  let token: string | null = null;
+  if (firebaseUser) {
+    try {
+      token = await getIdToken(firebaseUser);
+    } catch (err) {
+      console.error("Failed to get token:", err);
+    }
   }
 
   const isFormData = options.body instanceof FormData;
 
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
-    Authorization: token ? `Bearer ${token}` : "",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(isFormData ? {} : { "Content-Type": "application/json" }),
   };
   // const headers = {
@@ -43,11 +40,22 @@ export const apiFetch = async <T>(
 
   const res = await fetch(url, { ...options, headers });
   if (res.status === 204) {
-  return undefined as T;
-}
-if (res.status === 404 && options?.method === "PUT") {
-  return null as T;
-}
+    return undefined as T;
+  }
+  if (res.status === 404 && options?.method === "PUT") {
+    return null as T;
+  }
+
+  const text = await res.text();
+  const safeJson = (t: string) => {
+    try {
+      return t ? JSON.parse(t) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const data = safeJson(text);
 
   if (!res.ok) {
     if (res.status === 401) {
@@ -55,21 +63,19 @@ if (res.status === 404 && options?.method === "PUT") {
       const { clearUser } = useAuthStore.getState();
       clearUser();
       window.location.href = "/auth";
-      return null; // Prevent further processing
+      return null;
     }
     let errorMessage = `Request failed with status ${res.status}`;
-
-    try {
-      const errorData = await res.json();
-      if (errorData?.message) {
-        errorMessage = errorData.message;
-      }
-    } catch {
-      errorMessage = res.statusText || (await res.text()) || errorMessage;
+    if (data?.message) {
+      errorMessage = data.message;
+    } else if (res.statusText) {
+      errorMessage = res.statusText;
+    } else if (text && text.length < 200) {
+      errorMessage = text;
     }
 
     throw new Error(errorMessage);
   }
 
-  return (await res.json()) as T;
+  return data as T;
 };

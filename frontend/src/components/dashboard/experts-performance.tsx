@@ -5,6 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
+import { useRestartOnView } from "@/hooks/ui/useRestartView";
 
 import {
   BarChart,
@@ -25,9 +26,10 @@ export interface ExpertPerformance {
 }
 
 export const ExpertsPerformance = ({ data }: { data: ExpertPerformance[] }) => {
+  const {ref,key} = useRestartOnView()
   return (
     <div className="space-y-6">
-      <Card>
+      <Card ref={ref}>
         <CardHeader>
           <CardTitle>Experts Performance Metrics</CardTitle>
           <CardDescription>
@@ -37,6 +39,7 @@ export const ExpertsPerformance = ({ data }: { data: ExpertPerformance[] }) => {
         <CardContent>
           <ResponsiveContainer width="100%" height={350}>
             <BarChart
+              key={`expertPerformance-${key}`}
               data={data}
               margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
             >

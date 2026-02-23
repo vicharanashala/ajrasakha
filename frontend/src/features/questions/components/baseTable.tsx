@@ -6,7 +6,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/atoms/table";
-import { RotateCcw } from "lucide-react";
 
 export type Column<T> = {
   key: keyof T | string;
@@ -47,14 +46,14 @@ export function BaseTable<T>({
             >
               {col.sortable ? (
                 <button
-                  onClick={() => onSort(col.key as string)}
+                  onClick={() => onSort(col.key ==='author'?'level_0': col.key as string)}
                   className="flex items-center justify-around gap-0.5 mx-auto select-none"
                 >
                   {col.label}
-                  {sort === `${col.key as string}___asc` && (
+                  {sort === `${col.key === 'author'?'level_0':col.key as string}___asc` && (
                     <span className="text-md text-green-500">↑</span>
                   )}
-                  {sort === `${col.key as string}___desc` && (
+                  {sort === `${col.key === 'author'?'level_0':col.key as string}___desc` && (
                     <span className="text-md text-green-500">↓</span>
                   )}
                 </button>
@@ -63,17 +62,6 @@ export function BaseTable<T>({
               )}
             </TableHead>
           ))}
-          {/* Clear sort column */}
-          {sort && (
-            <TableHead className="text-center w-[60px]">
-              <button
-                onClick={() => onSort("clearSort")}
-                className="px-2 py-1 rounded-md text-xs bg-primary text-white hover:text-black cursor-pointer"
-              >
-                <RotateCcw size={16} />
-              </button>
-            </TableHead>
-          )}
         </TableRow>
       </TableHeader>
 

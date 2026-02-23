@@ -6,6 +6,7 @@ import {
   IsInt,
   IsArray,
   IsEnum,
+  IsNumber,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 
@@ -27,6 +28,22 @@ export class GetHeatMapQuery {
   @IsOptional()
   @IsDateString()
   endTime?: string;
+
+  @JSONSchema({
+    example:1,
+    description:"Page number",
+  })
+  @IsOptional()
+  @IsNumber()
+  page?:number;
+
+  @JSONSchema({
+    example:10,
+    description:"Limit"
+  })
+  @IsOptional()
+  @IsNumber()
+  limit?:number
 }
 
 export class GetDashboardQuery {
@@ -154,6 +171,9 @@ export class GoldenDataset {
 
   @JSONSchema({description:'Total entries today to Golden Dataset'})
   todayApproved?:number;
+
+  @JSONSchema({ description: 'Moderator breakdown with names and approval counts' })
+  moderatorBreakdown?: { moderatorName: string, count: number }[];
 }
 
 export class QuestionContributionTrend {

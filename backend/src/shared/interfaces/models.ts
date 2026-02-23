@@ -238,6 +238,12 @@ export interface IReviewerHeatmapRow {
   reviewerName: string;
   counts: Record<string, number>;
 }
+
+export interface IReviewerHeatmapResponse {
+  data: IReviewerHeatmapRow[];
+  total: number;
+}
+
 export type RerouteStatus =
   | 'pending'
   | 'expert_rejected'

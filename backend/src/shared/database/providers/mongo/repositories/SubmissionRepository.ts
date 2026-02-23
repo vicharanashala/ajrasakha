@@ -7,6 +7,7 @@ import {
   IAnswer,
   IQuestion,
   IReroute,
+  IReviewerHeatmapResponse,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -499,11 +500,16 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
   async heatMapResultsForReviewer(
     query: GetHeatMapQuery,
-  ): Promise<IReviewerHeatmapRow[] | null> {
+  ): Promise<IReviewerHeatmapResponse| null> {
     try {
       await this.init();
 
-      let {startTime, endTime} = query;
+      let {startTime, endTime, page=1, limit=10} = query;
+      
+      page=Number(page)||1;
+      limit=Number(limit)||10;
+      
+      const skip=(page-1)*limit;
 
       /* const matchConditions: any = {
         'history.status': {$in: ['reviewed', 'rejected']},
@@ -521,7 +527,6 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           $lte: end,
         };
       }*/
-
       const pipeline = [
         {
           $unwind: {
@@ -586,14 +591,20 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                 // ✅ Index 0: from ROOT createdAt to history.updatedAt
                 then: {
                   $divide: [
-                    {$subtract: ['$history.updatedAt', '$createdAt']},
+                    {$subtract: [
+                      { $toDate: '$history.updatedAt' },
+                      { $toDate: '$createdAt' }
+                    ]},
                     1000 * 60 * 60,
                   ],
                 },
                 // ✅ Index >= 1: from history.createdAt to history.updatedAt
                 else: {
                   $divide: [
-                    {$subtract: ['$history.updatedAt', '$history.createdAt']},
+                    {$subtract: [
+                      { $toDate: '$history.updatedAt' },
+                      { $toDate: '$createdAt' }
+                    ]},
                     1000 * 60 * 60,
                   ],
                 },
@@ -697,15 +708,31 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
         {
           $sort: {
-            reviewerName: 1, // 1 for ascending (A-Z), -1 for descending (Z-A)
+            reviewerName: 1,
           },
         },
+        {
+          $facet: {
+            data: [
+              { $skip: skip },
+              { $limit: limit }
+            ],
+            totalCount: [
+              { $count: "count" }
+            ]
+          }
+        }
       ];
 
-      const result =
-        await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
+    const result = await this.QuestionSubmissionCollection.aggregate(pipeline).toArray();
 
-      return result.length ? (result as IReviewerHeatmapRow[]) : null;
+    if (!result.length) return null;
+
+    return {
+      data: result[0].data as IReviewerHeatmapRow[],
+      total: result[0].totalCount[0]?.count || 0,
+    };
+
     } catch (err) {
       console.error('Error generating reviewer heatmap:', err);
       return null;

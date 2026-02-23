@@ -19,18 +19,22 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 // }
 
 export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
-  const { data: heatMapData, isLoading } = useGetHeapMap({
-    startTime: heatMapDate.startTime,
-    endTime: heatMapDate.endTime,
-  });
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const { data: heatMapData, isLoading } = useGetHeapMap({
+    startTime: heatMapDate.startTime,
+    endTime: heatMapDate.endTime,
+    page:currentPage,
+    limit:itemsPerPage
+  });
 
   // Reset to page 1 when date range changes
   useEffect(() => {
     setCurrentPage(1);
   }, [heatMapDate.startTime?.getTime(), heatMapDate.endTime?.getTime()]);
+  
 
   if (isLoading) {
     return (
@@ -45,7 +49,7 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
     );
   }
 
-  if (!heatMapData || heatMapData.length === 0) {
+  if (!heatMapData || heatMapData.data.length === 0) {
     return (
       <div className="min-w-[80vw] border rounded-lg overflow-auto text-gray-900 dark:text-white">
         <div className="flex items-center justify-center min-h-[450px]">
@@ -75,11 +79,13 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
     bucket === "12_plus" ? "12+" : bucket.replace("_", "–");
 
   // Pagination logic
-  const totalItems = heatMapData.length;
+  const totalItems = heatMapData?.total??0;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedData = heatMapData.slice(startIndex, endIndex);
+  const paginatedData = heatMapData?.data??[];
+
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
 
   const data = paginatedData.map((r, idx) => ({
     id: `${r.reviewerName}_${idx}`,
@@ -265,7 +271,7 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
       <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50 dark:bg-gray-900">
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-700 dark:text-gray-300">
-            Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of{" "}
+            Showing {startItem}-{endItem} of{" "}
             {totalItems} experts
           </span>
           <div className="flex items-center gap-2">

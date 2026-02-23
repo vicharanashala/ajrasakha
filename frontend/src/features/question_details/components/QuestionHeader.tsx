@@ -4,6 +4,8 @@ import { Button } from "@/components/atoms/button";
 import { TimerDisplay } from "@/components/timer-display";
 import { formatDate } from "@/utils/formatDate";
 import { useCountdown } from "@/hooks/ui/useCountdown";
+import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
+import { useState } from "react";
 
 interface QuestionHeaderProps {
   question: IQuestionFullData;
@@ -11,6 +13,8 @@ interface QuestionHeaderProps {
 }
 
 export const QuestionHeader = ({ question, goBack }: QuestionHeaderProps) => {
+  //translation state
+    const [translatedText, setTranslatedText] = useState<string>("");
   const timer = useCountdown(question.createdAt!, 4, () => {});
 
   return (
@@ -18,8 +22,9 @@ export const QuestionHeader = ({ question, goBack }: QuestionHeaderProps) => {
       {/* Title + Timer + Exit */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <h1 className="text-xl sm:text-2xl font-semibold text-pretty break-words flex-1">
-          {question.question}
+          {translatedText||question.question}
         </h1>
+        <SarvamTranslateDropdown query={question.question} onTranslate={(result)=>setTranslatedText(result)}/>
 
         <div className="flex sm:flex-row flex-col sm:items-center items-end gap-3 sm:gap-6">
           <TimerDisplay timer={timer} status={question.status} size="lg" />

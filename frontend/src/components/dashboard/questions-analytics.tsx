@@ -36,6 +36,8 @@ import { Label } from "../atoms/label";
 import { Activity } from "lucide-react";
 import { ScrollArea } from "../atoms/scroll-area";
 import { DateRangeFilter } from "../DateRangeFilter";
+import { useRestartOnView } from "@/hooks/ui/useRestartView";
+import CountUp from "react-countup";
 
 export interface DateRange {
   startTime?: Date;
@@ -75,6 +77,8 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
   setAnalyticsType,
   analyticsType,
 }) => {
+
+  const { ref, key,} = useRestartOnView()
   const handleDateChange = (key: string, value?: Date) => {
     setDate((prev) => ({
       ...prev,
@@ -109,7 +113,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
   }));
 
   return (
-    <Card>
+    <Card ref={ref}>
       <CardHeader className="flex flex-row items-center justify-between gap-4 mb-2">
         <div>
           <CardTitle className="mb-2">Questions & Answers Analytics</CardTitle>
@@ -166,7 +170,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                   Crop Distribution
                 </h3>
                 <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
+                  <PieChart key={`crop-${key}`}>
                     <Pie
                       data={processedCropData}
                       cx="50%"
@@ -222,7 +226,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                         </div>
 
                         <span className="font-semibold text-foreground">
-                          {item.count}
+                          <CountUp key={`crop-${key}`} end={item.count} duration={2} preserveValue />
                         </span>
                       </div>
                     ))}
@@ -237,7 +241,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
               Questions by State
             </h3>
             <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={data.stateData}>
+              <BarChart key={`bar-${key}`} data={data.stateData}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   stroke="var(--color-border)"
@@ -275,7 +279,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                   Domain Distribution
                 </h3>
                 <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
+                  <PieChart key={`domainDistribution-${key}`}>
                     <Pie
                       data={processedDomainWithColors}
                       cx="50%"
@@ -330,7 +334,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                         </div>
 
                         <span className="font-semibold text-foreground">
-                          {item.count}
+                          <CountUp key={`domainBreakdown-${key}`} end={item.count} duration={2} preserveValue />
                         </span>
                       </div>
                     ))}

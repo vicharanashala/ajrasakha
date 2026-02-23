@@ -2,7 +2,6 @@ import { Badge } from "@/components/atoms/badge";
 import type { ReviewRow } from "./reviewLevel.coloumn";
 import { truncate } from "../../helper";
 import { renderLevelBadge } from "./RenderLevelBadge";
-import { RotateCcw } from "lucide-react";
 
 type Props = {
   row: ReviewRow;
@@ -33,17 +32,6 @@ export function ReviewLevelMobileCard({
       >
         {truncate(row.question, 80)}
       </p>
-
-      {sort && (
-        <div className="flex justify-end">
-          <button
-            onClick={() => onSort("clearSort")}
-            className="ml-2 p-1 rounded-md text-xs bg-primary text-white hover:text-black"
-          >
-            <RotateCcw size={14} />
-          </button>
-        </div>
-      )}
 
       <div className="grid grid-cols-2 gap-2 mt-3">
         {Array.from({ length: 10 }).map((_, i) => (

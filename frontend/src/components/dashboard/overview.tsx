@@ -67,6 +67,8 @@ import {
   CardContent,
   CardFooter,
 } from "@/components/atoms/card";
+import CountUp from "react-countup";
+import { useRestartOnView } from "@/hooks/ui/useRestartView";
 
 export interface UserRoleOverview {
   role: string;
@@ -106,9 +108,9 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
   data,
 }) => {
   const total = data.reduce((acc, item) => acc + item.count, 0);
-
+  const {ref,key} = useRestartOnView()
   return (
-    <Card className="flex flex-col">
+    <Card ref={ref} className="flex flex-col">
       <CardHeader className="pb-0">
         <CardTitle>Role Overview</CardTitle>
         <CardDescription>Experts vs Moderators</CardDescription>
@@ -117,7 +119,7 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
       <CardContent className="flex-1 flex justify-center items-center pb-0">
         <div className="relative w-[220px]">
           <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
+            <PieChart key={key}>
               <Pie
                 data={data}
                 dataKey="count"
@@ -154,7 +156,7 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
 
           {/* Center Label showing total */}
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-            <span className="text-3xl font-bold">{total}</span>
+            <span className="text-3xl font-bold"><CountUp key={key}  end={total} duration={2} preserveValue /></span>
             <span className="text-sm text-muted-foreground">Total Users</span>
           </div>
         </div>

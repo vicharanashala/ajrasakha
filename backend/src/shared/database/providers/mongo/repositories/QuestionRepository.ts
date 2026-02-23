@@ -317,19 +317,20 @@ export class QuestionRepository implements IQuestionRepository {
         closedAtStart,
         closedAtEnd,
         consecutiveApprovals,
-        autoAllocateFilter
+        autoAllocateFilter,
+        sort
       } = query;
 
 
       const filter: any = {};
       // --- Auto Allocate Filter ---
-        if (autoAllocateFilter && autoAllocateFilter !== 'all') {
-          if (autoAllocateFilter === 'on') {
-            filter.isAutoAllocate = true;
-          } else if (autoAllocateFilter === 'off') {
-            filter.isAutoAllocate = false;
-          }
+      if (autoAllocateFilter && autoAllocateFilter !== 'all') {
+        if (autoAllocateFilter === 'on') {
+          filter.isAutoAllocate = true;
+        } else if (autoAllocateFilter === 'off') {
+          filter.isAutoAllocate = false;
         }
+      }
 
 
       // --- Filters ---
@@ -665,6 +666,28 @@ export class QuestionRepository implements IQuestionRepository {
       totalCount = await this.QuestionCollection.countDocuments(filter);
       const totalPages = Math.ceil(totalCount / limit);
 
+      // Determine sort order
+      let sortStage: any = {createdAt: -1, _id: -1};
+      let needsPriorityMapping = false;
+      
+      if (sort) {
+        const [field, order] = sort.split('_');
+        const sortOrder = order === 'asc' ? 1 : -1;
+        
+        if (field === 'question') {
+          sortStage = {question: sortOrder, _id: -1};
+        } else if (field === 'state') {
+          sortStage = {'details.state': sortOrder, _id: -1};
+        } else if (field === 'crop') {
+          sortStage = {'details.crop': sortOrder, _id: -1};
+        } else if (field === 'domain') {
+          sortStage = {'details.domain': sortOrder, _id: -1};
+        } else if (field === 'priority') {
+          needsPriorityMapping = true;
+          sortStage = {priorityOrder: sortOrder, _id: -1};
+        }
+      }
+
       /*  result = await this.QuestionCollection.find(filter)
         .sort({createdAt: -1})
         .skip((page - 1) * limit)
@@ -677,11 +700,37 @@ export class QuestionRepository implements IQuestionRepository {
           embedding: 0,
         })
         .toArray();*/
-      result = await this.QuestionCollection.aggregate([
+      
+      const aggregationPipeline: any[] = [
         {$match: filter},
-        {$sort: {createdAt: -1, _id: -1}},
+      ];
+      
+      // Add priority mapping if needed
+      if (needsPriorityMapping) {
+        aggregationPipeline.push({
+          $addFields: {
+            priorityOrder: {
+              $switch: {
+                branches: [
+                  {case: {$eq: ['$priority', 'high']}, then: 1},
+                  {case: {$eq: ['$priority', 'medium']}, then: 2},
+                  {case: {$eq: ['$priority', 'low']}, then: 3},
+                ],
+                default: 4,
+              },
+            },
+          },
+        });
+      }
+      
+      aggregationPipeline.push(
+        {$sort: sortStage},
         {$skip: (page - 1) * limit},
         {$limit: limit},
+      );
+      
+      result = await this.QuestionCollection.aggregate([
+        ...aggregationPipeline,
 
         // JOIN submissions → extract history length
         {
@@ -744,6 +793,7 @@ export class QuestionRepository implements IQuestionRepository {
             metrics: 0,
             embedding: 0,
             contextDoc: 0,
+            priorityOrder: 0,
           },
         },
       ]).toArray();
@@ -1722,7 +1772,7 @@ export class QuestionRepository implements IQuestionRepository {
   async getYearAnalytics(
     goldenDataSelectedYear: string,
     session?: ClientSession,
-  ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number}> {
+  ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
     await this.init();
     const selectedYearNum = Number(goldenDataSelectedYear);
 
@@ -1779,13 +1829,95 @@ export class QuestionRepository implements IQuestionRepository {
       0,
     );
 
-    return {yearData: formattedData, totalEntriesByType};
+    const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
+    return {yearData: formattedData, totalEntriesByType, moderatorBreakdown };
+  }
+
+  /**
+  * get yearly analytics.
+  * @param session -MongoDB client session for transactions.
+  * @returns A promise that resolves to question document
+  */
+  async getTodayApproved(session?: ClientSession, startDate?: Date, endDate?: Date): Promise<{ todayApproved: number, moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
+    await this.init();
+
+    let start = startDate;
+    let end = endDate;
+
+    if (!start || !end) {
+      start = new Date();
+      start.setHours(0, 0, 0, 0);
+      end = new Date(start);
+      end.setDate(end.getDate() + 1);
+    }
+
+    // Get moderator breakdown
+    const moderatorBreakdown = await this.AnswersCollection.aggregate(
+      [
+        {
+          $match: {
+            status: 'approved',
+            isFinalAnswer: true,
+            updatedAt: {
+              $gte: start,
+              $lt: end,
+            },
+            approvedBy: { $exists: true, $ne: null }
+          },
+        },
+        {
+          $group: {
+            _id: '$approvedBy',
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'moderator',
+          },
+        },
+        {
+          $unwind: {
+            path: '$moderator',
+            preserveNullAndEmptyArrays: false,
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            moderatorName: {
+              $concat: [
+                '$moderator.firstName',
+                ' ',
+                { $ifNull: ['$moderator.lastName', ''] },
+              ],
+            },
+            count: 1,
+          },
+        },
+        {
+          $sort: { count: -1 },
+        },
+      ],
+      { session }
+    ).toArray() as { moderatorName: string, count: number }[];
+
+    // Calculate total from the breakdown
+    const totalApproved = moderatorBreakdown.reduce((sum, item) => sum + item.count, 0);
+
+    return {
+      todayApproved: totalApproved,
+      moderatorBreakdown: moderatorBreakdown
+    };
   }
   async getMonthAnalytics(
     goldenDataSelectedYear: string,
     goldenDataSelectedMonth: string,
     session?: ClientSession,
-  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number}> {
+  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
     await this.init();
 
     const monthNames = [
@@ -1852,7 +1984,10 @@ export class QuestionRepository implements IQuestionRepository {
       (acc, curr) => acc + curr.totalClosed,
       0,
     );
-    return {weeksData, totalEntriesByType};
+
+    const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
+
+    return {weeksData, totalEntriesByType, moderatorBreakdown };
   }
 
   async getWeekAnalytics(
@@ -1860,7 +1995,7 @@ export class QuestionRepository implements IQuestionRepository {
     goldenDataSelectedMonth: string,
     goldenDataSelectedWeek: string,
     session?: ClientSession,
-  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number}> {
+  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[] }> {
     await this.init();
     const monthNames = [
       'January',
@@ -1932,7 +2067,8 @@ export class QuestionRepository implements IQuestionRepository {
       0,
     );
 
-    return {dailyData, totalEntriesByType};
+    const { moderatorBreakdown } = await this.getTodayApproved(session, startDate, endDate);
+    return {dailyData, totalEntriesByType, moderatorBreakdown };
   }
 
   async getDailyAnalytics(
@@ -1944,6 +2080,7 @@ export class QuestionRepository implements IQuestionRepository {
   ): Promise<{
     dayHourlyData: Record<string, GoldenDatasetEntry[]>;
     totalEntriesByType: number;
+    moderatorBreakdown?: { moderatorName: string, count: number }[];
   }> {
     await this.init();
     const monthNames = [
@@ -2064,7 +2201,7 @@ export class QuestionRepository implements IQuestionRepository {
 
     // Initialize all 24 hours with 0 entries
     const hourlyData: GoldenDatasetEntry[] = Array.from(
-      {length: 24},
+      { length: 24 },
       (_, i) => {
         const match = answers.find(a => a._id === i);
         return {
@@ -2080,9 +2217,41 @@ export class QuestionRepository implements IQuestionRepository {
       0,
     );
 
+    // Filter moderator breakdown for the specific day
+    const dayStartDate = new Date(yearNum, monthNum, startDay + selectedDayNum - dayMap[Object.keys(dayMap).find(key => dayMap[key] === (startDay % 7 === 0 ? 0 : startDay % 7))!]);
+
+    const startOfWeekDate = new Date(yearNum, monthNum, startDay);
+    const startOfWeekDayNum = startOfWeekDate.getDay();
+
+    const diff = selectedDayNum - startOfWeekDayNum;
+    const targetDate = new Date(yearNum, monthNum, startDay + diff);
+
+    const targetDayNum = selectedDayNum;
+
+    let specificDayStart: Date | null = null;
+    let current = new Date(startDate);
+
+    while (current < endDate) {
+      if (current.getDay() === targetDayNum) {
+        specificDayStart = new Date(current);
+        break;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    let moderatorBreakdown: { moderatorName: string, count: number }[] = [];
+
+    if (specificDayStart) {
+      const specificDayEnd = new Date(specificDayStart);
+      specificDayEnd.setDate(specificDayEnd.getDate() + 1);
+      const result = await this.getTodayApproved(session, specificDayStart, specificDayEnd);
+      moderatorBreakdown = result.moderatorBreakdown || [];
+    }
+
     return {
-      dayHourlyData: {[goldenDataSelectedDay]: hourlyData},
+      dayHourlyData: {[goldenDataSelectedDay]: hourlyData },
       totalEntriesByType,
+      moderatorBreakdown
     };
   }
 
@@ -2319,23 +2488,7 @@ export class QuestionRepository implements IQuestionRepository {
     };
   }
 
-   async getTodayApproved(session?:ClientSession):Promise<{todayApproved:number}>{
-    await this.init();
-    const startOfToday = new Date();
-    startOfToday.setUTCHours(0, 0, 0, 0);
-    const endOfToday = new Date();
-    endOfToday.setUTCHours(23, 59, 59, 999);
-    const count = await this.QuestionCollection.countDocuments(
-      {
-        status: "closed",
-        closedAt: {
-          $gte: startOfToday,
-          $lte: endOfToday,
-        },
-      },
-      { session })
-    return {todayApproved:count};
-  }
+
 
   async getQuestionsAndReviewLevel(
     query: GetDetailedQuestionsQuery & {searchEmbedding: number[] | null},
@@ -2399,17 +2552,52 @@ export class QuestionRepository implements IQuestionRepository {
 
       {$unwind: {path: '$submission', preserveNullAndEmptyArrays: true}},
 
+      //normalize date
+       {
+        $addFields: {
+          submissionCreatedAt: {
+            $cond: [
+              {$eq: [{$type: '$submission.createdAt'}, 'string']},
+              {$toDate: '$submission.createdAt'},
+              '$submission.createdAt',
+            ],
+          },
+
+          history: {
+            $map: {
+              input: {$ifNull: ['$submission.history', []]},
+              as: 'h',
+              in: {
+                $mergeObjects: [
+                  '$$h',
+                  {
+                    createdAt: {
+                      $cond: [
+                        {$eq: [{$type: '$$h.createdAt'}, 'string']},
+                        {$toDate: '$$h.createdAt'},
+                        '$$h.createdAt',
+                      ],
+                    },
+                    updatedAt: {
+                      $cond: [
+                        {$eq: [{$type: '$$h.updatedAt'}, 'string']},
+                        {$toDate: '$$h.updatedAt'},
+                        '$$h.updatedAt',
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
       {
         $addFields: {
-          history: {$ifNull: ['$submission.history', []]},
-          submissionCreatedAt: '$submission.createdAt',
-
           currentLevel: {
             $cond: [
-              {$gt: [{$size: {$ifNull: ['$submission.history', []]}}, 0]},
-              {
-                $subtract: [{$size: {$ifNull: ['$submission.history', []]}}, 1],
-              },
+              {$gt: [{$size: '$history'}, 0]},
+              {$subtract: [{$size: '$history'}, 1]},
               -1,
             ],
           },
@@ -2772,4 +2960,146 @@ export class QuestionRepository implements IQuestionRepository {
     _id: q._id?.toString(),
   }));
 }
+  async getMonthlyQuestionStats(
+    startDate?: Date,
+    endDate?: Date,
+    session?: ClientSession,
+  ): Promise<Array<{
+    year: number;
+    month: string;
+    totalQuestions: number;
+    modifiedAnswers: number;
+    rejectedAnswers: number;
+  }>> {
+    await this.init();
+
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    // Set default dates if not provided
+    const defaultStartDate = startDate || new Date("2025-09-01T00:00:00.000Z");
+    let defaultEndDate = endDate || new Date();
+    // Set end of day for endDate
+    if (endDate) {
+      defaultEndDate = new Date(endDate);
+      defaultEndDate.setHours(23, 59, 59, 999);
+    }
+
+    // Get total questions per month
+    const questionsPerMonth = await this.QuestionCollection.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: defaultStartDate, $lte: defaultEndDate }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' }
+          },
+          totalQuestions: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ], { session }).toArray();
+
+    
+    const answerStats = await this.AnswersCollection.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: defaultStartDate, $lte: defaultEndDate }
+        }
+      },
+      
+      // Count modifications per answer
+      {
+        $addFields: {
+          modificationsCount: { $size: { $ifNull: ["$modifications", []] } }
+        }
+      },
+      
+      // Group per question
+      {
+        $group: {
+          _id: "$questionId",
+          totalAnswers: { $sum: 1 },
+          hasModifiedAnswer: {
+            $max: { $cond: [{ $gte: ["$modificationsCount", 1] }, 1, 0] }
+          },
+          latestCreatedAt: { $max: "$createdAt" }
+        }
+      },
+      
+      // Month-wise metrics
+      {
+        $group: {
+          _id: {
+            year: { $year: "$latestCreatedAt" },
+            month: { $month: "$latestCreatedAt" }
+          },
+          
+          // Modified questions
+          modifiedCount: {
+            $sum: {
+              $cond: [{ $eq: ["$hasModifiedAnswer", 1] }, 1, 0]
+            }
+          },
+          
+          // Rejected = multiple answers BUT no modifications
+          rejectedCount: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $gte: ["$totalAnswers", 2] },
+                    { $eq: ["$hasModifiedAnswer", 0] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          }
+        }
+      },
+      
+      { $sort: { "_id.year": 1, "_id.month": 1 } }
+    ], { 
+      allowDiskUse: true,
+      session 
+    }).toArray();
+
+    // Merge the results
+    const results = questionsPerMonth.map((questionStat: any) => {
+      const answerStat = answerStats.find((a: any) => 
+        a._id.year === questionStat._id.year && 
+        a._id.month === questionStat._id.month
+      );
+
+      return {
+        year: questionStat._id.year,
+        month: monthNames[questionStat._id.month - 1],
+        totalQuestions: questionStat.totalQuestions,
+        modifiedAnswers: answerStat?.modifiedCount || 0,
+        rejectedAnswers: answerStat?.rejectedCount || 0
+      };
+    });
+
+    return results;
+  }
+
+  async getQuestionsByFilters(
+    filters: any,
+    session?: ClientSession,
+  ): Promise<IQuestion[]> {
+    await this.init();
+    
+    return await this.QuestionCollection
+      .find(filters, { session })
+      .sort({ createdAt: -1 })
+      .toArray();
+  }
 }

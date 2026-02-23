@@ -51,6 +51,7 @@ export const AuthForm = ({
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isEmailSent, setIsEmailSent] = useState(false);
 
   const { setUser } = useAuthStore();
 
@@ -65,6 +66,7 @@ export const AuthForm = ({
   const handleModeChange = (newMode: "login" | "signup") => {
     setMode(newMode);
     setErrors({});
+    setIsEmailSent(false);
     setFormData({ email: "", password: "", confirmPassword: "", name: "" });
     onModeChange?.(newMode);
   };
@@ -159,14 +161,15 @@ export const AuthForm = ({
 
       if (mode === "signup") {
         try {
-          result = await signupMutation({
+          await signupMutation({
             email,
             password,
             firstName,
             lastName,
           });
 
-          result = await loginWithEmail(email, password);
+          setIsEmailSent(true);
+          return;
         } catch (e) {
           console.error("signupMutation failed:", e);
           throw e;
@@ -196,9 +199,7 @@ export const AuthForm = ({
       ) {
         toast.error("Incorrect email or password.");
       } else {
-        // toast.error("Something went wrong. Please try again.");
-        let message =
-          error.message || "Something went wrong. Please try again.";
+        let message =error.message || "Something went wrong. Please try again.";
 
         try {
           // Look for embedded JSON in error message
@@ -218,7 +219,7 @@ export const AuthForm = ({
         if(message==='User Is Blocked Please Contact Moderator'){
           toast.warning(error.message)
         }else{
-        toast.error(message);
+          toast.error(message);
         }
       }
     } finally {
@@ -256,8 +257,26 @@ export const AuthForm = ({
         </CardHeader>
 
         <CardContent className="px-8 ">
-          <form onSubmit={handleEmailAuth}>
-            <div className="grid gap-6">
+          {isEmailSent ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center animate-in fade-in zoom-in duration-500">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6">
+                <Check className="w-8 h-8 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Check your email</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-8">
+                We've sent a verification link to <span className="font-semibold">{formData.email}</span>.
+                Please verify your email to complete your registration.
+              </p>
+              <Button
+                onClick={() => handleModeChange("login")}
+                className="w-full h-11 bg-primary text-white font-semibold rounded-md shadow-md hover:shadow-lg transition-all border-none cursor-pointer"
+              >
+                Go to Login
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleEmailAuth}>
+              <div className="grid gap-6">
               {mode == "login" && (
                 <>
                   <div className="flex flex-col gap-4">
@@ -315,62 +334,62 @@ export const AuthForm = ({
                 className={`grid ${
                   mode == "signup" ? "gap-2" : "gap-5"
                 } animate-in fade-in-0 slide-in-from-right-2 duration-500 delay-200`}
-              >
-                {mode === "signup" && (
-                  <div className="grid gap-2 animate-in fade-in-0 slide-in-from-left-2 duration-500 delay-300">
+                >
+                  {mode === "signup" && (
+                    <div className="grid gap-2 animate-in fade-in-0 slide-in-from-left-2 duration-500 delay-300">
+                      <Label
+                        htmlFor="name"
+                        className="text-sm font-semibold text-gray-700 dark:text-gray-300"
+                      >
+                        Full Name
+                      </Label>
+                      <Input
+                        id="name"
+                        name="name"
+                        type="text"
+                        placeholder="Enter your full name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        className="h-11 border-2 focus:border-green-400 transition-colors duration-300"
+                      />
+                      {errors.name && (
+                        <p className="text-sm text-red-500 animate-in fade-in-0 slide-in-from-left-1 duration-300">
+                          {errors.name}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="grid gap-2">
                     <Label
-                      htmlFor="name"
+                      htmlFor="email"
                       className="text-sm font-semibold text-gray-700 dark:text-gray-300"
                     >
-                      Full Name
+                      Email Address
                     </Label>
                     <Input
-                      id="name"
-                      name="name"
-                      type="text"
-                      placeholder="Enter your full name"
-                      value={formData.name}
+                      id="email"
+                      name="email"
+                      placeholder="user@example.com"
+                      value={formData.email}
                       onChange={handleInputChange}
                       className="h-11 border-2 focus:border-green-400 transition-colors duration-300"
                     />
-                    {errors.name && (
+                    {errors.email && (
                       <p className="text-sm text-red-500 animate-in fade-in-0 slide-in-from-left-1 duration-300">
-                        {errors.name}
+                        {errors.email}
                       </p>
                     )}
                   </div>
-                )}
 
-                <div className="grid gap-2">
-                  <Label
-                    htmlFor="email"
-                    className="text-sm font-semibold text-gray-700 dark:text-gray-300"
-                  >
-                    Email Address
-                  </Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    placeholder="user@example.com"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="h-11 border-2 focus:border-green-400 transition-colors duration-300"
-                  />
-                  {errors.email && (
-                    <p className="text-sm text-red-500 animate-in fade-in-0 slide-in-from-left-1 duration-300">
-                      {errors.email}
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid gap-2">
-                  <div className="flex items-center justify-between">
-                    <Label
-                      htmlFor="password"
-                      className="text-sm font-semibold text-gray-700 dark:text-gray-300"
-                    >
-                      Password
-                    </Label>
+                  <div className="grid gap-2">
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="password"
+                        className="text-sm font-semibold text-gray-700 dark:text-gray-300"
+                      >
+                        Password
+                      </Label>
                     {/* {mode === "login" && (
                       <a
                         href="#"
@@ -379,115 +398,115 @@ export const AuthForm = ({
                         Forgot password?
                       </a>
                     )} */}
-                  </div>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      name="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Enter your password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      className="h-11 border-2 focus:border-green-400 transition-colors duration-300 pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="w-5 h-5" />
-                      ) : (
-                        <Eye className="w-5 h-5" />
-                      )}
-                    </button>
-                  </div>
-                  {errors.password && (
-                    <p className="text-sm text-red-500 animate-in fade-in-0 slide-in-from-left-1 duration-300">
-                      {errors.password}
-                    </p>
-                  )}
-                </div>
-
-                {mode === "signup" && (
-                  <div className="grid gap-2 animate-in fade-in-0 slide-in-from-right-2 duration-500 delay-400">
-                    <Label
-                      htmlFor="confirmPassword"
-                      className="text-sm font-semibold text-gray-700 dark:text-gray-300"
-                    >
-                      Confirm Password
-                    </Label>
+                    </div>
                     <div className="relative">
                       <Input
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        type={showConfirmPassword ? "text" : "password"}
-                        placeholder="Confirm your password"
-                        value={formData.confirmPassword}
+                        id="password"
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Enter your password"
+                        value={formData.password}
                         onChange={handleInputChange}
                         className="h-11 border-2 focus:border-green-400 transition-colors duration-300 pr-10"
                       />
                       <button
                         type="button"
-                        onClick={() => setShowConfirmPassword((prev) => !prev)}
-                        className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700"
                       >
-                        {showConfirmPassword ? (
+                        {showPassword ? (
                           <EyeOff className="w-5 h-5" />
                         ) : (
                           <Eye className="w-5 h-5" />
                         )}
                       </button>
                     </div>
-                    {errors.confirmPassword && (
+                    {errors.password && (
                       <p className="text-sm text-red-500 animate-in fade-in-0 slide-in-from-left-1 duration-300">
-                        {errors.confirmPassword}
+                        {errors.password}
                       </p>
                     )}
                   </div>
-                )}
 
-                {formData.password && mode == "signup" && (
-                  <div className="space-y-3 p-4 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-800 animate-in fade-in-0 slide-in-from-bottom-2 duration-500">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                        Password Strength
-                      </span>
-                      <span
-                        className={cn(
-                          "text-xs font-bold",
-                          passwordStrength.value <= 25 && "text-red-500",
-                          passwordStrength.value > 25 &&
+                  {mode === "signup" && (
+                    <div className="grid gap-2 animate-in fade-in-0 slide-in-from-right-2 duration-500 delay-400">
+                      <Label
+                        htmlFor="confirmPassword"
+                        className="text-sm font-semibold text-gray-700 dark:text-gray-300"
+                      >
+                        Confirm Password
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="confirmPassword"
+                          name="confirmPassword"
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="Confirm your password"
+                          value={formData.confirmPassword}
+                          onChange={handleInputChange}
+                          className="h-11 border-2 focus:border-green-400 transition-colors duration-300 pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword((prev) => !prev)}
+                          className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 bg-transparent border-none cursor-pointer"
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff className="w-5 h-5" />
+                          ) : (
+                            <Eye className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
+                      {errors.confirmPassword && (
+                        <p className="text-sm text-red-500 animate-in fade-in-0 slide-in-from-left-1 duration-300">
+                          {errors.confirmPassword}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {formData.password && mode == "signup" && (
+                    <div className="space-y-3 p-4 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-800 animate-in fade-in-0 slide-in-from-bottom-2 duration-500">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                          Password Strength
+                        </span>
+                        <span
+                          className={cn(
+                            "text-xs font-bold",
+                            passwordStrength.value <= 25 && "text-red-500",
+                            passwordStrength.value > 25 &&
                             passwordStrength.value <= 50 &&
                             "text-yellow-500",
-                          passwordStrength.value > 50 &&
+                            passwordStrength.value > 50 &&
                             passwordStrength.value <= 75 &&
                             "text-blue-500",
-                          passwordStrength.value > 75 && "text-green-500"
-                        )}
-                      >
-                        {passwordStrength.label}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                      <div
-                        className={cn(
-                          "h-2 rounded-full transition-all duration-500 ease-out",
-                          passwordStrength.color
-                        )}
-                        style={{ width: `${passwordStrength.value}%` }}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="flex items-center gap-2">
-                        <Check
-                          className={cn(
-                            "h-3 w-3 transition-colors duration-300",
-                            formData.password.length >= 8
-                              ? "text-green-500"
-                              : "text-gray-400"
+                            passwordStrength.value > 75 && "text-green-500"
                           )}
+                        >
+                          {passwordStrength.label}
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div
+                          className={cn(
+                            "h-2 rounded-full transition-all duration-500 ease-out",
+                            passwordStrength.color
+                          )}
+                          style={{ width: `${passwordStrength.value}%` }}
                         />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="flex items-center gap-2">
+                          <Check
+                            className={cn(
+                              "h-3 w-3 transition-colors duration-300",
+                              formData.password.length >= 8
+                                ? "text-green-500"
+                                : "text-gray-400"
+                            )}
+                          />
                         <span
                           className={
                             formData.password.length >= 8
@@ -495,18 +514,18 @@ export const AuthForm = ({
                               : "text-gray-500"
                           }
                         >
-                          8+ characters
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Check
-                          className={cn(
-                            "h-3 w-3 transition-colors duration-300",
-                            /[A-Z]/.test(formData.password)
-                              ? "text-green-500"
-                              : "text-gray-400"
-                          )}
-                        />
+                            8+ characters
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Check
+                            className={cn(
+                              "h-3 w-3 transition-colors duration-300",
+                              /[A-Z]/.test(formData.password)
+                                ? "text-green-500"
+                                : "text-gray-400"
+                            )}
+                          />
                         <span
                           className={
                             /[A-Z]/.test(formData.password)
@@ -514,18 +533,18 @@ export const AuthForm = ({
                               : "text-gray-500"
                           }
                         >
-                          Uppercase
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Check
-                          className={cn(
-                            "h-3 w-3 transition-colors duration-300",
-                            /\d/.test(formData.password)
-                              ? "text-green-500"
-                              : "text-gray-400"
-                          )}
-                        />
+                            Uppercase
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Check
+                            className={cn(
+                              "h-3 w-3 transition-colors duration-300",
+                              /\d/.test(formData.password)
+                                ? "text-green-500"
+                                : "text-gray-400"
+                            )}
+                          />
                         <span
                           className={
                             /\d/.test(formData.password)
@@ -533,18 +552,18 @@ export const AuthForm = ({
                               : "text-gray-500"
                           }
                         >
-                          Numbers
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Check
-                          className={cn(
-                            "h-3 w-3 transition-colors duration-300",
-                            /[!@#$%^&*(),.?":{}|<>]/.test(formData.password)
-                              ? "text-green-500"
-                              : "text-gray-400"
-                          )}
-                        />
+                            Numbers
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Check
+                            className={cn(
+                              "h-3 w-3 transition-colors duration-300",
+                              /[!@#$%^&*(),.?":{}|<>]/.test(formData.password)
+                                ? "text-green-500"
+                                : "text-gray-400"
+                            )}
+                          />
                         <span
                           className={
                             /[!@#$%^&*(),.?":{}|<>]/.test(formData.password)
@@ -552,27 +571,27 @@ export const AuthForm = ({
                               : "text-gray-500"
                           }
                         >
-                          Special chars
-                        </span>
+                            Special chars
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                <Button
+                  <Button
                   className={`w-full h-12 rounded-md font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center cursor-pointer bg-primary ${
                     mode == "signup" && !Object.keys(errors).length && "mt-3"
                   } `}
-                  style={{
-                    color: "#FFFFFF",
-                    border: "none",
-                    opacity: isLoading ? 0.7 : 1,
-                    pointerEvents: isLoading ? "none" : "auto",
-                  }}
+                    style={{
+                      color: "#FFFFFF",
+                      border: "none",
+                      opacity: isLoading ? 0.7 : 1,
+                      pointerEvents: isLoading ? "none" : "auto",
+                    }}
                   // onClick={!isLoading ? handleEmailAuth : undefined}
-                  type="submit"
-                  disabled={isLoading}
-                >
+                    type="submit"
+                    disabled={isLoading}
+                  >
                   <span
                     style={{
                       // color: "#FFFFFF",
@@ -585,28 +604,29 @@ export const AuthForm = ({
                       : mode === "login"
                       ? "Sign In"
                       : "Create Account"}
-                  </span>
-                </Button>
-              </div>
+                    </span>
+                  </Button>
+                </div>
 
-              <div className="text-center text-sm animate-in fade-in-0 slide-in-from-bottom-2 duration-700 delay-500">
-                <span className="text-gray-600 dark:text-gray-400">
+                <div className="text-center text-sm animate-in fade-in-0 slide-in-from-bottom-2 duration-700 delay-500">
+                  <span className="text-gray-600 dark:text-gray-400">
                   {mode === "login"
                     ? "New to Annam?"
                     : "Already have an account?"}{" "}
-                </span>
-                <button
-                  type="button"
+                  </span>
+                  <button
+                    type="button"
                   onClick={() =>
                     handleModeChange(mode === "login" ? "signup" : "login")
                   }
                   className="font-semibold text-green-400 underline hover:text-green-500  hover:underline transition-all duration-300"
-                >
-                  {mode === "login" ? "Sign up" : "Sign in"}
-                </button>
+                  >
+                    {mode === "login" ? "Sign up" : "Sign in"}
+                  </button>
+                </div>
               </div>
-            </div>
-          </form>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>

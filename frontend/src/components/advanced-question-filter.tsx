@@ -51,7 +51,8 @@ import {
   Send,
   BadgeCheck,
   Hand,
-  Users
+  Users,
+  Settings
 
 
 } from "lucide-react";
@@ -216,6 +217,7 @@ interface AdvanceFilterDialogProps {
   activeFiltersCount: number;
   onReset: () => void;
   isForQA: boolean;
+  setIsSidebarOpen: (value:boolean) => void;
 }
 
 export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
@@ -228,7 +230,9 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   activeFiltersCount,
   onReset,
   isForQA,
+  setIsSidebarOpen,
 }) => {
+  const [open, setOpen] = useState(false);
   const { data: userNameReponse, isLoading } = useGetAllUsers();
 
   const users = (userNameReponse?.users || []).sort((a, b) =>
@@ -236,27 +240,43 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   );
 
   return (
-    <Dialog>
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        setOpen(value);
+        setIsSidebarOpen(false);
+      }}
+    >
       <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          className="flex-1 min-w-[150px] flex items-center justify-center gap-2"
-        >
-          <Filter className="h-5 w-5 text-primary" />
-          Preferences
-          {activeFiltersCount > 0 && (
-            <Badge
-              variant="destructive"
-              className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-            >
-              {activeFiltersCount}
-            </Badge>
-          )}
-        </Button>
+        <button className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-500/10 flex items-center justify-center text-purple-500 dark:text-purple-400">
+              <Settings size={20} />
+            </div>
+            <div className="text-left">
+              <div className="flex items-center gap-1">
+                <p className="text-sm font-bold text-gray-900 dark:text-white">
+                  Preferences
+                </p>
+
+                {activeFiltersCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="bg-red-500 h-4 px-2 rounded-full flex items-center justify-center text-xs"
+                  >
+                    {activeFiltersCount}
+                  </Badge>
+                )}
+              </div>
+
+              <p className="text-[11px] text-gray-500">Advanced Filters</p>
+            </div>
+          </div>
+        </button>
       </DialogTrigger>
 
       <ScrollArea>
-        <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto mr-10">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
               <Filter className="h-5 w-5 text-primary" />
@@ -290,7 +310,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     value={advanceFilter.status}
                     onValueChange={(v) => handleDialogChange("status", v)}
                   >
-                    <SelectTrigger className="bg-background w-full w-full">
+                    <SelectTrigger className="bg-background w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -425,8 +445,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   </SelectContent>
                 </Select>
               </div>
-
-              
             </div>
 
             <Separator />
@@ -625,17 +643,16 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
             <Separator />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              
               <div className="space-y-2 min-w-0">
                 <DateRangeFilter
-                 customName={"CreatedAt Date Range"}
+                  customName={"CreatedAt Date Range"}
                   advanceFilter={advanceFilter}
                   handleDialogChange={handleDialogChange}
                 />
               </div>
               <div className="space-y-2 min-w-0">
                 <DateRangeFilter
-                customName={"ClosedAt Date Range"}
+                  customName={"ClosedAt Date Range"}
                   advanceFilter={advanceFilter}
                   handleDialogChange={handleDialogChange}
                   type={"closedDateRange"}
@@ -645,102 +662,94 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
             <Separator />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              
-                <div className="space-y-2 min-w-0 ">
-                  <Label className="relative flex items-center gap-2 text-sm font-semibold">
-                    <BadgeCheck className="h-4 w-4 text-primary" />
-                    Consecutive Approvals
+              <div className="space-y-2 min-w-0 ">
+                <Label className="relative flex items-center gap-2 text-sm font-semibold">
+                  <BadgeCheck className="h-4 w-4 text-primary" />
+                  Consecutive Approvals
                   <TopRightBadge label="New" />
-                  </Label>
-                  <Select
-                    value={advanceFilter.consecutiveApprovals}
-                    onValueChange={(v) => handleDialogChange("consecutiveApprovals", v)}
-                  >
-                    <SelectTrigger className="bg-background w-full w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">
-                        <div className="flex items-center gap-2">
+                </Label>
+                <Select
+                  value={advanceFilter.consecutiveApprovals}
+                  onValueChange={(v) =>
+                    handleDialogChange("consecutiveApprovals", v)
+                  }
+                >
+                  <SelectTrigger className="bg-background w-full w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <div className="flex items-center gap-2">
                         <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
-                          <span>All</span>
-                        </div>
-                      </SelectItem>
+                        <span>All</span>
+                      </div>
+                    </SelectItem>
 
-                      <SelectItem value="1">
-                        <div className="flex items-center gap-2">
-                          <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
-                          <span>1</span>
-                        </div>
-                      </SelectItem>
-
-                      <SelectItem value="2">
-                        <div className="flex items-center gap-2">
+                    <SelectItem value="1">
+                      <div className="flex items-center gap-2">
                         <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
-                          <span>2</span>
-                        </div>
-                      </SelectItem>
+                        <span>1</span>
+                      </div>
+                    </SelectItem>
 
-                      <SelectItem value="3">
-                        <div className="flex items-center gap-2">
+                    <SelectItem value="2">
+                      <div className="flex items-center gap-2">
                         <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
-                          <span>3</span>
-                        </div>
-                      </SelectItem>
-                      
+                        <span>2</span>
+                      </div>
+                    </SelectItem>
 
-                      
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2 min-w-0 ">
-                  <Label className="relative flex items-center gap-2 text-sm font-semibold">
-                    <Users className="h-4 w-4 text-primary" />
-                    Auto Allocate Experts
+                    <SelectItem value="3">
+                      <div className="flex items-center gap-2">
+                        <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
+                        <span>3</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 min-w-0 ">
+                <Label className="relative flex items-center gap-2 text-sm font-semibold">
+                  <Users className="h-4 w-4 text-primary" />
+                  Auto Allocate Experts
                   <TopRightBadge label="New" />
-                  </Label>
-                  <Select
-                    value={advanceFilter.autoAllocateFilter}
-                    onValueChange={(v) => handleDialogChange("autoAllocateFilter", v)}
-                  >
-                    <SelectTrigger className="bg-background w-full w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">
-                        <div className="flex items-center gap-2">
+                </Label>
+                <Select
+                  value={advanceFilter.autoAllocateFilter}
+                  onValueChange={(v) =>
+                    handleDialogChange("autoAllocateFilter", v)
+                  }
+                >
+                  <SelectTrigger className="bg-background w-full w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <div className="flex items-center gap-2">
                         <Layers className="w-4 h-4 text-green-500 fill-green-500/20" />
-                          <span>All</span>
-                        </div>
-                      </SelectItem>
+                        <span>All</span>
+                      </div>
+                    </SelectItem>
 
-                      <SelectItem value="on">
-                        <div className="flex items-center gap-2">
-                          <Bot className="w-4 h-4 text-green-500 fill-green-500/20" />
-                          <span>ON</span>
-                        </div>
-                      </SelectItem>
+                    <SelectItem value="on">
+                      <div className="flex items-center gap-2">
+                        <Bot className="w-4 h-4 text-green-500 fill-green-500/20" />
+                        <span>ON</span>
+                      </div>
+                    </SelectItem>
 
-                      <SelectItem value="off">
-                        <div className="flex items-center gap-2">
+                    <SelectItem value="off">
+                      <div className="flex items-center gap-2">
                         <Hand className="w-4 h-4 text-red-500 fill-green-500/20" />
-                          <span>OFF</span>
-                        </div>
-                      </SelectItem>
-
-
-                      
-                    </SelectContent>
-                  </Select>
-                </div>
-              
-
-              
+                        <span>OFF</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            
 
             <Separator />
-            
 
             {/* Number of Answers Slider */}
             <div className="space-y-4">
@@ -813,7 +822,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                             onClick={() =>
                               handleDialogChange(
                                 key,
-                                Array.isArray(value) ? [0, 100] : "all"
+                                Array.isArray(value) ? [0, 100] : "all",
                               )
                             }
                           />
@@ -841,13 +850,13 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   user: "all",
                   domain: "all",
                   review_level: "all",
-                  
+
                   endTime: undefined,
-                  startTime:undefined,
-                  closedAtStart:undefined,
-                  closedAtEnd:undefined,
-                  consecutiveApprovals:"all",
-                  autoAllocateFilter:"all"
+                  startTime: undefined,
+                  closedAtStart: undefined,
+                  closedAtEnd: undefined,
+                  consecutiveApprovals: "all",
+                  autoAllocateFilter: "all",
                 });
                 onReset();
               }}

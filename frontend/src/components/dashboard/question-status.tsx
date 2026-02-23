@@ -7,7 +7,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
+import { useRestartOnView } from "@/hooks/ui/useRestartView";
 import type { QuestionStatus } from "@/types";
+import CountUp from "react-countup";
 import {
   PieChart,
   Pie,
@@ -29,8 +31,9 @@ const colors = [
   "var(--color-chart-5)",
 ];
 export const StatusCharts = ({ data }: { data: StatusOverview }) => {
+  const {ref, key,} = useRestartOnView()
   return (
-    <div className="space-y-6">
+    <div ref={ref} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
@@ -41,7 +44,7 @@ export const StatusCharts = ({ data }: { data: StatusOverview }) => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
+              <PieChart key={`questionStatus-${key}`}>
                 <Pie
                   data={data.questions}
                   cx="50%"
@@ -84,7 +87,7 @@ export const StatusCharts = ({ data }: { data: StatusOverview }) => {
                 >
                   <p className="text-xs text-muted-foreground">{item.status}</p>
                   <p className="text-lg font-semibold text-foreground">
-                    {item.value}
+                    <CountUp key={`questionStatus-${key}`} end={item.value} duration={2} preserveValue />
                   </p>
                 </div>
               ))}
@@ -98,7 +101,7 @@ export const StatusCharts = ({ data }: { data: StatusOverview }) => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
+              <PieChart key={`answerStatus-${key}`}>
                 <Pie
                   data={data.answers}
                   cx="50%"
@@ -141,7 +144,7 @@ export const StatusCharts = ({ data }: { data: StatusOverview }) => {
                 >
                   <p className="text-xs text-muted-foreground">{item.status}</p>
                   <p className="text-lg font-semibold text-foreground">
-                    {item.value}
+                    <CountUp key={`answerStatus-${key}`} end={item.value} duration={2} preserveValue />
                   </p>
                 </div>
               ))}

@@ -32,12 +32,13 @@ export const useGetAllDetailedQuestions = (
   limit: number,
   filter: AdvanceFilterValues,
   search: string,
-  enabled: boolean
+  enabled: boolean,
+  sort?: string
 ) => {
   return useQuery({
-    queryKey: ["detailed_questions", page, limit, filter, search],
+    queryKey: ["detailed_questions", page, limit, filter, search, sort],
     queryFn: async () =>
-      questionService.useGetAllDetailedQuestions(page, limit, filter, search),
+      questionService.useGetAllDetailedQuestions(page, limit, filter, search, sort),
     enabled,
   });
 };

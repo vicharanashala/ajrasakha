@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -18,7 +19,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { TrendingUp, Database, CheckCircle2 } from "lucide-react";
+import { TrendingUp, Database, CheckCircle2, Users} from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -26,6 +27,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../atoms/select";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/atoms/dialog";
+import CountUp from "react-countup";
+import { useRestartOnView } from "@/hooks/ui/useRestartView";
 
 const monthNames = [
   "January",
@@ -47,6 +58,7 @@ export interface GoldenDataset {
   totalEntriesByType: number;
   verifiedEntries: number;
   todayApproved?:number;
+  moderatorBreakdown?: { moderatorName: string, count: number }[];
   yearData: { month: string; entries: number; verified: number }[];
   weeksData: { week: string; entries: number; verified: number }[];
   dailyData: { day: string; entries: number; verified: number }[];
@@ -83,6 +95,10 @@ export const GoldenDatasetOverview = ({
   selectedDay,
   setSelectedDay,
 }: GoldenDatasetOverviewProps) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const {ref,key} = useRestartOnView()
+
   const getLast10Years = () => {
     const currentYear = new Date().getFullYear();
     return Array.from({ length: 10 }, (_, i) => currentYear - i);
@@ -140,8 +156,14 @@ export const GoldenDatasetOverview = ({
 
   const chartData = getChartData();
 
+   const moderatorBreakdown = data?.moderatorBreakdown ?? [];
+  const totalApprovals = moderatorBreakdown.reduce(
+    (sum, mod) => sum + mod.count,
+    0
+  );
+
   return (
-    <div className="space-y-6">
+    <div ref={ref} className="space-y-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -151,7 +173,9 @@ export const GoldenDatasetOverview = ({
                 <p className="text-xs text-muted-foreground mb-1">
                   Total Entries
                 </p>
-                <p className="text-3xl font-bold text-foreground">{data?.todayApproved}</p>
+                <p className="text-3xl font-bold text-foreground">
+                  <CountUp key={`totalEntries-${key}`} end={data?.todayApproved ?? 0} duration={2} preserveValue />
+                  </p>
                 <p className="text-xs text-green-600 mt-2 font-medium">
                   Total Questions Added in Golden DB  Today{" "}
                 </p>
@@ -169,7 +193,7 @@ export const GoldenDatasetOverview = ({
                   Verified Entries
                 </p>
                 <p className="text-3xl font-bold text-foreground">
-                  {data?.verifiedEntries}
+                  <CountUp key={`verifiedEntries-${key}`} end={data?.verifiedEntries ?? 0} duration={2} preserveValue /> 
                 </p>
                 <p className="text-xs text-green-600 mt-2 font-medium">
                   Total questions verified through review/approval process
@@ -187,9 +211,68 @@ export const GoldenDatasetOverview = ({
                 <p className="text-xs text-muted-foreground mb-1">
                   Current Period
                 </p>
-                <p className="text-3xl font-bold text-foreground">
-                  {data?.totalEntriesByType}
-                </p>
+                    <p className="text-3xl font-bold text-foreground cursor-help">
+                      <CountUp key={`currentPeriod-${key}`} end={data?.totalEntriesByType ?? 0} duration={2} preserveValue /> 
+                    </p>
+                     {moderatorBreakdown.length > 0 && (
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogTrigger asChild>
+            <button className="mt-3 flex items-center gap-2 text-xs text-green-600 hover:text-green-700 font-medium hover:underline transition-colors">
+              <Users className="w-3.5 h-3.5" />
+              <span>
+                View moderator Approvals (
+                {moderatorBreakdown.length})
+              </span>
+            </button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md overflow-hidden">
+            <DialogHeader>
+              <DialogTitle className="text-primary">
+                Moderator Approvals
+              </DialogTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Total of {totalApprovals} approvals by{" "}
+                {moderatorBreakdown.length} moderators
+              </p>
+            </DialogHeader>
+            
+            <div className="mt-4 max-h-[320px] overflow-y-auto scrollbar-hiding space-y-2">
+              {moderatorBreakdown.map((mod, idx) => {
+                
+                const percentage = totalApprovals ? (mod.count / totalApprovals) * 100 : 0;
+                return (
+                  <div
+                    key={idx}
+                    className="p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center">
+                          <span className="text-xs font-semibold text-primary">
+                            {mod.moderatorName.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <p className="font-medium text-foreground text-sm">
+                          {mod.moderatorName}
+                        </p>
+                      </div>
+                      <p className="text-lg font-bold text-primary">
+                        {mod.count}
+                      </p>
+                    </div>
+
+                                {/* Progress Bar */}
+                   <p className="text-xs text-muted-foreground mt-2">
+  {percentage.toFixed(1)}% of total approvals
+</p>
+
+                  </div>
+                );
+              })}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
                 <p className="text-xs text-green-600 mt-2 font-medium">
                   Latest data point
                 </p>
@@ -216,7 +299,7 @@ export const GoldenDatasetOverview = ({
                   viewType === "year"
                     ? "bg-primary text-white"
                     : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                }`}
+                  }`}
               >
                 Year
               </button>
@@ -226,7 +309,7 @@ export const GoldenDatasetOverview = ({
                   viewType === "month"
                     ? "bg-primary text-white"
                     : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                }`}
+                  }`}
               >
                 Month
               </button>
@@ -236,7 +319,7 @@ export const GoldenDatasetOverview = ({
                   viewType === "week"
                     ? "bg-primary text-white"
                     : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                }`}
+                  }`}
               >
                 Week
               </button>
@@ -246,7 +329,7 @@ export const GoldenDatasetOverview = ({
                   viewType === "day"
                     ? "bg-primary text-white"
                     : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                }`}
+                  }`}
               >
                 Day
               </button>
@@ -272,21 +355,21 @@ export const GoldenDatasetOverview = ({
             {(viewType === "month" ||
               viewType === "week" ||
               viewType === "day") && (
-              <>
-                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder="Select Month" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {monthNames.map((month) => (
-                      <SelectItem key={month} value={month}>
-                        {month}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </>
-            )}
+                <>
+                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue placeholder="Select Month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {monthNames.map((month) => (
+                        <SelectItem key={month} value={month}>
+                          {month}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </>
+              )}
 
             {(viewType === "week" || viewType === "day") && (
               <Select value={selectedWeek} onValueChange={setSelectedWeek}>
@@ -328,6 +411,7 @@ export const GoldenDatasetOverview = ({
           {(viewType === "year" || viewType === "month") && (
             <ResponsiveContainer width="100%" height={350}>
               <BarChart
+                key={`chart-${key}`} 
                 data={chartData}
                 margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
               >
@@ -349,15 +433,21 @@ export const GoldenDatasetOverview = ({
                   }}
                 />
                 <Legend />
-                <Bar
+                 <Bar
                   dataKey="entries"
                   fill="var(--color-chart-1)"
                   name="Total Entries"
+                  isAnimationActive={true}
+                  animationDuration={800}
+                  animationBegin={0}
                 />
                 <Bar
                   dataKey="verified"
                   fill="var(--color-chart-2)"
                   name="Verified Entries"
+                  isAnimationActive={true}
+                  animationDuration={800}
+                  animationBegin={200}
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -367,6 +457,7 @@ export const GoldenDatasetOverview = ({
           {(viewType === "week" || viewType === "day") && (
             <ResponsiveContainer width="100%" height={350}>
               <LineChart
+                key={`lineChart-${key}`}
                 data={chartData}
                 margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
               >

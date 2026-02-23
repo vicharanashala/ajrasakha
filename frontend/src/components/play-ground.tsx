@@ -13,22 +13,21 @@ import { QuestionsPage } from "./questions-page";
 import { BellIcon } from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { RequestsPage } from "./request-page";
-import { useNavigate } from "@tanstack/react-router";
 import { initializeNotifications } from "@/services/pushService";
 import { useEffect, useState } from "react";
-import { PerformanceMatrics } from "./performanceMatrics";
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 import { MobileSidebar } from "./mobile-sidebar";
 import { HoverCard } from "./atoms/hover-card";
 import { UserManagement } from "./user-management";
-import { ChristmasCap, Dashboard } from "./dashboard";
+import { Dashboard } from "./dashboard";
 import Spinner from "./atoms/spinner";
 import { ExpertDashboard } from "./ExpertDashboard";
+import { NotificationModal } from "./NotificationModal";
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser({});
   const userId = user?._id?.toString();
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const {
     selectedQuestionId,
     setSelectedQuestionId,
@@ -43,7 +42,7 @@ export const PlaygroundPage = () => {
   } = useSelectedQuestion();
   //const [activeTab, setActiveTab] = useState<string>("performance");
   // Initialize from localStorage or default
- 
+
   const [activeTab, setActiveTab] = useState<string>("all_questions");
   const getStorageKey = (user?: { email?: string }) => {
     if (!user?.email) return null;
@@ -60,11 +59,11 @@ export const PlaygroundPage = () => {
     } else {
       const defaultTab =
         user.role === "expert" ? "questions" : "performance";
-  
+
       setActiveTab(defaultTab);
       localStorage.setItem(storageKey, defaultTab);
     }
-   // setActiveTab(savedTab);
+    // setActiveTab(savedTab);
   }, [user]);
   // Only update tab when there's a specific selection that requires navigation
   useEffect(() => {
@@ -78,18 +77,18 @@ export const PlaygroundPage = () => {
     } else if (selectedHistoryId) {
       calculatedTab = "history";
     } else if (selectedQuestionId) {
-    if (user.role === "expert" && selectedQuestionType === "peer_review") {
-      calculatedTab = "questions";
-    }
-    // For other cases with questions, check role
-    else if (user.role === "expert") {
-      calculatedTab = "questions";
-    } else {
+      if (user.role === "expert" && selectedQuestionType === "peer_review") {
+        calculatedTab = "questions";
+      }
+      // For other cases with questions, check role
+      else if (user.role === "expert") {
+        calculatedTab = "questions";
+      } else {
+        calculatedTab = "all_questions";
+      }
+    } else if (selectedCommentId) {
       calculatedTab = "all_questions";
     }
-  } else if (selectedCommentId) {
-    calculatedTab = "all_questions";
-  }
     const storageKey = getStorageKey(user);
     if (!storageKey) return;
     // Only update if we have a specific tab to navigate to
@@ -107,9 +106,9 @@ export const PlaygroundPage = () => {
   ]);
 
 
-    
-    
-   
+
+
+
   // const defaultTab = (() => {
   //   if (!user) return "performance";
   //   if (user.role !== "expert") return "performance";
@@ -124,7 +123,7 @@ export const PlaygroundPage = () => {
     if (!storageKey) return;
     setActiveTab(value);
     localStorage.setItem(storageKey, value);
-    
+
     if (value !== "questions") {
       setSelectedQuestionId(null);
       setSelectedQuestionType(null)
@@ -362,7 +361,7 @@ export const PlaygroundPage = () => {
                     className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
                   >
                     <HoverCard openDelay={150}>
-                      <span>{user.role==='admin' ? 'User' :'Expert' } Management</span>
+                     <span>{user.role==='admin' ? 'User' :'Expert' } Management</span>
                     </HoverCard>
                   </TabsTrigger>
                 )}
@@ -400,17 +399,18 @@ export const PlaygroundPage = () => {
             {/* RIGHT SIDE ICONS */}
             <div className="flex items-center gap-3 shrink-0">
               {/* Notifications */}
-              <button
-                onClick={() => navigate({ to: "/notifications" })}
-                className="relative p-1 rounded-md hover:bg-accent transition-colors"
-              >
-                <BellIcon className="w-5 h-5 text-muted-foreground hover:text-foreground transition" />
-                {user?.notifications! > 0 && (
-                  <span className="absolute -top-[4px] -right-[12px] flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-white">
-                    {user?.notifications! > 99 ? "99+" : user?.notifications}
-                  </span>
-                )}
-              </button>
+              <NotificationModal
+                trigger={
+                  <button className="relative p-1 rounded-md hover:bg-accent transition-colors">
+                    <BellIcon className="w-5 h-5 text-muted-foreground hover:text-foreground transition" />
+                    {user?.notifications! > 0 && (
+                      <span className="absolute -top-[4px] -right-[12px] flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-white">
+                        {user?.notifications! > 99 ? "99+" : user?.notifications}
+                      </span>
+                    )}
+                  </button>
+                }
+              />
 
               <ThemeToggleCompact />
 
