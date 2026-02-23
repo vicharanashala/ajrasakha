@@ -15,6 +15,7 @@ export const useMarkAllAsReadNotification = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({queryKey:["user"]})
     },
   });
 };
