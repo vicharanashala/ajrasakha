@@ -8,6 +8,7 @@ import {
   IQuestion,
   IReroute,
   IReviewerHeatmapResponse,
+  LevelReportStat,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -3183,6 +3184,219 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     );
   
     return result; // contains the updated document
+  }
+
+  //get level wise answer submission percentage report
+  async getLevelWiseReport(session?: ClientSession): Promise<LevelReportStat[]> {
+    await this.init();
+    //start date is always from nov-25
+    const startDate = new Date('2025-11-01T00:00:00.000Z');
+    //end date is always the current date
+    const endDate = new Date();
+    const pipeline: any[] = [
+      // 1️⃣ Unwind history
+      {
+        $unwind: {
+          path: '$history',
+          includeArrayIndex: 'historyIndex',
+        },
+      },
+
+      // 2️⃣ Ignore author level (index 0) + filter date
+      {
+        $match: {
+          historyIndex: {$gt: 0},
+          'history.createdAt': {
+            $gte: startDate,
+            $lte: endDate,
+          },
+        },
+      },
+
+      // 3️⃣ Add computed fields
+      {
+        $addFields: {
+          level: '$historyIndex',
+
+          month: {
+            $dateToString: {
+              format: '%Y-%m',
+              date: {$toDate: '$history.createdAt'},
+            },
+          },
+
+          timeTaken: {
+            $cond: [
+              {
+                $and: [
+                  {$ifNull: ['$history.createdAt', false]},
+                  {$ifNull: ['$history.updatedAt', false]},
+                ],
+              },
+              {
+                $subtract: [
+                  {$toDate: '$history.updatedAt'},
+                  {$toDate: '$history.createdAt'},
+                ],
+              },
+              null,
+            ],
+          },
+        },
+      },
+
+      // 4️⃣ Group by month + level
+      {
+        $group: {
+          _id: {
+            month: '$month',
+            level: '$level',
+          },
+
+          approvedCount: {
+            $sum: {
+              $cond: [{$ifNull: ['$history.approvedAnswer', false]}, 1, 0],
+            },
+          },
+
+          rejectedCount: {
+            $sum: {
+              $cond: [{$ifNull: ['$history.rejectedAnswer', false]}, 1, 0],
+            },
+          },
+
+          modifiedCount: {
+            $sum: {
+              $cond: [{$ifNull: ['$history.modifiedAnswer', false]}, 1, 0],
+            },
+          },
+
+          avgTimeTaken: {$avg: '$timeTaken'},
+        },
+      },
+
+      // 5️⃣ Add totalProcessed
+      {
+        $addFields: {
+          totalProcessed: {
+            $add: ['$approvedCount', '$rejectedCount', '$modifiedCount'],
+          },
+        },
+      },
+
+      // 6️⃣ Add percentages + convert avgTime to minutes
+      {
+        $addFields: {
+          approvedPercentage: {
+            $cond: [
+              {$eq: ['$totalProcessed', 0]},
+              0,
+              {
+                $round: [
+                  {
+                    $multiply: [
+                      {$divide: ['$approvedCount', '$totalProcessed']},
+                      100,
+                    ],
+                  },
+                  2,
+                ],
+              },
+            ],
+          },
+
+          rejectedPercentage: {
+            $cond: [
+              {$eq: ['$totalProcessed', 0]},
+              0,
+              {
+                $round: [
+                  {
+                    $multiply: [
+                      {$divide: ['$rejectedCount', '$totalProcessed']},
+                      100,
+                    ],
+                  },
+                  2,
+                ],
+              },
+            ],
+          },
+
+          modifiedPercentage: {
+            $cond: [
+              {$eq: ['$totalProcessed', 0]},
+              0,
+              {
+                $round: [
+                  {
+                    $multiply: [
+                      {$divide: ['$modifiedCount', '$totalProcessed']},
+                      100,
+                    ],
+                  },
+                  2,
+                ],
+              },
+            ],
+          },
+
+          avgTimeTakenMinutes: {
+            $round: [{$divide: ['$avgTimeTaken', 1000 * 60]}, 2],
+          },
+        },
+      },
+
+      // 7️⃣ Regroup by month
+      {
+        $group: {
+          _id: '$_id.month',
+          data: {
+            $push: {
+              level: '$_id.level',
+              approvedCount: '$approvedCount',
+              rejectedCount: '$rejectedCount',
+              modifiedCount: '$modifiedCount',
+              totalProcessed: '$totalProcessed',
+              approvedPercentage: '$approvedPercentage',
+              rejectedPercentage: '$rejectedPercentage',
+              modifiedPercentage: '$modifiedPercentage',
+              avgTimeTakenMinutes: '$avgTimeTakenMinutes',
+            },
+          },
+        },
+      },
+
+      // 8️⃣ Sort levels inside each month
+      {
+        $addFields: {
+          data: {
+            $sortArray: {
+              input: '$data',
+              sortBy: {level: 1},
+            },
+          },
+        },
+      },
+
+      // 9️⃣ Final shape
+      {
+        $project: {
+          _id: 0,
+          month: '$_id',
+          data: 1,
+        },
+      },
+
+      // 🔟 Sort months
+      {
+        $sort: {month: 1},
+      },
+    ];
+    const result = await this.QuestionSubmissionCollection.aggregate<LevelReportStat>(pipeline, {
+      session,
+    }).toArray();
+    return result;
   }
   
 }

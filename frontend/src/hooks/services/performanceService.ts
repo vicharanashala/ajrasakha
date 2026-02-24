@@ -7,6 +7,8 @@ import type {
 import { formatDateLocal } from "@/utils/formatDate";
 import type { DateRange } from "@/components/dashboard/questions-analytics";
 import { env } from "@/config/env";
+import { auth } from "@/config/firebase";
+import { getIdToken } from "firebase/auth";
 
 const API_BASE_URL = env.apiBaseUrl();
 
@@ -86,6 +88,39 @@ export class PerformaneService {
    await apiFetch(`${this._baseUrl}/cron-snapshot/send-report`, {
     method: "POST",
   });
+}
+
+async downloadLevelWiseReport(): Promise<Blob> {
+  // Get the current Firebase user and token
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) {
+      throw new Error("User not authenticated");
+    }
+  const token = await getIdToken(firebaseUser);
+  const response = await fetch(
+    `${this._baseUrl}/level-report`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`, 
+      },
+    }
+  );
+  
+  if (!response.ok) {
+    throw new Error("Failed to download report");
+  }
+  
+  // Check if response is JSON (no data case)
+  const contentType = response.headers.get("content-type");
+  if (contentType && contentType.includes("application/json")) {
+    const jsonResponse = await response.json();
+    if (!jsonResponse.success) {
+      throw new Error(jsonResponse.message || "No data found for the selected filters");
+    }
+  }
+  
+  return await response.blob();
 }
 
 

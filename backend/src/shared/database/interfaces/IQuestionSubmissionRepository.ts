@@ -3,6 +3,7 @@ import {
   IQuestionSubmission,
   IReviewerHeatmapResponse,
   ISubmissionHistory,
+  LevelReportStat,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
 import {ExpertReviewLevelDto} from '#root/modules/core/classes/validators/UserValidators.js';
@@ -139,4 +140,5 @@ export interface IQuestionSubmissionRepository {
   getAbsentSubmissions(absentExpertIds:string[],session?:ClientSession):Promise<IQuestionSubmission[]>
   findQuestionsNeedingEscalation(limit?:number,session?:ClientSession):Promise<IQuestionSubmission[]>
   updateById(id?:string,update?:any,session?:any)
+  getLevelWiseReport(session?: ClientSession): Promise<LevelReportStat[]>;
 }

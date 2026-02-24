@@ -38,5 +38,7 @@ export interface IPerformanceService {
     currentUserId: string
   ): Promise<void>;
 
+  getLevelWiseReport(): Promise<ArrayBuffer | null>;
+
 
 }

@@ -278,4 +278,18 @@ export interface IReroute {
     updatedAt: Date|string;
 }
 
+export interface LevelReportStat {
+  month: string,
+  data:{
+    level: number; // history index (1–10)
+    approvedCount: number;
+    rejectedCount: number;
+    modifiedCount: number;
+    totalProcessed: number;
+    approvedPercentage: number;
+    rejectedPercentage: number;
+    modifiedPercentage: number;
+    avgTimeTakenMinutes: number; // average time in minutes
+  }[]
+}
 
