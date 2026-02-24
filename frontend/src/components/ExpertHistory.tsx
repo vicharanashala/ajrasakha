@@ -13,6 +13,7 @@ import {
   Pencil,
   User,
   Send,
+  Loader2,
 } from "lucide-react";
 import { useGetSubmissions } from "@/hooks/api/answer/useGetSubmissions";
 import { DateRangeFilter } from "./DateRangeFilter";
@@ -357,6 +358,16 @@ export default function UserActivityHistory({
             handleDialogChange={handleDialogChange}
           />
         </div>
+
+        {/* loading... */}
+          {isLoading && (
+            <div className="flex items-center justify-center p-3">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <span className="ml-2 text-sm text-muted-foreground">
+                Loading History...
+              </span>
+            </div>
+          )}
 
         {/* Empty */}
         {!isLoading && submissions.length === 0 && (
