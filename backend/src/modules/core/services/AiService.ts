@@ -87,6 +87,7 @@ export class AiService {
 
   async getEmbedding(text: string): Promise<{embedding: number[]}> {
     try {   
+      console.log("AI SERVER URL:", this._aiServerUrl);
       const response = await fetch(`${this._aiServerUrl}/embed`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
