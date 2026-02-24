@@ -3,6 +3,7 @@ import { PerformaneService } from "@/hooks/services/performanceService";
 import { toast } from "sonner";
 import { Download, Loader2 } from "lucide-react";
 import { formatMonthYear } from "@/utils/formateMonthYear";
+import { TopRightBadge } from "@/components/NewBadge";
 
 const DownloadLevelWiseReportButton = ({
   closeSideBar,
@@ -53,8 +54,9 @@ const DownloadLevelWiseReportButton = ({
           )}
         </div>
         <div className="text-left">
-          <p className="text-sm font-bold text-gray-900 dark:text-white">
+          <p className="text-sm relative font-bold text-gray-900 dark:text-white">
             {isDownloading ? "Downloading..." : "LevelWise Report"}
+            <TopRightBadge label="new" right={0} />
           </p>
           <p className="text-[11px] text-gray-500">
             Submission Report by Level (Monthly)
