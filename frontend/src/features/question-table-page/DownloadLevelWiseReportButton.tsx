@@ -2,12 +2,7 @@ import { useState } from "react";
 import { PerformaneService } from "@/hooks/services/performanceService";
 import { toast } from "sonner";
 import { Download, Loader2 } from "lucide-react";
-
-const formatMonthYear = (date: Date) =>
-  date.toLocaleString("en-US", {
-    month: "short",
-    year: "2-digit",
-  });
+import { formatMonthYear } from "@/utils/formateMonthYear";
 
 const DownloadLevelWiseReportButton = ({
   closeSideBar,
