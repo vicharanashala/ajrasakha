@@ -120,23 +120,25 @@ const handleDateSelect = (range: DateRange | undefined) => {
       <Button
         id="date-toggle"
         variant={"outline"}
-        className={`w-full justify-start text-left font-normal bg-background pr-3 w-68 ${
-          !dateRange.from && "text-muted-foreground"
+        className={`w-full justify-start text-left font-normal bg-background border-input pr-3 h-10 hover:bg-accent/50 transition-colors ${
+          className || ""
         }`}
         onClick={() => setIsCalendarVisible(!isCalendarVisible)}
       >
         <CalendarIcon className="mr-2 h-4 w-4" />
         {dateRange.from ? (
-          dateRange.to ? (
+          <span className="text-foreground">
+          {dateRange.to ? (
             <>
               {format(dateRange.from, "LLL dd, y")} -{" "}
               {format(dateRange.to, "LLL dd, y")}
             </>
           ) : (
             format(dateRange.from, "LLL dd, y")
-          )
+          )}
+          </span>
         ) : (
-          <span>Select a start and end date</span>
+          <span className="text-foreground/100">Select a start and end date</span>
         )}
 
         {/* Toggle Icon */}

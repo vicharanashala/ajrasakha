@@ -487,9 +487,9 @@ export const QuestionsFilters = ({
           </div>
         )}
         
-        <span className="hidden md:block text-sm text-muted-foreground whitespace-nowrap">
+        {/* <span className="hidden md:block text-sm text-muted-foreground whitespace-nowrap">
           Total: {totalQuestions}
-        </span>
+        </span> */}
       </div>
       {/* Sidebar Overlay */}
       {isSidebarOpen && (

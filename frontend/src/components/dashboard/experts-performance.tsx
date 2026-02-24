@@ -52,7 +52,8 @@ export const ExpertsPerformance = ({ data }: { data: ExpertPerformance[] }) => {
                 stroke="var(--color-muted-foreground)"
                 angle={-45}
                 textAnchor="end"
-                height={80}
+                height={100}
+                interval={0}
                 tick={{ fontSize: 12 }}
               />
               <YAxis stroke="var(--color-muted-foreground)" />
@@ -63,14 +64,25 @@ export const ExpertsPerformance = ({ data }: { data: ExpertPerformance[] }) => {
                   borderRadius: "var(--radius)",
                 }}
               />
-              <Legend />
+              <Legend 
+                verticalAlign="bottom" 
+                wrapperStyle={{ paddingTop: "20px" }}
+              />
               <Bar
                 dataKey="reputation"
-                name="Penalty Workload"
-                fill="var(--color-chart-1)"
+                name="Pending Workload"
+                fill="hsl(45, 93%, 47%)"
               />
-              <Bar dataKey="incentive" fill="var(--color-chart-2)" />
-              <Bar dataKey="penalty" fill="var(--color-chart-3)" />
+              <Bar 
+                dataKey="incentive" 
+                name="Incentive"
+                fill="hsl(142, 76%, 36%)" 
+              />
+              <Bar 
+                dataKey="penalty" 
+                name="Penalty"
+                fill="hsl(0, 84%, 60%)" 
+              />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
