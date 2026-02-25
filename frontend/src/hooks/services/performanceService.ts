@@ -90,7 +90,12 @@ export class PerformaneService {
   });
 }
 
-async downloadLevelWiseReport(): Promise<Blob> {
+async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
+
+  const params = new URLSearchParams();
+  params.append("startDate", fromDate);
+  params.append("endDate", toDate);
+
   // Get the current Firebase user and token
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) {
@@ -98,7 +103,7 @@ async downloadLevelWiseReport(): Promise<Blob> {
     }
   const token = await getIdToken(firebaseUser);
   const response = await fetch(
-    `${this._baseUrl}/level-report`,
+    `${this._baseUrl}/level-report?${params.toString()}`,
     {
       method: "GET",
       headers: {

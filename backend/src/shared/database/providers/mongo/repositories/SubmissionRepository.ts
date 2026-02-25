@@ -3187,12 +3187,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   }
 
   //get level wise answer submission percentage report
-  async getLevelWiseReport(session?: ClientSession): Promise<LevelReportStat[]> {
+  async getLevelWiseReport(startDate:string, endDate:string, session?: ClientSession): Promise<LevelReportStat[]> {
     await this.init();
-    //start date is always from nov-25
-    const startDate = new Date('2025-11-01T00:00:00.000Z');
-    //end date is always the current date
-    const endDate = new Date();
+    
+    const convertedStartDate = new Date(startDate);
+    const convertedEndDate = new Date(endDate);
     const pipeline: any[] = [
       // 1️⃣ Unwind history
       {
@@ -3207,8 +3206,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         $match: {
           historyIndex: {$gt: 0},
           'history.createdAt': {
-            $gte: startDate,
-            $lte: endDate,
+            $gte: convertedStartDate,
+            $lte: convertedEndDate,
           },
         },
       },

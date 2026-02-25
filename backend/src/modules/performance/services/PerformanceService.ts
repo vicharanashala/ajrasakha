@@ -219,10 +219,11 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  async getLevelWiseReport(): Promise<ArrayBuffer | null> {
+  async getLevelWiseReport(startDate:string,endDate:string): Promise<ArrayBuffer | null> {
     return await this._withTransaction(async (session: ClientSession) => {
-      const result = await this.questionSubmissionRepo.getLevelWiseReport(session);
-      console.log('resulltttt:', result);
+      const result = await this.questionSubmissionRepo.getLevelWiseReport(startDate, endDate, session);
+      
+      if(result.length === 0 ) return null
 
       //Create Excel workbook
       const workbook = new ExcelJs.Workbook();

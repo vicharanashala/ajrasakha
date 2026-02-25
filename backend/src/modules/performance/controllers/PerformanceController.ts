@@ -100,12 +100,26 @@ export class PerformanceController {
   )
   @OpenAPI({summary: 'Get level wise report'})
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async getLevelWiseReport(@Res() response: any) {
-    const data = await this.performanceService.getLevelWiseReport();
+  async getLevelWiseReport(
+    @QueryParams() query: {startDate: string; endDate: string},
+    @Res() response: any,
+  ) {
+    const startDate = query.startDate;
+    const endDate = query.endDate;
+    if (!startDate || !endDate) {
+      return response.status(400).json({
+        success: false,
+        message: 'startDate and endDate are required',
+      });
+    }
+    const data = await this.performanceService.getLevelWiseReport(
+      startDate,
+      endDate,
+    );
     if (!data) {
       response.status(200).json({
         success: false,
-        message: 'No data found',
+        message: 'No data found for the selected filters',
       });
       return;
     }

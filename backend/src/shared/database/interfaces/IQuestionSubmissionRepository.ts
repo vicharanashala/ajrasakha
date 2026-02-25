@@ -140,5 +140,5 @@ export interface IQuestionSubmissionRepository {
   getAbsentSubmissions(absentExpertIds:string[],session?:ClientSession):Promise<IQuestionSubmission[]>
   findQuestionsNeedingEscalation(limit?:number,session?:ClientSession):Promise<IQuestionSubmission[]>
   updateById(id?:string,update?:any,session?:any)
-  getLevelWiseReport(session?: ClientSession): Promise<LevelReportStat[]>;
+  getLevelWiseReport(startDate:string,endDate:string,session?: ClientSession): Promise<LevelReportStat[]>;
 }
