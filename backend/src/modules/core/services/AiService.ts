@@ -85,22 +85,18 @@ export class AiService {
   //   return data;
   // }
 
-  /*async getEmbedding(text: string): Promise<{embedding: number[]}> {
+  async getEmbedding(text: string): Promise<{embedding: number[]}> {
     try {   
       const fullUrl = `${this._aiServerUrl}/embed`;
-console.log("FULL FETCH URL:", fullUrl);
-console.log("FULL URL LENGTH:", fullUrl.length);
-console.log("LAST CHAR CODE:", fullUrl.charCodeAt(fullUrl.length - 1));
+      console.log("FULL FETCH URL:", fullUrl);
       const response = await fetch(fullUrl, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({text}),
-      });
-      console.log("the response coming===",response)
+      })
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.log("the error text=======",errorText)
         throw new InternalServerError(
           `Failed to get embedding from AI server: ${response.status} ${response.statusText} - ${errorText}`,
         );
@@ -114,8 +110,8 @@ console.log("LAST CHAR CODE:", fullUrl.charCodeAt(fullUrl.length - 1));
         'Failed to generate embedding from the AI server. Please try again later.',
       );
     }
-  }*/
-  async getEmbedding(text: string): Promise<{ embedding: number[] } | null> {
+  }
+  /*async getEmbedding(text: string): Promise<{ embedding: number[] } | null> {
     const fullUrl = `${this._aiServerUrl}/embed`;
   
     console.log("FULL FETCH URL:", fullUrl);
@@ -145,5 +141,5 @@ console.log("LAST CHAR CODE:", fullUrl.charCodeAt(fullUrl.length - 1));
     console.log("Embedding length:", data?.embedding?.length);
   
     return data;
-  }
+  }*/
 }
