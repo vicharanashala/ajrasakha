@@ -22,13 +22,7 @@ interface MonthYearRange {
   to: { month: number; year: number } | undefined;
 }
 
-
-
 const currentYear = new Date().getFullYear();
-
-
-
-
 
 const DownloadLevelWiseReportButton = ({
   closeSideBar,
@@ -51,9 +45,20 @@ const DownloadLevelWiseReportButton = ({
     }
     try {
       setIsDownloading(true);
-      const fromDate = new Date(monthYearRange.from.year, monthYearRange.from.month, 1);
-      const toDate = new Date(monthYearRange.to.year, monthYearRange.to.month + 1, 0);
-      const blob = await service.downloadLevelWiseReport(fromDate.toString(),toDate.toString());
+      const fromDate = new Date(
+        monthYearRange.from.year,
+        monthYearRange.from.month,
+        1,
+      );
+      const toDate = new Date(
+        monthYearRange.to.year,
+        monthYearRange.to.month + 1,
+        0,
+      );
+      const blob = await service.downloadLevelWiseReport(
+        fromDate.toString(),
+        toDate.toString(),
+      );
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -67,7 +72,9 @@ const DownloadLevelWiseReportButton = ({
     } catch (err: any) {
       console.error("Download error:", err);
       const errorMessage =
-        err instanceof Error ? err.message : "Failed to download filtered report";
+        err instanceof Error
+          ? err.message
+          : "Failed to download filtered report";
       toast.error(errorMessage);
     } finally {
       setIsDownloading(false);
@@ -161,13 +168,23 @@ const DownloadLevelWiseReportButton = ({
 
         <DialogFooter className="gap-2 pt-2 flex-shrink-0">
           <DialogClose asChild>
-            <Button variant="outline" type="button" className="w-full sm:w-auto">
+            <Button
+              variant="outline"
+              type="button"
+              className="w-full sm:w-auto"
+            >
               Cancel
             </Button>
           </DialogClose>
           <Button
             onClick={handleLevelWiseReportDownload}
-            disabled={!monthYearRange.from || !monthYearRange.to || isDownloading}
+            disabled={
+              !monthYearRange.from ||
+              !monthYearRange.to ||
+              isDownloading ||
+              monthYearRange.from.year > monthYearRange.to.year ||
+              monthYearRange.to.year > currentYear
+            }
             className="w-full sm:w-auto"
           >
             {isDownloading ? (

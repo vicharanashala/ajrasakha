@@ -57,7 +57,19 @@ const MonthYearPicker = ({
         value={selectedYear}
         onChange={(e) => {
           const year = Number(e.target.value);
-          onChange({ month: selectedMonth, year });
+          let month = selectedMonth;
+          // adjust month if it is invalid for the new year
+    if (isMonthDisabled(month, year)) {
+      // find first valid month in that year
+      const firstValidMonth = MONTHS.findIndex(
+        (_, idx) => !isMonthDisabled(idx, year)
+      );
+
+      if (firstValidMonth !== -1) {
+        month = firstValidMonth;
+      }
+    }
+          onChange({ month, year });
         }}
       >
         {YEARS.map((y) => (
