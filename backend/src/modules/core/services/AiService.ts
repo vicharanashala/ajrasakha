@@ -96,9 +96,11 @@ console.log("LAST CHAR CODE:", fullUrl.charCodeAt(fullUrl.length - 1));
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({text}),
       });
+      console.log("the response coming===",response)
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.log("the error text=======",errorText)
         throw new InternalServerError(
           `Failed to get embedding from AI server: ${response.status} ${response.statusText} - ${errorText}`,
         );
