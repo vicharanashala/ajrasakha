@@ -4,6 +4,9 @@ import { formatMonthYear } from "@/utils/formateMonthYear";
 import { TopRightBadge } from "@/components/NewBadge";
 import { Button } from "../../components/atoms/button";
 import { Download, Loader2, CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/atoms/calendar";
+import { formatDateLocal } from "@/utils/formatDate";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -14,15 +17,7 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/atoms/dialog";
-import MonthYearPicker from "../../components/MonthYearPicker";
-import { formatMonthYearLabel } from "../../utils/formatMonthYearLabel";
-
-interface MonthYearRange {
-  from: { month: number; year: number } | undefined;
-  to: { month: number; year: number } | undefined;
-}
-
-const currentYear = new Date().getFullYear();
+import type { DateRange } from "react-day-picker";
 
 const DownloadLevelWiseReportButton = ({
   closeSideBar,
@@ -31,34 +26,32 @@ const DownloadLevelWiseReportButton = ({
 }) => {
   const service = new PerformaneService();
   const [isDownloading, setIsDownloading] = useState(false);
-  const [monthYearRange, setMonthYearRange] = useState<MonthYearRange>({
-    from: undefined,
+
+  // Initialize date range with Nov 1, 2025 as start date
+  const defaultStartDate = new Date(2025, 10, 1); // November 2025
+
+  const [downloadDateRange, setDownloadDateRange] = useState<
+    DateRange | undefined
+  >({
+    from: defaultStartDate,
     to: undefined,
   });
   const [isDateDialogOpen, setIsDateDialogOpen] = useState(false);
 
   async function handleLevelWiseReportDownload() {
-    if (!monthYearRange.from || !monthYearRange.to) {
-      toast.error("Please select a month range first");
+    // Validate date range
+    if (!downloadDateRange?.from || !downloadDateRange?.to) {
+      toast.error("Please select a date range first");
       setIsDateDialogOpen(true);
       return;
     }
     try {
       setIsDownloading(true);
-      const fromDate = new Date(
-        monthYearRange.from.year,
-        monthYearRange.from.month,
-        1,
-      );
-      const toDate = new Date(
-        monthYearRange.to.year,
-        monthYearRange.to.month + 1,
-        0,
-      );
-      const blob = await service.downloadLevelWiseReport(
-        fromDate.toString(),
-        toDate.toString(),
-      );
+
+      const startDate = formatDateLocal(downloadDateRange.from);
+      const endDate = formatDateLocal(downloadDateRange.to);
+      const blob = await service.downloadLevelWiseReport(startDate, endDate);
+      // Create download link
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -80,9 +73,6 @@ const DownloadLevelWiseReportButton = ({
       setIsDownloading(false);
     }
   }
-
-  const fromLabel = formatMonthYearLabel(monthYearRange.from);
-  const toLabel = formatMonthYearLabel(monthYearRange.to);
 
   return (
     <Dialog open={isDateDialogOpen} onOpenChange={setIsDateDialogOpen}>
@@ -106,67 +96,48 @@ const DownloadLevelWiseReportButton = ({
                 <TopRightBadge label="new" right={0} />
               </p>
               <p className="text-[11px] text-gray-500">
-                Submission Report by Level (Monthly)
+                Submission Report by Level
               </p>
             </div>
           </div>
         </button>
       </DialogTrigger>
-      <DialogContent className="max-w-sm w-full p-5">
-        <DialogHeader className="space-y-2">
+      <DialogContent className="max-w-[min(90vw,800px)] w-full max-h-[90vh] overflow-hidden flex flex-col p-4">
+        <DialogHeader className="space-y-2 flex-shrink-0">
           <DialogTitle className="text-lg font-semibold">
-            Select Month Range
+            Select Date Range for LevelWise Report
           </DialogTitle>
           <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-md border">
-            Select a start and end month to download the LevelWise report.
+            Select a date range to download statistics of level wise submission accepted,
+            modified, and rejected.
           </div>
         </DialogHeader>
-
-        {/* Selected range display */}
-        <div className="flex items-center gap-2 text-xs bg-primary/5 p-2 rounded-md border border-primary/20">
-          <CalendarIcon className="h-4 w-4 text-primary flex-shrink-0" />
-          <span className="font-medium text-sm">
-            {fromLabel && toLabel
-              ? `${fromLabel} → ${toLabel}`
-              : fromLabel
-                ? `${fromLabel} → (select end)`
-                : "No range selected"}
-          </span>
+        <div className="space-y-3 overflow-y-auto flex-1 py-2">
+          <div className="flex items-center gap-2 text-xs bg-primary/5 p-2 rounded-md border border-primary/20">
+            <CalendarIcon className="h-4 w-4 text-primary flex-shrink-0" />
+            <span className="font-medium text-sm">
+              {downloadDateRange?.from && downloadDateRange?.to
+                ? `${format(downloadDateRange.from, "MMM dd, yyyy")} - ${format(downloadDateRange.to, "MMM dd, yyyy")}`
+                : "No date range selected"}
+            </span>
+          </div>
+          <div className="flex justify-center overflow-x-auto pb-2">
+            <Calendar
+              mode="range"
+              selected={downloadDateRange}
+              onSelect={setDownloadDateRange}
+              numberOfMonths={2}
+              disabled={(date) => {
+                // Disable dates before November 1, 2025 and dates in the future
+                const startDate = new Date(2025, 10, 1); // Nov 1, 2025
+                return date < startDate || date > new Date();
+              }}
+              className="rounded-md border shadow-sm scale-95"
+              showOutsideDays={false}
+            />
+          </div>
         </div>
-
-        {/* Month/Year pickers side by side */}
-        <div className="flex gap-4 pt-1">
-          <MonthYearPicker
-            label="From"
-            value={monthYearRange.from}
-            onChange={(val) =>
-              setMonthYearRange((prev) => {
-                // If from > to, reset to
-                const newTo =
-                  prev.to &&
-                  (val.year > prev.to.year ||
-                    (val.year === prev.to.year && val.month > prev.to.month))
-                    ? undefined
-                    : prev.to;
-                return { from: val, to: newTo };
-              })
-            }
-            minMonthYear={{ month: 10, year: 2025 }}
-            maxMonthYear={{ month: new Date().getMonth(), year: currentYear }}
-          />
-          <div className="w-px bg-border" />
-          <MonthYearPicker
-            label="To"
-            value={monthYearRange.to}
-            onChange={(val) =>
-              setMonthYearRange((prev) => ({ ...prev, to: val }))
-            }
-            minMonthYear={monthYearRange.from}
-            maxMonthYear={{ month: new Date().getMonth(), year: currentYear }}
-          />
-        </div>
-
-        <DialogFooter className="gap-2 pt-2 flex-shrink-0">
+        <DialogFooter className="gap-2 pt-3 flex-shrink-0">
           <DialogClose asChild>
             <Button
               variant="outline"
@@ -179,11 +150,9 @@ const DownloadLevelWiseReportButton = ({
           <Button
             onClick={handleLevelWiseReportDownload}
             disabled={
-              !monthYearRange.from ||
-              !monthYearRange.to ||
-              isDownloading ||
-              monthYearRange.from.year > monthYearRange.to.year ||
-              monthYearRange.to.year > currentYear
+              !downloadDateRange?.from ||
+              !downloadDateRange?.to ||
+              isDownloading
             }
             className="w-full sm:w-auto"
           >
