@@ -88,7 +88,7 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
 
 
   const data = paginatedData.map((r, idx) => ({
-    id: `${r.reviewerName}_${idx}`,
+    id: r.reviewerName,
     reviewerName: r.reviewerName,
     data: allBuckets.map((bucket) => ({
       x: formatBucket(bucket),
@@ -190,12 +190,6 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
             legend: "Experts",
             legendPosition: "middle",
             legendOffset: -150,
-            format: (value) => {
-              // Extract reviewer name from "name_idx" format
-              const parts = value.toString().split('_');
-              parts.pop(); // Remove the index
-              return parts.join('_');
-            },
           }}
           legends={[
             {
@@ -268,7 +262,7 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
       </div>
 
       {/* Pagination Controls */}
-      <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50 dark:bg-gray-900">
+      <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50 dark:bg-background">
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-700 dark:text-gray-300">
             Showing {startItem}-{endItem} of{" "}
