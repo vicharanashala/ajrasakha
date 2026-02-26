@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useGetReviewLevel } from "@/hooks/api/user/useGetReviewLevel";
+import { Separator } from "@/components/atoms/separator";
 import {
   Table,
   TableBody,
@@ -94,7 +95,7 @@ const FilterSelect = ({
       {label}
     </Label>
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger>
+      <SelectTrigger className="hover:bg-accent/50 hover:text-accent-foreground transition-colors">
         <SelectValue placeholder={`Select ${label}`} />
       </SelectTrigger>
       <SelectContent>
@@ -253,6 +254,11 @@ export const ReviewLevelComponent = () => {
                     Icon={Leaf}
                   />
 
+                  {/* Separator */}
+                  <div className="col-span-2">
+                    <Separator className="my-1" />
+                  </div>
+
                   <FilterSelect
                     label="Domains"
                     value={draftFilters.domain}
@@ -262,12 +268,18 @@ export const ReviewLevelComponent = () => {
                   />
 
                   <FilterSelect
-                    label="Statuss"
+                    label="Status"
                     value={draftFilters.status}
                     options={STATUS}
                     onChange={(val) => updateDraft("status", val)}
                     Icon={FileText}
                   />
+
+                  {/* Separator */}
+                  <div className="col-span-2">
+                    <Separator className="my-1" />
+                  </div>
+
                   <div className="space-y-2 min-w-0">
                     <Label className="flex items-center gap-2 text-sm font-semibold">
                       <UserIcon className="h-4 w-4 text-primary" />
@@ -295,7 +307,7 @@ export const ReviewLevelComponent = () => {
                       onValueChange={handleSelectedExpert}
                       disabled={isLoading}
                     >
-                      <SelectTrigger className="bg-background w-full">
+                      <SelectTrigger className="bg-background w-full hover:bg-accent/50 hover:text-accent-foreground transition-colors">
                         <SelectValue />
                       </SelectTrigger>
 
