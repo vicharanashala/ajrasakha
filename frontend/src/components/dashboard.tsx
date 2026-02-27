@@ -205,6 +205,25 @@ export const Dashboard = () => {
             <DashboardClock />
           </div>
         </div>
+       <div>
+  <button
+    className="
+      inline-flex items-center gap-2
+      bg-primary text-primary-foreground
+      px-5 py-2.5
+      rounded-xl
+      text-sm font-semibold
+      shadow-md hover:shadow-lg
+      transition-all duration-300
+      hover:scale-[1.02]
+      active:scale-[0.98]
+      focus:outline-none focus:ring-2 focus:ring-primary/40
+      mb-5
+    "
+  >
+    Excel Report
+  </button>
+</div>
 
         {/* Top Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

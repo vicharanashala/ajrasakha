@@ -50,6 +50,7 @@ import {
   useQuestionTableStore,
 } from "@/stores/all-questions";
 import ViewDropdown from "../questions/components/ViewDropdown";
+import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { TopRightBadge } from "@/components/NewBadge";
 
 type QuestionsFiltersProps = {
@@ -709,6 +710,10 @@ export const QuestionsFilters = ({
                 
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
                   <DownloadFilteredReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
+                </div>
+                
+                <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
+                  <DownloadLevelWiseReportButton closeSideBar={()=>setIsSidebarOpen(false)} />
                 </div>
               </div>
             </section>

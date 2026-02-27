@@ -13,6 +13,8 @@ import {
   Authorized,
   QueryParams,
   Put,
+  Res,
+  ContentType,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject} from 'inversify';
@@ -89,6 +91,42 @@ export class PerformanceController {
     return result;
   }
 
+  //get level wise report based on the answers state
+  @Get('/level-report')
+  @HttpCode(200)
+  @Authorized()
+  @ContentType(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  @OpenAPI({summary: 'Get level wise report'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async getLevelWiseReport(
+    @QueryParams() query: {startDate: string; endDate: string},
+    @Res() response: any,
+  ) {
+    const startDate = query.startDate;
+    const endDate = query.endDate;
+    if (!startDate || !endDate) {
+      return response.status(400).json({
+        success: false,
+        message: 'startDate and endDate are required',
+      });
+    }
+    const data = await this.performanceService.getLevelWiseReport(
+      startDate,
+      endDate,
+    );
+    if (!data) {
+      response.status(200).json({
+        success: false,
+        message: 'No data found for the selected filters',
+      });
+      return;
+    }
+
+    return Buffer.from(data);
+  }
+
   @Post('/check-in')
   @HttpCode(200)
   @Authorized()
@@ -113,5 +151,6 @@ export class PerformanceController {
       message: "Cron snapshot report email sent successfully.",
     };
   }
+
 
 }

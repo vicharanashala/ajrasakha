@@ -26,6 +26,9 @@ import {
 import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
 import { IPerformanceService } from '../interfaces/IPerformanceService.js';
 import { sendStatsEmail } from '#root/utils/backupEmailService.js';
+import { formatMinutesToHMS } from '#root/utils/formatMinutesToHMS.js';
+import { formatSheetName } from '#root/utils/formatSheetName.js';
+import ExcelJs from 'exceljs'
 
 @injectable()
 export class PerformanceService extends BaseService implements IPerformanceService {
@@ -213,6 +216,64 @@ export class PerformanceService extends BaseService implements IPerformanceServi
       }
 
       await sendStatsEmail(user.email);
+    });
+  }
+
+  async getLevelWiseReport(startDate:string,endDate:string): Promise<ArrayBuffer | null> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      const result = await this.questionSubmissionRepo.getLevelWiseReport(startDate, endDate, session);
+      
+      if(result.length === 0 ) return null
+
+      //Create Excel workbook
+      const workbook = new ExcelJs.Workbook();
+
+      // Loop each month
+      result.forEach(monthEntry => {
+        const sheetName = formatSheetName(monthEntry.month);
+        const sheet = workbook.addWorksheet(sheetName);
+        sheet.columns = [
+          {header: 'Level', key: 'level', width: 25},
+          {header: 'Approved Count', key: 'approved', width: 25},
+          {header: 'Approved Count(%)', key: 'approvedPercentage', width: 25},
+          {header: 'Rejected Count', key: 'rejected', width: 25},
+          {header: 'Rejected Count(%)', key: 'rejectedPercentage', width: 25},
+          {header: 'Modified Count', key: 'modified', width: 25},
+          {header: 'Modified Count(%)', key: 'modifiedPercentage', width: 25},
+          {header: 'Avg Review Time', key: 'avgTime', width: 25},
+        ];
+        // Loop data array inside each month
+        monthEntry.data.forEach(stat => {
+          sheet.addRow({
+            level: stat.level,
+            approved: stat.approvedCount,
+            approvedPercentage: `${stat.approvedPercentage}%`,
+            rejected: stat.rejectedCount,
+            rejectedPercentage: `${stat.rejectedPercentage}%`,
+            modified: stat.modifiedCount,
+            modifiedPercentage: `${stat.modifiedPercentage}%`,
+            avgTime: formatMinutesToHMS(stat.avgTimeTakenMinutes),
+          });
+        });
+
+        // Style header
+        const headerRow = sheet.getRow(1);
+        headerRow.font = {bold: true};
+        headerRow.alignment = {horizontal: 'center', vertical: 'middle'};
+        // Align Cells
+        sheet.eachRow(row => {
+          row.eachCell(cell => {
+            cell.alignment = {
+              horizontal: 'center',
+              vertical: 'middle',
+            };
+          });
+        });
+      });
+
+      // Generate buffer
+      const buffer = await workbook.xlsx.writeBuffer();
+      return buffer as ArrayBuffer;
     });
   }
 
