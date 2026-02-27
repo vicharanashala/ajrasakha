@@ -3,7 +3,7 @@ import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject, injectable} from 'inversify';
 import {ClientSession, ObjectId} from 'mongodb';
-import { startBalanceWorkloadWorkers } from '#root/workers/balanceWorkload.manager.js';
+import {startBalanceWorkloadWorkers} from '#root/workers/balanceWorkload.manager.js';
 import {
   IQuestion,
   IQuestionSubmission,
@@ -40,6 +40,7 @@ import {NotificationService} from '#root/modules/core/services/NotificationServi
 import {CORE_TYPES} from '#root/modules/core/types.js';
 import {IQuestionService} from '../interfaces/IQuestionService.js';
 import {isToday} from '#root/utils/date.utils.js';
+import {IReRouteRepository} from '#root/shared/database/interfaces/IReRouteRepository.js';
 import { sendEmailWithAttachment } from '#root/utils/mailer.js';
 import ExcelJS from "exceljs";
 
@@ -72,6 +73,9 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     @inject(GLOBAL_TYPES.NotificationService)
     private readonly notificationService: NotificationService,
+
+    @inject(GLOBAL_TYPES.ReRouteRepository)
+    private readonly reRouteRepository: IReRouteRepository,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -685,7 +689,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           session,
         );
         // No submissions send answer_creation notification to the first expert
-        if(EXISTING_QUEUE_COUNT===0){
+        if (EXISTING_QUEUE_COUNT === 0) {
           let message = `A Question has been assigned for answering`;
           let title = 'Answer Creation Assigned';
           let entityId = questionId.toString();
@@ -759,7 +763,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         //1. Validate question existence
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
-        console.log("toggleAutoAllocate*****",question)
+        console.log('toggleAutoAllocate*****', question);
 
         const updated = await this.questionRepo.updateAutoAllocate(
           questionId,
@@ -1117,12 +1121,24 @@ export class QuestionService extends BaseService implements IQuestionService {
     },
     session?: ClientSession,
   ): Promise<IQuestionSubmission> {
-    if(session){
-      return this._removeExpertFromQueue(userId,questionId,index,options,session)
+    if (session) {
+      return this._removeExpertFromQueue(
+        userId,
+        questionId,
+        index,
+        options,
+        session,
+      );
     }
     return this._withTransaction(async newSession => {
-      return this._removeExpertFromQueue(userId,questionId,index,options,newSession)
-    })
+      return this._removeExpertFromQueue(
+        userId,
+        questionId,
+        index,
+        options,
+        newSession,
+      );
+    });
   }
 
   async _removeExpertFromQueue(
@@ -1198,10 +1214,10 @@ export class QuestionService extends BaseService implements IQuestionService {
               IS_INCREMENT,
               session,
             );
-            let entityId= questionId;
-            let message:string = `A new Review has been assigned to you`;
-            let title:string = 'New Review Assigned';
-            let type:INotificationType= 'peer_review';
+            let entityId = questionId;
+            let message: string = `A new Review has been assigned to you`;
+            let title: string = 'New Review Assigned';
+            let type: INotificationType = 'peer_review';
             await this.notificationService.saveTheNotifications(
               message,
               title,
@@ -1422,6 +1438,26 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
         }
       }
+      // handle re-routed expert's reputation_score deduction when expert hasn't answered/reviewed yet (pending state)
+      const existingReRoute = await this.reRouteRepository.findByQuestionId(
+        questionId,
+        activeSession,
+      );
+
+      if (existingReRoute?.reroutes?.length) {
+        const lastReroute = existingReRoute.reroutes.at(-1);
+
+        if (lastReroute?.status === 'pending') {
+          const reroutedExpertId = lastReroute.reroutedTo?.toString();
+          if (reroutedExpertId) {
+            await this.userRepo.updateReputationScore(
+              reroutedExpertId,
+              false,
+              activeSession,
+            );
+          }
+        }
+      }
 
       // Delete submissions and requests related to this question
       await this.questionSubmissionRepo.deleteByQuestionId(
@@ -1604,8 +1640,12 @@ export class QuestionService extends BaseService implements IQuestionService {
         questionId.toString(),
         session,
       );
-      if(question.isAutoAllocate===false){
-        await this.questionRepo.updateAutoAllocate(questionId.toString(),true,session)
+      if (question.isAutoAllocate === false) {
+        await this.questionRepo.updateAutoAllocate(
+          questionId.toString(),
+          true,
+          session,
+        );
       }
       const latestSubmission =
         await this.questionSubmissionRepo.getByQuestionId(
@@ -1617,11 +1657,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       const UPDATED_HISTORY_LENGTH = latestSubmission.history.length || 0;
       if (UPDATED_QUEUE_LENGTH === 0) {
         // if (question?.isAutoAllocate) {
-        await this.autoAllocateExperts(
-          questionId.toString(),
-          session,
-          3, 
-        );
+        await this.autoAllocateExperts(questionId.toString(), session, 3);
         // }
         continue;
       }
@@ -1645,48 +1681,39 @@ export class QuestionService extends BaseService implements IQuestionService {
     console.log('Completed!');
   }
   async balanceWorkload_copy() {
-   
-    
     return await this._withTransaction(async session => {
       try {
         const lessWorkloadExperts =
           await this.userRepo.findActiveLowReputationExpertsToday(session);
-          const MAX_PER_EXPERT = 5;
-          const maxAssignments = lessWorkloadExperts.length * MAX_PER_EXPERT;
-          if (!lessWorkloadExperts.length ) 
-        {
+        const MAX_PER_EXPERT = 5;
+        const maxAssignments = lessWorkloadExperts.length * MAX_PER_EXPERT;
+        if (!lessWorkloadExperts.length) {
           return {
-            message: "No Expert present to Reallocate question ",
+            message: 'No Expert present to Reallocate question ',
             expertsInvolved: 0,
             submissionsProcessed: 0,
           };
         }
-  
+
         const delayedSubmissions =
           await this.questionSubmissionRepo.findQuestionsNeedingEscalation(
             maxAssignments,
             session,
           );
-          if ( !delayedSubmissions.length) 
-        {
+        if (!delayedSubmissions.length) {
           return {
-            message: "No delayed questions present to Reallocate",
+            message: 'No delayed questions present to Reallocate',
             expertsInvolved: 0,
             submissionsProcessed: 0,
           };
         }
-            
-        
-        
-  
-       
-  
-      //  const submissionsToProcess = delayedSubmissions.slice(0, maxAssignments);
-  
+
+        //  const submissionsToProcess = delayedSubmissions.slice(0, maxAssignments);
+
         // -----------------------------
         // 🎯 Round Robin Distribution
         // -----------------------------
-       /* const assignments: Record<string, any[]> = {};
+        /* const assignments: Record<string, any[]> = {};
         lessWorkloadExperts.forEach(e => (assignments[e._id.toString()] = []));
   
         let expertIndex = 0;
@@ -1696,84 +1723,88 @@ export class QuestionService extends BaseService implements IQuestionService {
           expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
         }*/
         // -----------------------------
-// 🎯 Smart Round Robin Distribution
-// -----------------------------
-const assignments: Record<string, any[]> = {};
-const expertLoad: Record<string, number> = {};
+        // 🎯 Smart Round Robin Distribution
+        // -----------------------------
+        const assignments: Record<string, any[]> = {};
+        const expertLoad: Record<string, number> = {};
 
-lessWorkloadExperts.forEach(e => {
-  const id = e._id.toString();
-  assignments[id] = [];
-  expertLoad[id] = 0;
-});
+        lessWorkloadExperts.forEach(e => {
+          const id = e._id.toString();
+          assignments[id] = [];
+          expertLoad[id] = 0;
+        });
 
-let expertIndex = 0;
-console.log("the assignments coming=====",delayedSubmissions.length,assignments)
-console.log("the delayed questions====",expertLoad)
+        let expertIndex = 0;
+        console.log(
+          'the assignments coming=====',
+          delayedSubmissions.length,
+          assignments,
+        );
+        console.log('the delayed questions====', expertLoad);
 
-for (const submission of delayedSubmissions) {
-  let attempts = 0;
-  let assigned = false;
+        for (const submission of delayedSubmissions) {
+          let attempts = 0;
+          let assigned = false;
 
-  // Build a set of experts who already handled this submission
-  const historyExpertIds = new Set(
-    (submission.history || []).map(h => h.updatedBy?.toString()),
-  );
+          // Build a set of experts who already handled this submission
+          const historyExpertIds = new Set(
+            (submission.history || []).map(h => h.updatedBy?.toString()),
+          );
 
-  /*const queueExpertIds = new Set(
+          /*const queueExpertIds = new Set(
     (submission.queue || []).map(q => q.toString()),
   );*/
-  const firstExpertId = submission.queue?.[0]?.toString();
-const queueExpertIds = new Set(firstExpertId ? [firstExpertId] : []);
+          const firstExpertId = submission.queue?.[0]?.toString();
+          const queueExpertIds = new Set(firstExpertId ? [firstExpertId] : []);
 
+          while (attempts < lessWorkloadExperts.length && !assigned) {
+            const expert = lessWorkloadExperts[expertIndex];
+            const expertId = expert._id.toString();
 
-  while (attempts < lessWorkloadExperts.length && !assigned) {
-    const expert = lessWorkloadExperts[expertIndex];
-    const expertId = expert._id.toString();
+            const alreadyInHistory = historyExpertIds.has(expertId);
+            const alreadyInQueue = queueExpertIds.has(expertId);
+            const overloaded = expertLoad[expertId] >= MAX_PER_EXPERT;
 
-    const alreadyInHistory = historyExpertIds.has(expertId);
-    const alreadyInQueue = queueExpertIds.has(expertId);
-    const overloaded = expertLoad[expertId] >= MAX_PER_EXPERT;
+            if (!alreadyInHistory && !alreadyInQueue && !overloaded) {
+              assignments[expertId].push(submission);
+              expertLoad[expertId]++;
+              assigned = true;
+            }
 
-    if (!alreadyInHistory && !alreadyInQueue && !overloaded) {
-      assignments[expertId].push(submission);
-      expertLoad[expertId]++;
-      assigned = true;
-    }
+            expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
+            attempts++;
+          }
 
-    expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
-    attempts++;
-  }
+          if (!assigned) {
+            console.warn(
+              `No eligible expert found for submission ${submission._id}`,
+            );
+            // Optional: push to fallback/manual bucket
+          }
+        }
+        const totalAssigned = Object.values(assignments).reduce(
+          (sum, arr) => sum + arr.length,
+          0,
+        );
 
-  if (!assigned) {
-    console.warn(
-      `No eligible expert found for submission ${submission._id}`,
-    );
-    // Optional: push to fallback/manual bucket
-  }
-}
-const totalAssigned = Object.values(assignments)
-  .reduce((sum, arr) => sum + arr.length, 0);
-  
-  
         // -----------------------------
         // 🔄 Process Each Assignment
         // -----------------------------
         for (const expertId in assignments) {
           const expertSubmissions = assignments[expertId];
-  
+
           for (const submission of expertSubmissions) {
             const submissionId = submission._id;
             const queue = submission.queue || [];
             const history = submission.history || [];
             const now = new Date();
-  
+
             // =========================
             // 🟢 TYPE A — No History
             // =========================
             if (history.length === 0) {
               const firstExpert = queue[0]?.toString();
-  
+
               // Penalize only first queued expert
               if (firstExpert) {
                 await this.userRepo.updateReputationScore(
@@ -1782,7 +1813,7 @@ const totalAssigned = Object.values(assignments)
                   session,
                 );
               }
-  
+
               await this.questionSubmissionRepo.updateById(
                 submissionId,
                 {
@@ -1794,10 +1825,13 @@ const totalAssigned = Object.values(assignments)
                 },
                 session,
               );
-  
-              await this.userRepo.updateReputationScore(expertId, true, session);
-           
-  
+
+              await this.userRepo.updateReputationScore(
+                expertId,
+                true,
+                session,
+              );
+
               await this.notificationService.saveTheNotifications(
                 'A Question has been assigned for answering',
                 'Answer Creation Assigned',
@@ -1805,27 +1839,27 @@ const totalAssigned = Object.values(assignments)
                 expertId,
                 'answer_creation',
               );
-  
+
               continue;
             }
-  
+
             // =========================
             // 🔵 TYPE B — Has History
             // =========================
             const lastHistory = history[history.length - 1];
-  
+
             if (lastHistory?.status === 'in-review') {
               const stuckExpertId = lastHistory.updatedBy?.toString();
-  
+
               // Find stuck expert index
               const stuckIndex = queue.findIndex(
                 q => q.toString() === stuckExpertId,
               );
-  
+
               // Keep only experts before stuck one
               const newQueue =
                 stuckIndex > -1 ? queue.slice(0, stuckIndex) : [];
-  
+
               // Add new expert
               newQueue.push(new ObjectId(expertId));
               // rebuild history safely
@@ -1836,7 +1870,7 @@ const totalAssigned = Object.values(assignments)
                 createdAt: now,
                 updatedAt: now,
               });
-  
+
               await this.questionSubmissionRepo.updateById(
                 submissionId,
                 {
@@ -1848,7 +1882,7 @@ const totalAssigned = Object.values(assignments)
                 },
                 session,
               );
-  
+
               // Penalize stuck expert
               if (stuckExpertId) {
                 await this.userRepo.updateReputationScore(
@@ -1857,9 +1891,13 @@ const totalAssigned = Object.values(assignments)
                   session,
                 );
               }
-  
+
               // Reward new expert
-              await this.userRepo.updateReputationScore(expertId, true, session);
+              await this.userRepo.updateReputationScore(
+                expertId,
+                true,
+                session,
+              );
               await this.notificationService.saveTheNotifications(
                 'A new Review has been assigned to you',
                 'New Review Assigned',
@@ -1871,141 +1909,152 @@ const totalAssigned = Object.values(assignments)
           }
         }
         return {
-          message: "Successfully ReAllocated delayed Questions",
+          message: 'Successfully ReAllocated delayed Questions',
           expertsInvolved: lessWorkloadExperts.length,
           submissionsProcessed: totalAssigned,
         };
       } catch (error) {
-        throw new InternalServerError(
-          `Failed to balance workload: ${error}`,
-        );
+        throw new InternalServerError(`Failed to balance workload: ${error}`);
       }
     });
   }
-  
 
-async balanceWorkload() {
-  const lessWorkloadExperts =
-    await this.userRepo.findActiveLowReputationExpertsToday();
+  async balanceWorkload() {
+    const lessWorkloadExperts =
+      await this.userRepo.findActiveLowReputationExpertsToday();
 
-  const MAX_PER_EXPERT = 5;
-  const maxAssignments = lessWorkloadExperts.length * MAX_PER_EXPERT;
+    const MAX_PER_EXPERT = 5;
+    const maxAssignments = lessWorkloadExperts.length * MAX_PER_EXPERT;
 
-  if (!lessWorkloadExperts.length) {
-    return { message: "No Expert Present To Reallocate Questions .No action needed.", expertsInvolved: 0, submissionsProcessed: 0 };
-  }
+    if (!lessWorkloadExperts.length) {
+      return {
+        message: 'No Expert Present To Reallocate Questions .No action needed.',
+        expertsInvolved: 0,
+        submissionsProcessed: 0,
+      };
+    }
 
-  const delayedSubmissions =
-    await this.questionSubmissionRepo.findQuestionsNeedingEscalation(maxAssignments);
+    const delayedSubmissions =
+      await this.questionSubmissionRepo.findQuestionsNeedingEscalation(
+        maxAssignments,
+      );
 
-  if (!delayedSubmissions.length) {
-    return { message: "No questions are pending allocation for more than one hour. No action needed.", expertsInvolved: 0, submissionsProcessed: 0 };
-  }
+    if (!delayedSubmissions.length) {
+      return {
+        message:
+          'No questions are pending allocation for more than one hour. No action needed.',
+        expertsInvolved: 0,
+        submissionsProcessed: 0,
+      };
+    }
 
-  const assignments: Record<string, any[]> = {};
-  const expertLoad: Record<string, number> = {};
+    const assignments: Record<string, any[]> = {};
+    const expertLoad: Record<string, number> = {};
 
-  lessWorkloadExperts.forEach(e => {
-    const id = e._id.toString();
-    assignments[id] = [];
-    expertLoad[id] = 0;
-  });
+    lessWorkloadExperts.forEach(e => {
+      const id = e._id.toString();
+      assignments[id] = [];
+      expertLoad[id] = 0;
+    });
 
-  let expertIndex = 0;
+    let expertIndex = 0;
 
-  for (const submission of delayedSubmissions) {
-    let attempts = 0;
-    let assigned = false;
+    for (const submission of delayedSubmissions) {
+      let attempts = 0;
+      let assigned = false;
 
-    const historyExpertIds = new Set((submission.history || []).map(h => h.updatedBy?.toString()));
-    const firstExpertId = submission.queue?.[0]?.toString();
-    const queueExpertIds = new Set(firstExpertId ? [firstExpertId] : []);
+      const historyExpertIds = new Set(
+        (submission.history || []).map(h => h.updatedBy?.toString()),
+      );
+      const firstExpertId = submission.queue?.[0]?.toString();
+      const queueExpertIds = new Set(firstExpertId ? [firstExpertId] : []);
 
-    while (attempts < lessWorkloadExperts.length && !assigned) {
-      const expert = lessWorkloadExperts[expertIndex];
-      const expertId = expert._id.toString();
+      while (attempts < lessWorkloadExperts.length && !assigned) {
+        const expert = lessWorkloadExperts[expertIndex];
+        const expertId = expert._id.toString();
 
-      if (!historyExpertIds.has(expertId) &&
+        if (
+          !historyExpertIds.has(expertId) &&
           !queueExpertIds.has(expertId) &&
-          expertLoad[expertId] < MAX_PER_EXPERT) {
-        assignments[expertId].push(submission);
-        expertLoad[expertId]++;
-        assigned = true;
+          expertLoad[expertId] < MAX_PER_EXPERT
+        ) {
+          assignments[expertId].push(submission);
+          expertLoad[expertId]++;
+          assigned = true;
+        }
+
+        expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
+        attempts++;
       }
-
-      expertIndex = (expertIndex + 1) % lessWorkloadExperts.length;
-      attempts++;
     }
+
+    const flatAssignments: {submissionId: string; expertId: string}[] = [];
+
+    // console.log("the assignments=======",assignments)
+
+    for (const expertId in assignments) {
+      for (const submission of assignments[expertId]) {
+        flatAssignments.push({
+          submissionId: submission._id.toString(),
+          expertId,
+        });
+      }
+    }
+    const jobId = startBalanceWorkloadWorkers(flatAssignments);
+
+    return {
+      message: 'Workload balancing started in background',
+      expertsInvolved: lessWorkloadExperts.length,
+      submissionsProcessed: flatAssignments.length,
+    };
   }
 
-  const flatAssignments: { submissionId: string; expertId: string }[] = [];
+  // async getQuestionsByDateRange(
+  //     startDate: string,
+  //     endDate: string,
+  //   ):Promise<IQuestion[]> {
+  //     if (!startDate || !endDate) {
+  //       throw new Error('startDate and endDate are required');
+  //     }
 
- // console.log("the assignments=======",assignments)
+  //     const start = new Date(startDate);
+  //     const end = new Date(endDate);
 
-  for (const expertId in assignments) {
-    for (const submission of assignments[expertId]) {
-      flatAssignments.push({
-        submissionId: submission._id.toString(),
-        expertId,
-      });
-    }
-  }
-  const jobId = startBalanceWorkloadWorkers(flatAssignments);
+  //     // make end date inclusive
+  //     end.setHours(23, 59, 59, 999);
 
-  return {
-    message: "Workload balancing started in background",
-    expertsInvolved: lessWorkloadExperts.length,
-    submissionsProcessed: flatAssignments.length,
-  };
-}
+  //     return await this.questionRepo.findByDateRangeAndSource(
+  //       start,
+  //       end,
+  //       'AJRASAKHA',
+  //     );
+  //   }
 
-// async getQuestionsByDateRange(
-//     startDate: string,
-//     endDate: string,
-//   ):Promise<IQuestion[]> {
-//     if (!startDate || !endDate) {
-//       throw new Error('startDate and endDate are required');
-//     }
-
-//     const start = new Date(startDate);
-//     const end = new Date(endDate);
-
-//     // make end date inclusive
-//     end.setHours(23, 59, 59, 999);
-
-//     return await this.questionRepo.findByDateRangeAndSource(
-//       start,
-//       end,
-//       'AJRASAKHA',
-//     );
-//   }
-  
-async sendOutReachQuestionsMail(
+  async sendOutReachQuestionsMail(
     startDate: string,
     endDate: string,
     emails: string | string[],
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<{success: boolean; message: string}> {
     if (!startDate || !endDate) {
       throw new Error('startDate and endDate are required');
     }
 
     const start = new Date(startDate + 'T00:00:00.000Z');
-    const end = new Date(endDate + 'T23:59:59.999Z'); 
-    const questions =
-      await this.questionRepo.findByDateRangeAndSource(
-        start,
-        end,
-        'AJRASAKHA'
-      );
+    const end = new Date(endDate + 'T23:59:59.999Z');
+    const questions = await this.questionRepo.findByDateRangeAndSource(
+      start,
+      end,
+      'AJRASAKHA',
+    );
 
-  if (questions.length === 0) {
+    if (questions.length === 0) {
       return {
         success: true,
         message: 'There are no Outreach questions in the selected time',
       };
     }
 
-    const csv = this.convertQuestionsToCSV(questions,startDate,endDate);
+    const csv = this.convertQuestionsToCSV(questions, startDate, endDate);
 
     await sendEmailWithAttachment(
       emails,
@@ -2026,67 +2075,67 @@ async sendOutReachQuestionsMail(
     };
   }
 
-private convertQuestionsToCSV(
-  data: IQuestion[],
-  startDate?: string,
-  endDate?: string,
-): string {
-  if (!data.length) return '';
+  private convertQuestionsToCSV(
+    data: IQuestion[],
+    startDate?: string,
+    endDate?: string,
+  ): string {
+    if (!data.length) return '';
 
-  const reportHeader = [
-    'Out Reach Data Report',
-    `Date Range: ${this.formatDate(startDate)} - ${this.formatDate(endDate)}`,
-    '', // empty line
-  ].join('\n');
+    const reportHeader = [
+      'Out Reach Data Report',
+      `Date Range: ${this.formatDate(startDate)} - ${this.formatDate(endDate)}`,
+      '', // empty line
+    ].join('\n');
 
-  const headers = [
-    'Question',
-    'Status',
-    'Priority',
-    // 'Is Auto Allocate',
-    'Source',
-    'State',
-    'District',
-    'Crop',
-    'Season',
-    'Domain',
-    // 'Total Answers',
-    // 'AI Initial Answer',
-    'Text',
-    // 'Closed At',
-    'Created At',
-    // 'Updated At',
-  ];
+    const headers = [
+      'Question',
+      'Status',
+      'Priority',
+      // 'Is Auto Allocate',
+      'Source',
+      'State',
+      'District',
+      'Crop',
+      'Season',
+      'Domain',
+      // 'Total Answers',
+      // 'AI Initial Answer',
+      'Text',
+      // 'Closed At',
+      'Created At',
+      // 'Updated At',
+    ];
 
-  const rows = data.map((q) => [
-    this.escape(q.question),
-    q.status,
-    q.priority,
-    // q.isAutoAllocate,
-    q.source,
-    q.details?.state,
-    q.details?.district,
-    q.details?.crop,
-    q.details?.season,
-    q.details?.domain,
-    // q.totalAnswersCount,
-    // this.escape(q.aiInitialAnswer),
-    this.escape(q.text),
-    // q.closedAt ? this.formatDate(q.closedAt) : '',
-    q.createdAt ? this.formatDate(q.createdAt) : '',
-    // q.updatedAt ? this.formatDate(q.updatedAt) : '',
-  ]);
+    const rows = data.map(q => [
+      this.escape(q.question),
+      q.status,
+      q.priority,
+      // q.isAutoAllocate,
+      q.source,
+      q.details?.state,
+      q.details?.district,
+      q.details?.crop,
+      q.details?.season,
+      q.details?.domain,
+      // q.totalAnswersCount,
+      // this.escape(q.aiInitialAnswer),
+      this.escape(q.text),
+      // q.closedAt ? this.formatDate(q.closedAt) : '',
+      q.createdAt ? this.formatDate(q.createdAt) : '',
+      // q.updatedAt ? this.formatDate(q.updatedAt) : '',
+    ]);
 
-  return [
-    reportHeader,
-    headers.join(','),
-    ...rows.map((r) => r.join(',')),
-  ].join('\n');
-}
+    return [
+      reportHeader,
+      headers.join(','),
+      ...rows.map(r => r.join(',')),
+    ].join('\n');
+  }
 
-private formatDate(date: Date | string): string {
-  return new Date(date).toISOString().split('T')[0]; // YYYY-MM-DD
-}
+  private formatDate(date: Date | string): string {
+    return new Date(date).toISOString().split('T')[0]; // YYYY-MM-DD
+  }
   private escape(value: any): string {
     if (value === null || value === undefined) return '';
     return `"${String(value).replace(/"/g, '""')}"`;
