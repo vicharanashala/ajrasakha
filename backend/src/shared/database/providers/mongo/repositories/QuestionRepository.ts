@@ -1779,23 +1779,44 @@ export class QuestionRepository implements IQuestionRepository {
     const startDate = new Date(selectedYearNum, 0, 1);
     const endDate = new Date(selectedYearNum + 1, 0, 1);
 
+    // const yearData = await this.QuestionCollection.aggregate(
+    //   [
+    //     {
+    //       $match: {
+    //         status: 'closed',
+    //         closedAt: {$gte: startDate, $lt: endDate},
+    //       },
+    //     },
+    //     {
+    //       $group: {
+    //         _id: { month: { $month: '$closedAt' } },
+    //         totalClosed: { $sum: 1 },
+    //       },
+    //     },
+    //     { $sort: { '_id.month': 1 } },
+    //   ],
+    //   {session},
+    // ).toArray();
+
     const yearData = await this.QuestionCollection.aggregate(
       [
         {
           $match: {
-            status: 'closed',
-            closedAt: {$gte: startDate, $lt: endDate},
+            createdAt: { $gte: startDate, $lt: endDate },
           },
         },
         {
           $group: {
-            _id: { month: { $month: '$closedAt' } },
-            totalClosed: { $sum: 1 },
+            _id: { month: { $month: '$createdAt' } },
+            totalEntries: { $sum: 1 },
+            totalVerified: {
+              $sum: { $cond: [{ $eq: ['$status', 'closed'] }, 1, 0]}
+            },
           },
         },
         { $sort: { '_id.month': 1 } },
       ],
-      {session},
+      { session },
     ).toArray();
 
     const formattedMonths = [
@@ -1819,8 +1840,10 @@ export class QuestionRepository implements IQuestionRepository {
         const match = yearData.find(m => m._id.month === i + 1);
         return {
           month: formattedMonths[i],
-          entries: 0,
-          verified: match?.totalClosed ?? 0,
+          // entries: 0,
+          // verified: match?.totalClosed ?? 0,
+          entries: match?.totalEntries ?? 0,
+          verified: match?.totalVerified ?? 0,
         };
       },
     );
@@ -1942,32 +1965,58 @@ export class QuestionRepository implements IQuestionRepository {
     const startDate = new Date(yearNum, monthNum, 1);
     const endDate = new Date(yearNum, monthNum + 1, 1);
 
+    // const weeksDataRaw = await this.QuestionCollection.aggregate(
+    //   [
+    //     {
+    //       $match: {
+    //         status: 'closed',
+    //         closedAt: {$gte: startDate, $lt: endDate},
+    //       },
+    //     },
+    //     {
+    //       $addFields: {
+    //         weekOfMonth: {
+    //           $ceil: {
+    //             $divide: [{$dayOfMonth: '$closedAt'}, 7],
+    //           },
+    //         },
+    //       },
+    //     },
+    //     {
+    //       $group: {
+    //         _id: {week: '$weekOfMonth'},
+    //         totalClosed: {$sum: 1},
+    //       },
+    //     },
+    //     {$sort: {'_id.week': 1}},
+    //   ],
+    //   {session},
+    // ).toArray();
+
     const weeksDataRaw = await this.QuestionCollection.aggregate(
       [
         {
           $match: {
-            status: 'closed',
-            closedAt: {$gte: startDate, $lt: endDate},
+            createdAt: { $gte: startDate, $lt: endDate },
           },
         },
         {
           $addFields: {
-            weekOfMonth: {
-              $ceil: {
-                $divide: [{$dayOfMonth: '$closedAt'}, 7],
-              },
-            },
+            weekOfMonth: { $ceil: { $divide: [{ $dayOfMonth: '$createdAt' }, 7] } },
           },
         },
         {
           $group: {
-            _id: {week: '$weekOfMonth'},
-            totalClosed: {$sum: 1},
+            _id: { week: '$weekOfMonth' },
+            totalEntries: { $sum: 1 },
+            totalVerified: {
+              $sum: { $cond: [{ $eq: ['$status', 'closed'] }, 1, 0] }
+            },
           },
         },
-        {$sort: {'_id.week': 1}},
+        { $sort: { '_id.week': 1 } },
       ],
-      {session},
+      { session },
     ).toArray();
 
     const formattedWeeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
@@ -1976,8 +2025,10 @@ export class QuestionRepository implements IQuestionRepository {
       const match = weeksDataRaw.find(x => x._id.week === i + 1);
       return {
         week: w,
-        entries: 0,
-        verified: match?.totalClosed ?? 0,
+        // entries: 0,
+        // verified: match?.totalClosed ?? 0,
+        entries: match?.totalEntries ?? 0,
+        verified: match?.totalVerified ?? 0,
       };
     });
     const totalEntriesByType = weeksDataRaw.reduce(
@@ -2026,28 +2077,54 @@ export class QuestionRepository implements IQuestionRepository {
     const endDate = new Date(yearNum, monthNum, endDay + 1); // +1 for exclusive range
 
     // Aggregate closed questions grouped by day of week
+    // const dailyDataRaw = await this.QuestionCollection.aggregate(
+    //   [
+    //     {
+    //       $match: {
+    //         status: 'closed',
+    //         closedAt: {$gte: startDate, $lt: endDate},
+    //       },
+    //     },
+    //     {
+    //       $addFields: {
+    //         dayOfWeek: {$dayOfWeek: '$closedAt'}, // 1 = Sunday, 2 = Monday ...
+    //       },
+    //     },
+    //     {
+    //       $group: {
+    //         _id: {day: '$dayOfWeek'},
+    //         totalClosed: {$sum: 1},
+    //       },
+    //     },
+    //     {$sort: {'_id.day': 1}},
+    //   ],
+    //   {session},
+    // ).toArray();
+
     const dailyDataRaw = await this.QuestionCollection.aggregate(
       [
         {
           $match: {
-            status: 'closed',
-            closedAt: {$gte: startDate, $lt: endDate},
+            createdAt: { $gte: startDate, $lt: endDate },
           },
         },
         {
           $addFields: {
-            dayOfWeek: {$dayOfWeek: '$closedAt'}, // 1 = Sunday, 2 = Monday ...
+            dayOfWeek: { $dayOfWeek: '$createdAt' },
           },
         },
         {
           $group: {
-            _id: {day: '$dayOfWeek'},
-            totalClosed: {$sum: 1},
+            _id: { day: '$dayOfWeek' },
+            totalEntries: { $sum: 1 },
+            totalVerified: {
+              $sum: { $cond: [{ $eq: ['$status', 'closed'] }, 1, 0] }
+            },
           },
         },
-        {$sort: {'_id.day': 1}},
+        { $sort: { '_id.day': 1 } },
       ],
-      {session},
+      { session },
     ).toArray();
 
     const daysMap = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -2057,8 +2134,10 @@ export class QuestionRepository implements IQuestionRepository {
       const match = dailyDataRaw.find(d => d._id.day === i + 1);
       return {
         day: daysMap[i],
-        entries: 0,
-        verified: match?.totalClosed ?? 0,
+        // entries: 0,
+        // verified: match?.totalClosed ?? 0,
+        entries: match?.totalEntries ?? 0,
+        verified: match?.totalVerified ?? 0,
       };
     });
 
@@ -2124,33 +2203,62 @@ export class QuestionRepository implements IQuestionRepository {
 
     const selectedDayNum = dayMap[goldenDataSelectedDay];
     if (selectedDayNum === undefined) throw new BadRequestError('Invalid day');
+    // const answers = await this.QuestionCollection.aggregate(
+    //   [
+    //     {
+    //       $match: {
+    //         status: 'closed',
+    //         closedAt: {$gte: startDate, $lt: endDate},
+    //       },
+    //     },
+    //     {
+    //       $addFields: {
+    //         dateIST: {
+    //           $dateToParts: {
+    //             date: '$closedAt',
+    //             timezone: 'Asia/Kolkata',
+    //           },
+    //         },
+    //         dayOfWeek: {
+    //           $dayOfWeek: {
+    //             date: '$closedAt',
+    //             timezone: 'Asia/Kolkata',
+    //           },
+    //         },
+    //       },
+    //     },
+    //     {
+    //       $addFields: {
+    //         hourOfDay: '$dateIST.hour',
+    //       },
+    //     },
+    //     {
+    //       $match: {
+    //         dayOfWeek: selectedDayNum + 1,
+    //       },
+    //     },
+    //     {
+    //       $group: {
+    //         _id: '$hourOfDay',
+    //         totalClosed: {$sum: 1},
+    //       },
+    //     },
+    //     {$sort: {_id: 1}},
+    //   ],
+    //   {session},
+    // ).toArray();
+
     const answers = await this.QuestionCollection.aggregate(
       [
         {
           $match: {
-            status: 'closed',
-            closedAt: {$gte: startDate, $lt: endDate},
+            createdAt: { $gte: startDate, $lt: endDate },
           },
         },
         {
           $addFields: {
-            dateIST: {
-              $dateToParts: {
-                date: '$closedAt',
-                timezone: 'Asia/Kolkata',
-              },
-            },
-            dayOfWeek: {
-              $dayOfWeek: {
-                date: '$closedAt',
-                timezone: 'Asia/Kolkata',
-              },
-            },
-          },
-        },
-        {
-          $addFields: {
-            hourOfDay: '$dateIST.hour',
+            hourOfDay: { $hour: { date: "$createdAt", timezone: "Asia/Kolkata" } },
+            dayOfWeek: { $dayOfWeek: { date: "$createdAt", timezone: "Asia/Kolkata" } },
           },
         },
         {
@@ -2160,14 +2268,19 @@ export class QuestionRepository implements IQuestionRepository {
         },
         {
           $group: {
-            _id: '$hourOfDay',
-            totalClosed: {$sum: 1},
+            _id: "$hourOfDay",
+            totalEntries: { $sum: 1 },
+            totalVerified: {
+              $sum: { $cond: [{ $eq: ["$status", "closed"] }, 1, 0] }
+            },
           },
         },
-        {$sort: {_id: 1}},
+        {
+          $sort: { _id: 1 }
+        },
       ],
-      {session},
-    ).toArray();
+      { session },
+    ).toArray()
 
     // const answers = await this.QuestionCollection.aggregate(
     //   [
@@ -2206,8 +2319,11 @@ export class QuestionRepository implements IQuestionRepository {
         const match = answers.find(a => a._id === i);
         return {
           hour: i.toString().padStart(2, '0') + ':00',
-          entries: 0,
-          verified: match?.totalClosed ?? 0,
+          // entries: 0,
+          // verified: match?.totalClosed ?? 0,
+
+          entries: match?.totalEntries ?? 0,
+          verified: match?.totalVerified ?? 0,
         };
       },
     );
