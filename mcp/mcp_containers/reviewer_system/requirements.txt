@@ -1,0 +1,11 @@
+fastmcp==2.14.4
+langchain-core
+langchain-huggingface
+langchain-mongodb
+pymongo
+motor
+python-dotenv
+pydantic
+sentence-transformers
+torch
+requests

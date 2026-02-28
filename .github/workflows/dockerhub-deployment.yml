@@ -2,6 +2,21 @@ name: Dockerhub Deployment
 
 on:
   workflow_dispatch:
+    inputs:
+      target_image:
+        description: 'Select image to deploy'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - faq
+          - golden_dataset
+          - market
+          - pop
+          - weather
+          - review-search-mcp
+          - reviewer_system
 
 permissions:
   contents: read
@@ -9,13 +24,65 @@ permissions:
   id-token: write
 
 jobs:
+  prepare_matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Generate Matrix
+        id: set-matrix
+        run: |
+          MATRIX_JSON="[]"
+
+          add_entry() {
+            local name=$1
+            OBJ="{\"image\": \"$name\"}"
+            MATRIX_JSON=$(echo $MATRIX_JSON | jq ". + [$OBJ]")
+          }
+
+          TARGET="${{ inputs.target_image }}"
+
+          if [[ "$TARGET" == "all" || "$TARGET" == "faq" ]]; then
+            add_entry "faq"
+          fi
+
+          if [[ "$TARGET" == "all" || "$TARGET" == "golden_dataset" ]]; then
+            add_entry "golden_dataset"
+          fi
+
+          if [[ "$TARGET" == "all" || "$TARGET" == "market" ]]; then
+            add_entry "market"
+          fi
+
+          if [[ "$TARGET" == "all" || "$TARGET" == "pop" ]]; then
+            add_entry "pop"
+          fi
+
+          if [[ "$TARGET" == "all" || "$TARGET" == "weather" ]]; then
+            add_entry "weather"
+          fi
+
+          if [[ "$TARGET" == "all" || "$TARGET" == "review-search-mcp" ]]; then
+            add_entry "review-search-mcp"
+          fi
+
+          if [[ "$TARGET" == "all" || "$TARGET" == "reviewer_system" ]]; then
+            add_entry "reviewer_system"
+          fi
+
+          COMPACT_JSON=$(echo $MATRIX_JSON | jq -c .)
+          echo "matrix=$COMPACT_JSON" >> $GITHUB_OUTPUT
+
+          echo "Generated matrix: $COMPACT_JSON"
+
   build-and-push:
+    needs: prepare_matrix
     name: Build & Push ${{ matrix.image }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        image: [faq, golden_dataset, market, pop, weather, review-search-mcp]
+        include: ${{ fromJson(needs.prepare_matrix.outputs.matrix) }}
 
     steps:
       - name: Free Disk Space

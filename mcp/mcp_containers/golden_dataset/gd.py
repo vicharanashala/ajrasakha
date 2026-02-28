@@ -26,17 +26,41 @@ retriever_pop = get_retriever(
     client=client, collection_name=COLLECTION_POP, similarity_top_k=5
 )
 
+# state_codes = {
+#     "AR": "ARUNACHAL PRADESH",
+#     "HR": "Haryana",
+#     "MP": "MADHYA PRADESH",
+#     "MH": "MAHARASHTRA",
+#     "PB": "PUNJAB",
+#     "RJ": "Rajasthan",
+#     "TN": "TAMILNADU",
+#     "UP": "Uttar Pradesh",
+#     "--": ""
+# }
+
 state_codes = {
+    "AP": "ANDHRA PRADESH",
     "AR": "ARUNACHAL PRADESH",
-    "HR": "Haryana",
+    "AS": "ASSAM",
+    "BR": "BIHAR",
+    "CG": "CHHATTISGARH",
+    "HP": "HIMACHAL PRADESH",
+    "HR": "HARYANA",
+    "JH": "JHARKHAND",
+    "KL": "KERALA",
     "MP": "MADHYA PRADESH",
     "MH": "MAHARASHTRA",
+    "OD": "ODISHA",
+    "PY": "PUDUCHERRY",
     "PB": "PUNJAB",
-    "RJ": "Rajasthan",
+    "RJ": "RAJASTHAN",
     "TN": "TAMILNADU",
-    "UP": "Uttar Pradesh",
-    "--": ""
+    "TG": "TELANGANA",
+    "UP": "UTTAR PRADESH",
+    "UK": "UTTARAKHAND",
+    "WB": "WEST BENGAL"
 }
+
 
 @mcp.tool()
 async def get_context_from_golden_dataset(query: str, state_code: str, crop: str) -> List[ContextQuestionAnswerPair]:
@@ -75,8 +99,46 @@ async def get_context_from_golden_dataset(query: str, state_code: str, crop: str
                         - Similarity score with the input query.
     """
 
+     # ---- Validate State ----
+    state_code = state_code.upper()
+    state_full = state_codes.get(state_code)
+
+    if not state_full:
+        valid_states = ", ".join(sorted(state_codes.keys()))
+        raise ValueError(
+            f"Invalid state code '{state_code}'. Valid state codes are: {valid_states}"
+        )
+
+    # ---- Validate Crop for That State ----
+    available_crops = collection.distinct(
+        "metadata.Crop",
+        {"metadata.State": state_full}
+    )
+
+    available_crops = [c for c in available_crops if c and c.strip()]
+    if not available_crops:
+        raise ValueError(
+            f"No crops found in Golden Dataset for state '{state_full}'."
+        )
+
+    # Create case-insensitive mapping
+    crop_lookup = {c.lower(): c for c in available_crops}
+
+    if crop.lower() not in crop_lookup:
+        raise ValueError(
+            f"Crop '{crop}' is not available for state '{state_full}'. "
+            f"Available crops are: {', '.join(sorted(available_crops))}"
+        )
+
+    # Normalize crop to exact DB value
+    crop = crop_lookup[crop.lower()]
+
+
+    # ---- Perform Search ----
     results = search(query, state_code, crop, threshold=0.8, limit=5)
+
     return results
+
 
 
 @mcp.tool()
