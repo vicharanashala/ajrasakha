@@ -44,6 +44,8 @@
     "exclude": [
         "build",
         "dist",
+        "scripts",
+        "test-data",
         "**/*.spec.ts",
         "**/*.d.ts",
         "vite.config.ts"
