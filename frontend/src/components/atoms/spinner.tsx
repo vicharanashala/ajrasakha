@@ -3,17 +3,21 @@ import React from "react";
 interface SpinnerProps {
   text?: string;
   offsetTop?: boolean;
+  fullScreen?: boolean;  // <--- new Line
 }
 
 export const Spinner: React.FC<SpinnerProps> = ({
   offsetTop = true,
   text = "Loading",
+   fullScreen = true, // <--- new Line
 }) => {
+
+  const positionClass = fullScreen 
+    ? `fixed z-50 ${offsetTop ? "inset-x-0 bottom-0 md:top-[100px]" : "inset-0"}`
+    : "absolute inset-0 z-10 w-full h-full";
   return (
     <div
-      className={`fixed z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm ${
-        offsetTop ? "inset-x-0 bottom-0 md:top-[100px]" : "inset-0"
-      }`}
+      className={`${positionClass} flex items-center justify-center bg-background/60 backdrop-blur-sm`}
     >
       <div className="flex flex-col items-center gap-4">
         {/* Agriculture-themed spinner with wheat stalks */}

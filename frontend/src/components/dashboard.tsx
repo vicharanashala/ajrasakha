@@ -82,13 +82,16 @@ export const Dashboard = () => {
   const [dashboardState, setDashboardState] =
     useState<DashboardAnalyticsResponse | null>(null);
 
-    const { data: user, isLoading: isUserLoading } = useGetCurrentUser();
+  const [activeFilter, setActiveFilter] = useState<"all" | "golden" | "sources" | "analytics">("all");
+
+  const { data: user, isLoading: isUserLoading } = useGetCurrentUser();
 
 
   // Fetch dashboard data
   const {
     data: dashboardData,
     isLoading,
+    isFetching,
     error,
   } = useGetDashboardData({
     goldenDataViewType: viewType,
@@ -112,6 +115,12 @@ export const Dashboard = () => {
     }
   }, [dashboardData, error]);
 
+  useEffect(() => {
+    if (!isLoading && !isFetching) {
+      setActiveFilter("all");
+    }
+  }, [isLoading, isFetching]);
+
   const handleHeatMapDateChange = (key: string, value?: Date) => {
     setHeatMapDate((prev) => ({
       ...prev,
@@ -130,7 +139,7 @@ export const Dashboard = () => {
       dayHourlyData: {} as GoldenDataset["dayHourlyData"],
       totalEntriesByType: 0,
       verifiedEntries: 0,
-      todayApproved:0,
+      todayApproved: 0,
     },
     questionContributionTrend: [],
     statusOverview: { questions: [], answers: [] },
@@ -139,28 +148,43 @@ export const Dashboard = () => {
   };
 
   const handleSendCronReport = async () => {
-  try {
-    const service = new PerformaneService();
-    await service.sendCronSnapshotReport();
-    toast.success("Cron snapshot report sent successfully");
-  } catch (err) {
-    toast.error("Failed to send cron snapshot report");
-    console.error("Failed to fetch cron snapshot", err);
-  }
-};
+    try {
+      const service = new PerformaneService();
+      await service.sendCronSnapshotReport();
+      toast.success("Cron snapshot report sent successfully");
+    } catch (err) {
+      toast.error("Failed to send cron snapshot report");
+      console.error("Failed to fetch cron snapshot", err);
+    }
+  };
 
 
 
   const dataToShow = dashboardState ?? emptyDashboard;
 
-  if (initialLoading) return <Spinner text="Fetching dashboard data" />;
-  if (error && !dashboardState) return <p>Error loading dashboard</p>;
-  if (!dashboardState) return <p>No data found</p>;
+  // if (initialLoading) return <Spinner text="Fetching dashboard data" />;
+  if (error && !dashboardState && !initialLoading) {
+    return <p className="p-6 text-red-500">Error loading dashboard data</p>;
+  }
+
+  const isGoldenLoading = isLoading || (activeFilter === "golden" && isFetching);
+  const isSourcesLoading = isLoading || (activeFilter === "sources" && isFetching);
+  const isAnalyticsLoading = isLoading || (activeFilter === "analytics" && isFetching);
+  const isGeneralLoading = isLoading || (activeFilter === "all" && isFetching);
+
+  const LoadingWrapper = ({ loading, text, children }: { loading: boolean; text: string; children: React.ReactNode }) => (
+    <div className="relative overflow-hidden rounded-xl min-h-[300px]">
+      {loading && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-xl">
+          <Spinner text={text} fullScreen={false} />
+        </div>
+      )}
+      {children}
+    </div>
+  );
 
   return (
-    <main
-      className={`min-h-screen bg-background ${isLoading ? "opacity-40" : ""}`}
-    >
+    <main className="min-h-screen bg-background">
       {/* {theme == "dark" && animationsEnabled && <Snowfall />} */}
       {/* <HolidayBanner /> */}
       <div className="mx-auto p-6">
@@ -210,52 +234,65 @@ export const Dashboard = () => {
 
         {/* Top Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <ModeratorsOverview data={dataToShow.userRoleOverview} />
-          <ApprovalRateCard data={dataToShow.moderatorApprovalRate} />
+          <LoadingWrapper loading={isGeneralLoading} text="Fetching role overview...">
+            <ModeratorsOverview data={dataToShow.userRoleOverview} />
+          </LoadingWrapper>
+          <LoadingWrapper loading={isGeneralLoading} text="Fetching approval stats...">
+            <ApprovalRateCard data={dataToShow.moderatorApprovalRate} />
+          </LoadingWrapper>
         </div>
         {/* Full Width Sources Chart */}
         <div className="mb-6 ">
           <GoldenDatasetOverview
             data={dataToShow.goldenDataset}
+            isLoading={isGoldenLoading}
             selectedYear={selectedYear}
-            setSelectedYear={setSelectedYear}
+            setSelectedYear={(v) => { setActiveFilter("golden"); setSelectedYear(v); }}
             selectedDay={selectedDay}
             selectedMonth={selectedMonth}
             selectedWeek={selectedWeek}
-            setSelectedDay={setSelectedDay}
-            setSelectedMonth={setSelectedMonth}
-            setSelectedWeek={setSelectedWeek}
-            setViewType={setViewType}
+            setSelectedDay={(v) => { setActiveFilter("golden"); setSelectedDay(v); }}
+            setSelectedMonth={(v) => { setActiveFilter("golden"); setSelectedMonth(v); }}
+            setSelectedWeek={(v) => { setActiveFilter("golden"); setSelectedWeek(v); }}
+            setViewType={(v) => { setActiveFilter("golden"); setViewType(v); }}
             viewType={viewType}
           />
         </div>
         <div className="mb-6">
-          <SourcesChart
-            data={dataToShow.questionContributionTrend}
-            timeRange={timeRange}
-            setTimeRange={setTimeRange}
-          />
+          <LoadingWrapper loading={isSourcesLoading} text="Fetching sources chart...">
+            <SourcesChart
+              data={dataToShow.questionContributionTrend}
+              timeRange={timeRange}
+              setTimeRange={(v) => { setActiveFilter("sources"); setTimeRange(v); }}
+            />
+          </LoadingWrapper>
         </div>
 
         {/* Question Status and Golden Dataset Row */}
         <div className="mb-6">
-          <StatusCharts data={dataToShow.statusOverview} />
+          <LoadingWrapper loading={isGeneralLoading} text="Fetching status overview...">
+            <StatusCharts data={dataToShow.statusOverview} />
+          </LoadingWrapper>
         </div>
 
         {/* Performance Row */}
         <div className="mb-6">
-          <QuestionsAnalytics
-            date={date}
-            setDate={setDate}
-            analyticsType={analyticsType}
-            setAnalyticsType={setAnalyticsType}
-            data={dataToShow.analytics}
-          />
+          <LoadingWrapper loading={isAnalyticsLoading} text="Fetching analytics data...">
+            <QuestionsAnalytics
+              date={date}
+              setDate={(v) => { setActiveFilter("analytics"); setDate(v); }}
+              analyticsType={analyticsType}
+              setAnalyticsType={(v) => { setActiveFilter("analytics"); setAnalyticsType(v); }}
+              data={dataToShow.analytics}
+            />
+          </LoadingWrapper>
         </div>
 
         {/* Analytics Row */}
         <div className="flex flex-col gap-5">
-          <ExpertsPerformance data={dataToShow.expertPerformance} />
+          <LoadingWrapper loading={isGeneralLoading} text="Fetching expert performance...">
+            <ExpertsPerformance data={dataToShow.expertPerformance} />
+          </LoadingWrapper>
           <div className="space-y-6  hidden md:block">
             <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
               <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
@@ -291,9 +328,9 @@ export const Dashboard = () => {
           </button>
         </div>
       )}
-      
+
     </main>
-  );  
+  );
 };
 
 export const ChristmasCap = ({ className = "" }: { className?: string }) => {

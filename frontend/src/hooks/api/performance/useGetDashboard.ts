@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { PerformaneService } from "../../services/performanceService";
 import type { UserRoleOverview } from "@/components/dashboard/overview";
 import type { ModeratorApprovalRate } from "@/components/dashboard/approval-rate";
@@ -47,7 +47,7 @@ export const useGetDashboardData = ({
   qnAnalyticsStartTime,
   qnAnalyticsType
 }: DashboardFilters) => {
-  const { data, isLoading, error, refetch } = useQuery<
+  const { data, isLoading, isFetching, error, refetch } = useQuery<
     DashboardAnalyticsResponse | null,
     Error
   >({
@@ -63,6 +63,7 @@ export const useGetDashboardData = ({
       qnAnalyticsStartTime,
       qnAnalyticsType
     ],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       return await performaceService.getDashboardData({
         goldenDataSelectedYear,
@@ -78,5 +79,5 @@ export const useGetDashboardData = ({
     },
   });
 
-  return { data, isLoading, error, refetch };
+  return { data, isLoading, isFetching, error, refetch };
 };

@@ -37,6 +37,9 @@ import {
 } from "@/components/atoms/dialog";
 import CountUp from "react-countup";
 import { useRestartOnView } from "@/hooks/ui/useRestartView";
+// import { Spinner } from "@/components/atoms/spinner";
+import { Spinner } from "@/components/atoms/spinner";
+
 
 const monthNames = [
   "January",
@@ -70,6 +73,7 @@ export interface GoldenDataset {
 
 export interface GoldenDatasetOverviewProps {
   data: GoldenDataset;
+  isLoading?: boolean;
   viewType: "year" | "month" | "week" | "day";
   setViewType: (v: "year" | "month" | "week" | "day") => void;
   selectedMonth: string;
@@ -84,6 +88,7 @@ export interface GoldenDatasetOverviewProps {
 
 export const GoldenDatasetOverview = ({
   data,
+  isLoading,
   viewType,
   selectedYear,
   setSelectedYear,
@@ -406,7 +411,13 @@ export const GoldenDatasetOverview = ({
           {/* )} */}
         </CardHeader>
 
-        <CardContent>
+                <CardContent className="relative min-h-[350px]">
+          {isLoading && (
+            <div className="absolute inset-0 z-10 w-full h-full flex items-center justify-center bg-background/50 rounded-md">
+               <Spinner text="Fetching dashboard data..." fullScreen={false} />
+            </div>
+          )}
+
           {/* Bar Chart for Year and Month views */}
           {(viewType === "year" || viewType === "month") && (
             <ResponsiveContainer width="100%" height={350}>

@@ -146,7 +146,7 @@ export const PlaygroundPage = () => {
 
   return (
     <>
-      {isLoading && (
+      {/* //{isLoading && (
         // <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-10">
         //   <div className="w-full max-w-sm p-6 bg-card rounded-lg shadow-lg flex flex-col items-center justify-center gap-4 ">
         //     <h3 className="text-lg font-semibold text-center">
@@ -183,7 +183,7 @@ export const PlaygroundPage = () => {
         //   </div>
         // </div>
         <Spinner text="Fetching user details" />
-      )}
+      )} */}
 
       <Tabs
         key={user?.role}
