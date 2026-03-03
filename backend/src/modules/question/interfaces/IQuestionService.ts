@@ -3,6 +3,7 @@
 import {
   IQuestion,
   IQuestionSubmission,
+  AddQuestionResult
 } from '#root/shared/interfaces/models.js';
 import {
   AddQuestionBodyDto,
@@ -54,7 +55,7 @@ export interface IQuestionService {
   addQuestion(
     userId: string,
     body: AddQuestionBodyDto
-  ): Promise<Partial<IQuestion>>;
+  ): Promise<AddQuestionResult>;
 
   /** Question detail page */
   getQuestionById(questionId: string): Promise<QuestionResponse>;

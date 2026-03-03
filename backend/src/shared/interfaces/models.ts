@@ -292,4 +292,18 @@ export interface LevelReportStat {
     avgTimeTakenMinutes: number; // average time in minutes
   }[]
 }
+export interface IQuestionEmbedding {
+  _id: ObjectId;
+  embedding: number[];
+}
+export interface ISimilarQuestion extends IQuestion {
+  similarityScore: number;        // percentage (0–100)
+  referenceQuestionId: ObjectId;
+  referenceQuestion:string
+    // matched original question
+}
+export interface AddQuestionResult {
+  isDuplicate: boolean;
+  data: Partial<IQuestion>;
+}
 

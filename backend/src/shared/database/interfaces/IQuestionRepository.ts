@@ -15,6 +15,8 @@ import {
   IQuestion,
   IUser,
   QuestionStatus,
+  IQuestionEmbedding,
+  ISimilarQuestion
 } from '#root/shared/interfaces/models.js';
 import {ClientSession} from 'mongodb';
 
@@ -349,4 +351,14 @@ export interface IQuestionRepository {
     filters: any,
     session?: ClientSession,
   ): Promise<IQuestion[]>;
+
+  getAllQuestionEmbeddings(
+    session?: ClientSession,
+  ): Promise<IQuestionEmbedding[]>;
+   findTopSimilarQuestions(
+    embedding: number[],
+    k?: number,
+    session?: ClientSession,
+  ): Promise<(ISimilarQuestion & { _vectorSearchScore: number })[]>
+
 }
