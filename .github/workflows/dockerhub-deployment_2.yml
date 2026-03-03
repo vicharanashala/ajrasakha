@@ -14,6 +14,7 @@ on:
           - market
           - agriculture
           - reviewer
+          - llm_cache_proxy
 
 permissions:
   contents: read
@@ -63,6 +64,11 @@ jobs:
           # Reviewer
           if [[ "$TARGET" == "all" || "$TARGET" == "reviewer" ]]; then
             add_entry "reviewer" "./mcp/mcp_containers/reviewer_system" "./mcp/mcp_containers/reviewer_system/Dockerfile"
+          fi
+
+          # LLM Cache Proxy
+          if [[ "$TARGET" == "all" || "$TARGET" == "llm_cache_proxy" ]]; then
+            add_entry "llm_cache_proxy" "./mcp/proxy_api/llm_cache_proxy" "./mcp/proxy_api/llm_cache_proxy/Dockerfile"
           fi
 
           # Compact the JSON to single line to avoid issues with GHA outputs
