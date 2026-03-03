@@ -23,13 +23,18 @@ export interface IDuplicateQuestionRepository {
    * @param session - Optional MongoDB client session for transactions.
    * @returns A promise that resolves to an object containing the number of inserted questions.
    */
- 
+
   addDuplicate(
     duplicateData: ISimilarQuestion,
     session?: ClientSession,
   ): Promise<{ insertedId: string }>;
   findDuplicatesByMatchedId(
     matchedQuestionId: string,
+    session?: ClientSession,
+  ): Promise<ISimilarQuestion[]>;
+  findDuplicatesByDateRange(
+    startDate: Date,
+    endDate: Date,
     session?: ClientSession,
   ): Promise<ISimilarQuestion[]>;
 }

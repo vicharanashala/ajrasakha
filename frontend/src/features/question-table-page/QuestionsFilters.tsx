@@ -39,10 +39,11 @@ import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
 
 import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
-import {useReAllocateLessWorkload} from '@/hooks/api/question/useReAllocateLessWorkload';
+import { useReAllocateLessWorkload } from '@/hooks/api/question/useReAllocateLessWorkload';
 import { DownloadReportButton } from "./DownloadReportButton";
 import { DownloadOverallReportButton } from "./DownloadOverallReportButton";
 import { DownloadFilteredReportButton } from "./DownloadFilteredReportButton";
+import { DownloadDuplicateReportButton } from "./DownloadDuplicateReportButton";
 import {
   allModeColumns,
   commonColumns,
@@ -487,7 +488,7 @@ export const QuestionsFilters = ({
             </Button>
           </div>
         )}
-        
+
         {/* <span className="hidden md:block text-sm text-muted-foreground whitespace-nowrap">
           Total: {totalQuestions}
         </span> */}
@@ -563,11 +564,10 @@ export const QuestionsFilters = ({
                         key={key}
                         onClick={() => toggleColumn(key)}
                         className={`flex items-center justify-between px-5 py-2 rounded-lg border transition-all duration-300 hover:border-emerald-500/60
-              ${
-                isVisible
-                  ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
-                  : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
-              }
+              ${isVisible
+                            ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
+                            : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
+                          }
             `}
                       >
                         <span className="text-xs font-semibold tracking-wider capitalize">
@@ -703,17 +703,21 @@ export const QuestionsFilters = ({
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-blue-50 dark:hover:bg-blue-500/5 border border-gray-200 dark:border-gray-800 hover:border-blue-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
                   <DownloadReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
                 </div>
-                
+
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
                   <DownloadOverallReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
                 </div>
-                
+
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
                   <DownloadFilteredReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
                 </div>
-                
+
+                <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-teal-50 dark:hover:bg-teal-500/5 border border-gray-200 dark:border-gray-800 hover:border-teal-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
+                  <DownloadDuplicateReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
+                </div>
+
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
-                  <DownloadLevelWiseReportButton closeSideBar={()=>setIsSidebarOpen(false)} />
+                  <DownloadLevelWiseReportButton closeSideBar={() => setIsSidebarOpen(false)} />
                 </div>
               </div>
             </section>

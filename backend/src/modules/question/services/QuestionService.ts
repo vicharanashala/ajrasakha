@@ -2508,5 +2508,52 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
   }
 
-  
+  async generateDuplicateQuestionReport(startDate?: Date, endDate?: Date): Promise<ArrayBuffer | null> {
+    return this._withTransaction(async (session) => {
+      if (!startDate || !endDate) {
+        throw new BadRequestError('startDate and endDate are required');
+      }
+
+      // Fetch duplicates using the repository
+      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(startDate, endDate, session);
+
+      if (!duplicateQuestions || duplicateQuestions.length === 0) {
+        return null;
+      }
+
+      // Create Excel workbook
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet("Similar Questions");
+
+      // Define columns
+      sheet.columns = [
+        { header: "createdAt", key: "createdAt", width: 22 },
+        { header: "question", key: "question", width: 60 },
+        { header: "source", key: "source", width: 15 },
+        { header: "similarityScore", key: "similarityScore", width: 15 },
+        { header: "referenceQuestion", key: "referenceQuestion", width: 30 },
+      ];
+
+      // Add data rows
+      duplicateQuestions.forEach(q => {
+        sheet.addRow({
+          createdAt: q.createdAt,
+          question: q.question,
+          source: q.source,
+          similarityScore: q.similarityScore,
+          referenceQuestion: q.referenceQuestion ? q.referenceQuestion : '',
+        });
+      });
+
+      // Style the header row
+      const headerRow = sheet.getRow(1);
+      headerRow.font = { bold: true };
+      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Generate buffer
+      const buffer = await workbook.xlsx.writeBuffer();
+      return buffer as ArrayBuffer;
+    });
+  }
+
 }

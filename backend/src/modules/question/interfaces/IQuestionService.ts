@@ -151,4 +151,5 @@ export interface IQuestionService {
     domain?: string;
     status?: string;
   }): Promise<ArrayBuffer | null>
+  generateDuplicateQuestionReport(startDate?: Date, endDate?: Date): Promise<ArrayBuffer | null>
 }

@@ -340,177 +340,220 @@ export class QuestionService {
     if (filter.dateRange && filter.dateRange !== "all")
       params.append("dateRange", filter.dateRange);
     return apiFetch(
-    `${this._baseUrl}?${params.toString()}`
-   );
-}
-async reAllocateLessWorkload(): Promise<WorkloadBalanceResponse|null> {
-  return apiFetch<WorkloadBalanceResponse|null>(`${this._baseUrl}/reAllocateLessWorkload`,{method: "POST",});
-}
+      `${this._baseUrl}?${params.toString()}`
+    );
+  }
+  async reAllocateLessWorkload(): Promise<WorkloadBalanceResponse | null> {
+    return apiFetch<WorkloadBalanceResponse | null>(`${this._baseUrl}/reAllocateLessWorkload`, { method: "POST", });
+  }
 
-async downloadQuestionReport(consecutiveApprovals?: string, startDate?: string, endDate?: string): Promise<Blob> {
-  const params = new URLSearchParams();
-  if (consecutiveApprovals && consecutiveApprovals !== "all") {
-    params.append("consecutiveApprovals", consecutiveApprovals);
-  }
-  if (startDate) {
-    params.append("startDate", startDate);
-  }
-  if (endDate) {
-    params.append("endDate", endDate);
-  }
-  
-  // Get the current Firebase user and token
-  const firebaseUser = auth.currentUser;
-  if (!firebaseUser) {
-    throw new Error("User not authenticated");
-  }
-  
-  const token = await getIdToken(firebaseUser);
-  
-  const response = await fetch(
-    `${this._baseUrl}/download-question-report?${params.toString()}`,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`, 
-      },
+  async downloadQuestionReport(consecutiveApprovals?: string, startDate?: string, endDate?: string): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (consecutiveApprovals && consecutiveApprovals !== "all") {
+      params.append("consecutiveApprovals", consecutiveApprovals);
     }
-  );
-  
-  if (!response.ok) {
-    throw new Error("Failed to download report");
-  }
-  
-  // Check if response is JSON (no data case)
-  const contentType = response.headers.get("content-type");
-  if (contentType && contentType.includes("application/json")) {
-    const jsonResponse = await response.json();
-    if (!jsonResponse.success) {
-      throw new Error(jsonResponse.message || "No data found for the selected filters");
+    if (startDate) {
+      params.append("startDate", startDate);
     }
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
+
+    // Get the current Firebase user and token
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) {
+      throw new Error("User not authenticated");
+    }
+
+    const token = await getIdToken(firebaseUser);
+
+    const response = await fetch(
+      `${this._baseUrl}/download-question-report?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to download report");
+    }
+
+    // Check if response is JSON (no data case)
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      const jsonResponse = await response.json();
+      if (!jsonResponse.success) {
+        throw new Error(jsonResponse.message || "No data found for the selected filters");
+      }
+    }
+
+    return await response.blob();
   }
-  
-  return await response.blob();
-}
 
 
-async sendOutreachReport(
-  startDate: Date,
-  endDate: Date,
-  emails: string[]
-): Promise<{ success: boolean; message: string } | null> {
-  return apiFetch<{ success: boolean; message: string } | null>(
-    `${this._baseUrl}/data/out-reach/date`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        startDate: formatDateLocal(startDate),
-        endDate: formatDateLocal(endDate),
-        emails,
-      }),
-    }
-  );
-}
+  async sendOutreachReport(
+    startDate: Date,
+    endDate: Date,
+    emails: string[]
+  ): Promise<{ success: boolean; message: string } | null> {
+    return apiFetch<{ success: boolean; message: string } | null>(
+      `${this._baseUrl}/data/out-reach/date`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          startDate: formatDateLocal(startDate),
+          endDate: formatDateLocal(endDate),
+          emails,
+        }),
+      }
+    );
+  }
 
-async downloadOverallReport(startDate?: string, endDate?: string): Promise<Blob> {
-  const params = new URLSearchParams();
-  if (startDate) {
-    params.append("startDate", startDate);
-  }
-  if (endDate) {
-    params.append("endDate", endDate);
-  }
-  
-  // Get the current Firebase user and token
-  const firebaseUser = auth.currentUser;
-  if (!firebaseUser) {
-    throw new Error("User not authenticated");
-  }
-  
-  const token = await getIdToken(firebaseUser);
-  
-  const response = await fetch(
-    `${this._baseUrl}/download-overall-report?${params.toString()}`,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`, 
-      },
+  async downloadOverallReport(startDate?: string, endDate?: string): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (startDate) {
+      params.append("startDate", startDate);
     }
-  );
-  
-  if (!response.ok) {
-    throw new Error("Failed to download overall report");
-  }
-  
-  // Check if response is JSON (no data case)
-  const contentType = response.headers.get("content-type");
-  if (contentType && contentType.includes("application/json")) {
-    const jsonResponse = await response.json();
-    if (!jsonResponse.success) {
-      throw new Error(jsonResponse.message || "No data found for the selected date range");
+    if (endDate) {
+      params.append("endDate", endDate);
     }
-  }
-  
-  return await response.blob();
-}
 
-async downloadFilteredReport(filters: {
-  state?: string;
-  crop?: string;
-  season?: string;
-  domain?: string;
-  status?: string;
-}): Promise<Blob> {
-  const params = new URLSearchParams();
-  if (filters.state && filters.state !== 'all') {
-    params.append("state", filters.state);
-  }
-  if (filters.crop && filters.crop !== 'all') {
-    params.append("crop", filters.crop);
-  }
-  if (filters.season && filters.season !== 'all') {
-    params.append("season", filters.season);
-  }
-  if (filters.domain && filters.domain !== 'all') {
-    params.append("domain", filters.domain);
-  }
-  if (filters.status && filters.status !== 'all') {
-    params.append("status", filters.status);
-  }
-  
-  // Get the current Firebase user and token
-  const firebaseUser = auth.currentUser;
-  if (!firebaseUser) {
-    throw new Error("User not authenticated");
-  }
-  
-  const token = await getIdToken(firebaseUser);
-  
-  const response = await fetch(
-    `${this._baseUrl}/download-filtered-report?${params.toString()}`,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`, 
-      },
+    // Get the current Firebase user and token
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) {
+      throw new Error("User not authenticated");
     }
-  );
-  
-  if (!response.ok) {
-    throw new Error("Failed to download filtered report");
-  }
-  
-  // Check if response is JSON (no data case)
-  const contentType = response.headers.get("content-type");
-  if (contentType && contentType.includes("application/json")) {
-    const jsonResponse = await response.json();
-    if (!jsonResponse.success) {
-      throw new Error(jsonResponse.message || "No questions found for the selected filters");
+
+    const token = await getIdToken(firebaseUser);
+
+    const response = await fetch(
+      `${this._baseUrl}/download-overall-report?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to download overall report");
     }
+
+    // Check if response is JSON (no data case)
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      const jsonResponse = await response.json();
+      if (!jsonResponse.success) {
+        throw new Error(jsonResponse.message || "No data found for the selected date range");
+      }
+    }
+
+    return await response.blob();
   }
-  
-  return await response.blob();
-}
+
+  async downloadDuplicateQuestionsReport(startDate?: string, endDate?: string): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
+
+    // Get the current Firebase user and token
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) {
+      throw new Error("User not authenticated");
+    }
+
+    const token = await getIdToken(firebaseUser);
+
+    const response = await fetch(
+      `${this._baseUrl}/download-duplicate-questions-report?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to download similar questions report");
+    }
+
+    // Check if response is JSON (no data case)
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      const jsonResponse = await response.json();
+      if (!jsonResponse.success) {
+        throw new Error(jsonResponse.message || "No similar questions found for the selected date range");
+      }
+    }
+
+    return await response.blob();
+  }
+
+  async downloadFilteredReport(filters: {
+    state?: string;
+    crop?: string;
+    season?: string;
+    domain?: string;
+    status?: string;
+  }): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (filters.state && filters.state !== 'all') {
+      params.append("state", filters.state);
+    }
+    if (filters.crop && filters.crop !== 'all') {
+      params.append("crop", filters.crop);
+    }
+    if (filters.season && filters.season !== 'all') {
+      params.append("season", filters.season);
+    }
+    if (filters.domain && filters.domain !== 'all') {
+      params.append("domain", filters.domain);
+    }
+    if (filters.status && filters.status !== 'all') {
+      params.append("status", filters.status);
+    }
+
+    // Get the current Firebase user and token
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) {
+      throw new Error("User not authenticated");
+    }
+
+    const token = await getIdToken(firebaseUser);
+
+    const response = await fetch(
+      `${this._baseUrl}/download-filtered-report?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to download filtered report");
+    }
+
+    // Check if response is JSON (no data case)
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      const jsonResponse = await response.json();
+      if (!jsonResponse.success) {
+        throw new Error(jsonResponse.message || "No questions found for the selected filters");
+      }
+    }
+
+    return await response.blob();
+  }
 
 }
