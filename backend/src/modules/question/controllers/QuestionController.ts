@@ -187,8 +187,20 @@ export class QuestionController {
         );
       }
     } else {
-      const inserted = this.questionService.addQuestion(userId, body);
-      return inserted;
+      const { isDuplicate, data } = await this.questionService.addQuestion(userId, body);
+      if (isDuplicate) {
+        return {
+          success: true,
+          message: 'Your question is similar to an existing question.',
+          data,
+        };
+      }
+      
+      return {
+        success: true,
+        message: 'Question submitted successfully.',
+        data,
+      };
     }
   }
   @Post('/reAllocateLessWorkload')

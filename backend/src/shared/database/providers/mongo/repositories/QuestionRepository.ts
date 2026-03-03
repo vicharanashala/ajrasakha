@@ -8,6 +8,7 @@ import {
   IUser,
   QuestionStatus,
   IReroute,
+  ISimilarQuestion
 } from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
@@ -3217,5 +3218,58 @@ export class QuestionRepository implements IQuestionRepository {
       .find(filters, { session })
       .sort({ createdAt: -1 })
       .toArray();
+  }
+  async getAllQuestionEmbeddings(
+    session?: ClientSession,
+  ): Promise<{ _id: ObjectId; embedding: number[] }[]> {
+    const results = await this.QuestionCollection
+      .find(
+        { embedding: { $exists: true, $ne: [] } },
+        { projection: { _id: 1, embedding: 1 }, session },
+      )
+      .toArray();
+  
+    return results.map((doc) => ({
+      _id:
+        typeof doc._id === 'string'
+          ? new ObjectId(doc._id)
+          : doc._id,
+      embedding: doc.embedding || [],
+    }));
+  }
+  async findTopSimilarQuestions(
+    embedding: number[],
+    k = 5,
+    session?: ClientSession,
+  ): Promise<(ISimilarQuestion & { _vectorSearchScore: number })[]> {
+    await this.init()
+  
+    const topSimilar = await this.QuestionCollection.aggregate(
+      [
+        {
+          $vectorSearch: {
+            index: "review_questions_vector_index", // your Atlas Vector Search index name
+            path: "embedding",     // field storing the embeddings
+            queryVector: embedding,
+            numCandidates: k * 10, // recommended: 10x of k for better recall
+            limit: k,
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            question: 1,
+            embedding: 1,
+            details: 1,
+            status: 1,
+            // add other fields you need
+            _vectorSearchScore: { $meta: "vectorSearchScore" },
+          },
+        },
+      ],
+      { session },
+    ).toArray();
+  
+    return topSimilar as any;
   }
 }

@@ -11,6 +11,8 @@ import {
   IAnswer,
   INotificationType,
   IQuestionPriority,
+  ISimilarQuestion,
+  AddQuestionResult
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -43,6 +45,8 @@ import {isToday} from '#root/utils/date.utils.js';
 import {IReRouteRepository} from '#root/shared/database/interfaces/IReRouteRepository.js';
 import { sendEmailWithAttachment } from '#root/utils/mailer.js';
 import ExcelJS from "exceljs";
+import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
+import {IDuplicateQuestionRepository} from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -76,6 +80,9 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     @inject(GLOBAL_TYPES.ReRouteRepository)
     private readonly reRouteRepository: IReRouteRepository,
+
+    @inject(GLOBAL_TYPES.DuplicateQuestionRepository)
+    private readonly duplicateQuestionRepository: IDuplicateQuestionRepository,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -289,7 +296,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     return uniqueQuestions;
   }
 
-  async addQuestion(
+  /*async addQuestion(
     userId: string,
     body: AddQuestionBodyDto,
   ): Promise<Partial<IQuestion>> {
@@ -459,6 +466,192 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
         // 7. Return the saved question
         return newQuestion;
+      });
+    } catch (error) {
+      console.error(error);
+      throw new InternalServerError(`Failed to add question: ${error}`);
+    }
+  }*/
+ 
+
+  async addQuestion(
+    userId: string,
+    body: AddQuestionBodyDto,
+  ): Promise<AddQuestionResult> {
+    try {
+      body = normalizeKeysToLower(body);
+  
+      let {
+        question,
+        priority,
+        source = 'AGRI_EXPERT',
+        details,
+        context,
+      } = body;
+  
+      if (!details) {
+        const b: any = body;
+        details = {
+          state: b?.state || '',
+          district: b?.district || '',
+          crop: b?.crop || '',
+          season: b?.season || '',
+          domain: b?.domain || '',
+        };
+      }
+  
+      const validPriorities = ['low', 'medium', 'high'];
+      priority = priority?.toLowerCase() as IQuestion['priority'];
+      if (!validPriorities.includes(priority)) {
+        priority = 'medium';
+      }
+  
+      if (!question?.trim()) {
+        throw new BadRequestError(`Question is required`);
+      }
+  
+      if (
+        !details.crop ||
+        !details.district ||
+        !details.domain ||
+        !details.season ||
+        !details.state
+      ) {
+        throw new BadRequestError(`All fields are required`);
+      }
+  
+      // 🔹 Create Embedding — OUTSIDE transaction
+      const text = `Question: ${question}`;
+      let textEmbedding: number[] = [];
+      
+  
+      if (appConfig.ENABLE_AI_SERVER) {
+        const { embedding } = await this.aiService.getEmbedding(text);
+        textEmbedding = embedding;
+      }
+      
+      
+      // 🔥 Similarity Check — OUTSIDE transaction ($vectorSearch cannot run inside one)
+      let highestScore = 0;
+      let referenceQuestionId: ObjectId | null = null;
+      let referenceQuestion=''
+  
+      if (textEmbedding.length) {
+        // No session passed here intentionally
+        const topSimilar = await this.questionRepo.findTopSimilarQuestions(
+          textEmbedding,
+          5,
+        );
+  
+        if (topSimilar.length > 0) {
+          const best = topSimilar[0];
+          highestScore = (best._vectorSearchScore ?? 0) * 100;
+          referenceQuestionId = best._id as ObjectId;
+          referenceQuestion=best.question
+        }
+        
+      }
+  
+      // ✅ Everything that needs atomicity goes inside the transaction
+      return this._withTransaction(async (session: ClientSession) => {
+        // 🔹 Create Context
+        let contextId: ObjectId | null = null;
+  
+        if (context) {
+          const { insertedId } = await this.contextRepo.addContext(context, session);
+          contextId = new ObjectId(insertedId);
+        }
+  
+        // 🔹 Create Base Question Object
+        const baseQuestion: IQuestion = {
+          userId: userId?.trim() !== '' ? new ObjectId(userId) : null,
+          question,
+          priority,
+          source,
+          status: 'open',
+          totalAnswersCount: 0,
+          contextId,
+          details,
+          isAutoAllocate: true,
+          embedding: textEmbedding,
+          metrics: null,
+          aiInitialAnswer: body.aiInitialAnswer || '',
+          text,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+  
+        // =====================================================
+        // 🔥 IF SIMILAR → STORE AS DUPLICATE
+        // =====================================================
+        if (highestScore >= 85 && referenceQuestionId && referenceQuestion) {
+          const duplicateQuestion = {
+            ...baseQuestion,
+            similarityScore: Number(highestScore.toFixed(2)),
+            referenceQuestionId,
+            referenceQuestion
+          };
+          await this.duplicateQuestionRepository.addDuplicate(
+            duplicateQuestion,
+            session,
+          );
+  
+          return { isDuplicate: true, data: duplicateQuestion };
+        }
+  
+        // =====================================================
+        // 🔥 IF NOT SIMILAR → NORMAL FLOW
+        // =====================================================
+        const savedQuestion = await this.questionRepo.addQuestion(
+          baseQuestion,
+          session,
+        );
+  
+        if (!savedQuestion?._id) {
+          throw new InternalServerError(`Failed to save question to database`);
+        }
+  
+        const users = await this.userRepo.findExpertsByPreference(
+          details as PreferenceDto,
+          session,
+        );
+  
+        const initialUsersToAllocate = users.slice(0, 3);
+  
+        const queue = initialUsersToAllocate.map(
+          (user) => new ObjectId(user._id.toString()),
+        );
+  
+        if (initialUsersToAllocate[0]) {
+          await this.userRepo.updateReputationScore(
+            initialUsersToAllocate[0]._id.toString(),
+            true,
+            session,
+          );
+        }
+  
+        const submissionData: IQuestionSubmission = {
+          questionId: new ObjectId(savedQuestion._id.toString()),
+          lastRespondedBy: null,
+          history: [],
+          queue,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+  
+        await this.questionSubmissionRepo.addSubmission(submissionData, session);
+  
+        if (initialUsersToAllocate[0]) {
+          await this.notificationService.saveTheNotifications(
+            `A Question has been assigned for answering`,
+            'Answer Creation Assigned',
+            savedQuestion._id.toString(),
+            initialUsersToAllocate[0]._id.toString(),
+            'answer_creation',
+          );
+        }
+  
+        return { isDuplicate: false, data: baseQuestion };
       });
     } catch (error) {
       console.error(error);

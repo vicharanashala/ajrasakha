@@ -26,7 +26,7 @@ import { PerformanceService } from '../performance/services/PerformanceService.j
 import { RequestController } from '../request/controllers/RequestController.js';
 import { RequestService } from '../request/services/RequestService.js';
 import { UserRepository } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
-
+import { DuplicateQuestionRepository } from '#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js';
 export const coreContainerModule = new ContainerModule(options => {
   // Controllers
   options.bind(UserController).toSelf().inSingletonScope();
@@ -82,4 +82,5 @@ export const coreContainerModule = new ContainerModule(options => {
   
   options.bind(CORE_TYPES.ReviewRepository).to(ReviewRepository).inSingletonScope()
   options.bind(CORE_TYPES.UserRepository).to(UserRepository).inSingletonScope()
+  options.bind(CORE_TYPES.DuplicateQuestionRepository).to(DuplicateQuestionRepository).inSingletonScope()
 });
