@@ -94,6 +94,108 @@ export class QuestionRepository implements IQuestionRepository {
     );
   }
 
+  /**
+   * Find similar question using cosine similarity
+   * @param embedding - Vector embedding of the new question
+   * @param crop - Crop type to filter by
+   * @param domain - Domain to filter by
+   * @param threshold - Similarity threshold (default 0.85)
+   * @param session - MongoDB session for transactions
+   * @returns Similar question with similarity score, or null if none found
+   */
+  async findSimilarQuestion(
+    embedding: number[],
+    crop: string,
+    domain: string,
+    threshold: number = 0.85,
+    session?: ClientSession,
+  ): Promise<{question: IQuestion; similarity_score: number} | null> {
+    try {
+      await this.init();
+
+      if (!embedding || embedding.length === 0) {
+        return null;
+      }
+
+      // Fetch existing questions with same crop and domain
+      const existingQuestions = await this.QuestionCollection.find(
+        {
+          'details.crop': crop,
+          'details.domain': domain,
+          embedding: {$exists: true, $ne: [], $type: 'array'},
+        },
+        {session},
+      )
+        .project({question: 1, embedding: 1, _id: 1, details: 1})
+        .toArray();
+
+      console.log(`🔍 Comparing against ${existingQuestions.length} existing questions with same crop/domain`);
+
+      let highestScore = 0;
+      let matchedQuestion: any = null;
+
+      // Calculate cosine similarity for each existing question
+      for (const existing of existingQuestions) {
+        if (!existing.embedding || existing.embedding.length === 0) continue;
+
+        const score = this.cosineSimilarity(embedding, existing.embedding);
+        
+        console.log(`   📊 Similarity with "${existing.question.substring(0, 40)}...": ${(score * 100).toFixed(2)}%`);
+
+        if (score > highestScore) {
+          highestScore = score;
+          matchedQuestion = existing;
+        }
+      }
+
+      console.log(`📊 Highest similarity score: ${(highestScore * 100).toFixed(2)}%`);
+
+      // If similarity exceeds threshold, return the matched question
+      if (highestScore > threshold) {
+        return {
+          question: matchedQuestion,
+          similarity_score: highestScore,
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error finding similar question:', error);
+      throw new InternalServerError(
+        `Failed to find similar question: ${error}`,
+      );
+    }
+  }
+
+  /**
+   * Calculate cosine similarity between two vectors
+   * @param vecA - First vector
+   * @param vecB - Second vector
+   * @returns Similarity score between 0 and 1
+   */
+  private cosineSimilarity(vecA: number[], vecB: number[]): number {
+    if (!vecA?.length || !vecB?.length || vecA.length !== vecB.length) {
+      return 0;
+    }
+
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+
+    for (let i = 0; i < vecA.length; i++) {
+      dotProduct += vecA[i] * vecB[i];
+      normA += vecA[i] * vecA[i];
+      normB += vecB[i] * vecB[i];
+    }
+
+    normA = Math.sqrt(normA);
+    normB = Math.sqrt(normB);
+
+    if (normA === 0 || normB === 0) return 0;
+
+    return dotProduct / (normA * normB);
+  }
+
   async addQuestions(
     userId: string,
     contextId: string,

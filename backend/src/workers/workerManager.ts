@@ -10,6 +10,9 @@ interface JobStatus {
   id: string;
   total: number;
   processed: number;
+  duplicates: number;
+  unique: number;
+  failed: number;
   status: 'running' | 'completed' | 'failed';
   startedAt: Date;
   finishedAt?: Date;
@@ -39,6 +42,9 @@ export const startBackgroundProcessing = (questionIds: string[]) => {
     id: jobId,
     total,
     processed: 0,
+    duplicates: 0,
+    unique: 0,
+    failed: 0,
     status: 'running',
     startedAt: new Date(),
     logs: [`🚀 Job ${jobId} started with ${total} questions`],
@@ -77,9 +83,20 @@ export const startBackgroundProcessing = (questionIds: string[]) => {
       if (msg?.processed !== undefined) {
         job.processed += msg.processed;
       }
+      if (msg?.duplicates !== undefined) {
+        job.duplicates += msg.duplicates;
+      }
+      if (msg?.unique !== undefined) {
+        job.unique += msg.unique;
+      }
+      if (msg?.failed !== undefined) {
+        job.failed += msg.failed;
+      }
       if (msg?.success) {
         completedWorkers++;
-        job.logs.push(`✅ Worker ${index + 1} completed (${msg.processed} processed)`);
+        job.logs.push(
+          `✅ Worker ${index + 1} completed (${msg.processed} processed, ${msg.duplicates} duplicates, ${msg.unique} unique)`
+        );
       }
     });
 
@@ -100,7 +117,7 @@ export const startBackgroundProcessing = (questionIds: string[]) => {
         job.finishedAt = new Date();
         job.status = failedWorkers === 0 ? 'completed' : 'failed';
         job.logs.push(
-          `🏁 Job finished. Processed ${job.processed}/${job.total}. Failed workers: ${failedWorkers}`
+          `🏁 Job finished. Processed ${job.processed}/${job.total}. Duplicates: ${job.duplicates}, Unique: ${job.unique}, Failed: ${job.failed}. Failed workers: ${failedWorkers}`
         );
       }
     });

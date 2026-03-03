@@ -92,7 +92,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
 
     // To test whether the ai server is running or not
-    const testEmbedding = await this.aiService.getEmbedding('Test');
+    // const testEmbedding = await this.aiService.getEmbedding('Test');
 
     const formatted: IQuestion[] = questions.map((q: any) => {
       const low = normalizeKeysToLower(q || {});
@@ -367,6 +367,28 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (ENABLE_AI_SERVER) {
           const {embedding} = await this.aiService.getEmbedding(text);
           textEmbedding = embedding;
+        }
+
+        // 2.5 Check for semantic duplicates
+        if (textEmbedding.length > 0) {
+          console.log('🔍 Checking for duplicate questions...');
+          
+          const similarQuestion = await this.questionRepo.findSimilarQuestion(
+            textEmbedding,
+            details.crop,
+            details.domain,
+            0.85, // similarity threshold
+            session
+          );
+
+          if (similarQuestion) {
+            console.log(`🔁 Duplicate detected! Similarity: ${(similarQuestion.similarity_score * 100).toFixed(2)}%`);
+            throw new BadRequestError(
+              `This question is too similar to an existing question (${(similarQuestion.similarity_score * 100).toFixed(0)}% match). Please rephrase or check existing questions.`
+            );
+          }
+          
+          console.log('✅ No duplicates found, proceeding with question creation');
         }
 
         // 3. Create Question entry

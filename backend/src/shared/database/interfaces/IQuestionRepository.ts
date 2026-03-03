@@ -180,6 +180,23 @@ export interface IQuestionRepository {
   ): Promise<IQuestion>;
 
   /**
+   * Find similar question using cosine similarity
+   * @param embedding - Vector embedding of the new question
+   * @param crop - Crop type to filter by
+   * @param domain - Domain to filter by
+   * @param threshold - Similarity threshold (default 0.85)
+   * @param session - Optional MongoDB client session for transactions
+   * @returns Similar question with similarity score, or null if none found
+   */
+  findSimilarQuestion(
+    embedding: number[],
+    crop: string,
+    domain: string,
+    threshold?: number,
+    session?: ClientSession,
+  ): Promise<{question: IQuestion; similarity_score: number} | null>;
+
+  /**
    * Updates a  question to delyed after 4hrs if still open.
    */
   updateExpiredAfterFourHours(): Promise<void>;
