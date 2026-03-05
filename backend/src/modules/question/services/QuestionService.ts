@@ -46,8 +46,7 @@ import {IReRouteRepository} from '#root/shared/database/interfaces/IReRouteRepos
 import { sendEmailWithAttachment } from '#root/utils/mailer.js';
 import ExcelJS from "exceljs";
 import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
-import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
-import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
+import {IDuplicateQuestionRepository} from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -473,16 +472,15 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new InternalServerError(`Failed to add question: ${error}`);
     }
   }*/
-
+ 
 
   async addQuestion(
     userId: string,
     body: AddQuestionBodyDto,
   ): Promise<AddQuestionResult> {
-    const logData: Record<string, any> = {};
     try {
       body = normalizeKeysToLower(body);
-
+  
       let {
         question,
         priority,
@@ -490,7 +488,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         details,
         context,
       } = body;
-
+  
       if (!details) {
         const b: any = body;
         details = {
@@ -501,17 +499,17 @@ export class QuestionService extends BaseService implements IQuestionService {
           domain: b?.domain || '',
         };
       }
-
+  
       const validPriorities = ['low', 'medium', 'high'];
       priority = priority?.toLowerCase() as IQuestion['priority'];
       if (!validPriorities.includes(priority)) {
         priority = 'medium';
       }
-
+  
       if (!question?.trim()) {
         throw new BadRequestError(`Question is required`);
       }
-
+  
       if (
         !details.crop ||
         !details.district ||
@@ -521,69 +519,49 @@ export class QuestionService extends BaseService implements IQuestionService {
       ) {
         throw new BadRequestError(`All fields are required`);
       }
-
-      logData.userId = userId;
-      logData.question = question;
-      logData.details = details;
-      logData.source = source;
-
+  
       // 🔹 Create Embedding — OUTSIDE transaction
       const text = `Question: ${question}`;
       let textEmbedding: number[] = [];
-
-
+      
+  
       if (appConfig.ENABLE_AI_SERVER) {
         const { embedding } = await this.aiService.getEmbedding(text);
         textEmbedding = embedding;
       }
-
-      logData.embeddingGenerated = textEmbedding.length > 0;
-      logData.vectorLength = textEmbedding.length;
-
+      
+      
       // 🔥 Similarity Check — OUTSIDE transaction ($vectorSearch cannot run inside one)
       let highestScore = 0;
       let referenceQuestionId: ObjectId | null = null;
-      let referenceQuestion = '';
-
+      let referenceQuestion=''
+  
       if (textEmbedding.length) {
         // No session passed here intentionally
-
         const topSimilar = await this.questionRepo.findTopSimilarQuestions(
           textEmbedding,
           5,
         );
-
-        logData.totalMatches = topSimilar.length;
-        logData.matches = topSimilar.map((q) => ({
-          questionId: q._id,
-          question: q.question,
-          similarityScore: ((q._vectorSearchScore ?? 0) * 100).toFixed(2),
-        }));
-
+  
         if (topSimilar.length > 0) {
           const best = topSimilar[0];
           highestScore = (best._vectorSearchScore ?? 0) * 100;
           referenceQuestionId = best._id as ObjectId;
-          referenceQuestion = best.question
-          logData.vectorLength = textEmbedding.length;
-          logData.referenceQuestionId = referenceQuestionId;
+          referenceQuestion=best.question
         }
-
+        
       }
-
-      logData.highestScore = highestScore.toFixed(2);
-      logData.threshold = 85;
-
+  
       // ✅ Everything that needs atomicity goes inside the transaction
       return this._withTransaction(async (session: ClientSession) => {
         // 🔹 Create Context
         let contextId: ObjectId | null = null;
-
+  
         if (context) {
           const { insertedId } = await this.contextRepo.addContext(context, session);
           contextId = new ObjectId(insertedId);
         }
-
+  
         // 🔹 Create Base Question Object
         const baseQuestion: IQuestion = {
           userId: userId?.trim() !== '' ? new ObjectId(userId) : null,
@@ -617,41 +595,33 @@ export class QuestionService extends BaseService implements IQuestionService {
             duplicateQuestion,
             session,
           );
-
-          logData.outcome = 'DUPLICATE_DETECTED';
-          logData.matchedQuestion = referenceQuestion;
-          logData.similarityScore = highestScore.toFixed(2);
-          chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
-
+  
           return { isDuplicate: true, data: duplicateQuestion };
         }
-
+  
         // =====================================================
         // 🔥 IF NOT SIMILAR → NORMAL FLOW
         // =====================================================
-        logData.outcome = 'NEW_QUESTION_ADDED';
-        chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
-
         const savedQuestion = await this.questionRepo.addQuestion(
           baseQuestion,
           session,
         );
-
+  
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
         }
-
+  
         const users = await this.userRepo.findExpertsByPreference(
           details as PreferenceDto,
           session,
         );
-
+  
         const initialUsersToAllocate = users.slice(0, 3);
-
+  
         const queue = initialUsersToAllocate.map(
           (user) => new ObjectId(user._id.toString()),
         );
-
+  
         if (initialUsersToAllocate[0]) {
           await this.userRepo.updateReputationScore(
             initialUsersToAllocate[0]._id.toString(),
@@ -659,7 +629,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             session,
           );
         }
-
+  
         const submissionData: IQuestionSubmission = {
           questionId: new ObjectId(savedQuestion._id.toString()),
           lastRespondedBy: null,
@@ -680,16 +650,11 @@ export class QuestionService extends BaseService implements IQuestionService {
             'answer_creation',
           );
         }
-
+  
         return { isDuplicate: false, data: baseQuestion };
       });
     } catch (error) {
       console.error(error);
-
-      logData.outcome = 'FAILED';
-      logData.errorMessage = error.message;
-      logData.stack = error.stack;
-      chatbotSimilarityLogger.error('ADD_QUESTION_LOG', logData);
       throw new InternalServerError(`Failed to add question: ${error}`);
     }
   }
