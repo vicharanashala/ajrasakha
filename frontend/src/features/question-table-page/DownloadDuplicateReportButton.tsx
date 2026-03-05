@@ -15,7 +15,7 @@ import {
 import { Calendar } from "@/components/atoms/calendar";
 import { formatDateLocal } from "@/utils/formatDate";
 import type { DateRange } from "react-day-picker";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 
 export const DownloadDuplicateReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void }) => {
   const questionService = new QuestionService();
@@ -30,6 +30,11 @@ export const DownloadDuplicateReportButton = ({ onOpenDialog }: { onOpenDialog?:
     if (!downloadDateRange?.from || !downloadDateRange?.to) {
       toast.error("Please select a date range first");
       setIsDateDialogOpen(true);
+      return;
+    }
+
+    if (differenceInDays(downloadDateRange.to, downloadDateRange.from) > 31) {
+      toast.error("Date range cannot exceed 1 month. Please select a shorter range.");
       return;
     }
 
