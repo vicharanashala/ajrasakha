@@ -11,7 +11,8 @@ export class AiService {
   async getQuestionByContext(
     context: string,
   ): Promise<GeneratedQuestionResponse[]> {
-    const response = await fetch(`${this._aiServerUrl}/questions`, {
+   // const response = await fetch(`${this._aiServerUrl}/questions`, {
+    const response = await fetch(`${this._aiServerUrl}/search`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({context}),
