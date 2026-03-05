@@ -1763,12 +1763,20 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   async getQuestionsByStatus(
-    status: QuestionStatus,
-    session?: ClientSession,
-  ): Promise<IQuestion[]> {
-    await this.init();
-    return await this.QuestionCollection.find({status}, {session}).toArray();
-  }
+status: QuestionStatus,
+session?: ClientSession,
+): Promise<IQuestion[]> {
+await this.init();
+return await this.QuestionCollection.find({ status }, { session }).toArray();
+}
+ 
+async getClosedQuestionsCount(
+session?: ClientSession,
+): Promise<number> {
+await this.init();
+return await this.QuestionCollection.countDocuments({ status: 'closed' }, { session });
+}
+
 
   async getYearAnalytics(
     goldenDataSelectedYear: string,

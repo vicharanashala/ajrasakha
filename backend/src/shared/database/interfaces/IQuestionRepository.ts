@@ -213,6 +213,9 @@ export interface IQuestionRepository {
     session?: ClientSession,
   ): Promise<IQuestion[]>;
 
+  getClosedQuestionsCount(
+session?: ClientSession,
+): Promise<number>;
   /**
    * get yearly analytics.
    * @param goldenDataSelectedYear - question status.

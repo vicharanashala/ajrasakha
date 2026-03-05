@@ -103,12 +103,8 @@ export class PerformanceService extends BaseService implements IPerformanceServi
         );
 
       // goldenDataset
-      const closedQuestions = await this.questionRepo.getQuestionsByStatus(
-        'closed',
-        session,
-      );
+      const verifiedEntries = await this.questionRepo.getClosedQuestionsCount(session);
 
-      const verifiedEntries = closedQuestions.length;
 
        const {todayApproved}=await this.questionRepo.getTodayApproved(session);
 
