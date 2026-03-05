@@ -68,4 +68,36 @@ export class DuplicateQuestionRepository  implements IDuplicateQuestionRepositor
       );
     }
   }
+  async findDuplicatesByDateRange(
+    startDate: Date,
+    endDate: Date,
+    session?: ClientSession,
+  ): Promise<ISimilarQuestion[]> {
+    try {
+      await this.init();
+
+      // Ensure endDate includes the full day
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const duplicates = await this.DuplicateQuestionCollection.find(
+        {
+          createdAt: {
+            $gte: startDate,
+            $lte: endOfDay
+          }
+        },
+        { session },
+      ).toArray();
+
+      return duplicates.map(d => ({
+        ...d,
+        _id: d._id?.toString(),
+      })) as ISimilarQuestion[];
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while fetching similar questions by date range: ${error}`,
+      );
+    }
+  }
 }

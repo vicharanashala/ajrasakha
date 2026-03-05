@@ -303,9 +303,34 @@ export class QuestionController {
     });
 
     if (!data) {
-      response.status(200).json({ 
-        success: false, 
-        message: "No questions found for the selected filters" 
+      response.status(200).json({
+        success: false,
+        message: "No questions found for the selected filters"
+      });
+      return;
+    }
+
+    return Buffer.from(data);
+  }
+
+  @Get("/download-duplicate-questions-report")
+  @Authorized()
+  @ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+  @OpenAPI({ summary: 'Download duplicate questions report as Excel' })
+  async downloadDuplicateReport(
+    @QueryParams() query: { startDate?: string; endDate?: string },
+    @CurrentUser() user: IUser,
+    @Res() response: any,
+  ) {
+    const startDate = query.startDate ? new Date(query.startDate) : undefined;
+    const endDate = query.endDate ? new Date(query.endDate) : undefined;
+
+    const data = await this.questionService.generateDuplicateQuestionReport(startDate, endDate);
+
+    if (!data) {
+      response.status(200).json({
+        success: false,
+        message: "No duplicate questions found for the selected date range"
       });
       return;
     }
