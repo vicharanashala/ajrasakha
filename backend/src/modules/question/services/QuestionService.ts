@@ -2241,10 +2241,10 @@ export class QuestionService extends BaseService implements IQuestionService {
     );
 
     const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(start, end, 'AJRASAKHA');
-
+      const combineQuestions=[...questions,...duplicateQuestions]
     const allQuestions = [
-      ...questions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-            ...duplicateQuestions.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      ...combineQuestions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+            
     ];
 
 
