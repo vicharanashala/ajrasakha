@@ -2240,14 +2240,24 @@ export class QuestionService extends BaseService implements IQuestionService {
       'AJRASAKHA',
     );
 
-    if (questions.length === 0) {
+    const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(start, end, 'AJRASAKHA');
+
+    const allQuestions = [
+      ...questions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+            ...duplicateQuestions.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    ];
+
+
+    if (allQuestions.length === 0) {
+
       return {
         success: true,
         message: 'There are no Outreach questions in the selected time',
       };
     }
 
-    const csv = this.convertQuestionsToCSV(questions, startDate, endDate);
+    const csv = this.convertQuestionsToCSV(allQuestions, startDate, endDate);
+
 
     await sendEmailWithAttachment(
       emails,
@@ -2515,7 +2525,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       // Fetch duplicates using the repository
-      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(startDate, endDate, session);
+      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(startDate, endDate, 'AJRASAKHA',session);
 
       if (!duplicateQuestions || duplicateQuestions.length === 0) {
         return null;
