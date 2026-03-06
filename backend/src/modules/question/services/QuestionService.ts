@@ -2518,7 +2518,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
   }
 
-  async generateDuplicateQuestionReport(startDate?: Date, endDate?: Date): Promise<ArrayBuffer | null> {
+    async generateDuplicateQuestionReport(startDate?: Date, endDate?: Date): Promise<ArrayBuffer | null> {
     return this._withTransaction(async (session) => {
       if (!startDate || !endDate) {
         throw new BadRequestError('startDate and endDate are required');
@@ -2531,27 +2531,66 @@ export class QuestionService extends BaseService implements IQuestionService {
         return null;
       }
 
+      // Fetch reference question details for metadata
+      // Use a Map to avoid duplicate fetches for the same reference question
+      const refDetailsMap = new Map<string, {state: string; district: string; crop: string; season: string; domain: string} | null>();
+
+      for (const q of duplicateQuestions) {
+        const refId = q.referenceQuestionId?.toString();
+        if (refId && !refDetailsMap.has(refId)) {
+          try {
+            const refQuestion = await this.questionRepo.getById(refId, session);
+            refDetailsMap.set(refId, refQuestion?.details || null);
+          } catch {
+            refDetailsMap.set(refId, null);
+          }
+        }
+      }
+
       // Create Excel workbook
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet("Similar Questions");
 
-      // Define columns
+      // Define columns with metadata for both question and reference question
       sheet.columns = [
         { header: "createdAt", key: "createdAt", width: 22 },
         { header: "question", key: "question", width: 60 },
+        { header: "q_state", key: "q_state", width: 18 },
+        { header: "q_district", key: "q_district", width: 20 },
+        { header: "q_crop", key: "q_crop", width: 18 },
+        { header: "q_season", key: "q_season", width: 18 },
+        { header: "q_domain", key: "q_domain", width: 22 },
         { header: "source", key: "source", width: 15 },
-        { header: "similarityScore", key: "similarityScore", width: 15 },
-        { header: "referenceQuestion", key: "referenceQuestion", width: 30 },
+        { header: "similarityScore", key: "similarityScore", width: 18 },
+        { header: "referenceQuestion", key: "referenceQuestion", width: 60 },
+        { header: "ref_state", key: "ref_state", width: 18 },
+        { header: "ref_district", key: "ref_district", width: 20 },
+        { header: "ref_crop", key: "ref_crop", width: 18 },
+        { header: "ref_season", key: "ref_season", width: 18 },
+        { header: "ref_domain", key: "ref_domain", width: 22 },
       ];
 
       // Add data rows
       duplicateQuestions.forEach(q => {
+        const refId = q.referenceQuestionId?.toString();
+        const refDetails = refId ? refDetailsMap.get(refId) : null;
+
         sheet.addRow({
           createdAt: q.createdAt,
           question: q.question,
+          q_state: q.details?.state || '',
+          q_district: q.details?.district || '',
+          q_crop: q.details?.crop || '',
+          q_season: q.details?.season || '',
+          q_domain: q.details?.domain || '',
           source: q.source,
           similarityScore: q.similarityScore,
           referenceQuestion: q.referenceQuestion ? q.referenceQuestion : '',
+          ref_state: refDetails?.state || '',
+          ref_district: refDetails?.district || '',
+          ref_crop: refDetails?.crop || '',
+          ref_season: refDetails?.season || '',
+          ref_domain: refDetails?.domain || '',
         });
       });
 
@@ -2565,5 +2604,6 @@ export class QuestionService extends BaseService implements IQuestionService {
       return buffer as ArrayBuffer;
     });
   }
+
 
 }
