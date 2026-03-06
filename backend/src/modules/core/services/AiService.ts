@@ -8,11 +8,14 @@ export class AiService {
   private _aiServerUrl =
     'http://' + aiConfig.serverIP + ':' + aiConfig.serverPort;
 
+    private _agentServerUrl =
+    'http://' + aiConfig.agentServerIP + ':' + aiConfig.agerntServerPort;
+
   async getQuestionByContext(
     context: string,
   ): Promise<GeneratedQuestionResponse[]> {
    // const response = await fetch(`${this._aiServerUrl}/questions`, {
-    const response = await fetch(`${this._aiServerUrl}/search`, {
+    const response = await fetch(`${this._agentServerUrl}/search`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({context}),
