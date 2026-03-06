@@ -18,7 +18,10 @@ export class AiService {
     const response = await fetch(`${this._agentServerUrl}/search`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({context}),
+      body: JSON.stringify({
+        query: context,
+        top_k: 5
+      }),
     });
     if (!response.ok)
       throw new InternalServerError(
