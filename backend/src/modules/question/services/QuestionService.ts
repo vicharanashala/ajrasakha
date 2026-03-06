@@ -519,49 +519,50 @@ export class QuestionService extends BaseService implements IQuestionService {
       ) {
         throw new BadRequestError(`All fields are required`);
       }
-  
+
       // 🔹 Create Embedding — OUTSIDE transaction
       const text = `Question: ${question}`;
       let textEmbedding: number[] = [];
-      
-  
+
+
       if (appConfig.ENABLE_AI_SERVER) {
         const { embedding } = await this.aiService.getEmbedding(text);
         textEmbedding = embedding;
       }
-      
+
       
       // 🔥 Similarity Check — OUTSIDE transaction ($vectorSearch cannot run inside one)
       let highestScore = 0;
       let referenceQuestionId: ObjectId | null = null;
       let referenceQuestion=''
-  
-      if (textEmbedding.length) {
+      
+      if (textEmbedding.length && source === 'AJRASAKHA') {
         // No session passed here intentionally
         const topSimilar = await this.questionRepo.findTopSimilarQuestions(
           textEmbedding,
           5,
+          { state: details.state, district: details.district, crop: details.crop, domain: details.domain, season: details.season },
         );
-  
+
         if (topSimilar.length > 0) {
           const best = topSimilar[0];
           highestScore = (best._vectorSearchScore ?? 0) * 100;
           referenceQuestionId = best._id as ObjectId;
           referenceQuestion=best.question
         }
-        
+
       }
-  
+
       // ✅ Everything that needs atomicity goes inside the transaction
       return this._withTransaction(async (session: ClientSession) => {
         // 🔹 Create Context
         let contextId: ObjectId | null = null;
-  
+
         if (context) {
           const { insertedId } = await this.contextRepo.addContext(context, session);
           contextId = new ObjectId(insertedId);
         }
-  
+
         // 🔹 Create Base Question Object
         const baseQuestion: IQuestion = {
           userId: userId?.trim() !== '' ? new ObjectId(userId) : null,
