@@ -177,11 +177,11 @@ export class QuestionService {
   }
 
   async generateQuestions(
-    transcript: string
+    query: string
   ): Promise<GeneratedQuestion[] | null> {
     return apiFetch<GeneratedQuestion[] | null>(`${this._baseUrl}/generate`, {
       method: "POST",
-      body: JSON.stringify({ transcript }),
+      body: JSON.stringify({ query }),
     });
   }
 

@@ -260,7 +260,7 @@ class AddQuestionBodyDto {
 class GenerateQuestionsBody {
   @IsString()
   @MinLength(10)
-  transcript!: string;
+  query!: string;
 }
 class ExpertInput {
   @IsString()
