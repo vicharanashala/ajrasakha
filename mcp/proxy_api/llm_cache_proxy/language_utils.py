@@ -13,12 +13,20 @@ from config import LANG_DETECTION_MODEL_URL, LANG_DETECTION_MODEL_NAME
 
 logger = logging.getLogger("mcp-cache-proxy")
 
+from typing import Optional
 
-async def detect_language(text: str) -> str:
+ALLOWED_LANGUAGES = {
+    "hindi", "bengali", "marathi", "telugu", "tamil", "gujarati",
+    "urdu", "kannada", "odia", "malayalam", "punjabi", "assamese",
+    "english",
+}
+
+
+async def detect_language(text: str) -> Optional[str]:
     """
     Detect the language of the input text using Gemma LLM.
-    Returns a lowercased language name (e.g., 'english', 'punjabi', 'hindi').
-    Defaults to 'english' on error.
+    Returns a lowercased language name constrained to ALLOWED_LANGUAGES.
+    Returns None on error or if the model returns an unexpected value.
     """
     try:
         async with httpx.AsyncClient() as client:
@@ -32,7 +40,10 @@ async def detect_language(text: str) -> str:
                             "content": (
                                 "Detect the language of the following sentence. "
                                 "Don't assume language based on geographical location.\n\n"
-                                "Answer in one word only which language is this."
+                                "Answer in one word only which language is this. "
+                                "Choose from: hindi, bengali, marathi, telugu, tamil, "
+                                "gujarati, urdu, kannada, odia, malayalam, punjabi, "
+                                "assamese, english."
                             ),
                         },
                         {"role": "user", "content": text},
@@ -44,18 +55,23 @@ async def detect_language(text: str) -> str:
             )
             response.raise_for_status()
             result = response.json()
-            language = result["choices"][0]["message"]["content"].strip().lower()
-            logger.info(f"[LANG] Detected language: '{language}' for text: '{text[:60]}'")
-            return language
+            raw = result["choices"][0]["message"]["content"].strip().lower()
+            
+            if raw in ALLOWED_LANGUAGES:
+                logger.info(f"[LANG] Detected language: '{raw}' for text: '{text[:60]}'")
+                return raw
+            else:
+                logger.warning(f"[LANG] Model returned '{raw}', not in allowed list — skipping caching")
+                return None
     except Exception as e:
-        logger.error(f"[LANG] Error detecting language: {e}")
-        return "english"
+        logger.error(f"[LANG] Error detecting language: {e} — skipping caching")
+        return None
 
 
-async def get_user_query_language(messages: list) -> str:
+async def get_user_query_language(messages: list) -> Optional[str]:
     """
     Extract the last user message from the conversation and detect its language.
-    Returns a lowercased language name.
+    Returns a lowercased language name, or None if detection fails/is unsupported.
     """
     # Walk backwards to find the most recent user message
     for i in range(len(messages) - 1, -1, -1):
@@ -72,5 +88,5 @@ async def get_user_query_language(messages: list) -> str:
             if content and content.strip():
                 return await detect_language(content.strip())
 
-    logger.info("[LANG] No user message found, defaulting to 'english'")
-    return "english"
+    logger.info("[LANG] No user message found, skipping cache")
+    return None

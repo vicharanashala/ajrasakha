@@ -135,11 +135,17 @@ def _log_message_roles(messages: list):
 # Cache WRITE: Store LLM final response after tool execution
 # -------------------------------------------------------------------
 
-async def _maybe_cache_final_response(messages: list, final_text: str, lang: str = "english"):
+from typing import Optional
+
+async def _maybe_cache_final_response(messages: list, final_text: str, lang: Optional[str] = "english"):
     """
     If the conversation includes tool results for our cacheable tool,
     cache the LLM's final text response keyed by the original query params + language.
     """
+    if not lang:
+        logger.info("[CACHE_WRITE] SKIP — Unsupported language detected, not caching")
+        return
+
     logger.info(f"[CACHE_WRITE] Checking if we should cache. final_text length={len(final_text)}, lang={lang}")
     _log_message_roles(messages)
 
@@ -180,22 +186,34 @@ async def _maybe_cache_final_response(messages: list, final_text: str, lang: str
 # Cache READ: Return cached final response directly
 # -------------------------------------------------------------------
 
-async def try_resolve_from_cache(tool_calls: list, lang: str = "english"):
+async def try_resolve_from_cache(tool_calls: list, lang: Optional[str] = "english"):
     """
-    If ALL tool_calls are our cacheable tool AND all have cache hits,
-    return the cached final LLM response text.
-    Returns (cached_text, similarity_score) on full hit, None on miss.
+    Check if any cacheable tool_call has a cache hit.
+    Non-cacheable tools are skipped (not treated as a miss).
+    Returns (cached_text, similarity_score) on hit, None on miss.
     Language is included in the cache key to avoid cross-language hits.
     """
+    if not lang:
+        logger.info("[CACHE_READ] SKIP — Unsupported language detected, bypassing cache")
+        return None
+
     logger.info(f"[CACHE_READ] Checking {len(tool_calls)} tool_calls against cache (lang={lang})")
+
+    # Filter to only cacheable tools — skip non-cacheable ones
+    cacheable_tcs = []
     for tc in tool_calls:
         tc_name = tc.get("function", {}).get("name", "?")
         logger.info(f"[CACHE_READ] tool_call: name={tc_name}, id={tc.get('id', '?')}")
-        if not _is_cacheable_tool(tc_name):
+        if _is_cacheable_tool(tc_name):
+            cacheable_tcs.append(tc)
+        else:
             logger.info(f"[CACHE_READ] SKIP — non-cacheable tool: {tc_name}")
-            return None
 
-    for tc in tool_calls:
+    if not cacheable_tcs:
+        logger.info("[CACHE_READ] No cacheable tool_calls found — MISS")
+        return None
+
+    for tc in cacheable_tcs:
         try:
             args = json.loads(tc["function"].get("arguments", "{}"))
         except json.JSONDecodeError:
@@ -340,7 +358,7 @@ async def proxy(path: str, request: Request):
         return await _handle_non_streaming(upstream, parsed, request, path, detected_lang)
 
 
-async def _handle_non_streaming(upstream, parsed, request, path, lang: str = "english"):
+async def _handle_non_streaming(upstream, parsed, request, path, lang: Optional[str] = "english"):
     """Read full JSON response, check for tool_calls or cache final text."""
     resp_bytes = await upstream.aread()
     await upstream.aclose()
@@ -383,7 +401,7 @@ async def _handle_non_streaming(upstream, parsed, request, path, lang: str = "en
                     headers=dict(upstream.headers))
 
 
-async def _handle_streaming(upstream, parsed, request, path, lang: str = "english"):
+async def _handle_streaming(upstream, parsed, request, path, lang: Optional[str] = "english"):
     """
     Buffer the ENTIRE SSE stream first, then decide:
     - If any tool_calls were seen → check cache → return cached or replay
