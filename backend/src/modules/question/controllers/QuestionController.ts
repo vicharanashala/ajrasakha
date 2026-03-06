@@ -120,7 +120,7 @@ export class QuestionController {
   async getQuestionFromRawContext(
     @Body() body: GenerateQuestionsBody,
   ): Promise<GeneratedQuestionResponse[]> {
-    return this.questionService.getQuestionFromRawContext(body.transcript);
+    return this.questionService.getQuestionFromRawContext(body.query);
   }
 
   @Post('/')
