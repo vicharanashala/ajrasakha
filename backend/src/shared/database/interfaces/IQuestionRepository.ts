@@ -214,8 +214,8 @@ export interface IQuestionRepository {
   ): Promise<IQuestion[]>;
 
   getClosedQuestionsCount(
-session?: ClientSession,
-): Promise<number>;
+    session?: ClientSession,
+  ): Promise<number>;
   /**
    * get yearly analytics.
    * @param goldenDataSelectedYear - question status.
@@ -334,10 +334,10 @@ session?: ClientSession,
   ): Promise<QuestionLevelResponse>;
 
   findByDateRangeAndSource(
-      startDate: Date,
-      endDate: Date,
-      sources: 'AJRASAKHA',
-    ): Promise<IQuestion[]>
+    startDate: Date,
+    endDate: Date,
+    sources: 'AJRASAKHA',
+  ): Promise<IQuestion[]>
   getMonthlyQuestionStats(
     startDate?: Date,
     endDate?: Date,
@@ -358,9 +358,10 @@ session?: ClientSession,
   getAllQuestionEmbeddings(
     session?: ClientSession,
   ): Promise<IQuestionEmbedding[]>;
-   findTopSimilarQuestions(
+  findTopSimilarQuestions(
     embedding: number[],
     k?: number,
+    filter?: { state?: string; district?: string; crop?: string; domain?: string; season?: string },
     session?: ClientSession,
   ): Promise<(ISimilarQuestion & { _vectorSearchScore: number })[]>
 

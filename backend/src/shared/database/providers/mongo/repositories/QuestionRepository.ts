@@ -3248,20 +3248,44 @@ return await this.QuestionCollection.countDocuments({ status: 'closed' }, { sess
   async findTopSimilarQuestions(
     embedding: number[],
     k = 5,
+    filter?: { state?: string; district?: string; crop?: string; domain?: string; season?: string },
     session?: ClientSession,
   ): Promise<(ISimilarQuestion & { _vectorSearchScore: number })[]> {
     await this.init()
-  
+
+    const vectorSearchFilter: Record<string, string> = {};
+    if (filter?.state) {
+      vectorSearchFilter["details.state"] = filter.state;
+    }
+    if (filter?.district) {
+      vectorSearchFilter["details.district"] = filter.district;
+    }
+    if (filter?.crop) {
+      vectorSearchFilter["details.crop"] = filter.crop;
+    }
+    if (filter?.domain) {
+      vectorSearchFilter["details.domain"] = filter.domain;
+    }
+    if (filter?.season) {
+      vectorSearchFilter["details.season"] = filter.season;
+    }
+
+    const vectorSearchStage: any = {
+      index: "review_questions_vector_index", // your Atlas Vector Search index name
+      path: "embedding",     // field storing the embeddings
+      queryVector: embedding,
+      numCandidates: k * 10, // recommended: 10x of k for better recall
+      limit: k,
+    };
+
+    if (Object.keys(vectorSearchFilter).length > 0) {
+      vectorSearchStage.filter = vectorSearchFilter;
+    }
+
     const topSimilar = await this.QuestionCollection.aggregate(
       [
         {
-          $vectorSearch: {
-            index: "review_questions_vector_index", // your Atlas Vector Search index name
-            path: "embedding",     // field storing the embeddings
-            queryVector: embedding,
-            numCandidates: k * 10, // recommended: 10x of k for better recall
-            limit: k,
-          },
+          $vectorSearch: vectorSearchStage,
         },
         {
           $project: {
@@ -3277,7 +3301,7 @@ return await this.QuestionCollection.countDocuments({ status: 'closed' }, { sess
       ],
       { session },
     ).toArray();
-  
+
     return topSimilar as any;
   }
 }
