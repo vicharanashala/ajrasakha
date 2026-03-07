@@ -47,6 +47,7 @@ import { sendEmailWithAttachment } from '#root/utils/mailer.js';
 import ExcelJS from "exceljs";
 import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
 import {IDuplicateQuestionRepository} from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
+import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -478,6 +479,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     userId: string,
     body: AddQuestionBodyDto,
   ): Promise<AddQuestionResult> {
+    const logData: Record<string, any> = {};
     try {
       body = normalizeKeysToLower(body);
   
@@ -520,6 +522,11 @@ export class QuestionService extends BaseService implements IQuestionService {
         throw new BadRequestError(`All fields are required`);
       }
 
+      logData.userId = userId;
+      logData.question = question;
+      logData.details = details;
+      logData.source = source;
+
       // 🔹 Create Embedding — OUTSIDE transaction
       const text = `Question: ${question}`;
       let textEmbedding: number[] = [];
@@ -530,7 +537,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         textEmbedding = embedding;
       }
 
-      
+      logData.embeddingGenerated = textEmbedding.length > 0;
+      logData.vectorLength = textEmbedding.length;
+
       // 🔥 Similarity Check — OUTSIDE transaction ($vectorSearch cannot run inside one)
       let highestScore = 0;
       let referenceQuestionId: ObjectId | null = null;
@@ -544,14 +553,26 @@ export class QuestionService extends BaseService implements IQuestionService {
           { state: details.state, district: details.district, crop: details.crop, domain: details.domain, season: details.season },
         );
 
+        logData.totalMatches = topSimilar.length;
+        logData.matches = topSimilar.map((q) => ({
+          questionId: q._id,
+          question: q.question,
+          similarityScore: ((q._vectorSearchScore ?? 0) * 100).toFixed(2),
+        }));
+
         if (topSimilar.length > 0) {
           const best = topSimilar[0];
           highestScore = (best._vectorSearchScore ?? 0) * 100;
           referenceQuestionId = best._id as ObjectId;
           referenceQuestion=best.question
+          logData.vectorLength = textEmbedding.length;
+          logData.referenceQuestionId = referenceQuestionId;
         }
 
       }
+
+      logData.highestScore = highestScore.toFixed(2);
+      logData.threshold = 85;      
 
       // ✅ Everything that needs atomicity goes inside the transaction
       return this._withTransaction(async (session: ClientSession) => {
@@ -597,12 +618,21 @@ export class QuestionService extends BaseService implements IQuestionService {
             session,
           );
   
+          logData.outcome = 'DUPLICATE_DETECTED';
+          logData.matchedQuestion = referenceQuestion;
+          logData.similarityScore = highestScore.toFixed(2);
+          chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
+
           return { isDuplicate: true, data: duplicateQuestion };
         }
   
         // =====================================================
         // 🔥 IF NOT SIMILAR → NORMAL FLOW
         // =====================================================
+    
+        logData.outcome = 'NEW_QUESTION_ADDED';
+        chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
+
         const savedQuestion = await this.questionRepo.addQuestion(
           baseQuestion,
           session,
@@ -656,6 +686,12 @@ export class QuestionService extends BaseService implements IQuestionService {
       });
     } catch (error) {
       console.error(error);
+
+      logData.outcome = 'FAILED';
+      logData.errorMessage = error.message;
+      logData.stack = error.stack;
+      chatbotSimilarityLogger.error('ADD_QUESTION_LOG', logData);
+            
       throw new InternalServerError(`Failed to add question: ${error}`);
     }
   }
