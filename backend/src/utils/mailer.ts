@@ -41,8 +41,10 @@ export async function sendEmailWithAttachment(
   email: string | string[],
   title: string,
   html: string,
-  fileContent: string,
+  // fileContent: string,
+  fileContent: string | Buffer,
   filename: string,
+  contentType?: string,
 ) {
   const user = emailConfig.EMAIL_USER;
   const pass = emailConfig.EMAIL_PASS;
@@ -68,7 +70,8 @@ export async function sendEmailWithAttachment(
       {
         filename,
         content: fileContent,
-        contentType: 'text/csv',
+        // contentType: 'text/csv',
+        contentType: contentType || 'text/csv',
       },
     ],
   });
