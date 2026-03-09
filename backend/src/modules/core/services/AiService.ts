@@ -13,14 +13,15 @@ export class AiService {
 
   async getQuestionByContext(
     context: string,
-  ): Promise<GeneratedQuestionResponse[]> {
+  ): Promise<any> {
    // const response = await fetch(`${this._aiServerUrl}/questions`, {
     const response = await fetch(`${this._agentServerUrl}/search`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         query: context,
-        top_k: 5
+        top_k: 5,
+        threshold:0.8
       }),
     });
     if (!response.ok)
