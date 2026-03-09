@@ -288,8 +288,30 @@ export class QuestionService extends BaseService implements IQuestionService {
     context: string,
   ): Promise<GeneratedQuestionResponse[]> {
     const questions = await this.aiService.getQuestionByContext(context);
+    const merged = [
+      ...(questions.reviewer || []).map((item: any) => ({
+        question: item.question,
+        answer: item.answer,
+        agri_specialist: item.source || "AGRI_EXPERT",
+        referenceSource: "reviewer",
+      })),
+  
+      ...(questions.golden || []).map((item: any) => ({
+        question: item.question,
+        answer: item.answer,
+        agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
+        referenceSource: "golden",
+      })),
+  
+      ...(questions.pop || []).map((item: any) => ({
+        question: "Reference Information",
+        answer: item.text,
+        agri_specialist: "POP_DOCUMENT",
+        referenceSource: "pop",
+      })),
+    ];
     const uniqueQuestions = Array.from(
-      new Map(questions.map(q => [q.question, q])).values(),
+      new Map(merged.map(q => [q.question, q])).values(),
     ).map(q => ({
       ...q,
       id: new ObjectId().toString(),

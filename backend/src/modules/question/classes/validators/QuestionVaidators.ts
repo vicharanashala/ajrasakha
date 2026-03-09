@@ -289,6 +289,9 @@ class GeneratedQuestionResponse {
 
   @IsString()
   answer!: string;
+
+  @IsString()
+  referenceSource!:string
 }
 
 class DateRangeRequest {
