@@ -1,5 +1,5 @@
 import {aiConfig} from '#root/config/ai.js';
-import { GeneratedQuestionResponse, IQuestionAnalysis, IQuestionWithAnswerTexts } from '#root/modules/question/classes/validators/QuestionVaidators.js';
+import { QuestionSearchResponse, IQuestionAnalysis, IQuestionWithAnswerTexts } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 import {injectable} from 'inversify';
 import {InternalServerError} from 'routing-controllers';
 
@@ -13,7 +13,7 @@ export class AiService {
 
   async getQuestionByContext(
     context: string,
-  ): Promise<any> {
+  ): Promise<QuestionSearchResponse> {
    // const response = await fetch(`${this._aiServerUrl}/questions`, {
     const response = await fetch(`${this._agentServerUrl}/search_all`, {
       method: 'POST',
@@ -28,7 +28,7 @@ export class AiService {
       throw new InternalServerError(
         `Failed to get questions from ai server ${response.statusText}`,
       );
-    const data = (await response.json()) as GeneratedQuestionResponse[];
+    const data = (await response.json()) as QuestionSearchResponse;
     return data;
   }
 

@@ -100,6 +100,102 @@ class QuestionDetailsDto {
   domain!: string;
 }
 
+
+/**
+* Reviewer Result
+*/
+export class ReviewerResponse {
+@IsString()
+id!: string;
+
+@IsString()
+question!: string;
+
+@IsString()
+answer!: string;
+
+@IsString()
+state!: string;
+
+@IsString()
+district!: string;
+
+@IsString()
+crop!: string;
+
+@IsString()
+season!: string;
+
+@IsString()
+domain!: string;
+
+@IsNumber()
+score!: number;
+}
+
+/**
+* Golden Dataset Result
+*/
+export class GoldenResponse {
+@IsString()
+question!: string;
+
+@IsString()
+answer!: string;
+
+@IsString()
+agri_specialist!: string;
+
+@IsString()
+crop!: string;
+
+@IsString()
+district!: string;
+
+@IsString()
+state!: string;
+
+@IsString()
+season!: string;
+
+@IsNumber()
+score!: number;
+}
+
+/**
+* POP (Package of Practices) Result
+*/
+export class PopResponse {
+@IsString()
+text!: string;
+
+@IsNumber()
+page_no!: number;
+
+@IsString()
+source!: string;
+
+@IsArray()
+headings!: string[];
+
+@IsNumber()
+score!: number;
+}
+
+/**
+* Final API Response Structure
+*/
+export class QuestionSearchResponse {
+@IsArray()
+reviewer!: ReviewerResponse[];
+
+@IsArray()
+golden!: GoldenResponse[];
+
+@IsArray()
+pop!: PopResponse[];
+}
+
 // class QuestionResponse {
 //   @IsString()
 //   id!: string;
