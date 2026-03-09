@@ -2311,11 +2311,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       // );
 
       // NEW EXCEL IMPLEMENTATION
-      console.log('Converting questions to Excel format...');
       const excelBuffer = await this.convertQuestionsToExcel(allQuestions, startDate, endDate);
-      console.log('Excel buffer created, size:', excelBuffer.length);
-
-      console.log('Sending email with Excel attachment...');
+      
       await sendEmailWithAttachment(
         emails,
         'Ajrasakha Outreach Questions Report',
@@ -2330,7 +2327,6 @@ export class QuestionService extends BaseService implements IQuestionService {
         'out_reach_questions.xlsx',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       );
-      console.log('Email sent successfully');
       
       return {
         success: true,
@@ -2426,23 +2422,22 @@ export class QuestionService extends BaseService implements IQuestionService {
     // Add empty row
     sheet.addRow([]);
 
-    // Define columns starting from row 4
-    sheet.columns = [
-      { header: "Question", key: "question", width: 50 },
-      { header: "Status", key: "status", width: 15 },
-      { header: "Priority", key: "priority", width: 15 },
-      { header: "Source", key: "source", width: 15 },
-      { header: "State", key: "state", width: 20 },
-      { header: "District", key: "district", width: 20 },
-      { header: "Crop", key: "crop", width: 20 },
-      { header: "Season", key: "season", width: 15 },
-      { header: "Domain", key: "domain", width: 25 },
-      { header: "Text", key: "text", width: 50 },
-      { header: "Created At", key: "createdAt", width: 22 },
-    ];
+    // Manually add header row (row 4)
+    const headerRow = sheet.addRow([
+      'Question',
+      'Status',
+      'Priority',
+      'Source',
+      'State',
+      'District',
+      'Crop',
+      'Season',
+      'Domain',
+      'Text',
+      'Created At'
+    ]);
 
-    // Style the header row (row 4)
-    const headerRow = sheet.getRow(4);
+    // Style the header row
     headerRow.font = { bold: true };
     headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
     headerRow.fill = {
@@ -2451,25 +2446,38 @@ export class QuestionService extends BaseService implements IQuestionService {
       fgColor: { argb: 'FFD3D3D3' }
     };
 
+    // Set column widths
+    sheet.getColumn(1).width = 50;  // Question
+    sheet.getColumn(2).width = 15;  // Status
+    sheet.getColumn(3).width = 15;  // Priority
+    sheet.getColumn(4).width = 15;  // Source
+    sheet.getColumn(5).width = 20;  // State
+    sheet.getColumn(6).width = 20;  // District
+    sheet.getColumn(7).width = 20;  // Crop
+    sheet.getColumn(8).width = 15;  // Season
+    sheet.getColumn(9).width = 25;  // Domain
+    sheet.getColumn(10).width = 50; // Text
+    sheet.getColumn(11).width = 22; // Created At
+
     // Add data rows
     data.forEach(q => {
-      const row = sheet.addRow({
-        question: q.question || '',
-        status: q.status || '',
-        priority: q.priority || '',
-        source: q.source || '',
-        state: q.details?.state || '',
-        district: q.details?.district || '',
-        crop: q.details?.crop || '',
-        season: q.details?.season || '',
-        domain: q.details?.domain || '',
-        text: q.text || '',
-        createdAt: q.createdAt ? this.formatDate(q.createdAt) : '',
-      });
+      const row = sheet.addRow([
+        q.question || '',
+        q.status || '',
+        q.priority || '',
+        q.source || '',
+        q.details?.state || '',
+        q.details?.district || '',
+        q.details?.crop || '',
+        q.details?.season || '',
+        q.details?.domain || '',
+        q.text || '',
+        q.createdAt ? this.formatDate(q.createdAt) : ''
+      ]);
 
       // Enable text wrapping for long content
-      row.getCell('question').alignment = { wrapText: true, vertical: 'top' };
-      row.getCell('text').alignment = { wrapText: true, vertical: 'top' };
+      row.getCell(1).alignment = { wrapText: true, vertical: 'top' }; // Question
+      row.getCell(10).alignment = { wrapText: true, vertical: 'top' }; // Text
     });
 
     // Generate buffer

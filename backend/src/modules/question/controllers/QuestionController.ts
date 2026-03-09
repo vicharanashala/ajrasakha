@@ -512,7 +512,6 @@ async outreachQuestions(
   try {
     const { startDate, endDate, emails } = body;
 
-    console.log('Outreach request received:', { startDate, endDate, emails });
 
     const result = await this.questionService.sendOutReachQuestionsMail(
       startDate,
@@ -520,7 +519,6 @@ async outreachQuestions(
       emails,
     );
 
-    console.log('Outreach result:', result);
     return result;
   } catch (error) {
     console.error('Error in outreachQuestions controller:', error);
