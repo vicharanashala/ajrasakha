@@ -599,9 +599,7 @@ export const VoiceRecorderCard = () => {
                                       {qn.answer || "Nil"}
                                     </p>
 
-                                    <p className="text-sm text-green-700 dark:text-green-300 leading-relaxed px-2">
-                                      {qn.referenceSource || "Nil"}
-                                    </p>
+                                    
                                   </div>
                                 </AccordionContent>
                               </AccordionItem>
