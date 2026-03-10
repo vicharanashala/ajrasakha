@@ -171,7 +171,7 @@ if (existingReRoute?.reroutes.at(-1)?.status === "pending") {
           existingReRoute.reroutes.at(-1)?.status === 'pending'
         ) {
           throw new BadRequestError(
-            'The answer is in review state, you cannot assign a new expert',
+            'The answer is already rerouted, you cannot assign a new expert. Please reload',
           );
         }
   

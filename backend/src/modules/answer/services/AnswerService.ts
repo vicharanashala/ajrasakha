@@ -1539,9 +1539,9 @@ export class AnswerService extends BaseService implements IAnswerService{
         throw new BadRequestError(`Question with ID ${questionId} not found`);
       }
 
-      if (question.status !== 'in-review' && question.status !=="re-routed" ) {
+      if (question.status !== 'in-review') {
         throw new BadRequestError(
-          `Cant't edit this answer:${answerId}, currently question is not in review!`,
+          `Can't approve this answer:${answerId}, currently question is not in review!`,
         );
       }
 
