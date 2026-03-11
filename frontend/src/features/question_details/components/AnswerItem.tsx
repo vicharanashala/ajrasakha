@@ -50,8 +50,8 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
 
   // need to refresh after action
   const {
-      refetch: refechrerouteSelectedQuestion,
-    } = useGetReRoutedQuestionFullData(props.questionId);
+    refetch: refechrerouteSelectedQuestion,
+  } = useGetReRoutedQuestionFullData(props.questionId);
 
   const [editableAnswer, setEditableAnswer] = useState(props.answer.answer);
   const [editOpen, setEditOpen] = useState(false);
@@ -102,9 +102,11 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         "Answer approved successfully! The question is now closed. Thank you!"
       );
       setEditOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to edit answer:", error);
-      toast.error("Failed to update answer. Please try again.");
+      let errorMessage = error?.message || error?.msg || "Unknown error";
+      errorMessage = errorMessage.replace(/this answer:.+?,/, "this answer,");
+      toast.error(`Failed to Approve answer. ${errorMessage}`);
       setEditOpen(false);
     }
   };
@@ -181,7 +183,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     const userId = lastReroutedTo.reroutedTo._id;
 
     try {
-       await rejectReRoute({
+      await rejectReRoute({
         reason,
         rerouteId: rerouteId,
         questionId: questionId,
@@ -220,8 +222,8 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
 
   const lastReroutedTo = props.rerouteQuestion?.[0]?.reroutes?.length
     ? props.rerouteQuestion[0].reroutes[
-        props.rerouteQuestion[0].reroutes.length - 1
-      ]
+    props.rerouteQuestion[0].reroutes.length - 1
+    ]
     : null;
 
   const experts =
