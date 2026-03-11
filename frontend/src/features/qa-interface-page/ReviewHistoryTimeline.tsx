@@ -413,11 +413,11 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                             </Label>
 
                             {/* ANSWER BOX */}
-                            <div className="p-5 rounded-md border bg-card/50 text-sm relative">
-                              <ExpandableText
-                                text={item.answer.answer}
-                                maxLength={350}
-                              />
+                            <div className="p-5 rounded-md border bg-card/50 text-sm relative h-64 overflow-y-auto">
+                              <div className="whitespace-pre-wrap">
+                                {item.answer.answer}
+                              </div>
+
 
                               {(item.answer.sources?.length > 0 ||
                                 item.reasonForRejection) && (
