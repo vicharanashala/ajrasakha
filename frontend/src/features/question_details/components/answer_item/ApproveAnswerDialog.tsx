@@ -65,35 +65,37 @@ export const ApproveAnswerDialog = ({
         className="w-[90vw] max-w-6xl max-h-[85vh] flex flex-col"
         style={{ maxWidth: "70vw" }}
       >
-        <DialogHeader>
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-lg font-semibold">
             Approve Answer
           </DialogTitle>
         </DialogHeader>
 
-        <div className="mt-4">
-          <Textarea
-            value={editableAnswer}
-            placeholder="Update answer here..."
-            onChange={(e) => setEditableAnswer(e.target.value)}
-            className="min-h-[150px] resize-none border border-border bg-background"
-          />
-          <SourceUrlManager
-            sources={sources}
-            onSourcesChange={setSources}
-            className="py-3"
-          />
+        <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2">
+          <div className="mt-4">
+            <Textarea
+              value={editableAnswer}
+              placeholder="Update answer here..."
+              onChange={(e) => setEditableAnswer(e.target.value)}
+              className="min-h-[150px] max-h-[300px] resize-none border border-border bg-background overflow-y-auto"
+            />
+            <SourceUrlManager
+              sources={sources}
+              onSourcesChange={setSources}
+              className="py-3"
+            />
+          </div>
+
+          <div
+            className="mt-4 p-4 rounded-md border bg-yellow-50 border-yellow-300 text-yellow-900 text-sm
+            dark:bg-yellow-900/20 dark:border-yellow-700/60 dark:text-yellow-200"
+          >
+            ⚠️ You are about to approve a <strong>answer</strong>. Please review
+            your changes carefully before saving to avoid mistakes.
+          </div>
         </div>
 
-        <div
-          className="mt-4 p-4 rounded-md border bg-yellow-50 border-yellow-300 text-yellow-900 text-sm
-          dark:bg-yellow-900/20 dark:border-yellow-700/60 dark:text-yellow-200"
-        >
-          ⚠️ You are about to approve a <strong>answer</strong>. Please review
-          your changes carefully before saving to avoid mistakes.
-        </div>
-
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-6 flex justify-end gap-3 flex-shrink-0">
           <Button variant="outline" onClick={() => setEditOpen(false)}>
             Cancel
           </Button>
