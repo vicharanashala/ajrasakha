@@ -93,6 +93,7 @@ export const ReviewHistoryTimeline = ({
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [rejectReRouteReason,setRejectReRouteReason]=useState('')
   const [rerouteModal,setRerouteModal]=useState(false)
+  const [expandedAnswers, setExpandedAnswers] = useState<Record<string, boolean>>({}); // <-- ADD THIS EXACTLY HERE
 
   const handleCopy = async (url: string, index: number) => {
     await navigator.clipboard.writeText(url);
@@ -406,29 +407,23 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                         <div className="space-y-2 pt-1">
                           {/* ANSWER BOX */}
                           <div className="space-y-1 ">
-                            {/* LABEL */}
-                            <Label className="text-sm font-medium text-muted-foreground px-1 dark:text-gray-200">
-                              {item.status == "reviewed" && "New "} Answer:{" "}
-                              {item.rejectedAnswer}
-                            </Label>
-
-                            {/* ANSWER BOX */}
-                            <div className="p-5 rounded-md border bg-card/50 text-sm relative h-64 overflow-y-auto">
-                              <div className="whitespace-pre-wrap">
-                                {item.answer.answer}
-                              </div>
-
+                          
+                            {/* HEADER WITH LABEL AND BUTTON */}
+                            <div className="flex justify-between items-center w-full px-1">
+                              <Label className="text-sm font-medium text-muted-foreground dark:text-gray-200">
+                                {item.status == "reviewed" && "New "} Answer:{" "}
+                                {item.rejectedAnswer}
+                              </Label>
 
                               {(item.answer.sources?.length > 0 ||
                                 item.reasonForRejection) && (
                                 <Dialog>
                                   <DialogTrigger asChild>
-                                    <button className="absolute bottom-2 right-2 text-xs px-2 py-1 border rounded-md hover:bg-muted/50 flex items-center gap-1">
+                                    <button className="text-xs px-2 py-1 border rounded-md hover:bg-muted/50 flex items-center gap-1">
                                       <Info className="w-3 h-3" />
                                       View Details
                                     </button>
                                   </DialogTrigger>
-
                                   <DialogContent className="max-w-md min-h-[25vh] max-h-[80vh] overflow-y-auto">
                                     <DialogHeader>
                                       <DialogTitle className="text-lg font-semibold">
@@ -532,6 +527,40 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                                   </DialogContent>
                                 </Dialog>
                               )}
+                              {(item.answer.sources?.length > 0 ||
+                                item.reasonForRejection) && (
+                                <Dialog>
+                                  <DialogContent className="max-w-md min-h-[25vh] max-h-[80vh] overflow-y-auto">
+                                  </DialogContent>
+                                </Dialog>
+                              )}
+                            </div>
+
+
+                            {/* ANSWER BOX */}
+                            <div 
+                              className={`p-5 rounded-md border bg-card/50 text-sm relative transition-all duration-300 mt-2 ${
+                                expandedAnswers[item.answer._id?.toString() || index] ? "" : "max-h-64 overflow-y-hidden"
+                              }`}
+                            >
+                              <div 
+                                className="whitespace-pre-wrap"
+                                onClick={(e) => {
+                                  // Hack to listen to ExpandableText state toggle clicks
+                                  const target = e.target as HTMLElement;
+                                  if (target.tagName.toLowerCase() === 'button' && (target.innerText.includes('View More') || target.innerText.includes('View Less'))) {
+                                    setExpandedAnswers(prev => ({
+                                      ...prev,
+                                      [item.answer!._id?.toString() || index]: !prev[item.answer!._id?.toString() || index]
+                                    }));
+                                  }
+                                }}
+                              >
+                                <ExpandableText
+                                  text={item.answer.answer}
+                                  maxLength={400} // adjust this number to show more/less text initially
+                                />
+                              </div>
                             </div>
                           </div>
                         </div>
