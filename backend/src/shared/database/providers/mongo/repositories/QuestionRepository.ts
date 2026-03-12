@@ -349,35 +349,53 @@ export class QuestionRepository implements IQuestionRepository {
       // --- Consecutive Approvals Filter ---
       if (approvalCount !== null && !isNaN(approvalCount)) {
         const answers = await this.AnswersCollection.aggregate([
-          // 1. Sort so latest answer comes first per question
-          {
-            $sort: {
-              createdAt: -1, // or answerIteration: -1
-            },
-          },
-
-          // 2. Group by questionId and take only the latest answer
           {
             $group: {
               _id: "$questionId",
-              latestAnswer: { $first: "$$ROOT" },
-            },
+              latestCreatedAt: { $max: "$createdAt" }
+            }
           },
-
-          // 3. Replace root with the latest answer document
           {
-            $replaceRoot: {
-              newRoot: "$latestAnswer",
-            },
+            $lookup: {
+              from: "answers",
+              let: { qId: "$_id", created: "$latestCreatedAt" },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $and: [
+                        { $eq: ["$questionId", "$$qId"] },
+                        { $eq: ["$createdAt", "$$created"] }
+                      ]
+                    }
+                  }
+                },
+                {
+                  $project: {
+                    _id: 1,
+                    questionId: 1,
+                    approvalCount: 1,
+                    createdAt: 1
+                  }
+                }
+              ],
+              as: "latestAnswer"
+            }
           },
-
-          // 4. Match approvalCount with payload
+          { $unwind: "$latestAnswer" },
+        
           {
             $match: {
-              approvalCount: approvalCount,
-            },
+              "latestAnswer.approvalCount": approvalCount
+            }
           },
-        ]).toArray();
+        
+          {
+            $project: {
+              questionId: "$_id"
+            }
+          }
+        ], { allowDiskUse: true }).toArray();
 
 
         const approvalFilteredIds = answers.map(a =>
