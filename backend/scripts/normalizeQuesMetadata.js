@@ -5,7 +5,6 @@ dotenv.config({ path: ".env" });
 
 const uri = process.env.DB_URL;
 const collections = ["questions", "duplicate_questions"];
-//const collections = ["questions"];
 
 // Helper function to capitalize the first letter of each word perfectly
 function toTitleCase(str) {
@@ -26,6 +25,8 @@ async function run() {
 
     try {
         await client.connect();
+        // ------------------- DB NAME CHECK ------------------
+        //change to desired db name
         const db = client.db("agriai");
 
         for (const name of collections) {
