@@ -3245,6 +3245,54 @@ return await this.QuestionCollection.countDocuments({ status: 'closed' }, { sess
       embedding: doc.embedding || [],
     }));
   }
+
+  private generateVariations(value: string) {
+    if (!value) return [];
+  
+    // v is the trimmed, original string (e.g., "  Madhya   Pradesh " -> "Madhya   Pradesh")
+    const v = value.trim();
+    if (!v) return [];
+
+    // Cleaned string with exactly one space between words (e.g., "Madhya Pradesh")
+    const cleanedV = v.replace(/\s+/g, ' ');
+
+    const lower = cleanedV.toLowerCase();
+    const upper = cleanedV.toUpperCase();
+  
+    // Title case for all words (e.g. "Madhya Pradesh")
+    const titleCase = cleanedV.split(' ')
+      .map(word => word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : '')
+      .join(' ');
+    
+    // Capitalize only very first letter (e.g. "Madhya pradesh")
+    const firstLetterUpper = cleanedV.charAt(0).toUpperCase() + cleanedV.slice(1).toLowerCase();
+
+    // Spaceless variations
+    const noSpaceOriginal = cleanedV.replace(/\s+/g, "");
+    const noSpaceLower = lower.replace(/\s+/g, "");
+    // "madhyapradesh" -> "Madhyapradesh"
+    const firstLetterUpperNoSpace = noSpaceLower.charAt(0).toUpperCase() + noSpaceLower.slice(1);
+
+    const noSpaceUpper = upper.replace(/\s+/g, "");
+  
+    // Use a Set to ensure unique values so MongoDB doesn't do extra work
+    const variations = new Set([
+      v,                  // Exactly as user typed it (just trimmed)
+      cleanedV,           // Exactly 1 space between words
+      lower,              // madhya pradesh
+      upper,              // MADHYA PRADESH
+      titleCase,          // Madhya Pradesh
+      firstLetterUpper,   // Madhya pradesh
+      noSpaceOriginal,    // MadhyaPradesh
+      noSpaceLower,       // madhyapradesh
+      noSpaceUpper,       // MADHYAPRADESH
+      firstLetterUpperNoSpace // Madhyapradesh
+    ]);
+
+    return Array.from(variations);
+  }
+
+
   async findTopSimilarQuestions(
     embedding: number[],
     k = 5,
@@ -3253,34 +3301,36 @@ return await this.QuestionCollection.countDocuments({ status: 'closed' }, { sess
   ): Promise<(ISimilarQuestion & { _vectorSearchScore: number })[]> {
     await this.init()
 
-    const vectorSearchFilter: Record<string, string> = {};
+    const vectorSearchFilter: Record<string, any> = {};
+    
     if (filter?.state) {
-      vectorSearchFilter["details.state"] = filter.state;
+      vectorSearchFilter["details.state"] = { $in: this.generateVariations(filter.state) };
     }
     if (filter?.district) {
-      vectorSearchFilter["details.district"] = filter.district;
+      vectorSearchFilter["details.district"] = { $in: this.generateVariations(filter.district) };
     }
     if (filter?.crop) {
-      vectorSearchFilter["details.crop"] = filter.crop;
+      vectorSearchFilter["details.crop"] = { $in: this.generateVariations(filter.crop) };
     }
     if (filter?.domain) {
-      vectorSearchFilter["details.domain"] = filter.domain;
+      vectorSearchFilter["details.domain"] = { $in: this.generateVariations(filter.domain) };
     }
     if (filter?.season) {
-      vectorSearchFilter["details.season"] = filter.season;
+      vectorSearchFilter["details.season"] = { $in: this.generateVariations(filter.season) };
     }
 
     const vectorSearchStage: any = {
-      index: "review_questions_vector_index", // your Atlas Vector Search index name
-      path: "embedding",     // field storing the embeddings
+      index: "review_questions_vector_index", 
+      path: "embedding",     
       queryVector: embedding,
-      numCandidates: k * 10, // recommended: 10x of k for better recall
+      numCandidates: k * 10, 
       limit: k,
     };
 
     if (Object.keys(vectorSearchFilter).length > 0) {
       vectorSearchStage.filter = vectorSearchFilter;
     }
+
 
     const topSimilar = await this.QuestionCollection.aggregate(
       [
