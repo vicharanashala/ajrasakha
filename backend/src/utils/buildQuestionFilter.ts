@@ -124,6 +124,9 @@ if (autoAllocateFilter && autoAllocateFilter !== 'all') {
     : null;
     // --- Consecutive Approvals Filter ---
 if (approvalCount !== null && !isNaN(approvalCount)) {
+  // Only exclude closed questions for consecutive approvals
+  filter.status = { $not: { $regex: '^closed$', $options: 'i' } };
+
   const answers = await AnswersCollection.aggregate([
     // 1. Sort so latest answer comes first per question
     {

@@ -348,6 +348,9 @@ export class QuestionRepository implements IQuestionRepository {
           : null;
       // --- Consecutive Approvals Filter ---
       if (approvalCount !== null && !isNaN(approvalCount)) {
+        // Only exclude closed questions for consecutive approvals
+        filter.status = { $not: { $regex: '^closed$', $options: 'i' } };
+        
         const answers = await this.AnswersCollection.aggregate([
           {
             $group: {
