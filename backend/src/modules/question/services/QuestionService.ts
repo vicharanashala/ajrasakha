@@ -44,10 +44,11 @@ import {IQuestionService} from '../interfaces/IQuestionService.js';
 import {isToday} from '#root/utils/date.utils.js';
 import {IReRouteRepository} from '#root/shared/database/interfaces/IReRouteRepository.js';
 import { sendEmailWithAttachment } from '#root/utils/mailer.js';
-import ExcelJS from "exceljs";
+import ExcelJS from 'exceljs'
 import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
 import {IDuplicateQuestionRepository} from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
 import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
+import {checkConceptDuplicate} from '#root/modules/question/aiservice/checkConceptDuplicate.js'
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -558,7 +559,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   }*/
  
 
-  async addQuestion(
+  /*async addQuestion(
     userId: string,
     body: AddQuestionBodyDto,
   ): Promise<AddQuestionResult> {
@@ -709,6 +710,331 @@ export class QuestionService extends BaseService implements IQuestionService {
           return { isDuplicate: true, data: duplicateQuestion };
         }
   
+        // =====================================================
+        // 🔥 IF NOT SIMILAR → NORMAL FLOW
+        // =====================================================
+    
+        logData.outcome = 'NEW_QUESTION_ADDED';
+        chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
+
+        const savedQuestion = await this.questionRepo.addQuestion(
+          baseQuestion,
+          session,
+        );
+  
+        if (!savedQuestion?._id) {
+          throw new InternalServerError(`Failed to save question to database`);
+        }
+  
+        const users = await this.userRepo.findExpertsByPreference(
+          details as PreferenceDto,
+          session,
+        );
+  
+        const initialUsersToAllocate = users.slice(0, 3);
+  
+        const queue = initialUsersToAllocate.map(
+          (user) => new ObjectId(user._id.toString()),
+        );
+  
+        if (initialUsersToAllocate[0]) {
+          await this.userRepo.updateReputationScore(
+            initialUsersToAllocate[0]._id.toString(),
+            true,
+            session,
+          );
+        }
+  
+        const submissionData: IQuestionSubmission = {
+          questionId: new ObjectId(savedQuestion._id.toString()),
+          lastRespondedBy: null,
+          history: [],
+          queue,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+  
+        await this.questionSubmissionRepo.addSubmission(submissionData, session);
+  
+        if (initialUsersToAllocate[0]) {
+          await this.notificationService.saveTheNotifications(
+            `A Question has been assigned for answering`,
+            'Answer Creation Assigned',
+            savedQuestion._id.toString(),
+            initialUsersToAllocate[0]._id.toString(),
+            'answer_creation',
+          );
+        }
+  
+        return { isDuplicate: false, data: baseQuestion };
+      });
+    } catch (error) {
+      console.error(error);
+
+      logData.outcome = 'FAILED';
+      logData.errorMessage = error.message;
+      logData.stack = error.stack;
+      chatbotSimilarityLogger.error('ADD_QUESTION_LOG', logData);
+            
+      throw new InternalServerError(`Failed to add question: ${error}`);
+    }
+  }*/
+  async addQuestion(
+    userId: string,
+    body: AddQuestionBodyDto,
+  ): Promise<AddQuestionResult> {
+    const logData: Record<string, any> = {};
+    try {
+      body = normalizeKeysToLower(body);
+  
+      let {
+        question,
+        priority,
+        source = 'AGRI_EXPERT',
+        details,
+        context,
+      } = body;
+  
+      if (!details) {
+        const b: any = body;
+        details = {
+          state: b?.state || '',
+          district: b?.district || '',
+          crop: b?.crop || '',
+          season: b?.season || '',
+          domain: b?.domain || '',
+        };
+      }
+  
+      const validPriorities = ['low', 'medium', 'high'];
+      priority = priority?.toLowerCase() as IQuestion['priority'];
+      if (!validPriorities.includes(priority)) {
+        priority = 'medium';
+      }
+  
+      if (!question?.trim()) {
+        throw new BadRequestError(`Question is required`);
+      }
+  
+      if (
+        !details.crop ||
+        !details.district ||
+        !details.domain ||
+        !details.season ||
+        !details.state
+      ) {
+        throw new BadRequestError(`All fields are required`);
+      }
+
+      logData.userId = userId;
+      logData.question = question;
+      logData.details = details;
+      logData.source = source;
+
+      // 🔹 Create Embedding — OUTSIDE transaction
+      const text = `Question: ${question}`;
+      let textEmbedding: number[] = [];
+
+      
+      if (appConfig.ENABLE_AI_SERVER) {
+        const { embedding } = await this.aiService.getEmbedding(text);
+        textEmbedding = embedding;
+      }
+      logData.embeddingGenerated = textEmbedding.length > 0;
+      logData.vectorLength = textEmbedding.length;
+
+      // 🔥 Similarity Check — OUTSIDE transaction ($vectorSearch cannot run inside one)
+
+// Check 4 Questions best match- 
+  
+	let topMatches: {questionId: ObjectId, question: string, similarityScore: number }[] = []
+
+      // ✅ Everything that needs atomicity goes inside the transaction
+      return this._withTransaction(async (session: ClientSession) => {
+        // 🔹 Create Context
+        let contextId: ObjectId | null = null;
+
+        if (context) {
+          const { insertedId } = await this.contextRepo.addContext(context, session);
+          contextId = new ObjectId(insertedId);
+        }
+
+        // 🔹 Create Base Question Object
+        const baseQuestion: IQuestion = {
+          userId: userId?.trim() !== '' ? new ObjectId(userId) : null,
+          question,
+          priority,
+          source,
+          status: 'open',
+          totalAnswersCount: 0,
+          contextId,
+          details,
+          isAutoAllocate: true,
+          embedding: textEmbedding,
+          metrics: null,
+          aiInitialAnswer: body.aiInitialAnswer || '',
+          text,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+  
+       
+       
+        let isDuplicate = false
+        let matchedQuestion = ""
+        let matchedQuestionId: ObjectId | null = null
+        let matchedScore = 0
+        let referenceSourcefrom=''
+        
+         let topSimilar
+
+        const llmCandidates: typeof topMatches = []
+        if ( source === 'AJRASAKHA') {
+          /* const topSimilar = await this.questionRepo.findTopSimilarQuestions(
+           textEmbedding, 25,
+           { state: details.state,district: details.district, crop: details.crop, domain: details.domain, season: details.season }, )*/
+         const questions = await this.aiService.getQuestionByContextAndMetaData(
+             question,
+             details.state,
+             details.district,
+             details.crop,
+             details.season,
+             details.domain
+           );
+           
+           // merge reviewer + golden
+           let merged = [
+            ...(questions.reviewer || []).map((item: any) => ({
+              question: item.question,
+              answer: item.answer,
+              agri_specialist: item.source || "AGRI_EXPERT",
+              referenceSource: "reviewer",
+              score:item.score* 100
+            })),
+        
+            ...(questions.golden || []).map((item: any) => ({
+              question: item.question,
+              answer: item.answer,
+              agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
+              referenceSource: "golden",
+              score:item.score* 100
+            })),
+        
+           
+          ];
+          merged = Array.from(
+            new Map(merged.map(q => [q.question, q])).values(),
+          ).map(q => ({
+            ...q,
+            id: new ObjectId().toString()
+          }));
+        
+          
+           merged.sort((a, b) => b.score - a.score);
+           
+           
+           // get top 5
+           const bestFive = merged.slice(0, 5);
+           
+           // convert to topMatches
+           topSimilar = bestFive.map(q => ({
+             questionId: new ObjectId().toString(),
+             question: q.question,
+             similarityScore: q.score,
+             referenceSource:q.referenceSource
+           }));
+          
+           logData.totalMatches = topSimilar.length
+       
+           logData.matches = topSimilar.map((q) => ({ questionId: q.questionId, question: q.question, similarityScore: q.similarityScore }))
+           logData.topMatches = topSimilar
+           logData.threshold = 85
+           for (const match of topSimilar) {
+      
+     
+            const highestScore = match.similarityScore
+      
+            // Rule 1: immediate duplicate
+            if (highestScore >= 95) {
+              isDuplicate = true
+              matchedQuestion = match.question
+              matchedQuestionId = match.questionId
+              matchedScore = highestScore
+              referenceSourcefrom=match.referenceSource
+              break
+            }
+      
+            // Rule 2: collect candidates for LLM
+            if (highestScore >= 85 && highestScore < 95) {
+              llmCandidates.push(match)
+            }
+          }
+      
+            // Rule 3: call LLM once
+            if (!isDuplicate && llmCandidates.length > 0) {
+              const candidateQuestions = llmCandidates.map(q => q.question)
+      
+              const matchedQuestionfromllm = await checkConceptDuplicate(
+                baseQuestion.question,
+                candidateQuestions
+              )
+            
+             if (matchedQuestionfromllm) {
+  
+              let filtermatchinQuestion=topSimilar.filter(ele=>ele.question==matchedQuestionfromllm)
+              
+              matchedQuestion=filtermatchinQuestion[0].question
+              matchedQuestionId=filtermatchinQuestion[0].questionId
+              matchedScore=filtermatchinQuestion[0].similarityScore
+              referenceSourcefrom=filtermatchinQuestion[0].referenceSource
+             
+              const duplicateQuestion = {
+                ...baseQuestion,
+                similarityScore: Number(matchedScore.toFixed(2)),
+                referenceQuestionId: matchedQuestionId,
+                referenceQuestion: matchedQuestion,
+                referenceSource:referenceSourcefrom
+                }
+      
+                await this.duplicateQuestionRepository.addDuplicate(
+                  duplicateQuestion,
+                  session
+                )
+                logData.outcome = 'DUPLICATE_DETECTED'
+                logData.matchedQuestion = matchedQuestion
+                logData.similarityScore = matchedScore.toFixed(2)
+          
+                chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData)
+                return { isDuplicate: true, data: duplicateQuestion }
+              }
+            }
+      
+          if (isDuplicate && matchedQuestionId && matchedQuestion) {
+            const duplicateQuestion = {
+            ...baseQuestion,
+            similarityScore: Number(matchedScore.toFixed(2)),
+            referenceQuestionId: matchedQuestionId,
+            referenceQuestion: matchedQuestion,
+            referenceSource:referenceSourcefrom
+            }
+      
+            await this.duplicateQuestionRepository.addDuplicate(
+            duplicateQuestion,
+            session
+            )
+      
+            logData.outcome = 'DUPLICATE_DETECTED'
+            logData.matchedQuestion = matchedQuestion
+            logData.similarityScore = matchedScore.toFixed(2)
+      
+            chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData)
+      
+            return { isDuplicate: true, data: duplicateQuestion }
+          }
+         }
+
+		
+
         // =====================================================
         // 🔥 IF NOT SIMILAR → NORMAL FLOW
         // =====================================================
@@ -2683,6 +3009,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         { header: "source", key: "source", width: 15 },
         { header: "similarityScore", key: "similarityScore", width: 18 },
         { header: "referenceQuestion", key: "referenceQuestion", width: 60 },
+        { header: "referenceSource", key: "referenceSource", width: 20 },
         { header: "ref_state", key: "ref_state", width: 18 },
         { header: "ref_district", key: "ref_district", width: 20 },
         { header: "ref_crop", key: "ref_crop", width: 18 },
@@ -2706,6 +3033,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           source: q.source,
           similarityScore: q.similarityScore,
           referenceQuestion: q.referenceQuestion ? q.referenceQuestion : '',
+          referenceSource: q.referenceSource || '',
           ref_state: refDetails?.state || '',
           ref_district: refDetails?.district || '',
           ref_crop: refDetails?.crop || '',

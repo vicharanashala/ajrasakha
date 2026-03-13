@@ -31,6 +31,41 @@ export class AiService {
     const data = (await response.json()) as QuestionSearchResponse;
     return data;
   }
+  async getQuestionByContextAndMetaData(
+    question: string,
+    state?: string,
+    district?: string,
+    crop?: string,
+    season?: string,
+    domain?: string,
+  ): Promise<QuestionSearchResponse> {
+  
+    const response = await fetch(`${this._agentServerUrl}/search_all`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: question,
+        top_k: 3,
+        threshold: 0.85,
+        state: state,
+        district: district,
+        crop: crop,
+        season: season,
+        domain: domain
+      }),
+    });
+  
+    if (!response.ok) {
+      throw new InternalServerError(
+        `Failed to get questions from ai server ${response.statusText}`,
+      );
+    }
+  
+    const data = (await response.json()) as QuestionSearchResponse;
+    return data;
+  }
 
   async getFinalAnswerByThreshold(answers: {
     text1: string;

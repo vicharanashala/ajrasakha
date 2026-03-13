@@ -5,5 +5,7 @@ export const aiConfig = {
     serverPort: Number(env('AI_SERVER_PORT')?.trim()) || 9017,
     proxyAddress: env('AI_PROXY_ADDRESS') || 'socks5h://localhost:1055',
     agentServerIP:env('AGENT_SERVER_IP'),
-    agerntServerPort:Number(env('AGENT_SERVER_PORT')?.trim()) || 9017
+    agerntServerPort:Number(env('AGENT_SERVER_PORT')?.trim()) || 9017,
+    gemma_api: env('GEMMA_API') ,
+    gemma_api_key: env('GEMMA_API_KEY') || 'test-key',
 };
