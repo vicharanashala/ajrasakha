@@ -1,10 +1,11 @@
 import OpenAI from "openai";
+import { aiConfig } from "#root/config/ai.js";
 
-const GEMMA_API_KEY = "test-key";
+const GEMMA_API_KEY = aiConfig.gemma_api_key;
 
 const client = new OpenAI({
   apiKey: GEMMA_API_KEY,
-  baseURL: "https://unoverwhelmed-martin-unintuitively.ngrok-free.dev/gemma_api/v1",
+  baseURL: aiConfig.gemma_api,
 });
 
 export async function checkConceptDuplicate(

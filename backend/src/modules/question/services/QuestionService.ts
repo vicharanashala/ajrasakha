@@ -44,7 +44,7 @@ import {IQuestionService} from '../interfaces/IQuestionService.js';
 import {isToday} from '#root/utils/date.utils.js';
 import {IReRouteRepository} from '#root/shared/database/interfaces/IReRouteRepository.js';
 import { sendEmailWithAttachment } from '#root/utils/mailer.js';
-import ExcelJS from "exceljs";
+import ExcelJS from 'exceljs'
 import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
 import {IDuplicateQuestionRepository} from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
 import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
@@ -783,7 +783,6 @@ export class QuestionService extends BaseService implements IQuestionService {
     userId: string,
     body: AddQuestionBodyDto,
   ): Promise<AddQuestionResult> {
-    console.log("add question method 505 called with body:", body);
     const logData: Record<string, any> = {};
     try {
       body = normalizeKeysToLower(body);
@@ -841,7 +840,6 @@ export class QuestionService extends BaseService implements IQuestionService {
         const { embedding } = await this.aiService.getEmbedding(text);
         textEmbedding = embedding;
       }
-      source = 'AJRASAKHA';
       logData.embeddingGenerated = textEmbedding.length > 0;
       logData.vectorLength = textEmbedding.length;
 
@@ -850,15 +848,6 @@ export class QuestionService extends BaseService implements IQuestionService {
 // Check 4 Questions best match- 
   
 	let topMatches: {questionId: ObjectId, question: string, similarityScore: number }[] = []
-
-
-  
-
-	
-	
-     
-     
-
 
       // ✅ Everything that needs atomicity goes inside the transaction
       return this._withTransaction(async (session: ClientSession) => {
@@ -904,74 +893,14 @@ export class QuestionService extends BaseService implements IQuestionService {
           /* const topSimilar = await this.questionRepo.findTopSimilarQuestions(
            textEmbedding, 25,
            { state: details.state,district: details.district, crop: details.crop, domain: details.domain, season: details.season }, )*/
-         /*  const questions = await this.aiService.getQuestionByContextAndMetaData(
+         const questions = await this.aiService.getQuestionByContextAndMetaData(
              question,
              details.state,
              details.district,
              details.crop,
              details.season,
              details.domain
-           );*/
-           const questions: any = {
-             reviewer: [
-               {
-                 id: "697dbfb7622aa3a183070682",
-                 question: "How to control stem borer grubs in paddy crop?",
-                 answer: "Stem borer is one of the most destructive pests of paddy (rice) crop...",
-                 source: "AGRI_EXPERT",
-                 details: {
-                   state: "Haryana",
-                   district: "Hisar",
-                   crop: "Paddy",
-                   season: "Kharif",
-                   domain: "Plant Protection",
-                 },
-                 score: 0.9331517815589905,
-               },
-               {
-                 id: "695b446528ae67127339da95",
-                 question: "How to control Stem Borer infestation in Paddy?",
-                 answer: "Stem borer is one of the most destructive pests affecting paddy crops in India...",
-                 source: "AGRI_EXPERT",
-                 details: {
-                   state: "UTTAR PRADESH",
-                   district: "CHANDAULI",
-                   crop: "Paddy",
-                   season: "Kharif",
-                   domain: "Plant Protection",
-                 },
-                 score: 0.932569146156311,
-               },
-             ],
-         
-             golden: [
-               {
-                 question: "How to prevent stem borer in paddy?",
-                 answer: "Stem borer in paddy is a major pest and shows distinct symptoms...",
-                 metadata: {
-                   "Agri Specialist": "Gonnabathula Girishma",
-                   Crop: "Paddy Dhan",
-                   District: "YADADRI BHUVANAGIRI",
-                   Season: "Kharif",
-                   State: "TELANGANA",
-                 },
-                 score: 0.9287769794464111,
-               },
-             ],
-         
-             pop: [
-               {
-                 text: "Rice stem borers: The larvae of these insects bore into the stem and cause damage from July to October...",
-                 metadata: {
-                   page_no: 24,
-                   headings: ["A. Insect Pests"],
-                   source:
-                     "https://storage.googleapis.com/annam-dataset/pops/Punjab_Kharif_2025.pdf",
-                 },
-                 score: 0.9020636677742004,
-               },
-             ],
-           }
+           );
            
            // merge reviewer + golden
            let merged = [
@@ -999,16 +928,9 @@ export class QuestionService extends BaseService implements IQuestionService {
             ...q,
             id: new ObjectId().toString()
           }));
-           
+        
           
-           console.log("merged=====",merged)
-           
-           // check score condition
-          // const hasHighScore = merged.some(q => q.score >= 95);
-           
-           // sort only if needed
-          
-             merged.sort((a, b) => b.score - a.score);
+           merged.sort((a, b) => b.score - a.score);
            
            
            // get top 5
@@ -1019,9 +941,8 @@ export class QuestionService extends BaseService implements IQuestionService {
              questionId: new ObjectId().toString(),
              question: q.question,
              similarityScore: q.score,
-             refernceSource:q.referenceSource
+             referenceSource:q.referenceSource
            }));
-           console.log("top matches====",topSimilar)
           
            logData.totalMatches = topSimilar.length
        
@@ -1045,34 +966,28 @@ export class QuestionService extends BaseService implements IQuestionService {
       
             // Rule 2: collect candidates for LLM
             if (highestScore >= 85 && highestScore < 95) {
-              console.log(`Candidate for LLM Check: ${match.question} with score ${highestScore.toFixed(2)}`)
               llmCandidates.push(match)
             }
           }
       
             // Rule 3: call LLM once
             if (!isDuplicate && llmCandidates.length > 0) {
-              console.log(`Calling LLM for ${llmCandidates.length} candidates...`)
               const candidateQuestions = llmCandidates.map(q => q.question)
       
               const matchedQuestionfromllm = await checkConceptDuplicate(
                 baseQuestion.question,
                 candidateQuestions
               )
-              
-      
-             // matchedQuestionId=matchedQuestion._id
-             // matchedQuestion=matchedQuestion.question
-      
+            
              if (matchedQuestionfromllm) {
-              console.log("the matched question====",matchedQuestionfromllm)
-              console.log("llm push=========",llmCandidates)
+  
               let filtermatchinQuestion=topSimilar.filter(ele=>ele.question==matchedQuestionfromllm)
-              console.log("referencequestion***",filtermatchinQuestion)
+              
               matchedQuestion=filtermatchinQuestion[0].question
               matchedQuestionId=filtermatchinQuestion[0].questionId
               matchedScore=filtermatchinQuestion[0].similarityScore
               referenceSourcefrom=filtermatchinQuestion[0].referenceSource
+             
               const duplicateQuestion = {
                 ...baseQuestion,
                 similarityScore: Number(matchedScore.toFixed(2)),
@@ -1080,7 +995,6 @@ export class QuestionService extends BaseService implements IQuestionService {
                 referenceQuestion: matchedQuestion,
                 referenceSource:referenceSourcefrom
                 }
-                console.log("matched question====",duplicateQuestion)
       
                 await this.duplicateQuestionRepository.addDuplicate(
                   duplicateQuestion,
@@ -3095,6 +3009,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         { header: "source", key: "source", width: 15 },
         { header: "similarityScore", key: "similarityScore", width: 18 },
         { header: "referenceQuestion", key: "referenceQuestion", width: 60 },
+        { header: "referenceSource", key: "referenceSource", width: 20 },
         { header: "ref_state", key: "ref_state", width: 18 },
         { header: "ref_district", key: "ref_district", width: 20 },
         { header: "ref_crop", key: "ref_crop", width: 18 },
@@ -3118,6 +3033,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           source: q.source,
           similarityScore: q.similarityScore,
           referenceQuestion: q.referenceQuestion ? q.referenceQuestion : '',
+          referenceSource: q.referenceSource || '',
           ref_state: refDetails?.state || '',
           ref_district: refDetails?.district || '',
           ref_crop: refDetails?.crop || '',

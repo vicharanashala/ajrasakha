@@ -300,6 +300,7 @@ export interface ISimilarQuestion extends IQuestion {
   similarityScore: number;        // percentage (0–100)
   referenceQuestionId: ObjectId;
   referenceQuestion:string
+  referenceSource: string;
     // matched original question
 }
 export interface AddQuestionResult {
