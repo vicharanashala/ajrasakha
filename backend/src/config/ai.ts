@@ -6,6 +6,6 @@ export const aiConfig = {
     proxyAddress: env('AI_PROXY_ADDRESS') || 'socks5h://localhost:1055',
     agentServerIP:env('AGENT_SERVER_IP'),
     agerntServerPort:Number(env('AGENT_SERVER_PORT')?.trim()) || 9017,
-    gemma_api: env('GEMMA_API') || 'https://unoverwhelmed-martin-unintuitively.ngrok-free.dev/gemma_api/v1',
+    gemma_api: env('GEMMA_API') ,
     gemma_api_key: env('GEMMA_API_KEY') || 'test-key',
 };
