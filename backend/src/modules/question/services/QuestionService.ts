@@ -980,6 +980,7 @@ export class QuestionService extends BaseService implements IQuestionService {
               answer: item.answer,
               agri_specialist: item.source || "AGRI_EXPERT",
               referenceSource: "reviewer",
+              score:item.score* 100
             })),
         
             ...(questions.golden || []).map((item: any) => ({
@@ -987,6 +988,7 @@ export class QuestionService extends BaseService implements IQuestionService {
               answer: item.answer,
               agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
               referenceSource: "golden",
+              score:item.score* 100
             })),
         
            
@@ -995,7 +997,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             new Map(merged.map(q => [q.question, q])).values(),
           ).map(q => ({
             ...q,
-            id: new ObjectId().toString(),
+            id: new ObjectId().toString()
           }));
            
           
