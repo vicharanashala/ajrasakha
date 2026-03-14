@@ -7,7 +7,7 @@ type Props = {
 
 export function TopRightBadge({ label, top = 2, right = 2 }: Props) {
   return (
-    <div
+    <span
       className={`
          absolute -top-${top} -right-${right}
         inline-flex items-center justify-center
@@ -22,13 +22,13 @@ export function TopRightBadge({ label, top = 2, right = 2 }: Props) {
         `}
     >
       {label}
-    </div>
+    </span>
   );
 }
 
 export function TopLeftBadge({ label, top = 2, left = 2 }: Props) {
   return (
-    <div
+    <span
       className={`
         absolute -top-${top} -left-${left}
         inline-flex items-center justify-center
@@ -43,6 +43,6 @@ export function TopLeftBadge({ label, top = 2, left = 2 }: Props) {
         `}
     >
       {label}
-    </div>
+    </span>
   );
 }
