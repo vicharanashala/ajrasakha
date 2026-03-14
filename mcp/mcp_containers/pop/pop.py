@@ -81,8 +81,33 @@ async def upload_question_to_reviewer_system(question: str, state_name: str, cro
                         "state": str,       # Name of the state (e.g., "Punjab")
                         "district": str,    # Name of the district (e.g., "Chandigarh")
                         "crop": str,        # Crop name (e.g., "Paddy")
-                        "season": str,      # Season of the year (e.g., "Kharif")
-                        "domain": str       # Domain of the query, such as "Crop Protection"
+                        "season": str,      # Must be one of:
+                        ["Kharif", "Rabi", "Zaid", "Pre-Kharif", "Post-Kharif",
+                         "Pre-Rabi", "Zaid Rabi", "Spring", "Summer", "Autumn",
+                         "Winter", "Monsoon", "Dry Season", "Wet Season"]
+                
+                        "domain": str,      # Must be one of:
+                        ["Agriculture Mechanization",
+                        "Bio-Pesticides and Bio-Fertilizers",
+                        "Crop Insurance",
+                        "Cultural Practices",
+                        "Fertilizer Use and Availability",
+                        "Field Preparation",
+                        "Nutrient Management",
+                        "Organic Farming",
+                        "Plant Protection",
+                        "Post Harvest Preservation",
+                        "Seeds",
+                        "Soil Health Card",
+                        "Soil Testing",
+                        "Sowing Time and Weather",
+                        "Storage",
+                        "Varieties",
+                        "Water Management",
+                        "Weed Management",
+                        "Market Information"]
+    }
+
                       }
     """
     
