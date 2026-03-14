@@ -3,6 +3,12 @@ import { AlertCircle, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getStatusInfo } from "../constants/rerouteStatusConfig";
 import { formatDate } from "../utils/formatDate";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/atoms/dialog";
 
 interface RerouteTimelineProps {
   currentUser: IUser;
@@ -18,8 +24,10 @@ export const RerouteTimeline = ({
   const [hoverTimeout, setHoverTimeout] = useState<ReturnType<
     typeof setTimeout
   > | null>(null);
+  const [selectedReason, setSelectedReason] = useState<string | null>(null);
 
   const INITIAL_DISPLAY_COUNT = 12;
+  const MAX_REASON_LENGTH = 50;
 
   const handleMouseEnter = (id: string) => {
     const timeout = setTimeout(() => {
@@ -216,9 +224,24 @@ export const RerouteTimeline = ({
                           {formatDate(reroute.reroutedAt)}
                         </p>
                         {reroute.rejectionReason && (
-                          <p className="text-[10px] text-gray-500 dark:text-gray-500 italic mt-1">
-                            "{reroute.rejectionReason}"
-                          </p>
+                          <div className="text-[10px] text-gray-500 dark:text-gray-500 italic mt-1">
+                            {reroute.rejectionReason.length > MAX_REASON_LENGTH ? (
+                              <>
+                                "{reroute.rejectionReason.slice(0, MAX_REASON_LENGTH)}..."
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedReason(reroute.rejectionReason);
+                                  }}
+                                  className="text-blue-600 dark:text-blue-400 hover:underline ml-1"
+                                >
+                                  see more
+                                </button>
+                              </>
+                            ) : (
+                              `"${reroute.rejectionReason}"`
+                            )}
+                          </div>
                         )}
                         <div className="h-0.5 w-6 rounded-full bg-gradient-to-r from-blue-400/20 to-blue-400/60" />
                       </div>
@@ -252,6 +275,18 @@ export const RerouteTimeline = ({
           </button>
         </div>
       )}
+
+      {/* Rejection Reason Dialog */}
+      <Dialog open={!!selectedReason} onOpenChange={() => setSelectedReason(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle>Rejection Reason</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4 p-4 rounded-lg bg-muted/30 border overflow-y-auto flex-1">
+            <p className="text-sm whitespace-pre-wrap break-words">{selectedReason}</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

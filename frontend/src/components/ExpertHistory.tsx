@@ -130,17 +130,17 @@ const ViewContextModal = ({
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
-        className="w-[90vw] max-w-6xl flex flex-col"
+        className="w-[90vw] max-w-6xl flex flex-col max-h-[90vh]"
         style={{ maxWidth: "70vw" }}
       >
-        <DialogHeader className="pb-4 border-b">
+        <DialogHeader className="pb-4 border-b flex-shrink-0">
           <DialogTitle className="text-xl font-semibold">
             {actionTitleMap[item.action] || "View Context"}
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 h-[85vh]">
-          <div className="space-y-6 p-4 text-sm">
+        <ScrollArea className="flex-1 overflow-y-auto">
+          <div className="space-y-6 p-4 text-sm pr-6">
             {/* ====================== QUESTION ====================== */}
             <div>
               <p className="text-sm font-medium mb-1">Question</p>
@@ -153,7 +153,7 @@ const ViewContextModal = ({
             {(item.action === "author") && createdAnswer && (
               <div>
                 <p className="text-sm font-medium mb-1">Submitted Answer</p>
-                <div className="rounded-lg border bg-muted/30 p-3">
+                <div className="rounded-lg border bg-muted/30 p-3 max-h-[300px] overflow-y-auto">
                   {createdAnswer}
                 </div>
               </div>
@@ -162,7 +162,7 @@ const ViewContextModal = ({
             {(item.action === "rerouted") && createdAnswer && (
               <div>
                 <p className="text-sm font-medium mb-1">ReRouted Answer</p>
-                <div className="rounded-lg border bg-muted/30 p-3">
+                <div className="rounded-lg border bg-muted/30 p-3 max-h-[300px] overflow-y-auto">
                   {createdAnswer}
                 </div>
               </div>
@@ -183,7 +183,7 @@ const ViewContextModal = ({
               item.action === "rejected"||item.action=="reroute_approved") && (
               <div>
                 <p className="text-sm font-medium mb-1">Answer</p>
-                <div className="rounded-lg border bg-muted/30 p-3">
+                <div className="rounded-lg border bg-muted/30 p-3 max-h-[300px] overflow-y-auto">
                   {currentAnswer}
                 </div>
               </div>
@@ -203,7 +203,7 @@ const ViewContextModal = ({
             {modifiedAnswer && (
               <div>
                 <p className="text-sm font-medium mb-1">Modified Answer</p>
-                <div className="rounded-lg border bg-muted/30 p-3">
+                <div className="rounded-lg border bg-muted/30 p-3 max-h-[300px] overflow-y-auto">
                   {modifiedAnswer}
                 </div>
               </div>
@@ -213,7 +213,7 @@ const ViewContextModal = ({
             {rejectedAnswer && item.activityType!="reroute" && (
               <div>
                 <p className="text-sm font-medium mb-1">Rejected Answer</p>
-                <div className="rounded-lg border bg-muted/30 p-3">
+                <div className="rounded-lg border bg-muted/30 p-3 max-h-[300px] overflow-y-auto">
                   {rejectedAnswer}
                 </div>
               </div>
@@ -222,7 +222,7 @@ const ViewContextModal = ({
              {rejectedAnswer && item.activityType=="reroute"&& (
               <div>
                 <p className="text-sm font-medium mb-1">Created Answer</p>
-                <div className="rounded-lg border bg-muted/30 p-3">
+                <div className="rounded-lg border bg-muted/30 p-3 max-h-[300px] overflow-y-auto">
                   {rejectedAnswer}
                 </div>
               </div>
