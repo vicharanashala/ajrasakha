@@ -51,7 +51,9 @@ export const CROPS =
   'sugarcane',
   'unknown',
   'wheat',
-  'ਧਾਨ'
+  'ਧਾਨ',
+  'Berseem',
+  'Pea'
 ]
 export const DOMAINS = [
   "Agriculture Mechanization",
