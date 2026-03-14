@@ -666,7 +666,21 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 <Label className="relative flex items-center gap-2 text-sm font-semibold">
                   <BadgeCheck className="h-4 w-4 text-primary" />
                   Consecutive Approvals
-                  <TopRightBadge label="New" />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground hover:text-primary transition-colors">
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-sm">
+                      <p>
+                        Filter questions based on the number of consecutive approvals received by their latest answer.
+                      </p>
+                    </TooltipContent>
+
+                  </Tooltip>
+
+                  
                 </Label>
                 <Select
                   value={advanceFilter.consecutiveApprovals}
@@ -712,7 +726,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 <Label className="relative flex items-center gap-2 text-sm font-semibold">
                   <Users className="h-4 w-4 text-primary" />
                   Auto Allocate Experts
-                  <TopRightBadge label="New" />
+                  
                 </Label>
                 <Select
                   value={advanceFilter.autoAllocateFilter}
