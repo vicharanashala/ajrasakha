@@ -2674,112 +2674,224 @@ export class QuestionService extends BaseService implements IQuestionService {
     endDate: string,
     emails: string | string[],
   ): Promise<{success: boolean; message: string}> {
-    if (!startDate || !endDate) {
-      throw new Error('startDate and endDate are required');
-    }
+    try {
+      if (!startDate || !endDate) {
+        throw new Error('startDate and endDate are required');
+      }
 
-    const start = new Date(startDate + 'T00:00:00.000Z');
-    const end = new Date(endDate + 'T23:59:59.999Z');
-    const questions = await this.questionRepo.findByDateRangeAndSource(
-      start,
-      end,
-      'AJRASAKHA',
-    );
+      const start = new Date(startDate + 'T00:00:00.000Z');
+      const end = new Date(endDate + 'T23:59:59.999Z');
+      const questions = await this.questionRepo.findByDateRangeAndSource(
+        start,
+        end,
+        'AJRASAKHA',
+      );
 
-    const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(start, end, 'AJRASAKHA');
-      const combineQuestions=[...questions,...duplicateQuestions]
-    const allQuestions = [
-      ...combineQuestions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-            
-    ];
+      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(start, end, 'AJRASAKHA');
+        const combineQuestions=[...questions,...duplicateQuestions]
+      const allQuestions = [
+        ...combineQuestions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+              
+      ];
 
 
-    if (allQuestions.length === 0) {
+      if (allQuestions.length === 0) {
 
+        return {
+          success: true,
+          message: 'There are no Outreach questions in the selected time',
+        };
+      }
+
+      // OLD CSV IMPLEMENTATION
+      // const csv = this.convertQuestionsToCSV(allQuestions, startDate, endDate);
+      // await sendEmailWithAttachment(
+      //   emails,
+      //   'Ajrasakha Outreach Questions Report',
+      //   `
+      //     <p>Hello,</p>
+      //     <p>Please find attached the <b>Ajrasakha Outreach Questions</b> report.</p>
+      //     <p>Date Range: <b>${startDate}</b> to <b>${endDate}</b></p>
+      //     <br />
+      //     <p>Regards,<br/>Ajrasakha System</p>
+      //   `,
+      //   csv,
+      //   'out_reach_questions.csv',
+      // );
+
+      // NEW EXCEL IMPLEMENTATION
+      const excelBuffer = await this.convertQuestionsToExcel(allQuestions, startDate, endDate);
+      
+      await sendEmailWithAttachment(
+        emails,
+        'Ajrasakha Outreach Questions Report',
+        `
+          <p>Hello,</p>
+          <p>Please find attached the <b>Ajrasakha Outreach Questions</b> report.</p>
+          <p>Date Range: <b>${startDate}</b> to <b>${endDate}</b></p>
+          <br />
+          <p>Regards,<br/>Ajrasakha System</p>
+        `,
+        excelBuffer,
+        'out_reach_questions.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      
       return {
         success: true,
-        message: 'There are no Outreach questions in the selected time',
+        message: 'Outreach questions report sent via email',
       };
+    } catch (error) {
+      console.error('Error in sendOutReachQuestionsMail:', error);
+      throw error;
     }
-
-    const csv = this.convertQuestionsToCSV(allQuestions, startDate, endDate);
-
-
-    await sendEmailWithAttachment(
-      emails,
-      'Ajrasakha Outreach Questions Report',
-      `
-        <p>Hello,</p>
-        <p>Please find attached the <b>Ajrasakha Outreach Questions</b> report.</p>
-        <p>Date Range: <b>${startDate}</b> to <b>${endDate}</b></p>
-        <br />
-        <p>Regards,<br/>Ajrasakha System</p>
-      `,
-      csv,
-      'out_reach_questions.csv',
-    );
-    return {
-      success: true,
-      message: 'Outreach questions report sent via email',
-    };
   }
 
-  private convertQuestionsToCSV(
+  // OLD CSV IMPLEMENTATION
+  // private convertQuestionsToCSV(
+  //   data: IQuestion[],
+  //   startDate?: string,
+  //   endDate?: string,
+  // ): string {
+  //   if (!data.length) return '';
+
+  //   const reportHeader = [
+  //     'Out Reach Data Report',
+  //     `Date Range: ${this.formatDate(startDate)} - ${this.formatDate(endDate)}`,
+  //     '', // empty line
+  //   ].join('\n');
+
+  //   const headers = [
+  //     'Question',
+  //     'Status',
+  //     'Priority',
+  //     // 'Is Auto Allocate',
+  //     'Source',
+  //     'State',
+  //     'District',
+  //     'Crop',
+  //     'Season',
+  //     'Domain',
+  //     // 'Total Answers',
+  //     // 'AI Initial Answer',
+  //     'Text',
+  //     // 'Closed At',
+  //     'Created At',
+  //     // 'Updated At',
+  //   ];
+
+  //   const rows = data.map(q => [
+  //     this.escape(q.question),
+  //     q.status,
+  //     q.priority,
+  //     // q.isAutoAllocate,
+  //     q.source,
+  //     q.details?.state,
+  //     q.details?.district,
+  //     q.details?.crop,
+  //     q.details?.season,
+  //     q.details?.domain,
+  //     // q.totalAnswersCount,
+  //     // this.escape(q.aiInitialAnswer),
+  //     this.escape(q.text),
+  //     // q.closedAt ? this.formatDate(q.closedAt) : '',
+  //     q.createdAt ? this.formatDate(q.createdAt) : '',
+  //     // q.updatedAt ? this.formatDate(q.updatedAt) : '',
+  //   ]);
+
+  //   return [
+  //     reportHeader,
+  //     headers.join(','),
+  //     ...rows.map(r => r.join(',')),
+  //   ].join('\n');
+  // }
+
+  // NEW EXCEL IMPLEMENTATION
+  private async convertQuestionsToExcel(
     data: IQuestion[],
     startDate?: string,
     endDate?: string,
-  ): string {
-    if (!data.length) return '';
+  ): Promise<Buffer> {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Outreach Questions");
 
-    const reportHeader = [
-      'Out Reach Data Report',
-      `Date Range: ${this.formatDate(startDate)} - ${this.formatDate(endDate)}`,
-      '', // empty line
-    ].join('\n');
+    // Add title and date range at the top
+    sheet.mergeCells('A1:K1');
+    const titleCell = sheet.getCell('A1');
+    titleCell.value = 'Out Reach Data Report';
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    const headers = [
+    sheet.mergeCells('A2:K2');
+    const dateRangeCell = sheet.getCell('A2');
+    dateRangeCell.value = `Date Range: ${this.formatDate(startDate)} - ${this.formatDate(endDate)}`;
+    dateRangeCell.font = { bold: true, size: 11 };
+    dateRangeCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Add empty row
+    sheet.addRow([]);
+
+    // Manually add header row (row 4)
+    const headerRow = sheet.addRow([
       'Question',
       'Status',
       'Priority',
-      // 'Is Auto Allocate',
       'Source',
       'State',
       'District',
       'Crop',
       'Season',
       'Domain',
-      // 'Total Answers',
-      // 'AI Initial Answer',
       'Text',
-      // 'Closed At',
-      'Created At',
-      // 'Updated At',
-    ];
-
-    const rows = data.map(q => [
-      this.escape(q.question),
-      q.status,
-      q.priority,
-      // q.isAutoAllocate,
-      q.source,
-      q.details?.state,
-      q.details?.district,
-      q.details?.crop,
-      q.details?.season,
-      q.details?.domain,
-      // q.totalAnswersCount,
-      // this.escape(q.aiInitialAnswer),
-      this.escape(q.text),
-      // q.closedAt ? this.formatDate(q.closedAt) : '',
-      q.createdAt ? this.formatDate(q.createdAt) : '',
-      // q.updatedAt ? this.formatDate(q.updatedAt) : '',
+      'Created At'
     ]);
 
-    return [
-      reportHeader,
-      headers.join(','),
-      ...rows.map(r => r.join(',')),
-    ].join('\n');
+    // Style the header row
+    headerRow.font = { bold: true };
+    headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD3D3D3' }
+    };
+
+    // Set column widths
+    sheet.getColumn(1).width = 50;  // Question
+    sheet.getColumn(2).width = 15;  // Status
+    sheet.getColumn(3).width = 15;  // Priority
+    sheet.getColumn(4).width = 15;  // Source
+    sheet.getColumn(5).width = 20;  // State
+    sheet.getColumn(6).width = 20;  // District
+    sheet.getColumn(7).width = 20;  // Crop
+    sheet.getColumn(8).width = 15;  // Season
+    sheet.getColumn(9).width = 25;  // Domain
+    sheet.getColumn(10).width = 50; // Text
+    sheet.getColumn(11).width = 22; // Created At
+
+    // Add data rows
+    data.forEach(q => {
+      const row = sheet.addRow([
+        q.question || '',
+        q.status || '',
+        q.priority || '',
+        q.source || '',
+        q.details?.state || '',
+        q.details?.district || '',
+        q.details?.crop || '',
+        q.details?.season || '',
+        q.details?.domain || '',
+        q.text || '',
+        q.createdAt ? this.formatDate(q.createdAt) : ''
+      ]);
+
+      // Enable text wrapping for long content
+      row.getCell(1).alignment = { wrapText: true, vertical: 'top' }; // Question
+      row.getCell(10).alignment = { wrapText: true, vertical: 'top' }; // Text
+    });
+
+    // Generate buffer
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 
   private formatDate(date: Date | string): string {

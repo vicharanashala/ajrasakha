@@ -509,15 +509,21 @@ async outreachQuestions(
   @Body() body: DateRangeRequest,
   @CurrentUser() user: IUser,
 ) {
-  const { startDate, endDate,emails } = body;
+  try {
+    const { startDate, endDate, emails } = body;
 
-  const result=await this.questionService.sendOutReachQuestionsMail(
-    startDate,
-    endDate,
-    emails,
-  );
 
-  return result
+    const result = await this.questionService.sendOutReachQuestionsMail(
+      startDate,
+      endDate,
+      emails,
+    );
+
+    return result;
+  } catch (error) {
+    console.error('Error in outreachQuestions controller:', error);
+    throw error;
+  }
 }
 
 }

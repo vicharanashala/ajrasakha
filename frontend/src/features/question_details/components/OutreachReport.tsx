@@ -161,7 +161,7 @@ export const OutreachReportModal = ({setIsSidebarOpen}:{setIsSidebarOpen:(value:
             Outreach Data Report
           </DialogTitle>
           <DialogDescription>
-            Select date range and enter recipient emails to send the CSV report.
+            Select date range and enter recipient emails to send the Excel report.
           </DialogDescription>
         </DialogHeader>
 
