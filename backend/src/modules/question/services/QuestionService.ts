@@ -2105,6 +2105,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
       await this.requestRepository.deleteByEntityId(questionId, activeSession);
 
+      // Delete duplicate question records referencing this question
+      await this.duplicateQuestionRepository.deleteByReferenceQuestionId(questionId, activeSession);
+
       // Finally, delete the question itself
       return this.questionRepo.deleteQuestion(questionId, activeSession);
     };
