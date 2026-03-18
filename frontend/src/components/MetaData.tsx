@@ -21,6 +21,7 @@ export const CROPS =
   'Mustard',
   'N/A',
   'Not specified',
+  'Okra',
   'Onion',
   'Paddy',
   'Paddy (Dhan)',
