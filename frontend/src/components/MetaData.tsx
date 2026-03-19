@@ -55,7 +55,8 @@ export const CROPS =
   'ਧਾਨ',
   'Berseem',
   'Pea',
-  'Chilli'
+  'Chilli',
+  'Maize (Fodder)'
 ]
 export const DOMAINS = [
   "Agriculture Mechanization",
