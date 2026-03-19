@@ -1,0 +1,21 @@
+
+services:
+  translator-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: translator-mcp:latest
+    container_name: translator-mcp
+    ports:
+      - "9009:9009"
+    environment:
+      PYTHONUNBUFFERED: "1"
+      VLLM_ENDPOINT: ${VLLM_ENDPOINT:-http://172.17.0.1:8012/v1/chat/completions}
+    restart: unless-stopped
+    networks:
+      - translator_network
+
+networks:
+  translator_network:
+    name: translator_network
+    external: false

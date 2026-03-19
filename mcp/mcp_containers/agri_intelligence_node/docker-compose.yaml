@@ -1,0 +1,30 @@
+
+services:
+  agri-intelligence-node:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: agri-intelligence-node:latest
+    container_name: agri-intelligence-node
+    ports:
+      - "9010:9010"
+    environment:
+      PYTHONUNBUFFERED: "1"
+      # LLM Configuration
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:8081/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-EMPTY}
+      LLM_MODEL_NAME: ${LLM_MODEL_NAME:-}
+      # MCP Server Configuration
+      MCP_SERVER_BASE: ${MCP_SERVER_BASE:-http://host.docker.internal}
+      GOLDEN_MCP_URL: ${GOLDEN_MCP_URL:-}
+      POP_MCP_URL: ${POP_MCP_URL:-}
+      FAQ_VIDEOS_MCP_URL: ${FAQ_VIDEOS_MCP_URL:-}
+      REVIEWED_MCP_URL: ${REVIEWED_MCP_URL:-}
+    restart: unless-stopped
+    networks:
+      - agri_intelligence_network
+
+networks:
+  agri_intelligence_network:
+    name: agri_intelligence_network
+    external: false
