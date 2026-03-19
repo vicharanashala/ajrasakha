@@ -324,7 +324,6 @@ export class QuestionRepository implements IQuestionRepository {
         sort
       } = query;
 
-      console.log("Crop ",crop)
       const filter: any = {};
       // --- Auto Allocate Filter ---
       if (autoAllocateFilter && autoAllocateFilter !== 'all') {
