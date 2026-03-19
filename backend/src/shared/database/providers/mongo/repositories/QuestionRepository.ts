@@ -290,10 +290,12 @@ export class QuestionRepository implements IQuestionRepository {
   ): Promise<{questions: IQuestion[]; totalPages: number; totalCount: number}> {
     try {
       await this.init();
-
+      const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const caseInsensitiveStringFilter = (field: string, value?: string) => {
         if (value && value !== 'all') {
-          filter[field] = {$regex: `^${value}$`, $options: 'i'};
+          const escapedValue = escapeRegex(value);
+          // filter[field] = {$regex: `^${value}$`, $options: 'i'};
+          filter[field] = {$regex: `^${escapedValue}$`, $options: 'i'};
         }
       };
 
@@ -321,7 +323,6 @@ export class QuestionRepository implements IQuestionRepository {
         autoAllocateFilter,
         sort
       } = query;
-
 
       const filter: any = {};
       // --- Auto Allocate Filter ---
