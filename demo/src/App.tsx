@@ -706,19 +706,22 @@ export default function App() {
                 </div>
               )}
 
-              {/* Footer Links */}
-              <div className="mt-6 flex flex-wrap gap-4 text-xs text-gray-400 justify-center pb-2">
-                <a href="#" className="hover:underline hover:text-gray-600 dark:hover:text-gray-300">annam.ai</a>
-                <span className="hidden sm:inline">|</span>
-                <a href="#" className="hover:underline hover:text-gray-600 dark:hover:text-gray-300">Privacy policy</a>
-                <span className="hidden sm:inline">|</span>
-                <a href="#" className="hover:underline hover:text-gray-600 dark:hover:text-gray-300">Terms of service</a>
-              </div>
             </div>
           </div>
 
           {/* Spacer below when empty to balance vertical centering */}
           {messages.length === 0 && <div className="flex-[1.2]" />}
+
+          {/* Footer Links */}
+          <div className="w-full px-4 pb-3">
+            <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-4 text-xs text-gray-400">
+              <a href="#" className="hover:underline hover:text-gray-600 dark:hover:text-gray-300">annam.ai</a>
+              <span className="hidden sm:inline">|</span>
+              <a href="#" className="hover:underline hover:text-gray-600 dark:hover:text-gray-300">Privacy policy</a>
+              <span className="hidden sm:inline">|</span>
+              <a href="#" className="hover:underline hover:text-gray-600 dark:hover:text-gray-300">Terms of service</a>
+            </div>
+          </div>
         </main>
       </div>
       
