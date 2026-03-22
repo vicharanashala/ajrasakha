@@ -87,7 +87,56 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
         state_code (str): A two-letter state code (e.g., "TN" for Tamil Nadu, "PB" for Punjab)
                           used to narrow the search context to region-specific questions.
     """
-    nodes = await retriever_pop.aretrieve(query)
+    STATE_CODE_TO_NAME = {
+    "AP": "ANDHRA_PRADESH",
+    "AR": "ARUNACHAL_PRADESH",
+    "AS": "ASSAM",
+    "BR": "BIHAR",
+    "CG": "CHHATTISGARH",
+    "GA": "GOA",
+    "GJ": "GUJARAT",
+    "HR": "HARYANA",
+    "HP": "HIMACHAL_PRADESH",
+    "JH": "JHARKHAND",
+    "KA": "KARNATAKA",
+    "KL": "KERALA",
+    "MP": "MADHYA_PRADESH",
+    "MH": "MAHARASHTRA",
+    "MN": "MANIPUR",
+    "ML": "MEGHALAYA",
+    "MZ": "MIZORAM",
+    "NL": "NAGALAND",
+    "OR": "ODISHA",
+    "PB": "PUNJAB",
+    "RJ": "RAJASTHAN",
+    "SK": "SIKKIM",
+    "TN": "TAMIL_NADU",
+    "TG": "TELANGANA",
+    "TR": "TRIPURA",
+    "UP": "UTTAR_PRADESH",
+    "UK": "UTTARAKHAND",
+    "WB": "WEST_BENGAL",
+    "AN": "ANDAMAN_AND_NICOBAR",
+    "CH": "CHANDIGARH",
+    "DN": "DADRA_AND_NAGAR_HAVELI_AND_DAMAN_AND_DIU",
+    "DD": "DAMAN_AND_DIU",
+    "DL": "DELHI",
+    "JK": "JAMMU_AND_KASHMIR",
+    "LA": "LADAKH",
+    "LD": "LAKSHADWEEP",
+    "PY": "PUDUCHERRY",
+    "MULTIPLE": "POPS_MULTIPLE_STATES"
+}
+
+    state_value = STATE_CODE_TO_NAME.get(state_code.upper(), state_code.upper())
+    
+    nodes = await retriever_pop.aretrieve(
+        query,
+    filters={"metadata.state": state_value}
+)   
+    for node in nodes:
+        if hasattr(node, "id_"):
+            node.id_ = str(node.id_)
     processed_nodes = await process_nodes_pop(nodes)
     return processed_nodes
 
