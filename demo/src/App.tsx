@@ -453,7 +453,7 @@ export default function App() {
           {/* Chat Messages Area */}
           <div
             ref={chatScrollRef}
-            className={messages.length === 0 ? "w-full" : "relative flex-1 overflow-y-auto pb-6"}
+            className={messages.length === 0 ? "w-full" : "relative flex-1 overflow-y-auto pb-6 custom-scrollbar"}
           >
             {messages.length === 0 ? (
               // Welcome Screen
