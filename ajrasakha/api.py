@@ -18,6 +18,8 @@ from llama_index.core import Settings
 from constants import (
     API_KEY,
     SARVAM_URL,
+    AGRICHAT_URL,
+    REVIEWER_SYSTEM_URL,
 )
 import logging
 import csv
@@ -53,7 +55,6 @@ if not LOG_FILE.exists():
 app = FastAPI(title="AjraSakha")
 
 
-OLLAMA_API_URL = "http://100.100.108.13:11434/api/chat"
 def get_audio_duration(path: str) -> float:
     audio = AudioSegment.from_file(path)
     return len(audio) / 1000.0  # duration in seconds
@@ -123,7 +124,7 @@ def extract_database_config(data: dict) -> dict:
 
 def query_agrichat(question: str, device_id: str = "abcd", database_config: dict = None) -> dict:
 
-    url = "https://agrichat.serveo.net/api/query"
+    url = AGRICHAT_URL
 
     payload = {
         "question": question,

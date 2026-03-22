@@ -15,8 +15,10 @@ COLLECTION_QA = "agri_qa"
 COLLECTION_POP = "pop"
 
 # LLM
-OLLAMA_HOST = "http://100.100.108.13:11434"
-OLLAMA_API_URL = OLLAMA_HOST + "/api/chat"
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://100.100.108.13:11434")
+OLLAMA_API_URL = f"{OLLAMA_HOST}/api/chat"
+AGRICHAT_URL = os.getenv("AGRICHAT_URL", "https://agrichat.serveo.net/api/query")
+REVIEWER_SYSTEM_URL = os.getenv("REVIEWER_SYSTEM_URL", "https://desk.vicharanashala.ai/api/questions")
 
 # MODELS
 LLM_MODEL_MAIN = "deepseek-r1:70b"
