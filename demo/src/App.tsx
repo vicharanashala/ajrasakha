@@ -1,14 +1,29 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Menu, SquarePen,
-  ArrowUp, Lightbulb, Volume2, Copy, PencilLine, 
-  Network, ThumbsUp, ThumbsDown, RefreshCcw, Share2, 
-  Sun, Moon, MoreHorizontal, ArrowUpRight,
-  Check, ChevronDown, ArrowDown, Loader2
-} from 'lucide-react';
+import React, { useState, useRef, useEffect } from "react";
+import {
+  Menu,
+  SquarePen,
+  ArrowUp,
+  Lightbulb,
+  Volume2,
+  Copy,
+  PencilLine,
+  Network,
+  ThumbsUp,
+  ThumbsDown,
+  RefreshCcw,
+  Share2,
+  Sun,
+  Moon,
+  MoreHorizontal,
+  ArrowUpRight,
+  Check,
+  ChevronDown,
+  ArrowDown,
+  Loader2,
+} from "lucide-react";
 
 // --- Types ---
-type Role = 'user' | 'bot';
+type Role = "user" | "bot";
 
 interface ThoughtStep {
   action: string;
@@ -34,15 +49,35 @@ interface ChatHistoryItem {
 
 // --- Mock Data ---
 const initialHistory: ChatHistoryItem[] = [
-  { id: '1', title: 'Paddy Harvest Timing Advice', date: 'Yesterday' },
-  { id: '2', title: 'Rice Blast Disease Treatment', date: 'Yesterday' },
-  { id: '3', title: 'Best Fertilizer for Paddy Growth', date: 'Yesterday' },
-  { id: '4', title: 'Soil NPK Levels Improvement Tips', date: 'Previous 7 days' },
-  { id: '5', title: 'Yellow Leaves in Wheat Causes', date: 'Previous 7 days' },
-  { id: '6', title: 'Organic Farming Methods for Vegetables', date: 'Previous 7 days' },
-  { id: '7', title: 'Weather Forecast for Crop Planning', date: 'Previous 7 days' },
-  { id: '8', title: 'Current Market Price of Tomatoes', date: 'Previous 7 days' },
-  { id: '9', title: 'Crop Rotation Benefits Explained', date: 'Previous 30 days' },
+  { id: "1", title: "Paddy Harvest Timing Advice", date: "Yesterday" },
+  { id: "2", title: "Rice Blast Disease Treatment", date: "Yesterday" },
+  { id: "3", title: "Best Fertilizer for Paddy Growth", date: "Yesterday" },
+  {
+    id: "4",
+    title: "Soil NPK Levels Improvement Tips",
+    date: "Previous 7 days",
+  },
+  { id: "5", title: "Yellow Leaves in Wheat Causes", date: "Previous 7 days" },
+  {
+    id: "6",
+    title: "Organic Farming Methods for Vegetables",
+    date: "Previous 7 days",
+  },
+  {
+    id: "7",
+    title: "Weather Forecast for Crop Planning",
+    date: "Previous 7 days",
+  },
+  {
+    id: "8",
+    title: "Current Market Price of Tomatoes",
+    date: "Previous 7 days",
+  },
+  {
+    id: "9",
+    title: "Crop Rotation Benefits Explained",
+    date: "Previous 30 days",
+  },
 ];
 
 const SUGGESTIONS = [
@@ -51,50 +86,49 @@ const SUGGESTIONS = [
   "Check current market price for potatoes.",
   "What is the weather forecast for my farm?",
   "What are the best fertilizers for coconut farming?",
-  "How to control pests in vegetable crops?"
+  "How to control pests in vegetable crops?",
 ];
 
 // --- Custom Components ---
 
 // AjraSakha Logo Icon
 const BrandIcon = ({ className = "w-6 h-6 text-[#10a37f]" }) => (
-  <div className={`relative flex items-center justify-center rounded-full p-0.5 ${className}`}>
-    <img src="/logo.png" alt="AjraSakha Logo" className='w-full h-full object-contain' />
-  </div>
+  <div
+    className={`relative flex items-center justify-center rounded-full p-0.5 ${className}`}
+  >
+       {" "}
+    <img
+      src="/logo.png"
+      alt="AjraSakha Logo"
+      className="w-full h-full object-contain"
+    />
+     {" "}
+  </div>
 );
 
 // mock response generator based on title keywords for demonstration purposes
 const getMockResponse = (title: string) => {
   const t = title.toLowerCase();
 
-  if (t.includes('paddy harvest')) {
+  if (t.includes("paddy harvest")) {
     return "Paddy should be harvested when 80–85% of the grains turn golden yellow. Ensure moisture content is around 20–25% to avoid grain breakage. Timely harvesting improves yield and quality.";
-  } 
-  else if (t.includes('rice blast')) {
+  } else if (t.includes("rice blast")) {
     return "Rice blast disease can be controlled by using resistant varieties and applying fungicides like Tricyclazole. Maintain proper spacing and avoid excess nitrogen fertilizer.";
-  } 
-  else if (t.includes('fertilizer for paddy')) {
+  } else if (t.includes("fertilizer for paddy")) {
     return "For paddy, apply a balanced dose of NPK (Nitrogen, Phosphorus, Potassium). Split nitrogen application into stages—basal, tillering, and panicle initiation—for best results.";
-  } 
-  else if (t.includes('soil npk')) {
+  } else if (t.includes("soil npk")) {
     return "Improving soil NPK levels can be done by adding organic compost, green manure, and balanced fertilizers. Soil testing is recommended before application.";
-  } 
-  else if (t.includes('yellow leaves in wheat')) {
+  } else if (t.includes("yellow leaves in wheat")) {
     return "Yellowing in wheat may be due to nitrogen deficiency or fungal infection. Apply urea if deficiency is confirmed, and ensure proper drainage to prevent disease.";
-  } 
-  else if (t.includes('organic farming')) {
+  } else if (t.includes("organic farming")) {
     return "Organic farming involves using natural inputs like compost, vermicompost, and biofertilizers. Crop rotation and biological pest control are key practices.";
-  } 
-  else if (t.includes('weather')) {
+  } else if (t.includes("weather")) {
     return "Weather plays a crucial role in farming. Monitor rainfall and temperature regularly to plan irrigation, fertilization, and harvesting activities effectively.";
-  } 
-  else if (t.includes('market price')) {
+  } else if (t.includes("market price")) {
     return "Market prices vary by mandi and quality. It is advisable to check nearby markets or government portals like Agmarknet for real-time pricing before selling.";
-  } 
-  else if (t.includes('crop rotation')) {
+  } else if (t.includes("crop rotation")) {
     return "Crop rotation improves soil fertility and reduces pests. Rotating legumes with cereals helps fix nitrogen and improves overall yield.";
-  } 
-  else {
+  } else {
     return "This is a previous farming-related discussion. Let me know if you want updated advice based on your current crop conditions.";
   }
 };
@@ -104,18 +138,19 @@ export default function App() {
   const [isDarkMode, setIsDarkMode] = useState(false); // Default to light mode for screenshot matching
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [newChatKey, setNewChatKey] = useState(Date.now());
-  
+
   // Track chat history dynamically
-  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>(initialHistory);
+  const [chatHistory, setChatHistory] =
+    useState<ChatHistoryItem[]>(initialHistory);
   // Store messages for specific chat IDs to keep them in memory during session
   const [savedChats, setSavedChats] = useState<Record<string, Message[]>>({});
-  
+
   const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState("");
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [showThoughts, setShowThoughts] = useState(true);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-  
+
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pendingTimeoutsRef = useRef<number[]>([]);
@@ -124,7 +159,7 @@ export default function App() {
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   const updateScrollIndicator = () => {
@@ -136,7 +171,8 @@ export default function App() {
 
     const hasOverflow = container.scrollHeight - container.clientHeight > 24;
     const isNearBottom =
-      container.scrollTop + container.clientHeight >= container.scrollHeight - 24;
+      container.scrollTop + container.clientHeight >=
+      container.scrollHeight - 24;
 
     setShowScrollToBottom(hasOverflow && !isNearBottom);
   };
@@ -152,8 +188,8 @@ export default function App() {
     };
 
     handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   useEffect(() => {
@@ -171,48 +207,52 @@ export default function App() {
     const handleScroll = () => updateScrollIndicator();
 
     updateScrollIndicator();
-    container.addEventListener('scroll', handleScroll);
-    window.addEventListener('resize', handleScroll);
+    container.addEventListener("scroll", handleScroll);
+    window.addEventListener("resize", handleScroll);
 
     return () => {
-      container.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleScroll);
+      container.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
     };
   }, [messages]);
 
   useEffect(() => {
     return () => {
-      pendingTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      pendingTimeoutsRef.current.forEach((timeoutId) =>
+        window.clearTimeout(timeoutId),
+      );
     };
   }, []);
 
-
-
   const loadChat = (id: string, title: string) => {
     setActiveChatId(id);
-    
+
     // If we have saved messages for this session, load them
     if (savedChats[id]) {
       setMessages(savedChats[id]);
     } else {
       // Otherwise, generate a mock static answer for existing history items
-     const mockMsgs: Message[] = [
-      { id: `mock-user-${id}`, role: 'user', content: `I need information regarding: ${title}` },
-      { 
-        id: `mock-bot-${id}`, 
-        role: 'bot', 
-        content: getMockResponse(title),
-        thoughtSteps: [
-          { action: "fetch_historical_context" },
-          { action: "analyze_farming_topic" }
-        ],
-        thoughtSummary: "Fetching past insights based on your query:"
-      }
-    ];
+      const mockMsgs: Message[] = [
+        {
+          id: `mock-user-${id}`,
+          role: "user",
+          content: `I need information regarding: ${title}`,
+        },
+        {
+          id: `mock-bot-${id}`,
+          role: "bot",
+          content: getMockResponse(title),
+          thoughtSteps: [
+            { action: "fetch_historical_context" },
+            { action: "analyze_farming_topic" },
+          ],
+          thoughtSummary: "Fetching past insights based on your query:",
+        },
+      ];
       setMessages(mockMsgs);
-      setSavedChats(prev => ({ ...prev, [id]: mockMsgs }));
+      setSavedChats((prev) => ({ ...prev, [id]: mockMsgs }));
     }
-    
+
     // Close sidebar on mobile after selection
     if (window.innerWidth < 768) setIsSidebarOpen(false);
   };
@@ -225,13 +265,13 @@ export default function App() {
     // Add user message
     const newUserMsg: Message = {
       id: Date.now().toString(),
-      role: 'user',
+      role: "user",
       content: text,
     };
 
     const newMessages = [...messages, newUserMsg];
     setMessages(newMessages);
-    setInputValue('');
+    setInputValue("");
 
     let currentChatId = activeChatId;
 
@@ -239,14 +279,14 @@ export default function App() {
     if (!currentChatId) {
       currentChatId = `chat-${Date.now()}`;
       setActiveChatId(currentChatId);
-      
+
       const newHistoryItem: ChatHistoryItem = {
         id: currentChatId,
-        title: text.length > 25 ? text.substring(0, 25) + '...' : text,
-        date: 'Today'
+        title: text.length > 25 ? text.substring(0, 25) + "..." : text,
+        date: "Today",
       };
-      
-      setChatHistory(prev => [newHistoryItem, ...prev]);
+
+      setChatHistory((prev) => [newHistoryItem, ...prev]);
     }
 
     // Pre-determine bot response and thought steps to animate them sequentially
@@ -254,20 +294,25 @@ export default function App() {
     let thoughtSummary = "";
     let botResponse = "";
 
-    if (text.toLowerCase().includes('hi') || text.toLowerCase().includes('hello')) {
-      botResponse = "Hello! 🌿 How can I assist you today? I'm here to help with agriculture-related queries in India. Whether it's about crops, soil, pests, or farming techniques, feel free to ask!";
+    if (
+      text.toLowerCase().includes("hi") ||
+      text.toLowerCase().includes("hello")
+    ) {
+      botResponse =
+        "Hello! 🌿 How can I assist you today? I'm here to help with agriculture-related queries in India. Whether it's about crops, soil, pests, or farming techniques, feel free to ask!";
       thoughtSteps = [
         { action: "identify_greeting_intent" },
-        { action: "fetch_agricultural_persona" }
+        { action: "fetch_agricultural_persona" },
       ];
       thoughtSummary = "Now let me introduce myself:";
     } else {
-      botResponse = "I understand you're asking about farming. To give you the most accurate advice, could you provide a bit more detail? For example, your crop type, soil condition, or specific symptoms if you're asking about a disease.";
+      botResponse =
+        "I understand you're asking about farming. To give you the most accurate advice, could you provide a bit more detail? For example, your crop type, soil condition, or specific symptoms if you're asking about a disease.";
       thoughtSteps = [
         { action: "upload_question_to_reviewer_system" },
         { action: "get_context_from_reviewer_dataset" },
         { action: "get_context_from_golden_dataset" },
-        { action: "get_context_from_package_of_practices" }
+        { action: "get_context_from_package_of_practices" },
       ];
       thoughtSummary = "Now let me search for relevant FAQ videos:";
     }
@@ -275,8 +320,8 @@ export default function App() {
     const loadingMessageId = `${Date.now()}-loading`;
     const loadingBotMsg: Message = {
       id: loadingMessageId,
-      role: 'bot',
-      content: '', // Final answer text is hidden while loading
+      role: "bot",
+      content: "", // Final answer text is hidden while loading
       thoughtSteps,
       currentStage: 0, // Used to track which step is currently animating
       isLoading: true,
@@ -286,39 +331,52 @@ export default function App() {
 
     // Save current user message into session storage
     setMessages(messagesWithLoader);
-    setSavedChats(prev => ({ ...prev, [currentChatId as string]: messagesWithLoader }));
+    setSavedChats((prev) => ({
+      ...prev,
+      [currentChatId as string]: messagesWithLoader,
+    }));
 
     // Animate the thought steps appearing one by one
     thoughtSteps.forEach((_, index) => {
-      const stepTimeout = window.setTimeout(() => {
-        setMessages(prev => prev.map(msg => (
-          msg.id === loadingMessageId
-            ? { ...msg, currentStage: index + 1 }
-            : msg
-        )));
-      }, (index + 1) * 900); // 900ms delay per step for the animation
+      const stepTimeout = window.setTimeout(
+        () => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === loadingMessageId
+                ? { ...msg, currentStage: index + 1 }
+                : msg,
+            ),
+          );
+        },
+        (index + 1) * 900,
+      ); // 900ms delay per step for the animation
 
       pendingTimeoutsRef.current.push(stepTimeout);
     });
 
     // Finalize the response and show content after all steps have loaded
-    const responseTimeout = window.setTimeout(() => {
-      setMessages(prev => {
-        const updatedMsgs = prev.map(msg => (
-          msg.id === loadingMessageId
-            ? {
-                ...msg,
-                content: botResponse,
-                thoughtSummary,
-                isLoading: false,
-              }
-            : msg
-        ));
-        setSavedChats(sc => ({ ...sc, [currentChatId as string]: updatedMsgs }));
-        return updatedMsgs;
-      });
-      
-    }, (thoughtSteps.length + 1) * 900);
+    const responseTimeout = window.setTimeout(
+      () => {
+        setMessages((prev) => {
+          const updatedMsgs = prev.map((msg) =>
+            msg.id === loadingMessageId
+              ? {
+                  ...msg,
+                  content: botResponse,
+                  thoughtSummary,
+                  isLoading: false,
+                }
+              : msg,
+          );
+          setSavedChats((sc) => ({
+            ...sc,
+            [currentChatId as string]: updatedMsgs,
+          }));
+          return updatedMsgs;
+        });
+      },
+      (thoughtSteps.length + 1) * 900,
+    );
 
     pendingTimeoutsRef.current.push(responseTimeout);
   };
@@ -331,40 +389,44 @@ export default function App() {
   };
 
   // Group history by date dynamically from state
-  const groupedHistory = chatHistory.reduce((acc, item) => {
-    if (!acc[item.date]) acc[item.date] = [];
-    acc[item.date].push(item);
-    return acc;
-  }, {} as Record<string, ChatHistoryItem[]>);
+  const groupedHistory = chatHistory.reduce(
+    (acc, item) => {
+      if (!acc[item.date]) acc[item.date] = [];
+      acc[item.date].push(item);
+      return acc;
+    },
+    {} as Record<string, ChatHistoryItem[]>,
+  );
 
   return (
-    <div className={isDarkMode ? 'dark' : ''}>
+    <div className={isDarkMode ? "dark" : ""}>
       <div className="flex h-screen w-full bg-white dark:bg-[#212121] text-gray-800 dark:text-gray-200 font-sans overflow-hidden transition-colors duration-200">
-        
         {/* Mobile Sidebar Backdrop */}
         {isSidebarOpen && (
-          <div 
+          <div
             className="fixed inset-0 bg-black/40 dark:bg-black/60 z-30 md:hidden transition-opacity"
             onClick={() => setIsSidebarOpen(false)}
           />
         )}
 
         {/* --- Sidebar --- */}
-        <aside 
+        <aside
           className={`fixed md:relative z-40 h-full w-64 flex-shrink-0 bg-[#f9f9f9] dark:bg-[#171717] flex flex-col border-r border-gray-200 dark:border-[#2f2f2f] transition-all duration-300 ease-in-out ${
-            isSidebarOpen ? 'translate-x-0 ml-0' : '-translate-x-full md:translate-x-0 md:-ml-64'
+            isSidebarOpen
+              ? "translate-x-0 ml-0"
+              : "-translate-x-full md:translate-x-0 md:-ml-64"
           }`}
         >
           {/* Sidebar Header */}
           <div className="p-3 flex items-center justify-between sticky top-0 z-10 bg-[#f9f9f9] dark:bg-[#171717]">
-            <button 
+            <button
               onClick={() => setIsSidebarOpen(false)}
               className="p-2 hover:bg-gray-200 dark:hover:bg-[#2f2f2f] rounded-md transition-colors text-gray-600 dark:text-gray-400"
               title="Close sidebar"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <button 
+            <button
               onClick={startNewChat}
               className="p-2 hover:bg-gray-200 dark:hover:bg-[#2f2f2f] rounded-md transition-colors text-gray-600 dark:text-gray-400"
               title="New Chat"
@@ -381,16 +443,20 @@ export default function App() {
                   {date}
                 </h3>
                 <div className="space-y-1">
-                  {items.map(item => (
+                  {items.map((item) => (
                     <button
                       key={item.id}
                       onClick={() => loadChat(item.id, item.title)}
                       className={`w-full text-left px-2 py-2 rounded-lg flex items-center gap-2 text-sm group hover:bg-gray-200 dark:hover:bg-[#2f2f2f] transition-colors ${
-                        activeChatId === item.id ? 'bg-gray-200 dark:bg-[#2f2f2f]' : ''
+                        activeChatId === item.id
+                          ? "bg-gray-200 dark:bg-[#2f2f2f]"
+                          : ""
                       }`}
                     >
                       <BrandIcon className="w-7 h-7 flex-shrink-0" />
-                      <span className="truncate flex-1 text-gray-700 dark:text-gray-300">{item.title}</span>
+                      <span className="truncate flex-1 text-gray-700 dark:text-gray-300">
+                        {item.title}
+                      </span>
                       {activeChatId === item.id && (
                         <MoreHorizontal className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100" />
                       )}
@@ -407,20 +473,21 @@ export default function App() {
               <div className="w-8 h-8 rounded-full bg-pink-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
                 DM
               </div>
-              <span className="text-sm font-medium truncate flex-1 text-left text-gray-700 dark:text-gray-300">Demo</span>
+              <span className="text-sm font-medium truncate flex-1 text-left text-gray-700 dark:text-gray-300">
+                Demo
+              </span>
             </button>
           </div>
         </aside>
 
         {/* --- Main Content Area --- */}
         <main className="flex-1 flex flex-col relative min-w-0">
-          
           {/* Top Bar */}
           <header className="h-14 flex items-center justify-between px-4 border-b border-transparent shrink-0">
             <div className="flex items-center gap-2">
               {/* Toggle Sidebar Button (Visible when sidebar is closed) */}
               {!isSidebarOpen && (
-                <button 
+                <button
                   onClick={() => setIsSidebarOpen(true)}
                   className="p-2 -ml-2 hover:bg-gray-100 dark:hover:bg-[#2f2f2f] rounded-md transition-colors text-gray-600 dark:text-gray-400"
                   title="Open sidebar"
@@ -432,18 +499,22 @@ export default function App() {
 
             {/* Right Actions */}
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={toggleTheme}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-[#2f2f2f] rounded-full text-gray-500 transition-colors"
                 title="Toggle Theme"
               >
-                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                {isDarkMode ? (
+                  <Sun className="w-5 h-5" />
+                ) : (
+                  <Moon className="w-5 h-5" />
+                )}
               </button>
-              {messages.length > 0 &&
-                 <button className="p-2 hover:bg-gray-100 dark:hover:bg-[#2f2f2f] rounded-full text-gray-500 transition-colors">
-                   <Share2 className="w-5 h-5" />
-                 </button>
-              }
+              {messages.length > 0 && (
+                <button className="p-2 hover:bg-gray-100 dark:hover:bg-[#2f2f2f] rounded-full text-gray-500 transition-colors">
+                  <Share2 className="w-5 h-5" />
+                </button>
+              )}
             </div>
           </header>
 
@@ -453,20 +524,27 @@ export default function App() {
           {/* Chat Messages Area */}
           <div
             ref={chatScrollRef}
-            className={messages.length === 0 ? "w-full" : "relative flex-1 overflow-y-auto pb-6 custom-scrollbar"}
+            className={
+              messages.length === 0
+                ? "w-full"
+                : "relative flex-1 overflow-y-auto pb-6 custom-scrollbar"
+            }
           >
             {messages.length === 0 ? (
               // Welcome Screen
-              <div key={newChatKey} className="w-full flex flex-col items-center px-4 mb-6">
+              <div
+                key={newChatKey}
+                className="w-full flex flex-col items-center px-4 mb-6"
+              >
                 <div className="flex items-center justify-center gap-3 md:gap-4">
                   <BrandIcon className="w-10 mt-2 h-10 md:w-12 md:h-12 text-[#10a37f] opacity-0 animate-logo-reveal" />
                   <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-center flex">
                     {"Welcome to AjraSakha!".split("").map((char, idx) => (
-                      <span 
-                        key={idx} 
+                      <span
+                        key={idx}
                         className="inline-block opacity-0 animate-text-reveal-seq"
-                        style={{ 
-                          animationDelay: `${idx * 0.04}s` 
+                        style={{
+                          animationDelay: `${idx * 0.04}s`,
                         }}
                       >
                         {char === " " ? "\u00A0" : char}
@@ -480,14 +558,16 @@ export default function App() {
               <div className="w-full max-w-3xl mx-auto py-6 px-4 space-y-6">
                 {messages.map((msg, _) => (
                   <div key={msg.id} className="w-full">
-                    {msg.role === 'user' ? (
+                    {msg.role === "user" ? (
                       // User Message
                       <div className="flex gap-4 mb-4 items-start">
                         <div className="w-8 h-8 rounded-full bg-pink-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-1">
                           DM
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-[15px] mb-1 text-gray-800 dark:text-gray-100">Demo</h4>
+                          <h4 className="font-semibold text-[15px] mb-1 text-gray-800 dark:text-gray-100">
+                            Demo
+                          </h4>
                           <div className="text-[15px] text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
                             {msg.content}
                           </div>
@@ -498,14 +578,16 @@ export default function App() {
                       <div className="flex gap-4 items-start relative">
                         <BrandIcon className="w-8 h-8 flex-shrink-0 mt-1" />
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-[15px] mb-1 text-gray-800 dark:text-gray-100">AjraSakha</h4>
-                          
+                          <h4 className="font-semibold text-[15px] mb-1 text-gray-800 dark:text-gray-100">
+                            AjraSakha
+                          </h4>
+
                           {/* Thoughts Toggle UI matching the screenshot */}
                           {(msg.thoughtSteps || msg.thoughts) && (
                             <div className="mb-4 mt-2">
                               {/* Only show "Thoughts" button if not currently loading the steps */}
                               {!msg.isLoading && (
-                                <button 
+                                <button
                                   onClick={() => setShowThoughts(!showThoughts)}
                                   className="flex items-center gap-2 text-[15px] text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors mb-4"
                                 >
@@ -513,20 +595,28 @@ export default function App() {
                                   Thoughts
                                 </button>
                               )}
-                              
+
                               {/* Always show steps while loading, or if toggled open */}
                               {(showThoughts || msg.isLoading) && (
                                 <div className="pl-4 space-y-4 pb-2 relative border-l border-transparent">
-                                  
                                   {/* Render Structured Steps with animation states */}
                                   {msg.thoughtSteps?.map((step, idx) => {
                                     // If still loading, hide steps that are ahead of the current stage index
-                                    if (msg.isLoading && msg.currentStage !== undefined && idx > msg.currentStage) return null;
+                                    if (
+                                      msg.isLoading &&
+                                      msg.currentStage !== undefined &&
+                                      idx > msg.currentStage
+                                    )
+                                      return null;
 
-                                    const isLoadingStep = msg.isLoading && msg.currentStage === idx;
+                                    const isLoadingStep =
+                                      msg.isLoading && msg.currentStage === idx;
 
                                     return (
-                                      <div key={idx} className={`flex items-center justify-between text-[14.5px] text-gray-700 dark:text-gray-300 group cursor-default ${isLoadingStep ? 'animate-fade-in' : ''}`}>
+                                      <div
+                                        key={idx}
+                                        className={`flex items-center justify-between text-[14.5px] text-gray-700 dark:text-gray-300 group cursor-default ${isLoadingStep ? "animate-fade-in" : ""}`}
+                                      >
                                         <div className="flex items-center gap-3">
                                           {isLoadingStep ? (
                                             <div className="flex-shrink-0 w-[18px] h-[18px] flex items-center justify-center">
@@ -537,15 +627,23 @@ export default function App() {
                                               <Check className="w-3 h-3 text-white stroke-[3]" />
                                             </div>
                                           )}
-                                          <span className={isLoadingStep ? "opacity-80 transition-opacity" : ""}>
+                                          <span
+                                            className={
+                                              isLoadingStep
+                                                ? "opacity-80 transition-opacity"
+                                                : ""
+                                            }
+                                          >
                                             Ran {step.action}
                                           </span>
                                         </div>
-                                        <ChevronDown className={`w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 opacity-80 ${isLoadingStep ? 'hidden' : ''}`} />
+                                        <ChevronDown
+                                          className={`w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 opacity-80 ${isLoadingStep ? "hidden" : ""}`}
+                                        />
                                       </div>
                                     );
                                   })}
-                                  
+
                                   {/* Render Thought Summary only after all steps finish loading */}
                                   {msg.thoughtSummary && !msg.isLoading && (
                                     <div className="mt-5 text-[14.5px] text-gray-700 dark:text-gray-300 animate-fade-in">
@@ -554,12 +652,13 @@ export default function App() {
                                   )}
 
                                   {/* Fallback for old string thoughts */}
-                                  {msg.thoughts && !msg.thoughtSteps && !msg.isLoading && (
-                                     <div className="mt-2 text-[14px] text-gray-500 dark:text-gray-400 italic">
-                                       {msg.thoughts}
-                                     </div>
-                                  )}
-
+                                  {msg.thoughts &&
+                                    !msg.thoughtSteps &&
+                                    !msg.isLoading && (
+                                      <div className="mt-2 text-[14px] text-gray-500 dark:text-gray-400 italic">
+                                        {msg.thoughts}
+                                      </div>
+                                    )}
                                 </div>
                               )}
                             </div>
@@ -569,27 +668,29 @@ export default function App() {
                           {msg.isLoading && msg.stages && !msg.thoughtSteps && (
                             <div className="space-y-2 mt-2">
                               {msg.stages.map((stage, index) => {
-                                const isComplete = index < (msg.currentStage ?? 0);
-                                const isActive = index === (msg.currentStage ?? 0);
+                                const isComplete =
+                                  index < (msg.currentStage ?? 0);
+                                const isActive =
+                                  index === (msg.currentStage ?? 0);
 
                                 return (
                                   <div
                                     key={stage}
                                     className={`flex items-center gap-3 text-[14px] transition-all duration-300 ${
                                       isComplete
-                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                        ? "text-emerald-600 dark:text-emerald-400"
                                         : isActive
-                                          ? 'text-gray-800 dark:text-gray-100'
-                                          : 'text-gray-400 dark:text-gray-500'
+                                          ? "text-gray-800 dark:text-gray-100"
+                                          : "text-gray-400 dark:text-gray-500"
                                     }`}
                                   >
                                     <span
                                       className={`flex h-2.5 w-2.5 rounded-full ${
                                         isComplete
-                                          ? 'bg-emerald-500'
+                                          ? "bg-emerald-500"
                                           : isActive
-                                            ? 'bg-[#10a37f] animate-pulse'
-                                            : 'bg-gray-300 dark:bg-gray-600'
+                                            ? "bg-[#10a37f] animate-pulse"
+                                            : "bg-gray-300 dark:bg-gray-600"
                                       }`}
                                     />
                                     <span>{stage}</span>
@@ -608,8 +709,20 @@ export default function App() {
 
                           {/* Action Bar */}
                           <div className="flex items-center gap-1 mt-3">
-                            {[Volume2, Copy, PencilLine, Network, ThumbsUp, ThumbsDown, RefreshCcw].map((Icon, i) => (
-                              <button key={i} disabled={msg.isLoading} className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2f2f2f] rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                            {[
+                              Volume2,
+                              Copy,
+                              PencilLine,
+                              Network,
+                              ThumbsUp,
+                              ThumbsDown,
+                              RefreshCcw,
+                            ].map((Icon, i) => (
+                              <button
+                                key={i}
+                                disabled={msg.isLoading}
+                                className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2f2f2f] rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
                                 <Icon className="w-4 h-4" />
                               </button>
                             ))}
@@ -627,8 +740,8 @@ export default function App() {
                     aria-label="Scroll to bottom"
                     className={`pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white/95 text-gray-700 shadow-lg backdrop-blur-sm transition-all duration-300 dark:border-gray-700 dark:bg-[#2f2f2f]/95 dark:text-gray-200 ${
                       showScrollToBottom
-                        ? 'translate-y-0 opacity-100'
-                        : 'translate-y-3 opacity-0 pointer-events-none'
+                        ? "translate-y-0 opacity-100"
+                        : "translate-y-3 opacity-0 pointer-events-none"
                     }`}
                   >
                     <ArrowDown className="w-4 h-4" />
@@ -639,12 +752,13 @@ export default function App() {
           </div>
 
           {/* Input Area */}
-          <div className={`w-full ${messages.length === 0 ? 'bg-transparent' : 'bg-gradient-to-t from-white via-white to-transparent dark:from-[#212121] dark:via-[#212121] dark:to-transparent'} pt-2 pb-4 px-4`}>
+          <div
+            className={`w-full ${messages.length === 0 ? "bg-transparent" : "bg-gradient-to-t from-white via-white to-transparent dark:from-[#212121] dark:via-[#212121] dark:to-transparent"} pt-2 pb-4 px-4`}
+          >
             <div className="max-w-3xl mx-auto w-full flex flex-col items-center">
-              
               {/* Input Box Container */}
               <div className="w-full relative bg-white dark:bg-[#2f2f2f] border border-gray-300 dark:border-transparent rounded-[24px] shadow-sm hover:shadow-md transition-shadow focus-within:shadow-md focus-within:border-gray-400 dark:focus-within:border-[#444]">
-                <form 
+                <form
                   onSubmit={handleSendMessage}
                   className="flex flex-col w-full"
                 >
@@ -652,7 +766,7 @@ export default function App() {
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
+                      if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         handleSendMessage();
                       }
@@ -660,9 +774,9 @@ export default function App() {
                     placeholder="Message AjraSakha"
                     className="w-full max-h-48 resize-none bg-transparent outline-none pt-4 pb-2 px-4 text-gray-800 dark:text-gray-100 overflow-y-auto m-0 leading-relaxed placeholder-gray-400 dark:placeholder-gray-500"
                     rows={1}
-                    style={{ minHeight: '52px' }}
+                    style={{ minHeight: "52px" }}
                   />
-                  
+
                   {/* Bottom Tool Row inside Input */}
                   <div className="flex items-center justify-between px-3 pb-3">
                     <div className="flex items-center gap-1">
@@ -670,13 +784,13 @@ export default function App() {
                     </div>
 
                     <div className="flex items-center gap-1">
-                      <button 
-                        type="submit" 
+                      <button
+                        type="submit"
                         disabled={!inputValue.trim()}
                         className={`p-1.5 ml-1 rounded-full transition-colors ${
-                          inputValue.trim() 
-                            ? 'bg-black text-white dark:bg-white dark:text-black hover:opacity-80' 
-                            : 'bg-gray-200 text-gray-400 dark:bg-[#444] dark:text-gray-500 cursor-not-allowed'
+                          inputValue.trim()
+                            ? "bg-black text-white dark:bg-white dark:text-black hover:opacity-80"
+                            : "bg-gray-200 text-gray-400 dark:bg-[#444] dark:text-gray-500 cursor-not-allowed"
                         }`}
                       >
                         <ArrowUp className="w-5 h-5" />
@@ -689,7 +803,6 @@ export default function App() {
               {/* Suggestions (Visible only when chat is empty) */}
               {messages.length === 0 && (
                 <div className="w-full mt-4 flex flex-col gap-3">
-
                   {/* Vertical Text Suggestions */}
                   <div className="flex flex-col items-start w-full">
                     {SUGGESTIONS.map((suggestion, i) => (
@@ -705,7 +818,6 @@ export default function App() {
                   </div>
                 </div>
               )}
-
             </div>
           </div>
 
@@ -715,17 +827,30 @@ export default function App() {
           {/* Footer Links */}
           <div className="w-full px-4 pb-3">
             <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-4 text-xs text-gray-400">
-              <a href="#" className="hover:underline hover:text-gray-600 dark:hover:text-gray-300">annam.ai</a>
+              <a
+                href="#"
+                className="hover:underline hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                annam.ai
+              </a>
               <span className="hidden sm:inline">|</span>
-              <a href="#" className="hover:underline hover:text-gray-600 dark:hover:text-gray-300">Privacy policy</a>
+              <a
+                href="#"
+                className="hover:underline hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                Privacy policy
+              </a>
               <span className="hidden sm:inline">|</span>
-              <a href="#" className="hover:underline hover:text-gray-600 dark:hover:text-gray-300">Terms of service</a>
+              <a
+                href="#"
+                className="hover:underline hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                Terms of service
+              </a>
             </div>
           </div>
         </main>
       </div>
-      
-    
     </div>
   );
 }
