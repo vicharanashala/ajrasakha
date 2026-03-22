@@ -1,20 +1,29 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Menu, SquarePen,
-   ArrowUp, Lightbulb, Volume2, Copy, PencilLine, 
+  ArrowUp, Lightbulb, Volume2, Copy, PencilLine, 
   Network, ThumbsUp, ThumbsDown, RefreshCcw, Share2, 
-  Sun, Moon,Leaf, MoreHorizontal,
-  MessageCircle, LayoutList, Briefcase, CloudSun, X, ArrowUpRight, CodeXml
+  Sun, Moon, MoreHorizontal, ArrowUpRight,
+  Check, ChevronDown, ArrowDown, Loader2
 } from 'lucide-react';
 
 // --- Types ---
 type Role = 'user' | 'bot';
 
+interface ThoughtStep {
+  action: string;
+}
+
 interface Message {
   id: string;
   role: Role;
   content: string;
-  thoughts?: string;
+  thoughts?: string; // Kept for backward compatibility
+  thoughtSteps?: ThoughtStep[]; // New structured thought steps
+  thoughtSummary?: string; // Text shown after the steps
+  stages?: string[]; // Kept for backwards compatibility
+  currentStage?: number; // Repurposed to track the current thought step
+  isLoading?: boolean;
 }
 
 interface ChatHistoryItem {
@@ -42,16 +51,16 @@ const SUGGESTIONS = [
   "Check current market price for potatoes.",
   "What is the weather forecast for my farm?",
   "What are the best fertilizers for coconut farming?",
-"How to control pests in vegetable crops?"
+  "How to control pests in vegetable crops?"
 ];
 
 // --- Custom Components ---
 
 // AjraSakha Logo Icon
 const BrandIcon = ({ className = "w-6 h-6 text-[#10a37f]" }) => (
-  <div className={`relative flex items-center justify-center rounded-full p-0.5 ${className}`}>
-    <img src="/logo.png" alt="AjraSakha Logo" className='w-full h-full object-contain' />
-  </div>
+  <div className={`relative flex items-center justify-center rounded-full p-0.5 ${className}`}>
+    <img src="/logo.png" alt="AjraSakha Logo" className='w-full h-full object-contain' />
+  </div>
 );
 
 // mock response generator based on title keywords for demonstration purposes
@@ -92,7 +101,7 @@ const getMockResponse = (title: string) => {
 
 export default function App() {
   // --- State ---
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false); // Default to light mode for screenshot matching
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [newChatKey, setNewChatKey] = useState(Date.now());
   
@@ -107,6 +116,7 @@ export default function App() {
   const [showThoughts, setShowThoughts] = useState(true);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const pendingTimeoutsRef = useRef<number[]>([]);
 
   // --- Handlers ---
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
@@ -134,6 +144,12 @@ export default function App() {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    return () => {
+      pendingTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    };
+  }, []);
+
 
 
   const loadChat = (id: string, title: string) => {
@@ -145,14 +161,18 @@ export default function App() {
     } else {
       // Otherwise, generate a mock static answer for existing history items
      const mockMsgs: Message[] = [
-  { id: `mock-user-${id}`, role: 'user', content: `I need information regarding: ${title}` },
-  { 
-    id: `mock-bot-${id}`, 
-    role: 'bot', 
-    content: getMockResponse(title),
-    thoughts: `Fetching farming insights related to: ${title}`
-  }
-];
+      { id: `mock-user-${id}`, role: 'user', content: `I need information regarding: ${title}` },
+      { 
+        id: `mock-bot-${id}`, 
+        role: 'bot', 
+        content: getMockResponse(title),
+        thoughtSteps: [
+          { action: "fetch_historical_context" },
+          { action: "analyze_farming_topic" }
+        ],
+        thoughtSummary: "Fetching past insights based on your query:"
+      }
+    ];
       setMessages(mockMsgs);
       setSavedChats(prev => ({ ...prev, [id]: mockMsgs }));
     }
@@ -193,41 +213,78 @@ export default function App() {
       setChatHistory(prev => [newHistoryItem, ...prev]);
     }
 
+    // Pre-determine bot response and thought steps to animate them sequentially
+    let thoughtSteps: ThoughtStep[] = [];
+    let thoughtSummary = "";
+    let botResponse = "";
+
+    if (text.toLowerCase().includes('hi') || text.toLowerCase().includes('hello')) {
+      botResponse = "Hello! 🌿 How can I assist you today? I'm here to help with agriculture-related queries in India. Whether it's about crops, soil, pests, or farming techniques, feel free to ask!";
+      thoughtSteps = [
+        { action: "identify_greeting_intent" },
+        { action: "fetch_agricultural_persona" }
+      ];
+      thoughtSummary = "Now let me introduce myself:";
+    } else {
+      botResponse = "I understand you're asking about farming. To give you the most accurate advice, could you provide a bit more detail? For example, your crop type, soil condition, or specific symptoms if you're asking about a disease.";
+      thoughtSteps = [
+        { action: "upload_question_to_reviewer_system" },
+        { action: "get_context_from_reviewer_dataset" },
+        { action: "get_context_from_golden_dataset" },
+        { action: "get_context_from_package_of_practices" }
+      ];
+      thoughtSummary = "Now let me search for relevant FAQ videos:";
+    }
+
+    const loadingMessageId = `${Date.now()}-loading`;
+    const loadingBotMsg: Message = {
+      id: loadingMessageId,
+      role: 'bot',
+      content: '', // Final answer text is hidden while loading
+      thoughtSteps,
+      currentStage: 0, // Used to track which step is currently animating
+      isLoading: true,
+    };
+
+    const messagesWithLoader = [...newMessages, loadingBotMsg];
+
     // Save current user message into session storage
-    setSavedChats(prev => ({ ...prev, [currentChatId as string]: newMessages }));
+    setMessages(messagesWithLoader);
+    setSavedChats(prev => ({ ...prev, [currentChatId as string]: messagesWithLoader }));
 
-    // Simulate bot thinking and replying
-    setTimeout(() => {
-      let botResponse = "";
-      let thoughts = "";
+    // Animate the thought steps appearing one by one
+    thoughtSteps.forEach((_, index) => {
+      const stepTimeout = window.setTimeout(() => {
+        setMessages(prev => prev.map(msg => (
+          msg.id === loadingMessageId
+            ? { ...msg, currentStage: index + 1 }
+            : msg
+        )));
+      }, (index + 1) * 900); // 900ms delay per step for the animation
 
-      if (text.toLowerCase().includes('hi') || text.toLowerCase().includes('hello')) {
-        botResponse = "Hello! 🌿 How can I assist you today? I'm here to help with agriculture-related queries in India. Whether it's about crops, soil, pests, or farming techniques, feel free to ask!";
-        thoughts = "The user said hello. I should greet them warmly and explain my purpose as an agricultural assistant.";
-      } else if (text.toLowerCase().includes('weather')) {
-        botResponse = "Based on your location, it is currently sunny with a high of 32°C. There is a 10% chance of rain in the next 48 hours. Good conditions for applying fertilizer if needed.";
-      } else if (text.toLowerCase().includes('price')) {
-        botResponse = "The current average mandi price for potatoes in your region is approximately ₹1,200 to ₹1,400 per quintal. Prices may vary slightly based on quality and specific local markets.";
-      } else {
-        botResponse = "I understand you're asking about farming. To give you the most accurate advice, could you provide a bit more detail? For example, your crop type, soil condition, or specific symptoms if you're asking about a disease.";
-        thoughts = "The query is generic or I lack specific context. I need to prompt the user for more information to provide a helpful answer.";
-      }
+      pendingTimeoutsRef.current.push(stepTimeout);
+    });
 
-      const newBotMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'bot',
-        content: botResponse,
-        thoughts: thoughts,
-      };
-      
-      // Update active messages and save to session history simultaneously
+    // Finalize the response and show content after all steps have loaded
+    const responseTimeout = window.setTimeout(() => {
       setMessages(prev => {
-        const updatedMsgs = [...prev, newBotMsg];
+        const updatedMsgs = prev.map(msg => (
+          msg.id === loadingMessageId
+            ? {
+                ...msg,
+                content: botResponse,
+                thoughtSummary,
+                isLoading: false,
+              }
+            : msg
+        ));
         setSavedChats(sc => ({ ...sc, [currentChatId as string]: updatedMsgs }));
         return updatedMsgs;
       });
       
-    }, 1000);
+    }, (thoughtSteps.length + 1) * 900);
+
+    pendingTimeoutsRef.current.push(responseTimeout);
   };
 
   const startNewChat = () => {
@@ -296,7 +353,7 @@ export default function App() {
                         activeChatId === item.id ? 'bg-gray-200 dark:bg-[#2f2f2f]' : ''
                       }`}
                     >
-                      <BrandIcon className="w-7 h-7 text-[#10a37f] flex-shrink-0" />
+                      <BrandIcon className="w-7 h-7 flex-shrink-0" />
                       <span className="truncate flex-1 text-gray-700 dark:text-gray-300">{item.title}</span>
                       {activeChatId === item.id && (
                         <MoreHorizontal className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100" />
@@ -358,13 +415,12 @@ export default function App() {
           {messages.length === 0 && <div className="flex-1" />}
 
           {/* Chat Messages Area */}
-          <div className={messages.length === 0 ? "w-full" : "flex-1 overflow-y-auto"}>
+          <div className={messages.length === 0 ? "w-full" : "flex-1 overflow-y-auto pb-6"}>
             {messages.length === 0 ? (
               // Welcome Screen
               <div key={newChatKey} className="w-full flex flex-col items-center px-4 mb-6">
                 <div className="flex items-center justify-center gap-3 md:gap-4">
                   <BrandIcon className="w-10 mt-2 h-10 md:w-12 md:h-12 text-[#10a37f] opacity-0 animate-logo-reveal" />
-                  {/* Removed static tailwind text colors here, relying entirely on the CSS animation variables */}
                   <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-center flex">
                     {"Welcome to AjraSakha!".split("").map((char, idx) => (
                       <span 
@@ -388,7 +444,7 @@ export default function App() {
                     {msg.role === 'user' ? (
                       // User Message
                       <div className="flex gap-4 mb-4 items-start">
-                        <div className="w-8 h-8 rounded bg-indigo-500 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-1">
+                        <div className="w-8 h-8 rounded-full bg-pink-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-1">
                           DM
                         </div>
                         <div className="flex-1 min-w-0">
@@ -400,38 +456,127 @@ export default function App() {
                       </div>
                     ) : (
                       // Bot Message
-                      <div className="flex gap-4 items-start">
-                        <BrandIcon className="w-8 h-8 text-[#10a37f] flex-shrink-0 mt-1" />
+                      <div className="flex gap-4 items-start relative">
+                        <BrandIcon className="w-8 h-8 flex-shrink-0 mt-1" />
                         <div className="flex-1 min-w-0">
                           <h4 className="font-semibold text-[15px] mb-1 text-gray-800 dark:text-gray-100">AjraSakha</h4>
                           
-                          {/* Thoughts Toggle */}
-                          {msg.thoughts && (
-                            <div className="mb-3">
-                              <button 
-                                onClick={() => setShowThoughts(!showThoughts)}
-                                className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors font-medium"
-                              >
-                                <Lightbulb className={`w-4 h-4 ${showThoughts ? 'text-yellow-500' : ''}`} />
-                                Thoughts
-                              </button>
-                              {showThoughts && (
-                                <div className="mt-2 pl-4 border-l-2 border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400 italic">
-                                  {msg.thoughts}
+                          {/* Thoughts Toggle UI matching the screenshot */}
+                          {(msg.thoughtSteps || msg.thoughts) && (
+                            <div className="mb-4 mt-2">
+                              {/* Only show "Thoughts" button if not currently loading the steps */}
+                              {!msg.isLoading && (
+                                <button 
+                                  onClick={() => setShowThoughts(!showThoughts)}
+                                  className="flex items-center gap-2 text-[15px] text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors mb-4"
+                                >
+                                  <Lightbulb className="w-4 h-4 text-gray-500" />
+                                  Thoughts
+                                </button>
+                              )}
+                              
+                              {/* Always show steps while loading, or if toggled open */}
+                              {(showThoughts || msg.isLoading) && (
+                                <div className="pl-4 space-y-4 pb-2 relative border-l border-transparent">
+                                  
+                                  {/* Render Structured Steps with animation states */}
+                                  {msg.thoughtSteps?.map((step, idx) => {
+                                    // If still loading, hide steps that are ahead of the current stage index
+                                    if (msg.isLoading && msg.currentStage !== undefined && idx > msg.currentStage) return null;
+
+                                    const isLoadingStep = msg.isLoading && msg.currentStage === idx;
+
+                                    return (
+                                      <div key={idx} className={`flex items-center justify-between text-[14.5px] text-gray-700 dark:text-gray-300 group cursor-default ${isLoadingStep ? 'animate-fade-in' : ''}`}>
+                                        <div className="flex items-center gap-3">
+                                          {isLoadingStep ? (
+                                            <div className="flex-shrink-0 w-[18px] h-[18px] flex items-center justify-center">
+                                              <Loader2 className="w-4 h-4 text-[#a855f7] animate-spin" />
+                                            </div>
+                                          ) : (
+                                            <div className="flex-shrink-0 w-[18px] h-[18px] rounded-full bg-[#a855f7] flex items-center justify-center">
+                                              <Check className="w-3 h-3 text-white stroke-[3]" />
+                                            </div>
+                                          )}
+                                          <span className={isLoadingStep ? "opacity-80 transition-opacity" : ""}>
+                                            Ran {step.action}
+                                          </span>
+                                        </div>
+                                        <ChevronDown className={`w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 opacity-80 ${isLoadingStep ? 'hidden' : ''}`} />
+                                      </div>
+                                    );
+                                  })}
+                                  
+                                  {/* Render Thought Summary only after all steps finish loading */}
+                                  {msg.thoughtSummary && !msg.isLoading && (
+                                    <div className="mt-5 text-[14.5px] text-gray-700 dark:text-gray-300 animate-fade-in">
+                                      {msg.thoughtSummary}
+                                    </div>
+                                  )}
+
+                                  {/* Fallback for old string thoughts */}
+                                  {msg.thoughts && !msg.thoughtSteps && !msg.isLoading && (
+                                     <div className="mt-2 text-[14px] text-gray-500 dark:text-gray-400 italic">
+                                       {msg.thoughts}
+                                     </div>
+                                  )}
+
+                                  {/* Downward Scroll Indicator (Like in screenshot) - show when fully loaded */}
+                                  {!msg.isLoading && msg.thoughtSteps && (
+                                    <div className="absolute -bottom-8 right-6 w-9 h-9 rounded-full bg-white dark:bg-[#333] shadow-md border border-gray-100 dark:border-gray-700 flex items-center justify-center cursor-pointer hover:bg-gray-50 dark:hover:bg-[#444] transition-colors z-10">
+                                      <ArrowDown className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
                           )}
 
-                          {/* Main Response content */}
-                          <div className="text-[15px] text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
-                            {msg.content}
-                          </div>
+                          {/* Fallback old-style bottom stages if used */}
+                          {msg.isLoading && msg.stages && !msg.thoughtSteps && (
+                            <div className="space-y-2 mt-2">
+                              {msg.stages.map((stage, index) => {
+                                const isComplete = index < (msg.currentStage ?? 0);
+                                const isActive = index === (msg.currentStage ?? 0);
+
+                                return (
+                                  <div
+                                    key={stage}
+                                    className={`flex items-center gap-3 text-[14px] transition-all duration-300 ${
+                                      isComplete
+                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                        : isActive
+                                          ? 'text-gray-800 dark:text-gray-100'
+                                          : 'text-gray-400 dark:text-gray-500'
+                                    }`}
+                                  >
+                                    <span
+                                      className={`flex h-2.5 w-2.5 rounded-full ${
+                                        isComplete
+                                          ? 'bg-emerald-500'
+                                          : isActive
+                                            ? 'bg-[#10a37f] animate-pulse'
+                                            : 'bg-gray-300 dark:bg-gray-600'
+                                      }`}
+                                    />
+                                    <span>{stage}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Main Response text revealing after loading */}
+                          {!msg.isLoading && (
+                            <div className="text-[15px] text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed animate-fade-in">
+                              {msg.content}
+                            </div>
+                          )}
 
                           {/* Action Bar */}
                           <div className="flex items-center gap-1 mt-3">
                             {[Volume2, Copy, PencilLine, Network, ThumbsUp, ThumbsDown, RefreshCcw].map((Icon, i) => (
-                              <button key={i} className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2f2f2f] rounded transition-colors">
+                              <button key={i} disabled={msg.isLoading} className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2f2f2f] rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                                 <Icon className="w-4 h-4" />
                               </button>
                             ))}
@@ -555,6 +700,14 @@ export default function App() {
         }
         .dark .custom-scrollbar::-webkit-scrollbar-thumb {
           background-color: #444;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.3s ease-out forwards;
         }
         
         /* Unified animation for both slide-up and color highlight */
