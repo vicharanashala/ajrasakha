@@ -114,7 +114,9 @@ export default function App() {
   const [inputValue, setInputValue] = useState('');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [showThoughts, setShowThoughts] = useState(true);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   
+  const chatScrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pendingTimeoutsRef = useRef<number[]>([]);
 
@@ -123,6 +125,20 @@ export default function App() {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const updateScrollIndicator = () => {
+    const container = chatScrollRef.current;
+    if (!container) {
+      setShowScrollToBottom(false);
+      return;
+    }
+
+    const hasOverflow = container.scrollHeight - container.clientHeight > 24;
+    const isNearBottom =
+      container.scrollTop + container.clientHeight >= container.scrollHeight - 24;
+
+    setShowScrollToBottom(hasOverflow && !isNearBottom);
   };
 
   // Handle responsive sidebar on mount and resize
@@ -142,6 +158,26 @@ export default function App() {
 
   useEffect(() => {
     scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    const container = chatScrollRef.current;
+
+    if (!container || messages.length === 0) {
+      setShowScrollToBottom(false);
+      return;
+    }
+
+    const handleScroll = () => updateScrollIndicator();
+
+    updateScrollIndicator();
+    container.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleScroll);
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+    };
   }, [messages]);
 
   useEffect(() => {
@@ -415,7 +451,10 @@ export default function App() {
           {messages.length === 0 && <div className="flex-1" />}
 
           {/* Chat Messages Area */}
-          <div className={messages.length === 0 ? "w-full" : "flex-1 overflow-y-auto pb-6"}>
+          <div
+            ref={chatScrollRef}
+            className={messages.length === 0 ? "w-full" : "relative flex-1 overflow-y-auto pb-6"}
+          >
             {messages.length === 0 ? (
               // Welcome Screen
               <div key={newChatKey} className="w-full flex flex-col items-center px-4 mb-6">
@@ -521,12 +560,6 @@ export default function App() {
                                      </div>
                                   )}
 
-                                  {/* Downward Scroll Indicator (Like in screenshot) - show when fully loaded */}
-                                  {!msg.isLoading && msg.thoughtSteps && (
-                                    <div className="absolute -bottom-8 right-6 w-9 h-9 rounded-full bg-white dark:bg-[#333] shadow-md border border-gray-100 dark:border-gray-700 flex items-center justify-center cursor-pointer hover:bg-gray-50 dark:hover:bg-[#444] transition-colors z-10">
-                                      <ArrowDown className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-                                    </div>
-                                  )}
                                 </div>
                               )}
                             </div>
@@ -587,6 +620,20 @@ export default function App() {
                   </div>
                 ))}
                 <div ref={messagesEndRef} />
+                <div className="pointer-events-none sticky bottom-3 left-0 z-20 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={scrollToBottom}
+                    aria-label="Scroll to bottom"
+                    className={`pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white/95 text-gray-700 shadow-lg backdrop-blur-sm transition-all duration-300 dark:border-gray-700 dark:bg-[#2f2f2f]/95 dark:text-gray-200 ${
+                      showScrollToBottom
+                        ? 'translate-y-0 opacity-100'
+                        : 'translate-y-3 opacity-0 pointer-events-none'
+                    }`}
+                  >
+                    <ArrowDown className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
