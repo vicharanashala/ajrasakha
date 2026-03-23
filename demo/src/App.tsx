@@ -303,6 +303,7 @@ export default function App() {
     },
     {} as Record<string, ChatHistoryItem[]>,
   );
+  const shouldShowInput = messages.length === 0;
 
   return (
     <div className={isDarkMode ? "dark" : ""}>
@@ -616,69 +617,71 @@ export default function App() {
             )}
           </div>
 
-          <div
-            className={`w-full px-4 pt-2 pb-4 ${
-              messages.length === 0
-                ? "bg-transparent"
-                : "bg-gradient-to-t from-white via-white to-transparent dark:from-[#212121] dark:via-[#212121] dark:to-transparent"
-            }`}
-          >
-            <div className="mx-auto flex w-full max-w-3xl flex-col items-center">
-              <div className="relative w-full rounded-[24px] border border-gray-300 bg-white shadow-sm transition-shadow hover:shadow-md focus-within:border-gray-400 focus-within:shadow-md dark:border-transparent dark:bg-[#2f2f2f] dark:focus-within:border-[#444]">
-                <form onSubmit={handleSendMessage} className="flex w-full flex-col">
-                  <textarea
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                    placeholder="Message AjraSakha"
-                    className="m-0 max-h-48 w-full resize-none overflow-y-auto bg-transparent px-4 pt-4 pb-2 leading-relaxed text-gray-800 outline-none placeholder:text-gray-400 dark:text-gray-100 dark:placeholder:text-gray-500"
-                    rows={1}
-                    style={{ minHeight: "52px" }}
-                  />
+          {shouldShowInput && (
+            <div
+              className={`w-full px-4 pt-2 pb-4 ${
+                messages.length === 0
+                  ? "bg-transparent"
+                  : "bg-gradient-to-t from-white via-white to-transparent dark:from-[#212121] dark:via-[#212121] dark:to-transparent"
+              }`}
+            >
+              <div className="mx-auto flex w-full max-w-3xl flex-col items-center">
+                <div className="relative w-full rounded-[24px] border border-gray-300 bg-white shadow-sm transition-shadow hover:shadow-md focus-within:border-gray-400 focus-within:shadow-md dark:border-transparent dark:bg-[#2f2f2f] dark:focus-within:border-[#444]">
+                  <form onSubmit={handleSendMessage} className="flex w-full flex-col">
+                    <textarea
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      placeholder="Message AjraSakha"
+                      className="m-0 max-h-48 w-full resize-none overflow-y-auto bg-transparent px-4 pt-4 pb-2 leading-relaxed text-gray-800 outline-none placeholder:text-gray-400 dark:text-gray-100 dark:placeholder:text-gray-500"
+                      rows={1}
+                      style={{ minHeight: "52px" }}
+                    />
 
-                  <div className="flex items-center justify-between px-3 pb-3">
-                    <div className="flex items-center gap-1" />
+                    <div className="flex items-center justify-between px-3 pb-3">
+                      <div className="flex items-center gap-1" />
 
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="submit"
-                        disabled={!inputValue.trim()}
-                        className={`ml-1 rounded-full p-1.5 transition-colors ${
-                          inputValue.trim()
-                            ? "bg-black text-white hover:opacity-80 dark:bg-white dark:text-black"
-                            : "cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-[#444] dark:text-gray-500"
-                        }`}
-                      >
-                        <ArrowUp className="h-5 w-5" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="submit"
+                          disabled={!inputValue.trim()}
+                          className={`ml-1 rounded-full p-1.5 transition-colors ${
+                            inputValue.trim()
+                              ? "bg-black text-white hover:opacity-80 dark:bg-white dark:text-black"
+                              : "cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-[#444] dark:text-gray-500"
+                          }`}
+                        >
+                          <ArrowUp className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+
+                {messages.length === 0 && (
+                  <div className="mt-4 flex w-full flex-col gap-3">
+                    <div className="flex w-full flex-col items-start">
+                      {SUGGESTIONS.map((suggestion, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setInputValue(suggestion)}
+                          className="group flex w-full items-center justify-between rounded-lg border border-transparent px-3 py-2.5 text-left text-[14px] text-gray-600 transition-all hover:bg-gray-100 hover:text-gray-900 dark:text-[#a0a0a0] dark:hover:bg-[#2f2f2f] dark:hover:text-gray-200"
+                        >
+                          <span>{suggestion}</span>
+                          <ArrowUpRight className="h-4 w-4 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 dark:text-[#666]" />
+                        </button>
+                      ))}
                     </div>
                   </div>
-                </form>
+                )}
               </div>
-
-              {messages.length === 0 && (
-                <div className="mt-4 flex w-full flex-col gap-3">
-                  <div className="flex w-full flex-col items-start">
-                    {SUGGESTIONS.map((suggestion, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setInputValue(suggestion)}
-                        className="group flex w-full items-center justify-between rounded-lg border border-transparent px-3 py-2.5 text-left text-[14px] text-gray-600 transition-all hover:bg-gray-100 hover:text-gray-900 dark:text-[#a0a0a0] dark:hover:bg-[#2f2f2f] dark:hover:text-gray-200"
-                      >
-                        <span>{suggestion}</span>
-                        <ArrowUpRight className="h-4 w-4 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 dark:text-[#666]" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
-          </div>
+          )}
 
           {messages.length === 0 && <div className="flex-[1.2]" />}
 
