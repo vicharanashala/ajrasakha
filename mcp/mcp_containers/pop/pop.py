@@ -130,10 +130,12 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
 
     state_value = STATE_CODE_TO_NAME.get(state_code.upper(), state_code.upper())
     
-    nodes = await retriever_pop.aretrieve(
-        query,
-    filters={"metadata.state": state_value}
-)   
+    nodes = await retriever_pop.aretrieve(query)
+
+    nodes = [
+        n for n in nodes
+        if n.metadata.get("state") == state_value
+    ]
     for node in nodes:
         if hasattr(node, "id_"):
             node.id_ = str(node.id_)
