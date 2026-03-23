@@ -17,7 +17,7 @@ Settings.embed_model = HuggingFaceEmbedding(
     model_name=EMBEDDING_MODEL, cache_folder="./hf_cache", trust_remote_code=True
 )
 
-client: pymongo.MongoClient = pymongo.MongoClient(MONGODB_URI)
+client: pymongo.MongoClient = pymongo.MongoClient(MONGODB_URI, tlsAllowInvalidCertificates=True)
 
 retriever_qa = get_retriever(
     client=client, collection_name=COLLECTION_QA, similarity_top_k=4
@@ -130,15 +130,8 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
 
     state_value = STATE_CODE_TO_NAME.get(state_code.upper(), state_code.upper())
     
-    nodes = await retriever_pop.aretrieve(query)
+    nodes = await retriever_pop.aretrieve(query, state_value=state_value)
 
-    nodes = [
-        n for n in nodes
-        if n.metadata.get("state") == state_value
-    ]
-    for node in nodes:
-        if hasattr(node, "id_"):
-            node.id_ = str(node.id_)
     processed_nodes = await process_nodes_pop(nodes)
     return processed_nodes
 
