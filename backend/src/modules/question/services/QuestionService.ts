@@ -794,6 +794,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         details,
         context,
       } = body;
+      console.log("the body coming=====",body)
   
       if (!details) {
         const b: any = body;
@@ -890,6 +891,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
         const llmCandidates: typeof topMatches = []
         if ( source === 'AJRASAKHA') {
+          console.log("the source is coming====",source)
           /* const topSimilar = await this.questionRepo.findTopSimilarQuestions(
            textEmbedding, 25,
            { state: details.state,district: details.district, crop: details.crop, domain: details.domain, season: details.season }, )*/
@@ -901,7 +903,7 @@ export class QuestionService extends BaseService implements IQuestionService {
              details.season,
              details.domain
            );
-           
+           console.log("the questions coming=====",questions)
            // merge reviewer + golden
            let merged = [
             ...(questions.reviewer || []).map((item: any) => ({
