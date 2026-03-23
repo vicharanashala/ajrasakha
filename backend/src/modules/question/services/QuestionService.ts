@@ -890,7 +890,8 @@ export class QuestionService extends BaseService implements IQuestionService {
          let topSimilar
 
         const llmCandidates: typeof topMatches = []
-        if ( source === 'AJRASAKHA') {
+        let dummysource=false
+        if ( dummysource) {
           console.log("the source is coming====",source)
           /* const topSimilar = await this.questionRepo.findTopSimilarQuestions(
            textEmbedding, 25,
