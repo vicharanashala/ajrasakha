@@ -316,7 +316,7 @@ export default function App() {
         )}
 
         <aside
-          className={`fixed z-40 flex h-full w-64 flex-shrink-0 flex-col border-r border-gray-200 bg-[#f9f9f9] transition-all duration-300 ease-in-out dark:border-[#2f2f2f] dark:bg-[#171717] md:relative ${
+          className={`fixed z-40 flex h-full w-64 shrink-0 flex-col border-r border-gray-200 bg-[#f9f9f9] transition-all duration-300 ease-in-out dark:border-[#2f2f2f] dark:bg-[#171717] md:relative ${
             isSidebarOpen
               ? "ml-0 translate-x-0"
               : "-translate-x-full md:-ml-64 md:translate-x-0"
@@ -354,7 +354,7 @@ export default function App() {
                         activeChatId === item.id ? "bg-gray-200 dark:bg-[#2f2f2f]" : ""
                       }`}
                     >
-                      <BrandIcon className="h-7 w-7 flex-shrink-0" />
+                      <BrandIcon className="h-7 w-7 shrink-0" />
                       <span className="flex-1 truncate text-gray-700 dark:text-gray-300">
                         {item.title}
                       </span>
@@ -370,7 +370,7 @@ export default function App() {
 
           <div className="mt-auto border-t border-gray-200 p-3 dark:border-[#2f2f2f]">
             <button className="flex w-full items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-gray-200 dark:hover:bg-[#2f2f2f]">
-              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-pink-600 text-sm font-semibold text-white">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pink-600 text-sm font-semibold text-white">
                 DM
               </div>
               <span className="flex-1 truncate text-left text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -443,7 +443,7 @@ export default function App() {
                   <div key={msg.id} className="w-full">
                     {msg.role === "user" ? (
                       <div className="mb-4 flex items-start gap-4">
-                        <div className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-pink-600 text-xs font-semibold text-white">
+                        <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pink-600 text-xs font-semibold text-white">
                           DM
                         </div>
                         <div className="min-w-0 flex-1">
@@ -457,7 +457,7 @@ export default function App() {
                       </div>
                     ) : (
                       <div className="relative flex items-start gap-4">
-                        <BrandIcon className="mt-1 h-8 w-8 flex-shrink-0" />
+                        <BrandIcon className="mt-1 h-8 w-8 shrink-0" />
                         <div className="min-w-0 flex-1">
                           <h4 className="mb-1 text-[15px] font-semibold text-gray-800 dark:text-gray-100">
                             AjraSakha
@@ -496,12 +496,12 @@ export default function App() {
                                       >
                                         <div className="flex items-center gap-3">
                                           {isLoadingStep ? (
-                                            <div className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center">
+                                            <div className="flex h-4.5 w-4.5 shrink-0 items-center justify-center">
                                               <Loader2 className="h-4 w-4 animate-spin text-[#a855f7]" />
                                             </div>
                                           ) : (
-                                            <div className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full bg-[#a855f7]">
-                                              <Check className="h-3 w-3 stroke-[3] text-white" />
+                                            <div className="flex h-4.5 w-4.5  shrink-0 items-center justify-center rounded-full bg-[#a855f7]">
+                                              <Check className="h-3 w-3 stroke-3 text-white" />
                                             </div>
                                           )}
                                           <span
@@ -622,11 +622,11 @@ export default function App() {
               className={`w-full px-4 pt-2 pb-4 ${
                 messages.length === 0
                   ? "bg-transparent"
-                  : "bg-gradient-to-t from-white via-white to-transparent dark:from-[#212121] dark:via-[#212121] dark:to-transparent"
+                  : "bg-linear-to-t from-white via-white to-transparent dark:from-[#212121] dark:via-[#212121] dark:to-transparent"
               }`}
             >
               <div className="mx-auto flex w-full max-w-3xl flex-col items-center">
-                <div className="relative w-full rounded-[24px] border border-gray-300 bg-white shadow-sm transition-shadow hover:shadow-md focus-within:border-gray-400 focus-within:shadow-md dark:border-transparent dark:bg-[#2f2f2f] dark:focus-within:border-[#444]">
+                <div className="relative w-full rounded-3xl border border-gray-300 bg-white shadow-sm transition-shadow hover:shadow-md focus-within:border-gray-400 focus-within:shadow-md dark:border-transparent dark:bg-[#2f2f2f] dark:focus-within:border-[#444]">
                   <form onSubmit={handleSendMessage} className="flex w-full flex-col">
                     <textarea
                       value={inputValue}
