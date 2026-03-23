@@ -21,15 +21,16 @@ def get_retriever(
 ) -> BaseRetriever:
 
     vector_store = MongoDBAtlasVectorSearch(
-        client,
-        db_name=DB_NAME,
-        collection_name=collection_name,
-        vector_index_name=INDEX_NAME,
-        embedding_key="embedding",
-        text_key="text",
-        metadata_key="metadata",
-        id_key="_id",
-    )
+    client,
+    db_name=DB_NAME,
+    collection_name=collection_name,
+    vector_index_name=INDEX_NAME,
+    embedding_key="embedding",
+    text_key="text",
+    metadata_key="metadata",
+    id_key="_id",
+    stores_text=True,   # IMPORTANT
+)
 
     index = VectorStoreIndex.from_vector_store(vector_store)
     retriever = index.as_retriever(similarity_top_k=similarity_top_k)
