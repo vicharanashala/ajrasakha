@@ -1,6 +1,8 @@
 from urllib.parse import quote_plus
 from llama_index.core.prompts import PromptTemplate
+from dotenv import load_dotenv
 import os
+
 
 MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME = "golden_db"
