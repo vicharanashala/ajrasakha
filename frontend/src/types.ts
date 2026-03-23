@@ -344,7 +344,11 @@ export interface FinalizedAnswersResponse {
   heatMapResults: HeatMapResult[];
 }
 
+export type SourceType = "hyper_local" | "state" | "central" | "other";
+
 export interface SourceItem {
+  sourceType?: SourceType;
+  sourceName?: string;
   source: string;
   page?: number;
 }
