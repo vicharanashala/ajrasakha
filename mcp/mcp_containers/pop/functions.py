@@ -9,18 +9,12 @@ from constants import (
     DB_NAME,
     INDEX_NAME,
 )
-from pymongo import MongoClient
 from models import (
     ContextPOP,
     ContextQuestionAnswerPair,
     POPMetaData,
     QuestionAnswerPairMetaData,
 )
-from llama_index.core.schema import (
-    NodeWithScore,
-)
-from typing import List
-
 
 
 def get_retriever(
@@ -35,10 +29,29 @@ def get_retriever(
         embedding_key="embedding",
         text_key="text",
         metadata_key="metadata",
+        id_key="_id",  # important fix
     )
+
     index = VectorStoreIndex.from_vector_store(vector_store)
     retriever = index.as_retriever(similarity_top_k=similarity_top_k)
+
+    # fix ObjectId issue
+    orig_aretrieve = retriever.aretrieve
+
+    async def safe_aretrieve(query):
+        nodes = await orig_aretrieve(query)
+        for n in nodes:
+            try:
+                if hasattr(n, "id_"):
+                    n.id_ = str(n.id_)
+            except Exception:
+                continue
+        return nodes
+
+    retriever.aretrieve = safe_aretrieve
+
     return retriever
+
 
 # Data Processors
 
@@ -46,7 +59,6 @@ def get_retriever(
 async def process_nodes_qa(
     nodes: List[NodeWithScore],
 ) -> List[ContextQuestionAnswerPair]:
-    # Your stored format: "Question: ...\n\nAnswer: ..."
     context: List[ContextQuestionAnswerPair] = []
     for node in nodes:
         text = node.text
@@ -74,7 +86,6 @@ async def process_nodes_qa(
 
 
 async def process_nodes_pop(nodes: List[NodeWithScore]) -> List[ContextPOP]:
-    # Your stored format: "Question: ...\n\nAnswer: ..."
     context: List[ContextPOP] = []
     for node in nodes:
         question_answer_pair = ContextPOP(
@@ -88,4 +99,3 @@ async def process_nodes_pop(nodes: List[NodeWithScore]) -> List[ContextPOP]:
         )
         context.append(question_answer_pair)
     return context
-
