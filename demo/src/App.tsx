@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Menu,
   SquarePen,
@@ -21,8 +21,8 @@ import {
   ArrowDown,
   Loader2,
 } from "lucide-react";
+import chatData from "./data/index.json";
 
-// --- Types ---
 type Role = "user" | "bot";
 
 interface ThoughtStep {
@@ -33,52 +33,39 @@ interface Message {
   id: string;
   role: Role;
   content: string;
-  thoughts?: string; // Kept for backward compatibility
-  thoughtSteps?: ThoughtStep[]; // New structured thought steps
-  thoughtSummary?: string; // Text shown after the steps
-  stages?: string[]; // Kept for backwards compatibility
-  currentStage?: number; // Repurposed to track the current thought step
+  thoughts?: string;
+  thoughtSteps?: ThoughtStep[];
+  thoughtSummary?: string;
+  stages?: string[];
+  currentStage?: number;
   isLoading?: boolean;
 }
 
 interface ChatHistoryItem {
   id: string;
   title: string;
-  date: string; // 'Today', 'Yesterday', 'Previous 7 days', etc.
+  date: string;
 }
 
-// --- Mock Data ---
-const initialHistory: ChatHistoryItem[] = [
-  { id: "1", title: "Paddy Harvest Timing Advice", date: "Yesterday" },
-  { id: "2", title: "Rice Blast Disease Treatment", date: "Yesterday" },
-  { id: "3", title: "Best Fertilizer for Paddy Growth", date: "Yesterday" },
-  {
-    id: "4",
-    title: "Soil NPK Levels Improvement Tips",
-    date: "Previous 7 days",
+interface HistoryChatRecord extends ChatHistoryItem {
+  messages: Message[];
+}
+
+const initialHistoryData = (chatData.history ?? []) as HistoryChatRecord[];
+const initialHistory: ChatHistoryItem[] = initialHistoryData.map(
+  ({ id, title, date }) => ({
+    id,
+    title,
+    date,
+  }),
+);
+const initialSavedChats = initialHistoryData.reduce<Record<string, Message[]>>(
+  (acc, chat) => {
+    acc[chat.id] = chat.messages;
+    return acc;
   },
-  { id: "5", title: "Yellow Leaves in Wheat Causes", date: "Previous 7 days" },
-  {
-    id: "6",
-    title: "Organic Farming Methods for Vegetables",
-    date: "Previous 7 days",
-  },
-  {
-    id: "7",
-    title: "Weather Forecast for Crop Planning",
-    date: "Previous 7 days",
-  },
-  {
-    id: "8",
-    title: "Current Market Price of Tomatoes",
-    date: "Previous 7 days",
-  },
-  {
-    id: "9",
-    title: "Crop Rotation Benefits Explained",
-    date: "Previous 30 days",
-  },
-];
+  {},
+);
 
 const SUGGESTIONS = [
   "What are the best practices for wheat farming?",
@@ -89,62 +76,25 @@ const SUGGESTIONS = [
   "How to control pests in vegetable crops?",
 ];
 
-// --- Custom Components ---
-
-// AjraSakha Logo Icon
 const BrandIcon = ({ className = "w-6 h-6 text-[#10a37f]" }) => (
   <div
     className={`relative flex items-center justify-center rounded-full p-0.5 ${className}`}
   >
-       {" "}
     <img
       src="/logo.png"
       alt="AjraSakha Logo"
-      className="w-full h-full object-contain"
+      className="h-full w-full object-contain"
     />
-     {" "}
   </div>
 );
 
-// mock response generator based on title keywords for demonstration purposes
-const getMockResponse = (title: string) => {
-  const t = title.toLowerCase();
-
-  if (t.includes("paddy harvest")) {
-    return "Paddy should be harvested when 80–85% of the grains turn golden yellow. Ensure moisture content is around 20–25% to avoid grain breakage. Timely harvesting improves yield and quality.";
-  } else if (t.includes("rice blast")) {
-    return "Rice blast disease can be controlled by using resistant varieties and applying fungicides like Tricyclazole. Maintain proper spacing and avoid excess nitrogen fertilizer.";
-  } else if (t.includes("fertilizer for paddy")) {
-    return "For paddy, apply a balanced dose of NPK (Nitrogen, Phosphorus, Potassium). Split nitrogen application into stages—basal, tillering, and panicle initiation—for best results.";
-  } else if (t.includes("soil npk")) {
-    return "Improving soil NPK levels can be done by adding organic compost, green manure, and balanced fertilizers. Soil testing is recommended before application.";
-  } else if (t.includes("yellow leaves in wheat")) {
-    return "Yellowing in wheat may be due to nitrogen deficiency or fungal infection. Apply urea if deficiency is confirmed, and ensure proper drainage to prevent disease.";
-  } else if (t.includes("organic farming")) {
-    return "Organic farming involves using natural inputs like compost, vermicompost, and biofertilizers. Crop rotation and biological pest control are key practices.";
-  } else if (t.includes("weather")) {
-    return "Weather plays a crucial role in farming. Monitor rainfall and temperature regularly to plan irrigation, fertilization, and harvesting activities effectively.";
-  } else if (t.includes("market price")) {
-    return "Market prices vary by mandi and quality. It is advisable to check nearby markets or government portals like Agmarknet for real-time pricing before selling.";
-  } else if (t.includes("crop rotation")) {
-    return "Crop rotation improves soil fertility and reduces pests. Rotating legumes with cereals helps fix nitrogen and improves overall yield.";
-  } else {
-    return "This is a previous farming-related discussion. Let me know if you want updated advice based on your current crop conditions.";
-  }
-};
-
 export default function App() {
-  // --- State ---
-  const [isDarkMode, setIsDarkMode] = useState(false); // Default to light mode for screenshot matching
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [newChatKey, setNewChatKey] = useState(Date.now());
-
-  // Track chat history dynamically
-  const [chatHistory, setChatHistory] =
-    useState<ChatHistoryItem[]>(initialHistory);
-  // Store messages for specific chat IDs to keep them in memory during session
-  const [savedChats, setSavedChats] = useState<Record<string, Message[]>>({});
-
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>(initialHistory);
+  const [savedChats, setSavedChats] =
+    useState<Record<string, Message[]>>(initialSavedChats);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -155,7 +105,6 @@ export default function App() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pendingTimeoutsRef = useRef<number[]>([]);
 
-  // --- Handlers ---
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
   const scrollToBottom = () => {
@@ -177,14 +126,9 @@ export default function App() {
     setShowScrollToBottom(hasOverflow && !isNearBottom);
   };
 
-  // Handle responsive sidebar on mount and resize
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setIsSidebarOpen(false);
-      } else {
-        setIsSidebarOpen(true);
-      }
+      setIsSidebarOpen(window.innerWidth >= 768);
     };
 
     handleResize();
@@ -224,37 +168,13 @@ export default function App() {
     };
   }, []);
 
-  const loadChat = (id: string, title: string) => {
+  const loadChat = (id: string) => {
     setActiveChatId(id);
+    setMessages(savedChats[id] ?? []);
 
-    // If we have saved messages for this session, load them
-    if (savedChats[id]) {
-      setMessages(savedChats[id]);
-    } else {
-      // Otherwise, generate a mock static answer for existing history items
-      const mockMsgs: Message[] = [
-        {
-          id: `mock-user-${id}`,
-          role: "user",
-          content: `I need information regarding: ${title}`,
-        },
-        {
-          id: `mock-bot-${id}`,
-          role: "bot",
-          content: getMockResponse(title),
-          thoughtSteps: [
-            { action: "fetch_historical_context" },
-            { action: "analyze_farming_topic" },
-          ],
-          thoughtSummary: "Fetching past insights based on your query:",
-        },
-      ];
-      setMessages(mockMsgs);
-      setSavedChats((prev) => ({ ...prev, [id]: mockMsgs }));
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false);
     }
-
-    // Close sidebar on mobile after selection
-    if (window.innerWidth < 768) setIsSidebarOpen(false);
   };
 
   const handleSendMessage = (e?: React.FormEvent, textOverride?: string) => {
@@ -262,7 +182,6 @@ export default function App() {
     const text = textOverride || inputValue.trim();
     if (!text) return;
 
-    // Add user message
     const newUserMsg: Message = {
       id: Date.now().toString(),
       role: "user",
@@ -275,31 +194,26 @@ export default function App() {
 
     let currentChatId = activeChatId;
 
-    // If this is the very first message in the window, create a new chat history item
     if (!currentChatId) {
       currentChatId = `chat-${Date.now()}`;
       setActiveChatId(currentChatId);
 
       const newHistoryItem: ChatHistoryItem = {
         id: currentChatId,
-        title: text.length > 25 ? text.substring(0, 25) + "..." : text,
+        title: text.length > 25 ? `${text.substring(0, 25)}...` : text,
         date: "Today",
       };
 
       setChatHistory((prev) => [newHistoryItem, ...prev]);
     }
 
-    // Pre-determine bot response and thought steps to animate them sequentially
     let thoughtSteps: ThoughtStep[] = [];
     let thoughtSummary = "";
     let botResponse = "";
 
-    if (
-      text.toLowerCase().includes("hi") ||
-      text.toLowerCase().includes("hello")
-    ) {
+    if (text.toLowerCase().includes("hi") || text.toLowerCase().includes("hello")) {
       botResponse =
-        "Hello! 🌿 How can I assist you today? I'm here to help with agriculture-related queries in India. Whether it's about crops, soil, pests, or farming techniques, feel free to ask!";
+        "Hello! How can I assist you today? I'm here to help with agriculture-related queries in India. Whether it's about crops, soil, pests, or farming techniques, feel free to ask.";
       thoughtSteps = [
         { action: "identify_greeting_intent" },
         { action: "fetch_agricultural_persona" },
@@ -321,62 +235,53 @@ export default function App() {
     const loadingBotMsg: Message = {
       id: loadingMessageId,
       role: "bot",
-      content: "", // Final answer text is hidden while loading
+      content: "",
       thoughtSteps,
-      currentStage: 0, // Used to track which step is currently animating
+      currentStage: 0,
       isLoading: true,
     };
 
     const messagesWithLoader = [...newMessages, loadingBotMsg];
 
-    // Save current user message into session storage
     setMessages(messagesWithLoader);
     setSavedChats((prev) => ({
       ...prev,
-      [currentChatId as string]: messagesWithLoader,
+      [currentChatId]: messagesWithLoader,
     }));
 
-    // Animate the thought steps appearing one by one
     thoughtSteps.forEach((_, index) => {
-      const stepTimeout = window.setTimeout(
-        () => {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === loadingMessageId
-                ? { ...msg, currentStage: index + 1 }
-                : msg,
-            ),
-          );
-        },
-        (index + 1) * 900,
-      ); // 900ms delay per step for the animation
+      const stepTimeout = window.setTimeout(() => {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === loadingMessageId ? { ...msg, currentStage: index + 1 } : msg,
+          ),
+        );
+      }, (index + 1) * 900);
 
       pendingTimeoutsRef.current.push(stepTimeout);
     });
 
-    // Finalize the response and show content after all steps have loaded
-    const responseTimeout = window.setTimeout(
-      () => {
-        setMessages((prev) => {
-          const updatedMsgs = prev.map((msg) =>
-            msg.id === loadingMessageId
-              ? {
-                  ...msg,
-                  content: botResponse,
-                  thoughtSummary,
-                  isLoading: false,
-                }
-              : msg,
-          );
-          setSavedChats((sc) => ({
-            ...sc,
-            [currentChatId as string]: updatedMsgs,
-          }));
-          return updatedMsgs;
-        });
-      },
-      (thoughtSteps.length + 1) * 900,
-    );
+    const responseTimeout = window.setTimeout(() => {
+      setMessages((prev) => {
+        const updatedMsgs = prev.map((msg) =>
+          msg.id === loadingMessageId
+            ? {
+                ...msg,
+                content: botResponse,
+                thoughtSummary,
+                isLoading: false,
+              }
+            : msg,
+        );
+
+        setSavedChats((sc) => ({
+          ...sc,
+          [currentChatId]: updatedMsgs,
+        }));
+
+        return updatedMsgs;
+      });
+    }, (thoughtSteps.length + 1) * 900);
 
     pendingTimeoutsRef.current.push(responseTimeout);
   };
@@ -384,11 +289,12 @@ export default function App() {
   const startNewChat = () => {
     setMessages([]);
     setActiveChatId(null);
-    setNewChatKey(Date.now()); // Update key to trigger animation
-    if (window.innerWidth < 768) setIsSidebarOpen(false);
+    setNewChatKey(Date.now());
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
   };
 
-  // Group history by date dynamically from state
   const groupedHistory = chatHistory.reduce(
     (acc, item) => {
       if (!acc[item.date]) acc[item.date] = [];
@@ -400,65 +306,59 @@ export default function App() {
 
   return (
     <div className={isDarkMode ? "dark" : ""}>
-      <div className="flex h-screen w-full bg-white dark:bg-[#212121] text-gray-800 dark:text-gray-200 font-sans overflow-hidden transition-colors duration-200">
-        {/* Mobile Sidebar Backdrop */}
+      <div className="flex h-screen w-full overflow-hidden bg-white font-sans text-gray-800 transition-colors duration-200 dark:bg-[#212121] dark:text-gray-200">
         {isSidebarOpen && (
           <div
-            className="fixed inset-0 bg-black/40 dark:bg-black/60 z-30 md:hidden transition-opacity"
+            className="fixed inset-0 z-30 bg-black/40 transition-opacity dark:bg-black/60 md:hidden"
             onClick={() => setIsSidebarOpen(false)}
           />
         )}
 
-        {/* --- Sidebar --- */}
         <aside
-          className={`fixed md:relative z-40 h-full w-64 flex-shrink-0 bg-[#f9f9f9] dark:bg-[#171717] flex flex-col border-r border-gray-200 dark:border-[#2f2f2f] transition-all duration-300 ease-in-out ${
+          className={`fixed z-40 flex h-full w-64 flex-shrink-0 flex-col border-r border-gray-200 bg-[#f9f9f9] transition-all duration-300 ease-in-out dark:border-[#2f2f2f] dark:bg-[#171717] md:relative ${
             isSidebarOpen
-              ? "translate-x-0 ml-0"
-              : "-translate-x-full md:translate-x-0 md:-ml-64"
+              ? "ml-0 translate-x-0"
+              : "-translate-x-full md:-ml-64 md:translate-x-0"
           }`}
         >
-          {/* Sidebar Header */}
-          <div className="p-3 flex items-center justify-between sticky top-0 z-10 bg-[#f9f9f9] dark:bg-[#171717]">
+          <div className="sticky top-0 z-10 flex items-center justify-between bg-[#f9f9f9] p-3 dark:bg-[#171717]">
             <button
               onClick={() => setIsSidebarOpen(false)}
-              className="p-2 hover:bg-gray-200 dark:hover:bg-[#2f2f2f] rounded-md transition-colors text-gray-600 dark:text-gray-400"
+              className="rounded-md p-2 text-gray-600 transition-colors hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-[#2f2f2f]"
               title="Close sidebar"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="h-5 w-5" />
             </button>
             <button
               onClick={startNewChat}
-              className="p-2 hover:bg-gray-200 dark:hover:bg-[#2f2f2f] rounded-md transition-colors text-gray-600 dark:text-gray-400"
+              className="rounded-md p-2 text-gray-600 transition-colors hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-[#2f2f2f]"
               title="New Chat"
             >
-              <SquarePen className="w-5 h-5" />
+              <SquarePen className="h-5 w-5" />
             </button>
           </div>
 
-          {/* Chat History List */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-4 custom-scrollbar">
+          <div className="custom-scrollbar flex-1 space-y-4 overflow-x-hidden overflow-y-auto p-3">
             {Object.entries(groupedHistory).map(([date, items]) => (
               <div key={date}>
-                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 px-2">
+                <h3 className="mb-2 px-2 text-xs font-semibold text-gray-500 dark:text-gray-400">
                   {date}
                 </h3>
                 <div className="space-y-1">
                   {items.map((item) => (
                     <button
                       key={item.id}
-                      onClick={() => loadChat(item.id, item.title)}
-                      className={`w-full text-left px-2 py-2 rounded-lg flex items-center gap-2 text-sm group hover:bg-gray-200 dark:hover:bg-[#2f2f2f] transition-colors ${
-                        activeChatId === item.id
-                          ? "bg-gray-200 dark:bg-[#2f2f2f]"
-                          : ""
+                      onClick={() => loadChat(item.id)}
+                      className={`group flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm transition-colors hover:bg-gray-200 dark:hover:bg-[#2f2f2f] ${
+                        activeChatId === item.id ? "bg-gray-200 dark:bg-[#2f2f2f]" : ""
                       }`}
                     >
-                      <BrandIcon className="w-7 h-7 flex-shrink-0" />
-                      <span className="truncate flex-1 text-gray-700 dark:text-gray-300">
+                      <BrandIcon className="h-7 w-7 flex-shrink-0" />
+                      <span className="flex-1 truncate text-gray-700 dark:text-gray-300">
                         {item.title}
                       </span>
                       {activeChatId === item.id && (
-                        <MoreHorizontal className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100" />
+                        <MoreHorizontal className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100" />
                       )}
                     </button>
                   ))}
@@ -467,85 +367,68 @@ export default function App() {
             ))}
           </div>
 
-          {/* User Profile Area */}
-          <div className="p-3 border-t border-gray-200 dark:border-[#2f2f2f] mt-auto">
-            <button className="w-full flex items-center gap-3 px-2 py-2 hover:bg-gray-200 dark:hover:bg-[#2f2f2f] rounded-lg transition-colors">
-              <div className="w-8 h-8 rounded-full bg-pink-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+          <div className="mt-auto border-t border-gray-200 p-3 dark:border-[#2f2f2f]">
+            <button className="flex w-full items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-gray-200 dark:hover:bg-[#2f2f2f]">
+              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-pink-600 text-sm font-semibold text-white">
                 DM
               </div>
-              <span className="text-sm font-medium truncate flex-1 text-left text-gray-700 dark:text-gray-300">
+              <span className="flex-1 truncate text-left text-sm font-medium text-gray-700 dark:text-gray-300">
                 Demo
               </span>
             </button>
           </div>
         </aside>
 
-        {/* --- Main Content Area --- */}
-        <main className="flex-1 flex flex-col relative min-w-0">
-          {/* Top Bar */}
-          <header className="h-14 flex items-center justify-between px-4 border-b border-transparent shrink-0">
+        <main className="relative flex min-w-0 flex-1 flex-col">
+          <header className="flex h-14 shrink-0 items-center justify-between border-b border-transparent px-4">
             <div className="flex items-center gap-2">
-              {/* Toggle Sidebar Button (Visible when sidebar is closed) */}
               {!isSidebarOpen && (
                 <button
                   onClick={() => setIsSidebarOpen(true)}
-                  className="p-2 -ml-2 hover:bg-gray-100 dark:hover:bg-[#2f2f2f] rounded-md transition-colors text-gray-600 dark:text-gray-400"
+                  className="-ml-2 rounded-md p-2 text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-[#2f2f2f]"
                   title="Open sidebar"
                 >
-                  <Menu className="w-5 h-5" />
+                  <Menu className="h-5 w-5" />
                 </button>
               )}
             </div>
 
-            {/* Right Actions */}
             <div className="flex items-center gap-2">
               <button
                 onClick={toggleTheme}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-[#2f2f2f] rounded-full text-gray-500 transition-colors"
+                className="rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-[#2f2f2f]"
                 title="Toggle Theme"
               >
-                {isDarkMode ? (
-                  <Sun className="w-5 h-5" />
-                ) : (
-                  <Moon className="w-5 h-5" />
-                )}
+                {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               </button>
               {messages.length > 0 && (
-                <button className="p-2 hover:bg-gray-100 dark:hover:bg-[#2f2f2f] rounded-full text-gray-500 transition-colors">
-                  <Share2 className="w-5 h-5" />
+                <button className="rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-[#2f2f2f]">
+                  <Share2 className="h-5 w-5" />
                 </button>
               )}
             </div>
           </header>
 
-          {/* Spacer above when empty to center content */}
           {messages.length === 0 && <div className="flex-1" />}
 
-          {/* Chat Messages Area */}
           <div
             ref={chatScrollRef}
             className={
               messages.length === 0
                 ? "w-full"
-                : "relative flex-1 overflow-y-auto pb-6 custom-scrollbar"
+                : "custom-scrollbar relative flex-1 overflow-y-auto pb-6"
             }
           >
             {messages.length === 0 ? (
-              // Welcome Screen
-              <div
-                key={newChatKey}
-                className="w-full flex flex-col items-center px-4 mb-6"
-              >
+              <div key={newChatKey} className="mb-6 flex w-full flex-col items-center px-4">
                 <div className="flex items-center justify-center gap-3 md:gap-4">
-                  <BrandIcon className="w-10 mt-2 h-10 md:w-12 md:h-12 text-[#10a37f] opacity-0 animate-logo-reveal" />
-                  <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-center flex">
+                  <BrandIcon className="mt-2 h-10 w-10 animate-logo-reveal opacity-0 md:h-12 md:w-12" />
+                  <h1 className="flex text-center text-3xl font-semibold tracking-tight md:text-4xl">
                     {"Welcome to AjraSakha!".split("").map((char, idx) => (
                       <span
                         key={idx}
-                        className="inline-block opacity-0 animate-text-reveal-seq"
-                        style={{
-                          animationDelay: `${idx * 0.04}s`,
-                        }}
+                        className="inline-block animate-text-reveal-seq opacity-0"
+                        style={{ animationDelay: `${idx * 0.04}s` }}
                       >
                         {char === " " ? "\u00A0" : char}
                       </span>
@@ -554,60 +437,53 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              // Active Chat List
-              <div className="w-full max-w-3xl mx-auto py-6 px-4 space-y-6">
-                {messages.map((msg, _) => (
+              <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6">
+                {messages.map((msg) => (
                   <div key={msg.id} className="w-full">
                     {msg.role === "user" ? (
-                      // User Message
-                      <div className="flex gap-4 mb-4 items-start">
-                        <div className="w-8 h-8 rounded-full bg-pink-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-1">
+                      <div className="mb-4 flex items-start gap-4">
+                        <div className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-pink-600 text-xs font-semibold text-white">
                           DM
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-[15px] mb-1 text-gray-800 dark:text-gray-100">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="mb-1 text-[15px] font-semibold text-gray-800 dark:text-gray-100">
                             Demo
                           </h4>
-                          <div className="text-[15px] text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                          <div className="whitespace-pre-wrap text-[15px] text-gray-800 dark:text-gray-200">
                             {msg.content}
                           </div>
                         </div>
                       </div>
                     ) : (
-                      // Bot Message
-                      <div className="flex gap-4 items-start relative">
-                        <BrandIcon className="w-8 h-8 flex-shrink-0 mt-1" />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-[15px] mb-1 text-gray-800 dark:text-gray-100">
+                      <div className="relative flex items-start gap-4">
+                        <BrandIcon className="mt-1 h-8 w-8 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <h4 className="mb-1 text-[15px] font-semibold text-gray-800 dark:text-gray-100">
                             AjraSakha
                           </h4>
 
-                          {/* Thoughts Toggle UI matching the screenshot */}
                           {(msg.thoughtSteps || msg.thoughts) && (
                             <div className="mb-4 mt-2">
-                              {/* Only show "Thoughts" button if not currently loading the steps */}
                               {!msg.isLoading && (
                                 <button
                                   onClick={() => setShowThoughts(!showThoughts)}
-                                  className="flex items-center gap-2 text-[15px] text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors mb-4"
+                                  className="mb-4 flex items-center gap-2 text-[15px] text-gray-700 transition-colors hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
                                 >
-                                  <Lightbulb className="w-4 h-4 text-gray-500" />
+                                  <Lightbulb className="h-4 w-4 text-gray-500" />
                                   Thoughts
                                 </button>
                               )}
 
-                              {/* Always show steps while loading, or if toggled open */}
                               {(showThoughts || msg.isLoading) && (
-                                <div className="pl-4 space-y-4 pb-2 relative border-l border-transparent">
-                                  {/* Render Structured Steps with animation states */}
+                                <div className="relative space-y-4 border-l border-transparent pb-2 pl-4">
                                   {msg.thoughtSteps?.map((step, idx) => {
-                                    // If still loading, hide steps that are ahead of the current stage index
                                     if (
                                       msg.isLoading &&
                                       msg.currentStage !== undefined &&
                                       idx > msg.currentStage
-                                    )
+                                    ) {
                                       return null;
+                                    }
 
                                     const isLoadingStep =
                                       msg.isLoading && msg.currentStage === idx;
@@ -615,63 +491,54 @@ export default function App() {
                                     return (
                                       <div
                                         key={idx}
-                                        className={`flex items-center justify-between text-[14.5px] text-gray-700 dark:text-gray-300 group cursor-default ${isLoadingStep ? "animate-fade-in" : ""}`}
+                                        className={`group flex cursor-default items-center justify-between text-[14.5px] text-gray-700 dark:text-gray-300 ${isLoadingStep ? "animate-fade-in" : ""}`}
                                       >
                                         <div className="flex items-center gap-3">
                                           {isLoadingStep ? (
-                                            <div className="flex-shrink-0 w-[18px] h-[18px] flex items-center justify-center">
-                                              <Loader2 className="w-4 h-4 text-[#a855f7] animate-spin" />
+                                            <div className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center">
+                                              <Loader2 className="h-4 w-4 animate-spin text-[#a855f7]" />
                                             </div>
                                           ) : (
-                                            <div className="flex-shrink-0 w-[18px] h-[18px] rounded-full bg-[#a855f7] flex items-center justify-center">
-                                              <Check className="w-3 h-3 text-white stroke-[3]" />
+                                            <div className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full bg-[#a855f7]">
+                                              <Check className="h-3 w-3 stroke-[3] text-white" />
                                             </div>
                                           )}
                                           <span
                                             className={
-                                              isLoadingStep
-                                                ? "opacity-80 transition-opacity"
-                                                : ""
+                                              isLoadingStep ? "opacity-80 transition-opacity" : ""
                                             }
                                           >
                                             Ran {step.action}
                                           </span>
                                         </div>
                                         <ChevronDown
-                                          className={`w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 opacity-80 ${isLoadingStep ? "hidden" : ""}`}
+                                          className={`h-4 w-4 cursor-pointer text-gray-500 opacity-80 hover:text-gray-800 dark:hover:text-gray-200 ${isLoadingStep ? "hidden" : ""}`}
                                         />
                                       </div>
                                     );
                                   })}
 
-                                  {/* Render Thought Summary only after all steps finish loading */}
                                   {msg.thoughtSummary && !msg.isLoading && (
-                                    <div className="mt-5 text-[14.5px] text-gray-700 dark:text-gray-300 animate-fade-in">
+                                    <div className="mt-5 animate-fade-in text-[14.5px] text-gray-700 dark:text-gray-300">
                                       {msg.thoughtSummary}
                                     </div>
                                   )}
 
-                                  {/* Fallback for old string thoughts */}
-                                  {msg.thoughts &&
-                                    !msg.thoughtSteps &&
-                                    !msg.isLoading && (
-                                      <div className="mt-2 text-[14px] text-gray-500 dark:text-gray-400 italic">
-                                        {msg.thoughts}
-                                      </div>
-                                    )}
+                                  {msg.thoughts && !msg.thoughtSteps && !msg.isLoading && (
+                                    <div className="mt-2 text-[14px] italic text-gray-500 dark:text-gray-400">
+                                      {msg.thoughts}
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
                           )}
 
-                          {/* Fallback old-style bottom stages if used */}
                           {msg.isLoading && msg.stages && !msg.thoughtSteps && (
-                            <div className="space-y-2 mt-2">
+                            <div className="mt-2 space-y-2">
                               {msg.stages.map((stage, index) => {
-                                const isComplete =
-                                  index < (msg.currentStage ?? 0);
-                                const isActive =
-                                  index === (msg.currentStage ?? 0);
+                                const isComplete = index < (msg.currentStage ?? 0);
+                                const isActive = index === (msg.currentStage ?? 0);
 
                                 return (
                                   <div
@@ -700,15 +567,13 @@ export default function App() {
                             </div>
                           )}
 
-                          {/* Main Response text revealing after loading */}
                           {!msg.isLoading && (
-                            <div className="text-[15px] text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed animate-fade-in">
+                            <div className="animate-fade-in whitespace-pre-wrap text-[15px] leading-relaxed text-gray-800 dark:text-gray-200">
                               {msg.content}
                             </div>
                           )}
 
-                          {/* Action Bar */}
-                          <div className="flex items-center gap-1 mt-3">
+                          <div className="mt-3 flex items-center gap-1">
                             {[
                               Volume2,
                               Copy,
@@ -721,9 +586,9 @@ export default function App() {
                               <button
                                 key={i}
                                 disabled={msg.isLoading}
-                                className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2f2f2f] rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-[#2f2f2f] dark:hover:text-gray-300"
                               >
-                                <Icon className="w-4 h-4" />
+                                <Icon className="h-4 w-4" />
                               </button>
                             ))}
                           </div>
@@ -741,27 +606,26 @@ export default function App() {
                     className={`pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white/95 text-gray-700 shadow-lg backdrop-blur-sm transition-all duration-300 dark:border-gray-700 dark:bg-[#2f2f2f]/95 dark:text-gray-200 ${
                       showScrollToBottom
                         ? "translate-y-0 opacity-100"
-                        : "translate-y-3 opacity-0 pointer-events-none"
+                        : "pointer-events-none translate-y-3 opacity-0"
                     }`}
                   >
-                    <ArrowDown className="w-4 h-4" />
+                    <ArrowDown className="h-4 w-4" />
                   </button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Input Area */}
           <div
-            className={`w-full ${messages.length === 0 ? "bg-transparent" : "bg-gradient-to-t from-white via-white to-transparent dark:from-[#212121] dark:via-[#212121] dark:to-transparent"} pt-2 pb-4 px-4`}
+            className={`w-full px-4 pt-2 pb-4 ${
+              messages.length === 0
+                ? "bg-transparent"
+                : "bg-gradient-to-t from-white via-white to-transparent dark:from-[#212121] dark:via-[#212121] dark:to-transparent"
+            }`}
           >
-            <div className="max-w-3xl mx-auto w-full flex flex-col items-center">
-              {/* Input Box Container */}
-              <div className="w-full relative bg-white dark:bg-[#2f2f2f] border border-gray-300 dark:border-transparent rounded-[24px] shadow-sm hover:shadow-md transition-shadow focus-within:shadow-md focus-within:border-gray-400 dark:focus-within:border-[#444]">
-                <form
-                  onSubmit={handleSendMessage}
-                  className="flex flex-col w-full"
-                >
+            <div className="mx-auto flex w-full max-w-3xl flex-col items-center">
+              <div className="relative w-full rounded-[24px] border border-gray-300 bg-white shadow-sm transition-shadow hover:shadow-md focus-within:border-gray-400 focus-within:shadow-md dark:border-transparent dark:bg-[#2f2f2f] dark:focus-within:border-[#444]">
+                <form onSubmit={handleSendMessage} className="flex w-full flex-col">
                   <textarea
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
@@ -772,47 +636,42 @@ export default function App() {
                       }
                     }}
                     placeholder="Message AjraSakha"
-                    className="w-full max-h-48 resize-none bg-transparent outline-none pt-4 pb-2 px-4 text-gray-800 dark:text-gray-100 overflow-y-auto m-0 leading-relaxed placeholder-gray-400 dark:placeholder-gray-500"
+                    className="m-0 max-h-48 w-full resize-none overflow-y-auto bg-transparent px-4 pt-4 pb-2 leading-relaxed text-gray-800 outline-none placeholder:text-gray-400 dark:text-gray-100 dark:placeholder:text-gray-500"
                     rows={1}
                     style={{ minHeight: "52px" }}
                   />
 
-                  {/* Bottom Tool Row inside Input */}
                   <div className="flex items-center justify-between px-3 pb-3">
-                    <div className="flex items-center gap-1">
-                      {/* Empty left actions space for future buttons if needed */}
-                    </div>
+                    <div className="flex items-center gap-1" />
 
                     <div className="flex items-center gap-1">
                       <button
                         type="submit"
                         disabled={!inputValue.trim()}
-                        className={`p-1.5 ml-1 rounded-full transition-colors ${
+                        className={`ml-1 rounded-full p-1.5 transition-colors ${
                           inputValue.trim()
-                            ? "bg-black text-white dark:bg-white dark:text-black hover:opacity-80"
-                            : "bg-gray-200 text-gray-400 dark:bg-[#444] dark:text-gray-500 cursor-not-allowed"
+                            ? "bg-black text-white hover:opacity-80 dark:bg-white dark:text-black"
+                            : "cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-[#444] dark:text-gray-500"
                         }`}
                       >
-                        <ArrowUp className="w-5 h-5" />
+                        <ArrowUp className="h-5 w-5" />
                       </button>
                     </div>
                   </div>
                 </form>
               </div>
 
-              {/* Suggestions (Visible only when chat is empty) */}
               {messages.length === 0 && (
-                <div className="w-full mt-4 flex flex-col gap-3">
-                  {/* Vertical Text Suggestions */}
-                  <div className="flex flex-col items-start w-full">
+                <div className="mt-4 flex w-full flex-col gap-3">
+                  <div className="flex w-full flex-col items-start">
                     {SUGGESTIONS.map((suggestion, i) => (
                       <button
                         key={i}
                         onClick={() => setInputValue(suggestion)}
-                        className="group flex items-center justify-between w-full text-left text-[14px] text-gray-600 dark:text-[#a0a0a0] hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#2f2f2f] transition-all py-2.5 px-3 rounded-lg border border-transparent"
+                        className="group flex w-full items-center justify-between rounded-lg border border-transparent px-3 py-2.5 text-left text-[14px] text-gray-600 transition-all hover:bg-gray-100 hover:text-gray-900 dark:text-[#a0a0a0] dark:hover:bg-[#2f2f2f] dark:hover:text-gray-200"
                       >
                         <span>{suggestion}</span>
-                        <ArrowUpRight className="w-4 h-4 opacity-0 group-hover:opacity-100 text-gray-400 dark:text-[#666] transition-opacity" />
+                        <ArrowUpRight className="h-4 w-4 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 dark:text-[#666]" />
                       </button>
                     ))}
                   </div>
@@ -821,30 +680,19 @@ export default function App() {
             </div>
           </div>
 
-          {/* Spacer below when empty to balance vertical centering */}
           {messages.length === 0 && <div className="flex-[1.2]" />}
 
-          {/* Footer Links */}
           <div className="w-full px-4 pb-3">
             <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-4 text-xs text-gray-400">
-              <a
-                href="#"
-                className="hover:underline hover:text-gray-600 dark:hover:text-gray-300"
-              >
+              <a href="#" className="hover:text-gray-600 hover:underline dark:hover:text-gray-300">
                 annam.ai
               </a>
               <span className="hidden sm:inline">|</span>
-              <a
-                href="#"
-                className="hover:underline hover:text-gray-600 dark:hover:text-gray-300"
-              >
+              <a href="#" className="hover:text-gray-600 hover:underline dark:hover:text-gray-300">
                 Privacy policy
               </a>
               <span className="hidden sm:inline">|</span>
-              <a
-                href="#"
-                className="hover:underline hover:text-gray-600 dark:hover:text-gray-300"
-              >
+              <a href="#" className="hover:text-gray-600 hover:underline dark:hover:text-gray-300">
                 Terms of service
               </a>
             </div>
