@@ -2,8 +2,7 @@ from urllib.parse import quote_plus
 from llama_index.core.prompts import PromptTemplate
 
 # Vector Database
-USERNAME = quote_plus("agriai")
-PASSWORD = quote_plus("agriai1224")
+import os
 MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME = "golden_db"
 INDEX_NAME = "vector_index"
