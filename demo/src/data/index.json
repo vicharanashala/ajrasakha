@@ -1,4 +1,66 @@
 {
+  "suggestions": [
+    {
+      "prompt": "What are the best practices for wheat farming?",
+      "reply": "For wheat farming, start with certified seed, prepare a fine seedbed, and sow on time for your region. Apply balanced NPK based on soil testing, irrigate at critical stages like crown root initiation and grain filling, and monitor weeds and rust early for better yield.",
+      "thoughtSteps": [
+        { "action": "identify_crop_and_intent" },
+        { "action": "fetch_wheat_best_practices" },
+        { "action": "summarize_actionable_recommendations" }
+      ],
+      "thoughtSummary": "Now let me share the key wheat farming practices:"
+    },
+    {
+      "prompt": "How to treat yellow leaves in paddy?",
+      "reply": "Yellow leaves in paddy are often caused by nitrogen deficiency, poor drainage, or early disease pressure. Check whether yellowing starts from older leaves, improve drainage if water is stagnant, and apply the recommended nitrogen dose in splits. If you also see spots or rotting, inspect for disease before spraying.",
+      "thoughtSteps": [
+        { "action": "analyze_paddy_leaf_symptoms" },
+        { "action": "check_common_nutrient_and_water_stress_causes" },
+        { "action": "prepare_field_level_treatment_steps" }
+      ],
+      "thoughtSummary": "Now let me walk through the likely causes and treatment:"
+    },
+    {
+      "prompt": "Check current market price for potatoes.",
+      "reply": "Potato prices change by mandi, grade, and date. To get the most useful number, check your nearest mandi on Agmarknet or the local market board and compare wholesale versus retail rates before selling. If you want, I can help format this as a market-price lookup flow next.",
+      "thoughtSteps": [
+        { "action": "detect_market_price_request" },
+        { "action": "identify_required_location_context" },
+        { "action": "prepare_price_lookup_guidance" }
+      ],
+      "thoughtSummary": "Now let me outline how to check the right potato price:"
+    },
+    {
+      "prompt": "What is the weather forecast for my farm?",
+      "reply": "A useful farm forecast should include rainfall chance, temperature range, wind, and humidity for the next few days. Since the exact forecast depends on your location, use your village or district in a weather source and plan irrigation, spraying, and harvesting around rain and wind windows.",
+      "thoughtSteps": [
+        { "action": "detect_weather_forecast_request" },
+        { "action": "identify_missing_location_details" },
+        { "action": "prepare_farm_planning_advice" }
+      ],
+      "thoughtSummary": "Now let me frame the forecast details that matter for farm work:"
+    },
+    {
+      "prompt": "What are the best fertilizers for coconut farming?",
+      "reply": "For coconut, fertilizer choice depends on palm age and soil status, but a balanced program usually includes nitrogen, phosphorus, potassium, and organic matter like compost or farmyard manure. Split applications around the basin, keep nutrients away from the trunk, and use soil-test guidance whenever possible.",
+      "thoughtSteps": [
+        { "action": "identify_coconut_nutrition_query" },
+        { "action": "fetch_balanced_fertilizer_guidance" },
+        { "action": "summarize_application_recommendations" }
+      ],
+      "thoughtSummary": "Now let me summarize a balanced fertilizer plan for coconut:"
+    },
+    {
+      "prompt": "How to control pests in vegetable crops?",
+      "reply": "Use integrated pest management for vegetables: inspect fields regularly, remove badly affected plant parts, use sticky traps where appropriate, encourage beneficial insects, and spray only when the pest crosses an economic threshold. Rotating crops and avoiding repeated use of the same pesticide group also helps prevent resistance.",
+      "thoughtSteps": [
+        { "action": "identify_vegetable_pest_control_intent" },
+        { "action": "fetch_ipm_recommendations" },
+        { "action": "prepare_prevention_and_control_steps" }
+      ],
+      "thoughtSummary": "Now let me share the core pest control approach for vegetables:"
+    }
+  ],
   "history": [
     {
       "id": "1",

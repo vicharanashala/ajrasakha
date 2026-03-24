@@ -51,6 +51,14 @@ interface HistoryChatRecord extends ChatHistoryItem {
   messages: Message[];
 }
 
+interface SuggestionRecord {
+  prompt: string;
+  reply: string;
+  thoughtSteps: ThoughtStep[];
+  thoughtSummary: string;
+}
+
+const suggestionData = (chatData.suggestions ?? []) as SuggestionRecord[];
 const initialHistoryData = (chatData.history ?? []) as HistoryChatRecord[];
 const initialHistory: ChatHistoryItem[] = initialHistoryData.map(
   ({ id, title, date }) => ({
@@ -67,14 +75,13 @@ const initialSavedChats = initialHistoryData.reduce<Record<string, Message[]>>(
   {},
 );
 
-const SUGGESTIONS = [
-  "What are the best practices for wheat farming?",
-  "How to treat yellow leaves in paddy?",
-  "Check current market price for potatoes.",
-  "What is the weather forecast for my farm?",
-  "What are the best fertilizers for coconut farming?",
-  "How to control pests in vegetable crops?",
-];
+const SUGGESTIONS = suggestionData.map(({ prompt }) => prompt);
+const SUGGESTION_RESPONSES = suggestionData.reduce<
+  Record<string, Omit<SuggestionRecord, "prompt">>
+>((acc, { prompt, ...suggestion }) => {
+  acc[prompt] = suggestion;
+  return acc;
+}, {});
 
 const BrandIcon = ({ className = "w-6 h-6 text-[#10a37f]" }) => (
   <div
@@ -211,7 +218,13 @@ export default function App() {
     let thoughtSummary = "";
     let botResponse = "";
 
-    if (text.toLowerCase().includes("hi") || text.toLowerCase().includes("hello")) {
+    const matchedSuggestion = SUGGESTION_RESPONSES[text];
+
+    if (matchedSuggestion) {
+      botResponse = matchedSuggestion.reply;
+      thoughtSteps = matchedSuggestion.thoughtSteps;
+      thoughtSummary = matchedSuggestion.thoughtSummary;
+    } else if (text.toLowerCase().includes("hi") || text.toLowerCase().includes("hello")) {
       botResponse =
         "Hello! How can I assist you today? I'm here to help with agriculture-related queries in India. Whether it's about crops, soil, pests, or farming techniques, feel free to ask.";
       thoughtSteps = [
@@ -676,7 +689,7 @@ export default function App() {
                     {SUGGESTIONS.map((suggestion, i) => (
                       <button
                         key={i}
-                        onClick={() => setInputValue(suggestion)}
+                        onClick={() => handleSendMessage(undefined, suggestion)}
                         className="group flex w-full items-center justify-between rounded-lg border border-transparent px-3 py-2.5 text-left text-[14px] text-gray-600 transition-all hover:bg-gray-100 hover:text-gray-900 dark:text-[#a0a0a0] dark:hover:bg-[#2f2f2f] dark:hover:text-gray-200"
                       >
                         <span>{suggestion}</span>
