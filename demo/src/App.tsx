@@ -95,6 +95,38 @@ const BrandIcon = ({ className = "w-6 h-6 text-[#10a37f]" }) => (
   </div>
 );
 
+const formatMessageContent = (content: string) => {
+  const withSections = content
+    .replace(/\s+/g, " ")
+    .replace(
+      /([a-z0-9.)])\s+([A-Z][A-Za-z][A-Za-z\s]{2,40}:)/g,
+      "$1\n\n$2",
+    )
+    .trim();
+
+  const paragraphs = withSections
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  if (paragraphs.length > 1) {
+    return paragraphs;
+  }
+
+  if (content.length < 280) {
+    return [content.trim()];
+  }
+
+  const sentences = content.match(/[^.!?]+[.!?]+|[^.!?]+$/g) ?? [content];
+  const groupedParagraphs: string[] = [];
+
+  for (let i = 0; i < sentences.length; i += 2) {
+    groupedParagraphs.push(sentences.slice(i, i + 2).join(" ").trim());
+  }
+
+  return groupedParagraphs;
+};
+
 export default function App() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -583,8 +615,19 @@ export default function App() {
                           )}
 
                           {!msg.isLoading && (
-                            <div className="animate-fade-in whitespace-pre-wrap text-[15px] leading-relaxed text-gray-800 dark:text-gray-200">
-                              {msg.content}
+                            <div className="animate-fade-in space-y-3 text-[15px] leading-7 text-gray-800 dark:text-gray-200">
+                              {formatMessageContent(msg.content).map((paragraph, index) => (
+                                <p
+                                  key={`${msg.id}-paragraph-${index}`}
+                                  className={
+                                    index === 0
+                                      ? "whitespace-pre-wrap pl-4 text-gray-700 dark:text-gray-300"
+                                      : "whitespace-pre-wrap pl-4 text-gray-700 dark:text-gray-300"
+                                  }
+                                >
+                                  {paragraph}
+                                </p>
+                              ))}
                             </div>
                           )}
 
