@@ -43,7 +43,7 @@ interface Message {
   stages?: string[];
   currentStage?: number;
   isLoading?: boolean;
-  reviewerName?: string;
+  reviewerName?: string[];
   sources?: SourceItem[];
 }
 
@@ -60,7 +60,7 @@ interface HistoryChatRecord extends ChatHistoryItem {
 interface SuggestionRecord {
   prompt: string;
   reply: string;
-  reviewerName?: string;
+  reviewerName?: string[];
   sources?: SourceItem[];
   thoughtSteps: ThoughtStep[];
   thoughtSummary: string;
@@ -257,7 +257,7 @@ export default function App() {
     let thoughtSteps: ThoughtStep[] = [];
     let thoughtSummary = "";
     let botResponse = "";
-    let reviewerName = "";
+    let reviewerName: string[] = [];
     let sources: SourceItem[] = [];
 
     const matchedSuggestion = SUGGESTION_RESPONSES[text];
@@ -266,7 +266,7 @@ export default function App() {
       botResponse = matchedSuggestion.reply;
       thoughtSteps = matchedSuggestion.thoughtSteps;
       thoughtSummary = matchedSuggestion.thoughtSummary;
-      reviewerName = matchedSuggestion.reviewerName || "";
+      reviewerName = matchedSuggestion.reviewerName || [];
       sources = matchedSuggestion.sources || [];
     } else if (text.toLowerCase().includes("hi") || text.toLowerCase().includes("hello")) {
       botResponse =
@@ -669,7 +669,9 @@ export default function App() {
         
         {/* Reviewer */}
         <div className="p-2 border-t dark:border-[#2f2f2f]">
-          {msg.reviewerName || "-"}
+          {msg.reviewerName && msg.reviewerName.length > 0
+  ? msg.reviewerName.join(", ")
+  : "-"}
         </div>
 
         {/* Sources */}
