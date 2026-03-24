@@ -1,63 +1,69 @@
 {
   "suggestions": [
     {
-      "prompt": "What are the best practices for wheat farming?",
-      "reply": "For wheat farming, start with certified seed, prepare a fine seedbed, and sow on time for your region. Apply balanced NPK based on soil testing, irrigate at critical stages like crown root initiation and grain filling, and monitor weeds and rust early for better yield.",
+      "prompt": "What is the fertilizer dose of Paddy",
+      "reply": "Proper and balanced fertilizer use is very important for getting a good yield in the paddy crop. Sol test recommendations: It is recommended to test the soil before applying fertilizers to determine the exact nutrient status of your field. Soil testing helps avoid the overuse or underuse of fertilizers, thereby saving costs and improving crop yield. It also helps maintain soil health and ensures balanced and healthy crop growth. Recommended Fertilizer Dose: If soil testing is not done, PAU recommends that for most paddy varieties, farmers should apply 42 kg nitrogen(N), 12 kg phosphorus (P₂O₅), and 12 kg potash (K₂O) per acre. This requirement can be met by applying about 90 kg of neem-coated urea, 27 kg DAP (or 75 kg single super phosphate), and 20 kg muriate of potash per acre. When 27 kg DAP is used in deficient soil, reduce the urea dose by 10 kg. For the nitrogen-efficient variety PR-132, it is recommended to apply 25% less nitrogen, i.e., 31.5 kg nitrogen per acre, which is equivalent to about 67.5 kg neem-coated urea, along with the recommended doses of phosphorus and potash. Excess nitrogen application in PR-132 may lead to lodging and yield loss; therefore, over-fertilization should be avoided. Apply 27 kg DAP (or 75 kg SSP) and 20 kg MOP per acre. If DAP is used as the phosphorus source, the urea dose can be reduced by 10 kg per acre. Application method: Apply nitrogen fertilizer in three equal splits to all recommended varieties. The first split should be applied within 7 days of transplanting, the second split at 21 days after transplanting, and the third split at 35 days after transplanting for short-duration varieties (e.g., PR 126) and at 42 days after transplanting for other varieties. Urea should be applied when there is no standing water in the field, and irrigation should be given 2–3 days after application. Phosphorus and potash fertilizers should be applied once before puddling. If the recommended phosphorus dose was already applied to the previous wheat crop, farmers can safely skip phosphorus in paddy. Integrated Nutrient Management Approach: PAU also recommends the use of organic manures such as FYM, poultry manure, press mud, or green manure, as these improve soil health and help reduce the requirement of chemical fertilizers. For example, applying 6 tonnes of FYM per acre can save about 35 kg of urea, while green manuring can save up to 55 kg of urea per acre. The symptoms of zinc deficiency appear 2-3 weeks after transplanting. The lower leaves become rusty brown near the base and ultimately dry up. The seedlings with zinc deficiency remain stunted and tillerless. In fields where zinc deficiency is common, farmers should apply 25 kg zinc sulphate heptahydrate (21%) or 16 kg zinc sulphate monohydrate (33%) per acre at puddling in case previous crop in this field had shown the symptoms of zinc deficiency. Where the deficiency is noticed in the growing crop, apply this quantity of zinc sulphate as soon as possible. In highly deteriorated soils, the symptoms of zinc deficiency sometimes appear in patches even after the application of the recommended dose of zinc sulphate. In that event, broadcast 10 kg of zinc sulphate heptahydrate or 6.5 kg zinc sulphate monohydrate per acre mixed with an equal quantity of dry soil on the affected patches. Under scarcity of water, chlorosis among seedlings appears in the youngest leaf about three weeks after transplanting. Plants die and often the crop fails completely. Start giving copious irrigations as soon as chlorosis appears and give 2 or 3 sprays of one per cent ferrous sulphate solution at weekly intervals (1 kg of ferrous sulphate in 100 litres of water per acre). To reduce flower sterility and improve grain filling, PAU further recommends a 1.5% foliar spray of potassium nitrate (3 kg in 200 liters of water per acre) at the boot stage is commonly used, but should be described as need-based, not compulsory. Following these PAU fertilizer recommendations helps farmers get higher yields, better grain quality, and lower fertilizer costs under Punjab conditions.",
       "thoughtSteps": [
-        { "action": "identify_crop_and_intent" },
-        { "action": "fetch_wheat_best_practices" },
-        { "action": "summarize_actionable_recommendations" }
-      ],
+            { "action": "Ran upload_question_to_reviewer_system" },
+            { "action": "Ran get_context_from_reviewer_dataset" },
+            { "action": "Ran get_context_from_golden_dataset" },
+            { "action": "Ran get_context_from_package_of_practices" }
+          ],
       "thoughtSummary": "Now let me share the key wheat farming practices:"
     },
     {
-      "prompt": "How to treat yellow leaves in paddy?",
-      "reply": "Yellow leaves in paddy are often caused by nitrogen deficiency, poor drainage, or early disease pressure. Check whether yellowing starts from older leaves, improve drainage if water is stagnant, and apply the recommended nitrogen dose in splits. If you also see spots or rotting, inspect for disease before spraying.",
+      "prompt": "How to control Jangli Oats (wild oats) in wheat?",
+      "reply": "Effective control of Wild Oats (Avena fatua or Jangli javi) in wheat requires a strict Integrated Weed Management (IWM) approach, starting with the use of certified weed-free seed and rotating wheat with non-cereal crops like Berseem or Mustard to exhaust the soil seed bank. For chemical control, the most reliable intervention is applying post-emergence herbicides 30–35 days after sowing (just after the first irrigation) when the crop is at the 2–3 leaf stage. The official PAU recommendation is to spray Pinoxaden 5 EC at 400 ml per acre or Clodinafop 15 WP at 160 g per acre dissolved in 150 litres of water using a flat-fan nozzle; Pinoxaden is particularly effective where Wild Oats show resistance to other groups. Alternatively, Sulfosulfuron 75 WG at 13 g per acre is effective, but strict caution is mandatory: do not use Sulfosulfuron if Maize, Sorghum (Jowar), or Bajra is to be sown in the following Kharif season, as soil residues will destroy these crops. Due to widespread resistance, avoid using Isoproturon unless local efficacy is confirmed, and always perform hand-pulling (rogueing) of scattered surviving plants before they set seed to prevent re-infestation.",
       "thoughtSteps": [
-        { "action": "analyze_paddy_leaf_symptoms" },
-        { "action": "check_common_nutrient_and_water_stress_causes" },
-        { "action": "prepare_field_level_treatment_steps" }
-      ],
+            { "action": "Ran upload_question_to_reviewer_system" },
+            { "action": "Ran get_context_from_reviewer_dataset" },
+            { "action": "Ran get_context_from_golden_dataset" },
+            { "action": "Ran get_context_from_package_of_practices" }
+          ],
       "thoughtSummary": "Now let me walk through the likely causes and treatment:"
     },
     {
-      "prompt": "Check current market price for potatoes.",
-      "reply": "Potato prices change by mandi, grade, and date. To get the most useful number, check your nearest mandi on Agmarknet or the local market board and compare wholesale versus retail rates before selling. If you want, I can help format this as a market-price lookup flow next.",
+      "prompt": "How to stem borer in paddy?",
+      "reply": "Stem borer is a serious pest problem in paddy cultivation that causes what farmers often refer to as 'short plant disease' due to the damage it inflicts on rice plants. Effective management requires vigilant monitoring and timely intervention with appropriate control measures. The stem borer bores into the stem and causes damage mainly from July to October. Affected plants show dead heart symptoms (yellowing and drying of central shoots), whereas old plants produce empty earheads, which turn white and stand erect. To control the yellow stem borer in paddy, an integrated approach combining cultural, biological, and chemical methods is recommended. Regularly scout the field around 20-40 days after transplanting for egg masses and early larval damage, maintain proper spacing, avoid excessive use of nitrogen-rich fertilizer, remove and destroy stubble and weed hosts, and avoid late planting. Maintain optimal water level, flood the field, encourage natural enemies like parasitic wasps and predators, and spray neem-based pesticide azadirachtin 5% at 80 ml in 100 liters of water at the early stage. If the field shows more than 5% dead heart symptoms, insecticide application is recommended. The recommended insecticides for controlling stem borer in paddy are Chlorantraniliprole 18.5 SC at 60 ml per acre in 150-200 liters of water (PHI 47 days), Flubendiamide 39.35% SC at 20 ml in 150-200 liters of water (PHI 40 days), or Flubendiamide 20 WG at 60 grams per acre in 150-200 liters of water (PHI 30 days). Rotate chlorantraniliprole with flubendiamide to prevent resistance. Always spray during early morning and late afternoon. Best Practices: For optimal results, spray during early morning or late evening hours when temperatures are cooler and wind speed is low. Ensure complete coverage of plant bases. Always wear protective equipment during pesticide application. Rotate different chemical groups to prevent pest resistance development. Maintain proper water levels in the field during and after application.",
       "thoughtSteps": [
-        { "action": "detect_market_price_request" },
-        { "action": "identify_required_location_context" },
-        { "action": "prepare_price_lookup_guidance" }
-      ],
+            { "action": "Ran upload_question_to_reviewer_system" },
+            { "action": "Ran get_context_from_reviewer_dataset" },
+            { "action": "Ran get_context_from_golden_dataset" },
+            { "action": "Ran get_context_from_package_of_practices" }
+          ],
       "thoughtSummary": "Now let me outline how to check the right potato price:"
     },
     {
-      "prompt": "What is the weather forecast for my farm?",
-      "reply": "A useful farm forecast should include rainfall chance, temperature range, wind, and humidity for the next few days. Since the exact forecast depends on your location, use your village or district in a weather source and plan irrigation, spraying, and harvesting around rain and wind windows.",
+      "prompt": "How to control termites in wheat?",
+      "reply": "Termites are a major pest in wheat cultivation. Termites attack the crop soon after sowing as well as near maturity. Affected plants dry up completely and can be easily pulled out of the soil. When termite damage occurs at later growth stages, the affected tillers often produce white, empty earheads. To control this pest, an Integrated Pest Management (IPM) approach combining cultural and chemical methods is recommended. Avoid late sowing of crops. Treat the seed by diluting 40 g of Thiamethoxam 70 WS or 160 mL of Chlorpyriphos 20 EC or 80 mL of Imidacloprid 18.50% + Hexaconazole 01.50% FS in 1 litre of water. Spray this solution evenly over 40 kg of seed spread in a thin layer on a pucca floor, tarpaulin, or polythene sheet. Seed treated with Imidacloprid + Hexaconazole 20 FS also helps control wheat smuts. Insecticide-treated seed is less prone to bird damage. Termite infestation is usually more severe in sandy soils; providing irrigation in affected fields helps reduce termite damage to some extent. Apply well-rotted farmyard manure to discourage termites in the field. In case of severe termite infestation, broadcast 7-8 kg Fipronil 0.3 GR (PHI 91 days) or 1.2 litres Chlorpyriphos 20 EC per acre. Mix the insecticide thoroughly with 20 kg of moist sand and apply it before the first irrigation for effective control.",
       "thoughtSteps": [
-        { "action": "detect_weather_forecast_request" },
-        { "action": "identify_missing_location_details" },
-        { "action": "prepare_farm_planning_advice" }
-      ],
+            { "action": "Ran upload_question_to_reviewer_system" },
+            { "action": "Ran get_context_from_reviewer_dataset" },
+            { "action": "Ran get_context_from_golden_dataset" },
+            { "action": "Ran get_context_from_package_of_practices" }
+          ],
       "thoughtSummary": "Now let me frame the forecast details that matter for farm work:"
     },
     {
-      "prompt": "What are the best fertilizers for coconut farming?",
-      "reply": "For coconut, fertilizer choice depends on palm age and soil status, but a balanced program usually includes nitrogen, phosphorus, potassium, and organic matter like compost or farmyard manure. Split applications around the basin, keep nutrients away from the trunk, and use soil-test guidance whenever possible.",
+      "prompt": "How to control BPH - brown plant hopper in Paddy?",
+      "reply": "Brown Plant Hopper is a highly destructive sap-sucking pest of the rice crop. This insect hides at the lower part of the plant (leaf sheath) and sucks sap from there. Both nymphs (young stages) and adults cause damage. Due to continuous sap sucking, the plant does not get proper nutrition; first the leaves turn yellow, then the plants wilt and finally dry up. The pest does not remain confined to one place—when plants dry, it migrates to nearby healthy plants. As a result, circular or patchy dried areas appear in the field, commonly known by farmers as “hopper burn.” Under severe infestation, the entire field may look scorched, grain filling is poor, and heavy yield loss occurs. The infestation of brown plant hopper usually starts 25–30 days after transplanting and increases rapidly in fields with excess nitrogen fertilization, continuous water stagnation, and dense crop growth. For identification, 2–3 plants should be slightly tilted and tapped near the base. If five or more hoppers per plant are seen floating on the water, it is considered the economic threshold level (ETL) and immediate control is required. For effective management, Flupyrimin 10 SC is a reliable insecticide. It should be sprayed @ 300 ml per acre, PHI-7 days diluted in 100 litres of water. You can also use other reliable options such as dinotefuran 20 SG @ 80 g per acre, PHI-21 days or flonicamid 50 WG @ 60 g per acre, PHI-36 days in 100 liters of water. At initial infestation stage, you can also use azadirachtin 5% @ 80 ml per acre in 100 liters of water. The spray must be directed towards the base of the plants, as this is the main hiding and feeding site of the pest. Timely and proper application of this insecticide effectively checks brown plant hopper infestation and protects the rice crop from hopper burn. Farmers should also avoid excessive nitrogen application, prevent unnecessary water stagnation in the field, and regularly monitor the crop to manage this pest effectively and in time.",
       "thoughtSteps": [
-        { "action": "identify_coconut_nutrition_query" },
-        { "action": "fetch_balanced_fertilizer_guidance" },
-        { "action": "summarize_application_recommendations" }
-      ],
+            { "action": "Ran upload_question_to_reviewer_system" },
+            { "action": "Ran get_context_from_reviewer_dataset" },
+            { "action": "Ran get_context_from_golden_dataset" },
+            { "action": "Ran get_context_from_package_of_practices" }
+          ],
       "thoughtSummary": "Now let me summarize a balanced fertilizer plan for coconut:"
     },
     {
-      "prompt": "How to control pests in vegetable crops?",
-      "reply": "Use integrated pest management for vegetables: inspect fields regularly, remove badly affected plant parts, use sticky traps where appropriate, encourage beneficial insects, and spray only when the pest crosses an economic threshold. Rotating crops and avoiding repeated use of the same pesticide group also helps prevent resistance.",
+      "prompt": "How to control dwarf disease in paddy",
+      "reply": "Rice stunted virus, particularly the Southern Rice Black-Streaked Dwarf Virus (SRBSDV), is a serious viral disease that affects paddy crops and requires a comprehensive integrated management approach. This disease is transmitted by the white-backed planthopper (Sogatella furcifera), making vector control a critical component of disease management. For effective control, you should adopt the following multidimensional strategy: Vector Management: The primary focus should be on controlling the white-backed planthopper population. Monitor your fields regularly, especially during the early crop stages in July (Kharif season). Apply neem-based bio-pesticide like Azadirachtin 5% @ 80 ml in 100 liters of water at the early stages. If infestation exceeds economic threshold (5-10 hoppers per hill), spray Triflumezopyrim 10 SC @ 95 ml per acre, or Dinotefuran 70% WG @ 35 g per acre, or Pymetrozine 50% WG @ 120 g per acre. Use 150–200 litres of water per acre. Resistant Varieties: Plant virus-resistant or tolerant rice varieties recommended for Punjab conditions. Consult your local agriculture department or Krishi Vigyan Kendra for the latest resistant varieties suitable for the Sangrur district. Using certified seeds from authorised sources ensures better disease resistance. Cultural Practices: Optimize your planting time, avoid very late transplanting, which increases vulnerability to virus infection. Maintain proper plant spacing (15-20 cm or 20-15 cm) to improve air circulation and reduce planthopper habitat. Remove and destroy infected plants immediately to prevent virus spread. Keep field bunds and surrounding areas clean by removing alternate host plants and weeds that harbour planthoppers. Field Sanitation: Practice crop rotation where possible and avoid continuous paddy cultivation. Ensure proper water management, avoid water stress as it increases plant susceptibility. Use balanced fertilization, avoiding excessive nitrogen, which promotes lush growth attractive to planthoppers. Early Detection: Regular field monitoring is essential. Look for symptoms like stunted growth, dark green leaves, reduced tillering, and shortened internodes. Early detection allows for timely intervention and prevents widespread infection. Coordinate with neighbouring farmers for area-wide vector management, as planthoppers can migrate between fields. Following these integrated practices will significantly reduce the incidence and severity of rice stunting virus in your paddy crop.",
       "thoughtSteps": [
-        { "action": "identify_vegetable_pest_control_intent" },
-        { "action": "fetch_ipm_recommendations" },
-        { "action": "prepare_prevention_and_control_steps" }
-      ],
+            { "action": "Ran upload_question_to_reviewer_system" },
+            { "action": "Ran get_context_from_reviewer_dataset" },
+            { "action": "Ran get_context_from_golden_dataset" },
+            { "action": "Ran get_context_from_package_of_practices" }
+          ],
       "thoughtSummary": "Now let me share the core pest control approach for vegetables:"
     }
   ],
@@ -77,8 +83,10 @@
           "role": "bot",
           "content": "Paddy should be harvested when 80-85% of the grains turn golden yellow. Ensure moisture content is around 20-25% to avoid grain breakage. Timely harvesting improves yield and quality.",
           "thoughtSteps": [
-            { "action": "fetch_historical_context" },
-            { "action": "analyze_farming_topic" }
+            { "action": "Ran upload_question_to_reviewer_system" },
+            { "action": "Ran get_context_from_reviewer_dataset" },
+            { "action": "Ran get_context_from_golden_dataset" },
+            { "action": "Ran get_context_from_package_of_practices" }
           ],
           "thoughtSummary": "Fetching past insights based on your query:"
         }
@@ -99,8 +107,10 @@
           "role": "bot",
           "content": "Rice blast disease can be controlled by using resistant varieties and applying fungicides like Tricyclazole. Maintain proper spacing and avoid excess nitrogen fertilizer.",
           "thoughtSteps": [
-            { "action": "fetch_historical_context" },
-            { "action": "analyze_farming_topic" }
+            { "action": "Ran upload_question_to_reviewer_system" },
+            { "action": "Ran get_context_from_reviewer_dataset" },
+            { "action": "Ran get_context_from_golden_dataset" },
+            { "action": "Ran get_context_from_package_of_practices" }
           ],
           "thoughtSummary": "Fetching past insights based on your query:"
         }
@@ -121,8 +131,10 @@
           "role": "bot",
           "content": "For paddy, apply a balanced dose of NPK (Nitrogen, Phosphorus, Potassium). Split nitrogen application into stages-baseline, tillering, and panicle initiation-for best results.",
           "thoughtSteps": [
-            { "action": "fetch_historical_context" },
-            { "action": "analyze_farming_topic" }
+            { "action": "Ran upload_question_to_reviewer_system" },
+            { "action": "Ran get_context_from_reviewer_dataset" },
+            { "action": "Ran get_context_from_golden_dataset" },
+            { "action": "Ran get_context_from_package_of_practices" }
           ],
           "thoughtSummary": "Fetching past insights based on your query:"
         }
@@ -143,8 +155,10 @@
           "role": "bot",
           "content": "Improving soil NPK levels can be done by adding organic compost, green manure, and balanced fertilizers. Soil testing is recommended before application.",
           "thoughtSteps": [
-            { "action": "fetch_historical_context" },
-            { "action": "analyze_farming_topic" }
+            { "action": "Ran upload_question_to_reviewer_system" },
+            { "action": "Ran get_context_from_reviewer_dataset" },
+            { "action": "Ran get_context_from_golden_dataset" },
+            { "action": "Ran get_context_from_package_of_practices" }
           ],
           "thoughtSummary": "Fetching past insights based on your query:"
         }
@@ -165,8 +179,10 @@
           "role": "bot",
           "content": "Yellowing in wheat may be due to nitrogen deficiency or fungal infection. Apply urea if deficiency is confirmed, and ensure proper drainage to prevent disease.",
           "thoughtSteps": [
-            { "action": "fetch_historical_context" },
-            { "action": "analyze_farming_topic" }
+            { "action": "Ran upload_question_to_reviewer_system" },
+            { "action": "Ran get_context_from_reviewer_dataset" },
+            { "action": "Ran get_context_from_golden_dataset" },
+            { "action": "Ran get_context_from_package_of_practices" }
           ],
           "thoughtSummary": "Fetching past insights based on your query:"
         }
@@ -187,8 +203,10 @@
           "role": "bot",
           "content": "Organic farming involves using natural inputs like compost, vermicompost, and biofertilizers. Crop rotation and biological pest control are key practices.",
           "thoughtSteps": [
-            { "action": "fetch_historical_context" },
-            { "action": "analyze_farming_topic" }
+            { "action": "Ran upload_question_to_reviewer_system" },
+            { "action": "Ran get_context_from_reviewer_dataset" },
+            { "action": "Ran get_context_from_golden_dataset" },
+            { "action": "Ran get_context_from_package_of_practices" }
           ],
           "thoughtSummary": "Fetching past insights based on your query:"
         }
@@ -209,8 +227,10 @@
           "role": "bot",
           "content": "Weather plays a crucial role in farming. Monitor rainfall and temperature regularly to plan irrigation, fertilization, and harvesting activities effectively.",
           "thoughtSteps": [
-            { "action": "fetch_historical_context" },
-            { "action": "analyze_farming_topic" }
+            { "action": "Ran upload_question_to_reviewer_system" },
+            { "action": "Ran get_context_from_reviewer_dataset" },
+            { "action": "Ran get_context_from_golden_dataset" },
+            { "action": "Ran get_context_from_package_of_practices" }
           ],
           "thoughtSummary": "Fetching past insights based on your query:"
         }
@@ -231,8 +251,10 @@
           "role": "bot",
           "content": "Market prices vary by mandi and quality. It is advisable to check nearby markets or government portals like Agmarknet for real-time pricing before selling.",
           "thoughtSteps": [
-            { "action": "fetch_historical_context" },
-            { "action": "analyze_farming_topic" }
+            { "action": "Ran upload_question_to_reviewer_system" },
+            { "action": "Ran get_context_from_reviewer_dataset" },
+            { "action": "Ran get_context_from_golden_dataset" },
+            { "action": "Ran get_context_from_package_of_practices" }
           ],
           "thoughtSummary": "Fetching past insights based on your query:"
         }
@@ -253,8 +275,10 @@
           "role": "bot",
           "content": "Crop rotation improves soil fertility and reduces pests. Rotating legumes with cereals helps fix nitrogen and improves overall yield.",
           "thoughtSteps": [
-            { "action": "fetch_historical_context" },
-            { "action": "analyze_farming_topic" }
+            { "action": "Ran upload_question_to_reviewer_system" },
+            { "action": "Ran get_context_from_reviewer_dataset" },
+            { "action": "Ran get_context_from_golden_dataset" },
+            { "action": "Ran get_context_from_package_of_practices" }
           ],
           "thoughtSummary": "Fetching past insights based on your query:"
         }
