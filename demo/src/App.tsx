@@ -24,6 +24,10 @@ import {
 import chatData from "./data/index.json";
 
 type Role = "user" | "bot";
+interface SourceItem {
+  name: string;
+  url: string;
+}
 
 interface ThoughtStep {
   action: string;
@@ -39,6 +43,8 @@ interface Message {
   stages?: string[];
   currentStage?: number;
   isLoading?: boolean;
+  reviewerName?: string;
+  sources?: SourceItem[];
 }
 
 interface ChatHistoryItem {
@@ -54,6 +60,8 @@ interface HistoryChatRecord extends ChatHistoryItem {
 interface SuggestionRecord {
   prompt: string;
   reply: string;
+  reviewerName?: string;
+  sources?: SourceItem[];
   thoughtSteps: ThoughtStep[];
   thoughtSummary: string;
 }
@@ -249,6 +257,8 @@ export default function App() {
     let thoughtSteps: ThoughtStep[] = [];
     let thoughtSummary = "";
     let botResponse = "";
+    let reviewerName = "";
+    let sources: SourceItem[] = [];
 
     const matchedSuggestion = SUGGESTION_RESPONSES[text];
 
@@ -256,6 +266,8 @@ export default function App() {
       botResponse = matchedSuggestion.reply;
       thoughtSteps = matchedSuggestion.thoughtSteps;
       thoughtSummary = matchedSuggestion.thoughtSummary;
+      reviewerName = matchedSuggestion.reviewerName || "";
+      sources = matchedSuggestion.sources || [];
     } else if (text.toLowerCase().includes("hi") || text.toLowerCase().includes("hello")) {
       botResponse =
         "Hello! How can I assist you today? I'm here to help with agriculture-related queries in India. Whether it's about crops, soil, pests, or farming techniques, feel free to ask.";
@@ -284,6 +296,8 @@ export default function App() {
       thoughtSteps,
       currentStage: 0,
       isLoading: true,
+      reviewerName,
+      sources,
     };
 
     const messagesWithLoader = [...newMessages, loadingBotMsg];
@@ -315,6 +329,8 @@ export default function App() {
                 content: botResponse,
                 thoughtSummary,
                 isLoading: false,
+                reviewerName,
+                sources,
               }
             : msg,
         );
@@ -630,7 +646,56 @@ export default function App() {
                               ))}
                             </div>
                           )}
+                          {/* ========================= */}
+{/* ✅ NEW: REVIEWER + SOURCE TABLE */}
+{/* ========================= */}
+{!msg.isLoading && (msg.reviewerName || msg.sources?.length) && (
+  <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-[#2f2f2f] dark:bg-[#1e1e1e]">
+    
+    <h3 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
+      The answer I provided is sourced only from the following approved materials:
+    </h3>
 
+    <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-[#2f2f2f]">
+      
+      {/* HEADER */}
+      <div className="grid grid-cols-2 bg-gray-200 text-sm font-semibold dark:bg-[#2a2a2a]">
+        <div className="p-2">Agri Specialist Name</div>
+        <div className="p-2">Source Link</div>
+      </div>
+
+      {/* CONTENT */}
+      <div className="grid grid-cols-2 text-sm">
+        
+        {/* Reviewer */}
+        <div className="p-2 border-t dark:border-[#2f2f2f]">
+          {msg.reviewerName || "-"}
+        </div>
+
+        {/* Sources */}
+        <div className="p-2 border-t dark:border-[#2f2f2f] flex flex-wrap gap-2">
+          
+          {msg.sources && msg.sources.length > 0 ? (
+            msg.sources.map((src, i) => (
+              <a
+                key={i}
+                href={src.url}                 // ✅ LINK
+                target="_blank"               // ✅ NEW TAB
+                rel="noopener noreferrer"     // ✅ SECURITY BEST PRACTICE
+                className="text-blue-600 underline hover:text-blue-800 dark:text-blue-400"
+              >
+                {src.name}
+              </a>
+            ))
+          ) : (
+            "-"
+          )}
+
+        </div>
+      </div>
+    </div>
+  </div>
+)}
                           <div className="mt-3 flex items-center gap-1">
                             {[
                               Volume2,
