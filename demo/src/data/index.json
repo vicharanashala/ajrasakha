@@ -16,7 +16,7 @@
             { "action": "Ran get_context_from_golden_dataset" },
             { "action": "Ran get_context_from_package_of_practices" }
           ],
-      "thoughtSummary": "Now let me share the key wheat farming practices:"
+      "thoughtSummary": "Now let me share the key Maize farming practices:"
     },
     {
       "prompt": "What causes reddening of maize leaves and how can it be managed?",
@@ -60,7 +60,7 @@
             { "action": "Ran get_context_from_golden_dataset" },
             { "action": "Ran get_context_from_package_of_practices" }
           ],
-      "thoughtSummary": "Now let me outline how to check the right potato price:"
+      "thoughtSummary": "Now let me share the key Maize farming practices:"
     },
     {
       "prompt": "How to control Gulli Danda (wild grass) weed in maize crop?",
@@ -78,7 +78,7 @@
             { "action": "Ran get_context_from_golden_dataset" },
             { "action": "Ran get_context_from_package_of_practices" }
           ],
-      "thoughtSummary": "Now let me frame the forecast details that matter for farm work:"
+      "thoughtSummary": "Now let me share the key Maize farming practices:"
     },
     {
       "prompt": "How to control jassids and semilooper in maize crop?",
@@ -104,7 +104,7 @@
             { "action": "Ran get_context_from_golden_dataset" },
             { "action": "Ran get_context_from_package_of_practices" }
           ],
-      "thoughtSummary": "Now let me summarize a balanced fertilizer plan for coconut:"
+      "thoughtSummary": "Now let me share the key Maize farming practices:"
     }
   ],
   "history": []
