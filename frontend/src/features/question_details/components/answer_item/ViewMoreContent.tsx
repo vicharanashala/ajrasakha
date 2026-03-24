@@ -176,36 +176,40 @@ export const ViewMoreContent = ({
             {sortSources(answer.sources).map((source, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between rounded-lg border bg-muted/30 p-2 pr-3"
+                className="grid grid-cols-[minmax(100px,auto)_1fr_auto_auto] items-center gap-10 rounded-lg border bg-muted/30 p-3"
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  {source.sourceType && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20 flex-shrink-0">
-                      {getSourceBadgeLabel(source)}
+                {/* Column 1: Source Type Badge */}
+                {source.sourceType ? (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap">
+                    {getSourceBadgeLabel(source)}
+                  </span>
+                ) : (
+                  <span />
+                )}
+
+                {/* Column 2: Link */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className="text-sm truncate text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                      onClick={() => window.open(source.source, "_blank")}
+                    >
+                      {source.source}
                     </span>
-                  )}
+                  </TooltipTrigger>
+                  <TooltipContent>{source.source}</TooltipContent>
+                </Tooltip>
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span
-                        className="text-sm truncate max-w-[260px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                        onClick={() => window.open(source.source, "_blank")}
-                      >
-                        {source.source}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>{source.source}</TooltipContent>
-                  </Tooltip>
+                {/* Column 3: Page Number */}
+                {source.page ? (
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    pg {source.page}
+                  </span>
+                ) : (
+                  <span />
+                )}
 
-                  {source.page && (
-                    <>
-                      <span className="text-muted-foreground">•</span>
-                      <span className="text-xs text-muted-foreground">
-                        page {source.page}
-                      </span>
-                    </>
-                  )}
-                </div>
+                {/* Column 4: Arrow */}
                 <a
                   href={source.source}
                   target="_blank"

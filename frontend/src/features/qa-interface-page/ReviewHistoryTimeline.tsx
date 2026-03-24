@@ -464,35 +464,37 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                                               (source: any, idx: number) => (
                                                 <div
                                                   key={idx}
-                                                  className="flex items-center justify-between gap-2 p-3 border rounded-md hover:bg-muted/40 transition-colors text-sm"
+                                                  className="grid grid-cols-[minmax(100px,auto)_1fr_auto_auto] items-center gap-10 p-3 border rounded-md hover:bg-muted/40 transition-colors text-sm"
                                                 >
-                                                  {source.sourceType && (
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20 flex-shrink-0">
+                                                  {/* Column 1: Source Type Badge */}
+                                                  {source.sourceType ? (
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap">
                                                       {getSourceBadgeLabel(source)}
                                                     </span>
+                                                  ) : (
+                                                    <span />
                                                   )}
+
+                                                  {/* Column 2: Link */}
                                                   <a
                                                     href={source.source}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="text-blue-600 dark:text-blue-400 break-all inline-flex items-center gap-1 hover:underline text-sm"
+                                                    className="text-blue-600 dark:text-blue-400 truncate hover:underline text-sm"
                                                   >
-                                                    <span className="line-clamp-2">
-                                                      {source.source}
-                                                    </span>
-
-                                                    {source.page && (
-                                                      <>
-                                                        <span className="text-muted-foreground flex-shrink-0">
-                                                          •
-                                                        </span>
-                                                        <span className="text-muted-foreground flex-shrink-0">
-                                                          p{source.page}
-                                                        </span>
-                                                      </>
-                                                    )}
+                                                    {source.source}
                                                   </a>
 
+                                                  {/* Column 3: Page Number */}
+                                                  {source.page ? (
+                                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                                      pg {source.page}
+                                                    </span>
+                                                  ) : (
+                                                    <span />
+                                                  )}
+
+                                                  {/* Column 4: Copy Button */}
                                                   <button
                                                     onClick={() =>
                                                       handleCopy(

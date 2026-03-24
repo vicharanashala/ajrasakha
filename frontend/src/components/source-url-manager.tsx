@@ -178,30 +178,38 @@ export const SourceUrlManager = ({
               {sources.map((item, idx) => (
                 <div
                   key={idx}
-                  className="group inline-flex items-center gap-2 px-3 py-1.5 bg-tag border border-tag-border rounded-lg text-sm text-tag-foreground hover:bg-tag-hover transition-colors"
+                  className="grid grid-cols-[minmax(100px,auto)_1fr_auto_auto] items-center gap-10 px-3 py-2 bg-tag border border-tag-border rounded-lg text-sm text-tag-foreground hover:bg-tag-hover transition-colors"
                 >
-                  {item.sourceType && (
-                    <span className="shrink-0 px-1.5 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary">
-                      {SOURCE_TYPE_LABELS[item.sourceType] || item.sourceType}
+                  {/* Column 1: Source Type Badge */}
+                  {item.sourceType ? (
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap">
+                      {item.sourceType === 'other' && item.sourceName && item.sourceName.toLowerCase() !== 'other'
+                        ? `Other: ${item.sourceName}`
+                        : SOURCE_TYPE_LABELS[item.sourceType] || item.sourceType}
                     </span>
+                  ) : (
+                    <span />
                   )}
-                  {item.sourceName && (
-                    <span className="font-medium truncate max-w-[120px]" title={item.sourceName}>
-                      {item.sourceName}
-                    </span>
-                  )}
-                  <span className="max-w-[200px] truncate" title={item.source}>
+
+                  {/* Column 2: Link */}
+                  <span className="truncate" title={item.source}>
                     {item.source}
                   </span>
-                  {item.page && (
-                    <span className="text-xs text-muted-foreground">
-                      (p.{item.page})
+
+                  {/* Column 3: Page Number */}
+                  {item.page ? (
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      pg {item.page}
                     </span>
+                  ) : (
+                    <span />
                   )}
+
+                  {/* Column 4: Remove Button */}
                   <button
                     type="button"
                     onClick={() => removeSource(idx)}
-                    className="flex-shrink-0 ml-auto text-tag-foreground/60 hover:text-tag-foreground transition-colors"
+                    className="flex-shrink-0 text-tag-foreground/60 hover:text-tag-foreground transition-colors"
                     aria-label="Remove source"
                   >
                     <X className="h-3.5 w-3.5" />
