@@ -1,5 +1,24 @@
 // components/ViewMoreContent.tsx
-import type { IAnswer, ISubmissionHistory, QuestionStatus } from "@/types";
+import type { IAnswer, ISubmissionHistory, QuestionStatus, SourceItem } from "@/types";
+
+const sourceTypeOrder: Record<string, number> = {
+  hyper_local: 0, state: 1, central: 2, other: 3,
+};
+
+const sortSources = (sources: SourceItem[]) =>
+  [...sources].sort((a, b) => {
+    const orderA = sourceTypeOrder[a.sourceType || ""] ?? 99;
+    const orderB = sourceTypeOrder[b.sourceType || ""] ?? 99;
+    return orderA - orderB;
+  });
+
+const getSourceBadgeLabel = (source: SourceItem) => {
+  const label = source.sourceType === 'hyper_local' ? 'Hyper Local' : source.sourceType === 'state' ? 'State' : source.sourceType === 'central' ? 'Central' : 'Other';
+  if (source.sourceType === 'other' && source.sourceName && source.sourceName.toLowerCase() !== 'other') {
+    return `${label}: ${source.sourceName}`;
+  }
+  return label;
+};
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Badge } from "@/components/atoms/badge";
 import { XCircle, Clock, AlertCircle, ArrowUpRight } from "lucide-react";
@@ -154,12 +173,18 @@ export const ViewMoreContent = ({
             Source URLs
           </p>
           <div className="space-y-2">
-            {answer.sources.map((source, idx) => (
+            {sortSources(answer.sources).map((source, idx) => (
               <div
                 key={idx}
                 className="flex items-center justify-between rounded-lg border bg-muted/30 p-2 pr-3"
               >
                 <div className="flex items-center gap-2 min-w-0">
+                  {source.sourceType && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20 flex-shrink-0">
+                      {getSourceBadgeLabel(source)}
+                    </span>
+                  )}
+
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span
