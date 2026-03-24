@@ -105,28 +105,6 @@
             { "action": "Ran get_context_from_package_of_practices" }
           ],
       "thoughtSummary": "Now let me summarize a balanced fertilizer plan for coconut:"
-    },
-    {
-      "prompt": "How to control dwarf disease in paddy",
-      "reply": "Rice stunted virus, particularly the Southern Rice Black-Streaked Dwarf Virus (SRBSDV), is a serious viral disease that affects paddy crops and requires a comprehensive integrated management approach. This disease is transmitted by the white-backed planthopper (Sogatella furcifera), making vector control a critical component of disease management. For effective control, you should adopt the following multidimensional strategy: Vector Management: The primary focus should be on controlling the white-backed planthopper population. Monitor your fields regularly, especially during the early crop stages in July (Kharif season). Apply neem-based bio-pesticide like Azadirachtin 5% @ 80 ml in 100 liters of water at the early stages. If infestation exceeds economic threshold (5-10 hoppers per hill), spray Triflumezopyrim 10 SC @ 95 ml per acre, or Dinotefuran 70% WG @ 35 g per acre, or Pymetrozine 50% WG @ 120 g per acre. Use 150–200 litres of water per acre. Resistant Varieties: Plant virus-resistant or tolerant rice varieties recommended for Punjab conditions. Consult your local agriculture department or Krishi Vigyan Kendra for the latest resistant varieties suitable for the Sangrur district. Using certified seeds from authorised sources ensures better disease resistance. Cultural Practices: Optimize your planting time, avoid very late transplanting, which increases vulnerability to virus infection. Maintain proper plant spacing (15-20 cm or 20-15 cm) to improve air circulation and reduce planthopper habitat. Remove and destroy infected plants immediately to prevent virus spread. Keep field bunds and surrounding areas clean by removing alternate host plants and weeds that harbour planthoppers. Field Sanitation: Practice crop rotation where possible and avoid continuous paddy cultivation. Ensure proper water management, avoid water stress as it increases plant susceptibility. Use balanced fertilization, avoiding excessive nitrogen, which promotes lush growth attractive to planthoppers. Early Detection: Regular field monitoring is essential. Look for symptoms like stunted growth, dark green leaves, reduced tillering, and shortened internodes. Early detection allows for timely intervention and prevents widespread infection. Coordinate with neighbouring farmers for area-wide vector management, as planthoppers can migrate between fields. Following these integrated practices will significantly reduce the incidence and severity of rice stunting virus in your paddy crop.",
-       "reviewerName": ["Rohan Chand","Khaja Suhaib","Shivendra Pratap","Jayashree N","Rajwant Kaur","Salim Sahaji"],
-  "sources": [
-    {
-      "name": "Package of Practices for Crops of Punjab Kharif 2025_Punjab Agriculture University, Ludhiana",
-      "url": "https://workdrive.zoho.in/file/zu51z4ee271ba7a4f4d05a7e266091f2608aa"
-    },
-    {
-      "name": "Advisory for stunted Growth of Paddy Crop_Indian Counsil of Agricultural Research",
-      "url": "https://workdrive.zoho.in/file/mp021ac112f57db8f4bc3a4e8a077facb54ce"
-    }
-  ],
-      "thoughtSteps": [
-            { "action": "Ran upload_question_to_reviewer_system" },
-            { "action": "Ran get_context_from_reviewer_dataset" },
-            { "action": "Ran get_context_from_golden_dataset" },
-            { "action": "Ran get_context_from_package_of_practices" }
-          ],
-      "thoughtSummary": "Now let me share the core pest control approach for vegetables:"
     }
   ],
   "history": []
