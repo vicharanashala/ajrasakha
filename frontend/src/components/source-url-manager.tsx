@@ -40,6 +40,7 @@ export const SourceUrlManager = ({
   const [selectedType, setSelectedType] = useState<SourceType | "">("");
   const [sourceName, setSourceName] = useState("");
   const [urlInput, setUrlInput] = useState("");
+  const [pageInput, setPageInput] = useState("");
 
   const addSource = () => {
     if (!selectedType) {
@@ -53,6 +54,8 @@ export const SourceUrlManager = ({
     }
 
     const trimmedUrl = urlInput.trim();
+    const pageNum = pageInput ? Number(pageInput) : undefined;
+
     try {
       new URL(trimmedUrl);
     } catch {
@@ -60,10 +63,16 @@ export const SourceUrlManager = ({
       return;
     }
 
+    if (pageNum !== undefined && (isNaN(pageNum) || pageNum < 1)) {
+      toast.error("Please enter a valid page number (1 or greater).");
+      return;
+    }
+
     const exists = sources.some(
       (item) =>
         item.sourceType === selectedType &&
-        item.source === trimmedUrl
+        item.source === trimmedUrl &&
+        item.page === pageNum
     );
     if (exists) {
       toast.error("This source already exists.");
@@ -76,11 +85,13 @@ export const SourceUrlManager = ({
         sourceType: selectedType,
         sourceName: selectedType === "other" ? sourceName.trim() : undefined,
         source: trimmedUrl,
+        page: pageNum,
       },
     ]);
     setSelectedType("");
     setSourceName("");
     setUrlInput("");
+    setPageInput("");
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -139,6 +150,15 @@ export const SourceUrlManager = ({
                 onChange={(e) => setUrlInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 className="flex-1"
+              />
+              <Input
+                type="number"
+                placeholder="Page"
+                value={pageInput}
+                onChange={(e) => setPageInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="w-24"
+                min={1}
               />
               <button
                 type="button"
