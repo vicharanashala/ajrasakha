@@ -5,6 +5,25 @@ import type {
   SourceItem,
   QuestionRerouteRepo
 } from "@/types";
+
+const sourceTypeOrder: Record<string, number> = {
+  hyper_local: 0, state: 1, central: 2, other: 3,
+};
+
+const sortSources = (sources: SourceItem[]) =>
+  [...sources].sort((a, b) => {
+    const orderA = sourceTypeOrder[a.sourceType || ""] ?? 99;
+    const orderB = sourceTypeOrder[b.sourceType || ""] ?? 99;
+    return orderA - orderB;
+  });
+
+const getSourceBadgeLabel = (source: SourceItem) => {
+  const label = source.sourceType === 'hyper_local' ? 'Hyper Local' : source.sourceType === 'state' ? 'State' : source.sourceType === 'central' ? 'Central' : 'Other';
+  if (source.sourceType === 'other' && source.sourceName && source.sourceName.toLowerCase() !== 'other') {
+    return `${label}: ${source.sourceName}`;
+  }
+  return label;
+};
 import { Textarea } from "../../components/atoms/textarea";
 import {
   Accordion,
@@ -441,12 +460,17 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                                           </p>
 
                                           <div className="space-y-2">
-                                            {item.answer.sources.map(
+                                            {sortSources(item.answer.sources).map(
                                               (source: any, idx: number) => (
                                                 <div
                                                   key={idx}
                                                   className="flex items-center justify-between gap-2 p-3 border rounded-md hover:bg-muted/40 transition-colors text-sm"
                                                 >
+                                                  {source.sourceType && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20 flex-shrink-0">
+                                                      {getSourceBadgeLabel(source)}
+                                                    </span>
+                                                  )}
                                                   <a
                                                     href={source.source}
                                                     target="_blank"
