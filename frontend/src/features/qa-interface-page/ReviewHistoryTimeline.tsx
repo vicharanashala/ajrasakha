@@ -239,6 +239,8 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
         const modification = item.review?.answer?.modifications?.find(
           (mod) => mod.modifiedBy === item.updatedBy._id
         );
+         
+  const answerKey = item.answer?._id?.toString() ?? `idx-${index}`;
         return (
           <div key={item.updatedBy?._id + index} className="relative">
             {!isFirst && (
@@ -566,7 +568,7 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                             {/* ANSWER BOX */}
                             <div 
                               className={`p-5 rounded-md border bg-card/50 text-sm relative transition-all duration-300 mt-2 ${
-                                expandedAnswers[item.answer._id?.toString() || index] ? "" : "max-h-64 overflow-y-hidden"
+                                expandedAnswers[item.answer._id?.toString() || index] ? "max-h-[500px] overflow-y-auto" : "max-h-64 overflow-y-hidden"
                               }`}
                             >
                               <div 
@@ -582,11 +584,18 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                                   }
                                 }}
                               >
-                                <ExpandableText
-                                  text={item.answer.answer}
-                                  maxLength={400} // adjust this number to show more/less text initially
-                                />
-                              </div>
+                               <ExpandableText
+                                text={item.answer.answer}
+                                maxLength={400}
+                                isExpanded={!!expandedAnswers[answerKey]}
+                                onToggle={() => {
+                                  setExpandedAnswers(prev => ({
+                                    ...prev,
+                                    [answerKey]: !prev[answerKey],
+                                  }));
+                                }}
+                              />
+                                                            </div>
                             </div>
                           </div>
                         </div>
