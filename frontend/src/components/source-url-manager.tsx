@@ -176,14 +176,17 @@ export const SourceUrlManager = ({
               {sources.map((item, idx) => (
                 <div
                   key={idx}
-                  className="grid grid-cols-[minmax(100px,auto)_1fr_auto_auto] items-center gap-10 px-3 py-2 bg-tag border border-tag-border rounded-lg text-sm text-tag-foreground hover:bg-tag-hover transition-colors"
+                  className="grid grid-cols-[140px_1fr_auto_auto] items-center gap-6 px-3 py-2 bg-tag border border-tag-border rounded-lg text-sm text-tag-foreground hover:bg-tag-hover transition-colors"
                 >
                   {/* Column 1: Source Type Badge */}
                   {item.sourceType ? (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap">
-                      {item.sourceType === 'other' && item.sourceName && item.sourceName.toLowerCase() !== 'other'
-                        ? `Other: ${item.sourceName}`
-                        : SOURCE_TYPE_LABELS[item.sourceType] || item.sourceType}
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap overflow-x-auto">
+                      {(() => {
+                        const label = SOURCE_TYPE_LABELS[item.sourceType!] || item.sourceType;
+                        return item.sourceName && item.sourceName.toLowerCase() !== (label || '').toLowerCase()
+                          ? `${label}: ${item.sourceName}`
+                          : label;
+                      })()}
                     </span>
                   ) : (
                     <span />
