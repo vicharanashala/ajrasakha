@@ -14,7 +14,7 @@ const sortSources = (sources: SourceItem[]) =>
 
 const getSourceBadgeLabel = (source: SourceItem) => {
   const label = source.sourceType === 'hyper_local' ? 'Hyper Local' : source.sourceType === 'state' ? 'State' : source.sourceType === 'central' ? 'Central' : 'Other';
-  if (source.sourceType === 'other' && source.sourceName && source.sourceName.toLowerCase() !== 'other') {
+  if (source.sourceName && source.sourceName.toLowerCase() !== label.toLowerCase()) {
     return `${label}: ${source.sourceName}`;
   }
   return label;
@@ -176,11 +176,11 @@ export const ViewMoreContent = ({
             {sortSources(answer.sources).map((source, idx) => (
               <div
                 key={idx}
-                className="grid grid-cols-[minmax(100px,auto)_1fr_auto_auto] items-center gap-10 rounded-lg border bg-muted/30 p-3"
+                className="grid grid-cols-[140px_1fr_auto_auto] items-center gap-6 rounded-lg border bg-muted/30 p-3"
               >
                 {/* Column 1: Source Type Badge */}
                 {source.sourceType ? (
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap">
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap overflow-x-auto">
                     {getSourceBadgeLabel(source)}
                   </span>
                 ) : (
