@@ -369,7 +369,7 @@ export default function App() {
 
   return (
     <div className={isDarkMode ? "dark" : ""}>
-      <div className="flex h-screen w-full overflow-hidden bg-white font-sans text-gray-800 transition-colors duration-200 dark:bg-[#212121] dark:text-gray-200">
+      <div className="flex h-screen w-full overflow-x-hidden overflow-y-auto bg-white font-sans text-gray-800 transition-colors duration-200 dark:bg-[#212121] dark:text-gray-200">
         {isSidebarOpen && (
           <div
             className="fixed inset-0 z-30 bg-black/40 transition-opacity dark:bg-black/60 md:hidden"
@@ -442,7 +442,7 @@ export default function App() {
           </div>
         </aside>
 
-        <main className="relative flex min-w-0 flex-1 flex-col">
+        <main className="relative flex min-w-0 flex-1 flex-col overflow-y-auto">
           <header className="flex h-14 shrink-0 items-center justify-between border-b border-transparent px-4">
             <div className="flex items-center gap-2">
               {!isSidebarOpen && (
