@@ -239,6 +239,18 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
         const modification = item.review?.answer?.modifications?.find(
           (mod) => mod.modifiedBy === item.updatedBy._id
         );
+         
+        const baseKey = item.answer?._id?.toString() ?? `idx-${index}`;
+
+        const answerKey = `${baseKey}-answer`;
+        const reviewKey = `${baseKey}-review`;
+        const remarksKey = `${baseKey}-remarks`;
+        const rejectionKey = `${baseKey}-rejection`;
+        const isAnyExpanded =
+            expandedAnswers[answerKey] ||
+            expandedAnswers[reviewKey] ||
+            expandedAnswers[remarksKey] ||
+            expandedAnswers[rejectionKey];
         return (
           <div key={item.updatedBy?._id + index} className="relative">
             {!isFirst && (
@@ -365,6 +377,13 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                             <ExpandableText
                               text={item.review.reason}
                               maxLength={0}
+                              isExpanded={!!expandedAnswers[reviewKey]}
+                                onToggle={() => {
+                                  setExpandedAnswers(prev => ({
+                                    ...prev,
+                                    [reviewKey]: !prev[reviewKey],
+                                  }));
+                                }}
                             />
                           </div>
                         </div>
@@ -528,6 +547,13 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                                             <ExpandableText
                                               text={item.answer.remarks}
                                               maxLength={220}
+                                              isExpanded={!!expandedAnswers[remarksKey]}
+                                              onToggle={() => {
+                                                setExpandedAnswers(prev => ({
+                                                  ...prev,
+                                                  [remarksKey]: !prev[remarksKey],
+                                                }));
+                                              }}
                                             />
                                           </div>
                                         </div>
@@ -545,6 +571,13 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                                               <ExpandableText
                                                 text={item.reasonForRejection}
                                                 maxLength={120}
+                                                isExpanded={!!expandedAnswers[rejectionKey]}
+                                                onToggle={() => {
+                                                  setExpandedAnswers(prev => ({
+                                                    ...prev,
+                                                    [rejectionKey]: !prev[rejectionKey],
+                                                  }));
+                                                }}
                                               />
                                             </div>
                                           </div>
@@ -566,7 +599,7 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                             {/* ANSWER BOX */}
                             <div 
                               className={`p-5 rounded-md border bg-card/50 text-sm relative transition-all duration-300 mt-2 ${
-                                expandedAnswers[item.answer._id?.toString() || index] ? "" : "max-h-64 overflow-y-hidden"
+                                isAnyExpanded ? "max-h-[500px] overflow-y-auto" : "max-h-64 overflow-y-hidden"
                               }`}
                             >
                               <div 
@@ -582,11 +615,18 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                                   }
                                 }}
                               >
-                                <ExpandableText
-                                  text={item.answer.answer}
-                                  maxLength={400} // adjust this number to show more/less text initially
-                                />
-                              </div>
+                               <ExpandableText
+                                text={item.answer.answer}
+                                maxLength={400}
+                                isExpanded={!!expandedAnswers[answerKey]}
+                                onToggle={() => {
+                                  setExpandedAnswers(prev => ({
+                                    ...prev,
+                                    [answerKey]: !prev[answerKey],
+                                  }));
+                                }}
+                              />
+                                                            </div>
                             </div>
                           </div>
                         </div>
