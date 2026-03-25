@@ -602,7 +602,7 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                                 isAnyExpanded ? "max-h-[500px] overflow-y-auto" : "max-h-64 overflow-y-hidden"
                               }`}
                             >
-                              <div 
+                              {/* <div 
                                 className="whitespace-pre-wrap"
                                 onClick={(e) => {
                                   // Hack to listen to ExpandableText state toggle clicks
@@ -614,7 +614,7 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                                     }));
                                   }
                                 }}
-                              >
+                              > */}
                                <ExpandableText
                                 text={item.answer.answer}
                                 maxLength={400}
@@ -626,7 +626,7 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                                   }));
                                 }}
                               />
-                                                            </div>
+                                                            {/* </div> */}
                             </div>
                           </div>
                         </div>
