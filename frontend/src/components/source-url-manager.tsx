@@ -48,7 +48,7 @@ export const SourceUrlManager = ({
       return;
     }
 
-    if (selectedType === "other" && !sourceName.trim()) {
+    if (!sourceName.trim()) {
       toast.error("Please enter the source name.");
       return;
     }
@@ -83,7 +83,7 @@ export const SourceUrlManager = ({
       ...sources,
       {
         sourceType: selectedType,
-        sourceName: selectedType === "other" ? sourceName.trim() : undefined,
+        sourceName: sourceName.trim(),
         source: trimmedUrl,
         page: pageNum,
       },
@@ -129,19 +129,17 @@ export const SourceUrlManager = ({
           </SelectContent>
         </Select>
 
-        {/* Source Name (only for Other) & URL fields */}
+        {/* Source Name & URL fields */}
         {selectedType && (
           <div className="space-y-2 animate-in fade-in-0 slide-in-from-top-1 duration-200">
-            {selectedType === "other" && (
-              <Input
-                type="text"
-                placeholder="Other Source Name"
-                value={sourceName}
-                onChange={(e) => setSourceName(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="w-full"
-              />
-            )}
+            <Input
+              type="text"
+              placeholder={`${SOURCE_TYPE_LABELS[selectedType]} Source Name`}
+              value={sourceName}
+              onChange={(e) => setSourceName(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-full"
+            />
             <div className="flex gap-2">
               <Input
                 type="url"
