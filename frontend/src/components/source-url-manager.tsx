@@ -48,7 +48,7 @@ export const SourceUrlManager = ({
       return;
     }
 
-    if (selectedType === "other" && !sourceName.trim()) {
+    if (!sourceName.trim()) {
       toast.error("Please enter the source name.");
       return;
     }
@@ -83,7 +83,7 @@ export const SourceUrlManager = ({
       ...sources,
       {
         sourceType: selectedType,
-        sourceName: selectedType === "other" ? sourceName.trim() : undefined,
+        sourceName: sourceName.trim(),
         source: trimmedUrl,
         page: pageNum,
       },
@@ -129,19 +129,17 @@ export const SourceUrlManager = ({
           </SelectContent>
         </Select>
 
-        {/* Source Name (only for Other) & URL fields */}
+        {/* Source Name & URL fields */}
         {selectedType && (
           <div className="space-y-2 animate-in fade-in-0 slide-in-from-top-1 duration-200">
-            {selectedType === "other" && (
-              <Input
-                type="text"
-                placeholder="Other Source Name"
-                value={sourceName}
-                onChange={(e) => setSourceName(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="w-full"
-              />
-            )}
+            <Input
+              type="text"
+              placeholder={`${SOURCE_TYPE_LABELS[selectedType]} Source Name`}
+              value={sourceName}
+              onChange={(e) => setSourceName(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-full"
+            />
             <div className="flex gap-2">
               <Input
                 type="url"
@@ -178,14 +176,17 @@ export const SourceUrlManager = ({
               {sources.map((item, idx) => (
                 <div
                   key={idx}
-                  className="grid grid-cols-[minmax(100px,auto)_1fr_auto_auto] items-center gap-10 px-3 py-2 bg-tag border border-tag-border rounded-lg text-sm text-tag-foreground hover:bg-tag-hover transition-colors"
+                  className="grid grid-cols-[140px_1fr_auto_auto] items-center gap-6 px-3 py-2 bg-tag border border-tag-border rounded-lg text-sm text-tag-foreground hover:bg-tag-hover transition-colors"
                 >
                   {/* Column 1: Source Type Badge */}
                   {item.sourceType ? (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap">
-                      {item.sourceType === 'other' && item.sourceName && item.sourceName.toLowerCase() !== 'other'
-                        ? `Other: ${item.sourceName}`
-                        : SOURCE_TYPE_LABELS[item.sourceType] || item.sourceType}
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap overflow-x-auto">
+                      {(() => {
+                        const label = SOURCE_TYPE_LABELS[item.sourceType!] || item.sourceType;
+                        return item.sourceName && item.sourceName.toLowerCase() !== (label || '').toLowerCase()
+                          ? `${label}: ${item.sourceName}`
+                          : label;
+                      })()}
                     </span>
                   ) : (
                     <span />
