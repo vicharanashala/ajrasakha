@@ -5,6 +5,25 @@ import type {
   SourceItem,
   QuestionRerouteRepo
 } from "@/types";
+
+const sourceTypeOrder: Record<string, number> = {
+  hyper_local: 0, state: 1, central: 2, other: 3,
+};
+
+const sortSources = (sources: SourceItem[]) =>
+  [...sources].sort((a, b) => {
+    const orderA = sourceTypeOrder[a.sourceType || ""] ?? 99;
+    const orderB = sourceTypeOrder[b.sourceType || ""] ?? 99;
+    return orderA - orderB;
+  });
+
+const getSourceBadgeLabel = (source: SourceItem) => {
+  const label = source.sourceType === 'hyper_local' ? 'Hyper Local' : source.sourceType === 'state' ? 'State' : source.sourceType === 'central' ? 'Central' : 'Other';
+  if (source.sourceType === 'other' && source.sourceName && source.sourceName.toLowerCase() !== 'other') {
+    return `${label}: ${source.sourceName}`;
+  }
+  return label;
+};
 import { Textarea } from "../../components/atoms/textarea";
 import {
   Accordion,
@@ -441,34 +460,41 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                                           </p>
 
                                           <div className="space-y-2">
-                                            {item.answer.sources.map(
+                                            {sortSources(item.answer.sources).map(
                                               (source: any, idx: number) => (
                                                 <div
                                                   key={idx}
-                                                  className="flex items-center justify-between gap-2 p-3 border rounded-md hover:bg-muted/40 transition-colors text-sm"
+                                                  className="grid grid-cols-[minmax(100px,auto)_1fr_auto_auto] items-center gap-10 p-3 border rounded-md hover:bg-muted/40 transition-colors text-sm"
                                                 >
+                                                  {/* Column 1: Source Type Badge */}
+                                                  {source.sourceType ? (
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap">
+                                                      {getSourceBadgeLabel(source)}
+                                                    </span>
+                                                  ) : (
+                                                    <span />
+                                                  )}
+
+                                                  {/* Column 2: Link */}
                                                   <a
                                                     href={source.source}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="text-blue-600 dark:text-blue-400 break-all inline-flex items-center gap-1 hover:underline text-sm"
+                                                    className="text-blue-600 dark:text-blue-400 truncate hover:underline text-sm"
                                                   >
-                                                    <span className="line-clamp-2">
-                                                      {source.source}
-                                                    </span>
-
-                                                    {source.page && (
-                                                      <>
-                                                        <span className="text-muted-foreground flex-shrink-0">
-                                                          •
-                                                        </span>
-                                                        <span className="text-muted-foreground flex-shrink-0">
-                                                          p{source.page}
-                                                        </span>
-                                                      </>
-                                                    )}
+                                                    {source.source}
                                                   </a>
 
+                                                  {/* Column 3: Page Number */}
+                                                  {source.page ? (
+                                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                                      pg {source.page}
+                                                    </span>
+                                                  ) : (
+                                                    <span />
+                                                  )}
+
+                                                  {/* Column 4: Copy Button */}
                                                   <button
                                                     onClick={() =>
                                                       handleCopy(

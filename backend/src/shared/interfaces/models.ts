@@ -63,7 +63,11 @@ export interface IQuestion {
   updatedAt?: Date;
 }
 
+export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
+
 export interface SourceItem {
+  sourceType?: SourceType;
+  sourceName?: string;
   source: string;
   page?: number;
 }

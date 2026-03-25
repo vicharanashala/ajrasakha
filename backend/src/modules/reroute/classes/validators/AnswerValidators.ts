@@ -18,6 +18,24 @@ import {JSONSchema} from 'class-validator-jsonschema';
 
 class SourceItem {
   @JSONSchema({
+    description: 'Type of source (hyper_local, state, central, other)',
+    example: 'hyper_local',
+    enum: ['hyper_local', 'state', 'central', 'other'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['hyper_local', 'state', 'central', 'other'])
+  sourceType?: 'hyper_local' | 'state' | 'central' | 'other';
+
+  @JSONSchema({
+    description: 'Name of the source',
+    example: 'Punjab Agricultural University',
+  })
+  @IsOptional()
+  @IsString()
+  sourceName?: string;
+
+  @JSONSchema({
     description: 'Source URL for the answer',
     example: 'https://example.com',
     format: 'uri',

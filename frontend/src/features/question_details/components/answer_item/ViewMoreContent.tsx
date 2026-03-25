@@ -1,5 +1,24 @@
 // components/ViewMoreContent.tsx
-import type { IAnswer, ISubmissionHistory, QuestionStatus } from "@/types";
+import type { IAnswer, ISubmissionHistory, QuestionStatus, SourceItem } from "@/types";
+
+const sourceTypeOrder: Record<string, number> = {
+  hyper_local: 0, state: 1, central: 2, other: 3,
+};
+
+const sortSources = (sources: SourceItem[]) =>
+  [...sources].sort((a, b) => {
+    const orderA = sourceTypeOrder[a.sourceType || ""] ?? 99;
+    const orderB = sourceTypeOrder[b.sourceType || ""] ?? 99;
+    return orderA - orderB;
+  });
+
+const getSourceBadgeLabel = (source: SourceItem) => {
+  const label = source.sourceType === 'hyper_local' ? 'Hyper Local' : source.sourceType === 'state' ? 'State' : source.sourceType === 'central' ? 'Central' : 'Other';
+  if (source.sourceType === 'other' && source.sourceName && source.sourceName.toLowerCase() !== 'other') {
+    return `${label}: ${source.sourceName}`;
+  }
+  return label;
+};
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Badge } from "@/components/atoms/badge";
 import { XCircle, Clock, AlertCircle, ArrowUpRight } from "lucide-react";
@@ -154,33 +173,43 @@ export const ViewMoreContent = ({
             Source URLs
           </p>
           <div className="space-y-2">
-            {answer.sources.map((source, idx) => (
+            {sortSources(answer.sources).map((source, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between rounded-lg border bg-muted/30 p-2 pr-3"
+                className="grid grid-cols-[minmax(100px,auto)_1fr_auto_auto] items-center gap-10 rounded-lg border bg-muted/30 p-3"
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span
-                        className="text-sm truncate max-w-[260px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                        onClick={() => window.open(source.source, "_blank")}
-                      >
-                        {source.source}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>{source.source}</TooltipContent>
-                  </Tooltip>
+                {/* Column 1: Source Type Badge */}
+                {source.sourceType ? (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap">
+                    {getSourceBadgeLabel(source)}
+                  </span>
+                ) : (
+                  <span />
+                )}
 
-                  {source.page && (
-                    <>
-                      <span className="text-muted-foreground">•</span>
-                      <span className="text-xs text-muted-foreground">
-                        page {source.page}
-                      </span>
-                    </>
-                  )}
-                </div>
+                {/* Column 2: Link */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className="text-sm truncate text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                      onClick={() => window.open(source.source, "_blank")}
+                    >
+                      {source.source}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>{source.source}</TooltipContent>
+                </Tooltip>
+
+                {/* Column 3: Page Number */}
+                {source.page ? (
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    pg {source.page}
+                  </span>
+                ) : (
+                  <span />
+                )}
+
+                {/* Column 4: Arrow */}
                 <a
                   href={source.source}
                   target="_blank"
