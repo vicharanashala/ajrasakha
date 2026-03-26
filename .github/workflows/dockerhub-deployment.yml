@@ -16,8 +16,8 @@ on:
           - weather
           - review-search-mcp
           - reviewer_system
-          - agmarket
-          - soilhealth
+          - agmarknet-mcp
+          - soil-health-mcp
 permissions:
   contents: read
   packages: write
@@ -59,11 +59,11 @@ jobs:
           if [[ "$TARGET" == "all" || "$TARGET" == "reviewer_system" ]]; then
             add_entry "reviewer_system"
           fi
-          if [[ "$TARGET" == "all" || "$TARGET" == "agmarket" ]]; then
-            add_entry "agmarket"
+          if [[ "$TARGET" == "all" || "$TARGET" == "agmarknet-mcp" ]]; then
+            add_entry "agmarknet-mcp"
           fi
-          if [[ "$TARGET" == "all" || "$TARGET" == "soilhealth" ]]; then
-            add_entry "soilhealth"
+          if [[ "$TARGET" == "all" || "$TARGET" == "soil-health-mcp" ]]; then
+            add_entry "soil-health-mcp"
           fi
           COMPACT_JSON=$(echo $MATRIX_JSON | jq -c .)
           echo "matrix=$COMPACT_JSON" >> $GITHUB_OUTPUT
