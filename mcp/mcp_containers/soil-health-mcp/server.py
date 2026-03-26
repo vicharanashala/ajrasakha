@@ -410,7 +410,7 @@ async def soilhealth_get_states(
 async def soilhealth_get_districts_by_state(
     state: str,
     name: str | None = None,
-    subdistrict: bool = False,
+    subdistrict: bool = True,
     code: str | None = None,
     aspirationaldistrict: bool = False,
 ) -> dict[str, Any]:
@@ -520,33 +520,14 @@ async def soilhealth_get_districts_by_state(
         if result.get("success") is False:
             return result
         
+        # Return raw API data without filtering or transformation
         districts = result.get("data", {}).get("getdistrictAndSubdistrictBystate", [])
-        
-        # ===================================================================
-        # NAMES + IDS RESPONSE: Keep names (multilingual) + IDs for API calls
-        # ===================================================================
-        # Returns both human-readable district names (for display) and internal
-        # IDs (required for fertilizer recommendations if district is selected)
-        # All district names support all Indian languages via UTF-8 encoding
-        # Returns ALL districts (no filtering)
-        
-        districts_formatted = []
-        if isinstance(districts, list):
-            for dist in districts:
-                if isinstance(dist, dict):
-                    district_name = dist.get("name", "")
-                    district_id = dist.get("_id", "")
-                    if district_name:  # Always include name
-                        districts_formatted.append({
-                            "name": district_name,
-                            "id": district_id
-                        })
         
         return {
             "success": True,
             "source": "soilhealth4.dac.gov.in",
-            "count": len(districts_formatted),
-            "districts": districts_formatted,
+            "count": len(districts) if isinstance(districts, list) else 0,
+            "districts": districts,  # Return raw data, no transformation
         }
     except Exception as exc:
         return {
@@ -673,31 +654,12 @@ async def soilhealth_get_crop_registries(
         if gfr_only and isinstance(crops, list):
             crops = [crop for crop in crops if str(crop.get("GFRavailable", "")).lower() == "yes"]
 
-        # ===================================================================
-        # NAMES + IDS RESPONSE: Keep names (multilingual) + IDs for API calls
-        # ===================================================================
-        # Returns both human-readable crop names (for display) and internal
-        # IDs (required for fertilizer recommendations API)
-        # All crop names support all Indian languages via UTF-8 encoding
-        
-        crops_formatted = []
-        if isinstance(crops, list):
-            for crop in crops:
-                if isinstance(crop, dict):
-                    # Keep combinedName for display, id for API calls
-                    crop_name = crop.get("combinedName", "")
-                    crop_id = crop.get("id", "")
-                    if crop_name and crop_id:
-                        crops_formatted.append({
-                            "name": crop_name,
-                            "id": crop_id
-                        })
-        
+        # Return raw API data without filtering or transformation
         return {
             "success": True,
             "source": "soilhealth4.dac.gov.in",
-            "count": len(crops_formatted),
-            "crops": crops_formatted,
+            "count": len(crops) if isinstance(crops, list) else 0,
+            "crops": crops,  # Return raw data, no transformation
         }
     except Exception as exc:
         return {
