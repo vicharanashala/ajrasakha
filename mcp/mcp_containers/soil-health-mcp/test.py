@@ -17,23 +17,22 @@ from server import (
 # ============================================================================
 
 CONFIGURATION = {
-    # Select State (exact name)
+    # Select State - Use EXACT name (copy from displayed list)
     "STATE_NAME": "UTTAR PRADESH",
     
-    # Select District (exact name, or None to skip)
+    # Select District - Use EXACT name (copy from displayed list, or None to skip)
     "DISTRICT_NAME": None,
     
-    # Select Crop(s) - Use exact full names from the list
-    # Examples: "बैंगन (All Variety)", "जौ (All Variety)", "Acid Lime 1st year / Irrigated / Annual Crop"
+    # Select Crop(s) - Use EXACT names (copy from displayed list)
     "CROP_NAMES": [
         "बैंगन (All Variety)"
     ],
     
-    # Enter Parameter Values
-    "NITROGEN_N_mg_kg": 20,         # Nitrogen in mg/kg
-    "PHOSPHORUS_P_mg_kg": 15,       # Phosphorus in mg/kg
-    "POTASSIUM_K_mg_kg": 100,       # Potassium in mg/kg
-    "ORGANIC_CARBON_OC_PERCENT": 0.5, # Organic Carbon in %
+    # Soil Test Parameters
+    "NITROGEN_N_mg_kg": 20,
+    "PHOSPHORUS_P_mg_kg": 15,
+    "POTASSIUM_K_mg_kg": 1000,
+    "ORGANIC_CARBON_OC_PERCENT": 10,
 }
 
 # ============================================================================
@@ -54,7 +53,7 @@ async def test_workflow():
     print(f"  State: {CONFIGURATION['STATE_NAME']}")
     print(f"  District: {CONFIGURATION['DISTRICT_NAME'] or 'None (Optional)'}")
     print(f"  Crops: {', '.join(CONFIGURATION['CROP_NAMES'])}")
-    print(f"\n  Parameters:")
+    print(f"\n  Soil Test Values:")
     print(f"    N (Nitrogen): {CONFIGURATION['NITROGEN_N_mg_kg']} mg/kg")
     print(f"    P (Phosphorus): {CONFIGURATION['PHOSPHORUS_P_mg_kg']} mg/kg")
     print(f"    K (Potassium): {CONFIGURATION['POTASSIUM_K_mg_kg']} mg/kg")
@@ -74,27 +73,30 @@ async def test_workflow():
     states = states_result['states']
     print(f"✅ Found {len(states)} states\n")
     
-    # STEP 2: Find selected state
+    # STEP 2: Find selected state (exact name match only, no patterns)
     print("=" * 80)
     print("STEP 2: FINDING SELECTED STATE...")
     print("=" * 80)
     
     selected_state = None
     for state in states:
-        if CONFIGURATION['STATE_NAME'].lower() in state['name'].lower():
+        if state['name'] == CONFIGURATION['STATE_NAME']:  # Exact match only
             selected_state = state
             break
     
     if not selected_state:
         print(f"❌ State '{CONFIGURATION['STATE_NAME']}' not found!")
-        print(f"\nAvailable states:")
+        print(f"\n📋 ALL AVAILABLE STATES (copy exact names from here):")
+        print("-" * 80)
         for i, state in enumerate(states, 1):
-            print(f"  {i}. {state['name']}")
+            print(f"{i:3d}. {state['name']}")
+        print("-" * 80)
+        print(f"\n💡 Copy exact state name from the list above and update CONFIGURATION['STATE_NAME']")
         return
     
     print(f"✅ Found state: {selected_state['name']}")
     
-    # STEP 3: Get districts (if configured)
+    # STEP 3: Get ALL districts (show complete list by names only)
     selected_district = None
     if CONFIGURATION['DISTRICT_NAME']:
         print("\n" + "=" * 80)
@@ -105,23 +107,31 @@ async def test_workflow():
         districts = districts_result.get('districts', [])
         
         if districts:
-            print(f"✅ Found {len(districts)} districts")
+            print(f"✅ Found {len(districts)} districts\n")
             
+            print("📋 ALL AVAILABLE DISTRICTS (copy exact names from here):")
+            print("-" * 80)
+            for i, dist in enumerate(districts, 1):
+                district_name = dist.get('name', 'Unknown')
+                print(f"{i:3d}. {district_name}")
+            print("-" * 80)
+            
+            # Find by EXACT name match only (no pattern)
             for dist in districts:
-                if CONFIGURATION['DISTRICT_NAME'].lower() in dist.get('name', '').lower():
+                if dist.get('name') == CONFIGURATION['DISTRICT_NAME']:
                     selected_district = dist
                     break
             
             if selected_district:
-                print(f"✅ Found district: {selected_district['name']}")
+                print(f"\n✅ Found district: {selected_district['name']}")
             else:
-                print(f"❌ District '{CONFIGURATION['DISTRICT_NAME']}' not found!")
-                print(f"\nAvailable districts (first 10):")
-                for i, dist in enumerate(districts[:10], 1):
-                    print(f"  {i}. {dist.get('name', 'Unknown')}")
+                print(f"\n❌ District '{CONFIGURATION['DISTRICT_NAME']}' not found!")
+                print(f"💡 Copy exact name from the list above and update CONFIGURATION['DISTRICT_NAME']")
                 return
         else:
             print(f"⚠️  No districts available for {selected_state['name']}")
+            print(f"   Proceeding without district selection...")
+
     
     # STEP 4: Get crops
     print("\n" + "=" * 80)
@@ -178,6 +188,7 @@ async def test_workflow():
     print(f"  Nitrogen (N): {CONFIGURATION['NITROGEN_N_mg_kg']} mg/kg")
     print(f"  Phosphorus (P): {CONFIGURATION['PHOSPHORUS_P_mg_kg']} mg/kg")
     print(f"  Potassium (K): {CONFIGURATION['POTASSIUM_K_mg_kg']} mg/kg")
+    print(f"  Organic Carbon (OC): {CONFIGURATION['ORGANIC_CARBON_OC_PERCENT']}%")
     print(f"  Organic Carbon (OC): {CONFIGURATION['ORGANIC_CARBON_OC_PERCENT']}%")
     
     result = await soilhealth_get_fertilizer_recommendations(
