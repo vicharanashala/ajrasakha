@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import difflib
 import io
 import logging
 import os
@@ -23,6 +24,13 @@ load_dotenv()
 # Configure logging similar to admin reference implementation.
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _normalize_text(value: str | None) -> str:
+    """Normalize text for case/space-insensitive matching."""
+    if not value:
+        return ""
+    return " ".join(str(value).strip().casefold().split())
 
 # ============================================================================
 # SOIL HEALTH MCP SERVER - TOOL CALLING REFERENCE
@@ -168,6 +176,7 @@ query GetCropRegistries($state: String) {
 SOILHEALTH_GET_TEST_CENTERS_QUERY = """
 query GetTestCenters($state: String, $district: String) {
 \tgetTestCenters(state: $state, district: $district) {
+        district
 \t\tstate
 \t}
 }
@@ -522,6 +531,65 @@ async def soilhealth_get_districts_by_state(
         
         # Return raw API data without filtering or transformation
         districts = result.get("data", {}).get("getdistrictAndSubdistrictBystate", [])
+        if not isinstance(districts, list):
+            districts = []
+
+        # API quirk: for some states, district query returns only subdistrict rows.
+        # Merge canonical district rows from getTestCenters so names like
+        # "AHMADABAD" are not skipped from the response.
+        try:
+            centers_result = await _soilhealth_graphql(
+                SOILHEALTH_GET_TEST_CENTERS_QUERY,
+                {"state": None, "district": None},
+            )
+            centers = centers_result.get("data", {}).get("getTestCenters", [])
+            if isinstance(centers, list):
+                existing_names = {
+                    str(item.get("name", "")).strip().casefold()
+                    for item in districts
+                    if isinstance(item, dict) and item.get("name")
+                }
+                for center in centers:
+                    if not isinstance(center, dict):
+                        continue
+                    center_state = center.get("state")
+                    center_district = center.get("district")
+                    if not isinstance(center_state, dict) or not isinstance(center_district, dict):
+                        continue
+                    if center_state.get("_id") != state:
+                        continue
+
+                    district_name = str(center_district.get("name", "")).strip()
+                    normalized_name = district_name.casefold()
+                    if not district_name or normalized_name in existing_names:
+                        continue
+
+                    # Preserve full district object from API and mark canonical source.
+                    district_row = dict(center_district)
+                    district_row["source"] = "getTestCenters"
+                    districts.append(district_row)
+                    existing_names.add(normalized_name)
+        except Exception:
+            # Non-fatal fallback: keep primary district response unchanged.
+            pass
+
+        # Optional local name filter after merge (case-insensitive exact first,
+        # then substring) so caller gets expected entries even with case differences.
+        if isinstance(name, str) and name.strip():
+            target = name.strip().casefold()
+            exact = [
+                d for d in districts
+                if isinstance(d, dict)
+                and str(d.get("name", "")).strip().casefold() == target
+            ]
+            if exact:
+                districts = exact
+            else:
+                districts = [
+                    d for d in districts
+                    if isinstance(d, dict)
+                    and target in str(d.get("name", "")).strip().casefold()
+                ]
         
         return {
             "success": True,
@@ -540,6 +608,7 @@ async def soilhealth_get_districts_by_state(
 async def soilhealth_get_crop_registries(
     state: str,
     gfr_only: bool = True,
+    crop_names: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Fetch crop registries available in a state for fertilizer recommendations.
@@ -568,6 +637,11 @@ async def soilhealth_get_crop_registries(
         • If True: Returns only crops marked with GFRavailable="yes"
         • If False: Returns all crops in the state
         • Recommendation: Keep True for standard fertilizer recommendations
+
+            - crop_names (OPTIONAL list[str], default=None): Server-side crop name matching
+                • If provided: server attempts exact/normalized/fuzzy matching
+                • Supports multilingual crop names and case differences
+                • Returns matched crops and suggestions in response metadata
     
     → RETURN VALUE (on success) - NAMES + IDs FOR DISPLAY AND API:
       {
@@ -654,12 +728,90 @@ async def soilhealth_get_crop_registries(
         if gfr_only and isinstance(crops, list):
             crops = [crop for crop in crops if str(crop.get("GFRavailable", "")).lower() == "yes"]
 
+        if not isinstance(crops, list):
+            crops = []
+
+        matched_crops: list[dict[str, Any]] = []
+        unmatched_crop_names: list[str] = []
+        crop_suggestions: dict[str, list[str]] = {}
+
+        if crop_names:
+            # Build candidate lists for robust matching.
+            candidate_names: list[str] = []
+            candidate_by_norm: dict[str, list[dict[str, Any]]] = {}
+            for crop in crops:
+                if not isinstance(crop, dict):
+                    continue
+                display_name = str(crop.get("combinedName") or crop.get("name") or "").strip()
+                if not display_name:
+                    continue
+                candidate_names.append(display_name)
+                normalized = _normalize_text(display_name)
+                candidate_by_norm.setdefault(normalized, []).append(crop)
+
+            seen_ids: set[str] = set()
+            for requested in crop_names:
+                requested_str = str(requested or "").strip()
+                requested_norm = _normalize_text(requested_str)
+                found_crop: dict[str, Any] | None = None
+
+                # 1) Exact raw match
+                for crop in crops:
+                    if not isinstance(crop, dict):
+                        continue
+                    display_name = str(crop.get("combinedName") or crop.get("name") or "").strip()
+                    if display_name == requested_str:
+                        found_crop = crop
+                        break
+
+                # 2) Normalized exact match
+                if not found_crop and requested_norm in candidate_by_norm:
+                    found_crop = candidate_by_norm[requested_norm][0]
+
+                # 3) Fuzzy fallback (auto-pick best match)
+                if not found_crop and requested_norm:
+                    normalized_candidates = list(candidate_by_norm.keys())
+                    best = difflib.get_close_matches(
+                        requested_norm,
+                        normalized_candidates,
+                        n=1,
+                        cutoff=0.55,
+                    )
+                    if best:
+                        found_crop = candidate_by_norm[best[0]][0]
+
+                # Keep suggestion list for transparency
+                suggestions = difflib.get_close_matches(
+                    requested_norm,
+                    list(candidate_by_norm.keys()),
+                    n=5,
+                    cutoff=0.45,
+                ) if requested_norm else []
+                if suggestions:
+                    crop_suggestions[requested_str] = [
+                        str(candidate_by_norm[s][0].get("combinedName") or candidate_by_norm[s][0].get("name") or "")
+                        for s in suggestions
+                        if candidate_by_norm.get(s)
+                    ]
+
+                if found_crop:
+                    crop_id = str(found_crop.get("id") or found_crop.get("_id") or "")
+                    if crop_id and crop_id not in seen_ids:
+                        matched_crops.append(found_crop)
+                        seen_ids.add(crop_id)
+                else:
+                    unmatched_crop_names.append(requested_str)
+
         # Return raw API data without filtering or transformation
         return {
             "success": True,
             "source": "soilhealth4.dac.gov.in",
             "count": len(crops) if isinstance(crops, list) else 0,
             "crops": crops,  # Return raw data, no transformation
+            "matchedCrops": matched_crops,
+            "matchedCount": len(matched_crops),
+            "unmatchedCropNames": unmatched_crop_names,
+            "suggestions": crop_suggestions,
         }
     except Exception as exc:
         return {
