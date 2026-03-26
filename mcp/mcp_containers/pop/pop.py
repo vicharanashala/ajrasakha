@@ -17,7 +17,7 @@ Settings.embed_model = HuggingFaceEmbedding(
     model_name=EMBEDDING_MODEL, cache_folder="./hf_cache", trust_remote_code=True
 )
 
-client: pymongo.MongoClient = pymongo.MongoClient(MONGODB_URI)
+client: pymongo.MongoClient = pymongo.MongoClient(MONGODB_URI, tlsAllowInvalidCertificates=True)
 
 retriever_qa = get_retriever(
     client=client, collection_name=COLLECTION_QA, similarity_top_k=4
@@ -48,7 +48,7 @@ async def get_states_for_pop() -> dict:
         "MAHARASHTRA": "MH", "MANIPUR": "MN", "MEGHALAYA": "ML",
         "MIZORAM": "MZ", "NAGALAND": "NL", "ODISHA": "OR", "ORISSA": "OR", "PUNJAB": "PB",
         "RAJASTHAN": "RJ", "SIKKIM": "SK", "TAMILNADU": "TN", "TAMIL_NADU": "TN", "TELANGANA": "TG",
-        "TRIPURA": "TR", "UTTAR_PRADESH": "UP", "UTTARAKHAND": "UK", "UTTARANCHAL": "UK",
+        "TRIPURA": "TR", "UTTAR_PRADESH": "UP", "UTTARPRADESH": "UP", "UTTARAKHAND": "UK", "UTTARANCHAL": "UK",
         "WEST_BENGAL": "WB", 
         "ANDAMAN_AND_NICOBAR": "AN", "ANDAMAN_AND_NICOBAR_ISLANDS": "AN",
         "CHANDIGARH": "CH", 
@@ -87,7 +87,51 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
         state_code (str): A two-letter state code (e.g., "TN" for Tamil Nadu, "PB" for Punjab)
                           used to narrow the search context to region-specific questions.
     """
-    nodes = await retriever_pop.aretrieve(query)
+    STATE_CODE_TO_NAME = {
+    "AP": "Andhra_Pradesh",
+    "AR": "Arunachal_Pradesh",
+    "AS": "Assam",
+    "BR": "Bihar",
+    "CG": "Chattisgarh",
+    "GA": "Goa",
+    "GJ": "Gujarat",
+    "HR": "Haryana",
+    "HP": "Himachal_Pradesh",
+    "JH": "Jharkhand",
+    "KA": "Karnataka",
+    "KL": "Kerala",
+    "MP": "Madhya_Pradesh",
+    "MH": "Maharashtra",
+    "MN": "Manipur",
+    "ML": "Meghalaya",
+    "MZ": "Mizoram",
+    "NL": "Nagaland",
+    "OR": "Odisha",
+    "PB": "Punjab",
+    "RJ": "Rajasthan",
+    "SK": "Sikkim",
+    "TN": "Tamilnadu",
+    "TG": "Telangana",
+    "TR": "Tripura",
+    "UP": "Uttarpradesh",
+    "UK": "Uttarakhand",
+    "WB": "West_Bengal",
+    "AN": "Andaman_and_Nicobar",
+    "CH": "Chandigarh",
+    "DN": "Dadra_and_Nagar_Haveli_and_Daman_and_Diu",
+    "DD": "Daman_and_Diu",
+    "DL": "Delhi",
+    "JK": "Jammu_and_Kashmir",
+    "LA": "Ladakh",
+    "LD": "Lakshadweep",
+    "PY": "Puducherry",
+    "MULTIPLE": "POPs_Multiple_States"
+}
+
+    state_value = STATE_CODE_TO_NAME.get(state_code.upper(), state_code.upper())
+    
+    nodes = await retriever_pop.aretrieve(query, state_value=state_value)
+
     processed_nodes = await process_nodes_pop(nodes)
     return processed_nodes
 

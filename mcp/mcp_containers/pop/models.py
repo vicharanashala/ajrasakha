@@ -78,9 +78,9 @@ class ContextQuestionAnswerPair(BaseModel):
 
 class POPMetaData(BaseModel):
     similarity_score: float | None
-    page_no: int
+    page_no: Optional[int] = None
     source: str
-    topics: List[str]
+    topics: Optional[List[str]] = None
 
 
 class ContextPOP(BaseModel):
