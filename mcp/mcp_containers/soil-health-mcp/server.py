@@ -415,13 +415,16 @@ async def soilhealth_get_districts_by_state(
     aspirationaldistrict: bool = False,
 ) -> dict[str, Any]:
     """
-    Fetch soil health districts and sub-districts for a given state.
+    Fetch soil health districts (ALL districts, no filtering) for a given state.
+    
+    ⚠️ IMPORTANT: Returns DISTRICT NAMES ONLY (no IDs)
+    ⚠️ Supports all Indian languages (Hindi, Bengali, Telugu, Tamil, Kannada, etc.)
     
     → WHEN TO CALL:
       1. AFTER calling soilhealth_get_states() (use state._id from that result)
-      2. When you need to show user available districts in a specific state
-      3. Optional: Not required for fertilizer recommendations (district is optional
-         in the recommendation query), but improves recommendation accuracy
+      2. To display available districts in a state (all districts shown)
+      3. Optional: Not required for fertilizer recommendations (district is optional)
+      4. When user needs to select a specific district for more accurate results
     
     → DEPENDENCY:
       REQUIRED: Must call soilhealth_get_states() first to get state._id value
@@ -432,35 +435,30 @@ async def soilhealth_get_districts_by_state(
         • Example: "507f191e810c19729de860ea"
       
       - name (OPTIONAL str): Filter by district name 
-        • If None (default): Returns all districts in state
-        • Use case: Search for specific district name
+        • If None (default): Returns all districts in state (RECOMMENDED)
+        • Supports partial matching with all Indian language names
       
       - subdistrict (OPTIONAL bool, default=False): Include subdivisions
-        • If True: Also returns sub-district level data (more granular)
+        • If True: Also returns sub-district level data
         • If False: Only state & district level
       
       - code (OPTIONAL str): District code to filter
         • If None (default): Ignored
-        • Use case: Filter by official district code if available
       
       - aspirationaldistrict (OPTIONAL bool, default=False): Filter aspirational districts
-        • If True: Only returns districts marked as aspirational
-        • If False: All districts
+        • If True: Only aspirational districts
+        • If False: All districts (default, shows everything)
     
-    → RETURN VALUE (on success):
+    → RETURN VALUE (on success) - NAMES + IDs FOR DISPLAY AND API:
       {
           "success": True,
           "source": "soilhealth4.dac.gov.in",
           "count": int,
           "districts": [
-              {
-                  "_id": "MONGODB_ID",
-                  "name": "District Name",
-                  "state": {...state object...},
-                  "code": "DIST_CODE",
-                  ...other fields...
-              },
-              ...
+              {"name": "District Name", "id": "MONGODB_ID"},
+              {"name": "जिला नाम", "id": "MONGODB_ID"},
+              {"name": "జిల్లా పేరు", "id": "MONGODB_ID"},
+              ...all districts shown (no filtering)...
           ]
       }
     
@@ -472,46 +470,41 @@ async def soilhealth_get_districts_by_state(
       }
     
     → EXAMPLES:
-      Example 1: Get all districts in a state and display by name
+      Example 1: Get all districts in a state and display (no filtering)
         states_result = await soilhealth_get_states()
-        state = next(s for s in states_result["states"] 
-                     if "andhra" in s["name"].lower())
+        state = next(s for s in states_result["states"] if s["name"] == "UTTAR PRADESH")
         
-        districts = await soilhealth_get_districts_by_state(
-            state=state["_id"]
-        )
+        districts = await soilhealth_get_districts_by_state(state=state["_id"])
         if districts["success"]:
-            print(f"Districts in {state['name']}:")
+            print(f"All districts in {state['name']}:")
             for dist in districts["districts"]:
                 print(f"  - {dist['name']}")
       
       Example 2: Search for a specific district by name
         result = await soilhealth_get_districts_by_state(
             state="63f9ce47519359b7438e76fa",
-            name="Bangalore"  # Search by district name
+            name="Agra"
         )
         if result["success"] and result["districts"]:
-            district = result["districts"][0]
-            print(f"Found: {district['name']} (Code: {district.get('code')})")
-      
-      Example 3: Find aspirational districts
-        result = await soilhealth_get_districts_by_state(
-            state="63f9ce47519359b7438e76fa",
-            aspirationaldistrict=True
-        )
-        print(f"Aspirational districts: {len(result['districts'])}")
-        for dist in result["districts"]:
-            print(f"  {dist['name']}")
+            for dist in result["districts"]:
+                print(f"Found: {dist['name']}")
     
     → USAGE TIPS:
-      - Use the 'name' parameter to search for specific districts
-      - District names are human-readable (e.g., "Bangalore", "Delhi")
-      - For standard workflows, you don't need district-level precision
-      - If you have a district name, search by name instead of tracking IDs
+      - Always returns district names only (IDs are internal for API use)
+      - Fully supports all Indian languages (22+ languages)
+      - No filtering by default - always shows ALL available districts
+      - Use returned district names directly with test.py for testing
+      
+    → RESPONSE STRUCTURE:
+      Each district in response includes:
+      - "name": Human-readable district name (display in UI)
+      - "id": Internal MongoDB ID (used for recommendations if district selected)
+      
+    ✓ Display: Use district["name"] for UI/reports
+    ✓ API Call: Use district["id"] internally for recommendations
     
-    → NEXT STEPS:
-      Optionally use returned district._id in soilhealth_get_fertilizer_recommendations()
-      for more geographically-specific recommendations
+    ❌ Do NOT display IDs to users
+    ✅ Do display names in all Indian languages
     """
     variables = {
         "getdistrictAndSubdistrictBystateId": None,
@@ -526,12 +519,34 @@ async def soilhealth_get_districts_by_state(
         result = await _soilhealth_graphql(SOILHEALTH_GET_DISTRICTS_QUERY, variables)
         if result.get("success") is False:
             return result
+        
         districts = result.get("data", {}).get("getdistrictAndSubdistrictBystate", [])
+        
+        # ===================================================================
+        # NAMES + IDS RESPONSE: Keep names (multilingual) + IDs for API calls
+        # ===================================================================
+        # Returns both human-readable district names (for display) and internal
+        # IDs (required for fertilizer recommendations if district is selected)
+        # All district names support all Indian languages via UTF-8 encoding
+        # Returns ALL districts (no filtering)
+        
+        districts_formatted = []
+        if isinstance(districts, list):
+            for dist in districts:
+                if isinstance(dist, dict):
+                    district_name = dist.get("name", "")
+                    district_id = dist.get("_id", "")
+                    if district_name:  # Always include name
+                        districts_formatted.append({
+                            "name": district_name,
+                            "id": district_id
+                        })
+        
         return {
             "success": True,
             "source": "soilhealth4.dac.gov.in",
-            "count": len(districts) if isinstance(districts, list) else 0,
-            "districts": districts,
+            "count": len(districts_formatted),
+            "districts": districts_formatted,
         }
     except Exception as exc:
         return {
@@ -548,6 +563,8 @@ async def soilhealth_get_crop_registries(
     """
     Fetch crop registries available in a state for fertilizer recommendations.
     
+    ⚠️ IMPORTANT: Returns CROP NAMES ONLY (no IDs)
+    ⚠️ Supports all Indian languages (Hindi, Bengali, Telugu, Tamil, Kannada, etc.)
     ⚠️ CRITICAL: This tool MUST be called before soilhealth_get_fertilizer_recommendations()
     
     → WHEN TO CALL:
@@ -571,19 +588,15 @@ async def soilhealth_get_crop_registries(
         • If False: Returns all crops in the state
         • Recommendation: Keep True for standard fertilizer recommendations
     
-    → RETURN VALUE (on success):
+    → RETURN VALUE (on success) - NAMES + IDs FOR DISPLAY AND API:
       {
           "success": True,
           "source": "soilhealth4.dac.gov.in",
           "count": int,
           "crops": [
-              {
-                  "_id": "MONGODB_ID",      ← Use these IDs in recommendations!
-                  "name": "Crop Name",
-                  "combinedName": "Full Crop Name",
-                  "GFRavailable": "yes",
-                  ...other fields...
-              },
+              {"name": "Crop Name", "id": "MONGODB_ID"},
+              {"name": "फसल का नाम", "id": "MONGODB_ID"},
+              {"name": "మొక్కల పేరు", "id": "MONGODB_ID"},
               ...
           ]
       }
@@ -598,66 +611,54 @@ async def soilhealth_get_crop_registries(
     → EXAMPLES:
       Example 1: Get all GFR-eligible crops and display by name (with multilingual support)
         states_result = await soilhealth_get_states()
-        state = next(s for s in states_result["states"] 
-                     if "andaman" in s["name"].lower())
+        state = next(s for s in states_result["states"] if s["name"] == "ASSAM")
         
         crops_result = await soilhealth_get_crop_registries(
-            state=state["_id"]  ← Use MongoDB ObjectId!
+            state=state["_id"]
         )
         if crops_result["success"]:
             print(f"Available Crops in {state['name']}:")
             for crop in crops_result["crops"]:
-                local_name, english_name, display = extract_crop_display(crop['combinedName'])
-                # Shows both English and local language
-                print(f"  - {english_name} (Local: {local_name if local_name != crop['combinedName'] else 'N/A'})")
-            crop_ids = [c["id"] for c in crops_result["crops"]]
+                print(f"  - {crop['name']}")
       
-      Example 2: Search for a specific crop by name (supports all Indian languages)
-        result = await soilhealth_get_crop_registries(state="63f9ce47519359b7438e76fa")
-        if result["success"]:
-            wheat = [c for c in result["crops"] 
-                     if "wheat" in c["combinedName"].lower()]
-            if wheat:
-                local_name, english_name, display = extract_crop_display(wheat[0]['combinedName'])
-                print(f"Found: {english_name}")
-                if local_name:
-                    print(f"Local name: {local_name}")
-                print(f"Crop ID: {wheat[0]['id']}")
-      
-      Example 3: Get all crops (including non-GFR)
+      Example 2: Get all crops (including non-GFR)
         result = await soilhealth_get_crop_registries(
             state="63f9ce47519359b7438e76fa",
             gfr_only=False
         )
-        gfr_count = len([c for c in result["crops"] 
-                         if c.get("GFRavailable", "").lower() == "yes"])
-        print(f"Total: {len(result['crops'])}, GFR-available: {gfr_count}")
+        print(f"Total available crops: {result['count']}")
     
-    ⚠️ IMPORTANT FIELD NAMES:
-      - Crop name is in "combinedName" field (NOT "name")
-      - Crop ID is in "id" field (NOT "_id")
+    → MULTILINGUAL SUPPORT:
+      - Crop names automatically include local language names in addition to English
+      - Supports all 22 Indian languages: Hindi, Bengali, Telugu, Tamil, Kannada,
+        Marathi, Gujarati, Punjabi, Malayalam, Odia, Assamese, Maithili,
+        Konkani, Manipuri, Sindhi, Sanskrit, Urdu, etc.
+      - Format: "Local Name (English)" - e.g., "बैंगन (Brinjal / Eggplant)"
+      - Safe for direct display without additional processing
+      - UTF-8 encoding ensures proper rendering on all systems
+    
+    → RESPONSE STRUCTURE:
+      Each crop in response includes:
+      - "name": Human-readable crop name (display in UI)
+      - "id": Internal MongoDB ID (passed to fertilizer recommendations API)
       
-      ✓ Correct: crop_names = [c["combinedName"] for c in crops]
-      ✓ Correct: crop_ids = [c["id"] for c in crops]
-      
-      ❌ Wrong: [c["name"] for c in crops]  ← Field doesn't exist
-      ❌ Wrong: [c["_id"] for c in crops]   ← Wrong field
-      
-      ❌ Ignoring the crop IDs returned
-         → Next tool (recommendations) REQUIRES these crop IDs as input
-      ✓ Extract: crop_ids = [c["_id"] for c in result["crops"]]
-      ✓ Pass to soilhealth_get_fertilizer_recommendations(..., crops=crop_ids)
+    ✓ Display: Use crop["name"] for UI/reports
+    ✓ API Call: Use crop["id"] for recommendations (kept internal)
+    
+    ❌ Do NOT display IDs to users
+    ✅ Do display names in all Indian languages
     
     → CRITICAL USAGE:
-      The crop IDs returned here MUST be included in the next call to
-      soilhealth_get_fertilizer_recommendations() for correct dosage calculations.
-      
-      DO NOT skip this step!
-      DO NOT try to pass arbitrary crop names to recommendations tool!
+      Unlike older versions, this tool returns NAMES ONLY for display.
+      IDs are included internally for API calls but hidden from users.
+      For testing/display purposes:
+      - Get crop names from this tool
+      - Use returned names directly in test.py CROP_NAMES configuration
+      - Example: Copy "बैंगन (All Variety)" from results → paste in test.py
+      - The test.py will automatically use the ID from the server for API calls
     
     → NEXT STEPS:
-      Extract crop._id values and pass the list to:
-      soilhealth_get_fertilizer_recommendations(..., crops=[crop_ids])
+      Use returned crop names directly in test.py configuration or user interface
     """
     variables = {
         "state": state,
@@ -672,11 +673,31 @@ async def soilhealth_get_crop_registries(
         if gfr_only and isinstance(crops, list):
             crops = [crop for crop in crops if str(crop.get("GFRavailable", "")).lower() == "yes"]
 
+        # ===================================================================
+        # NAMES + IDS RESPONSE: Keep names (multilingual) + IDs for API calls
+        # ===================================================================
+        # Returns both human-readable crop names (for display) and internal
+        # IDs (required for fertilizer recommendations API)
+        # All crop names support all Indian languages via UTF-8 encoding
+        
+        crops_formatted = []
+        if isinstance(crops, list):
+            for crop in crops:
+                if isinstance(crop, dict):
+                    # Keep combinedName for display, id for API calls
+                    crop_name = crop.get("combinedName", "")
+                    crop_id = crop.get("id", "")
+                    if crop_name and crop_id:
+                        crops_formatted.append({
+                            "name": crop_name,
+                            "id": crop_id
+                        })
+        
         return {
             "success": True,
             "source": "soilhealth4.dac.gov.in",
-            "count": len(crops) if isinstance(crops, list) else 0,
-            "crops": crops,
+            "count": len(crops_formatted),
+            "crops": crops_formatted,
         }
     except Exception as exc:
         return {

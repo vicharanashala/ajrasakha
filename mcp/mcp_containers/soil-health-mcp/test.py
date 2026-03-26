@@ -112,6 +112,7 @@ async def test_workflow():
             print("📋 ALL AVAILABLE DISTRICTS (copy exact names from here):")
             print("-" * 80)
             for i, dist in enumerate(districts, 1):
+                # Display name only (from "name" field)
                 district_name = dist.get('name', 'Unknown')
                 print(f"{i:3d}. {district_name}")
             print("-" * 80)
@@ -142,6 +143,8 @@ async def test_workflow():
     
     if not crops_result.get('success'):
         print(f"❌ Error: {crops_result.get('error')}")
+        print(f"   Detail: {crops_result.get('detail')}")
+        print(f"   Full result: {crops_result}")
         return
     
     crops = crops_result['crops']
@@ -150,15 +153,16 @@ async def test_workflow():
     print("📋 ALL AVAILABLE CROPS (copy exact names from here):")
     print("-" * 80)
     for i, crop in enumerate(crops, 1):
-        crop_full_name = crop['combinedName']
-        print(f"{i:3d}. {crop_full_name}")
+        # Display name only (from "name" field)
+        crop_name = crop.get('name', 'Unknown')
+        print(f"{i:3d}. {crop_name}")
     print("-" * 80)
     
     # Find crops by exact name match
     selected_crops = []
     for crop_name in CONFIGURATION['CROP_NAMES']:
         for crop in crops:
-            if crop['combinedName'] == crop_name:
+            if crop.get('name') == crop_name:
                 selected_crops.append(crop)
                 break
     
@@ -172,13 +176,14 @@ async def test_workflow():
     
     print(f"\n✅ Found {len(selected_crops)} crop(s) matching configuration:")
     for i, crop in enumerate(selected_crops, 1):
-        print(f"  {i}. {crop['combinedName']}")
+        print(f"  {i}. {crop.get('name')}")
     
     # STEP 5: Get recommendations
     print("\n" + "=" * 80)
     print("STEP 5: GETTING FERTILIZER RECOMMENDATIONS...")
     print("=" * 80)
     
+    # Extract crop IDs for the API call (hidden from user - only names displayed)
     crop_ids = [crop['id'] for crop in selected_crops]
     
     print(f"\nTesting with parameters:")
@@ -192,7 +197,7 @@ async def test_workflow():
     
     result = await soilhealth_get_fertilizer_recommendations(
         state=selected_state['_id'],
-        district=selected_district['_id'] if selected_district else None,
+        district=selected_district['id'] if selected_district else None,
         n=CONFIGURATION['NITROGEN_N_mg_kg'],
         p=CONFIGURATION['PHOSPHORUS_P_mg_kg'],
         k=CONFIGURATION['POTASSIUM_K_mg_kg'],
@@ -263,7 +268,7 @@ async def test_workflow():
         print(f"3. Select District: {selected_district['name']}")
     else:
         print(f"3. (No district selected)")
-    print(f"4. Select Crop: {selected_crops[0]['combinedName']}")
+    print(f"4. Select Crop: {selected_crops[0]['name']}")
     print(f"5. Enter Soil Values:")
     print(f"   - Nitrogen (N): {CONFIGURATION['NITROGEN_N_mg_kg']} mg/kg")
     print(f"   - Phosphorus (P): {CONFIGURATION['PHOSPHORUS_P_mg_kg']} mg/kg")
