@@ -189,7 +189,6 @@ async def test_workflow():
     print(f"  Phosphorus (P): {CONFIGURATION['PHOSPHORUS_P_mg_kg']} mg/kg")
     print(f"  Potassium (K): {CONFIGURATION['POTASSIUM_K_mg_kg']} mg/kg")
     print(f"  Organic Carbon (OC): {CONFIGURATION['ORGANIC_CARBON_OC_PERCENT']}%")
-    print(f"  Organic Carbon (OC): {CONFIGURATION['ORGANIC_CARBON_OC_PERCENT']}%")
     
     result = await soilhealth_get_fertilizer_recommendations(
         state=selected_state['_id'],
