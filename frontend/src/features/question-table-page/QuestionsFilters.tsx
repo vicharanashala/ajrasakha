@@ -37,7 +37,10 @@ import { ConfirmationModal } from "../../components/confirmation-modal";
 import { OutreachReportModal } from "@/features/question_details/components/OutreachReport";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
 
-import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
+import {
+  AddOrEditQuestionDialog,
+  type AddQuestionValidationErrors,
+} from "./AddOrEditQuestionDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
 import { useReAllocateLessWorkload } from '@/hooks/api/question/useReAllocateLessWorkload';
 import { DownloadReportButton } from "./DownloadReportButton";
@@ -118,6 +121,8 @@ export const QuestionsFilters = ({
   const [advanceFilter, setAdvanceFilterValues] =
     useState<AdvanceFilterValues>(appliedFilters);
   const [addOpen, setAddOpen] = useState(false);
+  const [addQuestionErrors, setAddQuestionErrors] =
+    useState<AddQuestionValidationErrors>({});
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
     null,
   );
@@ -170,9 +175,9 @@ export const QuestionsFilters = ({
 
   const handleAddQuestion = async (
     mode: "add" | "edit",
-    entityId?: string,
-    flagReason?: string,
-    status?: QuestionStatus,
+    _entityId?: string,
+    _flagReason?: string,
+    _status?: QuestionStatus,
     formData?: FormData,
   ) => {
     try {
@@ -180,11 +185,14 @@ export const QuestionsFilters = ({
       if (formData) {
         await addQuestion(formData as any);
         // toast.success('File Uploaded succesfully')
+        setAddQuestionErrors({});
         setAddOpen(false);
         return;
       }
       if (!updatedData) {
-        toast.error("No data found to add. Please try again!");
+        setAddQuestionErrors({
+          question: "No data found to add. Please try again.",
+        });
         return;
       }
 
@@ -196,69 +204,56 @@ export const QuestionsFilters = ({
         context: updatedData.context || "",
       };
 
+      const validationErrors: AddQuestionValidationErrors = {};
+
       if (!payload.question) {
-        toast.error("Please enter a question before submitting.");
-        return;
-      }
-      if (payload.question.length < 10) {
-        toast.error("Question must be at least 10 characters long.");
-        return;
+        validationErrors.question = "Please enter a question before submitting.";
+      } else if (payload.question.length < 10) {
+        validationErrors.question = "Question must be at least 10 characters long.";
       }
 
       if (!payload.priority) {
-        toast.error("Please select a priority (Low, Medium, or High).");
-        return;
-      }
-      if (!["low", "medium", "high"].includes(payload.priority)) {
-        toast.error(
-          "Invalid priority value. Please reselect from the options.",
-        );
-        return;
-      }
-
-      if (!payload.source) {
-        toast.error("Please select a source (AJRASAKHA or AGRI_EXPERT).");
-        return;
-      }
-      if (!["AJRASAKHA", "AGRI_EXPERT"].includes(payload.source)) {
-        toast.error(
-          "Invalid source selected. Please reselect from the options.",
-        );
-        return;
+        validationErrors.priority = "Please select a priority (Low, Medium, or High).";
+      } else if (!["low", "medium", "high"].includes(payload.priority)) {
+        validationErrors.priority =
+          "Invalid priority value. Please reselect from the options.";
       }
 
       if (!payload.details) {
-        toast.error("Please fill in the question details.");
+        setAddQuestionErrors({
+          state: "Please fill in the question details.",
+        });
         return;
       }
 
       const { state, district, crop, season, domain } = payload.details;
 
       if (!state?.trim()) {
-        toast.error("Please Select the State field.");
-        return;
+        validationErrors.state = "Please select the State field.";
       }
 
       if (!district?.trim()) {
-        toast.error("Please enter the District field.");
-        return;
+        validationErrors.district = "Please enter the District field.";
       }
 
       if (!crop?.trim()) {
-        toast.error("Please Select the Crop field.");
-        return;
+        validationErrors.crop = "Please select the Crop field.";
       }
 
       if (!season?.trim()) {
-        toast.error("Please Select the Season field.");
-        return;
+        validationErrors.season = "Please select the Season field.";
       }
 
       if (!domain?.trim()) {
-        toast.error("Please Select the Domain field.");
+        validationErrors.domain = "Please select the Domain field.";
+      }
+
+      if (Object.keys(validationErrors).length > 0) {
+        setAddQuestionErrors(validationErrors);
         return;
       }
 
+      setAddQuestionErrors({});
       await addQuestion(payload);
       // toast.success("Question added successfully.");
       setAddOpen(false);
@@ -272,6 +267,20 @@ export const QuestionsFilters = ({
   const handleDialogChange = (key: string, value: any) => {
     setAdvanceFilterValues((prev) => ({ ...prev, [key]: value }));
   };
+
+  const clearAddQuestionError = (field: keyof AddQuestionValidationErrors) => {
+    setAddQuestionErrors((prev) => {
+      if (!prev[field]) return prev;
+      const { [field]: _removed, ...rest } = prev;
+      return rest;
+    });
+  };
+
+  useEffect(() => {
+    if (!addOpen) {
+      setAddQuestionErrors({});
+    }
+  }, [addOpen]);
 
   const handleApplyFilters = (myPreference?: IMyPreference) => {
     onChange({
@@ -384,6 +393,8 @@ export const QuestionsFilters = ({
         userRole={userRole!}
         isLoadingAction={addingQuestion}
         mode="add"
+        validationErrors={addQuestionErrors}
+        onFieldValidatedChange={clearAddQuestionError}
       />
 
       {/* SEARCH BAR – full width on mobile, fixed width on desktop */}
@@ -435,7 +446,10 @@ export const QuestionsFilters = ({
             variant="default"
             size="sm"
             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 text-xs sm:text-sm py-2 sm:py-1.5 whitespace-nowrap"
-            onClick={() => setAddOpen(true)}
+            onClick={() => {
+              setAddQuestionErrors({});
+              setAddOpen(true);
+            }}
           >
             <Plus className="h-4 w-4 flex-shrink-0" />
             <span className="xs:inline">New Question</span>

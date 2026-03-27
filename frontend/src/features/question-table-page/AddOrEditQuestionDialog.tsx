@@ -80,7 +80,23 @@ interface AddOrEditQuestionDialogProps {
   userRole: UserRole;
   isLoadingAction: boolean;
   mode: "add" | "edit";
+  validationErrors?: AddQuestionValidationErrors;
+  onFieldValidatedChange?: (field: AddQuestionField) => void;
 }
+
+export type AddQuestionField =
+  | "question"
+  | "priority"
+  | "state"
+  | "district"
+  | "crop"
+  | "season"
+  | "domain";
+
+export type AddQuestionValidationErrors = Partial<
+  Record<AddQuestionField, string>
+>;
+
 type DetailField = keyof NonNullable<IDetailedQuestion["details"]>;
 const OPTIONS: Partial<Record<DetailField, string[]>> = {
   state: STATES,
@@ -104,10 +120,14 @@ export const AddOrEditQuestionDialog = ({
   userRole,
   isLoadingAction,
   mode,
+  validationErrors,
+  onFieldValidatedChange,
 }: AddOrEditQuestionDialogProps) => {
   const [flagReason, setFlagReason] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const invalidFieldClass =
+    "border-red-500 dark:border-red-400 focus-visible:ring-red-500/60";
   useEffect(() => {
     if (mode === "edit" && question) {
       setUpdatedData(question);
@@ -244,12 +264,25 @@ export const AddOrEditQuestionDialog = ({
                     placeholder="Enter question text"
                     value={updatedData?.question || ""}
                     onChange={(e) =>
+                      {
+                        onFieldValidatedChange?.("question");
                       setUpdatedData((prev) =>
                         prev ? { ...prev, question: e.target.value } : prev
-                      )
+                      );
+                      }
+                    }
+                    className={
+                      mode === "add" && validationErrors?.question
+                        ? invalidFieldClass
+                        : undefined
                     }
                     rows={3}
                   />
+                  {mode === "add" && validationErrors?.question && (
+                    <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
+                      {validationErrors.question}
+                    </p>
+                  )}
 
                       <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                         <Info className="h-4 w-4" aria-hidden="true" />
@@ -266,6 +299,9 @@ export const AddOrEditQuestionDialog = ({
                         }
                         className="h-32 resize-none overflow-y-auto"
                       />
+                      <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                        Suggestion: Adding clear context improves question quality and helps experts respond faster.
+                      </p>
                     
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <FlagTriangleRight className="h-4 w-4" aria-hidden="true" />
@@ -273,15 +309,22 @@ export const AddOrEditQuestionDialog = ({
                   </div>
                   <Select
                     value={updatedData?.priority || "medium"}
-                    onValueChange={(v) =>
+                    onValueChange={(v) => {
+                      onFieldValidatedChange?.("priority");
                       setUpdatedData((prev) =>
                         prev
                           ? { ...prev, priority: v as QuestionPriority }
                           : prev
-                      )
-                    }
+                      );
+                    }}
                   >
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger
+                      className={`w-full ${
+                        mode === "add" && validationErrors?.priority
+                          ? invalidFieldClass
+                          : ""
+                      }`}
+                    >
                       <SelectValue placeholder="Select priority" />
                     </SelectTrigger>
                     <SelectContent>
@@ -290,6 +333,11 @@ export const AddOrEditQuestionDialog = ({
                       <SelectItem value="high">High</SelectItem>
                     </SelectContent>
                   </Select>
+                  {mode === "add" && validationErrors?.priority && (
+                    <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
+                      {validationErrors.priority}
+                    </p>
+                  )}
                   {userRole !== "expert" &&
                     mode == "edit" &&
                     question?.status !== "closed" && (
@@ -388,7 +436,8 @@ export const AddOrEditQuestionDialog = ({
                                 ? updatedData.details[field]
                                 : undefined
                             }
-                            onValueChange={(val) =>
+                            onValueChange={(val) => {
+                              onFieldValidatedChange?.(field as AddQuestionField);
                               setUpdatedData((prev) =>
                                 prev
                                   ? {
@@ -399,10 +448,16 @@ export const AddOrEditQuestionDialog = ({
                                       },
                                     }
                                   : prev
-                              )
-                            }
+                              );
+                            }}
                           >
-                            <SelectTrigger className="w-full">
+                            <SelectTrigger
+                              className={`w-full ${
+                                mode === "add" && validationErrors?.[field as AddQuestionField]
+                                  ? invalidFieldClass
+                                  : ""
+                              }`}
+                            >
                               <SelectValue placeholder={`Select ${field}`} />
                             </SelectTrigger>
 
@@ -418,7 +473,8 @@ export const AddOrEditQuestionDialog = ({
                           <Input
                             type="text"
                             value={updatedData?.details?.district || ""}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              onFieldValidatedChange?.("district");
                               setUpdatedData((prev) =>
                                 prev
                                   ? {
@@ -429,9 +485,19 @@ export const AddOrEditQuestionDialog = ({
                                       },
                                     }
                                   : prev
-                              )
+                              );
+                            }}
+                            className={
+                              mode === "add" && validationErrors?.district
+                                ? invalidFieldClass
+                                : undefined
                             }
                           />
+                        )}
+                        {mode === "add" && validationErrors?.[field as AddQuestionField] && (
+                          <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
+                            {validationErrors[field as AddQuestionField]}
+                          </p>
                         )}
                       </div>
                     );
