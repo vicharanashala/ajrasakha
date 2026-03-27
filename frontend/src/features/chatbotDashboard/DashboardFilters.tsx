@@ -78,10 +78,10 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
         style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 14 }}
       >
         <div>
-          <h1 style={{ fontSize: 16, fontWeight: 500, color: "#1a1a1a", margin: 0 }}>
+          <h1 className="text-[#1a1a1a] dark:text-white" style={{ fontSize: 16, fontWeight: 500, margin: 0 }}>
             National overview
           </h1>
-          <p style={{ fontSize: 12, color: "#888", marginTop: 4, margin: 0 }}>
+          <p className="text-[#888] dark:text-gray-400" style={{ fontSize: 12, marginTop: 4, margin: 0 }}>
             {getSubtitle()}
           </p>
         </div>
