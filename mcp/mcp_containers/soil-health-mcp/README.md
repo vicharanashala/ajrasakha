@@ -28,11 +28,28 @@ local_name, english_name, display = extract_crop_display("నిమ్మకా�
 
 ## Setup
 
+### Using Poetry (Recommended)
 ```bash
 poetry install
 poetry run python server.py
 ```
 
-## API Documentation
+### Using Pip
+```bash
+pip install httpx python-dotenv mcp fastmcp
+python server.py
+```
 
-See the comprehensive docstrings in `server.py` for detailed API documentation and usage examples.
+## Local Testing CLI
+
+You can test the server logic directly from the command line using the provided test tool. This is great for verifying connectivity and data mapping without running the full MCP server.
+
+```bash
+python test_soil_health_cli.py --state "TELANGANA" --district "ADILABAD" --crops "కంది" --n 200 --p 300 --k 200 --oc 200
+```
+
+## Troubleshooting
+
+- **INTERNAL_SERVER_ERROR**: This usually means the portal's backend hit a timeout or an invalid ID. The server now includes automatic fallback to state-level recommendations if a district is rejected.
+- **Missing Values**: Ensure all 4 soil values (N, P, K, OC) are provided as numeric inputs.
+- **Connection Issues**: The server now uses standard browser headers and follows redirects to improve stability.
