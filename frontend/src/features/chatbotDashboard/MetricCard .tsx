@@ -14,6 +14,13 @@ type KpiCardData = {
 	badges?: { label: string; variant: BadgeVariant }[];
 };
 
+const badgeStyles: Record<BadgeVariant, { bg: string; text: string }> = {
+	green: { bg: "bg-green-50", text: "text-green-900" },
+	red: { bg: "bg-red-50", text: "text-red-900" },
+	amber: { bg: "bg-amber-50", text: "text-amber-900" },
+	blue: { bg: "bg-blue-50", text: "text-blue-900" },
+};
+
 const DASHBOARD_DATA: { kpiRow1: KpiCardData[]; kpiRow2: KpiCardData[] } = {
 	kpiRow1: [
 		{
@@ -93,25 +100,11 @@ const DASHBOARD_DATA: { kpiRow1: KpiCardData[]; kpiRow2: KpiCardData[] } = {
 	],
 };
 
-const badgeStyles: Record<BadgeVariant, { background: string; color: string }> = {
-	green: { background: "#EAF3DE", color: "#3B6D11" },
-	red: { background: "#FCEBEB", color: "#A32D2D" },
-	amber: { background: "#FAEEDA", color: "#633806" },
-	blue: { background: "#E6F1FB", color: "#0C447C" },
-};
-
 function SmallBadge({ label, variant = "green" }: { label: string; variant?: BadgeVariant }) {
+	const styles = badgeStyles[variant];
 	return (
 		<span
-			style={{
-				display: "inline-flex",
-				alignItems: "center",
-				padding: "2px 7px",
-				borderRadius: 20,
-				fontSize: 10,
-				fontWeight: 500,
-				...badgeStyles[variant],
-			}}
+			className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${styles.bg} ${styles.text}`}
 		>
 			{label}
 		</span>
@@ -129,7 +122,7 @@ function Sparkline({ points, color }: { points: number[]; color: string }) {
 	const fill = `${d} L ${width} ${height} L 0 ${height} Z`;
 
 	return (
-		<svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: 52 }} preserveAspectRatio="none">
+		<svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ height: 52 }} preserveAspectRatio="none">
 			<path d={fill} fill={color} fillOpacity={0.08} />
 			<path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
 		</svg>
@@ -153,7 +146,7 @@ function DeltaIcon({ dir }: { dir: KpiCardData["deltaDir"] }) {
 		);
 	}
 
-	return <span style={{ fontSize: 10 }}>→</span>;
+	return <span className="text-xs">→</span>;
 }
 
 function KpiCard({ kpi }: { kpi: KpiCardData }) {
@@ -161,51 +154,29 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
 
 	return (
 		<Card
-			className="gap-0 p-0"
-			style={{
-				background: "#fff",
-				border: "0.5px solid #e5e5e5",
-				borderRadius: 12,
-				position: "relative",
-				overflow: "hidden",
-				minWidth: 0,
-			}}
+			className="relative overflow-hidden border border-gray-200 bg-white p-0"
 		>
 			<div
-				style={{
-					position: "absolute",
-					top: 0,
-					left: 0,
-					right: 0,
-					height: 3,
-					background: kpi.accentColor,
-					borderRadius: "12px 12px 0 0",
-				}}
+				className="absolute inset-x-0 top-0 h-1"
+				style={{ background: kpi.accentColor }}
 			/>
-			<CardContent style={{ padding: "14px 16px" }}>
-				<div
-					style={{
-						fontSize: 11,
-						color: "#888",
-						marginBottom: 6,
-						textTransform: "uppercase",
-						letterSpacing: "0.4px",
-						fontWeight: 500,
-					}}
-				>
+			<CardContent className="p-4">
+				<div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
 					{kpi.label}
 				</div>
-				<div style={{ fontSize: 22, fontWeight: 500, color: kpi.valueColor || "#1a1a1a", lineHeight: 1 }}>{kpi.value}</div>
-				<div style={{ fontSize: 11, marginTop: 5, display: "flex", alignItems: "center", gap: 3, color: deltaColor }}>
+				<div className="text-2xl font-semibold" style={{ color: kpi.valueColor || "#1a1a1a" }}>
+					{kpi.value}
+				</div>
+				<div className="mt-1.5 flex items-center gap-1 text-xs" style={{ color: deltaColor }}>
 					<DeltaIcon dir={kpi.deltaDir} /> {kpi.delta}
 				</div>
 				{kpi.sparkPoints && (
-					<div style={{ marginTop: 10 }}>
+					<div className="mt-2.5">
 						<Sparkline points={kpi.sparkPoints} color={kpi.accentColor} />
 					</div>
 				)}
 				{kpi.badges && (
-					<div style={{ marginTop: 8, display: "flex", gap: 4 }}>
+					<div className="mt-2 flex gap-1">
 						{kpi.badges.map((b) => (
 							<SmallBadge key={b.label} label={b.label} variant={b.variant} />
 						))}
@@ -221,12 +192,12 @@ export function EightCardsComponent() {
 
 	return (
 		<>
-			<div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 10 }}>
+			<div className="mb-2.5 grid grid-cols-4 gap-2.5">
 				{data.kpiRow1.map((kpi) => (
 					<KpiCard key={kpi.id} kpi={kpi} />
 				))}
 			</div>
-			<div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}>
+			<div className="mb-4 grid grid-cols-4 gap-2.5">
 				{data.kpiRow2.map((kpi) => (
 					<KpiCard key={kpi.id} kpi={kpi} />
 				))}
