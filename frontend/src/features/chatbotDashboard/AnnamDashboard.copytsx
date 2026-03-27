@@ -1054,19 +1054,6 @@ export function AnnamDashboard() {
     season: "all",
   });
 
-  const getSubtitle = () => {
-    const parts: string[] = [];
-    parts.push(activeFilters.village !== "all" ? activeFilters.village : "All villages");
-    parts.push(activeFilters.crop !== "all" ? activeFilters.crop : "All crops");
-    parts.push(activeFilters.season !== "all" ? activeFilters.season : "All seasons");
-
-    if (activeFilters.startTime && activeFilters.endTime) {
-      const fmt = (d: Date) => d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-      parts.push(`${fmt(activeFilters.startTime)} – ${fmt(activeFilters.endTime)}`);
-    }
-    return `Showing data for: ${parts.join(" · ")} · Updated every 15 min`;
-  };
-
   const segmentsRef = useRef<HTMLDivElement>(null);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
 
@@ -1251,40 +1238,6 @@ export function AnnamDashboard() {
 
         {/* MAIN */}
         <main style={{ flex: 1, overflowY: "auto", padding: 20 }}>
-
-          {/* Page header */}
-          <div
-            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}
-          >
-            <div>
-              <h1 style={{ fontSize: 16, fontWeight: 500, color: "#1a1a1a", margin: 0 }}>
-                National overview
-              </h1>
-              <p style={{ fontSize: 12, color: "#888", marginTop: 2, margin: 0 }}>
-                {getSubtitle()}
-              </p>
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={() => console.log("Export PDF clicked")}
-                style={{
-                  fontSize: 12, padding: "6px 12px", border: "0.5px solid #ddd",
-                  borderRadius: 6, background: "#fff", color: "#666", cursor: "pointer",
-                }}
-              >
-                Export PDF
-              </button>
-              <button
-                onClick={() => console.log("Share report clicked")}
-                style={{
-                  fontSize: 12, padding: "6px 12px", border: "0.5px solid #3AAA5A",
-                  borderRadius: 6, background: "#EAF6EC", color: "#1E7A3C", cursor: "pointer",
-                }}
-              >
-                Share report
-              </button>
-            </div>
-          </div>
 
           <DashboardFilters onFilterChange={setActiveFilters} />
 
@@ -1497,3 +1450,6 @@ export function AnnamDashboard() {
     </div>
   );
 }
+
+
+

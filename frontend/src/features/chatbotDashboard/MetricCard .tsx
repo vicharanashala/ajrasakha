@@ -154,7 +154,7 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
 
 	return (
 		<Card
-			className="relative overflow-hidden border border-gray-200 bg-white p-0 dark:border-slate-700 dark:bg-slate-900"
+			className="relative overflow-hidden border border-gray-200 bg-white p-0 dark:border-[#2a2a2a] dark:bg-[#1a1a1a]"
 		>
 			<div
 				className="absolute inset-x-0 top-0 h-1"

@@ -23,7 +23,7 @@ import { Dashboard } from "./dashboard";
 import Spinner from "./atoms/spinner";
 import { ExpertDashboard } from "./ExpertDashboard";
 import { NotificationModal } from "./NotificationModal";
-import {AnnamDashboard} from '../features/chatbotDashboard/AnnamDashboard'
+import {AnnamDashboard_dev as AnnamDashboard} from '../features/chatbotDashboard/AnnamDashboard_dev'
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser({});
