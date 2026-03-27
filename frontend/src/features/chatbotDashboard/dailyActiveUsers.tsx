@@ -19,7 +19,7 @@ const DailyActiveUsers = () => {
     };
 
     return (
-        <Card className="dark:bg-slate-900 dark:border-slate-700">
+        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
             <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">
                     Daily active users — 30 day trend
