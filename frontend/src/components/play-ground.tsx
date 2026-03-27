@@ -23,6 +23,7 @@ import { Dashboard } from "./dashboard";
 import Spinner from "./atoms/spinner";
 import { ExpertDashboard } from "./ExpertDashboard";
 import { NotificationModal } from "./NotificationModal";
+import {AnnamDashboard} from '../features/chatbotDashboard/AnnamDashboard'
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser({});
@@ -383,6 +384,18 @@ export const PlaygroundPage = () => {
                   </HoverCard>
                 </TabsTrigger>
 
+                {user && user.role !== "expert" && (
+                  <TabsTrigger
+                    value="chatbotanalytics"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <HoverCard openDelay={150}>
+                      <span>ChatBot Analytics</span>
+                      {/* <span>Performance</span> */}
+                    </HoverCard>
+                  </TabsTrigger>
+                )}
+
                 {user && (
                   <TabsTrigger
                     value="history"
@@ -456,6 +469,13 @@ export const PlaygroundPage = () => {
                 <QuestionsPage
                   currentUser={user!}
                   autoOpenQuestionId={selectedCommentId || selectedQuestionId}
+                />
+              </TabsContent>
+              <TabsContent
+                value="chatbotanalytics"
+                className="mt-0 border-0 md:px-8 "
+              >
+                <AnnamDashboard
                 />
               </TabsContent>
 
