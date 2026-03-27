@@ -11,6 +11,7 @@ from typing import Any
 import httpx
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+from data import SOILHEALTH_DATA
 
 # Ensure UTF-8 output on all platforms including Windows
 # This enables support for all Indian languages (Hindi, Telugu, Tamil, Kannada, Marathi, etc.)
@@ -99,6 +100,7 @@ MCP_PORT = int(os.getenv("SOILHEALTH_MCP_PORT", "9005"))
 MCP_MOUNT_PATH = os.getenv("MCP_MOUNT_PATH", "/").strip() or "/"
 MAX_RETRIES = int(os.getenv("SOILHEALTH_MAX_RETRIES", "3"))
 INITIAL_BACKOFF = float(os.getenv("SOILHEALTH_INITIAL_BACKOFF", "0.5"))
+
 
 # ============================================================================
 # MULTILINGUAL SUPPORT - Helper function for all Indian languages
@@ -249,8 +251,13 @@ async def _soilhealth_graphql(query: str, variables: dict[str, Any]) -> dict[str
     }
 
     async def make_request():
-        async with httpx.AsyncClient(timeout=TIMEOUT_SECONDS) as client:
-            response = await client.post(SOILHEALTH_GRAPHQL_URL, json=body)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+        async with httpx.AsyncClient(timeout=TIMEOUT_SECONDS, follow_redirects=True) as client:
+            response = await client.post(SOILHEALTH_GRAPHQL_URL, json=body, headers=headers)
             response.raise_for_status()
             return response
 
@@ -270,563 +277,14 @@ async def _soilhealth_graphql(query: str, variables: dict[str, Any]) -> dict[str
         "data": data.get("data") if isinstance(data, dict) else data,
     }
 
-@mcp.tool()
-async def soilhealth_get_states(
-    state_id: str | None = None,
-    code: str | None = None,
-) -> dict[str, Any]:
-    """
-    Fetch soil health states from the DAC Soil Health Portal.
-    
-    → WHEN TO CALL:
-      1. At the START of any soil health query workflow
-      2. When you need a list of available states to present to user
-      3. Required prerequisite for: soilhealth_get_districts_by_state() and
-         soilhealth_get_crop_registries()
-    
-    → PARAMETERS:
-      - state_id (OPTIONAL str): MongoDB ObjectId of specific state to fetch
-        • If None (default): Returns ALL states in the system (recommended for
-          initial queries)
-        • Use case: Rarely needed - useful only if you have pre-filtered state ID
-      
-      - code (OPTIONAL str): State abbreviation code (e.g., "KA" for Karnataka)
-        • If None (default): Ignored
-        • Use case: Filter results by state code if available
-    
-    → RETURN VALUE (on success):
-      {
-          "success": True,
-          "source": "soilhealth4.dac.gov.in",
-          "count": int,
-          "states": [
-              {
-                  "_id": "MONGODB_ID",      ← Use this for other tool calls
-                  "name": "State Name",
-                  "code": "ST",
-                  ...other fields...
-              },
-              ...
-          ]
-      }
-    
-    → RETURN VALUE (on error):
-      {
-          "success": False,
-          "error": "request_failed" | "graphql_error",
-          "detail": "error details",
-          "errors": [...] (only if graphql_error)
-      }
-    
-    → EXAMPLES:
-      Example 1: Get all states to display to user
-        result = await soilhealth_get_states()
-        if result["success"]:
-            print("Available States:")
-            for state in result["states"]:
-                print(f"  {state['name']} ({state.get('code', 'N/A')})")
-        # Output:
-        # Available States:
-        #   ANDHRA PRADESH (28)
-        #   ARUNACHAL PRADESH (12)
-        #   ANDAMAN & NICOBAR (35)
-        #   ...
-      
-      Example 2: Find and use a specific state by name
-        result = await soilhealth_get_states()
-        if result["success"]:
-            selected_state = None
-            for state in result["states"]:
-                if "karnataka" in state["name"].lower():
-                    selected_state = state
-                    break
-            if selected_state:
-                print(f"Found: {selected_state['name']}")
-                state_id = selected_state["_id"]
-    
-    → ERROR HANDLING:
-      - HTTP 500 errors: Server retry 3 times with exponential backoff
-      - Connection timeouts: Retries up to 3 times (30s timeout per attempt)
-      - GraphQL errors: Check result["errors"] for query syntax issues
-      - Empty response: Fallback queries test centers for available states
-    
-    → NEXT STEPS:
-      After calling this successfully, use returned state._id value as parameter
-      for: soilhealth_get_districts_by_state() and soilhealth_get_crop_registries()
-    """
-    variables = {
-        "getStateId": state_id,
-        "code": code,
-    }
-
-    try:
-        result = await _soilhealth_graphql(SOILHEALTH_GET_STATE_QUERY, variables)
-        if result.get("success") is False:
-            return result
-
-        states = result.get("data", {}).get("getState", [])
-        if isinstance(states, list) and states:
-            return {
-                "success": True,
-                "source": "soilhealth4.dac.gov.in",
-                "count": len(states),
-                "states": states,
-            }
-
-        # Fallback for public listing: derive unique states from test center records.
-        if not state_id and not code:
-            fallback = await _soilhealth_graphql(
-                SOILHEALTH_GET_TEST_CENTERS_QUERY,
-                {"state": None, "district": None},
-            )
-            if fallback.get("success") is False:
-                return fallback
-
-            rows = fallback.get("data", {}).get("getTestCenters", [])
-            unique: dict[str, dict[str, Any]] = {}
-            for row in rows if isinstance(rows, list) else []:
-                state_obj = row.get("state") if isinstance(row, dict) else None
-                if not isinstance(state_obj, dict):
-                    continue
-                state_key = str(state_obj.get("_id") or state_obj.get("id") or "").strip()
-                if not state_key:
-                    continue
-                unique[state_key] = state_obj
-
-            derived_states = sorted(unique.values(), key=lambda x: str(x.get("name", "")))
-            return {
-                "success": True,
-                "source": "soilhealth4.dac.gov.in",
-                "count": len(derived_states),
-                "states": derived_states,
-                "note": "Derived from getTestCenters fallback because getState returned empty for unfiltered query.",
-            }
-
-        return {
-            "success": True,
-            "source": "soilhealth4.dac.gov.in",
-            "count": 0,
-            "states": [],
-        }
-    except Exception as exc:
-        return {
-            "success": False,
-            "error": "request_failed",
-            "detail": str(exc),
-        }
-
-@mcp.tool()
-async def soilhealth_get_districts_by_state(
-    state: str,
-    name: str | None = None,
-    subdistrict: bool = True,
-    code: str | None = None,
-    aspirationaldistrict: bool = False,
-) -> dict[str, Any]:
-    """
-    Fetch soil health districts (ALL districts, no filtering) for a given state.
-    
-    ⚠️ IMPORTANT: Returns DISTRICT NAMES ONLY (no IDs)
-    ⚠️ Supports all Indian languages (Hindi, Bengali, Telugu, Tamil, Kannada, etc.)
-    
-    → WHEN TO CALL:
-      1. AFTER calling soilhealth_get_states() (use state._id from that result)
-      2. To display available districts in a state (all districts shown)
-      3. Optional: Not required for fertilizer recommendations (district is optional)
-      4. When user needs to select a specific district for more accurate results
-    
-    → DEPENDENCY:
-      REQUIRED: Must call soilhealth_get_states() first to get state._id value
-    
-    → PARAMETERS:
-      - state (REQUIRED str): MongoDB ObjectId of state to query
-        • Get this value from soilhealth_get_states() result ["states"][i]["_id"]
-        • Example: "507f191e810c19729de860ea"
-      
-      - name (OPTIONAL str): Filter by district name 
-        • If None (default): Returns all districts in state (RECOMMENDED)
-        • Supports partial matching with all Indian language names
-      
-      - subdistrict (OPTIONAL bool, default=False): Include subdivisions
-        • If True: Also returns sub-district level data
-        • If False: Only state & district level
-      
-      - code (OPTIONAL str): District code to filter
-        • If None (default): Ignored
-      
-      - aspirationaldistrict (OPTIONAL bool, default=False): Filter aspirational districts
-        • If True: Only aspirational districts
-        • If False: All districts (default, shows everything)
-    
-    → RETURN VALUE (on success) - NAMES + IDs FOR DISPLAY AND API:
-      {
-          "success": True,
-          "source": "soilhealth4.dac.gov.in",
-          "count": int,
-          "districts": [
-              {"name": "District Name", "id": "MONGODB_ID"},
-              {"name": "जिला नाम", "id": "MONGODB_ID"},
-              {"name": "జిల్లా పేరు", "id": "MONGODB_ID"},
-              ...all districts shown (no filtering)...
-          ]
-      }
-    
-    → RETURN VALUE (on error):
-      {
-          "success": False,
-          "error": "request_failed" | "graphql_error",
-          "detail": "error details"
-      }
-    
-    → EXAMPLES:
-      Example 1: Get all districts in a state and display (no filtering)
-        states_result = await soilhealth_get_states()
-        state = next(s for s in states_result["states"] if s["name"] == "UTTAR PRADESH")
-        
-        districts = await soilhealth_get_districts_by_state(state=state["_id"])
-        if districts["success"]:
-            print(f"All districts in {state['name']}:")
-            for dist in districts["districts"]:
-                print(f"  - {dist['name']}")
-      
-      Example 2: Search for a specific district by name
-        result = await soilhealth_get_districts_by_state(
-            state="63f9ce47519359b7438e76fa",
-            name="Agra"
-        )
-        if result["success"] and result["districts"]:
-            for dist in result["districts"]:
-                print(f"Found: {dist['name']}")
-    
-    → USAGE TIPS:
-      - Always returns district names only (IDs are internal for API use)
-      - Fully supports all Indian languages (22+ languages)
-      - No filtering by default - always shows ALL available districts
-      - Use returned district names directly with test.py for testing
-      
-    → RESPONSE STRUCTURE:
-      Each district in response includes:
-      - "name": Human-readable district name (display in UI)
-      - "id": Internal MongoDB ID (used for recommendations if district selected)
-      
-    ✓ Display: Use district["name"] for UI/reports
-    ✓ API Call: Use district["id"] internally for recommendations
-    
-    ❌ Do NOT display IDs to users
-    ✅ Do display names in all Indian languages
-    """
-    variables = {
-        "getdistrictAndSubdistrictBystateId": None,
-        "name": name,
-        "state": state,
-        "subdistrict": subdistrict,
-        "code": code,
-        "aspirationaldistrict": aspirationaldistrict,
-    }
-
-    try:
-        result = await _soilhealth_graphql(SOILHEALTH_GET_DISTRICTS_QUERY, variables)
-        if result.get("success") is False:
-            return result
-        
-        # Return raw API data without filtering or transformation
-        districts = result.get("data", {}).get("getdistrictAndSubdistrictBystate", [])
-        if not isinstance(districts, list):
-            districts = []
-
-        # API quirk: for some states, district query returns only subdistrict rows.
-        # Merge canonical district rows from getTestCenters so names like
-        # "AHMADABAD" are not skipped from the response.
-        try:
-            centers_result = await _soilhealth_graphql(
-                SOILHEALTH_GET_TEST_CENTERS_QUERY,
-                {"state": None, "district": None},
-            )
-            centers = centers_result.get("data", {}).get("getTestCenters", [])
-            if isinstance(centers, list):
-                existing_names = {
-                    str(item.get("name", "")).strip().casefold()
-                    for item in districts
-                    if isinstance(item, dict) and item.get("name")
-                }
-                for center in centers:
-                    if not isinstance(center, dict):
-                        continue
-                    center_state = center.get("state")
-                    center_district = center.get("district")
-                    if not isinstance(center_state, dict) or not isinstance(center_district, dict):
-                        continue
-                    if center_state.get("_id") != state:
-                        continue
-
-                    district_name = str(center_district.get("name", "")).strip()
-                    normalized_name = district_name.casefold()
-                    if not district_name or normalized_name in existing_names:
-                        continue
-
-                    # Preserve full district object from API and mark canonical source.
-                    district_row = dict(center_district)
-                    district_row["source"] = "getTestCenters"
-                    districts.append(district_row)
-                    existing_names.add(normalized_name)
-        except Exception:
-            # Non-fatal fallback: keep primary district response unchanged.
-            pass
-
-        # Optional local name filter after merge (case-insensitive exact first,
-        # then substring) so caller gets expected entries even with case differences.
-        if isinstance(name, str) and name.strip():
-            target = name.strip().casefold()
-            exact = [
-                d for d in districts
-                if isinstance(d, dict)
-                and str(d.get("name", "")).strip().casefold() == target
-            ]
-            if exact:
-                districts = exact
-            else:
-                districts = [
-                    d for d in districts
-                    if isinstance(d, dict)
-                    and target in str(d.get("name", "")).strip().casefold()
-                ]
-        
-        return {
-            "success": True,
-            "source": "soilhealth4.dac.gov.in",
-            "count": len(districts) if isinstance(districts, list) else 0,
-            "districts": districts,  # Return raw data, no transformation
-        }
-    except Exception as exc:
-        return {
-            "success": False,
-            "error": "request_failed",
-            "detail": str(exc),
-        }
-
-@mcp.tool()
-async def soilhealth_get_crop_registries(
-    state: str,
-    gfr_only: bool = True,
-    crop_names: list[str] | None = None,
-) -> dict[str, Any]:
-    """
-    Fetch crop registries available in a state for fertilizer recommendations.
-    
-    ⚠️ IMPORTANT: Returns CROP NAMES ONLY (no IDs)
-    ⚠️ Supports all Indian languages (Hindi, Bengali, Telugu, Tamil, Kannada, etc.)
-    ⚠️ CRITICAL: This tool MUST be called before soilhealth_get_fertilizer_recommendations()
-    
-    → WHEN TO CALL:
-      1. REQUIRED STEP before calling soilhealth_get_fertilizer_recommendations()
-      2. After calling soilhealth_get_states()
-      3. To display list of available crops to user
-      4. To validate that a requested crop is available in the state
-    
-    → DEPENDENCY:
-      REQUIRED: Must call soilhealth_get_states() first to get state code
-    
-    → PARAMETERS:
-      - state (REQUIRED str): State MongoDB ID
-        • Get from soilhealth_get_states() result ["states"][i]["_id"]
-        • Example: "63f9ce47519359b7438e76fa" (24-character hex MongoDB ID)
-        • ⚠️ NOTE: Despite the name, this accepts MongoDB ObjectId, NOT state code
-        • Common error: Passing state code (e.g., "KA") will cause GraphQL error
-      
-      - gfr_only (OPTIONAL bool, default=True): Filter to GFR-available crops
-        • If True: Returns only crops marked with GFRavailable="yes"
-        • If False: Returns all crops in the state
-        • Recommendation: Keep True for standard fertilizer recommendations
-
-            - crop_names (OPTIONAL list[str], default=None): Server-side crop name matching
-                • If provided: server attempts exact/normalized/fuzzy matching
-                • Supports multilingual crop names and case differences
-                • Returns matched crops and suggestions in response metadata
-    
-    → RETURN VALUE (on success) - NAMES + IDs FOR DISPLAY AND API:
-      {
-          "success": True,
-          "source": "soilhealth4.dac.gov.in",
-          "count": int,
-          "crops": [
-              {"name": "Crop Name", "id": "MONGODB_ID"},
-              {"name": "फसल का नाम", "id": "MONGODB_ID"},
-              {"name": "మొక్కల పేరు", "id": "MONGODB_ID"},
-              ...
-          ]
-      }
-    
-    → RETURN VALUE (on error):
-      {
-          "success": False,
-          "error": "request_failed" | "graphql_error",
-          "detail": "error details"
-      }
-    
-    → EXAMPLES:
-      Example 1: Get all GFR-eligible crops and display by name (with multilingual support)
-        states_result = await soilhealth_get_states()
-        state = next(s for s in states_result["states"] if s["name"] == "ASSAM")
-        
-        crops_result = await soilhealth_get_crop_registries(
-            state=state["_id"]
-        )
-        if crops_result["success"]:
-            print(f"Available Crops in {state['name']}:")
-            for crop in crops_result["crops"]:
-                print(f"  - {crop['name']}")
-      
-      Example 2: Get all crops (including non-GFR)
-        result = await soilhealth_get_crop_registries(
-            state="63f9ce47519359b7438e76fa",
-            gfr_only=False
-        )
-        print(f"Total available crops: {result['count']}")
-    
-    → MULTILINGUAL SUPPORT:
-      - Crop names automatically include local language names in addition to English
-      - Supports all 22 Indian languages: Hindi, Bengali, Telugu, Tamil, Kannada,
-        Marathi, Gujarati, Punjabi, Malayalam, Odia, Assamese, Maithili,
-        Konkani, Manipuri, Sindhi, Sanskrit, Urdu, etc.
-      - Format: "Local Name (English)" - e.g., "बैंगन (Brinjal / Eggplant)"
-      - Safe for direct display without additional processing
-      - UTF-8 encoding ensures proper rendering on all systems
-    
-    → RESPONSE STRUCTURE:
-      Each crop in response includes:
-      - "name": Human-readable crop name (display in UI)
-      - "id": Internal MongoDB ID (passed to fertilizer recommendations API)
-      
-    ✓ Display: Use crop["name"] for UI/reports
-    ✓ API Call: Use crop["id"] for recommendations (kept internal)
-    
-    ❌ Do NOT display IDs to users
-    ✅ Do display names in all Indian languages
-    
-    → CRITICAL USAGE:
-      Unlike older versions, this tool returns NAMES ONLY for display.
-      IDs are included internally for API calls but hidden from users.
-      For testing/display purposes:
-      - Get crop names from this tool
-      - Use returned names directly in test.py CROP_NAMES configuration
-      - Example: Copy "बैंगन (All Variety)" from results → paste in test.py
-      - The test.py will automatically use the ID from the server for API calls
-    
-    → NEXT STEPS:
-      Use returned crop names directly in test.py configuration or user interface
-    """
-    variables = {
-        "state": state,
-    }
-
-    try:
-        result = await _soilhealth_graphql(SOILHEALTH_GET_CROP_REGISTRIES_QUERY, variables)
-        if result.get("success") is False:
-            return result
-
-        crops = result.get("data", {}).get("getCropRegistries", [])
-        if gfr_only and isinstance(crops, list):
-            crops = [crop for crop in crops if str(crop.get("GFRavailable", "")).lower() == "yes"]
-
-        if not isinstance(crops, list):
-            crops = []
-
-        matched_crops: list[dict[str, Any]] = []
-        unmatched_crop_names: list[str] = []
-        crop_suggestions: dict[str, list[str]] = {}
-
-        if crop_names:
-            # Build candidate lists for robust matching.
-            candidate_names: list[str] = []
-            candidate_by_norm: dict[str, list[dict[str, Any]]] = {}
-            for crop in crops:
-                if not isinstance(crop, dict):
-                    continue
-                display_name = str(crop.get("combinedName") or crop.get("name") or "").strip()
-                if not display_name:
-                    continue
-                candidate_names.append(display_name)
-                normalized = _normalize_text(display_name)
-                candidate_by_norm.setdefault(normalized, []).append(crop)
-
-            seen_ids: set[str] = set()
-            for requested in crop_names:
-                requested_str = str(requested or "").strip()
-                requested_norm = _normalize_text(requested_str)
-                found_crop: dict[str, Any] | None = None
-
-                # 1) Exact raw match
-                for crop in crops:
-                    if not isinstance(crop, dict):
-                        continue
-                    display_name = str(crop.get("combinedName") or crop.get("name") or "").strip()
-                    if display_name == requested_str:
-                        found_crop = crop
-                        break
-
-                # 2) Normalized exact match
-                if not found_crop and requested_norm in candidate_by_norm:
-                    found_crop = candidate_by_norm[requested_norm][0]
-
-                # 3) Fuzzy fallback (auto-pick best match)
-                if not found_crop and requested_norm:
-                    normalized_candidates = list(candidate_by_norm.keys())
-                    best = difflib.get_close_matches(
-                        requested_norm,
-                        normalized_candidates,
-                        n=1,
-                        cutoff=0.55,
-                    )
-                    if best:
-                        found_crop = candidate_by_norm[best[0]][0]
-
-                # Keep suggestion list for transparency
-                suggestions = difflib.get_close_matches(
-                    requested_norm,
-                    list(candidate_by_norm.keys()),
-                    n=5,
-                    cutoff=0.45,
-                ) if requested_norm else []
-                if suggestions:
-                    crop_suggestions[requested_str] = [
-                        str(candidate_by_norm[s][0].get("combinedName") or candidate_by_norm[s][0].get("name") or "")
-                        for s in suggestions
-                        if candidate_by_norm.get(s)
-                    ]
-
-                if found_crop:
-                    crop_id = str(found_crop.get("id") or found_crop.get("_id") or "")
-                    if crop_id and crop_id not in seen_ids:
-                        matched_crops.append(found_crop)
-                        seen_ids.add(crop_id)
-                else:
-                    unmatched_crop_names.append(requested_str)
-
-        # Return raw API data without filtering or transformation
-        return {
-            "success": True,
-            "source": "soilhealth4.dac.gov.in",
-            "count": len(crops) if isinstance(crops, list) else 0,
-            "crops": crops,  # Return raw data, no transformation
-            "matchedCrops": matched_crops,
-            "matchedCount": len(matched_crops),
-            "unmatchedCropNames": unmatched_crop_names,
-            "suggestions": crop_suggestions,
-        }
-    except Exception as exc:
-        return {
-            "success": False,
-            "error": "request_failed",
-            "detail": str(exc),
-        }
 
 @mcp.tool()
 async def soilhealth_get_fertilizer_recommendations(
     state: str,
-    n: float,
-    p: float,
-    k: float,
-    oc: float,
+    n: float | None = None,
+    p: float | None = None,
+    k: float | None = None,
+    oc: float | None = None,
     district: str | None = None,
     crops: list[str] | None = None,
     natural_farming: bool = False,
@@ -834,194 +292,100 @@ async def soilhealth_get_fertilizer_recommendations(
     """
     Fetch crop-specific fertilizer dosage recommendations based on soil test results.
     
-    This is the FINAL STEP in the soil health workflow. It returns specific fertilizer
-    quantities (NPK dosages) for each crop based on soil test data.
+    This tool now supports both Names and MongoDB IDs for state, district, and crops.
+    If names are provided with minor spelling mistakes, it will attempt to find the closest match.
     
-    → WHEN TO CALL:
-      1. FINAL STEP after obtaining soil test results (NPK, OC values)
-      2. After calling soilhealth_get_states() to get state ID
-      3. After calling soilhealth_get_crop_registries() to get crop IDs
-      4. Optional: After soilhealth_get_districts_by_state() for better precision
-    
-    → REQUIRED DEPENDENCIES (MUST call these first):
-      ✓ soilhealth_get_states() → get state._id
-      ✓ soilhealth_get_crop_registries() → get crop._id list
-      
-    → OPTIONAL DEPENDENCIES:
-      • soilhealth_get_districts_by_state() → for district._id (improves accuracy)
-    
-    → PARAMETERS - SOIL TEST RESULTS (ALL REQUIRED):
-      - state (REQUIRED str): State MongoDB ID (from soilhealth_get_states())
-        • Example: "507f191e810c19729de860ea"
-      
-      - n (REQUIRED float): Nitrogen level from soil test
-        • Unit: mg/kg (milligrams per kilogram)
-        • Typical range: 0-1000
-        • Type: Can be int or float; automatically converted
-      
-      - p (REQUIRED float): Phosphorus level from soil test
-        • Unit: mg/kg
-        • Typical range: 0-500
-      
-      - k (REQUIRED float): Potassium level from soil test
-        • Unit: mg/kg
-        • Typical range: 0-2000
-      
-      - oc (REQUIRED float): Organic Carbon percentage
-        • Unit: % (percentage)
-        • Typical range: 0-5
-        • Often abbreviated as "OC" in soil reports
-    
-    → PARAMETERS - CROP & LOCATION (RECOMMENDED):
-      - crops (OPTIONAL list[str]): Crop MongoDB IDs to get recommendations for
-        • Source: From soilhealth_get_crop_registries() ["crops"][i]["_id"]
-        • If None: System returns recommendations for ALL crops in state
-        • Recommendation: ALWAYS provide this from soilhealth_get_crop_registries()
-        • Example: ["507f1...", "507f2...", "507f3..."]
-      
-      - district (OPTIONAL str): District MongoDB ID for geographic specificity
-        • Source: From soilhealth_get_districts_by_state() ["districts"][i]["_id"]
-        • If None: Uses state-level recommendations
-        • Improves: Recommendations become more location-specific
-        • Example: "507f191e810c19729de860ea"
-      
-      - natural_farming (OPTIONAL bool, default=False): Use organic/natural farming
-        • If True: Returns recommendations for organic farming practices
-        • If False: Conventional fertilizer recommendations
-        • Use case: For organic farming certification systems
-    
-    → RETURN VALUE (on success):
-      {
-          "success": True,
-          "source": "soilhealth4.dac.gov.in",
-          "count": int,            ← Number of crop recommendations
-          "recommendations": [
-              {
-                  "crop": "Crop Name",
-                  "cropId": "MONGODB_ID",
-                  "recommendedDosage": {
-                      "nitrogen": "quantity_kg_ha",
-                      "phosphorus": "quantity_kg_ha",
-                      "potassium": "quantity_kg_ha",
-                      "organicMatter": "quantity_tons_ha"
-                  },
-                  "alternativeFertilizers": [...],
-                  ...other details...
-              },
-              ...
-          ]
-      }
-    
-    → RETURN VALUE (on error):
-      {
-          "success": False,
-          "error": "request_failed" | "graphql_error",
-          "detail": "error details"
-      }
-    
-    → COMPLETE WORKFLOW EXAMPLE (Human-Readable):
-      
-      # STEP 1: Get states and let user select
-      states = await soilhealth_get_states()
-      print("Available States:")
-      for state in states["states"]:
-          print(f"  {state['name']}")
-      # User inputs or selects: "ANDAMAN & NICOBAR"
-      selected_state = next(s for s in states["states"] 
-                           if s["name"] == "ANDAMAN & NICOBAR")
-      
-      # STEP 2: Get crops available for that state
-      crops_result = await soilhealth_get_crop_registries(
-          state=selected_state["_id"]
-      )
-      print(f"\nCrops available in {selected_state['name']}:")
-      for crop in crops_result["crops"][:10]:  # Show first 10
-          local_name, english_name, display = extract_crop_display(crop['combinedName'])
-          # Supports all languages: Telugu, Hindi, Tamil, Kannada, Marathi, etc.
-          print(f"  - {english_name} (Local: {local_name[:20]}...)")
-      crop_ids = [c["id"] for c in crops_result["crops"]]
-      
-      # STEP 3: Get fertilizer recommendations for soil test
-      recommendations = await soilhealth_get_fertilizer_recommendations(
-          state=selected_state["_id"],
-          n=150.5,
-          p=25.0,
-          k=180.0,
-          oc=2.5,
-          crops=crop_ids
-      )
-      
-      # STEP 4: Display results by crop NAME
-      print(f"\nFertilizer Recommendations for soil N={150.5}, P={25.0}, K={180.0}:")
-      for rec in recommendations["recommendations"]:
-          print(f"\n{rec['crop']}:")  # Crop name, not ID!
-          dosages = rec.get('recommendedDosage', rec.get('fertilizersdata', []))
-          if isinstance(dosages, dict):
-              print(f"  N: {dosages.get('nitrogen', 'N/A')} kg/ha")
-              print(f"  P: {dosages.get('phosphorus', 'N/A')} kg/ha")
-              print(f"  K: {dosages.get('potassium', 'N/A')} kg/ha")
-          elif isinstance(dosages, list):
-              for fert in dosages:
-                  if isinstance(fert, dict):
-                      print(f"  {fert.get('name', 'N/A')}: {fert.get('values', 'N/A')} {fert.get('unit', '')}")
-    
-    → MINIMAL EXAMPLE:
-      result = await soilhealth_get_fertilizer_recommendations(
-          state="63f9ce47519359b7438e76fa",
-          n=150, p=25, k=180, oc=2.5
-      )
-      for rec in result["recommendations"]:
-          print(f"{rec['crop']}: {rec.get('recommendedDosage', {})}")
-    
-    → DISPLAY HUMAN-READABLE NAMES:
-      # DON'T show IDs to users:
-      ❌ print(f"State ID: {state_id}, Crop IDs: {crop_ids}")
-      
-      # DO show names:
-      ✓ print(f"State: {state_name}, Crops: {', '.join(crop_names)}")
-      ✓ print(f"\nRecommendations for {state_name}:")
-      ✓ for rec in recommendations:
-            print(f"  {rec['crop']}: ...")  # Use crop name field
-    
-    ⚠️ CRITICAL REQUIREMENTS:
-      ✓ ALL soil test values (n, p, k, oc) must be provided
-      ✓ State ID must be valid ObjectId from soilhealth_get_states()
-      ✓ Crop IDs (if provided) must be from soilhealth_get_crop_registries()
-      ✓ District ID (if provided) must be from soilhealth_get_districts_by_state()
-      
-      ❌ Missing any soil value → GraphQL error
-      ❌ Invalid state/crop/district ID → GraphQL error or empty results
-      ❌ Forgetting to call soilhealth_get_crop_registries() first → May get
-         incorrect recommendations for the state
-    
-    → ERROR HANDLING:
-      - If "success": False and "error": "graphql_error"
-        → Check that soil values are numeric (not strings)
-        → Check that IDs are valid MongoDB ObjectIds
-        → Check the "errors" field for specific GraphQL errors
-      
-      - If recommendations list is empty
-        → Verify that crop IDs are correct
-        → Try without crops parameter (get all state-level recommendations)
-        → Check that state ID is valid
-    
-    → DATA INTERPRETATION:
-      - All dosages in recommendations are in kg/hectare (kg/ha)
-      - To convert to smaller plots: multiply by (plot_area_hectares)
-      - Compare returned dosages with farmer's current practice
-      - Recommendations are state/district optimized based on soil type
-    
-    → NEXT STEPS:
-      After receiving recommendations:
-      1. Format results for farmer-friendly display
-      2. Calculate fertilizer quantities for farmer's plot size
-      3. Recommend specific fertilizer products matching the NPK ratios
-      4. Create action plan with application timings
+    → PARAMETERS:
+      - state (str): State Name (e.g., "ASSAM") or MongoDB ID
+      - n, p, k (float): Nutrient levels in mg/kg (REQUIRED)
+      - oc (float): Organic Carbon percentage (REQUIRED)
+      - district (str, optional): District Name or ID
+      - crops (list[str], optional): List of Crop Names or IDs
+      - natural_farming (bool): Use organic recommendations
     """
+    # 1. Validate mandatory soil values
+    missing = []
+    if n is None: missing.append("Nitrogen (n)")
+    if p is None: missing.append("Phosphorus (p)")
+    if k is None: missing.append("Potassium (k)")
+    if oc is None: missing.append("Organic Carbon (oc)")
+    
+    if missing:
+        return {
+            "success": False,
+            "error": "missing_required_parameters",
+            "detail": f"INCOMPLETE INFORMATION PROVIDED: This tool requires several mandatory soil test values to calculate recommendations. The following parameters are missing: {', '.join(missing)}. Please provide these values to get accurate fertilizer recommendations."
+        }
+
+    def find_best_match(target, choices_dict):
+        if not target: return None
+        # Exact match
+        if target in choices_dict: return choices_dict[target]
+        # ID match (case check)
+        if target in [v for v in choices_dict.values()]: return target
+        
+        # Case-insensitive match
+        target_upper = target.strip().upper()
+        for name, cid in choices_dict.items():
+            if name.upper() == target_upper:
+                return cid
+        
+        # 1. Flexible substring match (e.g., "Potato" in "आलू (Potato) (All Variety)")
+        # If multiple matches are found, we pick the one with the shortest name 
+        # (closest length match) to prioritize "Agra" over "Agra Block".
+        target_lower = target.strip().lower()
+        substring_matches = []
+        for name, cid in choices_dict.items():
+            if target_lower in name.lower():
+                substring_matches.append((name, cid))
+        
+        if substring_matches:
+            # Sort by name length and return the CID of the shortest one
+            substring_matches.sort(key=lambda x: len(x[0]))
+            return substring_matches[0][1]
+        
+        # 2. Fuzzy match (lower cutoff for short names)
+        import difflib
+        cutoff = 0.4 if len(target) < 10 else 0.6
+        matches = difflib.get_close_matches(target, choices_dict.keys(), n=1, cutoff=cutoff)
+        if matches:
+            return choices_dict[matches[0]]
+        return target # Fallback to original if no match found (might be an ID)
+
+    def is_valid_mongodb_id(oid):
+        if not isinstance(oid, str): return False
+        if len(oid) != 24: return False
+        try:
+            int(oid, 16)
+            return True
+        except ValueError:
+            return False
+
+    # 2. Look up state ID
+    state_id = find_best_match(state, SOILHEALTH_DATA["states"])
+    
+    # 3. Look up district ID if provided
+    district_id = district
+    if district and state_id in SOILHEALTH_DATA["districts"]:
+        district_id = find_best_match(district, SOILHEALTH_DATA["districts"][state_id])
+    
+    # Validate district_id - if it's not a valid MongoDB ID, unset it to avoid 400 error
+    if district_id and not is_valid_mongodb_id(district_id):
+        print(f"WARN: District '{district}' could not be resolved to a valid ID. Falling back to state-level.")
+        district_id = None
+    
+    # 4. Look up crop IDs if provided
+    crop_ids = crops
+    if crops and state_id in SOILHEALTH_DATA["crops"]:
+        crop_ids = []
+        for c in crops:
+            cid = find_best_match(c, SOILHEALTH_DATA["crops"][state_id])
+            crop_ids.append(cid)
+
     variables = {
-        "state": state,
-        "district": district,
-        "crops": crops,
+        "state": state_id,
+        "district": district_id,
+        "crops": crop_ids,
         "naturalFarming": natural_farming,
         "results": {
             "n": n,
@@ -1032,31 +396,37 @@ async def soilhealth_get_fertilizer_recommendations(
     }
 
     try:
-        result = await _soilhealth_graphql(SOILHEALTH_GET_RECOMMENDATIONS_QUERY, variables)
-        if result.get("success") is False:
-            return result
-        recommendations = result.get("data", {}).get("getRecommendations", [])
+        # 5. Fetch recommendations
+        res = await _soilhealth_graphql(SOILHEALTH_GET_RECOMMENDATIONS_QUERY, variables)
         
-        # ===================================================================
-        # DATA STRUCTURE ENHANCEMENT: Names only (no IDs)
-        # ===================================================================
-        # The API returns multiple fertilizer combinations that should be
-        # presented as alternatives. All ID fields are removed - only
-        # human-readable names are returned for frontend display.
+        # 6. Fallback if District is Invalid (common portal issue for some states like Bihar/UP)
+        if not res.get("success") and res.get("error") == "graphql_error":
+            errors = res.get("errors", [])
+            is_invalid_district = any("Invalid District" in str(e.get("message", "")) for e in errors)
+            
+            if is_invalid_district and variables.get("district"):
+                # Try again without district
+                print(f"WARN: Invalid District '{district}' for state '{state}'. Falling back to state-level recommendations.")
+                variables["district"] = None
+                res = await _soilhealth_graphql(SOILHEALTH_GET_RECOMMENDATIONS_QUERY, variables)
+                if res.get("success"):
+                    res["warning"] = f"District '{district}' is not recognized for this specific portal query. Showing general recommendations for state '{state}' instead."
+        
+        if res.get("success") is False:
+            return res
+        
+        recommendations = res.get("data", {}).get("getRecommendations", [])
         
         enhanced_recommendations = []
         for rec in recommendations if isinstance(recommendations, list) else []:
             if not isinstance(rec, dict):
-                continue  # Skip non-dict entries
+                continue
             
-            # Extract the three fertilizer datasets
             primary_fertilizers = rec.get("fertilizersdata", [])
             alt_fertilizers = rec.get("fertilizersdatacombTwo", [])
             organic_ferts = rec.get("organicFertilizer", {})
             
-            # Filter fertilizers to remove IDs - keep only name/values/unit
             def clean_fertilizer_list(ferts):
-                """Extract only name, values, unit from fertilizer data"""
                 cleaned = []
                 for fert in ferts if isinstance(ferts, list) else []:
                     if isinstance(fert, dict):
@@ -1067,11 +437,8 @@ async def soilhealth_get_fertilizer_recommendations(
                         })
                 return cleaned
             
-            # Clean organic fertilizer details - remove _id fields
             def clean_organic_details(organic):
-                """Remove ID fields from organic fertilizer details"""
-                if not isinstance(organic, dict):
-                    return {}
+                if not isinstance(organic, dict): return {}
                 cleaned = {}
                 id_fields = {"_id", "id"}
                 for key, val in organic.items():
@@ -1079,7 +446,6 @@ async def soilhealth_get_fertilizer_recommendations(
                         cleaned[key] = val
                 return cleaned
             
-            # Build recommendation structure - NAMES ONLY
             enhanced_rec = {
                 "crop": rec.get("crop", ""),
                 "recommendations": {
@@ -1097,21 +463,16 @@ async def soilhealth_get_fertilizer_recommendations(
                     }
                 }
             }
-            
             enhanced_recommendations.append(enhanced_rec)
         
         return {
             "success": True,
             "source": "soilhealth4.dac.gov.in",
-            "count": len(enhanced_recommendations) if isinstance(enhanced_recommendations, list) else 0,
+            "count": len(enhanced_recommendations),
             "recommendations": enhanced_recommendations,
         }
     except Exception as exc:
-        return {
-            "success": False,
-            "error": "request_failed",
-            "detail": str(exc),
-        }
+        return {"success": False, "error": "request_failed", "detail": str(exc)}
 
 if __name__ == "__main__":
     mcp.run(transport=MCP_TRANSPORT)
