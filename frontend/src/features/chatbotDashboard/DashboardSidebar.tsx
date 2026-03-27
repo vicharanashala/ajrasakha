@@ -157,30 +157,16 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
 
   const healthBarWidth = `${Math.min(100, Math.max(0, healthScore))}%`;
   const healthScoreColor =
-    healthScore >= 75 ? "#1E7A3C" : healthScore >= 50 ? "#854F0B" : "#A32D2D";
+    healthScore >= 75 ? "text-[#1E7A3C]" : healthScore >= 50 ? "text-[#854F0B]" : "text-[#A32D2D]";
 
   return (
-    <aside
-      style={{
-        width: 210,
-        background: "#fff",
-        borderRight: "0.5px solid #e5e5e5",
-        flexShrink: 0,
-        display: "flex",
-        flexDirection: "column",
-        overflowY: "auto",
-        overflowX: "hidden",
-        position: "relative",
-      }}
-    >
+    <aside className="w-[210px] bg-white border-r border-gray-200 shrink-0 flex flex-col overflow-y-auto overflow-x-hidden relative">
       {/* ── NAV SECTIONS ── */}
-      <div style={{ flex: 1, paddingTop: 16, paddingBottom: 80 }}>
+      <div className="flex-1 pt-4 pb-20">
         {NAV_SECTIONS.map((section) => (
           <div key={section.sectionLabel}>
-            {/* Section label */}
             <SidebarSectionLabel>{section.sectionLabel}</SidebarSectionLabel>
 
-            {/* Nav items */}
             {section.items.map((item) => {
               const isActive = activeView === item.view;
               const isExpandable = !!(item.children && item.children.length > 0);
@@ -199,7 +185,6 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                     onClick={() => handleNavClick(item.view, isExpandable)}
                   />
 
-                  {/* Child items (e.g. Farmer Segments sub-items) */}
                   {isExpandable && isExpanded && (
                     <div>
                       {item.children!.map((child) => (
@@ -220,47 +205,20 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
       </div>
 
       {/* ── HEALTH SCORE FOOTER ── */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          width: "100%",
-          padding: "12px 16px",
-          borderTop: "0.5px solid #e5e5e5",
-          background: "#fff",
-        }}
-      >
-        <div style={{ fontSize: 11, color: "#aaa" }}>Health score</div>
-        <div
-          style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}
-        >
-          <div
-            style={{
-              flex: 1,
-              height: 4,
-              background: "#f0f0f0",
-              borderRadius: 2,
-              overflow: "hidden",
-            }}
-          >
+      <div className="absolute bottom-0 left-0 w-full px-4 py-3 border-t border-gray-200 bg-white">
+        <div className="text-[11px] text-gray-400">Health score</div>
+        <div className="flex items-center gap-2 mt-1">
+          <div className="flex-1 h-1 bg-gray-100 rounded-sm overflow-hidden">
             <div
-              style={{
-                width: healthBarWidth,
-                height: "100%",
-                background: "#3AAA5A",
-                borderRadius: 2,
-                transition: "width 0.6s ease",
-              }}
+              className="h-full bg-[#3AAA5A] rounded-sm transition-all duration-600"
+              style={{ width: healthBarWidth }}
             />
           </div>
-          <span
-            style={{ fontSize: 12, fontWeight: 500, color: healthScoreColor }}
-          >
+          <span className={`text-xs font-medium ${healthScoreColor}`}>
             {healthScore}
           </span>
         </div>
-        <div style={{ fontSize: 10, color: "#BA7517", marginTop: 2 }}>
+        <div className="text-[10px] text-[#BA7517] mt-0.5">
           {healthLabel}
         </div>
       </div>
@@ -297,49 +255,37 @@ const NavItemRow: React.FC<NavItemRowProps> = ({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === "Enter" && onClick()}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 9,
-        padding: "8px 16px",
-        cursor: "pointer",
-        fontSize: 13,
-        color: active ? "#1E7A3C" : "#666",
-        fontWeight: active ? 500 : 400,
-        borderLeft: `2px solid ${active ? "#3AAA5A" : "transparent"}`,
-        background: active ? "#EAF6EC" : "transparent",
-        transition: "all 0.15s",
-        userSelect: "none",
-      }}
+      className={`
+        flex items-center gap-2.5 px-4 py-2 cursor-pointer text-[13px] select-none
+        transition-all duration-150 border-l-2
+        ${active
+          ? "border-l-[#3AAA5A] bg-[#EAF6EC] text-[#1E7A3C] font-medium"
+          : "border-l-transparent text-gray-500 font-normal hover:bg-gray-50"
+        }
+      `}
     >
       {/* Icon */}
-      <span style={{ flexShrink: 0, display: "flex", alignItems: "center" }}>
+      <span className="shrink-0 flex items-center">
         {icon}
       </span>
 
       {/* Label */}
-      <span style={{ flex: 1 }}>{label}</span>
+      <span className="flex-1">{label}</span>
 
       {/* Badge */}
       {badge && (
         <span
-          style={{
-            fontSize: 10,
-            fontWeight: 500,
-            padding: "1px 5px",
-            borderRadius: 10,
-            background: badgeVariant === "amber" ? "#BA7517" : "#E24B4A",
-            color: "#fff",
-          }}
+          className={`
+            text-[10px] font-medium px-1.5 py-px rounded-full text-white
+            ${badgeVariant === "amber" ? "bg-[#BA7517]" : "bg-[#E24B4A]"}
+          `}
         >
           {badge}
         </span>
       )}
 
       {/* Expand/collapse chevron */}
-      {expandable && (
-        <ChevronIcon expanded={!!expanded} />
-      )}
+      {expandable && <ChevronIcon expanded={!!expanded} />}
     </div>
   );
 };
@@ -361,32 +307,17 @@ const ChildNavItemRow: React.FC<ChildNavItemRowProps> = ({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === "Enter" && onClick()}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 9,
-        padding: "7px 16px 7px 32px",
-        cursor: "pointer",
-        fontSize: 12,
-        color: active ? "#1E7A3C" : "#888",
-        fontWeight: active ? 500 : 400,
-        borderLeft: `2px solid ${active ? "#3AAA5A" : "transparent"}`,
-        background: active ? "#f0faf2" : "transparent",
-        transition: "all 0.15s",
-        userSelect: "none",
-      }}
+      className={`
+        flex items-center gap-2.5 pl-8 pr-4 py-[7px] cursor-pointer text-xs select-none
+        transition-all duration-150 border-l-2
+        ${active
+          ? "border-l-[#3AAA5A] bg-[#f0faf2] text-[#1E7A3C] font-medium"
+          : "border-l-transparent text-gray-400 font-normal hover:bg-gray-50"
+        }
+      `}
     >
       {active && (
-        <span
-          style={{
-            width: 5,
-            height: 5,
-            borderRadius: "50%",
-            background: "#3AAA5A",
-            flexShrink: 0,
-            display: "inline-block",
-          }}
-        />
+        <span className="w-[5px] h-[5px] rounded-full bg-[#3AAA5A] shrink-0 inline-block" />
       )}
       {label}
     </div>
@@ -396,22 +327,12 @@ const ChildNavItemRow: React.FC<ChildNavItemRowProps> = ({
 const SidebarSectionLabel: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => (
-  <div
-    style={{
-      fontSize: 10,
-      fontWeight: 500,
-      color: "#aaa",
-      padding: "0 16px",
-      margin: "16px 0 4px",
-      textTransform: "uppercase",
-      letterSpacing: "0.6px",
-    }}
-  >
+  <div className="text-[10px] font-medium text-gray-400 px-4 mt-4 mb-1 uppercase tracking-wider">
     {children}
   </div>
 );
 
-// ChevronIcon remains below — it's not used in NAV_SECTIONS so no ordering issue
+// ─── CHEVRON ICON ─────────────────────────────────────────────────────────────
 
 interface ChevronIconProps {
   expanded: boolean;
@@ -423,11 +344,7 @@ const ChevronIcon: React.FC<ChevronIconProps> = ({ expanded }) => (
     height={12}
     viewBox="0 0 12 12"
     fill="none"
-    style={{
-      transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
-      transition: "transform 0.2s ease",
-      flexShrink: 0,
-    }}
+    className={`shrink-0 transition-transform duration-200 ${expanded ? "rotate-180" : "rotate-0"}`}
   >
     <path d="M2 4l4 4 4-4" stroke="#aaa" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
   </svg>

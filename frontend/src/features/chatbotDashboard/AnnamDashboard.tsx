@@ -1041,9 +1041,31 @@ function SidebarLabel({ children }: { children: React.ReactNode }) {
    MAIN DASHBOARD EXPORT
 ================================================================ */
 
+import { DashboardFilters, type DashboardFilterValues } from "./DashboardFilters";
+
 export function AnnamDashboard() {
   const [activeSegment, setActiveSegment] = useState<FarmerSegment | null>(null);
   const [sidebarSegmentsOpen, setSidebarSegmentsOpen] = useState<boolean>(false);
+
+  // ─── FILTER STATE for dynamic subtitle ───────────────────────────────────
+  const [activeFilters, setActiveFilters] = useState<DashboardFilterValues>({
+    village: "all",
+    crop: "all",
+    season: "all",
+  });
+
+  const getSubtitle = () => {
+    const parts: string[] = [];
+    parts.push(activeFilters.village !== "all" ? activeFilters.village : "All villages");
+    parts.push(activeFilters.crop !== "all" ? activeFilters.crop : "All crops");
+    parts.push(activeFilters.season !== "all" ? activeFilters.season : "All seasons");
+
+    if (activeFilters.startTime && activeFilters.endTime) {
+      const fmt = (d: Date) => d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+      parts.push(`${fmt(activeFilters.startTime)} – ${fmt(activeFilters.endTime)}`);
+    }
+    return `Showing data for: ${parts.join(" · ")} · Updated every 15 min`;
+  };
 
   const segmentsRef = useRef<HTMLDivElement>(null);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
@@ -1175,26 +1197,6 @@ export function AnnamDashboard() {
             position: "relative",
           }}
         >
-          <div style={{ padding: "0 16px 12px", borderBottom: "0.5px solid #e5e5e5" }}>
-            <div style={{ fontSize: 11, color: "#aaa" }}>Season filter</div>
-            <select
-              style={{
-                width: "100%",
-                marginTop: 4,
-                fontSize: 12,
-                padding: "5px 8px",
-                border: "0.5px solid #ddd",
-                borderRadius: 6,
-                background: "#fafafa",
-                color: "#333",
-              }}
-            >
-              <option>Kharif 2025</option>
-              <option>Rabi 2024</option>
-              <option>All seasons</option>
-            </select>
-          </div>
-
           <SidebarLabel>Core views</SidebarLabel>
           <SidebarNavItem label="Overview" active />
           <SidebarNavItem
@@ -1259,11 +1261,12 @@ export function AnnamDashboard() {
                 National overview
               </h1>
               <p style={{ fontSize: 12, color: "#888", marginTop: 2, margin: 0 }}>
-                Real-time platform health · Updated every 15 min · {data.meta.season}
+                {getSubtitle()}
               </p>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button
+                onClick={() => console.log("Export PDF clicked")}
                 style={{
                   fontSize: 12, padding: "6px 12px", border: "0.5px solid #ddd",
                   borderRadius: 6, background: "#fff", color: "#666", cursor: "pointer",
@@ -1272,6 +1275,7 @@ export function AnnamDashboard() {
                 Export PDF
               </button>
               <button
+                onClick={() => console.log("Share report clicked")}
                 style={{
                   fontSize: 12, padding: "6px 12px", border: "0.5px solid #3AAA5A",
                   borderRadius: 6, background: "#EAF6EC", color: "#1E7A3C", cursor: "pointer",
@@ -1281,6 +1285,8 @@ export function AnnamDashboard() {
               </button>
             </div>
           </div>
+
+          <DashboardFilters onFilterChange={setActiveFilters} />
 
           {/* Segment detail banner */}
           {activeSegment !== null && (

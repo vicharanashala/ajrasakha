@@ -58,6 +58,20 @@ export const CROPS =
   'Chilli',
   'Maize (Fodder)'
 ]
+
+export const VILLAGES = [
+  "Village 1",
+  "Village 2",
+  "Village 3",
+  "Village 4",
+  "Village 5",
+  "Village 6",
+  "Village 7",
+  "Village 8",
+  "Village 9",
+  "Village 10"
+];
+
 export const DOMAINS = [
   "Agriculture Mechanization",
   "Bio-Pesticides and Bio-Fertilizers",
