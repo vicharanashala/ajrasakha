@@ -1,75 +1,86 @@
 import React from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/atoms/card";
 
 const DailyActiveUsers = () => {
-  const data = [
-    30, 32, 35, 33, 40, 42, 45, 48, 50, 52, 55, 58, 60, 62, 65, 68, 70, 72,
-    75, 78, 80, 82, 85, 88, 90, 98, 95, 92, 90, 80,
-  ];
-  const maxData = Math.max(...data);
+    const data = [
+        30, 32, 35, 33, 40, 42, 45, 48, 50, 52, 55, 58, 60, 62, 65, 68, 70, 72,
+        75, 78, 80, 82, 85, 88, 90, 98, 95, 92, 90, 80,
+    ];
+    const maxData = Math.max(...data);
 
-  return (
-    <div className="bg-white p-6 rounded-lg shadow-md font-sans">
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-800">
-            Daily active users — 30 day trend
-          </h2>
-          <p className="text-sm text-gray-500">
-            Farmers + KCC agents + agri experts
-          </p>
-        </div>
-        <a href="#" className="text-green-600 text-sm font-semibold">
-          Drill down &rarr;
-        </a>
-      </div>
+    // Bar colors based on value ranges (increasing saturation)
+    const getBarColor = (value: number, index: number): string => {
+        if (index === data.length - 1) return "#EF9F27"; // Last bar - highlight
 
-      <div className="flex items-end h-60 border-b-2 border-gray-200 pb-2">
-        {data.map((value, index) => {
-          const height = (value / maxData) * 100;
-          let barColor = "bg-green-500";
-          if (value < 50) barColor = "bg-green-200";
-          else if (value < 75) barColor = "bg-green-400";
+        if (value < 50) return "#86efac"; // Light green
+        if (value < 75) return "#4ade80"; // Medium green
+        if (value < 85) return "#22c55e"; // Dark green
+        return "#16a34a"; // Very dark green (peak)
+    };
 
-          if (index === data.length - 1) {
-            barColor = "bg-yellow-500";
-          }
-
-          return (
-            <div key={index} className="flex-1 flex flex-col items-center">
-              <div
-                className={`w-3/4 ${barColor} rounded-t-sm`}
-                style={{ height: `${height}%` }}
-              ></div>
-              {(index === 0 ||
-                index === 9 ||
-                index === 19 ||
-                index === data.length - 1) && (
-                <div className="text-xs text-gray-500 mt-1">
-                  {index === 0 && "Day 1"}
-                  {index === 9 && "Day 10"}
-                  {index === 19 && "Day 20"}
-                  {index === data.length - 1 && "Today"}
+    return (
+        <Card className="dark:bg-slate-900 dark:border-slate-700">
+            <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">
+                    Daily active users — 30 day trend
+                </CardTitle>
+                <CardDescription>Farmers + KCC agents + agri experts</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 120 }}>
+                    {data.map((value, index) => {
+                        const heightPercent = (value / maxData) * 100;
+                        return (
+                            <div
+                                key={index}
+                                style={{
+                                    flex: 1,
+                                    height: `${heightPercent}%`,
+                                    background: getBarColor(value, index),
+                                    borderRadius: "2px 2px 0 0",
+                                    outline: index === data.length - 1 ? "1.5px solid #BA7517" : "none",
+                                    minHeight: 2,
+                                }}
+                            />
+                        );
+                    })}
                 </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="flex justify-between items-center mt-4 text-sm text-gray-600">
-        <div>
-          <span className="font-semibold">Peak:</span> Day 26 ∙ 98,400
-        </div>
-        <div>
-          <span className="font-semibold">Avg:</span> 71,200 / day
-        </div>
-        <div>
-          <span className="font-semibold">Growth:</span>{" "}
-          <span className="text-green-600 font-semibold">+18% MoM</span>
-        </div>
-      </div>
-    </div>
-  );
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: 10,
+                        color: "#aaa",
+                        marginTop: 4,
+                    }}
+                >
+                    {["Day 1", "Day 10", "Day 20", "Today"].map((t, i) => (
+                        <span key={i}>{t}</span>
+                    ))}
+                </div>
+                <div
+                    style={{
+                        display: "flex",
+                        gap: 16,
+                        marginTop: 12,
+                        paddingTop: 10,
+                        borderTop: "0.5px solid #f0f0f0",
+                        flexWrap: "wrap",
+                    }}
+                >
+                    <div style={{ fontSize: 11, color: "#888" }}>
+                        Peak: <span style={{ fontWeight: 500, color: "#1a1a1a" }}>Day 26 · 98,400</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#888" }}>
+                        Avg: <span style={{ fontWeight: 500, color: "#1a1a1a" }}>71,200 / day</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#888" }}>
+                        Growth: <span style={{ fontWeight: 500, color: "#1E7A3C" }}>+18% MoM</span>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
 };
 
 export default DailyActiveUsers;
