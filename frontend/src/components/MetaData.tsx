@@ -58,7 +58,10 @@ export const CROPS =
   'Berseem',
   'Pea',
   'Chilli',
-  'Maize (Fodder)'
+  'Maize (Fodder)',
+  "Green Gram" ,
+  "Sunnhemp", 
+  "Bengal Gram"
 ]
 
 export const VILLAGES = [
