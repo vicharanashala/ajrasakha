@@ -15,10 +15,10 @@ type KpiCardData = {
 };
 
 const badgeStyles: Record<BadgeVariant, { bg: string; text: string }> = {
-	green: { bg: "bg-green-50", text: "text-green-900" },
-	red: { bg: "bg-red-50", text: "text-red-900" },
-	amber: { bg: "bg-amber-50", text: "text-amber-900" },
-	blue: { bg: "bg-blue-50", text: "text-blue-900" },
+	green: { bg: "bg-green-50 dark:bg-green-950", text: "text-green-900 dark:text-green-200" },
+	red: { bg: "bg-red-50 dark:bg-red-950", text: "text-red-900 dark:text-red-200" },
+	amber: { bg: "bg-amber-50 dark:bg-amber-950", text: "text-amber-900 dark:text-amber-200" },
+	blue: { bg: "bg-blue-50 dark:bg-blue-950", text: "text-blue-900 dark:text-blue-200" },
 };
 
 const DASHBOARD_DATA: { kpiRow1: KpiCardData[]; kpiRow2: KpiCardData[] } = {
@@ -154,20 +154,20 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
 
 	return (
 		<Card
-			className="relative overflow-hidden border border-gray-200 bg-white p-0"
+			className="relative overflow-hidden border border-gray-200 bg-white p-0 dark:border-slate-700 dark:bg-slate-900"
 		>
 			<div
 				className="absolute inset-x-0 top-0 h-1"
 				style={{ background: kpi.accentColor }}
 			/>
 			<CardContent className="p-4">
-				<div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+				<div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
 					{kpi.label}
 				</div>
-				<div className="text-2xl font-semibold" style={{ color: kpi.valueColor || "#1a1a1a" }}>
+				<div className="text-2xl font-semibold dark:text-slate-100" style={{ color: kpi.valueColor }}>
 					{kpi.value}
 				</div>
-				<div className="mt-1.5 flex items-center gap-1 text-xs" style={{ color: deltaColor }}>
+				<div className="mt-1.5 flex items-center gap-1 text-xs dark:text-gray-300" style={{ color: deltaColor }}>
 					<DeltaIcon dir={kpi.deltaDir} /> {kpi.delta}
 				</div>
 				{kpi.sparkPoints && (

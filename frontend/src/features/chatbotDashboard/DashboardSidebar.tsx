@@ -146,6 +146,9 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   const handleNavClick = (view: DashboardView, hasChildren?: boolean) => {
     if (hasChildren) {
       setSegmentsExpanded((prev) => !prev);
+    } else {
+      // Clear any selected child segment when clicking a different nav item
+      setActiveSegmentId(null);
     }
     onViewChange(view);
   };

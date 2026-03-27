@@ -53,10 +53,10 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
   };
 
   const baseSelect =
-    "text-sm h-10 px-3 border border-gray-200 rounded-md bg-white text-gray-700 cursor-pointer outline-none min-w-[150px] shadow-sm transition-all hover:bg-gray-50 appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_10px_center] pr-8";
+    "text-sm h-10 px-3 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 cursor-pointer outline-none min-w-[150px] shadow-sm transition-all hover:bg-gray-50 dark:hover:bg-gray-700 appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E')] dark:bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23ccc%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_10px_center] pr-8";
 
   const activeSelect =
-    "text-sm h-10 px-3 border border-green-500 rounded-md bg-green-50 text-green-700 font-medium cursor-pointer outline-none min-w-[150px] shadow-sm transition-all hover:bg-green-100 appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%231E7A3C%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_10px_center] pr-8";
+    "text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-gray-800 text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none min-w-[150px] shadow-sm transition-all hover:bg-green-100 dark:hover:bg-gray-700 appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%231E7A3C%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E')] dark:bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%234adc64%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_10px_center] pr-8";
 
   return (
     <div className="flex items-start gap-2 mb-4 flex-wrap">
@@ -69,15 +69,15 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
         }}
         className={village !== "all" ? activeSelect : baseSelect}
       >
-        <option className="text-gray-700 bg-white" value="all">All Villages</option>
+        <option className="text-gray-700 bg-white dark:bg-gray-800 dark:text-gray-200" value="all">All Villages</option>
         {VILLAGES.map((v) => (
-          <option className="text-gray-700 bg-white" key={v} value={v}>
+          <option className="text-gray-700 bg-white dark:bg-gray-800 dark:text-gray-200" key={v} value={v}>
             {v}
           </option>
         ))}
       </select>
 
-      <div className="w-px h-5 bg-gray-200 self-center" />
+      <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 self-center" />
 
       {/* Crop Filter */}
       <select
@@ -88,15 +88,15 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
         }}
         className={crop !== "all" ? activeSelect : baseSelect}
       >
-        <option className="text-gray-700 bg-white" value="all">All Crops</option>
+        <option className="text-gray-700 bg-white dark:bg-gray-800 dark:text-gray-200" value="all">All Crops</option>
         {CROPS.map((c) => (
-          <option className="text-gray-700 bg-white" key={c} value={c}>
+          <option className="text-gray-700 bg-white dark:bg-gray-800 dark:text-gray-200" key={c} value={c}>
             {c}
           </option>
         ))}
       </select>
 
-      <div className="w-px h-5 bg-gray-200 self-center" />
+      <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 self-center" />
 
       {/* Season Filter */}
       <select
@@ -107,15 +107,15 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
         }}
         className={season !== "all" ? activeSelect : baseSelect}
       >
-        <option className="text-gray-700 bg-white" value="all">All Seasons</option>
+        <option className="text-gray-700 bg-white dark:bg-gray-800 dark:text-gray-200" value="all">All Seasons</option>
         {SEASONS.map((s) => (
-          <option className="text-gray-700 bg-white" key={s} value={s}>
+          <option className="text-gray-700 bg-white dark:bg-gray-800 dark:text-gray-200" key={s} value={s}>
             {s}
           </option>
         ))}
       </select>
 
-      <div className="w-px h-5 bg-gray-200 self-center" />
+      <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 self-center" />
 
       {/* Date Range Filter (label hidden, inline calendar button) */}
       <div className="min-w-[200px] [&_label]:hidden">
@@ -123,7 +123,11 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
           customName=""
           advanceFilter={dateFilter}
           handleDialogChange={handleDateChange}
-          className="!h-10 !text-sm !text-gray-700 !font-normal !bg-white hover:!bg-gray-50"
+          className={
+            dateFilter.startTime
+              ? "!h-10 !text-sm !border-green-500 dark:!border-green-500 !bg-green-50 dark:!bg-gray-800 !text-green-700 dark:!text-green-400 !font-medium hover:!bg-green-100 dark:hover:!bg-gray-700"
+              : "!h-10 !text-sm !border-gray-200 dark:!border-gray-700 !bg-white dark:!bg-gray-800 !text-gray-700 dark:!text-gray-200 !font-normal hover:!bg-gray-50 dark:hover:!bg-gray-700"
+          }
         />
       </div>
     </div>
