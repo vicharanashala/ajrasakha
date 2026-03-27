@@ -68,14 +68,14 @@ const DailyActiveUsers = () => {
                         flexWrap: "wrap",
                     }}
                 >
-                    <div style={{ fontSize: 11, color: "#888" }}>
-                        Peak: <span style={{ fontWeight: 500, color: "#1a1a1a" }}>Day 26 · 98,400</span>
+                    <div className="text-[11px] text-[#888] dark:text-gray-400">
+                        Peak: <span className="font-medium text-[#1a1a1a] dark:text-slate-100">Day 26 · 98,400</span>
                     </div>
-                    <div style={{ fontSize: 11, color: "#888" }}>
-                        Avg: <span style={{ fontWeight: 500, color: "#1a1a1a" }}>71,200 / day</span>
+                    <div className="text-[11px] text-[#888] dark:text-gray-400">
+                        Avg: <span className="font-medium text-[#1a1a1a] dark:text-slate-100">71,200 / day</span>
                     </div>
-                    <div style={{ fontSize: 11, color: "#888" }}>
-                        Growth: <span style={{ fontWeight: 500, color: "#1E7A3C" }}>+18% MoM</span>
+                    <div className="text-[11px] text-[#888] dark:text-gray-400">
+                        Growth: <span className="font-medium text-[#1E7A3C]">+18% MoM</span>
                     </div>
                 </div>
             </CardContent>
