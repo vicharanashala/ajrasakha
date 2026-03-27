@@ -8,6 +8,12 @@ interface DonutChartProps {
   segments: Segment[];
 }
 
+// Example data for demonstration
+export const channelSegmentExample: Segment[] = [
+  { label: "Voice", pct: 61, color: "#3AAA5A" },
+  { label: "Text app", pct: 24, color: "#378ADD" },
+];
+
 export function DonutChart({ segments }: DonutChartProps) {
   const total = segments.reduce((s, x) => s + x.pct, 0);
   let offset = 0;
