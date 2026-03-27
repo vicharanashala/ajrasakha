@@ -62,10 +62,10 @@ export function AnnamDashboard_dev() {
               <div style={{ fontSize: 16, fontWeight: 500, color: "var(--foreground)" }}>National overview</div>
               <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>Real-time platform health · Updated every 15 min · {data.meta.season}</div>
             </div> */}
-            <div style={{ display: "flex", gap: 8 }}>
+            {/* <div style={{ display: "flex", gap: 8 }}>
               <button style={{ fontSize: 12, padding: "6px 12px", border: "0.5px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--muted-foreground)", cursor: "pointer" }}>Export PDF</button>
               <button style={{ fontSize: 12, padding: "6px 12px", border: "0.5px solid #3AAA5A", borderRadius: 6, background: "rgba(58,170,90,0.1)", color: "#3AAA5A", cursor: "pointer" }}>Share report</button>
-            </div>
+            </div> */}
           </div>
 
           <DashboardFilters onFilterChange={() => {}} />
