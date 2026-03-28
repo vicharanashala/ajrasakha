@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -135,7 +135,16 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
 }) => {
     const [segmentsExpanded, setSegmentsExpanded] = useState<boolean>(false);
     const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
-    const [collapsed, setCollapsed] = useState<boolean>(false);
+    const [collapsed, setCollapsed] = useState<boolean>(() => window.innerWidth <= 768);
+
+    // Auto-collapse on mobile resize
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth <= 768) setCollapsed(true);
+        };
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
 
     const handleNavClick = (view: DashboardView, hasChildren?: boolean) => {
         if (hasChildren) {
