@@ -33,16 +33,17 @@ export const loginWithEmail = async (email: string, password: string) => {
     if(!user?.isBlocked || user === null){
       const result = await signInWithEmailAndPassword(auth, email, password);
 
-      // NOTE: Email verification temporarily disabled for local testing
-      // if (!result.user.emailVerified) {
-      //   try {
-      //     await authService.resendVerification(email);
-      //   } catch (resendError) {
-      //     console.error("Failed to trigger verification resend:", resendError);
-      //   }
-      //   await signOut(auth);
-      //   throw new Error("Please verify your email before logging in. A new verification link has been sent to your email.");
-      // }
+      // Enforce email verification
+      if (!result.user.emailVerified) {
+        try {
+          await authService.resendVerification(email);
+        } catch (resendError) {
+          console.error("Failed to trigger verification resend:", resendError);
+        }
+
+        await signOut(auth);
+        throw new Error("Please verify your email before logging in. A new verification link has been sent to your email.");
+      }
 
       // Sync user with backend database
       const idToken = await result.user.getIdToken();

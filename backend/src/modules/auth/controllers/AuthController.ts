@@ -145,14 +145,13 @@ export class AuthController {
       const lookupData:any = await lookup.json();
       const userInfo = lookupData.users?.[0];
 
-      // NOTE: Email verification temporarily disabled for local testing
-      // if (!userInfo?.emailVerified) {
-      //   await this.authService.sendVerificationEmail(userInfo.email);
-      //   throw new HttpError(
-      //     401,
-      //     'Please verify your email before logging in. A new verification link has been sent to your email.'
-      //   );
-      // }
+      if (!userInfo?.emailVerified) {
+        await this.authService.sendVerificationEmail(userInfo.email);
+        throw new HttpError(
+          401,
+          'Please verify your email before logging in. A new verification link has been sent to your email.'
+        );
+      }
 
       // Ensure the user exists in database
       await this.authService.syncUserWithDb(
@@ -177,10 +176,9 @@ export class AuthController {
       // Decode the token manually
       const decodedEmail = await admin.auth().verifyIdToken(firebaseToken);
 
-      // NOTE: Email verification temporarily disabled for local testing
-      // if (!decodedEmail.email_verified) {
-      //   throw new HttpError(401, 'Please verify your email before syncing account.');
-      // }
+      if (!decodedEmail.email_verified) {
+        throw new HttpError(401, 'Please verify your email before syncing account.');
+      }
 
       const user = await this.authService.syncUserWithDb(
         decodedEmail.uid,
