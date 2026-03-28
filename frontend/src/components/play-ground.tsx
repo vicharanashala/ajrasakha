@@ -23,7 +23,7 @@ import { Dashboard } from "./dashboard";
 import Spinner from "./atoms/spinner";
 import { ExpertDashboard } from "./ExpertDashboard";
 import { NotificationModal } from "./NotificationModal";
-import {AnnamDashboard_dev as AnnamDashboard} from '../features/chatbotDashboard/AnnamDashboard_dev'
+import { AnnamDashboard_dev as AnnamDashboard } from '../features/chatbotDashboard/AnnamDashboard_dev'
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser({});
@@ -362,7 +362,7 @@ export const PlaygroundPage = () => {
                     className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
                   >
                     <HoverCard openDelay={150}>
-                     <span>{user.role==='admin' ? 'User' :'Expert' } Management</span>
+                      <span>{user.role === 'admin' ? 'User' : 'Expert'} Management</span>
                     </HoverCard>
                   </TabsTrigger>
                 )}
