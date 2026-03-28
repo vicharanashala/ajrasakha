@@ -15,7 +15,7 @@ import { HealthScoreCard } from "./components/HealthScoreCard";
 import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
 import { StatusBar } from "./components/StatusBar";
 
-export function AnnamDashboard_dev() {
+export function AnnamDashboard_dev({ className }: { className?: string }) {
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView]       = useState<DashboardView>("overview");
   const segmentsRef    = useRef<HTMLDivElement>(null);
@@ -31,17 +31,17 @@ export function AnnamDashboard_dev() {
   const clearSegment = () => setActiveSegment(null);
 
   return (
-    <div style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif", background: "var(--background)", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <div className={className} style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif", background: "var(--background)", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&display=swap');
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box;}
         @keyframes slideIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
         @keyframes pulse { 0%,100%{box-shadow:0 0 0 2.5px #3AAA5A,0 4px 24px rgba(58,170,90,0.18)} 50%{box-shadow:0 0 0 4px #3AAA5A,0 4px 32px rgba(58,170,90,0.28)} }
         .seg-pulse { animation: pulse 1.2s ease 2; }
         ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
       `}</style>
 
-      <TopNav season={data.meta.season} />
+      {/* <TopNav season={data.meta.season} /> */}
 
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <DashboardSidebar
@@ -55,18 +55,18 @@ export function AnnamDashboard_dev() {
           healthLabel="Moderate · needs improvement"
         />
 
-        <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
-          {/* Page header */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            {/* <div>
-              <div style={{ fontSize: 16, fontWeight: 500, color: "var(--foreground)" }}>National overview</div>
-              <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>Real-time platform health · Updated every 15 min · {data.meta.season}</div>
-            </div> */}
-            {/* <div style={{ display: "flex", gap: 8 }}>
-              <button style={{ fontSize: 12, padding: "6px 12px", border: "0.5px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--muted-foreground)", cursor: "pointer" }}>Export PDF</button>
-              <button style={{ fontSize: 12, padding: "6px 12px", border: "0.5px solid #3AAA5A", borderRadius: 6, background: "rgba(58,170,90,0.1)", color: "#3AAA5A", cursor: "pointer" }}>Share report</button>
-            </div> */}
-          </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>                                                            
+                {/* Page header */}                                
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>      
+                  {/* <div>                                               
+                    <div style={{ fontSize: 16, fontWeight: 500, color: "var(--foreground)" }}>National overview</div>                 
+                    <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>Real-time platform health · Updated every 15 min · {data.meta.season}</div>                
+                  </div> */}                                       
+                  {/* <div style={{ display: "flex", gap: 8 }}>    
+                    <button style={{ fontSize: 12, padding: "6px 12px", border: "0.5px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--muted-foreground)", cursor: "pointer" }}>Export PDF</button>                       
+                    <button style={{ fontSize: 12, padding: "6px 12px", border: "0.5px solid #3AAA5A", borderRadius: 6, background: "rgba(58,170,90,0.1)", color: "#3AAA5A", cursor: "pointer" }}>Share report</button>                                   
+                  </div> */}                                       
+                </div> 
 
           <DashboardFilters onFilterChange={() => {}} />
 
