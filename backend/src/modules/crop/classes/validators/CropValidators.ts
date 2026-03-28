@@ -27,25 +27,44 @@ class CropIdParam {
 
 class CreateCropDto {
   @JSONSchema({
+    description: 'Unique identifier for the crop',
+    example: 'CROP_001',
+    type: 'string',
+  })
+  @IsNotEmpty({message: 'Crop ID is required'})
+  @IsString()
+  cropId: string;
+
+  @JSONSchema({
     description: 'Name of the crop',
     example: 'Paddy',
     type: 'string',
   })
   @IsNotEmpty({message: 'Crop name is required'})
   @IsString()
-  cropName: string;
+  name: string;
 
   @JSONSchema({
-    description: 'Type/category of the crop',
-    example: 'Cereal',
+    description: 'Alternative names for the crop',
+    example: ['Rice', 'Chawal'],
+    type: 'array',
+    items: { type: 'string' },
+  })
+  @IsOptional()
+  @IsString({ each: true })
+  aliases?: string[];
+}
+
+class UpdateCropDto {
+  @JSONSchema({
+    description: 'Updated crop ID',
+    example: 'CROP_001_A',
     type: 'string',
   })
   @IsOptional()
   @IsString()
-  cropType?: string;
-}
+  cropId?: string;
 
-class UpdateCropDto {
   @JSONSchema({
     description: 'Updated name of the crop',
     example: 'Basmati Rice',
@@ -53,16 +72,17 @@ class UpdateCropDto {
   })
   @IsOptional()
   @IsString()
-  cropName?: string;
+  name?: string;
 
   @JSONSchema({
-    description: 'Updated type/category of the crop',
-    example: 'Cash crop',
-    type: 'string',
+    description: 'Updated alternative names for the crop',
+    example: ['Rice', 'Chawal', 'Basmati'],
+    type: 'array',
+    items: { type: 'string' }
   })
   @IsOptional()
-  @IsString()
-  cropType?: string;
+  @IsString({ each: true })
+  aliases?: string[];
 
   @JSONSchema({
     description: 'Whether the crop is active or disabled',
@@ -77,15 +97,10 @@ class UpdateCropDto {
 // ── Query DTOs ──
 
 class GetAllCropsQuery {
-  @JSONSchema({description: 'Search crop by name', example: 'Rice', type: 'string'})
+  @JSONSchema({description: 'Search crop by name, ID, or alias', example: 'Rice', type: 'string'})
   @IsOptional()
   @IsString()
   search?: string;
-
-  @JSONSchema({description: 'Filter by crop type', example: 'Cereal', type: 'string'})
-  @IsOptional()
-  @IsString()
-  cropType?: string;
 
   @JSONSchema({description: 'Filter by active status', example: 'true', type: 'string'})
   @IsOptional()

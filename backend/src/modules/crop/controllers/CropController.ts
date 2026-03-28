@@ -95,14 +95,15 @@ export class CropController {
 
     const userId = user._id.toString();
     const crop = await this.cropRepository.createCrop(
-      body.cropName,
+      body.cropId,
+      body.name,
       userId,
-      body.cropType,
+      body.aliases,
     );
 
     return {
       success: true,
-      message: `Crop "${crop.cropName}" added successfully.`,
+      message: `Crop "${crop.name}" added successfully.`,
       data: crop,
     };
   }
@@ -132,8 +133,9 @@ export class CropController {
     const updated = await this.cropRepository.updateCrop(
       cropId,
       {
-        cropName: body.cropName,
-        cropType: body.cropType,
+        cropId: body.cropId,
+        name: body.name,
+        aliases: body.aliases,
         isActive: body.isActive,
       },
       userId,
@@ -145,7 +147,7 @@ export class CropController {
 
     return {
       success: true,
-      message: `Crop "${updated.cropName}" updated successfully.`,
+      message: `Crop "${updated.name}" updated successfully.`,
       data: updated,
     };
   }
