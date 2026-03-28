@@ -334,19 +334,64 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     if (isMobile) {
         return (
             <>
-                {/* Collapsed state: just the hamburger strip */}
+                {/* Collapsed state: icon strip like desktop */}
                 {collapsed && (
-                    <div className="shrink-0 flex items-center justify-center w-[24px] h-full border-r border-(--border) bg-(--card)">
-                        <button
-                            onClick={() => setCollapsed(false)}
-                            aria-label="Open sidebar"
-                            title="Open sidebar"
-                            className="flex items-center justify-center rounded-md w-5 h-5 text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--accent) transition-all duration-150"
-                        >
-                            <svg width={12} height={12} viewBox="0 0 16 16" fill="none">
-                                <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                            </svg>
-                        </button>
+                    <div className="shrink-0 flex flex-col w-[48px] h-full border-r border-(--border) bg-(--card) overflow-hidden">
+                        {/* Hamburger at top */}
+                        <div className="flex items-center justify-center h-[44px] border-b border-(--border)">
+                            <button
+                                onClick={() => setCollapsed(false)}
+                                aria-label="Open sidebar"
+                                title="Open sidebar"
+                                className="flex items-center justify-center rounded-lg w-8 h-8 text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--accent) transition-all duration-150"
+                            >
+                                <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+                                    <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                </svg>
+                            </button>
+                        </div>
+                        {/* Nav icons */}
+                        <div className="flex-1 overflow-y-auto pt-1">
+                            {NAV_SECTIONS.map((section, sIdx) => (
+                                <div key={section.sectionLabel}>
+                                    {sIdx > 0 && (
+                                        <div className="flex justify-center my-2">
+                                            <div className="w-1 h-1 rounded-full bg-(--border)" />
+                                        </div>
+                                    )}
+                                    {section.items.map((item) => {
+                                        const isActive = activeView === item.view;
+                                        return (
+                                            <div
+                                                key={item.view}
+                                                onClick={() => {
+                                                    setActiveSegmentId(null);
+                                                    onViewChange(item.view);
+                                                }}
+                                                role="button"
+                                                tabIndex={0}
+                                                title={item.label}
+                                                className={`
+                                                    relative flex items-center justify-center mx-1 my-0.5 rounded-lg px-0 py-2 cursor-pointer select-none transition-all duration-150
+                                                    ${isActive
+                                                        ? "bg-[#EAF6EC] dark:bg-[#1a3a24] text-[#1E7A3C] dark:text-[#4adc64]"
+                                                        : "text-(--muted-foreground) hover:bg-(--accent) hover:text-(--foreground)"
+                                                    }
+                                                `}
+                                            >
+                                                {isActive && (
+                                                    <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-[#3AAA5A]" />
+                                                )}
+                                                <span className="shrink-0 flex items-center scale-75">{item.icon}</span>
+                                                {item.badge && (
+                                                    <span className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${item.badgeVariant === "amber" ? "bg-[#BA7517]" : "bg-[#E24B4A]"}`} />
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 )}
 
