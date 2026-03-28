@@ -1,6 +1,7 @@
 import type { IUser } from "@/types";
 import {
   BarChart3,
+  Bot,
   Clock,
   History,
   List,
@@ -83,6 +84,9 @@ export const MobileSidebar = ({
         ]
       : []),
     { id: "upload", label: "Agents Interface", icon: Upload },
+    ...(user && user.role !== "expert" && user.role !== "admin"
+      ? [{ id: "chatbotanalytics", label: "ChatBot Analytics", icon: Bot }]
+      : []),
     ...(user ? [{ id: "history", label: "History", icon: History }] : []),
   ];
 
