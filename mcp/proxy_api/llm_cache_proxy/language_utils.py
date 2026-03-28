@@ -55,18 +55,22 @@ async def detect_language(text: str) -> Optional[str]:
             )
             response.raise_for_status()
             result = response.json()
-            raw = result["choices"][0]["message"]["content"].strip().lower()
+            import re
             
-            if raw in ALLOWED_LANGUAGES:
-                logger.info(f"[LANG] Detected language: '{raw}' for text: '{text[:60]}'")
-                return raw
+            raw = result["choices"][0]["message"]["content"].strip().lower()
+            tokens = re.findall(r"[a-z]+", raw)
+            lang = tokens[0] if tokens else None
+            
+            if lang in ALLOWED_LANGUAGES:
+                logger.info(f"[LANG] Detected language: '{lang}' for text: '{text[:60]}'")
+                return lang
             else:
-                logger.warning(f"[LANG] Model returned '{raw}', not in allowed list — skipping caching")
+                logger.warning(f"[LANG] Model returned '{raw}', parsed='{lang}' not in allowed list")
                 return None
     except Exception as e:
         logger.error(f"[LANG] Error detecting language: {e} — skipping caching")
         return None
-
+            
 
 async def get_user_query_language(messages: list) -> Optional[str]:
     """
