@@ -33,6 +33,8 @@ const TYPES = {
   ReRouteRepository:Symbol.for("ReRouteRepository"),
   DuplicateQuestionRepository:Symbol.for("DuplicateQuestionRepository"),
   ChatbotRepository: Symbol.for('ChatbotRepository'),
+  CropRepository: Symbol.for('CropRepository'),
+  CropService: Symbol.for('CropService'),
 
   // Constants
   uri: Symbol.for('dbURI'),

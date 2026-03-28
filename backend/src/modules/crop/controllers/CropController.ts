@@ -16,8 +16,8 @@ import {
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
-import {CORE_TYPES} from '#root/modules/core/types.js';
-import {IUser} from '#root/shared/interfaces/models.js';
+import {GLOBAL_TYPES} from '#root/types.js';
+import {IUser, ICrop} from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {
   CropIdParam,
@@ -25,7 +25,7 @@ import {
   UpdateCropDto,
   GetAllCropsQuery,
 } from '../classes/validators/CropValidators.js';
-import {CropRepository, ICrop} from '#root/shared/database/providers/mongo/repositories/CropRepository.js';
+import {ICropService} from '../interfaces/ICropService.js';
 
 // ── Allowed roles for write operations ──
 const WRITE_ROLES = ['admin', 'moderator'];
@@ -38,8 +38,8 @@ const WRITE_ROLES = ['admin', 'moderator'];
 @JsonController('/crops')
 export class CropController {
   constructor(
-    @inject(CORE_TYPES.CropRepository)
-    private readonly cropRepository: CropRepository,
+    @inject(GLOBAL_TYPES.CropService)
+    private readonly cropService: ICropService,
   ) {}
 
   // ─── GET ALL CROPS ───────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ export class CropController {
   async getAllCrops(
     @QueryParams() query: GetAllCropsQuery,
   ): Promise<{crops: ICrop[]; totalCount: number; totalPages: number}> {
-    return this.cropRepository.getAllCrops(query);
+    return this.cropService.getAllCrops(query);
   }
 
   // ─── GET CROP BY ID ──────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ export class CropController {
     @Params() params: CropIdParam,
   ): Promise<{success: boolean; data: ICrop}> {
     const {cropId} = params;
-    const crop = await this.cropRepository.getCropById(cropId);
+    const crop = await this.cropService.getCropById(cropId);
 
     if (!crop) {
       throw new NotFoundError(`Crop with id "${cropId}" not found`);
@@ -94,12 +94,7 @@ export class CropController {
     }
 
     const userId = user._id.toString();
-    const crop = await this.cropRepository.createCrop(
-      body.cropId,
-      body.name,
-      userId,
-      body.aliases,
-    );
+    const crop = await this.cropService.createCrop(body, userId);
 
     return {
       success: true,
@@ -130,16 +125,7 @@ export class CropController {
     const {cropId} = params;
     const userId = user._id.toString();
 
-    const updated = await this.cropRepository.updateCrop(
-      cropId,
-      {
-        cropId: body.cropId,
-        name: body.name,
-        aliases: body.aliases,
-        isActive: body.isActive,
-      },
-      userId,
-    );
+    const updated = await this.cropService.updateCrop(cropId, body, userId);
 
     if (!updated) {
       throw new NotFoundError(`Crop with id "${cropId}" not found`);
@@ -171,13 +157,12 @@ export class CropController {
     }
 
     const {cropId} = params;
-    const userId = user._id.toString();
 
-    await this.cropRepository.deleteCrop(cropId, userId);
+    await this.cropService.deleteCrop(cropId);
 
     return {
       success: true,
-      message: 'Crop has been deactivated successfully.',
+      message: 'Crop deleted successfully.',
     };
   }
 }

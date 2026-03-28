@@ -16,7 +16,7 @@ import {
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 import {ObjectId} from 'mongodb';
-import {IQuestionPriority, QuestionStatus} from '#shared/interfaces/models.js';
+import {IQuestionPriority, ICropRef, QuestionStatus} from '#shared/interfaces/models.js';
 import {Type} from 'class-transformer';
 
 class AddQuestionBody {
@@ -90,8 +90,8 @@ class QuestionDetailsDto {
   @IsString()
   district!: string;
 
-  @IsString()
-  crop!: string;
+  @IsNotEmpty()
+  crop!: string | ICropRef;
 
   @IsString()
   season!: string;
