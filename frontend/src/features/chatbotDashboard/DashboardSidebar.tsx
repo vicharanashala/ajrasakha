@@ -341,10 +341,10 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                             onClick={() => setCollapsed(false)}
                             aria-label="Open sidebar"
                             title="Open sidebar"
-                            className="flex items-center justify-center rounded-lg w-8 h-8 text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--accent) transition-all duration-150"
+                            className="flex items-center justify-center rounded-md w-5 h-5 text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--accent) transition-all duration-150"
                         >
-                            <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
-                                <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                            <svg width={12} height={12} viewBox="0 0 16 16" fill="none">
+                                <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                             </svg>
                         </button>
                     </div>
@@ -428,7 +428,7 @@ const NavItemRow: React.FC<NavItemRowProps> = ({
             `} />
         )}
 
-        <span className="shrink-0 flex items-center">{icon}</span>
+        <span className="shrink-0 flex items-center scale-75 md:scale-100">{icon}</span>
 
         {!collapsed && (
             <>
