@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { DASHBOARD_DATA } from "./mockData";
 import type { Segment } from "./types";
-import { TopNav } from "./components/TopNav";
+// import { TopNav } from "./components/TopNav";
 import { DashboardSidebar } from "./DashboardSidebar";
 import type { DashboardView } from "./DashboardSidebar";
 import { DashboardFilters } from "./DashboardFilters";
@@ -71,7 +71,7 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
 
           {/* DAU trend + Channel split */}
           <div ref={(el) => { sectionRefs.current["usage-patterns"] = el; }}
-            style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10, marginBottom: 16 }}>
+            className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4">
             <DailyActiveUsers />
             <ChannelSplitCard channelSplit={data.channelSplit} voiceAccuracy={data.voiceAccuracy} />
           </div>
