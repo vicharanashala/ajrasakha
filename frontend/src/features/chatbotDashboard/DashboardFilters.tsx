@@ -152,7 +152,7 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
         </select>
 
         {/* Date Range Filter (label hidden, inline calendar button with flexible scaling) */}
-        <div className="w-full lg:w-auto lg:flex-none [&_label]:hidden [&_button]:!w-full [&_button]:!whitespace-nowrap [&_button_span]:!whitespace-nowrap [&_button]:!h-10">
+        <div className="w-full lg:w-auto lg:flex-none [&_label]:hidden [&_#date-toggle]:!w-full [&_#date-toggle]:!whitespace-nowrap [&_#date-toggle_span]:!whitespace-nowrap [&_#date-toggle]:!h-10">
           <DateRangeFilter
             customName=""
             advanceFilter={dateFilter}
