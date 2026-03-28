@@ -109,7 +109,7 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
 
           {/* Geo + Health */}
           <div ref={(el) => { sectionRefs.current["geo-intelligence"] = el; }}
-            style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10, marginBottom: 16 }}>
+            className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
             <GeoCard states={data.geoStates} />
             <div ref={(el) => { sectionRefs.current["app-health"] = el; }}>
               <HealthScoreCard pillars={data.healthPillars} />
