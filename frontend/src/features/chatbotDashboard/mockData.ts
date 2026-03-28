@@ -43,8 +43,13 @@ export const DASHBOARD_DATA = {
   ] as Segment[],
   alerts: [
     { id: 1, level: "critical" as const, title: "LLM dosage hallucination · ACE-079", desc: "Wrong pesticide dosage for paddy BLB · 612 farmers affected" },
+    { id: 1, level: "critical" as const, title: "LLM dosage hallucination · ACE-079", desc: "Wrong pesticide dosage for paddy BLB · 612 farmers affected" },
+    { id: 1, level: "critical" as const, title: "LLM dosage hallucination · ACE-079", desc: "Wrong pesticide dosage for paddy BLB · 612 farmers affected" },
+    { id: 1, level: "critical" as const, title: "LLM dosage hallucination · ACE-079", desc: "Wrong pesticide dosage for paddy BLB · 612 farmers affected" },
+    { id: 2, level: "critical" as const, title: "Voice crash Android 10 (2G)", desc: "18,000 users in UP, MP · 34% crash rate per session" },
     { id: 2, level: "critical" as const, title: "Voice crash Android 10 (2G)", desc: "18,000 users in UP, MP · 34% crash rate per session" },
     { id: 3, level: "warn" as const, title: "Dataset staleness · 9 days", desc: "Crop calendar showing last year's sowing dates for 6 crops" },
+    { id: 4, level: "info" as const, title: "Push notification delivery at 38%", desc: "Firebase token refresh failure · seasonal alerts missed" },
     { id: 4, level: "info" as const, title: "Push notification delivery at 38%", desc: "Firebase token refresh failure · seasonal alerts missed" },
   ],
   geoStates: [

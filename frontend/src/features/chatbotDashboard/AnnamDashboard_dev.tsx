@@ -11,8 +11,8 @@ import { ChannelSplitCard } from "./components/ChannelSplitCard";
 import { DashboardQueryCategories } from "./DashboardQueryCategories";
 import { DashboardFarmerSegments } from "./DashboardFarmerSegments";
 import { AlertCard } from "./AlertCard";
-import { GeoCard } from "./components/GeoCard";
-import { HealthScoreCard } from "./components/HealthScoreCard";
+import { GeoCard } from "./GeoCard";
+import { HealthScoreCard } from "./HealthScoreCard";
 import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
 import { StatusBar } from "./components/StatusBar";
 
