@@ -1,15 +1,16 @@
 import { useState, useRef, useCallback } from "react";
 import { DASHBOARD_DATA } from "./mockData";
 import type { Segment } from "./types";
-import { TopNav } from "./components/TopNav";
+// import { TopNav } from "./components/TopNav";
 import { DashboardSidebar } from "./DashboardSidebar";
 import type { DashboardView } from "./DashboardSidebar";
 import { DashboardFilters } from "./DashboardFilters";
 import { EightCardsComponent } from "./MetricCard ";
 import DailyActiveUsers from "./dailyActiveUsers";
-import { ChannelSplitCard } from "./components/ChannelSplitCard";import { QueryCategoriesCard } from "./components/QueryCategoriesCard";
+import { ChannelSplitCard } from "./components/ChannelSplitCard";
+import { DashboardQueryCategories } from "./DashboardQueryCategories";
 import { DashboardFarmerSegments } from "./DashboardFarmerSegments";
-import { AlertsCard } from "./components/AlertsCard";
+import { AlertCard } from "./AlertCard";
 import { GeoCard } from "./components/GeoCard";
 import { HealthScoreCard } from "./components/HealthScoreCard";
 import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
@@ -60,6 +61,17 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
         />
 
         <div style={{ flex: 1, overflowY: "auto", padding: "0px 20px 20px 20px" }}>
+                {/* Page header */}                                
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>      
+                  {/* <div>                                               
+                    <div style={{ fontSize: 16, fontWeight: 500, color: "var(--foreground)" }}>National overview</div>                 
+                    <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>Real-time platform health · Updated every 15 min · {data.meta.season}</div>                
+                  </div> */}                                       
+                  {/* <div style={{ display: "flex", gap: 8 }}>    
+                    <button style={{ fontSize: 12, padding: "6px 12px", border: "0.5px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--muted-foreground)", cursor: "pointer" }}>Export PDF</button>                       
+                    <button style={{ fontSize: 12, padding: "6px 12px", border: "0.5px solid #3AAA5A", borderRadius: 6, background: "rgba(58,170,90,0.1)", color: "#3AAA5A", cursor: "pointer" }}>Share report</button>                                   
+                  </div> */}                                       
+                </div> 
 
           <DashboardFilters onFilterChange={() => {}} />
 
@@ -71,7 +83,7 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
 
           {/* DAU trend + Channel split */}
           <div ref={(el) => { sectionRefs.current["usage-patterns"] = el; }}
-            style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10, marginBottom: 16 }}>
+            className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4">
             <DailyActiveUsers />
             <ChannelSplitCard channelSplit={data.channelSplit} voiceAccuracy={data.voiceAccuracy} />
           </div>
@@ -79,7 +91,7 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
           {/* 3-col row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
             <div ref={(el) => { sectionRefs.current["query-analysis"] = el; }}>
-              <QueryCategoriesCard categories={data.queryCategories} />
+              <DashboardQueryCategories />
             </div>
             <div ref={(el) => { sectionRefs.current["farmer-segments"] = el; }}>
               <DashboardFarmerSegments
@@ -91,7 +103,7 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
               />
             </div>
             <div ref={(el) => { sectionRefs.current["bugs-ux"] = el; }}>
-              <AlertsCard alerts={data.alerts} />
+              <AlertCard />
             </div>
           </div>
 

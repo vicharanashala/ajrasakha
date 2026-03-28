@@ -27,36 +27,41 @@ const DailyActiveUsers = () => {
                 <CardDescription>Farmers + KCC agents + agri experts</CardDescription>
             </CardHeader>
             <CardContent>
-                <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 120 }}>
-                    {data.map((value, index) => {
-                        const heightPercent = (value / maxData) * 100;
-                        return (
-                            <div
-                                key={index}
-                                style={{
-                                    flex: 1,
-                                    height: `${heightPercent}%`,
-                                    background: getBarColor(value, index),
-                                    borderRadius: "2px 2px 0 0",
-                                    outline: index === data.length - 1 ? "1.5px solid #BA7517" : "none",
-                                    minHeight: 2,
-                                }}
-                            />
-                        );
-                    })}
-                </div>
-                <div
-                    style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: 10,
-                        color: "#aaa",
-                        marginTop: 4,
-                    }}
-                >
-                    {["Day 1", "Day 10", "Day 20", "Today"].map((t, i) => (
-                        <span key={i}>{t}</span>
-                    ))}
+                {/* Scrollable wrapper — prevents bar chart from squishing on small screens */}
+                <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                    <div style={{ minWidth: 360 }}>
+                        <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 120 }}>
+                            {data.map((value, index) => {
+                                const heightPercent = (value / maxData) * 100;
+                                return (
+                                    <div
+                                        key={index}
+                                        style={{
+                                            flex: 1,
+                                            height: `${heightPercent}%`,
+                                            background: getBarColor(value, index),
+                                            borderRadius: "2px 2px 0 0",
+                                            outline: index === data.length - 1 ? "1.5px solid #BA7517" : "none",
+                                            minHeight: 2,
+                                        }}
+                                    />
+                                );
+                            })}
+                        </div>
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                fontSize: 10,
+                                color: "#aaa",
+                                marginTop: 4,
+                            }}
+                        >
+                            {["Day 1", "Day 10", "Day 20", "Today"].map((t, i) => (
+                                <span key={i}>{t}</span>
+                            ))}
+                        </div>
+                    </div>
                 </div>
                 <div
                     style={{
@@ -68,6 +73,7 @@ const DailyActiveUsers = () => {
                         flexWrap: "wrap",
                     }}
                 >
+
                     <div className="text-[11px] text-[#888] dark:text-gray-400">
                         Peak: <span className="font-medium text-[#1a1a1a] dark:text-slate-100">Day 26 · 98,400</span>
                     </div>
