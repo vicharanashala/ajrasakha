@@ -8,7 +8,7 @@ import { DashboardFilters } from "./DashboardFilters";
 import { EightCardsComponent } from "./MetricCard ";
 import DailyActiveUsers from "./dailyActiveUsers";
 import { ChannelSplitCard } from "./components/ChannelSplitCard";import { QueryCategoriesCard } from "./components/QueryCategoriesCard";
-import { FarmerSegmentsCard } from "./components/FarmerSegmentsCard";
+import { DashboardFarmerSegments } from "./DashboardFarmerSegments";
 import { AlertsCard } from "./components/AlertsCard";
 import { GeoCard } from "./components/GeoCard";
 import { HealthScoreCard } from "./components/HealthScoreCard";
@@ -81,9 +81,9 @@ export function AnnamDashboard_dev() {
           </div>
 
           {/* 3-col row */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
             <QueryCategoriesCard categories={data.queryCategories} />
-            <FarmerSegmentsCard
+            <DashboardFarmerSegments
               segments={data.farmerSegments}
               activeSegment={activeSegment}
               onSegmentClick={handleSegmentClick}
