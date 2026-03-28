@@ -343,9 +343,9 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                                 onClick={() => setCollapsed(false)}
                                 aria-label="Open sidebar"
                                 title="Open sidebar"
-                                className="flex items-center justify-center rounded-lg w-8 h-8 text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--accent) transition-all duration-150"
+                                className="flex items-center justify-center rounded-lg w-[36px] h-[36px] text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--accent) transition-all duration-150"
                             >
-                                <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+                                <svg width={20} height={20} viewBox="0 0 16 16" fill="none">
                                     <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                                 </svg>
                             </button>
