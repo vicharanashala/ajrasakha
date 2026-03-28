@@ -14,11 +14,11 @@ function parseValue(val: string): number {
 }
 
 function getColor(value: number, min: number, max: number): { r: number; g: number; b: number } {
-  if (max === min) return { r: 0, g: 255, b: 0 };
+  if (max === min) return { r: 0, g: 100, b: 0 };
   const ratio = (value - min) / (max - min);
   const r = Math.round(255 * (1 - ratio));
-  const g = Math.round(255 * ratio);
-  const b = 0;
+  const g = Math.round(255 * (1 - ratio) + 100 * ratio);
+  const b = Math.round(255 * (1 - ratio));
   return { r, g, b };
 }
 
@@ -29,7 +29,7 @@ export function GeoCard({ states }: { states: GeoState[] }) {
   const max = Math.max(...values);
 
   return (
-    <Card title="Geographic concentration" subtitle="Active users by state · color gradient from red (low) to green (high)" action="Full geo view ↗">
+    <Card title="Geographic concentration" subtitle="Active users by state · color gradient from white (low) to green (high)" action="Full geo view ↗">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         {parsedStates.map(s => {
           const color = getColor(s.numeric, min, max);
