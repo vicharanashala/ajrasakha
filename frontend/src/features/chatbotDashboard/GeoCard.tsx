@@ -30,7 +30,7 @@ export function GeoCard({ states }: { states: GeoState[] }) {
 
   return (
     <Card title="Geographic concentration" subtitle="Active users by state · color gradient from red (low) to green (high)" action="Full geo view ↗">
-      <div className="grid grid-cols-6 gap-1">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         {parsedStates.map(s => {
           const color = getColor(s.numeric, min, max);
           const background = `rgba(${color.r},${color.g},${color.b},1)`;

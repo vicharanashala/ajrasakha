@@ -11,7 +11,7 @@ export function HealthScoreCard({ pillars }: { pillars: HealthPillar[] }) {
           <div className="text-xs text-amber-700 font-medium">MODERATE</div>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-3">
         {pillars.map(p => (
           <div key={p.label} className="border border-border rounded-lg p-3 text-center bg-muted">
             <div className={`text-xl font-medium ${p.score >= 75 ? 'text-green-700' : 'text-amber-800'}`}>{p.score}</div>
