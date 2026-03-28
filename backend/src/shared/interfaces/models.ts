@@ -48,7 +48,7 @@ export interface IQuestion {
   details: {
     state: string;
     district: string;
-    crop: string;
+    crop: string | ICropRef;
     season: string;
     domain: string;
   };
@@ -310,5 +310,22 @@ export interface ISimilarQuestion extends IQuestion {
 export interface AddQuestionResult {
   isDuplicate: boolean;
   data: Partial<IQuestion>;
+}
+
+export interface ICropRef {
+  cropId: string;
+  name: string;
+  aliases?: string[];
+}
+
+export interface ICrop {
+  _id?: ObjectId | string;
+  cropId: string;
+  name: string;
+  aliases: string[];
+  createdBy?: ObjectId | string;
+  updatedBy?: ObjectId | string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 

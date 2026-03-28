@@ -1,25 +1,9 @@
 import {inject, injectable} from 'inversify';
 import {Collection, ObjectId} from 'mongodb';
-import {InternalServerError, NotFoundError} from 'routing-controllers';
+import {BadRequestError, InternalServerError, NotFoundError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {MongoDatabase} from '#root/shared/index.js';
-
-/**
- * ICrop interface — should match the one your colleague adds in models.ts.
- * Duplicated here so this file compiles independently until models.ts is updated.
- */
-export interface ICrop {
-  _id?: string | ObjectId;
-  cropId: string;
-  name: string;
-  aliases?: string[];
-  cropType?: string;
-  isActive: boolean;
-  createdBy: ObjectId | string;
-  updatedBy?: ObjectId | string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import {ICrop} from '#root/shared/interfaces/models.js';
 
 @injectable()
 export class CropRepository {
@@ -30,19 +14,12 @@ export class CropRepository {
     private db: MongoDatabase,
   ) {}
 
-  /**
-   * Lazy-initialize the collection reference.
-   * Called at the start of every public method (same pattern as RequestRepository).
-   */
   private async init(): Promise<void> {
     this.CropCollection = await this.db.getCollection<ICrop>('crop_master');
   }
 
   // ─── CREATE ────────────────────────────────────────────────────────────────
 
-  /**
-   * Insert a new crop into the crop_master collection.
-   */
   async createCrop(
     cropId: string,
     name: string,
@@ -52,13 +29,11 @@ export class CropRepository {
     try {
       await this.init();
 
-      // Check for duplicate crop ID or Name (case-insensitive)
       const existing = await this.CropCollection.findOne({
         $or: [
-          { cropId },
-          { name: { $regex: `^${name.trim()}$`, $options: 'i' } }
+          {cropId},
+          {name: {$regex: `^${name.trim()}$`, $options: 'i'}},
         ],
-        isActive: true,
       });
 
       if (existing) {
@@ -72,7 +47,6 @@ export class CropRepository {
         cropId: cropId.trim(),
         name: name.trim(),
         aliases: aliases || [],
-        isActive: true,
         createdBy: new ObjectId(createdBy),
         createdAt: now,
         updatedAt: now,
@@ -80,10 +54,7 @@ export class CropRepository {
 
       const {insertedId} = await this.CropCollection.insertOne(payload);
 
-      return {
-        _id: insertedId,
-        ...payload,
-      } as ICrop;
+      return {_id: insertedId, ...payload} as ICrop;
     } catch (error: any) {
       if (error instanceof InternalServerError) throw error;
       throw new InternalServerError(`Failed to create crop: ${error.message}`);
@@ -92,12 +63,8 @@ export class CropRepository {
 
   // ─── READ (ALL) ────────────────────────────────────────────────────────────
 
-  /**
-   * Get all crops with optional search, filter, sort, and pagination.
-   */
   async getAllCrops(query?: {
     search?: string;
-    isActive?: string;
     sort?: 'newest' | 'oldest' | 'name_asc' | 'name_desc';
     page?: number;
     limit?: number;
@@ -109,27 +76,16 @@ export class CropRepository {
       const limit = query?.limit ?? 50;
       const skip = (page - 1) * limit;
 
-      // Build filter
       const filter: any = {};
 
-      // Active filter (defaults to only active)
-      if (!query?.isActive || query.isActive === 'true') {
-        filter.isActive = true;
-      } else if (query.isActive === 'false') {
-        filter.isActive = false;
-      }
-      // 'all' → no isActive filter
-
-      // Search by crop name, ID or aliases
       if (query?.search) {
         filter.$or = [
-          { cropId: { $regex: query.search, $options: 'i' } },
-          { name: { $regex: query.search, $options: 'i' } },
-          { aliases: { $regex: query.search, $options: 'i' } }
+          {cropId: {$regex: query.search, $options: 'i'}},
+          {name: {$regex: query.search, $options: 'i'}},
+          {aliases: {$regex: query.search, $options: 'i'}},
         ];
       }
 
-      // Sort
       const sortMap: Record<string, Record<string, 1 | -1>> = {
         newest: {createdAt: -1},
         oldest: {createdAt: 1},
@@ -139,7 +95,6 @@ export class CropRepository {
       const sortStage = sortMap[query?.sort || 'name_asc'] || {name: 1};
 
       const totalCount = await this.CropCollection.countDocuments(filter);
-
       const crops = await this.CropCollection.find(filter)
         .sort(sortStage)
         .skip(skip)
@@ -148,7 +103,6 @@ export class CropRepository {
 
       const totalPages = Math.ceil(totalCount / limit);
 
-      // Sanitize ObjectIds to strings for the response
       const sanitizedCrops: ICrop[] = crops.map(crop => ({
         ...crop,
         _id: crop._id?.toString(),
@@ -164,17 +118,11 @@ export class CropRepository {
 
   // ─── READ (BY ID) ──────────────────────────────────────────────────────────
 
-  /**
-   * Get a single crop by its ObjectId.
-   */
   async getCropById(cropId: string): Promise<ICrop | null> {
     try {
       await this.init();
 
-      const crop = await this.CropCollection.findOne({
-        _id: new ObjectId(cropId),
-      });
-
+      const crop = await this.CropCollection.findOne({_id: new ObjectId(cropId)});
       if (!crop) return null;
 
       return {
@@ -190,26 +138,24 @@ export class CropRepository {
 
   // ─── UPDATE ────────────────────────────────────────────────────────────────
 
-  /**
-   * Update crop fields (cropName, cropType, isActive).
-   */
   async updateCrop(
     id: string,
-    updates: {cropId?: string; name?: string; aliases?: string[]; isActive?: boolean},
+    updates: {cropId?: string; name?: string; aliases?: string[]},
     updatedBy: string,
   ): Promise<ICrop | null> {
     try {
       await this.init();
 
-      // If updating cropId or name, check for duplicates (exclude self)
       if (updates.cropId || updates.name) {
         const orConditions = [];
-        if (updates.cropId) orConditions.push({ cropId: updates.cropId.trim() });
-        if (updates.name) orConditions.push({ name: { $regex: `^${updates.name.trim()}$`, $options: 'i' } });
+        if (updates.cropId) orConditions.push({cropId: updates.cropId.trim()});
+        if (updates.name)
+          orConditions.push({
+            name: {$regex: `^${updates.name.trim()}$`, $options: 'i'},
+          });
 
         const existing = await this.CropCollection.findOne({
           $or: orConditions,
-          isActive: true,
           _id: {$ne: new ObjectId(id)},
         });
 
@@ -228,7 +174,6 @@ export class CropRepository {
       if (updates.cropId !== undefined) $set.cropId = updates.cropId.trim();
       if (updates.name !== undefined) $set.name = updates.name.trim();
       if (updates.aliases !== undefined) $set.aliases = updates.aliases;
-      if (updates.isActive !== undefined) $set.isActive = updates.isActive;
 
       const result = await this.CropCollection.findOneAndUpdate(
         {_id: new ObjectId(id)},
@@ -250,41 +195,38 @@ export class CropRepository {
     }
   }
 
-  // ─── SOFT DELETE ───────────────────────────────────────────────────────────
+  // ─── DELETE ────────────────────────────────────────────────────────────────
 
-  /**
-   * Soft-delete a crop by setting isActive = false.
-   */
-  async deleteCrop(
-    cropId: string,
-    deletedBy: string,
-  ): Promise<{modifiedCount: number}> {
+  async deleteCrop(cropId: string): Promise<{deletedCount: number}> {
     try {
       await this.init();
 
-      const result = await this.CropCollection.updateOne(
-        {
-          _id: new ObjectId(cropId),
-          isActive: true,
-        },
-        {
-          $set: {
-            isActive: false,
-            updatedAt: new Date(),
-            updatedBy: new ObjectId(deletedBy),
-          },
-        },
-      );
+      const crop = await this.CropCollection.findOne({_id: new ObjectId(cropId)});
+      if (!crop) {
+        throw new NotFoundError(`Crop with id "${cropId}" not found.`);
+      }
 
-      if (result.modifiedCount === 0) {
-        throw new NotFoundError(
-          `Crop with id "${cropId}" not found or already inactive.`,
+      // Block delete if any question references this crop
+      // Handles both old string format and new ICropRef object format
+      const QuestionCollection = await this.db.getCollection('questions');
+      const inUse = await QuestionCollection.findOne({
+        $or: [
+          {'details.crop': {$regex: `^${crop.name}$`, $options: 'i'}},
+          {'details.crop.cropId': crop.cropId},
+        ],
+      });
+
+      if (inUse) {
+        throw new BadRequestError(
+          `Cannot delete crop "${crop.name}" — it is referenced by existing questions.`,
         );
       }
 
-      return {modifiedCount: result.modifiedCount};
+      const result = await this.CropCollection.deleteOne({_id: new ObjectId(cropId)});
+      return {deletedCount: result.deletedCount};
     } catch (error: any) {
-      if (error instanceof NotFoundError) throw error;
+      if (error instanceof NotFoundError || error instanceof BadRequestError)
+        throw error;
       throw new InternalServerError(`Failed to delete crop: ${error.message}`);
     }
   }

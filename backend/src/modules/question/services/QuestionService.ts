@@ -634,7 +634,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         const topSimilar = await this.questionRepo.findTopSimilarQuestions(
           textEmbedding,
           5,
-          { state: details.state, district: details.district, crop: details.crop, domain: details.domain, season: details.season },
+          { state: details.state, district: details.district, crop: typeof details.crop === 'string' ? details.crop : details.crop.name, domain: details.domain, season: details.season },
         );
 
         logData.totalMatches = topSimilar.length;
@@ -900,7 +900,7 @@ export class QuestionService extends BaseService implements IQuestionService {
              question,
              details.state,
              details.district,
-             details.crop,
+             typeof details.crop === 'string' ? details.crop : details.crop.name,
              details.season,
              details.domain
            );
@@ -3094,7 +3094,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // Fetch reference question details for metadata
       // Use a Map to avoid duplicate fetches for the same reference question
-      const refDetailsMap = new Map<string, {state: string; district: string; crop: string; season: string; domain: string} | null>();
+      const refDetailsMap = new Map<string, {state: string; district: string; crop: string | import('#root/shared/interfaces/models.js').ICropRef; season: string; domain: string} | null>();
 
       for (const q of duplicateQuestions) {
         const refId = q.referenceQuestionId?.toString();
