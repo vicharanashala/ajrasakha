@@ -55,7 +55,7 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
           healthLabel="Moderate · needs improvement"
         />
 
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>                                                            
+        <div style={{ flex: 1, overflowY: "auto", padding: "0px 20px 20px 20px" }}>                                                            
                 {/* Page header */}                                
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>      
                   {/* <div>                                               
