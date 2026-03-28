@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -125,6 +125,8 @@ const NAV_SECTIONS: SidebarSection[] = [
     },
 ];
 
+const MOBILE_BREAKPOINT = 768;
+
 // ─── MAIN COMPONENT ────────────────────────────────────────────────────────────
 
 export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
@@ -135,18 +137,31 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
 }) => {
     const [segmentsExpanded, setSegmentsExpanded] = useState<boolean>(false);
     const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
-    const [collapsed, setCollapsed] = useState<boolean>(() => window.innerWidth <= 768);
+    const [collapsed, setCollapsed] = useState<boolean>(() => window.innerWidth <= MOBILE_BREAKPOINT);
+    const [isMobile, setIsMobile] = useState<boolean>(() => window.innerWidth <= MOBILE_BREAKPOINT);
 
-    // Auto-collapse on mobile resize
+    // Track mobile/desktop and auto-collapse on mobile
     useEffect(() => {
         const handleResize = () => {
-            if (window.innerWidth <= 768) setCollapsed(true);
+            const mobile = window.innerWidth <= MOBILE_BREAKPOINT;
+            setIsMobile(mobile);
+            if (mobile) setCollapsed(true);
         };
         window.addEventListener("resize", handleResize);
         return () => window.removeEventListener("resize", handleResize);
     }, []);
 
-    const handleNavClick = (view: DashboardView, hasChildren?: boolean) => {
+    // Escape key closes sidebar on mobile
+    useEffect(() => {
+        if (!isMobile || collapsed) return;
+        const handleEsc = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setCollapsed(true);
+        };
+        document.addEventListener("keydown", handleEsc);
+        return () => document.removeEventListener("keydown", handleEsc);
+    }, [isMobile, collapsed]);
+
+    const handleNavClick = useCallback((view: DashboardView, hasChildren?: boolean) => {
         if (hasChildren) {
             if (collapsed) {
                 setCollapsed(false);
@@ -156,61 +171,89 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
             }
         } else {
             setActiveSegmentId(null);
+            // On mobile, close sidebar when a non-expandable item is clicked
+            if (isMobile) setCollapsed(true);
         }
         onViewChange(view);
-    };
+    }, [collapsed, isMobile, onViewChange]);
 
-    const handleChildClick = (childId: string, parentView: DashboardView) => {
+    const handleChildClick = useCallback((childId: string, parentView: DashboardView) => {
         setActiveSegmentId(childId);
         onViewChange(parentView);
-    };
+        // On mobile, close after selecting a child
+        if (isMobile) setCollapsed(true);
+    }, [isMobile, onViewChange]);
 
     const healthBarWidth = `${Math.min(100, Math.max(0, healthScore))}%`;
     const healthScoreColor =
         healthScore >= 75 ? "#1E7A3C" : healthScore >= 50 ? "#854F0B" : "#A32D2D";
 
-    return (
+    // On mobile when expanded: overlay mode. Otherwise: inline mode.
+    const isOverlay = isMobile && !collapsed;
+
+    // Sidebar content (shared between inline and overlay modes)
+    const sidebarContent = (
         <aside
-            style={{ transition: "width 0.28s cubic-bezier(0.4,0,0.2,1)" }}
+            style={{
+                transition: isMobile
+                    ? "transform 0.28s cubic-bezier(0.4,0,0.2,1)"
+                    : "width 0.28s cubic-bezier(0.4,0,0.2,1)",
+            }}
             className={`
                 bg-(--card) border-r border-(--border) shrink-0
                 flex flex-col overflow-hidden relative
-                ${collapsed ? "w-[58px]" : "w-[220px]"}
+                ${isMobile
+                    ? "w-[220px] h-full"
+                    : collapsed ? "w-[58px]" : "w-[220px]"
+                }
             `}
         >
-            {/* ── HEADER: hamburger only ── */}
+            {/* ── HEADER: hamburger + close ── */}
             <div className={`
                 flex items-center border-b border-(--border) h-[52px]
-                ${collapsed ? "justify-center px-0" : "justify-start px-3"}
+                ${collapsed && !isMobile ? "justify-center px-0" : "justify-between px-3"}
             `}>
                 <button
                     onClick={() => setCollapsed((p) => !p)}
                     title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
                     aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-                    className="flex items-center justify-center rounded-lg w-7 h-7 shrink-0 text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--accent) transition-all duration-150"
+                    className="flex items-center justify-center rounded-lg w-8 h-8 shrink-0 text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--accent) transition-all duration-150"
                 >
                     <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
                         <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                     </svg>
                 </button>
+
+                {/* Close ✕ button only on mobile overlay */}
+                {isOverlay && (
+                    <button
+                        onClick={() => setCollapsed(true)}
+                        aria-label="Close sidebar"
+                        className="flex items-center justify-center rounded-lg w-8 h-8 shrink-0 text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--accent) transition-all duration-150"
+                    >
+                        <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+                            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                    </button>
+                )}
             </div>
 
             {/* ── NAV SECTIONS ── */}
             <div className="flex-1 overflow-y-auto overflow-x-hidden pb-20 pt-1">
                 {NAV_SECTIONS.map((section) => (
                     <div key={section.sectionLabel}>
-                        {/* Section label — fades out when collapsed */}
+                        {/* Section label — hidden when collapsed on desktop */}
                         <div className={`
                             overflow-hidden transition-all duration-200
-                            ${collapsed ? "h-0 opacity-0 mt-0" : "h-auto opacity-100 mt-3"}
+                            ${(collapsed && !isMobile) ? "h-0 opacity-0 mt-0" : "h-auto opacity-100 mt-3"}
                         `}>
                             <div className="text-[10px] font-semibold text-(--muted-foreground) px-4 mb-1 uppercase tracking-widest">
                                 {section.sectionLabel}
                             </div>
                         </div>
 
-                        {/* Dot separator when collapsed */}
-                        {collapsed && (
+                        {/* Dot separator when collapsed on desktop */}
+                        {collapsed && !isMobile && (
                             <div className="flex justify-center my-2">
                                 <div className="w-1 h-1 rounded-full bg-(--border)" />
                             </div>
@@ -219,7 +262,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                         {section.items.map((item) => {
                             const isActive = activeView === item.view;
                             const isExpandable = !!(item.children && item.children.length > 0);
-                            const isExpanded = isExpandable && segmentsExpanded && !collapsed;
+                            const showExpanded = isExpandable && segmentsExpanded && (!collapsed || isMobile);
 
                             return (
                                 <div key={item.view}>
@@ -230,11 +273,11 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                                         badgeVariant={item.badgeVariant}
                                         active={isActive}
                                         expandable={isExpandable}
-                                        expanded={isExpanded}
-                                        collapsed={collapsed}
+                                        expanded={showExpanded}
+                                        collapsed={collapsed && !isMobile}
                                         onClick={() => handleNavClick(item.view, isExpandable)}
                                     />
-                                    {isExpandable && isExpanded && (
+                                    {isExpandable && showExpanded && (
                                         <div>
                                             {item.children!.map((child) => (
                                                 <ChildNavItemRow
@@ -255,7 +298,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
 
             {/* ── HEALTH SCORE FOOTER ── */}
             <div className="absolute bottom-0 left-0 w-full border-t border-(--border) bg-(--card) overflow-hidden">
-                {collapsed ? (
+                {(collapsed && !isMobile) ? (
                     <div className="flex justify-center items-center py-3" title={`Health score: ${healthScore} — ${healthLabel}`}>
                         <div
                             className="w-8 h-8 rounded-full flex items-center justify-center"
@@ -286,6 +329,59 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
             </div>
         </aside>
     );
+
+    // ── MOBILE: overlay drawer ──
+    if (isMobile) {
+        return (
+            <>
+                {/* Collapsed state: just the hamburger strip */}
+                {collapsed && (
+                    <div className="shrink-0 flex items-center justify-center w-[24px] h-full border-r border-(--border) bg-(--card)">
+                        <button
+                            onClick={() => setCollapsed(false)}
+                            aria-label="Open sidebar"
+                            title="Open sidebar"
+                            className="flex items-center justify-center rounded-lg w-8 h-8 text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--accent) transition-all duration-150"
+                        >
+                            <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+                                <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                            </svg>
+                        </button>
+                    </div>
+                )}
+
+                {/* Overlay: backdrop + drawer */}
+                {!collapsed && (
+                    <div
+                        className="fixed inset-0 z-50 flex"
+                        style={{ animation: "fadeIn 0.15s ease-out" }}
+                    >
+                        {/* Backdrop */}
+                        <div
+                            className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+                            onClick={() => setCollapsed(true)}
+                        />
+                        {/* Drawer */}
+                        <div
+                            className="relative z-10 h-full"
+                            style={{ animation: "slideInLeft 0.28s cubic-bezier(0.4,0,0.2,1)" }}
+                        >
+                            {sidebarContent}
+                        </div>
+                    </div>
+                )}
+
+                {/* Keyframe animations */}
+                <style>{`
+                    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                    @keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+                `}</style>
+            </>
+        );
+    }
+
+    // ── DESKTOP: inline collapsible ──
+    return sidebarContent;
 };
 
 // ─── NAV ITEM ROW ─────────────────────────────────────────────────────────────
