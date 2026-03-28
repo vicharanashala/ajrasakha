@@ -53,10 +53,10 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
   };
 
   const baseSelect =
-    "text-sm h-10 px-3 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-200 cursor-pointer outline-none min-w-[150px] shadow-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2a2a2a] appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E')] dark:bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23ccc%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_10px_center] pr-8";
+    "text-sm h-10 px-3 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-200 cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2a2a2a] appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E')] dark:bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23ccc%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_10px_center] pr-8";
 
   const activeSelect =
-    "text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none min-w-[150px] shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a] appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%231E7A3C%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E')] dark:bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%234adc64%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_10px_center] pr-8";
+    "text-sm h-10 px-3 border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer outline-none w-full lg:min-w-[150px] lg:w-auto shadow-sm transition-all hover:bg-green-100 dark:hover:bg-[#2a2a2a] appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%231E7A3C%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E')] dark:bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%234adc64%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_10px_center] pr-8";
 
   const getSubtitle = () => {
     const parts: string[] = [];
@@ -74,9 +74,7 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
   return (
     <div className="mb-4">
       {/* Page header */}
-      <div
-        style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 14 }}
-      >
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-5">
         <div>
           <h1 className="text-[#1a1a1a] dark:text-white" style={{ fontSize: 16, fontWeight: 500, margin: 0 }}>
             National overview
@@ -85,23 +83,23 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
             {getSubtitle()}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
           <button
             onClick={() => console.log("Export PDF clicked")}
-            className="text-sm px-4 h-10 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors shadow-sm"
+            className="w-full sm:w-auto whitespace-nowrap h-10 px-4 flex justify-center items-center text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors shadow-sm"
           >
             Export PDF
           </button>
           <button
             onClick={() => console.log("Share report clicked")}
-            className="text-sm px-4 h-10 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors shadow-sm"
+            className="w-full sm:w-auto whitespace-nowrap h-10 px-4 flex justify-center items-center text-sm border border-green-500 dark:border-green-500 rounded-md bg-green-50 dark:bg-[#1a1a1a] text-green-700 dark:text-green-400 font-medium cursor-pointer hover:bg-green-100 dark:hover:bg-[#2a2a2a] transition-colors shadow-sm"
           >
             Share report
           </button>
         </div>
       </div>
 
-      <div className="flex items-start gap-2 flex-wrap">
+      <div className="flex flex-col sm:flex-row flex-wrap lg:flex-nowrap items-stretch gap-3 w-full">
         {/* Village Filter */}
         <select
           value={village}
@@ -109,7 +107,7 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
             setVillage(e.target.value);
             fireChange({ village: e.target.value });
           }}
-          className={village !== "all" ? activeSelect : baseSelect}
+          className={`sm:flex-1 min-w-[130px] ${village !== "all" ? activeSelect : baseSelect}`}
         >
           <option className="text-gray-700 bg-white dark:bg-[#1a1a1a] dark:text-gray-200" value="all">All Villages</option>
           {VILLAGES.map((v) => (
@@ -119,8 +117,6 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
           ))}
         </select>
 
-        <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 self-center" />
-
         {/* Crop Filter */}
         <select
           value={crop}
@@ -128,7 +124,7 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
             setCrop(e.target.value);
             fireChange({ crop: e.target.value });
           }}
-          className={crop !== "all" ? activeSelect : baseSelect}
+          className={`sm:flex-1 min-w-[130px] ${crop !== "all" ? activeSelect : baseSelect}`}
         >
           <option className="text-gray-700 bg-white dark:bg-[#1a1a1a] dark:text-gray-200" value="all">All Crops</option>
           {CROPS.map((c) => (
@@ -138,8 +134,6 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
           ))}
         </select>
 
-        <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 self-center" />
-
         {/* Season Filter */}
         <select
           value={season}
@@ -147,7 +141,7 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
             setSeason(e.target.value);
             fireChange({ season: e.target.value });
           }}
-          className={season !== "all" ? activeSelect : baseSelect}
+          className={`sm:flex-1 min-w-[130px] ${season !== "all" ? activeSelect : baseSelect}`}
         >
           <option className="text-gray-700 bg-white dark:bg-[#1a1a1a] dark:text-gray-200" value="all">All Seasons</option>
           {SEASONS.map((s) => (
@@ -157,22 +151,19 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
           ))}
         </select>
 
-        <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 self-center" />
-
-        {/* Date Range Filter (label hidden, inline calendar button) */}
-        <div className="min-w-[200px] [&_label]:hidden">
+        {/* Date Range Filter (label hidden, inline calendar button with flexible scaling) */}
+        <div className="w-full lg:w-auto lg:flex-none [&_label]:hidden [&_button]:!w-full [&_button]:!whitespace-nowrap [&_button_span]:!whitespace-nowrap [&_button]:!h-10">
           <DateRangeFilter
             customName=""
             advanceFilter={dateFilter}
             handleDialogChange={handleDateChange}
             className={
               dateFilter.startTime
-                ? "!h-10 !text-sm !border-green-500 dark:!border-green-500 !bg-green-50 dark:!bg-[#1a1a1a] !text-green-700 dark:!text-green-400 !font-medium hover:!bg-green-100 dark:hover:!bg-[#2a2a2a]"
-                : "!h-10 !text-sm !border-gray-200 dark:!border-gray-700 !bg-white dark:!bg-[#1a1a1a] !text-gray-700 dark:!text-gray-200 !font-normal hover:!bg-gray-50 dark:hover:!bg-[#2a2a2a]"
+                ? "!h-10 !text-sm !w-full !border-green-500 dark:!border-green-500 !bg-green-50 dark:!bg-[#1a1a1a] !text-green-700 dark:!text-green-400 !font-medium hover:!bg-green-100 dark:hover:!bg-[#2a2a2a]"
+                : "!h-10 !text-sm !w-full !border-gray-200 dark:!border-gray-700 !bg-white dark:!bg-[#1a1a1a] !text-gray-700 dark:!text-gray-200 !font-normal hover:!bg-gray-50 dark:hover:!bg-[#2a2a2a]"
             }
           />
         </div>
-
       </div>
     </div>
   );

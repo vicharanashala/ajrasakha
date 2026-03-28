@@ -473,10 +473,9 @@ export const PlaygroundPage = () => {
               </TabsContent>
               <TabsContent
                 value="chatbotanalytics"
-                className="mt-0 border-0 md:px-8 "
+                className="-mt-8 border-0 p-0"
               >
-                <AnnamDashboard
-                />
+                <AnnamDashboard />
               </TabsContent>
 
               {user && user.role !== "expert" && (
