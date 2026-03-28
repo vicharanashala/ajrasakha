@@ -122,7 +122,7 @@ function Sparkline({ points, color }: { points: number[]; color: string }) {
 	const fill = `${d} L ${width} ${height} L 0 ${height} Z`;
 
 	return (
-		<svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ height: 52 }} preserveAspectRatio="none">
+		<svg viewBox={`0 0 ${width} ${height}`} className="w-full h-13" preserveAspectRatio="none">
 			<path d={fill} fill={color} fillOpacity={0.08} />
 			<path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
 		</svg>
@@ -192,12 +192,12 @@ export function EightCardsComponent() {
 
 	return (
 		<>
-			<div className="mb-2.5 grid grid-cols-4 gap-2.5">
+			<div className="mb-2.5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
 				{data.kpiRow1.map((kpi) => (
 					<KpiCard key={kpi.id} kpi={kpi} />
 				))}
 			</div>
-			<div className="mb-4 grid grid-cols-4 gap-2.5">
+			<div className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
 				{data.kpiRow2.map((kpi) => (
 					<KpiCard key={kpi.id} kpi={kpi} />
 				))}
