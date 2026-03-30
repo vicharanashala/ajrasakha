@@ -39,6 +39,7 @@ export const QuestionsPage = ({
   const [priority, setPriority] = useState<QuestionPriorityFilter>("all");
   const [state, setState] = useState("all");
   const [crop, setCrop] = useState("all");
+  const [normalisedCrop, setNormalisedCrop] = useState("all");
   const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
   const [startTime, setStartTime] = useState<Date | undefined>(undefined);
@@ -107,6 +108,7 @@ export const QuestionsPage = ({
       state,
       source,
       crop,
+      normalised_crop: normalisedCrop,
       answersCount,
       dateRange,
       priority,
@@ -125,6 +127,7 @@ export const QuestionsPage = ({
       state,
       source,
       crop,
+      normalisedCrop,
       answersCount,
       dateRange,
       priority,
@@ -194,6 +197,7 @@ export const QuestionsPage = ({
     priority?: QuestionPriorityFilter;
     state?: string;
     crop?: string;
+    normalised_crop?: string;
     domain?: string;
     user?: string;
     answersCount?: [number, number];
@@ -210,6 +214,7 @@ export const QuestionsPage = ({
     if (next.source !== undefined) setSource(next.source);
     if (next.state !== undefined) setState(next.state);
     if (next.crop !== undefined) setCrop(next.crop);
+    if (next.normalised_crop !== undefined) setNormalisedCrop(next.normalised_crop);
     if (next.answersCount !== undefined) setAnswersCount(next.answersCount);
     if (next.dateRange !== undefined) setDateRange(next.dateRange);
     if (next.priority !== undefined) setPriority(next.priority);
@@ -242,6 +247,7 @@ export const QuestionsPage = ({
     setSource("all");
     setState("all");
     setCrop("all");
+    setNormalisedCrop("all");
     setAnswersCount([0, 100]);
     setDateRange("all");
     setPriority("all");

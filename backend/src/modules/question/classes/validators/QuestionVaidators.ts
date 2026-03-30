@@ -479,6 +479,11 @@ class GetDetailedQuestionsQuery {
   @IsString()
   crop?: string;
 
+  @JSONSchema({description: 'Normalized crop filter', example: 'wheat', type: 'string'})
+  @IsOptional()
+  @IsString()
+  normalised_crop?: string;
+
   @JSONSchema({
     description: 'Domain filter',
     example: 'Agriculture',

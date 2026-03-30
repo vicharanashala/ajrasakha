@@ -41,6 +41,7 @@ export class QuestionService {
     if (filter.source) params.append("source", filter.source);
     if (filter.state) params.append("state", filter.state);
     if (filter.crop) params.append("crop", filter.crop);
+    if (filter.normalised_crop) params.append("normalised_crop", filter.normalised_crop);
     if (filter.priority) params.append("priority", filter.priority);
     if (filter.domain) params.append("domain", filter.domain);
     if (filter.user) params.append("user", filter.user);

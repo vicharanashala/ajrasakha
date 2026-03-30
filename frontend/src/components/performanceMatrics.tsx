@@ -36,6 +36,7 @@ export const PerformanceMatrics = () => {
       answersCount: [0, 100],
       dateRange: "all",
       crop: "all",
+      normalised_crop: "all",
       priority: "all",
       domain: "all",
       user: "all",
