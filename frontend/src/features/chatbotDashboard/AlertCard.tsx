@@ -1,4 +1,3 @@
-import { Card } from "./components/shared/Card";
 import { Badge } from "./components/shared/Badge";
 import { DASHBOARD_DATA } from "./mockData";
 
@@ -24,7 +23,7 @@ function AlertItem({ level, title, desc }: Omit<Alert, "id">) {
   };
 
   return (
-    <div className={`${getAlertClasses(level)} rounded-lg p-2 mb-1`}>
+    <div className={`${getAlertClasses(level)} rounded-lg p-2.5 mb-2.5`}>
       <div className="text-xs font-medium text-gray-900 dark:text-gray-50">
         {title}
       </div>
@@ -47,12 +46,15 @@ export function AlertCard() {
   const criticalCount = sortedAlerts.filter((a) => a.level === "critical").length;
 
   return (
-    <Card
-      title="Active alerts"
-      subtitle="Requires leadership action"
-      action={<Badge label={`${criticalCount} critical`} variant="red" />}
-    >
-      <div className="max-h-72 overflow-y-auto pr-2">
+    <div className="h-full flex flex-col" style={{ background: "var(--card)", border: "0.5px solid var(--border)", borderRadius: 12, padding: 16 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
+        <div style={{ minWidth: 0, flex: 1, marginRight: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--card-foreground)" }}>Active alerts</div>
+          <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2 }}>Requires leadership action</div>
+        </div>
+        <Badge label={`${criticalCount} critical`} variant="red" />
+      </div>
+      <div className="flex-1 overflow-y-auto pr-1" style={{ maxHeight: 260 }}>
         {sortedAlerts.map((a) => (
           <AlertItem
             key={a.id}
@@ -62,6 +64,6 @@ export function AlertCard() {
           />
         ))}
       </div>
-    </Card>
+    </div>
   );
 }

@@ -25,6 +25,10 @@ const DEFAULT_CATEGORIES: QueryCategory[] = [
     { label: "Irrigation timing", pct: 18, color: "#378ADD" },
     { label: "Crop selection", pct: 12, color: "#3AAA5A" },
     { label: "Govt. schemes", pct: 8, color: "#7C6FD4" },
+    { label: "Weather forecast", pct: 7, color: "#1D9E75" },
+    { label: "Seed varieties", pct: 6, color: "#E24B4A" },
+    { label: "Soil testing", pct: 5, color: "#EF9F27" },
+    { label: "Market prices", pct: 4, color: "#378ADD" },
 ];
 
 const DEFAULT_UNANSWERED = {
@@ -76,7 +80,7 @@ export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
     unansweredCluster = DEFAULT_UNANSWERED,
 }) => {
     return (
-        <div className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl p-4 flex flex-col">
+        <div className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl p-4 flex flex-col h-full">
             {/* Header */}
             <div className="flex items-start justify-between mb-4">
                 <div>
@@ -92,8 +96,8 @@ export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
                 </button>
             </div>
 
-            {/* Progress bars */}
-            <div className="flex-1">
+            {/* Progress bars — scrollable */}
+            <div className="flex-1 overflow-y-auto pr-1" style={{ maxHeight: 260 }}>
                 {categories.map((q) => (
                     <ProgressBar
                         key={q.label}

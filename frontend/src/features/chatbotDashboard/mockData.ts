@@ -40,6 +40,9 @@ export const DASHBOARD_DATA = {
     { id: "silent", label: "Silent lurkers", users: "98,700", status: "Re-engage", statusVariant: "red" as const, description: "Opened app but rarely ask. Need push nudges.", dau: 98700, retention: 22, queryRate: 0.4, topCrop: "Wheat" },
     { id: "churned", label: "Churned users", users: "31,200", status: "Win-back", statusVariant: "red" as const, description: "No activity 30+ days. Requires win-back campaign.", dau: 31200, retention: 0, queryRate: 0, topCrop: "—" },
     { id: "institutional", label: "Institutional", users: "1,600", status: "B2G", statusVariant: "blue" as const, description: "Government & extension officers. B2G relationship.", dau: 1600, retention: 88, queryRate: 12.4, topCrop: "All" },
+    { id: "new_adopters", label: "New adopters", users: "45,800", status: "Onboard", statusVariant: "green" as const, description: "Joined in last 30 days. Need onboarding nudges.", dau: 45800, retention: 55, queryRate: 2.1, topCrop: "Soybean" },
+    { id: "seasonal", label: "Seasonal users", users: "67,500", status: "Monitor", statusVariant: "amber" as const, description: "Active only during sowing/harvest. Seasonal engagement.", dau: 67500, retention: 38, queryRate: 1.8, topCrop: "Rice" },
+    { id: "premium", label: "Premium growers", users: "12,300", status: "VIP", statusVariant: "green" as const, description: "High-value commercial farmers. Priority support needed.", dau: 12300, retention: 94, queryRate: 9.6, topCrop: "Sugarcane" },
   ] as Segment[],
   alerts: [
     { id: 1, level: "critical" as const, title: "LLM dosage hallucination · ACE-079", desc: "Wrong pesticide dosage for paddy BLB · 612 farmers affected" },
@@ -57,6 +60,8 @@ export const DASHBOARD_DATA = {
     { abbr: "AP", val: "74k", opacity: 0.65 }, { abbr: "TN", val: "62k", opacity: 0.55 }, { abbr: "RJ", val: "58k", opacity: 0.48 },
     { abbr: "HR", val: "52k", opacity: 0.42 }, { abbr: "KA", val: "48k", opacity: 0.38 }, { abbr: "WB", val: "44k", opacity: 0.32 },
     { abbr: "GJ", val: "42k", opacity: 0.28 }, { abbr: "PB", val: "36k", opacity: 0.22 }, { abbr: "BR", val: "31k", opacity: 0.15 },
+    { abbr: "OR", val: "28k", opacity: 0.13 }, { abbr: "JH", val: "24k", opacity: 0.11 }, { abbr: "CG", val: "21k", opacity: 0.10 },
+    { abbr: "UK", val: "18k", opacity: 0.09 }, { abbr: "HP", val: "15k", opacity: 0.08 }, { abbr: "AS", val: "12k", opacity: 0.06 },
   ],
   healthPillars: [
     { label: "Advisory accuracy", score: 82, color: "#3AAA5A" },

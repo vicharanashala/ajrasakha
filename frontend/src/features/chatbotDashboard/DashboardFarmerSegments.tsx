@@ -22,7 +22,7 @@ export function DashboardFarmerSegments({ segments, activeSegment, onSegmentClic
   return (
     <div
       ref={segmentsRef}
-      className={`bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl p-3 sm:p-4 transition-shadow duration-300 ${
+      className={`bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl p-3 sm:p-4 transition-shadow duration-300 h-full flex flex-col ${
         activeSegment ? "seg-pulse" : ""
       }`}
     >
@@ -47,7 +47,7 @@ export function DashboardFarmerSegments({ segments, activeSegment, onSegmentClic
         )}
       </div>
       
-      <div className="overflow-x-auto w-full -mx-1 sm:mx-0 px-1 sm:px-0">
+      <div className="flex-1 overflow-y-auto w-full -mx-1 sm:mx-0 px-1 sm:px-0 pr-1" style={{ maxHeight: 260 }}>
         <table className="w-full border-collapse text-[11px] sm:text-[12px] min-w-[280px]">
           <thead>
             <tr className="bg-gray-50 dark:bg-black/20">
