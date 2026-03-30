@@ -57,9 +57,10 @@ import {
 
 } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./atoms/tooltip";
 import type { IMyPreference } from "@/types";
 import { CROPS, STATES, DOMAINS, Review_Level } from "@/components/MetaData";
+import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { Popover, PopoverContent, PopoverTrigger } from "./atoms/popover";
 import { format } from "date-fns";
 export { STATES, CROPS, DOMAINS };
@@ -234,6 +235,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const { data: userNameReponse, isLoading } = useGetAllUsers();
+  const { data: cropsData } = useGetAllCrops();
+  const dbCrops = cropsData?.crops || [];
 
   const users = (userNameReponse?.users || []).sort((a, b) =>
     a.userName.localeCompare(b.userName)
@@ -485,11 +488,38 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Crops</SelectItem>
-                    {crops.map((crop) => (
-                      <SelectItem key={crop} value={crop}>
-                        {crop}
-                      </SelectItem>
-                    ))}
+                    {dbCrops.length > 0
+                      ? dbCrops.map((crop) => (
+                          <SelectItem key={crop._id || crop.name} value={crop.name}>
+                            {crop.aliases && crop.aliases.length > 0 ? (
+                              <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="flex items-center gap-2 cursor-default">
+                                      <span className="capitalize">{crop.name}</span>
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                                        +{crop.aliases.length}
+                                      </span>
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="right" className="text-xs">
+                                    <p className="font-semibold mb-0.5">Also known as:</p>
+                                    {crop.aliases.map((a) => (
+                                      <p key={a} className="capitalize text-muted-foreground">{a}</p>
+                                    ))}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <span className="capitalize">{crop.name}</span>
+                            )}
+                          </SelectItem>
+                        ))
+                      : crops.map((crop) => (
+                          <SelectItem key={crop} value={crop}>
+                            {crop}
+                          </SelectItem>
+                        ))}
                   </SelectContent>
                 </Select>
               </div>

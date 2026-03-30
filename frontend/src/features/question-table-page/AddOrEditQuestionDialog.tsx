@@ -143,26 +143,28 @@ const CropSelect = ({
         {useDbCrops
           ? dbCrops.map((crop) => (
               <SelectItem key={crop._id || crop.name} value={crop.name}>
-                <span className="flex items-center gap-2">
-                  <span className="capitalize">{crop.name}</span>
-                  {crop.aliases && crop.aliases.length > 0 && (
-                    <TooltipProvider delayDuration={200}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 cursor-default">
+                {crop.aliases && crop.aliases.length > 0 ? (
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center gap-2 cursor-default">
+                          <span className="capitalize">{crop.name}</span>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
                             +{crop.aliases.length}
                           </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="text-xs">
-                          <p className="font-semibold mb-0.5">Aliases:</p>
-                          {crop.aliases.map((a) => (
-                            <p key={a} className="capitalize">{a}</p>
-                          ))}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                </span>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="text-xs">
+                        <p className="font-semibold mb-0.5">Also known as:</p>
+                        {crop.aliases.map((a) => (
+                          <p key={a} className="capitalize text-muted-foreground">{a}</p>
+                        ))}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <span className="capitalize">{crop.name}</span>
+                )}
               </SelectItem>
             ))
           : CROPS.map((crop) => (
@@ -454,6 +456,100 @@ export const AddOrEditQuestionDialog = ({
                   </SelectContent>
                 </Select> */}
 
+                  {(
+                    [
+                      "state",
+                      "district",
+                    ] as DetailField[]
+                  ).map((field) => {
+                    const fieldOptions =
+                                          field === "district"
+                                            ? updatedData?.details?.state &&
+                                              DISTRICTS[updatedData.details.state]
+                                              ? DISTRICTS[updatedData.details.state]
+                                              : []
+                                            : OPTIONS[field];
+                    return (
+                      <div key={field} className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                          <label>
+                            {field.charAt(0).toUpperCase() + field.slice(1)}*
+                          </label>
+                        </div>
+                        {fieldOptions ? (
+                          <Select
+                            value={
+                              updatedData?.details?.[field]?.trim()
+                                ? updatedData.details[field]
+                                : undefined
+                            }
+                            onValueChange={(val) => {
+                              onFieldValidatedChange?.(field as AddQuestionField);
+                              setUpdatedData((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        [field]: val,
+                                      },
+                                    }
+                                  : prev
+                              );
+                            }}
+                          >
+                            <SelectTrigger
+                              className={`w-full ${
+                                mode === "add" && validationErrors?.[field as AddQuestionField]
+                                  ? invalidFieldClass
+                                  : ""
+                              }`}
+                            >
+                              <SelectValue placeholder={`Select ${field}`} />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                              {fieldOptions.map((option) => (
+                                <SelectItem key={option} value={option}>
+                                  {option}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            type="text"
+                            value={updatedData?.details?.district || ""}
+                            onChange={(e) => {
+                              onFieldValidatedChange?.("district");
+                              setUpdatedData((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        district: e.target.value,
+                                      },
+                                    }
+                                  : prev
+                              );
+                            }}
+                            className={
+                              mode === "add" && validationErrors?.district
+                                ? invalidFieldClass
+                                : undefined
+                            }
+                          />
+                        )}
+                        {mode === "add" && validationErrors?.[field as AddQuestionField] && (
+                          <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
+                            {validationErrors[field as AddQuestionField]}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+
                   {/* ── Crop (from DB) ── */}
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -487,8 +583,6 @@ export const AddOrEditQuestionDialog = ({
 
                   {(
                     [
-                      "state",
-                      "district",
                       "season",
                       "domain",
                     ] as DetailField[]
