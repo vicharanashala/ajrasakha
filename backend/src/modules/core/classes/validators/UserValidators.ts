@@ -105,6 +105,9 @@ class ExpertReviewLevelDto{
   crop:string
 
   @IsOptional()
+  normalised_crop:string
+
+  @IsOptional()
   season:string
 
   @IsOptional()
