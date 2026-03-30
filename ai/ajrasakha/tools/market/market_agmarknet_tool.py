@@ -22,7 +22,7 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
 }
 
-mcp_agmarknet = FastMCP("ajrasakha-agmarknet-mcp")
+mcp = FastMCP("ajrasakha-agmarknet-mcp")
 
 _filters_cache: dict[str, Any] = {}
 
@@ -65,7 +65,7 @@ async def _get_filters(dashboard: str = "marketwise_price_arrival") -> dict[str,
 
 
 
-@mcp_agmarknet.tool()
+@mcp.tool()
 async def get_states(dashboard: str = "marketwise_price_arrival") -> dict[str, Any]:
     """
     Get all available states. Always call this first to resolve a state name to its ID.
@@ -85,7 +85,7 @@ async def get_states(dashboard: str = "marketwise_price_arrival") -> dict[str, A
         return {"success": False, "error": str(e)}
 
 
-@mcp_agmarknet.tool()
+@mcp.tool()
 async def get_districts(state_id: int, dashboard: str = "marketwise_price_arrival") -> dict[str, Any]:
     """
     Get districts for a given state_id. Call after get_states.
@@ -105,7 +105,7 @@ async def get_districts(state_id: int, dashboard: str = "marketwise_price_arriva
         return {"success": False, "error": str(e)}
 
 
-@mcp_agmarknet.tool()
+@mcp.tool()
 async def get_markets(
     state_id: int,
     district_id: int | None = None,
@@ -130,7 +130,7 @@ async def get_markets(
         return {"success": False, "error": str(e)}
 
 
-@mcp_agmarknet.tool()
+@mcp.tool()
 async def get_commodities(dashboard: str = "marketwise_price_arrival") -> dict[str, Any]:
     """
     Get all available commodities. Can be called in parallel with get_states.
@@ -151,7 +151,7 @@ async def get_commodities(dashboard: str = "marketwise_price_arrival") -> dict[s
 
 
 
-@mcp_agmarknet.tool()
+@mcp.tool()
 async def get_price_arrivals(
     dashboard: str = "marketwise_price_arrival",
     date: str | None = None,
@@ -195,3 +195,7 @@ async def get_price_arrivals(
     ]
     url = f"{BASE_URL}/dashboard-data/?{'&'.join(parts)}"
     return await _request_raw_url(url)
+
+
+if __name__ == "__main__":
+    mcp.run(transport="streamable-http")

@@ -15,7 +15,7 @@ MAUSAM_BASE = os.getenv("IMD_MAUSAM_BASE", "https://mausam.imd.gov.in/api").rstr
 TIMEOUT = float(os.getenv("IMD_TIMEOUT_SECONDS", "30"))
 RETRIES = int(os.getenv("IMD_MAX_RETRIES", "3"))
 
-mcp_imd = FastMCP("ajrasakha-imd-mcp")
+mcp = FastMCP("ajrasakha-imd-mcp")
 
 WARNING_CODES = {
     "1": "No Warning", "2": "Heavy Rain", "3": "Heavy Snow",
@@ -57,7 +57,7 @@ async def _get(base: str, path: str, params: dict[str, Any] | None = None) -> di
 
 # --- Tools ---
 
-@mcp_imd.tool()
+@mcp.tool()
 async def get_weather_forecast(latitude: float, longitude: float) -> dict[str, Any]:
     """
     Get 7-day weather forecast for a location using lat/lon.
@@ -103,7 +103,7 @@ async def get_weather_forecast(latitude: float, longitude: float) -> dict[str, A
     return {"success": True, "today": today, "forecast": forecast}
 
 
-@mcp_imd.tool()
+@mcp.tool()
 async def get_current_weather(station_id: int) -> dict[str, Any]:
     """
     Get current real-time weather for a specific IMD station by station ID.
@@ -138,7 +138,7 @@ async def get_current_weather(station_id: int) -> dict[str, Any]:
     }
 
 
-@mcp_imd.tool()
+@mcp.tool()
 async def get_district_warnings(district_obj_id: int) -> dict[str, Any]:
     """
     Get 5-day weather warnings for a district by its IMD object ID.
@@ -177,7 +177,7 @@ async def get_district_warnings(district_obj_id: int) -> dict[str, Any]:
     }
 
 
-@mcp_imd.tool()
+@mcp.tool()
 async def get_district_rainfall(district_obj_id: int) -> dict[str, Any]:
     """
     Get rainfall statistics for a district — daily, weekly, monthly, and cumulative.
@@ -233,7 +233,7 @@ async def get_district_rainfall(district_obj_id: int) -> dict[str, Any]:
     }
 
 
-@mcp_imd.tool()
+@mcp.tool()
 async def get_realtime_weather_by_state(state_id: int) -> dict[str, Any]:
     """
     Get real-time AWS (Automatic Weather Station) data for all stations in a state.
@@ -276,7 +276,7 @@ async def get_realtime_weather_by_state(state_id: int) -> dict[str, Any]:
     }
 
 
-@mcp_imd.tool()
+@mcp.tool()
 async def get_subdivision_warnings() -> dict[str, Any]:
     """
     Get 7-day weather warnings for all meteorological subdivisions across India.
@@ -311,7 +311,7 @@ async def get_subdivision_warnings() -> dict[str, Any]:
     }
 
 
-@mcp_imd.tool()
+@mcp.tool()
 async def get_subdivision_rainfall_forecast() -> dict[str, Any]:
     """
     Get 7-day rainfall distribution forecast for all meteorological subdivisions.
@@ -345,3 +345,6 @@ async def get_subdivision_rainfall_forecast() -> dict[str, Any]:
             for s in subdivisions
         ],
     }
+
+if __name__ == "__main__":
+    mcp.run(transport="streamable-http")

@@ -15,7 +15,7 @@ ENAM_BASE = os.getenv("ENAM_BASE_URL", "https://enam.gov.in/web/Ajax_ctrl").rstr
 TIMEOUT = float(os.getenv("ENAM_TIMEOUT_SECONDS", "30"))
 RETRIES = int(os.getenv("ENAM_MAX_RETRIES", "3"))
 
-mcp_enam = FastMCP("ajrasakha-enam-mcp")
+mcp = FastMCP("ajrasakha-enam-mcp")
 
 async def _post(path: str, data: dict[str, str] | None = None) -> dict[str, Any]:
     url = f"{ENAM_BASE}/{path.lstrip('/')}"
@@ -34,7 +34,7 @@ async def _post(path: str, data: dict[str, str] | None = None) -> dict[str, Any]
                 return {"success": False, "error": str(e)}
             await asyncio.sleep(0.5 * (2**i))
 
-@mcp_enam.tool()
+@mcp.tool()
 def get_today_date_for_enam() -> str:
     """
     Get today's date in DD-MM-YYYY format for use in eNAM API calls.
@@ -43,7 +43,7 @@ def get_today_date_for_enam() -> str:
     return datetime.now().strftime("%d-%m-%Y")
 
 
-@mcp_enam.tool()
+@mcp.tool()
 async def get_state_list_from_enam() -> dict[str, Any]:
     """
     Fetch the list of all states available on the eNAM portal.
@@ -53,7 +53,7 @@ async def get_state_list_from_enam() -> dict[str, Any]:
     return await _post("states_name")
 
 
-@mcp_enam.tool()
+@mcp.tool()
 async def get_apmc_list_from_enam(state_id: str) -> dict[str, Any]:
     """
     Fetch the list of APMCs (mandis) for a given state from eNAM.
@@ -63,7 +63,7 @@ async def get_apmc_list_from_enam(state_id: str) -> dict[str, Any]:
     return await _post("apmc_list", {"state_id": state_id})
 
 
-@mcp_enam.tool()
+@mcp.tool()
 async def get_commodity_list_from_enam(
     state_name: str,
     apmc_name: str,
@@ -85,7 +85,7 @@ async def get_commodity_list_from_enam(
     })
 
 
-@mcp_enam.tool()
+@mcp.tool()
 async def get_trade_data_from_enam(
     state_name: str,
     apmc_name: str,
@@ -112,3 +112,6 @@ async def get_trade_data_from_enam(
         "fromDate": from_date,
         "toDate": to_date,
     })
+
+if __name__ == "__main__":
+    mcp.run(transport="streamable-http")
