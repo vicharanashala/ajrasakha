@@ -243,7 +243,6 @@ def _fetch(endpoint_key: str, params: dict,
             "rainfall_forecast": _mock_rainfall_forecast,
             "current_weather"  : _mock_current_weather,
             "nowcast"          : _mock_nowcast,
-            "agromet_advisory" : _mock_agromet_advisory,
         }[endpoint_key]
         raw = mock_fn(**params)
         return _normalise(raw, endpoint_key)
@@ -288,7 +287,7 @@ def _fetch(endpoint_key: str, params: dict,
 
 class IMDClient:
     """
-    Client for the 6 priority IMD weather endpoints identified
+    Client for the 5 priority IMD weather endpoints identified
     from analysis of 15.5M KCC farmer weather queries.
 
     Endpoint coverage
@@ -298,7 +297,6 @@ class IMDClient:
     rainfall_forecast MEDIUM       248,633 queries   1.60%
     current_weather   MEDIUM       180,855 queries   1.16%
     nowcast           LOW           57,084 queries   0.37%
-    agromet_advisory  LOW           21,655 queries   0.14%
     """
 
     def __init__(self):
@@ -363,23 +361,12 @@ class IMDClient:
         """
         return _fetch("nowcast", {"district": district, "state": state})
 
-    def get_agromet_advisory(self, district: str, state: str = "",
-                              crop: str = "") -> dict:
-        """
-        Agro-meteorological advisory with crop-specific guidance.
-        Covers Weather Impact on Crops need — 21,655 queries (0.14%).
-        Freshness: daily.
-        Clusters : 5, 51
-        """
-        return _fetch("agromet_advisory",
-                      {"district": district, "state": state, "crop": crop})
-
     # Convenience
 
     def get_full_profile(self, city: str, district: str,
                          state: str = "", crop: str = "") -> dict:
         """
-        Calls all 6 endpoints and returns a combined dict.
+        Calls all 5 endpoints and returns a combined dict.
         A failure on one endpoint is captured and does not
         block the remaining calls.
         """
@@ -394,8 +381,6 @@ class IMDClient:
              {"city": city, "state": state}),
             ("nowcast",           self.get_nowcast,
              {"district": district, "state": state}),
-            ("agromet_advisory",  self.get_agromet_advisory,
-             {"district": district, "state": state, "crop": crop}),
         ]
         results = {}
         for key, fn, kwargs in calls:

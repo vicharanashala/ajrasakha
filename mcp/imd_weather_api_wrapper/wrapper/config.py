@@ -12,7 +12,6 @@ ENDPOINTS = {
     "rainfall_forecast": "/mausam/api/districtwise_rainfall_api.php",    # MEDIUM
     "current_weather"  : "/city/api/cityweather.php",                    # MEDIUM
     "nowcast"          : "/mausam/api/nowcast_district_api.php",         # LOW
-    "agromet_advisory" : "/mausam/api/warnings_district_api.php",        # LOW
 }
 
 # Data freshness in minutes 
@@ -22,7 +21,6 @@ FRESHNESS_MINUTES = {
     "rainfall_forecast": 180,   # 3 hours
     "current_weather"  :  60,   # real-time / hourly
     "nowcast"          : 180,   # 3 hours
-    "agromet_advisory" : 1440,  # daily
 }
 
 # Priority tiers 
@@ -32,7 +30,6 @@ PRIORITY = {
     "rainfall_forecast": "MEDIUM",
     "current_weather"  : "MEDIUM",
     "nowcast"          : "LOW",
-    "agromet_advisory" : "LOW",
 }
 
 # Farmer need labels (from KCC clustering) 
@@ -42,7 +39,6 @@ FARMER_NEED = {
     "rainfall_forecast": "Rain Forecast",
     "current_weather"  : "Current Weather Condition",
     "nowcast"          : "Short Term Forecast",
-    "agromet_advisory" : "Weather Impact on Crops",
 }
 
 # Total queries per farmer need (from 15.5M KCC dataset) 
@@ -52,7 +48,6 @@ TOTAL_QUERIES_PER_NEED = {
     "Rain Forecast"             :    248_633,
     "Current Weather Condition" :    180_855,
     "Short Term Forecast"       :     57_084,
-    "Weather Impact on Crops"   :     21_655,
 }
 
 TOTAL_WEATHER_QUERIES = 15_549_889   # full KCC weather dataset
@@ -126,10 +121,6 @@ CLUSTER_TO_NEED = {
     # Short Term Forecast (57,084 queries)
     24: "Short Term Forecast",
     23: "Short Term Forecast",
-
-    # Weather Impact on Crops (21,655 queries)
-    5 : "Weather Impact on Crops",
-    51: "Weather Impact on Crops",
 }
 
 # Farmer need → endpoint key 
@@ -139,7 +130,6 @@ NEED_TO_ENDPOINT = {
     "Rain Forecast"             : "rainfall_forecast",
     "Current Weather Condition" : "current_weather",
     "Short Term Forecast"       : "nowcast",
-    "Weather Impact on Crops"   : "agromet_advisory",
 }
 
 # Cluster query counts (from KCC analysis) 
