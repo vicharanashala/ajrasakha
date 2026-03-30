@@ -413,6 +413,7 @@ export interface IQuestionFullData {
     state: string;
     district: string;
     crop: string;
+    normalised_crop?: string;
     season: string;
     domain: string;
   };
