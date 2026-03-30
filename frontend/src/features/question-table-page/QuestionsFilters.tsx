@@ -57,6 +57,7 @@ import {
 import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { TopRightBadge } from "@/components/NewBadge";
+import { CropManagementModal } from "./CropManagementModal";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -138,6 +139,7 @@ export const QuestionsFilters = ({
  
   const [isReAllocateOpen,setIsReAllocateOpen] = useState(false);
   const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   
   const handleReAllocateLessWorkload = async () => {
     try {
@@ -662,7 +664,8 @@ export const QuestionsFilters = ({
                 <button
                   className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   onClick={() => {
-                    toast.info("Crop management coming soon!");
+                    setIsCropModalOpen(true);
+                    setIsSidebarOpen(false);
                   }}
                 >
                   <div className="flex items-center gap-3">
@@ -815,6 +818,7 @@ export const QuestionsFilters = ({
                 onOpenChange={setIsReAllocateOpen}
                 onConfirm={handleReAllocateLessWorkload}
               />
+      <CropManagementModal open={isCropModalOpen} onOpenChange={setIsCropModalOpen} />
     </div>
   );
 };
