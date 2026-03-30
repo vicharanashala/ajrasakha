@@ -30,12 +30,24 @@ export interface IGetAllCropsResponse {
   totalPages: number;
 }
 
+export interface IUpdateCropPayload {
+  name?: string;
+  aliases?: string[];
+}
+
 export class CropService {
   private _baseUrl = `${API_BASE_URL}/crops`;
 
   async createCrop(payload: ICreateCropPayload): Promise<ICreateCropResponse | null> {
     return apiFetch<ICreateCropResponse>(this._baseUrl, {
       method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async updateCrop(cropId: string, payload: IUpdateCropPayload): Promise<ICreateCropResponse | null> {
+    return apiFetch<ICreateCropResponse>(`${this._baseUrl}/${cropId}`, {
+      method: "PUT",
       body: JSON.stringify(payload),
     });
   }
