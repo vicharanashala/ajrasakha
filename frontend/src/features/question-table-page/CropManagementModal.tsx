@@ -6,6 +6,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/atoms/dialog";
+
 import { Plus, Wheat, Pencil, X, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
@@ -118,6 +119,7 @@ export const CropManagementModal = ({
   const [editAliasInput, setEditAliasInput] = useState("");
   const editAliasInputRef = useRef<HTMLInputElement>(null);
 
+
   // ── API Hooks
   const { mutateAsync: createCrop, isPending: isCreating } = useCreateCrop();
   const { mutateAsync: updateCrop, isPending: isUpdating } = useUpdateCrop();
@@ -195,13 +197,15 @@ export const CropManagementModal = ({
   };
 
   const handleSave = async () => {
+    const name = newCropName.trim();
+    if (!window.confirm(`Are you sure you want to create the crop "${name}"?`)) return;
     try {
       const res = await createCrop({
-        name: newCropName.trim(),
+        name,
         aliases: newAliases.length > 0 ? newAliases : undefined,
       });
       if (res?.success) {
-        toast.success(`Crop "${newCropName.trim()}" added successfully!`);
+        toast.success(`Crop "${name}" added successfully!`);
         resetForm();
       }
     } catch (error: any) {
@@ -211,12 +215,11 @@ export const CropManagementModal = ({
 
   const handleEditSave = async () => {
     if (!editingCropId) return;
+    if (!window.confirm(`Are you sure you want to update aliases for "${editName}"?`)) return;
     try {
       const res = await updateCrop({
         cropId: editingCropId,
-        payload: {
-          aliases: editAliases,
-        },
+        payload: { aliases: editAliases },
       });
       if (res?.success) {
         toast.success(`Aliases for "${editName}" updated successfully!`);
