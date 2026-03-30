@@ -21,19 +21,6 @@ from .config import NEED_TO_ENDPOINT, PRIORITY, FRESHNESS_MINUTES, FARMER_NEED
 
 _RULES = [
 
-    # Weather Impact on Crops — very specific, check first
-    (
-        "Weather Impact on Crops",
-        [
-            "crop loss", "damage crop", "crop damage", "hailstorm",
-            "frost", "pala", "flood crop", "heavy rain crop",
-            "irrigation", "harvesting", "krushi sahay", "krushi shay",
-            "compensation", "yellowing", "ground nut", "cotton crop",
-            "paddy crop", "wheat crop", "bajra", "mustard crop",
-            "maize crop", "urd bean", "agromet", "agro advisory",
-        ],
-    ),
-
     # Short Term Forecast — explicit time window
     (
         "Short Term Forecast",

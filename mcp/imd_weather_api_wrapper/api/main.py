@@ -45,7 +45,7 @@ from wrapper.config import (
 app = FastAPI(
     title       = "IMD Weather API Wrapper",
     description = (
-        "REST API for 6 priority IMD weather endpoints identified from "
+        "REST API for 5 priority IMD weather endpoints identified from "
         "analysis of **15,549,889 farmer weather queries** in the KCC dataset.\n\n"
         "| Endpoint | Priority | Queries | Coverage |\n"
         "|---|---|---|---|\n"
@@ -54,7 +54,6 @@ app = FastAPI(
         "| Rainfall Forecast | MEDIUM | 248,633 | 1.60% |\n"
         "| Current Weather | MEDIUM | 180,855 | 1.16% |\n"
         "| Nowcast | LOW | 57,084 | 0.37% |\n"
-        "| Agromet Advisory | LOW | 21,655 | 0.14% |\n"
     ),
     version     = "1.0.0",
     contact     = {"name": "KCC Weather Analysis Project"},
@@ -271,31 +270,6 @@ def nowcast(
 ):
     try:
         return client.get_nowcast(district=district, state=state)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get(
-    "/weather/agromet-advisory",
-    tags=["Weather — LOW"],
-    summary="Agro-meteorological advisory with crop guidance",
-    description=(
-        "**LOW priority endpoint.**\n\n"
-        "Serves the **Weather Impact on Crops** farmer need — "
-        "21,655 queries (0.14% of all KCC weather queries).\n\n"
-        "**KCC Clusters:** 5, 51\n\n"
-        "**Data freshness:** daily updates."
-    ),
-)
-def agromet_advisory(
-    district: str = Query(..., description="District name"),
-    state   : str = Query("",  description="State name (optional)"),
-    crop    : str = Query("",  description="Crop name, e.g. Paddy, Wheat"),
-):
-    try:
-        return client.get_agromet_advisory(
-            district=district, state=state, crop=crop
-        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
