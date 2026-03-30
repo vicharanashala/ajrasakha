@@ -59,6 +59,7 @@ import {
 import { Separator } from "../../components/atoms/separator";
 import { Input } from "../../components/atoms/input";
 import { STATES, CROPS, DOMAINS, SEASONS, DISTRICTS } from "../../components/MetaData";
+import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 
 
 
@@ -108,6 +109,70 @@ const OPTIONS: Partial<Record<DetailField, string[]>> = {
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
+};
+
+// ── Crop Select with DB data + alias tooltips ────────────────────────
+const CropSelect = ({
+  value,
+  onValueChange,
+  hasError,
+  invalidFieldClass,
+}: {
+  value?: string;
+  onValueChange: (val: string) => void;
+  hasError: boolean;
+  invalidFieldClass: string;
+}) => {
+  const { data: cropsData, isLoading } = useGetAllCrops();
+  const dbCrops = cropsData?.crops || [];
+
+  // If DB has crops, use them; otherwise fallback to hardcoded CROPS
+  const useDbCrops = dbCrops.length > 0;
+
+  return (
+    <Select
+      value={value?.trim() ? value : undefined}
+      onValueChange={onValueChange}
+    >
+      <SelectTrigger
+        className={`w-full ${hasError ? invalidFieldClass : ""}`}
+      >
+        <SelectValue placeholder={isLoading ? "Loading crops..." : "Select crop"} />
+      </SelectTrigger>
+      <SelectContent>
+        {useDbCrops
+          ? dbCrops.map((crop) => (
+              <SelectItem key={crop._id || crop.name} value={crop.name}>
+                <span className="flex items-center gap-2">
+                  <span className="capitalize">{crop.name}</span>
+                  {crop.aliases && crop.aliases.length > 0 && (
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 cursor-default">
+                            +{crop.aliases.length}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="text-xs">
+                          <p className="font-semibold mb-0.5">Aliases:</p>
+                          {crop.aliases.map((a) => (
+                            <p key={a} className="capitalize">{a}</p>
+                          ))}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </span>
+              </SelectItem>
+            ))
+          : CROPS.map((crop) => (
+              <SelectItem key={crop} value={crop}>
+                {crop}
+              </SelectItem>
+            ))}
+      </SelectContent>
+    </Select>
+  );
 };
 
 export const AddOrEditQuestionDialog = ({
@@ -389,11 +454,41 @@ export const AddOrEditQuestionDialog = ({
                   </SelectContent>
                 </Select> */}
 
+                  {/* ── Crop (from DB) ── */}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <label>Crop*</label>
+                    </div>
+                    <CropSelect
+                      value={updatedData?.details?.crop}
+                      onValueChange={(val) => {
+                        onFieldValidatedChange?.("crop");
+                        setUpdatedData((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                details: {
+                                  ...prev.details,
+                                  crop: val,
+                                },
+                              }
+                            : prev
+                        );
+                      }}
+                      hasError={!!(mode === "add" && validationErrors?.crop)}
+                      invalidFieldClass={invalidFieldClass}
+                    />
+                    {mode === "add" && validationErrors?.crop && (
+                      <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
+                        {validationErrors.crop}
+                      </p>
+                    )}
+                  </div>
+
                   {(
                     [
                       "state",
                       "district",
-                      "crop",
                       "season",
                       "domain",
                     ] as DetailField[]
