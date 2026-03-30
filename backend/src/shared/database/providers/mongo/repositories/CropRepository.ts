@@ -29,7 +29,7 @@ export class CropRepository {
       await this.init();
 
       // Build a list of all values to check for uniqueness (name + aliases)
-      const allNames = [name.trim(), ...(aliases || []).map(a => a.trim())];
+      const allNames = [name.trim().toLowerCase(), ...(aliases || []).map(a => a.trim().toLowerCase())];
 
       // Check if any existing crop has a matching name or alias
       const orConditions: any[] = [];
@@ -55,8 +55,8 @@ export class CropRepository {
 
       const now = new Date();
       const payload: ICrop = {
-        name: name.trim(),
-        aliases: (aliases || []).map(a => a.trim()),
+        name: name.trim().toLowerCase(),
+        aliases: (aliases || []).map(a => a.trim().toLowerCase()),
         createdBy: new ObjectId(createdBy),
         createdAt: now,
         updatedAt: now,
@@ -157,7 +157,7 @@ export class CropRepository {
 
       if (updates.name) {
         const existing = await this.CropCollection.findOne({
-          name: {$regex: `^${updates.name.trim()}$`, $options: 'i'},
+          name: {$regex: `^${updates.name.trim().toLowerCase()}$`, $options: 'i'},
           _id: {$ne: new ObjectId(id)},
         });
 
@@ -173,8 +173,8 @@ export class CropRepository {
         updatedBy: new ObjectId(updatedBy),
       };
 
-      if (updates.name !== undefined) $set.name = updates.name.trim();
-      if (updates.aliases !== undefined) $set.aliases = updates.aliases;
+      if (updates.name !== undefined) $set.name = updates.name.trim().toLowerCase();
+      if (updates.aliases !== undefined) $set.aliases = updates.aliases.map(a => a.trim().toLowerCase());
 
       const result = await this.CropCollection.findOneAndUpdate(
         {_id: new ObjectId(id)},

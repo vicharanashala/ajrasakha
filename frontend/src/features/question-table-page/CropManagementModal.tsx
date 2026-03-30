@@ -6,10 +6,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/atoms/dialog";
-import { Plus, Wheat, Pencil, X } from "lucide-react";
+import { Plus, Wheat, Pencil, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { toast } from "sonner";
+import { useCreateCrop } from "@/hooks/api/crop/useCreateCrop";
 
 // Hardcoded crop data — will be replaced with API integration later
 const MOCK_CROPS = [
@@ -37,6 +38,8 @@ export const CropManagementModal = ({
   const [newAliases, setNewAliases] = useState<string[]>([]);
   const [aliasInput, setAliasInput] = useState("");
   const aliasInputRef = useRef<HTMLInputElement>(null);
+
+  const { mutateAsync: createCrop, isPending: isCreating } = useCreateCrop();
 
   const handleAddAlias = (value: string) => {
     const trimmed = value.trim();
@@ -67,8 +70,19 @@ export const CropManagementModal = ({
     setIsAddFormOpen(false);
   };
 
-  const handleSave = () => {
-    toast.info("Save functionality coming soon!");
+  const handleSave = async () => {
+    try {
+      const res = await createCrop({
+        name: newCropName.trim(),
+        aliases: newAliases.length > 0 ? newAliases : undefined,
+      });
+      if (res?.success) {
+        toast.success(`Crop "${newCropName.trim()}" added successfully!`);
+        resetForm();
+      }
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to add crop");
+    }
   };
 
   return (
@@ -185,10 +199,17 @@ export const CropManagementModal = ({
                   <Button
                     size="sm"
                     onClick={handleSave}
-                    disabled={!newCropName.trim()}
+                    disabled={!newCropName.trim() || isCreating}
                     className="h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white"
                   >
-                    Save Crop
+                    {isCreating ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Crop"
+                    )}
                   </Button>
                 </div>
               </div>
