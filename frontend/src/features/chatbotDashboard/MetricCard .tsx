@@ -21,84 +21,6 @@ const badgeStyles: Record<BadgeVariant, { bg: string; text: string }> = {
 	blue: { bg: "bg-blue-50 dark:bg-blue-950", text: "text-blue-900 dark:text-blue-200" },
 };
 
-const DASHBOARD_DATA: { kpiRow1: KpiCardData[]; kpiRow2: KpiCardData[] } = {
-	kpiRow1: [
-		{
-			id: "dau",
-			label: "Active farmers (DAU)",
-			value: "4.82 L",
-			delta: "+18% vs last month",
-			deltaDir: "up",
-			accentColor: "#3AAA5A",
-			sparkPoints: [22, 20, 22, 18, 19, 15, 13, 14, 10, 11, 8, 7, 5],
-		},
-		{
-			id: "queries",
-			label: "Daily queries",
-			value: "1.24 L",
-			delta: "+31% week-on-week",
-			deltaDir: "up",
-			accentColor: "#378ADD",
-			sparkPoints: [24, 22, 20, 22, 18, 20, 16, 18, 14, 12, 10, 8, 6],
-		},
-		{
-			id: "session",
-			label: "Avg session duration",
-			value: "6.4 min",
-			delta: "Stable this week",
-			deltaDir: "neutral",
-			accentColor: "#EF9F27",
-			sparkPoints: [14, 12, 15, 13, 12, 14, 13, 14, 12, 13, 14, 12, 13],
-		},
-		{
-			id: "bugs",
-			label: "Critical bugs open",
-			value: "7",
-			delta: "Needs immediate action",
-			deltaDir: "down",
-			accentColor: "#E24B4A",
-			badges: [
-				{ label: "3 P0", variant: "red" },
-				{ label: "4 P1", variant: "amber" },
-			],
-		},
-	],
-	kpiRow2: [
-		{
-			id: "csat",
-			label: "CSAT rating",
-			value: "4.2 ★",
-			delta: "+0.3 pts this month",
-			deltaDir: "up",
-			accentColor: "#1D9E75",
-		},
-		{
-			id: "repeatQuery",
-			label: "Repeat query rate",
-			value: "28%",
-			delta: "Target: <10% · gap",
-			deltaDir: "down",
-			accentColor: "#EF9F27",
-			valueColor: "#854F0B",
-		},
-		{
-			id: "voice",
-			label: "Voice usage share",
-			value: "61%",
-			delta: "Primary mode",
-			deltaDir: "up",
-			accentColor: "#378ADD",
-		},
-		{
-			id: "states",
-			label: "Villages active",
-			value: "19 / 28",
-			delta: "3 new villages added",
-			deltaDir: "up",
-			accentColor: "#7C6FD4",
-		},
-	],
-};
 
 function SmallBadge({ label, variant = "green" }: { label: string; variant?: BadgeVariant }) {
 	const styles = badgeStyles[variant];
@@ -187,18 +109,17 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
 	);
 }
 
-export function EightCardsComponent() {
-	const data = DASHBOARD_DATA;
+export function EightCardsComponent({ kpiRow1, kpiRow2 }: { kpiRow1: KpiCardData[], kpiRow2: KpiCardData[] }) {
 
 	return (
 		<>
 			<div className="mb-2.5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
-				{data.kpiRow1.map((kpi) => (
+				{kpiRow1.map((kpi) => (
 					<KpiCard key={kpi.id} kpi={kpi} />
 				))}
 			</div>
 			<div className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
-				{data.kpiRow2.map((kpi) => (
+				{kpiRow2.map((kpi) => (
 					<KpiCard key={kpi.id} kpi={kpi} />
 				))}
 			</div>

@@ -23,7 +23,7 @@ export class ChatbotRepository implements IChatbotRepository {
   ) {}
 
   private async init() {
-    this.collection = await this.analyticsDb.getCollection<IChatbotSession>('chatbot_sessions');
+    this.collection = await this.analyticsDb.getCollection<IChatbotSession>('conversations');
   }
 
   async getKpiSummary(session?: ClientSession): Promise<KpiSummary> {
@@ -35,7 +35,7 @@ export class ChatbotRepository implements IChatbotRepository {
     const [dau, dailyQueries, sessionStats, csatStats, repeatCount, voiceCount, total] =
       await Promise.all([
         this.collection
-          .distinct('userId', { createdAt: { $gte: today } }, { session })
+          .distinct('user', { createdAt: { $gte: today } }, { session })
           .then(r => r.length),
         this.collection.countDocuments({ createdAt: { $gte: today } }, { session }),
         this.collection
@@ -80,7 +80,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $group: {
               _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-              uniqueUsers: { $addToSet: '$userId' },
+              uniqueUsers: { $addToSet: '$user' },
             },
           },
           { $project: { day: '$_id', count: { $size: '$uniqueUsers' }, _id: 0 } },

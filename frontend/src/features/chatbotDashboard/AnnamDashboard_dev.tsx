@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { DASHBOARD_DATA } from "./mockData";
+import { useDashboardData } from "./hooks/useDashboardData";
 import type { Segment } from "./types";
 // import { TopNav } from "./components/TopNav";
 import { DashboardSidebar } from "./DashboardSidebar";
@@ -20,7 +20,7 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView]       = useState<DashboardView>("overview");
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
-  const data = DASHBOARD_DATA;
+  const { data, isLoading, error } = useDashboardData();
 
   const sectionRefs = useRef<Partial<Record<DashboardView, HTMLDivElement | null>>>({});
 
@@ -47,9 +47,23 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
         ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
       `}</style>
 
-      {/* <TopNav season={data.meta.season} /> */}
+      {/* <TopNav season={data?.meta?.season} /> */}
 
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+      {isLoading && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
+          Processing backend data / Loading metrics...
+        </div>
+      )}
+
+      {error && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, color: 'red' }}>
+          Error fetching data: {error.message}
+        </div>
+      )}
+
+      {!isLoading && !error && data && (
+        <>
+        <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <DashboardSidebar
           activeView={activeView}
           onViewChange={(view) => {
@@ -78,7 +92,7 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
           {activeSegment && <SegmentDetailBanner seg={activeSegment} onClose={clearSegment} />}
 
           <div ref={(el) => { sectionRefs.current["overview"] = el; }}>
-            <EightCardsComponent />
+            <EightCardsComponent kpiRow1={data.kpiRow1} kpiRow2={data.kpiRow2} />
           </div>
 
           {/* DAU trend + Channel split */}
@@ -91,7 +105,7 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
           {/* 3-col row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
             <div ref={(el) => { sectionRefs.current["query-analysis"] = el; }}>
-              <DashboardQueryCategories />
+              <DashboardQueryCategories categories={data.queryCategories} />
             </div>
             <div ref={(el) => { sectionRefs.current["farmer-segments"] = el; }}>
               <DashboardFarmerSegments
@@ -103,7 +117,7 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
               />
             </div>
             <div ref={(el) => { sectionRefs.current["bugs-ux"] = el; }}>
-              <AlertCard />
+              <AlertCard alerts={data.alerts} />
             </div>
           </div>
 
@@ -118,12 +132,14 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
         </div>
       </div>
 
-      <StatusBar
-        lastSync={data.meta.lastSync}
-        datasetVersion={data.meta.datasetVersion}
-        llmVersion={data.meta.llmVersion}
-        p0Bugs={data.meta.p0Bugs}
-      />
+        <StatusBar
+          lastSync={data.meta.lastSync}
+          datasetVersion={data.meta.datasetVersion}
+          llmVersion={data.meta.llmVersion}
+          p0Bugs={data.meta.p0Bugs}
+        />
+        </>
+      )}
     </div>
   );
 }

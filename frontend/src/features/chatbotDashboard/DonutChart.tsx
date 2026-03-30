@@ -15,6 +15,9 @@ export const channelSegmentExample: Segment[] = [
 ];
 
 export function DonutChart({ segments }: DonutChartProps) {
+  if (!segments || segments.length === 0) {
+    return <div className="text-xs text-gray-400 italic p-4">No channel data available</div>;
+  }
   const total = segments.reduce((s, x) => s + x.pct, 0);
   let offset = 0;
   const r = 30, cx = 40, cy = 40, circ = 2 * Math.PI * r;
@@ -31,7 +34,7 @@ export function DonutChart({ segments }: DonutChartProps) {
           offset += dash;
           return el;
         })}
-        <text x={cx} y={cy + 4} textAnchor="middle" fontSize={11} fontWeight={500} fill="#1E7A3C">{segments[0].pct}%</text>
+        <text x={cx} y={cy + 4} textAnchor="middle" fontSize={11} fontWeight={500} fill="#1E7A3C">{segments[0]?.pct ?? 0}%</text>
       </svg>
       <div className="flex flex-col gap-1.5">
         {segments.map(s => (

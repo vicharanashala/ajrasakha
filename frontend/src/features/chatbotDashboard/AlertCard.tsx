@@ -1,5 +1,4 @@
 import { Badge } from "./components/shared/Badge";
-import { DASHBOARD_DATA } from "./mockData";
 
 interface Alert {
   id: number;
@@ -34,8 +33,7 @@ function AlertItem({ level, title, desc }: Omit<Alert, "id">) {
   );
 }
 
-export function AlertCard() {
-  const alerts: Alert[] = DASHBOARD_DATA.alerts;
+export function AlertCard({ alerts = [] }: { alerts?: Alert[] }) {
   
   // Sort alerts by priority: critical > warn > info
   const priorityOrder = { critical: 0, warn: 1, info: 2 };

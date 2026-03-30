@@ -5,7 +5,6 @@ import {
   HttpErrorHandler,
   AnalyticsMongoDatabase
 } from '#shared/index.js';
-import { ChatbotRepository } from '#root/shared/database/providers/mongo/repositories/ChatbotRepository.js';
 import {GLOBAL_TYPES} from './types.js';
 import {dbConfig} from './config/db.js';
 import {analyticsDbConfig} from './config/analyticsDbConfig.js';
@@ -32,6 +31,5 @@ export const sharedContainerModule = new ContainerModule(options => {
   options.bind(GLOBAL_TYPES.analyticsUri).toConstantValue(analyticsDbConfig.url);
   options.bind(GLOBAL_TYPES.analyticsDbName).toConstantValue(analyticsDbConfig.dbName);
   options.bind(GLOBAL_TYPES.analyticsDatabase).to(AnalyticsMongoDatabase).inSingletonScope();
-  options.bind(GLOBAL_TYPES.ChatbotRepository).to(ChatbotRepository).inSingletonScope();
 }); 
 
