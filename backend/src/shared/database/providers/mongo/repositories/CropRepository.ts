@@ -146,7 +146,7 @@ export class CropRepository implements ICropRepository {
     }
   }
 
-  // ─── UPDATE (only aliases — crop name is immutable) ─────────────────────────
+  // ─── UPDATE (only aliases — crop name is immutable) ────────────────────────
 
   async updateCrop(
     id: string,
@@ -156,76 +156,38 @@ export class CropRepository implements ICropRepository {
     try {
       if (!this.CropCollection) await this.init();
 
-      const incomingValues: string[] = [];
-      if (updates.name) incomingValues.push(updates.name.trim());
-      if (updates.aliases) incomingValues.push(...updates.aliases.map(a => a.trim()));
-
-      if (incomingValues.length > 0) {
-        const orConditions: any[] = [];
-        for (const v of incomingValues) {
-          const escaped = CropRepository.escapeRegex(v);
-          orConditions.push({name: {$regex: `^${escaped}$`, $options: 'i'}});
-          orConditions.push({aliases: {$regex: `^${escaped}$`, $options: 'i'}});
-        }
-
-<<<<<<< HEAD
       // Crop name is immutable — silently ignore if sent
-      delete updates.name;
-=======
-        const existing = await this.CropCollection.findOne({
-          $or: orConditions,
-          _id: {$ne: new ObjectId(id)},
-        });
-
-        if (existing) {
-          const conflictingValue = incomingValues.find(v => {
-            const regex = new RegExp(`^${CropRepository.escapeRegex(v)}$`, 'i');
-            return regex.test(existing.name) || existing.aliases?.some(a => regex.test(a));
-          });
-          throw new BadRequestError(
-            `Crop with name or alias "${conflictingValue}" already exists in crop "${existing.name}".`,
-          );
-        }
-      }
->>>>>>> ca70c346 (removed isActive, rest API protocols followed)
-
       const $set: any = {
         updatedAt: new Date(),
         updatedBy: new ObjectId(updatedBy),
       };
 
-      // ── Alias conflict check ──────────────────────────────
+      // ── Alias conflict check ──────────────────────────────────────────────
       if (updates.aliases !== undefined) {
         const normalizedAliases = updates.aliases.map(a => a.trim().toLowerCase());
 
-        // Check each alias against all OTHER crops' names and aliases
         for (const alias of normalizedAliases) {
-          const regex = new RegExp(`^${alias}$`, 'i');
+          const escaped = CropRepository.escapeRegex(alias);
+          const regex = new RegExp(`^${escaped}$`, 'i');
 
           const conflict = await this.CropCollection.findOne({
             _id: {$ne: new ObjectId(id)},
-            $or: [
-              {name: regex},
-              {aliases: regex},
-            ],
+            $or: [{name: regex}, {aliases: regex}],
           });
 
           if (conflict) {
-            // Determine if conflict is with the name or an alias
-            const isNameConflict = regex.test(conflict.name);
-            const conflictType = isNameConflict ? 'a crop name' : 'an alias';
-            throw new InternalServerError(
+            const conflictType = regex.test(conflict.name) ? 'a crop name' : 'an alias';
+            throw new BadRequestError(
               `Cannot add alias "${alias}" — it already exists as ${conflictType} in crop "${conflict.name}".`,
             );
           }
         }
 
-        // Also check if any alias duplicates the CURRENT crop's own name
         const currentCrop = await this.CropCollection.findOne({_id: new ObjectId(id)});
         if (currentCrop) {
           for (const alias of normalizedAliases) {
             if (alias === currentCrop.name.trim().toLowerCase()) {
-              throw new InternalServerError(
+              throw new BadRequestError(
                 `Cannot add alias "${alias}" — it is the same as this crop's own name.`,
               );
             }
@@ -259,16 +221,13 @@ export class CropRepository implements ICropRepository {
 
   async findByNameOrAlias(cropName: string): Promise<ICrop | null> {
     try {
-      await this.init();
+      if (!this.CropCollection) await this.init();
 
-      const normalized = cropName.trim().toLowerCase();
-      const regex = new RegExp(`^${normalized}$`, 'i');
+      const escaped = CropRepository.escapeRegex(cropName.trim());
+      const regex = new RegExp(`^${escaped}$`, 'i');
 
       const crop = await this.CropCollection.findOne({
-        $or: [
-          { name: regex },
-          { aliases: regex },
-        ],
+        $or: [{name: regex}, {aliases: regex}],
       });
 
       if (!crop) return null;
