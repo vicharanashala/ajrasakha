@@ -8,7 +8,11 @@ import {CropRepository} from '#root/shared/database/providers/mongo/repositories
 const DB_URL = process.env.DB_URL!;
 const DB_NAME = process.env.DB_NAME!;
 
-const TEST_CROP_NAME = `Test_Crop_${Date.now()}`;
+const TS = Date.now();
+const TEST_CROP_NAME = `Test_Crop_${TS}`;
+const TEST_CROP_NAME_LOWER = TEST_CROP_NAME.toLowerCase();
+const TEST_ALIAS_1 = `testalias1_${TS}`;
+const TEST_ALIAS_2 = `testalias2_${TS}`;
 const CREATED_BY = '664f00000000000000000001';
 
 let db: MongoDatabase;
@@ -19,6 +23,9 @@ beforeAll(async () => {
   db = new MongoDatabase(DB_URL, DB_NAME);
   await db.init();
   repo = new CropRepository(db as any);
+  // Clean up any stale docs from previous failed runs
+  const collection = await db.getCollection('crop_master');
+  await collection.deleteMany({name: {$regex: '^test_crop_', $options: 'i'}});
 }, 30000);
 
 afterAll(async () => {
@@ -36,12 +43,12 @@ describe('CropRepository integration (prod_copy_db)', () => {
     const crop = await repo.createCrop(
       TEST_CROP_NAME,
       CREATED_BY,
-      ['TestAlias1', 'TestAlias2'],
+      [TEST_ALIAS_1, TEST_ALIAS_2],
     );
 
     expect(crop._id).toBeDefined();
-    expect(crop.name).toBe(TEST_CROP_NAME);
-    expect(crop.aliases).toContain('TestAlias1');
+    expect(crop.name).toBe(TEST_CROP_NAME_LOWER);
+    expect(crop.aliases).toContain(TEST_ALIAS_1);
 
     createdDocId = crop._id!.toString();
   }, 30000);
@@ -53,17 +60,17 @@ describe('CropRepository integration (prod_copy_db)', () => {
   }, 30000);
 
   it('getAllCrops — returns list including the created crop', async () => {
-    const {crops, totalCount} = await repo.getAllCrops({search: TEST_CROP_NAME});
+    const {crops, totalCount} = await repo.getAllCrops({search: TEST_CROP_NAME_LOWER});
 
     expect(totalCount).toBeGreaterThanOrEqual(1);
-    expect(crops.some(c => c.name === TEST_CROP_NAME)).toBe(true);
+    expect(crops.some(c => c.name === TEST_CROP_NAME_LOWER)).toBe(true);
   }, 30000);
 
   it('getCropById — returns the correct crop', async () => {
     const crop = await repo.getCropById(createdDocId);
 
     expect(crop).not.toBeNull();
-    expect(crop!.name).toBe(TEST_CROP_NAME);
+    expect(crop!.name).toBe(TEST_CROP_NAME_LOWER);
   }, 30000);
 
   it('getCropById — returns null for unknown id', async () => {
@@ -79,7 +86,7 @@ describe('CropRepository integration (prod_copy_db)', () => {
     );
 
     expect(updated).not.toBeNull();
-    expect(updated!.aliases).toContain('UpdatedAlias');
-    expect(updated!.aliases).not.toContain('TestAlias1');
+    expect(updated!.aliases).toContain('updatedalias');
+    expect(updated!.aliases).not.toContain(TEST_ALIAS_1);
   }, 30000);
 });

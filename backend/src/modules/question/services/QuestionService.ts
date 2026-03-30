@@ -105,17 +105,48 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
 
     // To test whether the ai server is running or not
-    const testEmbedding = await this.aiService.getEmbedding('Test');
+    // const testEmbedding = await this.aiService.getEmbedding('Test');
 
-    const formatted: IQuestion[] = questions.map((q: any) => {
+    // ── In-memory crop cache: lowercase input → canonical normalised_crop ──
+    const cropCache = new Map<string, string>();
+
+    const formatted: IQuestion[] = [];
+    for (const q of questions) {
       const low = normalizeKeysToLower(q || {});
-      const details = {
-        state: (low.state || '').toString(),
+      const details: IQuestion['details'] = {
+        state:    (low.state    || '').toString(),
         district: (low.district || '').toString(),
-        crop: (low.crop || '').toString(),
-        season: (low.season || '').toString(),
-        domain: (low.domain || '').toString(),
+        crop:     (low.crop     || '').toString(),
+        season:   (low.season   || '').toString(),
+        domain:   (low.domain   || '').toString(),
       };
+
+      // ── Crop normalisation (mirrors addQuestion logic, with per-call cache) ──
+      const rawCropName = (low.crop || '').toString();
+      let normalised_crop = rawCropName.trim().toLowerCase();
+      if (rawCropName.trim()) {
+        const cacheKey = rawCropName.trim().toLowerCase();
+        if (cropCache.has(cacheKey)) {
+          normalised_crop = cropCache.get(cacheKey)!;
+        } else {
+          try {
+            const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
+            if (existingCrop) {
+              normalised_crop = existingCrop.name;
+            } else {
+              const normalizedName = rawCropName.trim().toLowerCase();
+              await this.cropRepository.createCrop(normalizedName, userId || '', []);
+              normalised_crop = normalizedName;
+            }
+            cropCache.set(cacheKey, normalised_crop);
+          } catch (cropError: any) {
+            console.error('Crop normalization warning:', cropError.message);
+          }
+        }
+      }
+      // details.crop stays as original input string
+      details.normalised_crop = normalised_crop;
+
       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
       const priorities = ['low', 'high', 'medium'];
       const priority = priorities.includes(priorityRaw)
@@ -139,15 +170,15 @@ export class QuestionService extends BaseService implements IQuestionService {
         details,
         aiInitialAnswer,
         isAutoAllocate: true,
-        embedding: [],
+        embedding: [0.1, 0.2, 0.3],
         metrics: null,
         text: `Question: ${questionText}`,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      return base;
-    });
+      formatted.push(base);
+    }
 
     try {
       const insertedIds = await this.questionRepo.insertMany(formatted);
@@ -843,28 +874,23 @@ export class QuestionService extends BaseService implements IQuestionService {
         try {
           const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
           if (existingCrop) {
-            // Crop found — use the canonical name (handles alias→name swap)
-            details.crop = existingCrop.name;
+            // Crop found — keep original input string, normalise to canonical name
             normalised_crop = existingCrop.name;
-            logData.cropNormalization = { original: rawCropName, resolved: existingCrop.name, normalised_crop: existingCrop.name, action: rawCropName.trim().toLowerCase() === existingCrop.name ? 'EXACT_MATCH' : 'ALIAS_RESOLVED' };
+            logData.cropNormalization = { original: rawCropName, resolved: existingCrop.name, action: rawCropName.trim().toLowerCase() === existingCrop.name ? 'EXACT_MATCH' : 'ALIAS_RESOLVED' };
           } else {
             // Crop not found — auto-create it in the DB
             const normalizedName = rawCropName.trim().toLowerCase();
             await this.cropRepository.createCrop(normalizedName, userId || '', []);
-            details.crop = normalizedName;
             normalised_crop = normalizedName;
-            logData.cropNormalization = { original: rawCropName, resolved: normalizedName, normalised_crop: normalizedName, action: 'AUTO_CREATED' };
+            logData.cropNormalization = { original: rawCropName, resolved: normalizedName, action: 'AUTO_CREATED' };
           }
         } catch (cropError: any) {
           // If crop normalization fails (e.g. uniqueness race condition), log but don't block question creation
           console.error('Crop normalization warning:', cropError.message);
           logData.cropNormalizationError = cropError.message;
-          // Still normalize to lowercase
-          details.crop = rawCropName.trim().toLowerCase();
-          normalised_crop = rawCropName.trim().toLowerCase();
         }
       }
-      // Always set normalised_crop on details
+      // crop stays as the original input string; normalised_crop is the canonical crop_master name
       details.normalised_crop = normalised_crop;
 
       // 🔹 Create Embedding — OUTSIDE transaction

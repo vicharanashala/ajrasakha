@@ -1,4 +1,5 @@
 import {injectable, inject} from 'inversify';
+import {BadRequestError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {ICrop} from '#root/shared/interfaces/models.js';
@@ -40,14 +41,11 @@ export class CropService extends BaseService implements ICropService {
     dto: UpdateCropDto,
     userId: string,
   ): Promise<ICrop | null> {
-<<<<<<< HEAD
     try {
       // Only aliases are updatable — crop name is immutable
       return await this.cropRepository.updateCrop(
         cropId,
-        {
-          aliases: dto.aliases,
-        },
+        {aliases: dto.aliases},
         userId,
       );
     } catch (error: any) {
@@ -56,12 +54,5 @@ export class CropService extends BaseService implements ICropService {
       }
       throw error;
     }
-=======
-    return this.cropRepository.updateCrop(
-      cropId,
-      {name: dto.name, aliases: dto.aliases},
-      userId,
-    );
->>>>>>> ca70c346 (removed isActive, rest API protocols followed)
   }
 }

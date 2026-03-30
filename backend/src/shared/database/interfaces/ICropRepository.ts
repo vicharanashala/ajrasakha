@@ -10,4 +10,5 @@ export interface ICropRepository {
   }): Promise<{crops: ICrop[]; totalCount: number; totalPages: number}>;
   getCropById(cropId: string): Promise<ICrop | null>;
   updateCrop(id: string, updates: {name?: string; aliases?: string[]}, updatedBy: string): Promise<ICrop | null>;
+  findByNameOrAlias(cropName: string): Promise<ICrop | null>;
 }
