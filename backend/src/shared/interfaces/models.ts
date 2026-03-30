@@ -51,6 +51,7 @@ export interface IQuestion {
     crop: string | ICropRef;
     season: string;
     domain: string;
+    normalised_crop?: string;
   };
   isAutoAllocate: boolean;
   source: 'AJRASAKHA' | 'AGRI_EXPERT';

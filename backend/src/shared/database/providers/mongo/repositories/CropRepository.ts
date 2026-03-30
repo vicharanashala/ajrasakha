@@ -195,5 +195,34 @@ export class CropRepository {
       throw new InternalServerError(`Failed to update crop: ${error.message}`);
     }
   }
+
+  // ─── FIND BY NAME OR ALIAS ─────────────────────────────────────────────────
+
+  async findByNameOrAlias(cropName: string): Promise<ICrop | null> {
+    try {
+      await this.init();
+
+      const normalized = cropName.trim().toLowerCase();
+      const regex = new RegExp(`^${normalized}$`, 'i');
+
+      const crop = await this.CropCollection.findOne({
+        $or: [
+          { name: regex },
+          { aliases: regex },
+        ],
+      });
+
+      if (!crop) return null;
+
+      return {
+        ...crop,
+        _id: crop._id?.toString(),
+        createdBy: crop.createdBy?.toString(),
+        updatedBy: crop.updatedBy?.toString(),
+      } as ICrop;
+    } catch (error: any) {
+      throw new InternalServerError(`Failed to find crop by name or alias: ${error.message}`);
+    }
+  }
 }
 
