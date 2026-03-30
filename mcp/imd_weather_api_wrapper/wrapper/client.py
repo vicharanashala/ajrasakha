@@ -1,9 +1,7 @@
 # imd_api_wrapper/wrapper/client.py
 # ─────────────────────────────────────────────────────────────
 # IMD API Client
-# Currently runs in MOCK mode (no real credentials needed).
-# Switch to LIVE by setting BASE_URL and API_KEY in config.py
-# and flipping USE_MOCK = False below.
+# Currently runs in Live mode with IP-whitelist auth (no API key required).
 # ─────────────────────────────────────────────────────────────
 
 import time
