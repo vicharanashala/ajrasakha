@@ -26,7 +26,6 @@ const expertUser = {...adminUser, _id: '664f000000000000000000002', role: 'exper
 
 const mockCrop: ICrop = {
   _id: '664f1a2b3c4d5e6f7a8b9c0d',
-  cropId: 'RICE',
   name: 'Rice',
   aliases: ['Paddy'],
   createdBy: adminUser._id,
@@ -78,7 +77,7 @@ describe('CropController', () => {
       const res = await request(app).get('/crops');
       expect(res.status).toBe(200);
       expect(res.body.crops).toHaveLength(1);
-      expect(res.body.crops[0].cropId).toBe('RICE');
+      expect(res.body.crops[0].name).toBe('Rice');
     });
 
     it('passes query params to service', async () => {
@@ -108,7 +107,7 @@ describe('CropController', () => {
   // ── POST /crops ──────────────────────────────────────────────────────────────
 
   describe('POST /crops', () => {
-    const validBody = {cropId: 'WHEAT', name: 'Wheat', aliases: ['Gehun']};
+    const validBody = {name: 'Wheat', aliases: ['Gehun']};
 
     it('admin can create a crop → 201', async () => {
       const res = await request(app).post('/crops').send(validBody);
@@ -157,21 +156,5 @@ describe('CropController', () => {
       expect(res.status).toBe(404);
     });
   });
-
-  // ── DELETE /crops/:cropId ────────────────────────────────────────────────────
-
-  describe('DELETE /crops/:cropId', () => {
-    it('admin can soft-delete a crop → 200', async () => {
-      const res = await request(app).delete('/crops/664f1a2b3c4d5e6f7a8b9c0d');
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-    });
-
-    it('expert gets 403', async () => {
-      const res = await request(app)
-        .delete('/crops/664f1a2b3c4d5e6f7a8b9c0d')
-        .set('x-test-role', 'expert');
-      expect(res.status).toBe(403);
-    });
-  });
 });
+

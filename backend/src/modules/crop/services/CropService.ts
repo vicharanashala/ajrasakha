@@ -30,7 +30,6 @@ export class CropService implements ICropService {
   async createCrop(dto: CreateCropDto, userId: string): Promise<ICrop> {
     try {
       return await this.cropRepository.createCrop(
-        dto.cropId,
         dto.name,
         userId,
         dto.aliases,
@@ -53,7 +52,6 @@ export class CropService implements ICropService {
       return await this.cropRepository.updateCrop(
         cropId,
         {
-          cropId: dto.cropId,
           name: dto.name,
           aliases: dto.aliases,
         },
@@ -66,8 +64,5 @@ export class CropService implements ICropService {
       throw error;
     }
   }
-
-  async deleteCrop(cropId: string): Promise<{deletedCount: number}> {
-    return this.cropRepository.deleteCrop(cropId);
-  }
 }
+

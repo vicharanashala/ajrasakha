@@ -7,7 +7,6 @@ import {ICrop} from '#root/shared/interfaces/models.js';
 
 const mockCrop: ICrop = {
   _id: '664f1a2b3c4d5e6f7a8b9c0d',
-  cropId: 'RICE',
   name: 'Rice',
   aliases: ['Paddy', 'ধান'],
   createdBy: '664f000000000000000000001',
@@ -86,7 +85,7 @@ describe('CropService', () => {
   // ── createCrop ──────────────────────────────────────────────────────────────
 
   describe('createCrop', () => {
-    const dto = {cropId: 'RICE', name: 'Rice', aliases: ['Paddy']};
+    const dto = {name: 'Rice', aliases: ['Paddy']};
     const userId = '664f000000000000000000001';
 
     it('creates a crop and returns it', async () => {
@@ -95,7 +94,6 @@ describe('CropService', () => {
       const result = await service.createCrop(dto, userId);
 
       expect(mockRepo.createCrop).toHaveBeenCalledWith(
-        dto.cropId,
         dto.name,
         userId,
         dto.aliases,
@@ -105,7 +103,7 @@ describe('CropService', () => {
 
     it('throws BadRequestError (400) on duplicate', async () => {
       mockRepo.createCrop.mockRejectedValue(
-        new Error('Crop with ID "RICE" or name "Rice" already exists.'),
+        new Error('Crop with name "Rice" already exists.'),
       );
 
       await expect(service.createCrop(dto, userId)).rejects.toMatchObject({
@@ -151,7 +149,7 @@ describe('CropService', () => {
 
     it('throws BadRequestError (400) on duplicate name', async () => {
       mockRepo.updateCrop.mockRejectedValue(
-        new Error('Crop with ID "WHEAT" or name "Wheat" already exists.'),
+        new Error('Crop with name "Wheat" already exists.'),
       );
 
       await expect(
@@ -159,27 +157,5 @@ describe('CropService', () => {
       ).rejects.toMatchObject({httpCode: 400});
     });
   });
-
-  // ── deleteCrop ──────────────────────────────────────────────────────────────
-
-  describe('deleteCrop', () => {
-    it('hard-deletes a crop and returns deletedCount', async () => {
-      mockRepo.deleteCrop.mockResolvedValue({deletedCount: 1});
-
-      const result = await service.deleteCrop('664f1a2b3c4d5e6f7a8b9c0d');
-
-      expect(result).toEqual({deletedCount: 1});
-    });
-
-    it('propagates NotFoundError when crop does not exist', async () => {
-      const {NotFoundError} = await import('routing-controllers');
-      mockRepo.deleteCrop.mockRejectedValue(
-        new NotFoundError('Crop with id "..." not found.'),
-      );
-
-      await expect(
-        service.deleteCrop('000000000000000000000000'),
-      ).rejects.toThrow('not found');
-    });
-  });
 });
+

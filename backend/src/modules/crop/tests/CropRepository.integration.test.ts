@@ -8,7 +8,7 @@ import {CropRepository} from '#root/shared/database/providers/mongo/repositories
 const DB_URL = process.env.DB_URL!;
 const DB_NAME = process.env.DB_NAME!;
 
-const TEST_CROP_ID = `TEST_CROP_${Date.now()}`;
+const TEST_CROP_NAME = `Test_Crop_${Date.now()}`;
 const CREATED_BY = '664f00000000000000000001';
 
 let db: MongoDatabase;
@@ -34,39 +34,36 @@ describe('CropRepository integration (prod_copy_db)', () => {
 
   it('createCrop — inserts a new doc and returns it', async () => {
     const crop = await repo.createCrop(
-      TEST_CROP_ID,
-      'Test Crop',
+      TEST_CROP_NAME,
       CREATED_BY,
       ['TestAlias1', 'TestAlias2'],
     );
 
     expect(crop._id).toBeDefined();
-    expect(crop.cropId).toBe(TEST_CROP_ID);
-    expect(crop.name).toBe('Test Crop');
+    expect(crop.name).toBe(TEST_CROP_NAME);
     expect(crop.aliases).toContain('TestAlias1');
 
     createdDocId = crop._id!.toString();
   }, 30000);
 
-  it('createCrop — throws on duplicate cropId', async () => {
+  it('createCrop — throws on duplicate name', async () => {
     await expect(
-      repo.createCrop(TEST_CROP_ID, 'Duplicate Crop', CREATED_BY),
+      repo.createCrop(TEST_CROP_NAME, CREATED_BY),
     ).rejects.toThrow('already exists');
   }, 30000);
 
   it('getAllCrops — returns list including the created crop', async () => {
-    const {crops, totalCount} = await repo.getAllCrops({search: TEST_CROP_ID});
+    const {crops, totalCount} = await repo.getAllCrops({search: TEST_CROP_NAME});
 
     expect(totalCount).toBeGreaterThanOrEqual(1);
-    expect(crops.some(c => c.cropId === TEST_CROP_ID)).toBe(true);
+    expect(crops.some(c => c.name === TEST_CROP_NAME)).toBe(true);
   }, 30000);
 
   it('getCropById — returns the correct crop', async () => {
     const crop = await repo.getCropById(createdDocId);
 
     expect(crop).not.toBeNull();
-    expect(crop!.cropId).toBe(TEST_CROP_ID);
-    expect(crop!.name).toBe('Test Crop');
+    expect(crop!.name).toBe(TEST_CROP_NAME);
   }, 30000);
 
   it('getCropById — returns null for unknown id', async () => {
@@ -84,17 +81,5 @@ describe('CropRepository integration (prod_copy_db)', () => {
     expect(updated).not.toBeNull();
     expect(updated!.aliases).toContain('UpdatedAlias');
     expect(updated!.aliases).not.toContain('TestAlias1');
-  }, 30000);
-
-  it('deleteCrop — hard-deletes and returns deletedCount 1', async () => {
-    const result = await repo.deleteCrop(createdDocId);
-    expect(result.deletedCount).toBe(1);
-    createdDocId = ''; // already deleted, skip afterAll cleanup
-  }, 30000);
-
-  it('deleteCrop — throws 404 for non-existent crop', async () => {
-    await expect(
-      repo.deleteCrop('664f00000000000000000099'),
-    ).rejects.toThrow('not found');
   }, 30000);
 });
