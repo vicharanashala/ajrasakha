@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { STATES, CROPS, DOMAINS, SEASONS, STATUS } from "./MetaData";
+import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
+import { AlertTriangle } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -76,6 +78,7 @@ type FilterSelectProps = {
 type Filters = {
   state: string;
   crop: string;
+  normalised_crop: string;
   domain: string;
   status: string;
   dateRange: DateRange;
@@ -112,6 +115,7 @@ const FilterSelect = ({
 const defaultFilters: Filters = {
   state: "all",
   crop: "all",
+  normalised_crop: "all",
   domain: "all",
   status: "all",
   dateRange: {},
@@ -119,6 +123,8 @@ const defaultFilters: Filters = {
 };
 export const ReviewLevelComponent = () => {
   const { data: userNameReponse, isLoading } = useGetAllUsers();
+  const { data: cropsData } = useGetAllCrops();
+  const dbCrops = cropsData?.crops ?? [];
   const {key,ref} = useRestartOnView()
   const [openFilter, setOpenFilter] = useState(false);
   const [draftFilters, setDraftFilters] = useState<Filters>(defaultFilters);
@@ -131,6 +137,7 @@ export const ReviewLevelComponent = () => {
       dateRange: filters.dateRange,
       state: filters.state,
       crop: filters.crop,
+      normalised_crop: filters.normalised_crop,
       domain: filters.domain,
       status: filters.status,
       userId: filters.userId,
@@ -184,6 +191,7 @@ export const ReviewLevelComponent = () => {
 
     if (filters.state !== "all") parts.push(`State: ${filters.state}`);
     if (filters.crop !== "all") parts.push(`Crop: ${filters.crop}`);
+    if (filters.normalised_crop !== "all") parts.push(`Normalized Crop: ${filters.normalised_crop === '__NOT_SET__' ? 'Not Set' : filters.normalised_crop}`);
     if (filters.domain !== "all") parts.push(`Domain: ${filters.domain}`);
     if (filters.status !== "all") parts.push(`Status: ${filters.status}`);
 
@@ -249,10 +257,42 @@ export const ReviewLevelComponent = () => {
                   <FilterSelect
                     label="Crops"
                     value={draftFilters.crop}
-                    options={CROPS}
+                    options={dbCrops.length > 0 ? dbCrops.map(c => c.name) : CROPS}
                     onChange={(val) => updateDraft("crop", val)}
                     Icon={Leaf}
                   />
+
+                  {/* Separator */}
+                  <div className="col-span-2">
+                    <Separator className="my-1" />
+                  </div>
+
+                  {/* Normalized Crop Filter */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      <Leaf className="h-4 w-4 text-primary" />
+                      Normalized Crop
+                    </Label>
+                    <Select value={draftFilters.normalised_crop} onValueChange={(val) => updateDraft("normalised_crop", val)}>
+                      <SelectTrigger className="hover:bg-accent/50 hover:text-accent-foreground transition-colors">
+                        <SelectValue placeholder="Select Normalized Crop" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Normalized Crops</SelectItem>
+                        <SelectItem value="__NOT_SET__">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                            <span className="text-yellow-700 dark:text-yellow-400 font-medium">Not Set (Legacy)</span>
+                          </div>
+                        </SelectItem>
+                        {(dbCrops.length > 0 ? dbCrops.map(c => c.name) : CROPS).map((opt) => (
+                          <SelectItem key={opt} value={opt}>
+                            <span className="capitalize">{opt}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
                   {/* Separator */}
                   <div className="col-span-2">
