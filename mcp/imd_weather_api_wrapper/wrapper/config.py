@@ -8,11 +8,11 @@
 # IMD endpoint slugs 
 ENDPOINTS = {
     "city_forecast"    : "/city/api/cityweather.php",                    # CRITICAL
-    "district_forecast": "/mausam/api/districtwise_forecast_api.php",    # HIGH
+    "district_forecast": "/mausam/api/nowcast_district_api.php",         # HIGH
     "rainfall_forecast": "/mausam/api/districtwise_rainfall_api.php",    # MEDIUM
     "current_weather"  : "/city/api/cityweather.php",                    # MEDIUM
     "nowcast"          : "/mausam/api/nowcast_district_api.php",         # LOW
-    "agromet_advisory" : "/mausam/api/agromet_advisory.php",             # LOW
+    "agromet_advisory" : "/mausam/api/warnings_district_api.php",        # LOW
 }
 
 # Data freshness in minutes 
