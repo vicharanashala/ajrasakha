@@ -10,6 +10,7 @@ import {
   Gauge,
   Landmark,
   Layers,
+  Leaf,
   Link2,
   MapPin,
   Sprout,
@@ -64,6 +65,14 @@ export const QuestionDetailsCard = ({
         </div>
 
         <div className="flex items-start gap-2">
+          <Leaf className="w-4 h-4 text-primary shrink-0" />
+          <div className="flex flex-col">
+            <span className="text-muted-foreground">Normalized Crop</span>
+            <span className="truncate capitalize">{question.details?.normalised_crop || "-"}</span>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2">
           <Calendar className="w-4 h-4 text-primary shrink-0" />
           <div className="flex flex-col">
             <span className="text-muted-foreground">Season</span>
@@ -71,7 +80,7 @@ export const QuestionDetailsCard = ({
           </div>
         </div>
 
-        <div className="flex items-start gap-2 sm:col-span-2">
+        <div className="flex items-start gap-2">
           <Layers className="w-4 h-4 text-primary shrink-0" />
           <div className="flex flex-col">
             <span className="text-muted-foreground">Domain</span>
