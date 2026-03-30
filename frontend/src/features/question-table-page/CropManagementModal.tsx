@@ -11,18 +11,7 @@ import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { toast } from "sonner";
 import { useCreateCrop } from "@/hooks/api/crop/useCreateCrop";
-
-// Hardcoded crop data — will be replaced with API integration later
-const MOCK_CROPS = [
-  { name: "Paddy", aliases: ["Rice", "Chawal", "ধান"] },
-  { name: "Wheat", aliases: ["Gehun", "Kanak"] },
-  { name: "Maize", aliases: ["Corn", "Makka", "Bhutta"] },
-  { name: "Sugarcane", aliases: ["Ganna", "Ikh"] },
-  { name: "Cotton", aliases: ["Kapas", "Rui"] },
-  { name: "Soybean", aliases: ["Soya"] },
-  { name: "Groundnut", aliases: ["Peanut", "Moongphali"] },
-  { name: "Mustard", aliases: ["Sarson", "Rai"] },
-];
+import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 
 type CropManagementModalProps = {
   open: boolean;
@@ -40,6 +29,9 @@ export const CropManagementModal = ({
   const aliasInputRef = useRef<HTMLInputElement>(null);
 
   const { mutateAsync: createCrop, isPending: isCreating } = useCreateCrop();
+  const { data: cropsData, isLoading: isLoadingCrops } = useGetAllCrops();
+
+  const crops = cropsData?.crops || [];
 
   const handleAddAlias = (value: string) => {
     const trimmed = value.trim();
@@ -218,42 +210,55 @@ export const CropManagementModal = ({
 
           {/* Crop List */}
           <div className="px-5 py-3">
-            <div className="space-y-1">
-              {MOCK_CROPS.map((crop) => (
-                <div
-                  key={crop.name}
-                  className="group flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-md bg-amber-100/80 dark:bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-                      <Wheat className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white leading-tight">
-                        {crop.name}
-                      </p>
-                      <div className="flex flex-wrap gap-1 mt-0.5">
-                        {crop.aliases.map((alias) => (
-                          <span
-                            key={alias}
-                            className="px-1.5 py-px rounded text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/5"
-                          >
-                            {alias}
-                          </span>
-                        ))}
+            {isLoadingCrops ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+              </div>
+            ) : crops.length === 0 ? (
+              <div className="text-center py-12">
+                <Wheat className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                <p className="text-sm text-gray-400 dark:text-gray-500">No crops added yet</p>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {crops.map((crop) => (
+                  <div
+                    key={crop._id || crop.name}
+                    className="group flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-md bg-amber-100/80 dark:bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                        <Wheat className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white leading-tight capitalize">
+                          {crop.name}
+                        </p>
+                        {crop.aliases && crop.aliases.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {crop.aliases.map((alias) => (
+                              <span
+                                key={alias}
+                                className="px-1.5 py-px rounded text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/5 capitalize"
+                              >
+                                {alias}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
 
-                  <button
-                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-md transition-all flex-shrink-0"
-                    onClick={() => toast.info(`Edit "${crop.name}" coming soon!`)}
-                  >
-                    <Pencil className="h-3.5 w-3.5 text-gray-400" />
-                  </button>
-                </div>
-              ))}
-            </div>
+                    <button
+                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-md transition-all flex-shrink-0"
+                      onClick={() => toast.info(`Edit "${crop.name}" coming soon!`)}
+                    >
+                      <Pencil className="h-3.5 w-3.5 text-gray-400" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>
