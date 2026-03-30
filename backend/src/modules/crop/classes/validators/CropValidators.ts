@@ -1,10 +1,12 @@
 import {
   IsNotEmpty,
   IsString,
+  IsArray,
   IsOptional,
   IsMongoId,
   IsInt,
   Min,
+  Max,
   IsIn,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
@@ -41,20 +43,12 @@ class CreateCropDto {
     items: { type: 'string' },
   })
   @IsOptional()
+  @IsArray()
   @IsString({ each: true })
   aliases?: string[];
 }
 
 class UpdateCropDto {
-  @JSONSchema({
-    description: 'Updated name of the crop (must be unique)',
-    example: 'Basmati Rice',
-    type: 'string',
-  })
-  @IsOptional()
-  @IsString()
-  name?: string;
-
   @JSONSchema({
     description: 'Updated alternative names for the crop',
     example: ['Rice', 'Chawal', 'Basmati'],
@@ -62,6 +56,7 @@ class UpdateCropDto {
     items: { type: 'string' }
   })
   @IsOptional()
+  @IsArray()
   @IsString({ each: true })
   aliases?: string[];
 
@@ -92,6 +87,7 @@ class GetAllCropsQuery {
   @IsInt()
   @Type(() => Number)
   @Min(1)
+  @Max(500)
   limit?: number;
 }
 

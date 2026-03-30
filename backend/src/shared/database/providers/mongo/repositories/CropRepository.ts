@@ -17,6 +17,16 @@ export class CropRepository implements ICropRepository {
 
   private async init(): Promise<void> {
     this.CropCollection = await this.db.getCollection<ICrop>('crop_master');
+    await this.ensureIndexes();
+  }
+
+  private async ensureIndexes(): Promise<void> {
+    try {
+      await this.CropCollection.createIndex({name: 1}, {unique: true});
+      await this.CropCollection.createIndex({aliases: 1}, {unique: true, sparse: true});
+    } catch (error) {
+      console.error('Failed to create crop indexes:', error);
+    }
   }
 
   private static escapeRegex(value: string): string {
@@ -65,7 +75,11 @@ export class CropRepository implements ICropRepository {
 
       const {insertedId} = await this.CropCollection.insertOne(payload);
 
-      return {_id: insertedId, ...payload} as ICrop;
+      return {
+        ...payload,
+        _id: insertedId.toString(),
+        createdBy: payload.createdBy?.toString(),
+      } as ICrop;
     } catch (error: any) {
       if (error instanceof BadRequestError) throw error;
       throw new InternalServerError(`Failed to create crop: ${error.message}`);

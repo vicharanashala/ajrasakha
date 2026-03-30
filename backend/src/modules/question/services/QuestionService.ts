@@ -137,13 +137,15 @@ export class QuestionService extends BaseService implements IQuestionService {
               await this.cropRepository.createCrop(normalizedName, userId || '', []);
               normalised_crop = normalizedName;
             }
-            cropCache.set(cacheKey, normalised_crop);
           } catch (cropError: any) {
             console.error('Crop normalization warning:', cropError.message);
           }
+          // Always cache — prevents retrying failed crop creation on subsequent questions
+          cropCache.set(cacheKey, normalised_crop);
         }
       }
-      // details.crop stays as original input string
+      // Explicitly preserve the original input string — normalised_crop holds the canonical name
+      details.crop = rawCropName;
       details.normalised_crop = normalised_crop;
 
       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
@@ -850,9 +852,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (!question?.trim()) {
         throw new BadRequestError(`Question is required`);
       }
-  
+
       if (
-        !details.crop ||
+        !(typeof details.crop === 'string' ? details.crop.trim() : details.crop?.name?.trim()) ||
         !details.district ||
         !details.domain ||
         !details.season ||
@@ -889,7 +891,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           logData.cropNormalizationError = cropError.message;
         }
       }
-      // crop stays as the original input string; normalised_crop is the canonical crop_master name
+      // Explicitly preserve the original input string — normalised_crop holds the canonical name
+      details.crop = rawCropName;
       details.normalised_crop = normalised_crop;
 
       // 🔹 Create Embedding — OUTSIDE transaction
