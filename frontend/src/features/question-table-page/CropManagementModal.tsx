@@ -196,17 +196,16 @@ export const CropManagementModal = ({
   };
 
   const handleEditSave = async () => {
-    if (!editingCropId || !editName.trim()) return;
+    if (!editingCropId) return;
     try {
       const res = await updateCrop({
         cropId: editingCropId,
         payload: {
-          name: editName.trim(),
           aliases: editAliases,
         },
       });
       if (res?.success) {
-        toast.success(`Crop "${editName.trim()}" updated successfully!`);
+        toast.success(`Aliases for "${editName}" updated successfully!`);
         cancelEditing();
       }
     } catch (error: any) {
@@ -345,12 +344,14 @@ export const CropManagementModal = ({
                         <div>
                           <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">
                             Crop Name
+                            <span className="font-normal normal-case ml-1 text-gray-400 dark:text-gray-600 tracking-normal">
+                              — cannot be changed
+                            </span>
                           </label>
                           <Input
                             value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            className="h-9 text-sm bg-white dark:bg-[#141414] rounded-lg border-gray-200 dark:border-gray-700"
-                            autoFocus
+                            disabled
+                            className="h-9 text-sm bg-gray-100 dark:bg-gray-800 rounded-lg border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed capitalize"
                           />
                         </div>
 
@@ -385,7 +386,7 @@ export const CropManagementModal = ({
                           <Button
                             size="sm"
                             onClick={handleEditSave}
-                            disabled={!editName.trim() || isUpdating}
+                            disabled={isUpdating}
                             className="h-8 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
                           >
                             {isUpdating ? (

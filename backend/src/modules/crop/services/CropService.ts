@@ -49,16 +49,16 @@ export class CropService implements ICropService {
     userId: string,
   ): Promise<ICrop | null> {
     try {
+      // Only aliases are updatable — crop name is immutable
       return await this.cropRepository.updateCrop(
         cropId,
         {
-          name: dto.name,
           aliases: dto.aliases,
         },
         userId,
       );
     } catch (error: any) {
-      if (error?.message?.includes('already exists')) {
+      if (error?.message?.includes('already exists') || error?.message?.includes('Cannot add alias')) {
         throw new BadRequestError(error.message);
       }
       throw error;
