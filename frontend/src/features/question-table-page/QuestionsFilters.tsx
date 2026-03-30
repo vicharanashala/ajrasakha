@@ -291,6 +291,7 @@ export const QuestionsFilters = ({
       source: advanceFilter.source,
       state: myPreference?.state || advanceFilter.state,
       crop: myPreference?.crop || advanceFilter.crop,
+      normalised_crop: advanceFilter.normalised_crop,
       answersCount: advanceFilter.answersCount,
       dateRange: advanceFilter.dateRange,
       priority: advanceFilter.priority,

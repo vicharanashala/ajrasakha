@@ -348,27 +348,15 @@ export class QuestionRepository implements IQuestionRepository {
       // --- Normalized Crop Filter ---
       if (normalised_crop && normalised_crop !== 'all') {
         if (normalised_crop === '__NOT_SET__') {
-          // Find questions where normalised_crop does not exist or is empty
-          filter.$or = [
-            ...(filter.$or || []),
-            {'details.normalised_crop': {$exists: false}},
-            {'details.normalised_crop': ''},
-            {'details.normalised_crop': null},
-          ];
-          // If $or was just created for this, remove any prior $or and use a standalone
-          if (!filter.$or.length || filter.$or.length === 3) {
-            filter['details.normalised_crop'] = {$in: [null, '', undefined]};
-            filter.$and = [
-              ...(filter.$and || []),
-              {$or: [
-                {'details.normalised_crop': {$exists: false}},
-                {'details.normalised_crop': ''},
-                {'details.normalised_crop': null},
-              ]}
-            ];
-            delete filter.$or;
-            delete filter['details.normalised_crop'];
-          }
+          // Find questions where normalised_crop does not exist, is null, or is empty string
+          if (!filter.$and) filter.$and = [];
+          filter.$and.push({
+            $or: [
+              {'details.normalised_crop': {$exists: false}},
+              {'details.normalised_crop': null},
+              {'details.normalised_crop': ''},
+            ],
+          });
         } else {
           caseInsensitiveStringFilter('details.normalised_crop', normalised_crop);
         }
