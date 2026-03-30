@@ -166,49 +166,6 @@ def _mock_nowcast(district: str, state: str = "") -> dict:
     }
 
 
-_WARNING_POOL = [
-    "Heavy Rainfall Warning",
-    "Thunderstorm Alert",
-    "Strong Wind Advisory",
-    "Heatwave Warning",
-    "Cold Wave Alert",
-    "No Active Warning",
-    "No Active Warning",
-    "No Active Warning",
-]
-
-def _mock_agromet_advisory(district: str, state: str = "",
-                           crop: str = "") -> dict:
-    warning = random.choice(_WARNING_POOL)
-    severity = (
-        "Red"    if "Heavy" in warning or "Heatwave" in warning else
-        "Orange" if "Thunderstorm" in warning or "Strong" in warning else
-        "Yellow" if "Cold" in warning else
-        "Green"
-    )
-    return {
-        "district"   : district,
-        "state"      : state,
-        "crop"       : crop or "General",
-        "issued_at"  : _now(),
-        "valid_until": _now(),
-        "alert_type" : warning,
-        "severity"   : severity,
-        "advisory"   : (
-            "Avoid outdoor activity. Seek shelter immediately."
-            if warning != "No Active Warning"
-            else "No precautionary measures required."
-        ),
-        "crop_advisory": random.choice([
-            "Postpone irrigation for 2 days.",
-            "Apply fungicide to prevent disease spread.",
-            "Harvest immediately before heavy rain.",
-            "No special action required.",
-            "Cover sensitive crops tonight.",
-        ]),
-    }
-
-
 # Response normaliser 
 
 def _normalise(raw: dict, endpoint_key: str) -> dict:
