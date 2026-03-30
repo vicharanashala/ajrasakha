@@ -20,6 +20,7 @@ import {
   Activity,
   EyeOff,
   Eye,
+  Wheat,
 } from "lucide-react";
 import {
   AdvanceFilterDialog,
@@ -654,6 +655,33 @@ export const QuestionsFilters = ({
                     </div>
                   </button>
                 </div>
+              )}
+
+              {/* update crops */}
+              {userRole !== "expert" && (
+                <button
+                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  onClick={() => {
+                    toast.info("Crop management coming soon!");
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-500">
+                      <Wheat size={20} />
+                    </div>
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
+                        <p className="relative text-sm font-bold text-gray-900 dark:text-white">
+                          Update Crops
+                        <TopRightBadge label="New" right={4} />
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-gray-500">
+                        Manage crop master list
+                      </p>
+                    </div>
+                  </div>
+                </button>
               )}
 
               {/* reallocate */}
