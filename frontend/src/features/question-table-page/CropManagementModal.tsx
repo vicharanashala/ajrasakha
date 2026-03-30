@@ -29,6 +29,7 @@ const TagInput = ({
   onKeyDown,
   onBlur,
   onRemove,
+  onAdd,
   accentColor,
 }: {
   aliases: string[];
@@ -38,6 +39,7 @@ const TagInput = ({
   onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
   onBlur: () => void;
   onRemove: (alias: string) => void;
+  onAdd: () => void;
   accentColor: "amber" | "blue";
 }) => {
   const tagBg =
@@ -75,13 +77,25 @@ const TagInput = ({
       <input
         ref={inputRef}
         type="text"
-        placeholder={aliases.length === 0 ? "Type alias & press Enter" : ""}
+        placeholder={aliases.length === 0 ? "Type alias & press Enter or use comma" : ""}
         value={inputValue}
         onChange={(e) => onInputChange(e.target.value)}
         onKeyDown={onKeyDown}
         onBlur={onBlur}
         className="flex-1 min-w-[80px] bg-transparent text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600 dark:text-white py-0.5"
       />
+      {inputValue.trim() && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onAdd();
+          }}
+          className={`flex-shrink-0 flex items-center justify-center p-1 rounded-md transition-colors ${tagBg} ${tagHover}`}
+          title="Add alias"
+        >
+          <Plus className="h-3 w-3" />
+        </button>
+      )}
     </div>
   );
 };
@@ -295,6 +309,7 @@ export const CropManagementModal = ({
                   onKeyDown={handleAliasKeyDown}
                   onBlur={() => { if (aliasInput.trim()) handleAddAlias(aliasInput); }}
                   onRemove={removeAlias}
+                  onAdd={() => { if (aliasInput.trim()) handleAddAlias(aliasInput); }}
                   accentColor="amber"
                 />
               </div>
@@ -370,6 +385,7 @@ export const CropManagementModal = ({
                             onKeyDown={handleEditAliasKeyDown}
                             onBlur={() => { if (editAliasInput.trim()) handleEditAddAlias(editAliasInput); }}
                             onRemove={removeEditAlias}
+                            onAdd={() => { if (editAliasInput.trim()) handleEditAddAlias(editAliasInput); }}
                             accentColor="blue"
                           />
                         </div>
