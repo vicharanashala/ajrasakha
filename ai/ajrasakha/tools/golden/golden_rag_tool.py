@@ -7,7 +7,7 @@ from langchain.tools import tool
 from pydantic import BaseModel
 from pymongo import AsyncMongoClient
 
-from ...utils import get_mongodb_vector_store, get_huggingface_embedding_model
+from ajrasakha.utils import get_mongodb_vector_store, get_huggingface_embedding_model
 
 EMBEDDING_MODEL = os.getenv("GOLDEN_EMBEDDING_MODEL")
 MONGODB_URI = os.getenv("GOLDEN_MONGODB_URI")
@@ -29,7 +29,7 @@ database = mongo_client[MONGODB_DATABASE]
 answers_collection = database["answers"]
 users_collection = database["users"]
 
-mcp_golden = FastMCP("ajrasakha-golden-mcp")
+mcp = FastMCP("ajrasakha-golden-mcp")
 
 class QuestionAnswerPair(BaseModel):
     question_id: str
@@ -63,7 +63,7 @@ async def _get_answer_text_sources_and_author_name(question_id: str):
     return answer, sources, author_name
 
 
-@mcp_golden.tool()
+@mcp.tool()
 async def golden_retriever_tool(
         query: str,
         crop: str | None = None,
@@ -102,7 +102,7 @@ async def golden_retriever_tool(
     return result
 
 
-@mcp_golden.tool()
+@mcp.tool()
 async def get_available_states() -> dict:
     """Get all unique states available in the Golden dataset."""
     questions_collection = database["questions"]
@@ -110,7 +110,7 @@ async def get_available_states() -> dict:
     return {"success": True, "states": sorted([s for s in states if s])}
 
 
-@mcp_golden.tool()
+@mcp.tool()
 async def get_available_crops(state: str | None = None) -> dict:
     """
     Get all unique crops available in the Golden dataset.
@@ -124,7 +124,7 @@ async def get_available_crops(state: str | None = None) -> dict:
     return {"success": True, "crops": sorted([c for c in crops if c])}
 
 
-@mcp_golden.tool()
+@mcp.tool()
 async def get_available_domains(state: str | None = None, crop: str | None = None) -> dict:
     """
     Get all unique domains (e.g. pest management, irrigation, soil health) in the Golden dataset.
@@ -140,7 +140,7 @@ async def get_available_domains(state: str | None = None, crop: str | None = Non
     return {"success": True, "domains": sorted([d for d in domains if d])}
 
 
-@mcp_golden.tool()
+@mcp.tool()
 async def get_available_seasons(state: str | None = None, crop: str | None = None) -> dict:
     """
     Get all unique seasons (e.g. Kharif, Rabi, Zaid) in the Golden dataset.
@@ -154,3 +154,6 @@ async def get_available_seasons(state: str | None = None, crop: str | None = Non
         filters["details.crop"] = crop
     seasons = await questions_collection.distinct("details.season", filters)
     return {"success": True, "seasons": sorted([s for s in seasons if s])}
+
+if __name__ == "__main__":
+    mcp.run(transport="streamable-http")
