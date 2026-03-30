@@ -312,3 +312,22 @@ export interface AddQuestionResult {
   data: Partial<IQuestion>;
 }
 
+// ─── Chatbot Analytics ───────────────────────────────────────────────────────
+
+export type ChatbotChannel = 'voice' | 'text' | 'kcc_agent' | 'ivrs';
+
+export interface IChatbotSession {
+  _id?: ObjectId | string;
+  userId: ObjectId | string;
+  channel: ChatbotChannel;
+  language: string;           // e.g. 'hindi' | 'telugu' | 'marathi' | 'bhojpuri'
+  state: string;              // e.g. 'UP' | 'MH'
+  crop?: string;
+  queryCategory: string;      // e.g. 'pest_disease' | 'fertilizer_dosage'
+  sessionDurationSec: number;
+  csatScore?: number;         // 1–5
+  voiceAccuracyScore?: number; // 0–100, only for voice channel
+  isRepeatQuery: boolean;
+  createdAt: Date;
+}
+

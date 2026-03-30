@@ -32,6 +32,7 @@ const TYPES = {
   ReviewRepository: Symbol.for('ReviewRepository'),
   ReRouteRepository:Symbol.for("ReRouteRepository"),
   DuplicateQuestionRepository:Symbol.for("DuplicateQuestionRepository"),
+  ChatbotRepository: Symbol.for('ChatbotRepository'),
 
   // Constants
   uri: Symbol.for('dbURI'),
