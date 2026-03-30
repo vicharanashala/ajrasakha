@@ -502,6 +502,7 @@ export class QuestionService {
   async downloadFilteredReport(filters: {
     state?: string;
     crop?: string;
+    normalised_crop?: string;
     season?: string;
     domain?: string;
     status?: string;
@@ -512,6 +513,9 @@ export class QuestionService {
     }
     if (filters.crop && filters.crop !== 'all') {
       params.append("crop", filters.crop);
+    }
+    if (filters.normalised_crop && filters.normalised_crop !== 'all') {
+      params.append("normalised_crop", filters.normalised_crop);
     }
     if (filters.season && filters.season !== 'all') {
       params.append("season", filters.season);

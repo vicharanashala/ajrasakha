@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "../../components/atoms/button";
-import { Download, Loader2, Filter } from "lucide-react";
+import { Download, Loader2, Filter, Leaf, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { QuestionService } from "@/hooks/services/questionService";
 import {
@@ -22,15 +22,25 @@ import {
 import { Label } from "@/components/atoms/label";
 import { Separator } from "@/components/atoms/separator";
 import { STATES, CROPS, SEASONS, DOMAINS, STATUS } from "@/components/MetaData";
+import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 
 export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void }) => {
   const questionService = new QuestionService();
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { data: cropsData } = useGetAllCrops();
+  const dbCrops = cropsData?.crops ?? [];
   
   const [filters, setFilters] = useState({
     state: "all",
     crop: "all",
+    normalised_crop: "all",
     season: "all",
     domain: "all",
     status: "all",
@@ -56,6 +66,7 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
       const filterParts = [];
       if (filters.state !== "all") filterParts.push(filters.state);
       if (filters.crop !== "all") filterParts.push(filters.crop);
+      if (filters.normalised_crop !== "all") filterParts.push(filters.normalised_crop === '__NOT_SET__' ? 'legacy' : filters.normalised_crop);
       if (filters.season !== "all") filterParts.push(filters.season);
       if (filters.domain !== "all") filterParts.push(filters.domain);
       if (filters.status !== "all") filterParts.push(filters.status);
@@ -91,6 +102,7 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
     setFilters({
       state: "all",
       crop: "all",
+      normalised_crop: "all",
       season: "all",
       domain: "all",
       status: "all",
@@ -154,20 +166,48 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
                 </Select>
               </div>
 
-              {/* Crop Filter */}
+              {/* Crop Filter with alias badges */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Crop</Label>
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Leaf className="h-4 w-4 text-primary" />
+                  Crop
+                </Label>
                 <Select value={filters.crop} onValueChange={(val) => handleFilterChange("crop", val)}>
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="Select Crop" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Crops</SelectItem>
-                    {CROPS.map((crop) => (
-                      <SelectItem key={crop} value={crop}>
-                        {crop}
-                      </SelectItem>
-                    ))}
+                    {dbCrops.length > 0
+                      ? dbCrops.map((crop) => (
+                          <SelectItem key={crop._id || crop.name} value={crop.name}>
+                            {crop.aliases && crop.aliases.length > 0 ? (
+                              <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="flex items-center gap-2 cursor-default">
+                                      <span className="capitalize">{crop.name}</span>
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                                        +{crop.aliases.length}
+                                      </span>
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="right" className="text-xs">
+                                    <p className="font-semibold mb-0.5">Also known as:</p>
+                                    {crop.aliases.map((a: string) => (
+                                      <p key={a} className="capitalize text-muted-foreground">{a}</p>
+                                    ))}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <span className="capitalize">{crop.name}</span>
+                            )}
+                          </SelectItem>
+                        ))
+                      : CROPS.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -175,6 +215,58 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
               {/* Separator */}
               <div className="col-span-2">
                 <Separator className="my-2" />
+              </div>
+
+              {/* Normalized Crop Filter */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Leaf className="h-4 w-4 text-primary" />
+                  Normalized Crop
+                </Label>
+                <Select value={filters.normalised_crop} onValueChange={(val) => handleFilterChange("normalised_crop", val)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select Normalized Crop" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Normalized Crops</SelectItem>
+                    <SelectItem value="__NOT_SET__">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                        <span className="text-yellow-700 dark:text-yellow-400 font-medium">Not Set (Legacy)</span>
+                      </div>
+                    </SelectItem>
+                    {dbCrops.length > 0
+                      ? dbCrops.map((crop) => (
+                          <SelectItem key={crop._id || crop.name} value={crop.name}>
+                            {crop.aliases && crop.aliases.length > 0 ? (
+                              <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="flex items-center gap-2 cursor-default">
+                                      <span className="capitalize">{crop.name}</span>
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                                        +{crop.aliases.length}
+                                      </span>
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="right" className="text-xs">
+                                    <p className="font-semibold mb-0.5">Also known as:</p>
+                                    {crop.aliases.map((a: string) => (
+                                      <p key={a} className="capitalize text-muted-foreground">{a}</p>
+                                    ))}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <span className="capitalize">{crop.name}</span>
+                            )}
+                          </SelectItem>
+                        ))
+                      : CROPS.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Season Filter */}
