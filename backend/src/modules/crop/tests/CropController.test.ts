@@ -40,7 +40,6 @@ const mockCropService = {
   getCropById: vi.fn().mockResolvedValue(mockCrop),
   createCrop: vi.fn().mockResolvedValue(mockCrop),
   updateCrop: vi.fn().mockResolvedValue(mockCrop),
-  deleteCrop: vi.fn().mockResolvedValue({modifiedCount: 1}),
 };
 
 // ── App setup ─────────────────────────────────────────────────────────────────

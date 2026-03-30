@@ -1,12 +1,13 @@
 import {inject, injectable} from 'inversify';
 import {Collection, ObjectId} from 'mongodb';
-import {BadRequestError, InternalServerError, NotFoundError} from 'routing-controllers';
+import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {MongoDatabase} from '#root/shared/index.js';
 import {ICrop} from '#root/shared/interfaces/models.js';
+import {ICropRepository} from '#root/shared/database/interfaces/ICropRepository.js';
 
 @injectable()
-export class CropRepository {
+export class CropRepository implements ICropRepository {
   private CropCollection: Collection<ICrop>;
 
   constructor(
@@ -18,6 +19,10 @@ export class CropRepository {
     this.CropCollection = await this.db.getCollection<ICrop>('crop_master');
   }
 
+  private static escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   // ─── CREATE ────────────────────────────────────────────────────────────────
 
   async createCrop(
@@ -26,29 +31,25 @@ export class CropRepository {
     aliases?: string[],
   ): Promise<ICrop> {
     try {
-      await this.init();
+      if (!this.CropCollection) await this.init();
 
-      // Build a list of all values to check for uniqueness (name + aliases)
-      const allNames = [name.trim().toLowerCase(), ...(aliases || []).map(a => a.trim().toLowerCase())];
+      const allNames = [name.trim(), ...(aliases || []).map(a => a.trim())];
 
-      // Check if any existing crop has a matching name or alias
       const orConditions: any[] = [];
       for (const n of allNames) {
-        orConditions.push({name: {$regex: `^${n}$`, $options: 'i'}});
-        orConditions.push({aliases: {$regex: `^${n}$`, $options: 'i'}});
+        const escaped = CropRepository.escapeRegex(n);
+        orConditions.push({name: {$regex: `^${escaped}$`, $options: 'i'}});
+        orConditions.push({aliases: {$regex: `^${escaped}$`, $options: 'i'}});
       }
 
-      const existing = await this.CropCollection.findOne({
-        $or: orConditions,
-      });
+      const existing = await this.CropCollection.findOne({$or: orConditions});
 
       if (existing) {
-        // Find which value conflicted
         const conflictingValue = allNames.find(n => {
-          const regex = new RegExp(`^${n}$`, 'i');
+          const regex = new RegExp(`^${CropRepository.escapeRegex(n)}$`, 'i');
           return regex.test(existing.name) || existing.aliases?.some(a => regex.test(a));
         });
-        throw new InternalServerError(
+        throw new BadRequestError(
           `Crop with name or alias "${conflictingValue}" already exists in crop "${existing.name}".`,
         );
       }
@@ -66,7 +67,7 @@ export class CropRepository {
 
       return {_id: insertedId, ...payload} as ICrop;
     } catch (error: any) {
-      if (error instanceof InternalServerError) throw error;
+      if (error instanceof BadRequestError) throw error;
       throw new InternalServerError(`Failed to create crop: ${error.message}`);
     }
   }
@@ -80,7 +81,7 @@ export class CropRepository {
     limit?: number;
   }): Promise<{crops: ICrop[]; totalCount: number; totalPages: number}> {
     try {
-      await this.init();
+      if (!this.CropCollection) await this.init();
 
       const page = query?.page ?? 1;
       const limit = query?.limit ?? 50;
@@ -129,7 +130,7 @@ export class CropRepository {
 
   async getCropById(cropId: string): Promise<ICrop | null> {
     try {
-      await this.init();
+      if (!this.CropCollection) await this.init();
 
       const crop = await this.CropCollection.findOne({_id: new ObjectId(cropId)});
       if (!crop) return null;
@@ -153,10 +154,40 @@ export class CropRepository {
     updatedBy: string,
   ): Promise<ICrop | null> {
     try {
-      await this.init();
+      if (!this.CropCollection) await this.init();
 
+      const incomingValues: string[] = [];
+      if (updates.name) incomingValues.push(updates.name.trim());
+      if (updates.aliases) incomingValues.push(...updates.aliases.map(a => a.trim()));
+
+      if (incomingValues.length > 0) {
+        const orConditions: any[] = [];
+        for (const v of incomingValues) {
+          const escaped = CropRepository.escapeRegex(v);
+          orConditions.push({name: {$regex: `^${escaped}$`, $options: 'i'}});
+          orConditions.push({aliases: {$regex: `^${escaped}$`, $options: 'i'}});
+        }
+
+<<<<<<< HEAD
       // Crop name is immutable — silently ignore if sent
       delete updates.name;
+=======
+        const existing = await this.CropCollection.findOne({
+          $or: orConditions,
+          _id: {$ne: new ObjectId(id)},
+        });
+
+        if (existing) {
+          const conflictingValue = incomingValues.find(v => {
+            const regex = new RegExp(`^${CropRepository.escapeRegex(v)}$`, 'i');
+            return regex.test(existing.name) || existing.aliases?.some(a => regex.test(a));
+          });
+          throw new BadRequestError(
+            `Crop with name or alias "${conflictingValue}" already exists in crop "${existing.name}".`,
+          );
+        }
+      }
+>>>>>>> ca70c346 (removed isActive, rest API protocols followed)
 
       const $set: any = {
         updatedAt: new Date(),
@@ -219,7 +250,7 @@ export class CropRepository {
         updatedBy: result.updatedBy?.toString(),
       } as ICrop;
     } catch (error: any) {
-      if (error instanceof InternalServerError) throw error;
+      if (error instanceof BadRequestError) throw error;
       throw new InternalServerError(`Failed to update crop: ${error.message}`);
     }
   }
@@ -253,4 +284,3 @@ export class CropRepository {
     }
   }
 }
-

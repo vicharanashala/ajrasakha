@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import {describe, it, expect, beforeEach, vi} from 'vitest';
+import {BadRequestError} from 'routing-controllers';
 import {CropService} from '../services/CropService.js';
 import {ICrop} from '#root/shared/interfaces/models.js';
 
@@ -27,7 +28,6 @@ const mockRepo = {
   getCropById: vi.fn(),
   createCrop: vi.fn(),
   updateCrop: vi.fn(),
-  deleteCrop: vi.fn(),
 };
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -37,7 +37,7 @@ describe('CropService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new CropService(mockRepo as any);
+    service = new CropService(mockRepo as any, {} as any);
   });
 
   // ── getAllCrops ─────────────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ describe('CropService', () => {
 
     it('throws BadRequestError (400) on duplicate', async () => {
       mockRepo.createCrop.mockRejectedValue(
-        new Error('Crop with name "Rice" already exists.'),
+        new BadRequestError('Crop with name "Rice" already exists.'),
       );
 
       await expect(service.createCrop(dto, userId)).rejects.toMatchObject({
@@ -149,7 +149,7 @@ describe('CropService', () => {
 
     it('throws BadRequestError (400) on duplicate name', async () => {
       mockRepo.updateCrop.mockRejectedValue(
-        new Error('Crop with name "Wheat" already exists.'),
+        new BadRequestError('Crop with name "Wheat" already exists.'),
       );
 
       await expect(
