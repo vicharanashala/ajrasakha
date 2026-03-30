@@ -34,6 +34,7 @@ const TYPES = {
   DuplicateQuestionRepository:Symbol.for("DuplicateQuestionRepository"),
   ChatbotRepository: Symbol.for('ChatbotRepository'),
   CropRepository: Symbol.for('CropRepository'),
+  MongoDatabase: Symbol.for('MongoDatabase'),
   CropService: Symbol.for('CropService'),
 
   // Constants
