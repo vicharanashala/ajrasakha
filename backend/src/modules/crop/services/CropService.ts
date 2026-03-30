@@ -32,8 +32,66 @@ export class CropService extends BaseService implements ICropService {
     return this.cropRepository.getCropById(cropId);
   }
 
+  // Backfill normalised_crop in questions (OPTIMIZED)
+  private async backfillNormalisedCropForSingleCrop(
+    name: string,
+    aliases: string[],
+  ): Promise<void> {
+    const questionsCollection = await (this.cropRepository as any).db.getCollection('questions');
+
+    const allValues = [name, ...(aliases || [])].map((v) =>
+      v.toLowerCase().trim(),
+    );
+
+    const conditions = allValues.map((val) => ({
+      'details.crop': { $regex: `^${val}$`, $options: 'i' },
+    }));
+
+    const result = await questionsCollection.updateMany(
+      {
+        $and: [
+          { $or: conditions },
+          {
+            $or: [
+              { 'details.normalised_crop': { $exists: false } },
+              { 'details.normalised_crop': null },
+            ],
+          },
+        ],
+      },
+      {
+        $set: {
+          'details.normalised_crop': name.toLowerCase(),
+        },
+      },
+    );
+
+    console.log(
+      `✅ Backfilled ${result.modifiedCount} questions for crop: ${name}`,
+    );
+  }
+
   async createCrop(dto: CreateCropDto, userId: string): Promise<ICrop> {
-    return this.cropRepository.createCrop(dto.name, userId, dto.aliases);
+    try {
+      const crop = await this.cropRepository.createCrop(
+        dto.name,
+        userId,
+        dto.aliases,
+      );
+
+      // Trigger backfill after creation
+      await this.backfillNormalisedCropForSingleCrop(
+        dto.name,
+        dto.aliases,
+      );
+
+      return crop;
+    } catch (error: any) {
+      if (error?.message?.includes('already exists')) {
+        throw new BadRequestError(error.message);
+      }
+      throw error;
+    }
   }
 
   async updateCrop(
@@ -42,14 +100,26 @@ export class CropService extends BaseService implements ICropService {
     userId: string,
   ): Promise<ICrop | null> {
     try {
-      // Only aliases are updatable — crop name is immutable
-      return await this.cropRepository.updateCrop(
+      const updatedCrop = await this.cropRepository.updateCrop(
         cropId,
         {aliases: dto.aliases},
         userId,
       );
+
+      if (updatedCrop) {
+        // Trigger backfill after alias update
+        await this.backfillNormalisedCropForSingleCrop(
+          updatedCrop.name,
+          dto.aliases,
+        );
+      }
+
+      return updatedCrop;
     } catch (error: any) {
-      if (error?.message?.includes('already exists') || error?.message?.includes('Cannot add alias')) {
+      if (
+        error?.message?.includes('already exists') ||
+        error?.message?.includes('Cannot add alias')
+      ) {
         throw new BadRequestError(error.message);
       }
       throw error;
