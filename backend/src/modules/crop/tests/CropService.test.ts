@@ -147,13 +147,13 @@ describe('CropService', () => {
       expect(result).toBeNull();
     });
 
-    it('throws BadRequestError (400) on duplicate name', async () => {
+    it('throws BadRequestError (400) on duplicate alias', async () => {
       mockRepo.updateCrop.mockRejectedValue(
-        new BadRequestError('Crop with name "Wheat" already exists.'),
+        new BadRequestError('Cannot add alias "wheat" — it already exists as a crop name.'),
       );
 
       await expect(
-        service.updateCrop('664f1a2b3c4d5e6f7a8b9c0d', {name: 'Wheat'}, userId),
+        service.updateCrop('664f1a2b3c4d5e6f7a8b9c0d', {aliases: ['wheat']}, userId),
       ).rejects.toMatchObject({httpCode: 400});
     });
   });
