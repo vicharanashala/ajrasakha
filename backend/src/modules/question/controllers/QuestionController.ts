@@ -290,6 +290,7 @@ export class QuestionController {
     @QueryParams() query: { 
       state?: string; 
       crop?: string; 
+      normalised_crop?: string;
       season?: string; 
       domain?: string; 
       status?: string; 
@@ -300,6 +301,7 @@ export class QuestionController {
     const data = await this.questionService.generateStateCropQuestionReport({
       state: query.state,
       crop: query.crop,
+      normalised_crop: query.normalised_crop,
       season: query.season,
       domain: query.domain,
       status: query.status,

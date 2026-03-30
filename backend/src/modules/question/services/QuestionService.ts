@@ -3038,6 +3038,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async generateStateCropQuestionReport(filters: {
     state?: string;
     crop?: string;
+    normalised_crop?: string;
     season?: string;
     domain?: string;
     status?: string;
@@ -3050,6 +3051,17 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
       if (filters.crop && filters.crop !== 'all') {
         query['details.crop'] = filters.crop;
+      }
+      if (filters.normalised_crop && filters.normalised_crop !== 'all') {
+        if (filters.normalised_crop === '__NOT_SET__') {
+          query.$or = [
+            {'details.normalised_crop': {$exists: false}},
+            {'details.normalised_crop': null},
+            {'details.normalised_crop': ''},
+          ];
+        } else {
+          query['details.normalised_crop'] = {$regex: `^${filters.normalised_crop}$`, $options: 'i'};
+        }
       }
       if (filters.season && filters.season !== 'all') {
         query['details.season'] = filters.season;
