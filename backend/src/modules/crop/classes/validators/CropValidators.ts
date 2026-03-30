@@ -2,7 +2,6 @@ import {
   IsNotEmpty,
   IsString,
   IsOptional,
-  IsBoolean,
   IsMongoId,
   IsInt,
   Min,
@@ -66,14 +65,6 @@ class UpdateCropDto {
   @IsString({ each: true })
   aliases?: string[];
 
-  @JSONSchema({
-    description: 'Whether the crop is active or disabled',
-    example: true,
-    type: 'boolean',
-  })
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
 }
 
 // ── Query DTOs ──
@@ -83,11 +74,6 @@ class GetAllCropsQuery {
   @IsOptional()
   @IsString()
   search?: string;
-
-  @JSONSchema({description: 'Filter by active status', example: 'true', type: 'string'})
-  @IsOptional()
-  @IsIn(['true', 'false', 'all'])
-  isActive?: string;
 
   @JSONSchema({description: 'Sort order', example: 'newest', type: 'string'})
   @IsOptional()

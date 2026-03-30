@@ -1,6 +1,6 @@
 import {injectable, inject} from 'inversify';
-import {BadRequestError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
+import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {ICrop} from '#root/shared/interfaces/models.js';
 import {CropRepository} from '#root/shared/database/providers/mongo/repositories/CropRepository.js';
 import {ICropService} from '../interfaces/ICropService.js';
@@ -11,11 +11,15 @@ import {
 } from '../classes/validators/CropValidators.js';
 
 @injectable()
-export class CropService implements ICropService {
+export class CropService extends BaseService implements ICropService {
   constructor(
     @inject(GLOBAL_TYPES.CropRepository)
     private readonly cropRepository: CropRepository,
-  ) {}
+    @inject(GLOBAL_TYPES.Database)
+    mongoDatabase: MongoDatabase,
+  ) {
+    super(mongoDatabase);
+  }
 
   async getAllCrops(
     query?: GetAllCropsQuery,
@@ -28,19 +32,7 @@ export class CropService implements ICropService {
   }
 
   async createCrop(dto: CreateCropDto, userId: string): Promise<ICrop> {
-    try {
-      return await this.cropRepository.createCrop(
-        dto.name,
-        userId,
-        dto.aliases,
-      );
-    } catch (error: any) {
-      // Re-throw duplicate as 400 instead of 500
-      if (error?.message?.includes('already exists')) {
-        throw new BadRequestError(error.message);
-      }
-      throw error;
-    }
+    return this.cropRepository.createCrop(dto.name, userId, dto.aliases);
   }
 
   async updateCrop(
@@ -48,6 +40,7 @@ export class CropService implements ICropService {
     dto: UpdateCropDto,
     userId: string,
   ): Promise<ICrop | null> {
+<<<<<<< HEAD
     try {
       // Only aliases are updatable — crop name is immutable
       return await this.cropRepository.updateCrop(
@@ -63,6 +56,12 @@ export class CropService implements ICropService {
       }
       throw error;
     }
+=======
+    return this.cropRepository.updateCrop(
+      cropId,
+      {name: dto.name, aliases: dto.aliases},
+      userId,
+    );
+>>>>>>> ca70c346 (removed isActive, rest API protocols followed)
   }
 }
-
