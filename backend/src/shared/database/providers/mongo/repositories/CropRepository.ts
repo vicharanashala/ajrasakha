@@ -145,7 +145,7 @@ export class CropRepository {
     }
   }
 
-  // ─── UPDATE ────────────────────────────────────────────────────────────────
+  // ─── UPDATE (only aliases — crop name is immutable) ─────────────────────────
 
   async updateCrop(
     id: string,
@@ -155,26 +155,54 @@ export class CropRepository {
     try {
       await this.init();
 
-      if (updates.name) {
-        const existing = await this.CropCollection.findOne({
-          name: {$regex: `^${updates.name.trim().toLowerCase()}$`, $options: 'i'},
-          _id: {$ne: new ObjectId(id)},
-        });
-
-        if (existing) {
-          throw new InternalServerError(
-            `Crop with name "${updates.name}" already exists.`,
-          );
-        }
-      }
+      // Crop name is immutable — silently ignore if sent
+      delete updates.name;
 
       const $set: any = {
         updatedAt: new Date(),
         updatedBy: new ObjectId(updatedBy),
       };
 
-      if (updates.name !== undefined) $set.name = updates.name.trim().toLowerCase();
-      if (updates.aliases !== undefined) $set.aliases = updates.aliases.map(a => a.trim().toLowerCase());
+      // ── Alias conflict check ──────────────────────────────
+      if (updates.aliases !== undefined) {
+        const normalizedAliases = updates.aliases.map(a => a.trim().toLowerCase());
+
+        // Check each alias against all OTHER crops' names and aliases
+        for (const alias of normalizedAliases) {
+          const regex = new RegExp(`^${alias}$`, 'i');
+
+          const conflict = await this.CropCollection.findOne({
+            _id: {$ne: new ObjectId(id)},
+            $or: [
+              {name: regex},
+              {aliases: regex},
+            ],
+          });
+
+          if (conflict) {
+            // Determine if conflict is with the name or an alias
+            const isNameConflict = regex.test(conflict.name);
+            const conflictType = isNameConflict ? 'a crop name' : 'an alias';
+            throw new InternalServerError(
+              `Cannot add alias "${alias}" — it already exists as ${conflictType} in crop "${conflict.name}".`,
+            );
+          }
+        }
+
+        // Also check if any alias duplicates the CURRENT crop's own name
+        const currentCrop = await this.CropCollection.findOne({_id: new ObjectId(id)});
+        if (currentCrop) {
+          for (const alias of normalizedAliases) {
+            if (alias === currentCrop.name.trim().toLowerCase()) {
+              throw new InternalServerError(
+                `Cannot add alias "${alias}" — it is the same as this crop's own name.`,
+              );
+            }
+          }
+        }
+
+        $set.aliases = normalizedAliases;
+      }
 
       const result = await this.CropCollection.findOneAndUpdate(
         {_id: new ObjectId(id)},
