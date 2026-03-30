@@ -12,7 +12,6 @@ export const CORE_TYPES = {
   AnswerService: Symbol.for('AnswerService'),
   ContextService: Symbol.for('ContextService'),
   CommentService: Symbol.for('CommentService'),
-  CropService: Symbol.for('CropService'),
   AIService: Symbol.for('AIService'),
   SarvamService: Symbol.for('SarvamService'),
   NotificationService:Symbol.for('NotificationService'),
@@ -20,7 +19,6 @@ export const CORE_TYPES = {
 
   // Repositories
   UserRepository: Symbol.for('UserRepository'),
-  CropRepository: Symbol.for('CropRepository'),
   CommentRepository: Symbol.for('CommentRepository'),
   QuestionSubmissionRepository: Symbol.for('QuestionSubmissionRepository'),
   QuestionRepository: Symbol.for('QuestionRepository'),
