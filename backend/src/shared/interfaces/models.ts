@@ -331,14 +331,12 @@ export interface IChatbotSession {
   createdAt: Date;
 }
 export interface ICropRef {
-  cropId: string;
   name: string;
   aliases?: string[];
 }
 
 export interface ICrop {
   _id?: ObjectId | string;
-  cropId: string;
   name: string;
   aliases: string[];
   createdBy?: ObjectId | string;

@@ -27,16 +27,7 @@ class CropIdParam {
 
 class CreateCropDto {
   @JSONSchema({
-    description: 'Unique identifier for the crop',
-    example: 'CROP_001',
-    type: 'string',
-  })
-  @IsNotEmpty({message: 'Crop ID is required'})
-  @IsString()
-  cropId: string;
-
-  @JSONSchema({
-    description: 'Name of the crop',
+    description: 'Unique name of the crop',
     example: 'Paddy',
     type: 'string',
   })
@@ -57,16 +48,7 @@ class CreateCropDto {
 
 class UpdateCropDto {
   @JSONSchema({
-    description: 'Updated crop ID',
-    example: 'CROP_001_A',
-    type: 'string',
-  })
-  @IsOptional()
-  @IsString()
-  cropId?: string;
-
-  @JSONSchema({
-    description: 'Updated name of the crop',
+    description: 'Updated name of the crop (must be unique)',
     example: 'Basmati Rice',
     type: 'string',
   })
@@ -97,7 +79,7 @@ class UpdateCropDto {
 // ── Query DTOs ──
 
 class GetAllCropsQuery {
-  @JSONSchema({description: 'Search crop by name, ID, or alias', example: 'Rice', type: 'string'})
+  @JSONSchema({description: 'Search crop by name or alias', example: 'Rice', type: 'string'})
   @IsOptional()
   @IsString()
   search?: string;

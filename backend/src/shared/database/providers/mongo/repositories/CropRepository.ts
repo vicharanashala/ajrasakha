@@ -21,7 +21,6 @@ export class CropRepository {
   // ─── CREATE ────────────────────────────────────────────────────────────────
 
   async createCrop(
-    cropId: string,
     name: string,
     createdBy: string,
     aliases?: string[],
@@ -29,24 +28,35 @@ export class CropRepository {
     try {
       await this.init();
 
+      // Build a list of all values to check for uniqueness (name + aliases)
+      const allNames = [name.trim(), ...(aliases || []).map(a => a.trim())];
+
+      // Check if any existing crop has a matching name or alias
+      const orConditions: any[] = [];
+      for (const n of allNames) {
+        orConditions.push({name: {$regex: `^${n}$`, $options: 'i'}});
+        orConditions.push({aliases: {$regex: `^${n}$`, $options: 'i'}});
+      }
+
       const existing = await this.CropCollection.findOne({
-        $or: [
-          {cropId},
-          {name: {$regex: `^${name.trim()}$`, $options: 'i'}},
-        ],
+        $or: orConditions,
       });
 
       if (existing) {
+        // Find which value conflicted
+        const conflictingValue = allNames.find(n => {
+          const regex = new RegExp(`^${n}$`, 'i');
+          return regex.test(existing.name) || existing.aliases?.some(a => regex.test(a));
+        });
         throw new InternalServerError(
-          `Crop with ID "${cropId}" or name "${name}" already exists.`,
+          `Crop with name or alias "${conflictingValue}" already exists in crop "${existing.name}".`,
         );
       }
 
       const now = new Date();
       const payload: ICrop = {
-        cropId: cropId.trim(),
         name: name.trim(),
-        aliases: aliases || [],
+        aliases: (aliases || []).map(a => a.trim()),
         createdBy: new ObjectId(createdBy),
         createdAt: now,
         updatedAt: now,
@@ -80,7 +90,6 @@ export class CropRepository {
 
       if (query?.search) {
         filter.$or = [
-          {cropId: {$regex: query.search, $options: 'i'}},
           {name: {$regex: query.search, $options: 'i'}},
           {aliases: {$regex: query.search, $options: 'i'}},
         ];
@@ -140,28 +149,21 @@ export class CropRepository {
 
   async updateCrop(
     id: string,
-    updates: {cropId?: string; name?: string; aliases?: string[]},
+    updates: {name?: string; aliases?: string[]},
     updatedBy: string,
   ): Promise<ICrop | null> {
     try {
       await this.init();
 
-      if (updates.cropId || updates.name) {
-        const orConditions = [];
-        if (updates.cropId) orConditions.push({cropId: updates.cropId.trim()});
-        if (updates.name)
-          orConditions.push({
-            name: {$regex: `^${updates.name.trim()}$`, $options: 'i'},
-          });
-
+      if (updates.name) {
         const existing = await this.CropCollection.findOne({
-          $or: orConditions,
+          name: {$regex: `^${updates.name.trim()}$`, $options: 'i'},
           _id: {$ne: new ObjectId(id)},
         });
 
         if (existing) {
           throw new InternalServerError(
-            `Crop with ID "${updates.cropId}" or name "${updates.name}" already exists.`,
+            `Crop with name "${updates.name}" already exists.`,
           );
         }
       }
@@ -171,7 +173,6 @@ export class CropRepository {
         updatedBy: new ObjectId(updatedBy),
       };
 
-      if (updates.cropId !== undefined) $set.cropId = updates.cropId.trim();
       if (updates.name !== undefined) $set.name = updates.name.trim();
       if (updates.aliases !== undefined) $set.aliases = updates.aliases;
 
@@ -194,40 +195,5 @@ export class CropRepository {
       throw new InternalServerError(`Failed to update crop: ${error.message}`);
     }
   }
-
-  // ─── DELETE ────────────────────────────────────────────────────────────────
-
-  async deleteCrop(cropId: string): Promise<{deletedCount: number}> {
-    try {
-      await this.init();
-
-      const crop = await this.CropCollection.findOne({_id: new ObjectId(cropId)});
-      if (!crop) {
-        throw new NotFoundError(`Crop with id "${cropId}" not found.`);
-      }
-
-      // Block delete if any question references this crop
-      // Handles both old string format and new ICropRef object format
-      const QuestionCollection = await this.db.getCollection('questions');
-      const inUse = await QuestionCollection.findOne({
-        $or: [
-          {'details.crop': {$regex: `^${crop.name}$`, $options: 'i'}},
-          {'details.crop.cropId': crop.cropId},
-        ],
-      });
-
-      if (inUse) {
-        throw new BadRequestError(
-          `Cannot delete crop "${crop.name}" — it is referenced by existing questions.`,
-        );
-      }
-
-      const result = await this.CropCollection.deleteOne({_id: new ObjectId(cropId)});
-      return {deletedCount: result.deletedCount};
-    } catch (error: any) {
-      if (error instanceof NotFoundError || error instanceof BadRequestError)
-        throw error;
-      throw new InternalServerError(`Failed to delete crop: ${error.message}`);
-    }
-  }
 }
+

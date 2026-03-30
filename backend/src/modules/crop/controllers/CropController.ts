@@ -4,7 +4,6 @@ import {
   Get,
   Post,
   Put,
-  Delete,
   Body,
   HttpCode,
   Params,
@@ -137,32 +136,5 @@ export class CropController {
       data: updated,
     };
   }
-
-  // ─── DELETE CROP (soft) ──────────────────────────────────────────────────
-
-  @Delete('/:cropId')
-  @HttpCode(200)
-  @Authorized()
-  @OpenAPI({summary: 'Soft-delete a crop (admin/moderator only)'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async deleteCrop(
-    @Params() params: CropIdParam,
-    @CurrentUser() user: IUser,
-  ): Promise<{success: boolean; message: string}> {
-    // Role check
-    if (!WRITE_ROLES.includes(user.role)) {
-      throw new ForbiddenError(
-        'Only admins and moderators can delete crops.',
-      );
-    }
-
-    const {cropId} = params;
-
-    await this.cropService.deleteCrop(cropId);
-
-    return {
-      success: true,
-      message: 'Crop deleted successfully.',
-    };
-  }
 }
+

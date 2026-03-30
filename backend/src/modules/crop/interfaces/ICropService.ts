@@ -10,5 +10,4 @@ export interface ICropService {
   getCropById(cropId: string): Promise<ICrop | null>;
   createCrop(dto: CreateCropDto, userId: string): Promise<ICrop>;
   updateCrop(cropId: string, dto: UpdateCropDto, userId: string): Promise<ICrop | null>;
-  deleteCrop(cropId: string): Promise<{deletedCount: number}>;
 }
