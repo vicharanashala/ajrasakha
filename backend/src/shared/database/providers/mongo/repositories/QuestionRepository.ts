@@ -306,6 +306,7 @@ export class QuestionRepository implements IQuestionRepository {
         source,
         state,
         crop,
+        normalised_crop,
         priority,
         answersCountMin,
         answersCountMax,
@@ -343,6 +344,35 @@ export class QuestionRepository implements IQuestionRepository {
       caseInsensitiveStringFilter('details.state', state);
       caseInsensitiveStringFilter('details.crop', crop);
       caseInsensitiveStringFilter('details.domain', domain);
+
+      // --- Normalized Crop Filter ---
+      if (normalised_crop && normalised_crop !== 'all') {
+        if (normalised_crop === '__NOT_SET__') {
+          // Find questions where normalised_crop does not exist or is empty
+          filter.$or = [
+            ...(filter.$or || []),
+            {'details.normalised_crop': {$exists: false}},
+            {'details.normalised_crop': ''},
+            {'details.normalised_crop': null},
+          ];
+          // If $or was just created for this, remove any prior $or and use a standalone
+          if (!filter.$or.length || filter.$or.length === 3) {
+            filter['details.normalised_crop'] = {$in: [null, '', undefined]};
+            filter.$and = [
+              ...(filter.$and || []),
+              {$or: [
+                {'details.normalised_crop': {$exists: false}},
+                {'details.normalised_crop': ''},
+                {'details.normalised_crop': null},
+              ]}
+            ];
+            delete filter.$or;
+            delete filter['details.normalised_crop'];
+          }
+        } else {
+          caseInsensitiveStringFilter('details.normalised_crop', normalised_crop);
+        }
+      }
       const approvalCount =
         consecutiveApprovals && consecutiveApprovals !== 'all'
           ? parseInt(consecutiveApprovals, 10)
