@@ -36,6 +36,10 @@ const TYPES = {
   // Constants
   uri: Symbol.for('dbURI'),
   dbName: Symbol.for('dbName'),
+
+  analyticsUri: Symbol.for('analyticsDbURI'),
+  analyticsDbName: Symbol.for('analyticsDbName'),
+  analyticsDatabase: Symbol.for('AnalyticsDatabase'),
 };
 
 export {TYPES as GLOBAL_TYPES};
