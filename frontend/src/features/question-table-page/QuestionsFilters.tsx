@@ -449,7 +449,7 @@ export const QuestionsFilters = ({
           <Button
             variant="default"
             size="sm"
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 text-xs sm:text-sm py-2 sm:py-1.5 whitespace-nowrap"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 text-xs sm:text-sm py-2 sm:py-1.5 whitespace-nowrap cursor-pointer"
             onClick={() => {
               setAddQuestionErrors({});
               setAddOpen(true);
