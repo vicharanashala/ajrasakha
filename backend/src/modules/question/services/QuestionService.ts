@@ -49,6 +49,7 @@ import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
 import {IDuplicateQuestionRepository} from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
 import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
 import {checkConceptDuplicate} from '#root/modules/question/aiservice/checkConceptDuplicate.js'
+import {CropRepository} from '#root/shared/database/providers/mongo/repositories/CropRepository.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -85,6 +86,9 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     @inject(GLOBAL_TYPES.DuplicateQuestionRepository)
     private readonly duplicateQuestionRepository: IDuplicateQuestionRepository,
+
+    @inject(GLOBAL_TYPES.CropRepository)
+    private readonly cropRepository: CropRepository,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -831,6 +835,37 @@ export class QuestionService extends BaseService implements IQuestionService {
       logData.question = question;
       logData.details = details;
       logData.source = source;
+
+      // ─── Normalize crop against crop_master DB ───────────────────────────
+      const rawCropName = typeof details.crop === 'string' ? details.crop : details.crop?.name || '';
+      let normalised_crop = rawCropName.trim().toLowerCase();
+      if (rawCropName.trim()) {
+        try {
+          const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
+          if (existingCrop) {
+            // Crop found — use the canonical name (handles alias→name swap)
+            details.crop = existingCrop.name;
+            normalised_crop = existingCrop.name;
+            logData.cropNormalization = { original: rawCropName, resolved: existingCrop.name, normalised_crop: existingCrop.name, action: rawCropName.trim().toLowerCase() === existingCrop.name ? 'EXACT_MATCH' : 'ALIAS_RESOLVED' };
+          } else {
+            // Crop not found — auto-create it in the DB
+            const normalizedName = rawCropName.trim().toLowerCase();
+            await this.cropRepository.createCrop(normalizedName, userId || '', []);
+            details.crop = normalizedName;
+            normalised_crop = normalizedName;
+            logData.cropNormalization = { original: rawCropName, resolved: normalizedName, normalised_crop: normalizedName, action: 'AUTO_CREATED' };
+          }
+        } catch (cropError: any) {
+          // If crop normalization fails (e.g. uniqueness race condition), log but don't block question creation
+          console.error('Crop normalization warning:', cropError.message);
+          logData.cropNormalizationError = cropError.message;
+          // Still normalize to lowercase
+          details.crop = rawCropName.trim().toLowerCase();
+          normalised_crop = rawCropName.trim().toLowerCase();
+        }
+      }
+      // Always set normalised_crop on details
+      details.normalised_crop = normalised_crop;
 
       // 🔹 Create Embedding — OUTSIDE transaction
       const text = `Question: ${question}`;

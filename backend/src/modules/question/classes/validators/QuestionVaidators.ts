@@ -98,6 +98,10 @@ class QuestionDetailsDto {
 
   @IsString()
   domain!: string;
+
+  @IsOptional()
+  @IsString()
+  normalised_crop?: string;
 }
 
 
