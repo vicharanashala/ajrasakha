@@ -10,7 +10,7 @@ export const AuthModeSwitch = ({ mode, onToggle }: AuthModeSwitchProps) => (
     </span>
     <button
       onClick={onToggle} // Call toggle function when clicked
-      className="text-green-400 underline ml-1" // Styling for the toggle button
+      className="text-green-400 underline ml-1 cursor-pointer hover:text-green-300 hover:underline-offset-2 transition-all duration-200" // Styling for the toggle button
       type="button" // Ensure it doesn't submit a form
       aria-label={`Switch to ${mode === "login" ? "signup" : "login"}`}
     >
