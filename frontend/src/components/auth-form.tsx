@@ -619,7 +619,7 @@ export const AuthForm = ({
                   onClick={() =>
                     handleModeChange(mode === "login" ? "signup" : "login")
                   }
-                  className="font-semibold text-green-400 underline hover:text-green-500  hover:underline transition-all duration-300"
+                  className="font-semibold text-green-400 underline cursor-pointer hover:text-green-300 hover:underline-offset-2 hover:brightness-110 transition-all duration-300"
                   >
                     {mode === "login" ? "Sign up" : "Sign in"}
                   </button>
