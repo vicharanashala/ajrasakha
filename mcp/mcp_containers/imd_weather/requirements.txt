@@ -1,0 +1,4 @@
+fastmcp>=0.4.1
+httpx
+requests
+python-dotenv

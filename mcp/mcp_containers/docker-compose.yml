@@ -52,6 +52,15 @@ services:
       - hf_cache:/app/hf_cache
     restart: unless-stopped
 
+  imd-weather-mcp:
+    build:
+      context: ..
+      dockerfile: ./mcp_containers/imd_weather/Dockerfile
+    container_name: imd-weather-mcp
+    ports:
+      # Maps your host's 9006 to the container's 8000
+      - "9006:8000"
+    restart: unless-stopped
   review-search-mcp:
     build:
       context: ./review-search-mcp
