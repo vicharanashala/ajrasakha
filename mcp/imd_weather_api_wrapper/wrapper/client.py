@@ -1,9 +1,7 @@
 # imd_api_wrapper/wrapper/client.py
 # ─────────────────────────────────────────────────────────────
 # IMD API Client
-# Currently runs in MOCK mode (no real credentials needed).
-# Switch to LIVE by setting BASE_URL and API_KEY in config.py
-# and flipping USE_MOCK = False below.
+# Currently runs in Live mode with IP-whitelist auth (no API key required).
 # ─────────────────────────────────────────────────────────────
 
 import time
@@ -168,49 +166,6 @@ def _mock_nowcast(district: str, state: str = "") -> dict:
     }
 
 
-_WARNING_POOL = [
-    "Heavy Rainfall Warning",
-    "Thunderstorm Alert",
-    "Strong Wind Advisory",
-    "Heatwave Warning",
-    "Cold Wave Alert",
-    "No Active Warning",
-    "No Active Warning",
-    "No Active Warning",
-]
-
-def _mock_agromet_advisory(district: str, state: str = "",
-                           crop: str = "") -> dict:
-    warning = random.choice(_WARNING_POOL)
-    severity = (
-        "Red"    if "Heavy" in warning or "Heatwave" in warning else
-        "Orange" if "Thunderstorm" in warning or "Strong" in warning else
-        "Yellow" if "Cold" in warning else
-        "Green"
-    )
-    return {
-        "district"   : district,
-        "state"      : state,
-        "crop"       : crop or "General",
-        "issued_at"  : _now(),
-        "valid_until": _now(),
-        "alert_type" : warning,
-        "severity"   : severity,
-        "advisory"   : (
-            "Avoid outdoor activity. Seek shelter immediately."
-            if warning != "No Active Warning"
-            else "No precautionary measures required."
-        ),
-        "crop_advisory": random.choice([
-            "Postpone irrigation for 2 days.",
-            "Apply fungicide to prevent disease spread.",
-            "Harvest immediately before heavy rain.",
-            "No special action required.",
-            "Cover sensitive crops tonight.",
-        ]),
-    }
-
-
 # Response normaliser 
 
 def _normalise(raw: dict, endpoint_key: str) -> dict:
@@ -245,7 +200,6 @@ def _fetch(endpoint_key: str, params: dict,
             "rainfall_forecast": _mock_rainfall_forecast,
             "current_weather"  : _mock_current_weather,
             "nowcast"          : _mock_nowcast,
-            "agromet_advisory" : _mock_agromet_advisory,
         }[endpoint_key]
         raw = mock_fn(**params)
         return _normalise(raw, endpoint_key)
@@ -290,7 +244,7 @@ def _fetch(endpoint_key: str, params: dict,
 
 class IMDClient:
     """
-    Client for the 6 priority IMD weather endpoints identified
+    Client for the 5 priority IMD weather endpoints identified
     from analysis of 15.5M KCC farmer weather queries.
 
     Endpoint coverage
@@ -300,7 +254,6 @@ class IMDClient:
     rainfall_forecast MEDIUM       248,633 queries   1.60%
     current_weather   MEDIUM       180,855 queries   1.16%
     nowcast           LOW           57,084 queries   0.37%
-    agromet_advisory  LOW           21,655 queries   0.14%
     """
 
     def __init__(self):
@@ -365,23 +318,12 @@ class IMDClient:
         """
         return _fetch("nowcast", {"district": district, "state": state})
 
-    def get_agromet_advisory(self, district: str, state: str = "",
-                              crop: str = "") -> dict:
-        """
-        Agro-meteorological advisory with crop-specific guidance.
-        Covers Weather Impact on Crops need — 21,655 queries (0.14%).
-        Freshness: daily.
-        Clusters : 5, 51
-        """
-        return _fetch("agromet_advisory",
-                      {"district": district, "state": state, "crop": crop})
-
     # Convenience
 
     def get_full_profile(self, city: str, district: str,
                          state: str = "", crop: str = "") -> dict:
         """
-        Calls all 6 endpoints and returns a combined dict.
+        Calls all 5 endpoints and returns a combined dict.
         A failure on one endpoint is captured and does not
         block the remaining calls.
         """
@@ -396,8 +338,6 @@ class IMDClient:
              {"city": city, "state": state}),
             ("nowcast",           self.get_nowcast,
              {"district": district, "state": state}),
-            ("agromet_advisory",  self.get_agromet_advisory,
-             {"district": district, "state": state, "crop": crop}),
         ]
         results = {}
         for key, fn, kwargs in calls:
