@@ -104,7 +104,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new BadRequestError('No questions provided for bulk insert');
     }
 
-    const testEmbedding = await this.aiService.getEmbedding('Test');
+    // const testEmbedding = await this.aiService.getEmbedding('Test'); // disabled locally — AI server not running
 
     // ── In-memory crop cache: lowercase input → canonical normalised_crop ──
     const cropCache = new Map<string, string>();
