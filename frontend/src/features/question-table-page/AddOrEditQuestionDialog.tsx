@@ -143,7 +143,28 @@ const CropSelect = ({
         {useDbCrops
           ? dbCrops.map((crop) => (
               <SelectItem key={crop._id || crop.name} value={crop.name}>
-                <span className="capitalize">{crop.name}</span>
+                {crop.aliases && crop.aliases.length > 0 ? (
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center gap-2 cursor-default">
+                          <span className="capitalize">{crop.name}</span>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                            +{crop.aliases.length}
+                          </span>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="text-xs">
+                        <p className="font-semibold mb-0.5">Also known as:</p>
+                        {crop.aliases.map((a) => (
+                          <p key={a} className="capitalize text-muted-foreground">{a}</p>
+                        ))}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <span className="capitalize">{crop.name}</span>
+                )}
               </SelectItem>
             ))
           : CROPS.map((crop) => (
