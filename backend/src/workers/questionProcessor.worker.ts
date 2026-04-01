@@ -97,13 +97,14 @@ const aiService = new AiService();
       //   );
       //   continue;
       // }
-      let textEmbedding: number[] = [0.1, 0.1, 0.1]; // dummy embedding for local dev
+      let textEmbedding = [];
 
-      // const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
-      // if (ENABLE_AI_SERVER) {
-      //   const {embedding} = await aiService.getEmbedding(textToEmbed);
-      //   textEmbedding = embedding;
-      // }
+      const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+
+      if (ENABLE_AI_SERVER) {
+        const {embedding} = await aiService.getEmbedding(textToEmbed);
+        textEmbedding = embedding;
+      }
 
       await questionRepo['QuestionCollection'].updateOne(
         {_id: new (await import('mongodb')).ObjectId(qId)},
