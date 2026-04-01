@@ -578,6 +578,7 @@ export const AddOrEditQuestionDialog = ({
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                       <label>Crop*</label>
+                      {mode !== "edit" && (
                       <TooltipProvider delayDuration={200}>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -588,6 +589,7 @@ export const AddOrEditQuestionDialog = ({
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
+                      )}
                     </div>
                     <CropSelect
                       value={updatedData?.details?.crop}
@@ -607,6 +609,7 @@ export const AddOrEditQuestionDialog = ({
                       }}
                       hasError={!!(mode === "add" && validationErrors?.crop)}
                       invalidFieldClass={invalidFieldClass}
+                      showAliases={mode !== "edit"}
                     />
                     {mode === "add" && validationErrors?.crop && (
                       <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
