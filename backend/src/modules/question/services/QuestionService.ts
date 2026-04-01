@@ -49,6 +49,7 @@ import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
 import {IDuplicateQuestionRepository} from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
 import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
 import {checkConceptDuplicate} from '#root/modules/question/aiservice/checkConceptDuplicate.js'
+import {CropRepository} from '#root/shared/database/providers/mongo/repositories/CropRepository.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -86,6 +87,9 @@ export class QuestionService extends BaseService implements IQuestionService {
     @inject(GLOBAL_TYPES.DuplicateQuestionRepository)
     private readonly duplicateQuestionRepository: IDuplicateQuestionRepository,
 
+    @inject(GLOBAL_TYPES.CropRepository)
+    private readonly cropRepository: CropRepository,
+
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
   ) {
@@ -100,18 +104,50 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new BadRequestError('No questions provided for bulk insert');
     }
 
-    // To test whether the ai server is running or not
-    const testEmbedding = await this.aiService.getEmbedding('Test');
+    // const testEmbedding = await this.aiService.getEmbedding('Test'); // disabled locally — AI server not running
 
-    const formatted: IQuestion[] = questions.map((q: any) => {
+    // ── In-memory crop cache: lowercase input → canonical normalised_crop ──
+    const cropCache = new Map<string, string>();
+
+    const formatted: IQuestion[] = [];
+    for (const q of questions) {
       const low = normalizeKeysToLower(q || {});
-      const details = {
-        state: (low.state || '').toString(),
+      const details: IQuestion['details'] = {
+        state:    (low.state    || '').toString(),
         district: (low.district || '').toString(),
-        crop: (low.crop || '').toString(),
-        season: (low.season || '').toString(),
-        domain: (low.domain || '').toString(),
+        crop:     (low.crop     || '').toString(),
+        season:   (low.season   || '').toString(),
+        domain:   (low.domain   || '').toString(),
       };
+
+      // ── Crop normalisation (mirrors addQuestion logic, with per-call cache) ──
+      const rawCropName = (low.crop || '').toString();
+      let normalised_crop = rawCropName.trim().toLowerCase();
+      if (rawCropName.trim()) {
+        const cacheKey = rawCropName.trim().toLowerCase();
+        if (cropCache.has(cacheKey)) {
+          normalised_crop = cropCache.get(cacheKey)!;
+        } else {
+          try {
+            const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
+            if (existingCrop) {
+              normalised_crop = existingCrop.name;
+            } else {
+              const normalizedName = rawCropName.trim().toLowerCase();
+              await this.cropRepository.createCrop(normalizedName, userId || '', []);
+              normalised_crop = normalizedName;
+            }
+          } catch (cropError: any) {
+            console.error('Crop normalization warning:', cropError.message);
+          }
+          // Always cache — prevents retrying failed crop creation on subsequent questions
+          cropCache.set(cacheKey, normalised_crop);
+        }
+      }
+      // Explicitly preserve the original input string — normalised_crop holds the canonical name
+      details.crop = rawCropName;
+      details.normalised_crop = normalised_crop;
+
       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
       const priorities = ['low', 'high', 'medium'];
       const priority = priorities.includes(priorityRaw)
@@ -142,8 +178,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         updatedAt: new Date(),
       };
 
-      return base;
-    });
+      formatted.push(base);
+    }
 
     try {
       const insertedIds = await this.questionRepo.insertMany(formatted);
@@ -634,7 +670,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         const topSimilar = await this.questionRepo.findTopSimilarQuestions(
           textEmbedding,
           5,
-          { state: details.state, district: details.district, crop: details.crop, domain: details.domain, season: details.season },
+          { state: details.state, district: details.district, crop: typeof details.crop === 'string' ? details.crop : details.crop.name, domain: details.domain, season: details.season },
         );
 
         logData.totalMatches = topSimilar.length;
@@ -816,9 +852,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (!question?.trim()) {
         throw new BadRequestError(`Question is required`);
       }
-  
+
       if (
-        !details.crop ||
+        !(typeof details.crop === 'string' ? details.crop.trim() : details.crop?.name?.trim()) ||
         !details.district ||
         !details.domain ||
         !details.season ||
@@ -831,6 +867,33 @@ export class QuestionService extends BaseService implements IQuestionService {
       logData.question = question;
       logData.details = details;
       logData.source = source;
+
+      // ─── Normalize crop against crop_master DB ───────────────────────────
+      const rawCropName = typeof details.crop === 'string' ? details.crop : details.crop?.name || '';
+      let normalised_crop = rawCropName.trim().toLowerCase();
+      if (rawCropName.trim()) {
+        try {
+          const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
+          if (existingCrop) {
+            // Crop found — keep original input string, normalise to canonical name
+            normalised_crop = existingCrop.name;
+            logData.cropNormalization = { original: rawCropName, resolved: existingCrop.name, action: rawCropName.trim().toLowerCase() === existingCrop.name ? 'EXACT_MATCH' : 'ALIAS_RESOLVED' };
+          } else {
+            // Crop not found — auto-create it in the DB
+            const normalizedName = rawCropName.trim().toLowerCase();
+            await this.cropRepository.createCrop(normalizedName, userId || '', []);
+            normalised_crop = normalizedName;
+            logData.cropNormalization = { original: rawCropName, resolved: normalizedName, action: 'AUTO_CREATED' };
+          }
+        } catch (cropError: any) {
+          // If crop normalization fails (e.g. uniqueness race condition), log but don't block question creation
+          console.error('Crop normalization warning:', cropError.message);
+          logData.cropNormalizationError = cropError.message;
+        }
+      }
+      // Explicitly preserve the original input string — normalised_crop holds the canonical name
+      details.crop = rawCropName;
+      details.normalised_crop = normalised_crop;
 
       // 🔹 Create Embedding — OUTSIDE transaction
       const text = `Question: ${question}`;
@@ -900,7 +963,7 @@ export class QuestionService extends BaseService implements IQuestionService {
              question,
              details.state,
              details.district,
-             details.crop,
+             typeof details.crop === 'string' ? details.crop : details.crop.name,
              details.season,
              details.domain
            );
@@ -3003,6 +3066,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async generateStateCropQuestionReport(filters: {
     state?: string;
     crop?: string;
+    normalised_crop?: string;
     season?: string;
     domain?: string;
     status?: string;
@@ -3015,6 +3079,17 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
       if (filters.crop && filters.crop !== 'all') {
         query['details.crop'] = filters.crop;
+      }
+      if (filters.normalised_crop && filters.normalised_crop !== 'all') {
+        if (filters.normalised_crop === '__NOT_SET__') {
+          query.$or = [
+            {'details.normalised_crop': {$exists: false}},
+            {'details.normalised_crop': null},
+            {'details.normalised_crop': ''},
+          ];
+        } else {
+          query['details.normalised_crop'] = {$regex: `^${filters.normalised_crop}$`, $options: 'i'};
+        }
       }
       if (filters.season && filters.season !== 'all') {
         query['details.season'] = filters.season;
@@ -3094,7 +3169,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // Fetch reference question details for metadata
       // Use a Map to avoid duplicate fetches for the same reference question
-      const refDetailsMap = new Map<string, {state: string; district: string; crop: string; season: string; domain: string} | null>();
+      const refDetailsMap = new Map<string, {state: string; district: string; crop: string | import('#root/shared/interfaces/models.js').ICropRef; season: string; domain: string} | null>();
 
       for (const q of duplicateQuestions) {
         const refId = q.referenceQuestionId?.toString();

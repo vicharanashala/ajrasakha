@@ -2171,6 +2171,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       startTime,
       endTime,
       crop,
+      normalised_crop,
       season,
       state,
       district,
@@ -2180,6 +2181,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     // district="vn"
     // status="closed"
     crop = crop === 'all' ? undefined : crop;
+    normalised_crop = normalised_crop === 'all' ? undefined : normalised_crop;
     season = season === 'all' ? undefined : season;
     state = state === 'all' ? undefined : state;
     district = district === 'all' ? undefined : district;
@@ -2265,9 +2267,20 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         modifiedCount: 0,
       },
     ];
-    if (crop || season || state || district || status || domain) {
+    if (crop || normalised_crop || season || state || district || status || domain) {
       const questionFilter: any = {};
       if (crop) questionFilter['details.crop'] = crop;
+      if (normalised_crop) {
+        if (normalised_crop === '__NOT_SET__') {
+          questionFilter.$or = [
+            {'details.normalised_crop': {$exists: false}},
+            {'details.normalised_crop': null},
+            {'details.normalised_crop': ''},
+          ];
+        } else {
+          questionFilter['details.normalised_crop'] = {$regex: `^${normalised_crop}$`, $options: 'i'};
+        }
+      }
       if (season) questionFilter['details.season'] = season;
       if (state) questionFilter['details.state'] = state;
       if (district) questionFilter['details.district'] = district;

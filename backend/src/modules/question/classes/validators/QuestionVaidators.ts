@@ -16,7 +16,7 @@ import {
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 import {ObjectId} from 'mongodb';
-import {IQuestionPriority, QuestionStatus} from '#shared/interfaces/models.js';
+import {IQuestionPriority, ICropRef, QuestionStatus} from '#shared/interfaces/models.js';
 import {Type} from 'class-transformer';
 
 class AddQuestionBody {
@@ -90,14 +90,18 @@ class QuestionDetailsDto {
   @IsString()
   district!: string;
 
-  @IsString()
-  crop!: string;
+  @IsNotEmpty()
+  crop!: string | ICropRef;
 
   @IsString()
   season!: string;
 
   @IsString()
   domain!: string;
+
+  @IsOptional()
+  @IsString()
+  normalised_crop?: string;
 }
 
 
@@ -474,6 +478,11 @@ class GetDetailedQuestionsQuery {
   @IsOptional()
   @IsString()
   crop?: string;
+
+  @JSONSchema({description: 'Normalized crop filter', example: 'wheat', type: 'string'})
+  @IsOptional()
+  @IsString()
+  normalised_crop?: string;
 
   @JSONSchema({
     description: 'Domain filter',

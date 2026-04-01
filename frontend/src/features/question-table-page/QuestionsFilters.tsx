@@ -20,6 +20,7 @@ import {
   Activity,
   EyeOff,
   Eye,
+  Wheat,
 } from "lucide-react";
 import {
   AdvanceFilterDialog,
@@ -56,6 +57,7 @@ import {
 import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { TopRightBadge } from "@/components/NewBadge";
+import { CropManagementModal } from "./CropManagementModal";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -137,6 +139,7 @@ export const QuestionsFilters = ({
  
   const [isReAllocateOpen,setIsReAllocateOpen] = useState(false);
   const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   
   const handleReAllocateLessWorkload = async () => {
     try {
@@ -288,6 +291,7 @@ export const QuestionsFilters = ({
       source: advanceFilter.source,
       state: myPreference?.state || advanceFilter.state,
       crop: myPreference?.crop || advanceFilter.crop,
+      normalised_crop: advanceFilter.normalised_crop,
       answersCount: advanceFilter.answersCount,
       dateRange: advanceFilter.dateRange,
       priority: advanceFilter.priority,
@@ -445,7 +449,7 @@ export const QuestionsFilters = ({
           <Button
             variant="default"
             size="sm"
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 text-xs sm:text-sm py-2 sm:py-1.5 whitespace-nowrap"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 text-xs sm:text-sm py-2 sm:py-1.5 whitespace-nowrap cursor-pointer"
             onClick={() => {
               setAddQuestionErrors({});
               setAddOpen(true);
@@ -656,6 +660,34 @@ export const QuestionsFilters = ({
                 </div>
               )}
 
+              {/* update crops */}
+              {userRole !== "expert" && (
+                <button
+                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  onClick={() => {
+                    setIsCropModalOpen(true);
+                    setIsSidebarOpen(false);
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-500">
+                      <Wheat size={20} />
+                    </div>
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
+                        <p className="relative text-sm font-bold text-gray-900 dark:text-white">
+                          Update Crops
+                        <TopRightBadge label="New" right={4} />
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-gray-500">
+                        Manage crop master list
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              )}
+
               {/* reallocate */}
               {userRole !== "expert" && (
                 <button
@@ -787,6 +819,7 @@ export const QuestionsFilters = ({
                 onOpenChange={setIsReAllocateOpen}
                 onConfirm={handleReAllocateLessWorkload}
               />
+      <CropManagementModal open={isCropModalOpen} onOpenChange={setIsCropModalOpen} />
     </div>
   );
 };

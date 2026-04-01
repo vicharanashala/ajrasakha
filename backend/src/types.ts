@@ -32,6 +32,9 @@ const TYPES = {
   ReviewRepository: Symbol.for('ReviewRepository'),
   ReRouteRepository:Symbol.for("ReRouteRepository"),
   DuplicateQuestionRepository:Symbol.for("DuplicateQuestionRepository"),
+  CropRepository: Symbol.for('CropRepository'),
+  MongoDatabase: Symbol.for('MongoDatabase'),
+  CropService: Symbol.for('CropService'),
 
   // Constants
   uri: Symbol.for('dbURI'),

@@ -39,7 +39,7 @@ const ViewDropdown: React.FC<ViewDropdownProps> = ({ view, setView }) => {
         onClick={() => setOpen((prev) => !prev)}
         className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium 
                    rounded-md border border-gray-200
-                   bg-white 
+                   bg-white cursor-pointer
                    hover:bg-gray-50 
                    transition-colors
                    dark:bg-[#1a1a1a] dark:border-gray-800 dark:hover:border-gray-600 dark:shadow-none 

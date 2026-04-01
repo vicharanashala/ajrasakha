@@ -159,6 +159,7 @@ export interface IQuestion {
     state: string;
     district: string;
     crop: string;
+    normalised_crop?: string;
     season: string;
     domain: string;
   };
@@ -413,6 +414,7 @@ export interface IQuestionFullData {
     state: string;
     district: string;
     crop: string;
+    normalised_crop?: string;
     season: string;
     domain: string;
   };
@@ -459,6 +461,7 @@ export interface IDetailedQuestion {
     state: string;
     district: string;
     crop: string;
+    normalised_crop?: string;
     season: string;
     domain: string;
   };

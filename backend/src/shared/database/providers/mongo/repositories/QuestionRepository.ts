@@ -306,6 +306,7 @@ export class QuestionRepository implements IQuestionRepository {
         source,
         state,
         crop,
+        normalised_crop,
         priority,
         answersCountMin,
         answersCountMax,
@@ -343,6 +344,23 @@ export class QuestionRepository implements IQuestionRepository {
       caseInsensitiveStringFilter('details.state', state);
       caseInsensitiveStringFilter('details.crop', crop);
       caseInsensitiveStringFilter('details.domain', domain);
+
+      // --- Normalized Crop Filter ---
+      if (normalised_crop && normalised_crop !== 'all') {
+        if (normalised_crop === '__NOT_SET__') {
+          // Find questions where normalised_crop does not exist, is null, or is empty string
+          if (!filter.$and) filter.$and = [];
+          filter.$and.push({
+            $or: [
+              {'details.normalised_crop': {$exists: false}},
+              {'details.normalised_crop': null},
+              {'details.normalised_crop': ''},
+            ],
+          });
+        } else {
+          caseInsensitiveStringFilter('details.normalised_crop', normalised_crop);
+        }
+      }
       const approvalCount =
         consecutiveApprovals && consecutiveApprovals !== 'all'
           ? parseInt(consecutiveApprovals, 10)

@@ -41,6 +41,7 @@ export class QuestionService {
     if (filter.source) params.append("source", filter.source);
     if (filter.state) params.append("state", filter.state);
     if (filter.crop) params.append("crop", filter.crop);
+    if (filter.normalised_crop) params.append("normalised_crop", filter.normalised_crop);
     if (filter.priority) params.append("priority", filter.priority);
     if (filter.domain) params.append("domain", filter.domain);
     if (filter.user) params.append("user", filter.user);
@@ -501,6 +502,7 @@ export class QuestionService {
   async downloadFilteredReport(filters: {
     state?: string;
     crop?: string;
+    normalised_crop?: string;
     season?: string;
     domain?: string;
     status?: string;
@@ -511,6 +513,9 @@ export class QuestionService {
     }
     if (filters.crop && filters.crop !== 'all') {
       params.append("crop", filters.crop);
+    }
+    if (filters.normalised_crop && filters.normalised_crop !== 'all') {
+      params.append("normalised_crop", filters.normalised_crop);
     }
     if (filters.season && filters.season !== 'all') {
       params.append("season", filters.season);

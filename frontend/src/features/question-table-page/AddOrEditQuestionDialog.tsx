@@ -59,6 +59,7 @@ import {
 import { Separator } from "../../components/atoms/separator";
 import { Input } from "../../components/atoms/input";
 import { STATES, CROPS, DOMAINS, SEASONS, DISTRICTS } from "../../components/MetaData";
+import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 
 
 
@@ -108,6 +109,86 @@ const OPTIONS: Partial<Record<DetailField, string[]>> = {
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
+};
+
+// ── Crop Select with DB data + alias tooltips ────────────────────────
+const CropSelect = ({
+  value,
+  onValueChange,
+  hasError,
+  invalidFieldClass,
+  placeholder,
+  showAliases = true,
+}: {
+  value?: string;
+  onValueChange: (val: string) => void;
+  hasError: boolean;
+  invalidFieldClass: string;
+  placeholder?: string;
+  showAliases?: boolean;
+}) => {
+  const { data: cropsData, isLoading } = useGetAllCrops();
+  const dbCrops = cropsData?.crops || [];
+
+  // If DB has crops, use them; otherwise fallback to hardcoded CROPS
+  const useDbCrops = dbCrops.length > 0;
+
+  const normalizedVal = value?.trim().toLowerCase();
+  const matchedValue = normalizedVal
+    ? useDbCrops
+      ? dbCrops.find((c) => c.name.toLowerCase() === normalizedVal)?.name
+      : CROPS.find((c) => c.toLowerCase() === normalizedVal)
+    : undefined;
+
+  return (
+    <Select
+      value={matchedValue ?? (value?.trim() ? value : undefined)}
+      onValueChange={onValueChange}
+    >
+      <SelectTrigger
+        className={`w-full ${hasError ? invalidFieldClass : ""}`}
+      >
+        <SelectValue placeholder={isLoading ? "Loading crops..." : (placeholder ?? "Select crop")} />
+      </SelectTrigger>
+      <SelectContent>
+        {!matchedValue && value?.trim() && (
+          <SelectItem key={value.trim()} value={value.trim()}>{value.trim()}</SelectItem>
+        )}
+        {useDbCrops
+          ? dbCrops.map((crop) => (
+              <SelectItem key={crop._id || crop.name} value={crop.name}>
+                {showAliases && crop.aliases && crop.aliases.length > 0 ? (
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center gap-2 cursor-default">
+                          <span className="capitalize">{crop.name}</span>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                            +{crop.aliases.length}
+                          </span>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="text-xs">
+                        <p className="font-semibold mb-0.5">Also known as:</p>
+                        {crop.aliases.map((a) => (
+                          <p key={a} className="capitalize text-muted-foreground">{a}</p>
+                        ))}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <span className="capitalize">{crop.name}</span>
+                )}
+              </SelectItem>
+            ))
+          : CROPS.map((crop) => (
+              <SelectItem key={crop} value={crop}>
+                {crop}
+              </SelectItem>
+            ))}
+      </SelectContent>
+    </Select>
+  );
 };
 
 export const AddOrEditQuestionDialog = ({
@@ -393,7 +474,179 @@ export const AddOrEditQuestionDialog = ({
                     [
                       "state",
                       "district",
-                      "crop",
+                    ] as DetailField[]
+                  ).map((field) => {
+                    const stateVal = updatedData?.details?.state?.trim();
+                    const districtKey = stateVal
+                      ? Object.keys(DISTRICTS).find((k) => k.toLowerCase() === stateVal.toLowerCase())
+                      : undefined;
+                    const fieldOptions =
+                                          field === "district"
+                                            ? districtKey ? DISTRICTS[districtKey] : []
+                                            : OPTIONS[field];
+                    return (
+                      <div key={field} className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                          <label>
+                            {field.charAt(0).toUpperCase() + field.slice(1)}*
+                          </label>
+                        </div>
+                        {fieldOptions ? (
+                          <Select
+                            value={
+                              updatedData?.details?.[field]?.trim()
+                                ? fieldOptions.find(
+                                    (o) => o.toLowerCase() === updatedData.details![field].toLowerCase().trim()
+                                  ) ?? updatedData.details[field]
+                                : undefined
+                            }
+                            onValueChange={(val) => {
+                              onFieldValidatedChange?.(field as AddQuestionField);
+                              setUpdatedData((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        [field]: val,
+                                      },
+                                    }
+                                  : prev
+                              );
+                            }}
+                          >
+                            <SelectTrigger
+                              className={`w-full ${
+                                mode === "add" && validationErrors?.[field as AddQuestionField]
+                                  ? invalidFieldClass
+                                  : ""
+                              }`}
+                            >
+                              <SelectValue placeholder={`Select ${field}`} />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                              {fieldOptions.map((option) => (
+                                <SelectItem key={option} value={option}>
+                                  {option}
+                                </SelectItem>
+                              ))}
+                              {(() => {
+                                const raw = updatedData?.details?.[field]?.trim();
+                                const hasMatch = raw && fieldOptions.some((o) => o.toLowerCase() === raw.toLowerCase());
+                                return raw && !hasMatch ? (
+                                  <SelectItem key={raw} value={raw}>{raw}</SelectItem>
+                                ) : null;
+                              })()}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            type="text"
+                            value={updatedData?.details?.district || ""}
+                            onChange={(e) => {
+                              onFieldValidatedChange?.("district");
+                              setUpdatedData((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        district: e.target.value,
+                                      },
+                                    }
+                                  : prev
+                              );
+                            }}
+                            className={
+                              mode === "add" && validationErrors?.district
+                                ? invalidFieldClass
+                                : undefined
+                            }
+                          />
+                        )}
+                        {mode === "add" && validationErrors?.[field as AddQuestionField] && (
+                          <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
+                            {validationErrors[field as AddQuestionField]}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* ── Crop (from DB) ── */}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <label>Crop*</label>
+                      {mode !== "edit" && (
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 cursor-pointer hover:text-foreground transition-colors" aria-hidden="true" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs text-xs">
+                            <p>The names here are normalized and unique. You can view a crop's alternative names by hovering over the "+" icon next to it.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      )}
+                    </div>
+                    <CropSelect
+                      value={updatedData?.details?.crop}
+                      onValueChange={(val) => {
+                        onFieldValidatedChange?.("crop");
+                        setUpdatedData((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                details: {
+                                  ...prev.details,
+                                  crop: val,
+                                },
+                              }
+                            : prev
+                        );
+                      }}
+                      hasError={!!(mode === "add" && validationErrors?.crop)}
+                      invalidFieldClass={invalidFieldClass}
+                      showAliases={mode !== "edit"}
+                    />
+                    {mode === "add" && validationErrors?.crop && (
+                      <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
+                        {validationErrors.crop}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* ── Normalised Crop (from DB) ── */}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <label>Normalised Crop</label>
+                    </div>
+                    <CropSelect
+                      value={updatedData?.details?.normalised_crop}
+                      onValueChange={(val) =>
+                        setUpdatedData((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                details: {
+                                  ...prev.details,
+                                  normalised_crop: val,
+                                },
+                              }
+                            : prev
+                        )
+                      }
+                      hasError={false}
+                      invalidFieldClass={invalidFieldClass}
+                      placeholder="Select normalised crop"
+                      showAliases={false}
+                    />
+                  </div>
+
+                  {(
+                    [
                       "season",
                       "domain",
                     ] as DetailField[]
@@ -433,7 +686,9 @@ export const AddOrEditQuestionDialog = ({
                           <Select
                             value={
                               updatedData?.details?.[field]?.trim()
-                                ? updatedData.details[field]
+                                ? fieldOptions.find(
+                                    (o) => o.toLowerCase() === updatedData.details![field].toLowerCase().trim()
+                                  ) ?? updatedData.details[field]
                                 : undefined
                             }
                             onValueChange={(val) => {
@@ -467,6 +722,13 @@ export const AddOrEditQuestionDialog = ({
                                   {option}
                                 </SelectItem>
                               ))}
+                              {(() => {
+                                const raw = updatedData?.details?.[field]?.trim();
+                                const hasMatch = raw && fieldOptions.some((o) => o.toLowerCase() === raw.toLowerCase());
+                                return raw && !hasMatch ? (
+                                  <SelectItem key={raw} value={raw}>{raw}</SelectItem>
+                                ) : null;
+                              })()}
                             </SelectContent>
                           </Select>
                         ) : (

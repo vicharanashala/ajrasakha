@@ -147,6 +147,7 @@ export interface IQuestionService {
   generateStateCropQuestionReport(filters: {
     state?: string;
     crop?: string;
+    normalised_crop?: string;
     season?: string;
     domain?: string;
     status?: string;

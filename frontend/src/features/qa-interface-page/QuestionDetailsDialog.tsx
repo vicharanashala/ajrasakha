@@ -23,7 +23,7 @@ import {
   Sprout,
   Sun,
   Layers,
- 
+  Leaf,
   FileSearch,
   
 } from "lucide-react";
@@ -176,6 +176,14 @@ export const QuestionDetailsDialog = ({
                     </div>
                   }
                   value={details?.crop}
+                />
+                <Option
+                  label={
+                    <div className="flex items-center gap-1">
+                      <Leaf className="w-3 h-3 text-primary" /> Normalized Crop
+                    </div>
+                  }
+                  value={(details as any)?.normalised_crop || "-"}
                 />
                 <Option
                   label={
