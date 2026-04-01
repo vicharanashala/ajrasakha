@@ -4,6 +4,7 @@ import { env } from '@/config/env';
 import { DASHBOARD_DATA } from '../mockData';
 import { formatIndian, calcDelta } from '../utils/dashboardHelpers';
 import type { DailyEntry } from '../utils/dashboardHelpers';
+import type { DashboardFilterValues } from '../DashboardFilters';
 
 export type DashboardDataType = typeof DASHBOARD_DATA;
 
@@ -23,8 +24,8 @@ interface DashboardApiResponse {
   queryCategories: any[];
 }
 
-export function useDashboardData() {
-  const [data, setData] = useState<DashboardDataType | null>(null);
+export function useDashboardData(filters?: DashboardFilterValues) {
+  const [data, setData] = useState<DashboardDataType>(DASHBOARD_DATA);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -36,8 +37,18 @@ export function useDashboardData() {
         setIsLoading(true);
 
         const API_BASE_URL = env.apiBaseUrl();
+
+        // Build query params from filters
+        const params = new URLSearchParams();
+        if (filters?.village && filters.village !== 'all') params.set('village', filters.village);
+        if (filters?.crop && filters.crop !== 'all') params.set('crop', filters.crop);
+        if (filters?.season && filters.season !== 'all') params.set('season', filters.season);
+        if (filters?.startTime) params.set('startTime', filters.startTime.toISOString());
+        if (filters?.endTime) params.set('endTime', filters.endTime.toISOString());
+        const queryString = params.toString();
+
         const result = await apiFetch<DashboardApiResponse>(
-          `${API_BASE_URL}/analytics/dashboard`
+          `${API_BASE_URL}/analytics/dashboard${queryString ? `?${queryString}` : ''}`
         );
 
         if (isMounted && result) {
@@ -87,7 +98,7 @@ export function useDashboardData() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [filters?.village, filters?.crop, filters?.season, filters?.startTime, filters?.endTime]);
 
   return { data, isLoading, error };
 }

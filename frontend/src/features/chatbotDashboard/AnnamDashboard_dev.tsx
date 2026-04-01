@@ -5,22 +5,33 @@ import type { Segment } from "./types";
 import { DashboardSidebar } from "./DashboardSidebar";
 import type { DashboardView } from "./DashboardSidebar";
 import { DashboardFilters } from "./DashboardFilters";
+import type { DashboardFilterValues } from "./DashboardFilters";
 import { EightCardsComponent } from "./MetricCard ";
 import DailyActiveUsers from "./dailyActiveUsers";
 import { ChannelSplitCard } from "./components/ChannelSplitCard";
 import { DashboardQueryCategories } from "./DashboardQueryCategories";
 import { DashboardFarmerSegments } from "./DashboardFarmerSegments";
 import { AlertCard } from "./AlertCard";
+import { Spinner } from "@/components/atoms/spinner";
 import { GeoCard } from "./GeoCard";
 import { HealthScoreCard } from "./HealthScoreCard";
 import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
 import { StatusBar } from "./components/StatusBar";
 
+const DEFAULT_FILTERS: DashboardFilterValues = {
+  village: "all",
+  crop: "all",
+  season: "all",
+  startTime: undefined,
+  endTime: undefined,
+};
+
 export function AnnamDashboard_dev({ className }: { className?: string }) {
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView]       = useState<DashboardView>("overview");
+  const [filters, setFilters]             = useState<DashboardFilterValues>(DEFAULT_FILTERS);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
-  const { data, isLoading, error } = useDashboardData();
+  const { data, isLoading, error } = useDashboardData(filters);
 
   const sectionRefs = useRef<Partial<Record<DashboardView, HTMLDivElement | null>>>({});
 
@@ -42,18 +53,12 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&display=swap');
         * { box-sizing: border-box;}
         @keyframes slideIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes pulse { 0%,100%{box-shadow:0 0 0 2.5px #3AAA5A,0 4px 24px rgba(58,170,90,0.18)} 50%{box-shadow:0 0 0 4px #3AAA5A,0 4px 32px rgba(58,170,90,0.28)} }
-        .seg-pulse { animation: pulse 1.2s ease 2; }
+        @keyframes custom-pulse { 0%,100%{box-shadow:0 0 0 2.5px #3AAA5A,0 4px 24px rgba(58,170,90,0.18)} 50%{box-shadow:0 0 0 4px #3AAA5A,0 4px 32px rgba(58,170,90,0.28)} }
+        .seg-pulse { animation: custom-pulse 1.2s ease 2; }
         ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
       `}</style>
 
       {/* <TopNav season={data?.meta?.season} /> */}
-
-      {isLoading && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-          Processing backend data / Loading metrics...
-        </div>
-      )}
 
       {error && (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, color: 'red' }}>
@@ -61,7 +66,7 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
         </div>
       )}
 
-      {!isLoading && !error && data && (
+      {!error && data && (
         <>
         <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <DashboardSidebar
@@ -87,11 +92,12 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
                   </div> */}                                       
                 </div> 
 
-          <DashboardFilters onFilterChange={() => {}} />
+          <DashboardFilters filters={filters} onFilterChange={setFilters} />
 
           {activeSegment && <SegmentDetailBanner seg={activeSegment} onClose={clearSegment} />}
 
-          <div ref={(el) => { sectionRefs.current["overview"] = el; }}>
+          <div ref={(el) => { sectionRefs.current["overview"] = el; }} className="relative">
+            {isLoading && <Spinner text="Fetching metrics..." fullScreen={false} />}
             <EightCardsComponent kpiRow1={data.kpiRow1} kpiRow2={data.kpiRow2} />
           </div>
 

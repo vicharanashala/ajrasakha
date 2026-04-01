@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { CROPS, SEASONS, VILLAGES } from "@/components/MetaData";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
@@ -14,42 +13,20 @@ export interface DashboardFilterValues {
 }
 
 interface DashboardFiltersProps {
-  onFilterChange?: (filters: DashboardFilterValues) => void;
+  filters: DashboardFilterValues;
+  onFilterChange: (filters: DashboardFilterValues) => void;
 }
 
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
-export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
-  const [village, setVillage] = useState("all");
-  const [crop, setCrop] = useState("all");
-  const [season, setSeason] = useState("all");
-  const [dateFilter, setDateFilter] = useState<Partial<AdvanceFilterValues>>({
-    startTime: undefined,
-    endTime: undefined,
-  });
+export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersProps) {
+  const { village, crop, season, startTime, endTime } = filters;
 
-  const fireChange = (overrides: Partial<DashboardFilterValues>) => {
-    onFilterChange?.({
-      village,
-      crop,
-      season,
-      startTime: dateFilter.startTime ?? undefined,
-      endTime: dateFilter.endTime ?? undefined,
-      ...overrides,
-    });
+  const handleChange = (overrides: Partial<DashboardFilterValues>) => {
+    onFilterChange({ ...filters, ...overrides });
   };
 
   const handleDateChange = (key: string, value: any) => {
-    setDateFilter((prev) => {
-      const updated = { ...prev, [key]: value };
-      onFilterChange?.({
-        village,
-        crop,
-        season,
-        startTime: updated.startTime ?? undefined,
-        endTime: updated.endTime ?? undefined,
-      });
-      return updated;
-    });
+    handleChange({ [key]: value });
   };
 
   const baseSelect =
@@ -64,9 +41,9 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
     parts.push(crop !== "all" ? crop : "All crops");
     parts.push(season !== "all" ? season : "All seasons");
 
-    if (dateFilter.startTime && dateFilter.endTime) {
+    if (startTime && endTime) {
       const fmt = (d: Date) => d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-      parts.push(`${fmt(dateFilter.startTime)} – ${fmt(dateFilter.endTime)}`);
+      parts.push(`${fmt(startTime)} – ${fmt(endTime)}`);
     }
     return `Showing data for: ${parts.join(" · ")} · Updated every 15 min`;
   };
@@ -103,10 +80,7 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
         {/* Village Filter */}
         <select
           value={village}
-          onChange={(e) => {
-            setVillage(e.target.value);
-            fireChange({ village: e.target.value });
-          }}
+          onChange={(e) => handleChange({ village: e.target.value })}
           className={`sm:flex-1 min-w-[130px] ${village !== "all" ? activeSelect : baseSelect}`}
         >
           <option className="text-gray-700 bg-white dark:bg-[#1a1a1a] dark:text-gray-200" value="all">All Villages</option>
@@ -120,10 +94,7 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
         {/* Crop Filter */}
         <select
           value={crop}
-          onChange={(e) => {
-            setCrop(e.target.value);
-            fireChange({ crop: e.target.value });
-          }}
+          onChange={(e) => handleChange({ crop: e.target.value })}
           className={`sm:flex-1 min-w-[130px] ${crop !== "all" ? activeSelect : baseSelect}`}
         >
           <option className="text-gray-700 bg-white dark:bg-[#1a1a1a] dark:text-gray-200" value="all">All Crops</option>
@@ -137,10 +108,7 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
         {/* Season Filter */}
         <select
           value={season}
-          onChange={(e) => {
-            setSeason(e.target.value);
-            fireChange({ season: e.target.value });
-          }}
+          onChange={(e) => handleChange({ season: e.target.value })}
           className={`sm:flex-1 min-w-[130px] ${season !== "all" ? activeSelect : baseSelect}`}
         >
           <option className="text-gray-700 bg-white dark:bg-[#1a1a1a] dark:text-gray-200" value="all">All Seasons</option>
@@ -155,10 +123,10 @@ export function DashboardFilters({ onFilterChange }: DashboardFiltersProps) {
         <div className="w-full lg:w-auto lg:flex-none [&_label]:hidden [&_#date-toggle]:!w-full [&_#date-toggle]:!whitespace-nowrap [&_#date-toggle_span]:!whitespace-nowrap [&_#date-toggle]:!h-10">
           <DateRangeFilter
             customName=""
-            advanceFilter={dateFilter}
+            advanceFilter={{ startTime, endTime }}
             handleDialogChange={handleDateChange}
             className={
-              dateFilter.startTime
+              startTime
                 ? "!h-10 !text-sm !w-full !border-green-500 dark:!border-green-500 !bg-green-50 dark:!bg-[#1a1a1a] !text-green-700 dark:!text-green-400 !font-medium hover:!bg-green-100 dark:hover:!bg-[#2a2a2a]"
                 : "!h-10 !text-sm !w-full !border-gray-200 dark:!border-gray-700 !bg-white dark:!bg-[#1a1a1a] !text-gray-700 dark:!text-gray-200 !font-normal hover:!bg-gray-50 dark:hover:!bg-[#2a2a2a]"
             }
