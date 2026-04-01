@@ -1,4 +1,4 @@
-import type { Segment } from "./types";
+import type { Segment, KpiCard } from "./types";
 
 export const DASHBOARD_DATA = {
   meta: { season: "Kharif 2025", lastSync: "2 min ago", datasetVersion: "GD-2025-Q3.14", llmVersion: "v2.4.1", p0Bugs: 3 },
@@ -7,13 +7,13 @@ export const DASHBOARD_DATA = {
     { id: "queries", label: "Daily queries", value: "1.24 L", delta: "+31% week-on-week", deltaDir: "up" as const, accentColor: "#378ADD", sparkPoints: [24,22,20,22,18,20,16,18,14,12,10,8,6] },
     { id: "session", label: "Avg session duration", value: "6.4 min", delta: "Stable this week", deltaDir: "neutral" as const, accentColor: "#EF9F27", sparkPoints: [14,12,15,13,12,14,13,14,12,13,14,12,13] },
     { id: "bugs", label: "Critical bugs open", value: "7", delta: "Needs immediate action", deltaDir: "down" as const, accentColor: "#E24B4A", badges: [{ label: "3 P0", variant: "red" as const }, { label: "4 P1", variant: "amber" as const }] },
-  ],
+  ] as KpiCard[],
   kpiRow2: [
     { id: "csat", label: "CSAT rating", value: "4.2 ★", delta: "+0.3 pts this month", deltaDir: "up" as const, accentColor: "#1D9E75" },
     { id: "repeatQuery", label: "Repeat query rate", value: "28%", delta: "Target: <10% · gap", deltaDir: "down" as const, accentColor: "#EF9F27", valueColor: "#854F0B" },
     { id: "voice", label: "Voice usage share", value: "61%", delta: "Primary mode", deltaDir: "up" as const, accentColor: "#378ADD" },
     { id: "states", label: "States active", value: "19 / 28", delta: "3 new states added", deltaDir: "up" as const, accentColor: "#7C6FD4" },
-  ],
+  ] as KpiCard[],
   channelSplit: [
     { label: "Voice", pct: 61, color: "#3AAA5A" },
     { label: "Text app", pct: 24, color: "#378ADD" },

@@ -2,13 +2,10 @@ import { useState, useEffect } from 'react';
 import { apiFetch } from '@/hooks/api/api-fetch';
 import { env } from '@/config/env';
 import { DASHBOARD_DATA } from '../mockData';
+import { formatIndian, calcDelta } from '../utils/dashboardHelpers';
+import type { DailyEntry } from '../utils/dashboardHelpers';
 
 export type DashboardDataType = typeof DASHBOARD_DATA;
-
-interface DailyEntry {
-  day: string;
-  count: number;
-}
 
 interface DashboardApiResponse {
   kpi: {
@@ -24,34 +21,6 @@ interface DashboardApiResponse {
   voiceAccuracy: any[];
   geo: any[];
   queryCategories: any[];
-}
-
-function formatIndian(n: number): string {
-  if (n >= 100000) return `${(n / 100000).toFixed(2)} L`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return n.toString();
-}
-
-// Calculate % change: compare recent half vs older half of the DAU array
-function calcDelta(dauArray: DailyEntry[]): { text: string; dir: 'up' | 'down' | 'neutral' } {
-  if (!dauArray || dauArray.length < 4) {
-    return { text: 'Not enough data', dir: 'neutral' };
-  }
-
-  const mid = Math.floor(dauArray.length / 2);
-  const olderHalf = dauArray.slice(0, mid);
-  const recentHalf = dauArray.slice(mid);
-
-  const olderAvg = olderHalf.reduce((s, d) => s + d.count, 0) / olderHalf.length;
-  const recentAvg = recentHalf.reduce((s, d) => s + d.count, 0) / recentHalf.length;
-
-  if (olderAvg === 0) return { text: 'New data', dir: 'up' };
-
-  const pctChange = Math.round(((recentAvg - olderAvg) / olderAvg) * 100);
-
-  if (pctChange > 0) return { text: `+${pctChange}% vs last month`, dir: 'up' };
-  if (pctChange < 0) return { text: `${pctChange}% vs last month`, dir: 'down' };
-  return { text: 'Stable this month', dir: 'neutral' };
 }
 
 export function useDashboardData() {

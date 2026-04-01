@@ -12,3 +12,15 @@ export interface Segment {
   queryRate: number;
   topCrop: string;
 }
+
+export interface KpiCard {
+  id: string;
+  label: string;
+  value: string;
+  delta: string;
+  deltaDir: 'up' | 'down' | 'neutral';
+  accentColor: string;
+  valueColor?: string;
+  sparkPoints?: number[];
+  badges?: { label: string; variant: BadgeVariant }[];
+}
