@@ -456,80 +456,11 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
             {/* Domain & Users */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2 min-w-0">
-                {/* <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Globe className="h-4 w-4 text-primary" />
-                  Domain
-                </Label>
-                <Select
-                  value={advanceFilter.domain}
-                  onValueChange={(v) => handleDialogChange("domain", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Domains</SelectItem>
-                    {DOMAINS.map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select> */}
-                <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Sprout className="h-4 w-4 text-primary" />
-                  Crop Type
-                </Label>
-                <Select
-                  value={advanceFilter.crop}
-                  onValueChange={(v) => handleDialogChange("crop", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Crops</SelectItem>
-                    {dbCrops.length > 0
-                      ? dbCrops.map((crop) => (
-                          <SelectItem key={crop._id || crop.name} value={crop.name}>
-                            {crop.aliases && crop.aliases.length > 0 ? (
-                              <TooltipProvider delayDuration={200}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="flex items-center gap-2 cursor-default">
-                                      <span className="capitalize">{crop.name}</span>
-                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
-                                        +{crop.aliases.length}
-                                      </span>
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="right" className="text-xs">
-                                    <p className="font-semibold mb-0.5">Also known as:</p>
-                                    {crop.aliases.map((a) => (
-                                      <p key={a} className="capitalize text-muted-foreground">{a}</p>
-                                    ))}
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            ) : (
-                              <span className="capitalize">{crop.name}</span>
-                            )}
-                          </SelectItem>
-                        ))
-                      : crops.map((crop) => (
-                          <SelectItem key={crop} value={crop}>
-                            {crop}
-                          </SelectItem>
-                        ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
               <div className="space-y-2 min-w-0">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Leaf className="h-4 w-4 text-primary" />
-                  Normalized Crop
+                  <Sprout className="h-4 w-4 text-primary" />
+                  Crop Type
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -554,7 +485,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Normalized Crops</SelectItem>
+                    <SelectItem value="all">All Crops</SelectItem>
                     <SelectItem value="__NOT_SET__">
                       <div className="flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 text-yellow-500" />
