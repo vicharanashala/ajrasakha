@@ -560,7 +560,7 @@ export const AddOrEditQuestionDialog = ({
                             <Info className="h-4 w-4 cursor-pointer hover:text-foreground transition-colors" aria-hidden="true" />
                           </TooltipTrigger>
                           <TooltipContent side="top" className="max-w-xs text-xs">
-                            <p>The names here are normalized and unique ones. Click on +1 to see its aliases.</p>
+                            <p>The names here are normalized and unique. You can view a crop's alternative names by hovering over the "+" icon next to it.</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>

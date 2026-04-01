@@ -56,7 +56,7 @@ import {
 
 
 } from "lucide-react";
-import { Leaf } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./atoms/tooltip";
 import type { IMyPreference } from "@/types";
@@ -472,7 +472,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-sm">
                       <p>
-                        Filter by the standardized crop name. Use "Not Set" to find older questions that don't have a normalized crop yet.
+                        Filter by the standardized crop name. You can view a crop's alternative names by hovering over the "+" icon next to it. Use "Not Set" to find older questions without a normalized crop.
                       </p>
                     </TooltipContent>
                   </Tooltip>
