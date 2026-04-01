@@ -33,9 +33,13 @@ export class ChatbotService {
     return this.chatbotRepository.getQueryCategories();
   }
 
+  async getWeeklyAvgSessionDuration(weeks = 52) {
+    return this.chatbotRepository.getWeeklyAvgSessionDuration(weeks);
+  }
+
   /** Single call that returns everything the dashboard needs. */
   async getDashboard(days = 30) {
-    const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories] =
+    const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, weeklySessionDuration] =
       await Promise.all([
         this.chatbotRepository.getKpiSummary(),
         this.chatbotRepository.getDailyActiveUsers(days),
@@ -43,8 +47,9 @@ export class ChatbotService {
         this.chatbotRepository.getVoiceAccuracyByLanguage(),
         this.chatbotRepository.getGeoDistribution(),
         this.chatbotRepository.getQueryCategories(),
+        this.chatbotRepository.getWeeklyAvgSessionDuration(Math.ceil(days / 7)),
       ]);
 
-    return { kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories };
+    return { kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, weeklySessionDuration };
   }
 }

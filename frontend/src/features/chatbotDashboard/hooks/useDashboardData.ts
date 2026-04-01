@@ -18,6 +18,7 @@ interface DashboardApiResponse {
     voiceUsageSharePct: number;
   };
   dau: DailyEntry[];
+  weeklySessionDuration: Array<{ week: string; avgSessionDurationMin: number }>;
   channelSplit: any[];
   voiceAccuracy: any[];
   geo: any[];
@@ -62,6 +63,23 @@ export function useDashboardData(filters?: DashboardFilterValues) {
             ? result.dau.slice(-13).map(d => d.count)
             : DASHBOARD_DATA.kpiRow1[0].sparkPoints; // fallback to mock sparkline
 
+          // Session duration: compare current week vs last week
+          const sessionWeekly = result.weeklySessionDuration ?? [];
+          const thisWeek = sessionWeekly.at(-1)?.avgSessionDurationMin ?? 0;
+          const lastWeek = sessionWeekly.at(-2)?.avgSessionDurationMin ?? 0;
+          const sessionDelta: { text: string; dir: 'up' | 'down' | 'neutral' } =
+            lastWeek === 0 || sessionWeekly.length < 2
+              ? { text: 'Not enough data', dir: 'neutral' }
+              : (() => {
+                  const pct = Math.round(((thisWeek - lastWeek) / lastWeek) * 100);
+                  if (pct > 0) return { text: `+${pct}% vs last week`, dir: 'up' };
+                  if (pct < 0) return { text: `${pct}% vs last week`, dir: 'down' };
+                  return { text: 'Stable vs last week', dir: 'neutral' };
+                })();
+          const sessionSparkPoints = sessionWeekly.length > 0
+            ? sessionWeekly.map(w => w.avgSessionDurationMin)
+            : DASHBOARD_DATA.kpiRow1.find(c => c.id === 'session')?.sparkPoints ?? [];
+
           updatedData.kpiRow1 = DASHBOARD_DATA.kpiRow1.map(card => {
             if (card.id === 'dau') {
               return {
@@ -70,6 +88,15 @@ export function useDashboardData(filters?: DashboardFilterValues) {
                 delta: delta.text,
                 deltaDir: delta.dir,
                 sparkPoints,
+              };
+            }
+            if (card.id === 'session') {
+              return {
+                ...card,
+                value: `${result.kpi.avgSessionDurationMin.toFixed(1)} min`,
+                delta: sessionDelta.text,
+                deltaDir: sessionDelta.dir,
+                sparkPoints: sessionSparkPoints,
               };
             }
             return card;

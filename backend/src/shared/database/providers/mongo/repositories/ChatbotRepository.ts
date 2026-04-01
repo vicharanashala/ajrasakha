@@ -10,6 +10,7 @@ import type {
   VoiceAccuracyEntry,
   GeoStateEntry,
   QueryCategoryEntry,
+  WeeklySessionDurationEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import type { IChatbotSession } from '#root/shared/interfaces/models.js';
 
@@ -39,7 +40,17 @@ export class ChatbotRepository implements IChatbotRepository {
           .then(r => r.length),
         this.collection.countDocuments({ createdAt: { $gte: today } }, { session }),
         this.collection
-          .aggregate([{ $group: { _id: null, avg: { $avg: '$sessionDurationSec' } } }], { session })
+          .aggregate(
+            [
+              {
+                $addFields: {
+                  durationMs: { $max: [0, { $subtract: ['$updatedAt', '$createdAt'] }] },
+                },
+              },
+              { $group: { _id: null, avg: { $avg: '$durationMs' } } },
+            ],
+            { session },
+          )
           .toArray(),
         this.collection
           .aggregate(
@@ -55,12 +66,12 @@ export class ChatbotRepository implements IChatbotRepository {
         this.collection.countDocuments({}, { session }),
       ]);
 
-    const avgSec = sessionStats[0]?.avg ?? 0;
+    const avgMs = sessionStats[0]?.avg ?? 0;
 
     return {
       dau,
       dailyQueries,
-      avgSessionDurationMin: Math.round((avgSec / 60) * 10) / 10,
+      avgSessionDurationMin: Math.round((avgMs / 60000) * 10) / 10,
       csatRating: Math.round((csatStats[0]?.avg ?? 0) * 10) / 10,
       repeatQueryRatePct: total ? Math.round((repeatCount / total) * 100) : 0,
       voiceUsageSharePct: total ? Math.round((voiceCount / total) * 100) : 0,
@@ -168,5 +179,47 @@ export class ChatbotRepository implements IChatbotRepository {
       label: r._id as string,
       pct: Math.round((r.count / total) * 100),
     }));
+  }
+
+  async getWeeklyAvgSessionDuration(
+    weeks = 52,
+    session?: ClientSession,
+  ): Promise<WeeklySessionDurationEntry[]> {
+    await this.init();
+
+    const since = new Date();
+    since.setDate(since.getDate() - weeks * 7);
+
+    const result = await this.collection
+      .aggregate(
+        [
+          { $match: { createdAt: { $gte: since } } },
+          {
+            $addFields: {
+              durationMs: { $max: [0, { $subtract: ['$updatedAt', '$createdAt'] }] },
+            },
+          },
+          {
+            $group: {
+              _id: { $dateToString: { format: '%G-W%V', date: '$createdAt' } },
+              avgDurationMs: { $avg: '$durationMs' },
+            },
+          },
+          {
+            $project: {
+              week: '$_id',
+              avgSessionDurationMin: {
+                $round: [{ $divide: ['$avgDurationMs', 60000] }, 1],
+              },
+              _id: 0,
+            },
+          },
+          { $sort: { week: 1 } },
+        ],
+        { session },
+      )
+      .toArray();
+
+    return result as WeeklySessionDurationEntry[];
   }
 }
