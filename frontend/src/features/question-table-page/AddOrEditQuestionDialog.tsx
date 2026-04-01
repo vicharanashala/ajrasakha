@@ -117,11 +117,15 @@ const CropSelect = ({
   onValueChange,
   hasError,
   invalidFieldClass,
+  placeholder,
+  showAliases = true,
 }: {
   value?: string;
   onValueChange: (val: string) => void;
   hasError: boolean;
   invalidFieldClass: string;
+  placeholder?: string;
+  showAliases?: boolean;
 }) => {
   const { data: cropsData, isLoading } = useGetAllCrops();
   const dbCrops = cropsData?.crops || [];
@@ -129,21 +133,31 @@ const CropSelect = ({
   // If DB has crops, use them; otherwise fallback to hardcoded CROPS
   const useDbCrops = dbCrops.length > 0;
 
+  const normalizedVal = value?.trim().toLowerCase();
+  const matchedValue = normalizedVal
+    ? useDbCrops
+      ? dbCrops.find((c) => c.name.toLowerCase() === normalizedVal)?.name
+      : CROPS.find((c) => c.toLowerCase() === normalizedVal)
+    : undefined;
+
   return (
     <Select
-      value={value?.trim() ? value : undefined}
+      value={matchedValue ?? (value?.trim() ? value : undefined)}
       onValueChange={onValueChange}
     >
       <SelectTrigger
         className={`w-full ${hasError ? invalidFieldClass : ""}`}
       >
-        <SelectValue placeholder={isLoading ? "Loading crops..." : "Select crop"} />
+        <SelectValue placeholder={isLoading ? "Loading crops..." : (placeholder ?? "Select crop")} />
       </SelectTrigger>
       <SelectContent>
+        {!matchedValue && value?.trim() && (
+          <SelectItem key={value.trim()} value={value.trim()}>{value.trim()}</SelectItem>
+        )}
         {useDbCrops
           ? dbCrops.map((crop) => (
               <SelectItem key={crop._id || crop.name} value={crop.name}>
-                {crop.aliases && crop.aliases.length > 0 ? (
+                {showAliases && crop.aliases && crop.aliases.length > 0 ? (
                   <TooltipProvider delayDuration={200}>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -462,12 +476,13 @@ export const AddOrEditQuestionDialog = ({
                       "district",
                     ] as DetailField[]
                   ).map((field) => {
+                    const stateVal = updatedData?.details?.state?.trim();
+                    const districtKey = stateVal
+                      ? Object.keys(DISTRICTS).find((k) => k.toLowerCase() === stateVal.toLowerCase())
+                      : undefined;
                     const fieldOptions =
                                           field === "district"
-                                            ? updatedData?.details?.state &&
-                                              DISTRICTS[updatedData.details.state]
-                                              ? DISTRICTS[updatedData.details.state]
-                                              : []
+                                            ? districtKey ? DISTRICTS[districtKey] : []
                                             : OPTIONS[field];
                     return (
                       <div key={field} className="flex flex-col gap-2">
@@ -480,7 +495,9 @@ export const AddOrEditQuestionDialog = ({
                           <Select
                             value={
                               updatedData?.details?.[field]?.trim()
-                                ? updatedData.details[field]
+                                ? fieldOptions.find(
+                                    (o) => o.toLowerCase() === updatedData.details![field].toLowerCase().trim()
+                                  ) ?? updatedData.details[field]
                                 : undefined
                             }
                             onValueChange={(val) => {
@@ -514,6 +531,13 @@ export const AddOrEditQuestionDialog = ({
                                   {option}
                                 </SelectItem>
                               ))}
+                              {(() => {
+                                const raw = updatedData?.details?.[field]?.trim();
+                                const hasMatch = raw && fieldOptions.some((o) => o.toLowerCase() === raw.toLowerCase());
+                                return raw && !hasMatch ? (
+                                  <SelectItem key={raw} value={raw}>{raw}</SelectItem>
+                                ) : null;
+                              })()}
                             </SelectContent>
                           </Select>
                         ) : (
@@ -591,6 +615,33 @@ export const AddOrEditQuestionDialog = ({
                     )}
                   </div>
 
+                  {/* ── Normalised Crop (from DB) ── */}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <label>Normalised Crop</label>
+                    </div>
+                    <CropSelect
+                      value={updatedData?.details?.normalised_crop}
+                      onValueChange={(val) =>
+                        setUpdatedData((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                details: {
+                                  ...prev.details,
+                                  normalised_crop: val,
+                                },
+                              }
+                            : prev
+                        )
+                      }
+                      hasError={false}
+                      invalidFieldClass={invalidFieldClass}
+                      placeholder="Select normalised crop"
+                      showAliases={false}
+                    />
+                  </div>
+
                   {(
                     [
                       "season",
@@ -632,7 +683,9 @@ export const AddOrEditQuestionDialog = ({
                           <Select
                             value={
                               updatedData?.details?.[field]?.trim()
-                                ? updatedData.details[field]
+                                ? fieldOptions.find(
+                                    (o) => o.toLowerCase() === updatedData.details![field].toLowerCase().trim()
+                                  ) ?? updatedData.details[field]
                                 : undefined
                             }
                             onValueChange={(val) => {
@@ -666,6 +719,13 @@ export const AddOrEditQuestionDialog = ({
                                   {option}
                                 </SelectItem>
                               ))}
+                              {(() => {
+                                const raw = updatedData?.details?.[field]?.trim();
+                                const hasMatch = raw && fieldOptions.some((o) => o.toLowerCase() === raw.toLowerCase());
+                                return raw && !hasMatch ? (
+                                  <SelectItem key={raw} value={raw}>{raw}</SelectItem>
+                                ) : null;
+                              })()}
                             </SelectContent>
                           </Select>
                         ) : (
