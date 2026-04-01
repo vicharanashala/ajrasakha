@@ -14,6 +14,7 @@ build/
 # MCP Environment files with API keys
 mcp/.env*
 !mcp/.env.example
+*.env
 
 # IDE
 .vscode/

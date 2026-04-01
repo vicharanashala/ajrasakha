@@ -47,12 +47,12 @@ def cosine_similarity(vec_a: List[float], vec_b: List[float]) -> float:
 def build_bucket_key(state: Optional[str], crop: Optional[str], lang: str = "english") -> str:
     """
     Build the Redis bucket key from state, crop, and language.
-    All are lowercased for case-insensitive matching.
+    All are lowercased and spaces removed for case/space-insensitive matching.
     Language ensures each language gets its own cache bucket.
     """
-    s = (state or "").strip().lower()
-    c = (crop or "").strip().lower()
-    l = (lang or "english").strip().lower()
+    s = (state or "").replace(" ", "").lower()
+    c = (crop or "").replace(" ", "").lower()
+    l = (lang or "english").replace(" ", "").lower()
     return f"response_cache:{s}:{c}:{l}"
 
 
