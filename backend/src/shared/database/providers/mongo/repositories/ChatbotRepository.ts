@@ -11,12 +11,14 @@ import type {
   GeoStateEntry,
   QueryCategoryEntry,
   WeeklySessionDurationEntry,
+  DailyQueryCountEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import type { IChatbotSession } from '#root/shared/interfaces/models.js';
 
 @injectable()
 export class ChatbotRepository implements IChatbotRepository {
   private collection!: Collection<IChatbotSession>;
+  private messagesCollection!: Collection<any>;
 
   constructor(
     @inject(GLOBAL_TYPES.analyticsDatabase)
@@ -25,6 +27,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   private async init() {
     this.collection = await this.analyticsDb.getCollection<IChatbotSession>('conversations');
+    this.messagesCollection = await this.analyticsDb.getCollection<any>('messages');
   }
 
   async getKpiSummary(session?: ClientSession): Promise<KpiSummary> {
@@ -221,5 +224,46 @@ export class ChatbotRepository implements IChatbotRepository {
       .toArray();
 
     return result as WeeklySessionDurationEntry[];
+  }
+
+  async getDailyQueryCounts(
+    days = 30,
+    session?: ClientSession,
+  ): Promise<DailyQueryCountEntry[]> {
+    await this.init();
+
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    const result = await this.messagesCollection
+      .aggregate(
+        [
+          { $match: { createdAt: { $gte: since }, isCreatedByUser: true } },
+          {
+            $group: {
+              _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+              count: { $sum: 1 },
+            },
+          },
+          { $project: { day: '$_id', count: 1, _id: 0 } },
+          { $sort: { day: 1 } },
+        ],
+        { session },
+      )
+      .toArray();
+
+    return result as DailyQueryCountEntry[];
+  }
+
+  async getTodayQueryCount(session?: ClientSession): Promise<number> {
+    await this.init();
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return this.messagesCollection.countDocuments(
+      { createdAt: { $gte: today }, isCreatedByUser: true },
+      { session },
+    );
   }
 }

@@ -19,6 +19,7 @@ interface DashboardApiResponse {
   };
   dau: DailyEntry[];
   weeklySessionDuration: Array<{ week: string; avgSessionDurationMin: number }>;
+  dailyQueries: DailyEntry[];
   channelSplit: any[];
   voiceAccuracy: any[];
   geo: any[];
@@ -80,6 +81,13 @@ export function useDashboardData(filters?: DashboardFilterValues) {
             ? sessionWeekly.map(w => w.avgSessionDurationMin)
             : DASHBOARD_DATA.kpiRow1.find(c => c.id === 'session')?.sparkPoints ?? [];
 
+          // Daily queries: compare recent half vs older half for week-on-week delta
+          const queryTrend = result.dailyQueries ?? [];
+          const queryDelta = calcDelta(queryTrend, 'last week');
+          const querySparkPoints = queryTrend.length > 0
+            ? queryTrend.slice(-13).map(d => d.count)
+            : DASHBOARD_DATA.kpiRow1.find(c => c.id === 'queries')?.sparkPoints ?? [];
+
           updatedData.kpiRow1 = DASHBOARD_DATA.kpiRow1.map(card => {
             if (card.id === 'dau') {
               return {
@@ -88,6 +96,15 @@ export function useDashboardData(filters?: DashboardFilterValues) {
                 delta: delta.text,
                 deltaDir: delta.dir,
                 sparkPoints,
+              };
+            }
+            if (card.id === 'queries') {
+              return {
+                ...card,
+                value: formatIndian(result.kpi.dailyQueries),
+                delta: queryDelta.text,
+                deltaDir: queryDelta.dir,
+                sparkPoints: querySparkPoints,
               };
             }
             if (card.id === 'session') {
