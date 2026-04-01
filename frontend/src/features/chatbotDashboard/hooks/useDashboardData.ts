@@ -11,6 +11,7 @@ export type DashboardDataType = typeof DASHBOARD_DATA;
 interface DashboardApiResponse {
   kpi: {
     dau: number;
+    dauLastMonthPct: number;
     dailyQueries: number;
     avgSessionDurationMin: number;
     csatRating: number;
@@ -56,13 +57,18 @@ export function useDashboardData(filters?: DashboardFilterValues) {
         if (isMounted && result) {
           const updatedData = { ...DASHBOARD_DATA };
 
-          // Calculate delta from DAU trend
-          const delta = calcDelta(result.dau);
+          // Use the real month-over-month % from the backend
+          const pct = result.kpi.dauLastMonthPct;
+          const delta = pct > 0
+            ? { text: `+${pct}% vs last month`, dir: 'up' as const }
+            : pct < 0
+            ? { text: `${pct}% vs last month`, dir: 'down' as const }
+            : { text: 'Stable vs last month', dir: 'neutral' as const };
 
-          // Build sparkline from last 13 DAU data points
+          // Build sparkline from monthly DAU data points
           const sparkPoints = result.dau.length > 0
             ? result.dau.slice(-13).map(d => d.count)
-            : DASHBOARD_DATA.kpiRow1[0].sparkPoints; // fallback to mock sparkline
+            : DASHBOARD_DATA.kpiRow1[0].sparkPoints;
 
           // Session duration: compare current week vs last week
           const sessionWeekly = result.weeklySessionDuration ?? [];
@@ -92,7 +98,7 @@ export function useDashboardData(filters?: DashboardFilterValues) {
             if (card.id === 'dau') {
               return {
                 ...card,
-                value: formatIndian(result.kpi.dau),
+                value: result.kpi.dau.toString(), // raw number, no formatting
                 delta: delta.text,
                 deltaDir: delta.dir,
                 sparkPoints,

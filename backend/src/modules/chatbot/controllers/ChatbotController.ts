@@ -9,7 +9,7 @@ import {
 import { OpenAPI } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
 import { CHATBOT_TYPES } from '../types.js';
-import { ChatbotService } from '../services/ChatbotService.js';
+import type { IChatbotService } from '../interfaces/IChatbotService.js';
 
 @OpenAPI({
   tags: ['analytics'],
@@ -20,7 +20,7 @@ import { ChatbotService } from '../services/ChatbotService.js';
 export class ChatbotController {
   constructor(
     @inject(CHATBOT_TYPES.ChatbotService)
-    private readonly chatbotService: ChatbotService,
+    private readonly chatbotService: IChatbotService,
   ) {}
 
   @Get('/dashboard')

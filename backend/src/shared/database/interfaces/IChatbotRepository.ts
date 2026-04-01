@@ -3,7 +3,8 @@ import type { ClientSession } from 'mongodb';
 // ─── Shared return types ──────────────────────────────────────────────────────
 
 export interface KpiSummary {
-  dau: number;
+  dau: number;             // total users (all time)
+  dauLastMonthPct: number; // % change: this month's new users vs last month's new users
   dailyQueries: number;
   avgSessionDurationMin: number;
   csatRating: number;
