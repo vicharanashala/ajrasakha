@@ -22,7 +22,10 @@ export function formatIndian(n: number): string {
  * of a DAU (Daily Active Users) array.
  * Returns a human-readable delta string and direction indicator.
  */
-export function calcDelta(dauArray: DailyEntry[]): { text: string; dir: 'up' | 'down' | 'neutral' } {
+export function calcDelta(
+  dauArray: DailyEntry[],
+  vsLabel = 'last month',
+): { text: string; dir: 'up' | 'down' | 'neutral' } {
   if (!dauArray || dauArray.length < 4) {
     return { text: 'Not enough data', dir: 'neutral' };
   }
@@ -38,7 +41,7 @@ export function calcDelta(dauArray: DailyEntry[]): { text: string; dir: 'up' | '
 
   const pctChange = Math.round(((recentAvg - olderAvg) / olderAvg) * 100);
 
-  if (pctChange > 0) return { text: `+${pctChange}% vs last month`, dir: 'up' };
-  if (pctChange < 0) return { text: `${pctChange}% vs last month`, dir: 'down' };
-  return { text: 'Stable this month', dir: 'neutral' };
+  if (pctChange > 0) return { text: `+${pctChange}% vs ${vsLabel}`, dir: 'up' };
+  if (pctChange < 0) return { text: `${pctChange}% vs ${vsLabel}`, dir: 'down' };
+  return { text: `Stable vs ${vsLabel}`, dir: 'neutral' };
 }

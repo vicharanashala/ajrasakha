@@ -36,6 +36,16 @@ export interface QueryCategoryEntry {
   pct: number;
 }
 
+export interface WeeklySessionDurationEntry {
+  week: string; // ISO week string, e.g. '2025-W03'
+  avgSessionDurationMin: number;
+}
+
+export interface DailyQueryCountEntry {
+  day: string; // 'YYYY-MM-DD'
+  count: number;
+}
+
 // ─── Single consolidated interface ───────────────────────────────────────────
 
 export interface IChatbotRepository {
@@ -56,4 +66,13 @@ export interface IChatbotRepository {
 
   /** Percentage breakdown of sessions by query category, sorted descending. */
   getQueryCategories(session?: ClientSession): Promise<QueryCategoryEntry[]>;
+
+  /** Weekly avg session duration (updatedAt - createdAt) over the last `weeks` ISO weeks, sorted ascending. */
+  getWeeklyAvgSessionDuration(weeks?: number, session?: ClientSession): Promise<WeeklySessionDurationEntry[]>;
+
+  /** Daily user-message counts from the messages collection over the last `days` days, sorted ascending. */
+  getDailyQueryCounts(days?: number, session?: ClientSession): Promise<DailyQueryCountEntry[]>;
+
+  /** Count of user messages created today from the messages collection. */
+  getTodayQueryCount(session?: ClientSession): Promise<number>;
 }
