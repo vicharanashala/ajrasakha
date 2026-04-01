@@ -16,9 +16,9 @@ export const DASHBOARD_DATA = {
   ] as KpiCard[],
   channelSplit: [
     { label: "Voice", pct: 61, color: "#3AAA5A" },
-    { label: "Text app", pct: 24, color: "#378ADD" },
-    { label: "KCC agent", pct: 9, color: "#EF9F27" },
-    { label: "IVRS call", pct: 6, color: "#7C6FD4" },
+    { label: "Text app", pct: 39, color: "#378ADD" },
+    // { label: "KCC agent", pct: 9, color: "#EF9F27" },
+    // { label: "IVRS call", pct: 6, color: "#7C6FD4" },
   ],
   voiceAccuracy: [
     { lang: "Hindi", pct: 84, color: "#3AAA5A" },
