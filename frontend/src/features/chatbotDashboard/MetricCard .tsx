@@ -54,17 +54,32 @@ function Sparkline({ points, color }: { points: number[]; color: string }) {
 					left: `${(px(hovered) / width) * 100}%`,
 					bottom: "100%",
 					transform: "translateX(-50%)",
-					background: "#1a1a1a",
-					color: "#fff",
-					fontSize: 10,
-					padding: "2px 6px",
-					borderRadius: 3,
 					pointerEvents: "none",
 					whiteSpace: "nowrap",
 					zIndex: 10,
-					marginBottom: 2,
+					marginBottom: 4,
+					display: "flex",
+					flexDirection: "column",
+					alignItems: "center",
 				}}>
-					{points[hovered].toLocaleString()}
+					<div style={{
+						background: color,
+						color: "#fff",
+						fontSize: 10,
+						fontWeight: 600,
+						padding: "3px 7px",
+						borderRadius: 999,
+						boxShadow: "0 2px 6px rgba(0,0,0,0.18)",
+					}}>
+						{points[hovered].toLocaleString()}
+					</div>
+					<div style={{
+						width: 0,
+						height: 0,
+						borderLeft: "4px solid transparent",
+						borderRight: "4px solid transparent",
+						borderTop: `4px solid ${color}`,
+					}} />
 				</div>
 			)}
 			<svg viewBox={`0 0 ${width} ${height}`} className="w-full h-13" preserveAspectRatio="none">
