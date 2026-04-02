@@ -145,7 +145,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
       // Explicitly preserve the original input string — normalised_crop holds the canonical name
-      details.crop = rawCropName;
+      details.crop = rawCropName.trim();
       details.normalised_crop = normalised_crop;
 
       const priorityRaw = (low.priority || 'medium').toString().toLowerCase();
