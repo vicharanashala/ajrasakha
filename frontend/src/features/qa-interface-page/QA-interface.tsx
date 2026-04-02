@@ -97,8 +97,8 @@ export const QAInterface = ({
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
   const [source, setSource] = useState<QuestionSourceFilter>("all");
   const [priority, setPriority] = useState<QuestionPriorityFilter>("all");
-  const [state, setState] = useState("");
-  const [crop, setCrop] = useState("");
+  const [state, setState] = useState("all");
+  const [crop, setCrop] = useState("all");
   const [domain, setDomain] = useState("all");
   const [user, setUser] = useState("all");
   const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
@@ -120,9 +120,12 @@ export const QAInterface = ({
   //     user: "all",
   //   }
   // );
-  // const handleDialogChange = (key: string, value: any) => {
-  //   setAdvanceFilterValues((prev) => ({ ...prev, [key]: value }));
-  // };
+  const handleDialogChange = (key: string, value: any) => {
+    if (key === "source") setSource(value);
+    else if (key === "state") setState(value);
+    else if (key === "crop") setCrop(value);
+    else if (key === "review_level") setReviewLevel(value);
+  };
   const scrollRef = useRef<HTMLDivElement>(null);
   const preferences = useMemo(
     () => ({
@@ -130,6 +133,8 @@ export const QAInterface = ({
       state,
       source,
       crop,
+      normalised_crop: crop,
+      review_level: reviewLevel,
       answersCount,
       dateRange,
       priority,
@@ -141,6 +146,7 @@ export const QAInterface = ({
       state,
       source,
       crop,
+      reviewLevel,
       answersCount,
       dateRange,
       priority,
@@ -568,7 +574,10 @@ const handleActionChange = (value: string) => {
   actionType={actionType}
   onActionTypeChange={handleActionChange}
   reviewLevel={reviewLevel}
-  onReviewLevelChange={setReviewLevel}
+  source={source}
+  state={state}
+  crop={crop}
+  onFilterChange={handleDialogChange}
   scrollRef={scrollRef}
   questionItemRefs={questionItemRefs}
   setQuestionRef={setQuestionRef}
