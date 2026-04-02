@@ -151,67 +151,79 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getWeeklyAvgSessionDuration(weeks = 52, session?: ClientSession): Promise<WeeklySessionDurationEntry[]> {
-    await this.init();
+    try {
+      await this.init();
 
-    const since = new Date();
-    since.setDate(since.getDate() - weeks * 7);
+      const since = new Date();
+      since.setDate(since.getDate() - weeks * 7);
 
-    const result = await this.conversations
-      .aggregate([
-        { $match: { createdAt: { $gte: since } } },
-        { $addFields: { durationMs: { $max: [0, { $subtract: ['$updatedAt', '$createdAt'] }] } } },
-        {
-          $group: {
-            _id: { $dateToString: { format: '%G-W%V', date: '$createdAt' } },
-            avgDurationMs: { $avg: '$durationMs' },
+      const result = await this.conversations
+        .aggregate([
+          { $match: { createdAt: { $gte: since } } },
+          { $addFields: { durationMs: { $max: [0, { $subtract: ['$updatedAt', '$createdAt'] }] } } },
+          {
+            $group: {
+              _id: { $dateToString: { format: '%G-W%V', date: '$createdAt' } },
+              avgDurationMs: { $avg: '$durationMs' },
+            },
           },
-        },
-        {
-          $project: {
-            week: '$_id',
-            avgSessionDurationMin: { $round: [{ $divide: ['$avgDurationMs', 60000] }, 1] },
-            _id: 0,
+          {
+            $project: {
+              week: '$_id',
+              avgSessionDurationMin: { $round: [{ $divide: ['$avgDurationMs', 60000] }, 1] },
+              _id: 0,
+            },
           },
-        },
-        { $sort: { week: 1 } },
-      ], { session })
-      .toArray();
+          { $sort: { week: 1 } },
+        ], { session })
+        .toArray();
 
-    return result as WeeklySessionDurationEntry[];
+      return result as WeeklySessionDurationEntry[];
+    } catch (error) {
+      throw new InternalServerError(`Failed to get weekly avg session duration: ${error}`);
+    }
   }
 
   async getDailyQueryCounts(days = 30, session?: ClientSession): Promise<DailyQueryCountEntry[]> {
-    await this.init();
+    try {
+      await this.init();
 
-    const since = new Date();
-    since.setDate(since.getDate() - days);
+      const since = new Date();
+      since.setDate(since.getDate() - days);
 
-    const result = await this.messagesCollection
-      .aggregate([
-        { $match: { createdAt: { $gte: since }, isCreatedByUser: true } },
-        {
-          $group: {
-            _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-            count: { $sum: 1 },
+      const result = await this.messagesCollection
+        .aggregate([
+          { $match: { createdAt: { $gte: since }, isCreatedByUser: true } },
+          {
+            $group: {
+              _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+              count: { $sum: 1 },
+            },
           },
-        },
-        { $project: { day: '$_id', count: 1, _id: 0 } },
-        { $sort: { day: 1 } },
-      ], { session })
-      .toArray();
+          { $project: { day: '$_id', count: 1, _id: 0 } },
+          { $sort: { day: 1 } },
+        ], { session })
+        .toArray();
 
-    return result as DailyQueryCountEntry[];
+      return result as DailyQueryCountEntry[];
+    } catch (error) {
+      throw new InternalServerError(`Failed to get daily query counts: ${error}`);
+    }
   }
 
   async getTodayQueryCount(session?: ClientSession): Promise<number> {
-    await this.init();
+    try {
+      await this.init();
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-    return this.messagesCollection.countDocuments(
-      { createdAt: { $gte: today }, isCreatedByUser: true },
-      { session },
-    );
+      return this.messagesCollection.countDocuments(
+        { createdAt: { $gte: today }, isCreatedByUser: true },
+        { session },
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to get today query count: ${error}`);
+    }
   }
 }
