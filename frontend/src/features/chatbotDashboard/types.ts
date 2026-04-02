@@ -22,5 +22,7 @@ export interface KpiCard {
   accentColor: string;
   valueColor?: string;
   sparkPoints?: number[];
+  sparkLabels?: string[];
+  dateRange?: string;
   badges?: { label: string; variant: BadgeVariant }[];
 }

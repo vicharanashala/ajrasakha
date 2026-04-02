@@ -23,7 +23,7 @@ export class ChatbotController {
     private readonly chatbotService: IChatbotService,
   ) {}
 
-  @Get('/dashboard')
+  @Get('/')
   @HttpCode(200)
   @Authorized()
   @OpenAPI({ summary: 'Get full chatbot analytics dashboard data' })

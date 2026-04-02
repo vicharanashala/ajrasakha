@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Card, CardContent } from "@/components/atoms/card";
 
 type BadgeVariant = "green" | "red" | "amber" | "blue";
@@ -12,6 +13,8 @@ type KpiCardData = {
 	accentColor: string;
 	valueColor?: string;
 	sparkPoints?: number[];
+	sparkLabels?: string[];
+	dateRange?: string;
 	badges?: { label: string; variant: BadgeVariant }[];
 };
 
@@ -22,6 +25,14 @@ const badgeStyles: Record<BadgeVariant, { bg: string; text: string }> = {
 	blue: { bg: "bg-blue-50 dark:bg-blue-950", text: "text-blue-900 dark:text-blue-200" },
 };
 
+
+function getDateRangeLabel(days = 30): string {
+	const end = new Date();
+	const start = new Date();
+	start.setDate(start.getDate() - days);
+	const fmt = (d: Date) => d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+	return `${fmt(start)} – ${fmt(end)}`;
+}
 
 function SmallBadge({ label, variant = "green" }: { label: string; variant?: BadgeVariant }) {
 	const styles = badgeStyles[variant];
@@ -34,8 +45,10 @@ function SmallBadge({ label, variant = "green" }: { label: string; variant?: Bad
 	);
 }
 
-function Sparkline({ points, color }: { points: number[]; color: string }) {
+function Sparkline({ points, color, labels }: { points: number[]; color: string; labels?: string[] }) {
 	const [hovered, setHovered] = useState<number | null>(null);
+	const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
+	const svgRef = useRef<SVGSVGElement>(null);
 	const max = Math.max(...points);
 	const min = Math.min(...points);
 	const width = 120;
@@ -46,18 +59,28 @@ function Sparkline({ points, color }: { points: number[]; color: string }) {
 	const fill = `${d} L ${width} ${height} L 0 ${height} Z`;
 	const sliceWidth = width / points.length;
 
+	const handleEnter = (i: number) => {
+		setHovered(i);
+		const rect = svgRef.current?.getBoundingClientRect();
+		if (rect) {
+			setTooltipPos({
+				x: rect.left + (px(i) / width) * rect.width,
+				y: rect.top,
+			});
+		}
+	};
+
 	return (
-		<div style={{ position: "relative" }}>
-			{hovered !== null && (
+		<div>
+			{hovered !== null && tooltipPos && createPortal(
 				<div style={{
-					position: "absolute",
-					left: `${(px(hovered) / width) * 100}%`,
-					bottom: "100%",
-					transform: "translateX(-50%)",
+					position: "fixed",
+					left: tooltipPos.x,
+					top: tooltipPos.y,
+					transform: "translateX(-50%) translateY(calc(-100% - 8px))",
 					pointerEvents: "none",
 					whiteSpace: "nowrap",
-					zIndex: 10,
-					marginBottom: 4,
+					zIndex: 9999,
 					display: "flex",
 					flexDirection: "column",
 					alignItems: "center",
@@ -67,11 +90,23 @@ function Sparkline({ points, color }: { points: number[]; color: string }) {
 						color: "#fff",
 						fontSize: 10,
 						fontWeight: 600,
-						padding: "3px 7px",
-						borderRadius: 999,
-						boxShadow: "0 2px 6px rgba(0,0,0,0.18)",
+						padding: "5px 9px",
+						borderRadius: 8,
+						boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+						textAlign: "center",
+						minWidth: 70,
 					}}>
-						{points[hovered].toLocaleString()}
+						<div style={{ fontWeight: 700, fontSize: 11 }}>
+							{points[hovered].toLocaleString()}
+						</div>
+						{labels?.[hovered] && (
+							<>
+								<div style={{ height: 1, background: "rgba(255,255,255,0.35)", margin: "4px 0" }} />
+								<div style={{ fontWeight: 400, fontSize: 9, opacity: 0.88 }}>
+									{labels[hovered]}
+								</div>
+							</>
+						)}
 					</div>
 					<div style={{
 						width: 0,
@@ -80,9 +115,10 @@ function Sparkline({ points, color }: { points: number[]; color: string }) {
 						borderRight: "4px solid transparent",
 						borderTop: `4px solid ${color}`,
 					}} />
-				</div>
+				</div>,
+				document.body
 			)}
-			<svg viewBox={`0 0 ${width} ${height}`} className="w-full h-13" preserveAspectRatio="none">
+			<svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} className="w-full h-13" preserveAspectRatio="none">
 				<path d={fill} fill={color} fillOpacity={0.08} />
 				<path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
 				{hovered !== null && (
@@ -96,8 +132,8 @@ function Sparkline({ points, color }: { points: number[]; color: string }) {
 						width={sliceWidth}
 						height={height}
 						fill="transparent"
-						onMouseEnter={() => setHovered(i)}
-						onMouseLeave={() => setHovered(null)}
+						onMouseEnter={() => handleEnter(i)}
+						onMouseLeave={() => { setHovered(null); setTooltipPos(null); }}
 						style={{ cursor: "crosshair" }}
 					/>
 				))}
@@ -137,28 +173,52 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
 				className="absolute inset-x-0 top-0 h-1"
 				style={{ background: kpi.accentColor }}
 			/>
-			<CardContent className="p-4">
-				<div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-					{kpi.label}
+			<CardContent className="p-4 flex flex-col gap-3">
+				{/* Upper: label + date range badge */}
+				<div className="flex items-start justify-between gap-2 flex-wrap">
+				  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+				    {kpi.label}
+				  </div>
+				  {kpi.sparkPoints && (
+				    <div
+				      style={{
+				        background: `${kpi.accentColor}22`,
+				        border: `1px solid ${kpi.accentColor}55`,
+				        borderRadius: 6,
+				        padding: "2px 6px",
+				        fontSize: 10,
+				        fontWeight: 600,
+				        color: kpi.accentColor,
+				        whiteSpace: "nowrap",
+				        flexShrink: 0,
+				      }}
+				    >
+				      {kpi.dateRange || getDateRangeLabel(30)}
+				    </div>
+				  )}
 				</div>
-				<div className="text-2xl font-semibold dark:text-slate-100" style={{ color: kpi.valueColor }}>
-					{kpi.value}
-				</div>
-				<div className="mt-1.5 flex items-center gap-1 text-xs dark:text-gray-300" style={{ color: deltaColor }}>
-					<DeltaIcon dir={kpi.deltaDir} /> {kpi.delta}
-				</div>
-				{kpi.sparkPoints && (
-					<div className="mt-2.5">
-						<Sparkline points={kpi.sparkPoints} color={kpi.accentColor} />
+
+				{/* Lower: value, delta, sparkline, badges */}
+				<div className="flex flex-col gap-1.5">
+					<div className="text-2xl font-semibold dark:text-slate-100" style={{ color: kpi.valueColor }}>
+						{kpi.value}
 					</div>
-				)}
-				{kpi.badges && (
-					<div className="mt-2 flex gap-1">
-						{kpi.badges.map((b) => (
-							<SmallBadge key={b.label} label={b.label} variant={b.variant} />
-						))}
+					<div className="flex items-center gap-1 text-xs dark:text-gray-300" style={{ color: deltaColor }}>
+						<DeltaIcon dir={kpi.deltaDir} /> {kpi.delta}
 					</div>
-				)}
+					{kpi.sparkPoints && (
+						<div className="mt-1">
+							<Sparkline points={kpi.sparkPoints} color={kpi.accentColor} labels={kpi.sparkLabels} />
+						</div>
+					)}
+					{kpi.badges && (
+						<div className="flex gap-1 flex-wrap">
+							{kpi.badges.map((b) => (
+								<SmallBadge key={b.label} label={b.label} variant={b.variant} />
+							))}
+						</div>
+					)}
+				</div>
 			</CardContent>
 		</Card>
 	);

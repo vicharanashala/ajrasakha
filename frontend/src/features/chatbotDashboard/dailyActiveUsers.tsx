@@ -3,6 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Spinner } from "@/components/atoms/spinner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
 
+function getDateRangeLabel(days = 30): string {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - days);
+    const fmt = (d: Date) => d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+    return `${fmt(start)} – ${fmt(end)}`;
+}
+
 const FALLBACK_DATA = [
     30, 32, 35, 33, 40, 42, 45, 48, 50, 52, 55, 58, 60, 62, 65, 68, 70, 72,
     75, 78, 80, 82, 85, 88, 90, 98, 95, 92, 90, 80,
@@ -30,6 +38,16 @@ const DailyActiveUsers = ({ data: propData, isLoading = false, error = null }: P
     const growthLabel = growthPct >= 0 ? `+${growthPct}% WoW` : `${growthPct}% WoW`;
     const growthColor = growthPct >= 0 ? "#1E7A3C" : "#DC2626";
 
+    // Date label for each bar: index 0 = oldest day, last index = today
+    const barLabels = data.map((_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (data.length - 1 - i));
+        const year = d.getFullYear();
+        const month = d.toLocaleString("en-IN", { month: "short" });
+        const day = d.getDate();
+        return `${year} ${month} ${day}`;
+    });
+
     // Bar colors based on value ranges (increasing saturation)
     const getBarColor = (value: number, index: number): string => {
         if (index === data.length - 1) return "#EF9F27"; // Last bar - highlight
@@ -45,10 +63,27 @@ const DailyActiveUsers = ({ data: propData, isLoading = false, error = null }: P
             {isLoading && <Spinner text="Fetching trend..." fullScreen={false} />}
             <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
                 <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">
-                        Daily active users — 30 day trend
-                    </CardTitle>
-                    <CardDescription>Farmers + KCC agents + agri experts</CardDescription>
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <CardTitle className="text-sm font-medium">
+                                Daily active users — 30 day trend
+                            </CardTitle>
+                            <CardDescription>Farmers + KCC agents + agri experts</CardDescription>
+                        </div>
+                        <div style={{
+                            background: "#22c55e22",
+                            border: "1px solid #22c55e55",
+                            borderRadius: 6,
+                            padding: "2px 6px",
+                            fontSize: 10,
+                            fontWeight: 600,
+                            color: "#16a34a",
+                            whiteSpace: "nowrap",
+                            flexShrink: 0,
+                        }}>
+                            {getDateRangeLabel(30)}
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     {/* Scrollable wrapper — prevents bar chart from squishing on small screens */}
@@ -74,7 +109,11 @@ const DailyActiveUsers = ({ data: propData, isLoading = false, error = null }: P
                                                 />
                                             </TooltipTrigger>
                                             <TooltipContent side="top">
-                                                <p className="text-xs">{value.toLocaleString()}</p>
+                                                <div className="text-center">
+                                                    <div className="font-bold text-sm">{value.toLocaleString()}</div>
+                                                    <div className="h-px bg-white/40 my-1.5" />
+                                                    <div className="text-xs opacity-90">{barLabels[index]}</div>
+                                                </div>
                                             </TooltipContent>
                                         </Tooltip>
                                     );

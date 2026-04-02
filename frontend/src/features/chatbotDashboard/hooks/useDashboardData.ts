@@ -28,6 +28,80 @@ interface DashboardApiResponse {
   queryCategories: any[];
 }
 
+// ── Date range label helpers ──────────────────────────────────────────────────
+
+function fmtMonthYear(d: Date): string {
+  const year = d.getFullYear();
+  const month = d.toLocaleString('en-IN', { month: 'short' });
+  return `${year} ${month}`;
+}
+
+function monthlyRange(entries: DailyEntry[]): string {
+  if (entries.length === 0) return '';
+  const parse = (s: string) => new Date(s + 'T00:00:00');
+
+  return `${fmtMonthYear(parse(entries[0].day))} – ${fmtMonthYear(
+    parse(entries[entries.length - 1].day)
+  )}`;
+}
+
+function fmtFullDate(d: Date): string {
+  const year = d.getFullYear();
+  const month = d.toLocaleString('en-IN', { month: 'short' });
+  const day = d.getDate();
+  return `${year} ${month} ${day}`;
+}
+
+function fmtDayWithWeek(d: Date): string {
+  const year = d.getFullYear();
+  const month = d.toLocaleString('en-IN', { month: 'short' });
+  const day = d.getDate();
+  const wk = Math.ceil(day / 7);
+  return `${year} ${month} ${day} · Wk ${wk}`;
+}
+
+function dailyRange(entries: DailyEntry[]): string {
+  if (entries.length === 0) return '';
+  const parse = (s: string) => new Date(s + 'T00:00:00');
+
+  return `${fmtFullDate(parse(entries[0].day))} – ${fmtFullDate(
+    parse(entries[entries.length - 1].day)
+  )}`;
+}
+
+
+function parseWeek(isoWeek: string) {
+  const [yearStr, weekStr] = isoWeek.split('-W');
+  const year = parseInt(yearStr);
+  const week = parseInt(weekStr);
+
+  const month = Math.ceil(week / 4);
+  let weekOfMonth = week % 4;
+  if (weekOfMonth === 0) weekOfMonth = 4;
+
+  return { year, month, weekOfMonth };
+}
+
+function fmtWeekLabel(isoWeek: string): string {
+  const { year, month, weekOfMonth } = parseWeek(isoWeek);
+
+  const monthName = new Date(year, month - 1).toLocaleString('en-IN', {
+    month: 'short',
+  });
+
+  return `${year} ${monthName} Wk ${weekOfMonth}`;
+}
+
+function weeklyRange(entries: Array<{ week: string }>): string {
+  if (entries.length === 0) return '';
+
+  return `${fmtWeekLabel(entries[0].week)} – ${fmtWeekLabel(
+    entries[entries.length - 1].week
+  )}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function useDashboardData(filters?: DashboardFilterValues) {
   const [data, setData] = useState<DashboardDataType>(DASHBOARD_DATA);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -52,7 +126,7 @@ export function useDashboardData(filters?: DashboardFilterValues) {
         const queryString = params.toString();
 
         const result = await apiFetch<DashboardApiResponse>(
-          `${API_BASE_URL}/analytics/dashboard${queryString ? `?${queryString}` : ''}`
+          `${API_BASE_URL}/analytics${queryString ? `?${queryString}` : ''}`
         );
 
         if (isMounted && result) {
@@ -96,6 +170,16 @@ export function useDashboardData(filters?: DashboardFilterValues) {
             ? weeklyQueryData.map(w => w.count)
             : DASHBOARD_DATA.kpiRow1.find(c => c.id === 'queries')?.sparkPoints ?? [];
 
+          const dauRange = monthlyRange(result.dau);
+          const queryRange = dailyRange(queryTrend);
+          const sessionRange = weeklyRange(sessionWeekly);
+
+          // parse handles both YYYY-MM (monthly DAU) and YYYY-MM-DD (daily queries)
+          const parseDay = (s: string) => new Date((s.length === 7 ? s + '-01' : s) + 'T00:00:00');
+          const dauLabels = result.dau.map(d => fmtMonthYear(parseDay(d.day)));
+          const queryLabels = queryTrend.map(d => fmtDayWithWeek(parseDay(d.day)));
+          const sessionLabels = sessionWeekly.map(w => fmtWeekLabel(w.week));
+
           updatedData.kpiRow1 = DASHBOARD_DATA.kpiRow1.map(card => {
             if (card.id === 'dau') {
               return {
@@ -104,6 +188,8 @@ export function useDashboardData(filters?: DashboardFilterValues) {
                 delta: delta.text,
                 deltaDir: delta.dir,
                 sparkPoints,
+                sparkLabels: dauLabels,
+                dateRange: dauRange,
               };
             }
             if (card.id === 'queries') {
@@ -113,6 +199,8 @@ export function useDashboardData(filters?: DashboardFilterValues) {
                 delta: queryDelta.text,
                 deltaDir: queryDelta.dir,
                 sparkPoints: querySparkPoints,
+                sparkLabels: queryLabels,
+                dateRange: queryRange,
               };
             }
             if (card.id === 'session') {
@@ -122,6 +210,8 @@ export function useDashboardData(filters?: DashboardFilterValues) {
                 delta: sessionDelta.text,
                 deltaDir: sessionDelta.dir,
                 sparkPoints: sessionSparkPoints,
+                sparkLabels: sessionLabels,
+                dateRange: sessionRange,
               };
             }
             return card;
