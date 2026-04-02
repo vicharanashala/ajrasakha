@@ -101,9 +101,8 @@ const QaPreferencesDialog = ({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="flex items-center gap-1.5 px-2 py-1 h-8 bg-background hover:bg-accent hover:text-accent-foreground border border-input rounded-md transition-all shadow-sm shrink-0">
-          <Settings size={14} className="text-muted-foreground" />
-          <span className="text-xs font-medium text-gray-900 dark:text-white whitespace-nowrap">
+        <button className="flex items-center gap-1.5 px-2 sm:px-3 py-1 h-8 sm:h-9 bg-background hover:bg-accent hover:text-accent-foreground border border-input rounded-md transition-all shadow-sm shrink-0">
+          <span className="text-xs sm:text-sm font-normal text-gray-900 dark:text-white whitespace-nowrap">
             Preferences
           </span>
           {activeFiltersCount > 0 && (
