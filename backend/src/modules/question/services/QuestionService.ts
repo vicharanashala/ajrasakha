@@ -1,9 +1,9 @@
-import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
-import {BaseService, MongoDatabase} from '#root/shared/index.js';
-import {GLOBAL_TYPES} from '#root/types.js';
-import {inject, injectable} from 'inversify';
-import {ClientSession, ObjectId} from 'mongodb';
-import {startBalanceWorkloadWorkers} from '#root/workers/balanceWorkload.manager.js';
+import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
+import { BaseService, MongoDatabase } from '#root/shared/index.js';
+import { GLOBAL_TYPES } from '#root/types.js';
+import { inject, injectable } from 'inversify';
+import { ClientSession, ObjectId } from 'mongodb';
+import { startBalanceWorkloadWorkers } from '#root/workers/balanceWorkload.manager.js';
 import {
   IQuestion,
   IQuestionSubmission,
@@ -20,36 +20,36 @@ import {
   NotFoundError,
   UnauthorizedError,
 } from 'routing-controllers';
-import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
-import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
-import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
-import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
-import {IContextRepository} from '#root/shared/database/interfaces/IContextRepository.js';
-import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
-import {notifyUser} from '#root/utils/pushNotification.js';
-import {normalizeKeysToLower} from '#root/utils/normalizeKeysToLower.js';
-import {appConfig} from '#root/config/app.js';
-import {AiService} from '#root/modules/core/services/AiService.js';
+import { IAnswerRepository } from '#root/shared/database/interfaces/IAnswerRepository.js';
+import { IQuestionSubmissionRepository } from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
+import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
+import { IRequestRepository } from '#root/shared/database/interfaces/IRequestRepository.js';
+import { IContextRepository } from '#root/shared/database/interfaces/IContextRepository.js';
+import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
+import { notifyUser } from '#root/utils/pushNotification.js';
+import { normalizeKeysToLower } from '#root/utils/normalizeKeysToLower.js';
+import { appConfig } from '#root/config/app.js';
+import { AiService } from '#root/modules/core/services/AiService.js';
 import {
   AddQuestionBodyDto,
   GeneratedQuestionResponse,
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '../classes/validators/QuestionVaidators.js';
-import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
-import {QuestionLevelResponse} from '#root/modules/core/classes/transformers/QuestionLevel.js';
-import {NotificationService} from '#root/modules/core/services/NotificationService.js';
-import {CORE_TYPES} from '#root/modules/core/types.js';
-import {IQuestionService} from '../interfaces/IQuestionService.js';
-import {isToday} from '#root/utils/date.utils.js';
-import {IReRouteRepository} from '#root/shared/database/interfaces/IReRouteRepository.js';
+import { PreferenceDto } from '#root/modules/core/classes/validators/UserValidators.js';
+import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
+import { NotificationService } from '#root/modules/core/services/NotificationService.js';
+import { CORE_TYPES } from '#root/modules/core/types.js';
+import { IQuestionService } from '../interfaces/IQuestionService.js';
+import { isToday } from '#root/utils/date.utils.js';
+import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
 import { sendEmailWithAttachment } from '#root/utils/mailer.js';
 import ExcelJS from 'exceljs'
 import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
-import {IDuplicateQuestionRepository} from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
+import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
 import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
-import {checkConceptDuplicate} from '#root/modules/question/aiservice/checkConceptDuplicate.js'
-import {CropRepository} from '#root/shared/database/providers/mongo/repositories/CropRepository.js';
+import { checkConceptDuplicate } from '#root/modules/question/aiservice/checkConceptDuplicate.js'
+import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -88,7 +88,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     private readonly duplicateQuestionRepository: IDuplicateQuestionRepository,
 
     @inject(GLOBAL_TYPES.CropRepository)
-    private readonly cropRepository: CropRepository,
+    private readonly cropRepository: ICropRepository,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -113,11 +113,11 @@ export class QuestionService extends BaseService implements IQuestionService {
     for (const q of questions) {
       const low = normalizeKeysToLower(q || {});
       const details: IQuestion['details'] = {
-        state:    (low.state    || '').toString(),
+        state: (low.state || '').toString(),
         district: (low.district || '').toString(),
-        crop:     (low.crop     || '').toString(),
-        season:   (low.season   || '').toString(),
-        domain:   (low.domain   || '').toString(),
+        crop: (low.crop || '').toString(),
+        season: (low.season || '').toString(),
+        domain: (low.domain || '').toString(),
       };
 
       // ── Crop normalisation (mirrors addQuestion logic, with per-call cache) ──
@@ -297,13 +297,13 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   async getDetailedQuestions(
     query: GetDetailedQuestionsQuery,
-  ): Promise<{questions: IQuestion[]; totalPages: number}> {
+  ): Promise<{ questions: IQuestion[]; totalPages: number }> {
     let searchEmbedding: number[] | null = null;
 
     if (query?.search) {
       try {
         // const embedding=[]
-        const {embedding} = await this.aiService.getEmbedding(query.search);
+        const { embedding } = await this.aiService.getEmbedding(query.search);
         searchEmbedding = embedding;
       } catch (err) {
         console.error(
@@ -326,66 +326,66 @@ export class QuestionService extends BaseService implements IQuestionService {
   ): Promise<GeneratedQuestionResponse[]> {
     const questions = await this.aiService.getQuestionByContext(context);
     // SAMPLE RESPONSE (mocked because API doesn't work locally)
-   /* const questions: any = {
-      reviewer: [
-        {
-          id: "697dbfb7622aa3a183070682",
-          question: "How to control stem borer grubs in paddy crop?",
-          answer: "Stem borer is one of the most destructive pests of paddy (rice) crop...",
-          source: "AGRI_EXPERT",
-          details: {
-            state: "Haryana",
-            district: "HISSAR",
-            crop: "Paddy",
-            season: "KHARIF",
-            domain: "Pest",
-          },
-          score: 0.9331517815589905,
-        },
-        {
-          id: "695b446528ae67127339da95",
-          question: "How to control Stem Borer infestation in Paddy?",
-          answer: "Stem borer is one of the most destructive pests affecting paddy crops in India...",
-          source: "AGRI_EXPERT",
-          details: {
-            state: "UTTAR PRADESH",
-            district: "CHANDAULI",
-            crop: "Paddy",
-            season: "Kharif",
-            domain: "Plant Protection",
-          },
-          score: 0.932569146156311,
-        },
-      ],
-  
-      golden: [
-        {
-          question: "How to prevent stem borer in paddy?",
-          answer: "Stem borer in paddy is a major pest and shows distinct symptoms...",
-          metadata: {
-            "Agri Specialist": "Gonnabathula Girishma",
-            Crop: "Paddy Dhan",
-            District: "YADADRI BHUVANAGIRI",
-            Season: "Kharif",
-            State: "TELANGANA",
-          },
-          score: 0.9287769794464111,
-        },
-      ],
-  
-      pop: [
-        {
-          text: "Rice stem borers: The larvae of these insects bore into the stem and cause damage from July to October...",
-          metadata: {
-            page_no: 24,
-            headings: ["A. Insect Pests"],
-            source:
-              "https://storage.googleapis.com/annam-dataset/pops/Punjab_Kharif_2025.pdf",
-          },
-          score: 0.9020636677742004,
-        },
-      ],
-    };*/
+    /* const questions: any = {
+       reviewer: [
+         {
+           id: "697dbfb7622aa3a183070682",
+           question: "How to control stem borer grubs in paddy crop?",
+           answer: "Stem borer is one of the most destructive pests of paddy (rice) crop...",
+           source: "AGRI_EXPERT",
+           details: {
+             state: "Haryana",
+             district: "HISSAR",
+             crop: "Paddy",
+             season: "KHARIF",
+             domain: "Pest",
+           },
+           score: 0.9331517815589905,
+         },
+         {
+           id: "695b446528ae67127339da95",
+           question: "How to control Stem Borer infestation in Paddy?",
+           answer: "Stem borer is one of the most destructive pests affecting paddy crops in India...",
+           source: "AGRI_EXPERT",
+           details: {
+             state: "UTTAR PRADESH",
+             district: "CHANDAULI",
+             crop: "Paddy",
+             season: "Kharif",
+             domain: "Plant Protection",
+           },
+           score: 0.932569146156311,
+         },
+       ],
+   
+       golden: [
+         {
+           question: "How to prevent stem borer in paddy?",
+           answer: "Stem borer in paddy is a major pest and shows distinct symptoms...",
+           metadata: {
+             "Agri Specialist": "Gonnabathula Girishma",
+             Crop: "Paddy Dhan",
+             District: "YADADRI BHUVANAGIRI",
+             Season: "Kharif",
+             State: "TELANGANA",
+           },
+           score: 0.9287769794464111,
+         },
+       ],
+   
+       pop: [
+         {
+           text: "Rice stem borers: The larvae of these insects bore into the stem and cause damage from July to October...",
+           metadata: {
+             page_no: 24,
+             headings: ["A. Insect Pests"],
+             source:
+               "https://storage.googleapis.com/annam-dataset/pops/Punjab_Kharif_2025.pdf",
+           },
+           score: 0.9020636677742004,
+         },
+       ],
+     };*/
     const merged = [
       ...(questions.reviewer || []).map((item: any) => ({
         question: item.question,
@@ -393,14 +393,14 @@ export class QuestionService extends BaseService implements IQuestionService {
         agri_specialist: item.source || "AGRI_EXPERT",
         referenceSource: "reviewer",
       })),
-  
+
       ...(questions.golden || []).map((item: any) => ({
         question: item.question,
         answer: item.answer,
         agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
         referenceSource: "golden",
       })),
-  
+
       ...(questions.pop || []).map((item: any) => ({
         question: "Reference Information",
         answer: item.text,
@@ -593,7 +593,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new InternalServerError(`Failed to add question: ${error}`);
     }
   }*/
- 
+
 
   /*async addQuestion(
     userId: string,
@@ -822,7 +822,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     const logData: Record<string, any> = {};
     try {
       body = normalizeKeysToLower(body);
-  
+
       let {
         question,
         priority,
@@ -830,8 +830,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         details,
         context,
       } = body;
-      console.log("the body coming=====",body)
-  
+      console.log("the body coming=====", body)
+
       if (!details) {
         const b: any = body;
         details = {
@@ -842,13 +842,13 @@ export class QuestionService extends BaseService implements IQuestionService {
           domain: b?.domain || '',
         };
       }
-  
+
       const validPriorities = ['low', 'medium', 'high'];
       priority = priority?.toLowerCase() as IQuestion['priority'];
       if (!validPriorities.includes(priority)) {
         priority = 'medium';
       }
-  
+
       if (!question?.trim()) {
         throw new BadRequestError(`Question is required`);
       }
@@ -899,7 +899,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       const text = `Question: ${question}`;
       let textEmbedding: number[] = [];
 
-      
+
       if (appConfig.ENABLE_AI_SERVER) {
         const { embedding } = await this.aiService.getEmbedding(text);
         textEmbedding = embedding;
@@ -909,9 +909,9 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // 🔥 Similarity Check — OUTSIDE transaction ($vectorSearch cannot run inside one)
 
-// Check 4 Questions best match- 
-  
-	let topMatches: {questionId: ObjectId, question: string, similarityScore: number }[] = []
+      // Check 4 Questions best match- 
+
+      let topMatches: { questionId: ObjectId, question: string, similarityScore: number }[] = []
 
       // ✅ Everything that needs atomicity goes inside the transaction
       return this._withTransaction(async (session: ClientSession) => {
@@ -941,52 +941,52 @@ export class QuestionService extends BaseService implements IQuestionService {
           createdAt: new Date(),
           updatedAt: new Date(),
         };
-  
-       
-       
+
+
+
         let isDuplicate = false
         let matchedQuestion = ""
         let matchedQuestionId: ObjectId | null = null
         let matchedScore = 0
-        let referenceSourcefrom=''
-        
-         let topSimilar
+        let referenceSourcefrom = ''
+
+        let topSimilar
 
         const llmCandidates: typeof topMatches = []
-        let dummysource=false
-        if ( source=='AJRASAKHA') {
-          console.log("the source is coming====",source)
+        let dummysource = false
+        if (source == 'AJRASAKHA') {
+          console.log("the source is coming====", source)
           /* const topSimilar = await this.questionRepo.findTopSimilarQuestions(
            textEmbedding, 25,
            { state: details.state,district: details.district, crop: details.crop, domain: details.domain, season: details.season }, )*/
-         const questions = await this.aiService.getQuestionByContextAndMetaData(
-             question,
-             details.state,
-             details.district,
-             typeof details.crop === 'string' ? details.crop : details.crop.name,
-             details.season,
-             details.domain
-           );
-           console.log("the questions coming=====",questions)
-           // merge reviewer + golden
-           let merged = [
+          const questions = await this.aiService.getQuestionByContextAndMetaData(
+            question,
+            details.state,
+            details.district,
+            typeof details.crop === 'string' ? details.crop : details.crop.name,
+            details.season,
+            details.domain
+          );
+          console.log("the questions coming=====", questions)
+          // merge reviewer + golden
+          let merged = [
             ...(questions.reviewer || []).map((item: any) => ({
               question: item.question,
               answer: item.answer,
               agri_specialist: item.source || "AGRI_EXPERT",
               referenceSource: "reviewer",
-              score:item.score* 100
+              score: item.score * 100
             })),
-        
+
             ...(questions.golden || []).map((item: any) => ({
               question: item.question,
               answer: item.answer,
               agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
               referenceSource: "golden",
-              score:item.score* 100
+              score: item.score * 100
             })),
-        
-           
+
+
           ];
           merged = Array.from(
             new Map(merged.map(q => [q.question, q])).values(),
@@ -994,117 +994,117 @@ export class QuestionService extends BaseService implements IQuestionService {
             ...q,
             id: new ObjectId().toString()
           }));
-        
-          
-           merged.sort((a, b) => b.score - a.score);
-           
-           
-           // get top 5
-           const bestFive = merged.slice(0, 5);
-           
-           // convert to topMatches
-           topSimilar = bestFive.map(q => ({
-             questionId: new ObjectId().toString(),
-             question: q.question,
-             similarityScore: q.score,
-             referenceSource:q.referenceSource
-           }));
-          
-           logData.totalMatches = topSimilar.length
-       
-           logData.matches = topSimilar.map((q) => ({ questionId: q.questionId, question: q.question, similarityScore: q.similarityScore }))
-           logData.topMatches = topSimilar
-           logData.threshold = 85
-           for (const match of topSimilar) {
-      
-     
+
+
+          merged.sort((a, b) => b.score - a.score);
+
+
+          // get top 5
+          const bestFive = merged.slice(0, 5);
+
+          // convert to topMatches
+          topSimilar = bestFive.map(q => ({
+            questionId: new ObjectId().toString(),
+            question: q.question,
+            similarityScore: q.score,
+            referenceSource: q.referenceSource
+          }));
+
+          logData.totalMatches = topSimilar.length
+
+          logData.matches = topSimilar.map((q) => ({ questionId: q.questionId, question: q.question, similarityScore: q.similarityScore }))
+          logData.topMatches = topSimilar
+          logData.threshold = 85
+          for (const match of topSimilar) {
+
+
             const highestScore = match.similarityScore
-      
+
             // Rule 1: immediate duplicate
             if (highestScore >= 95) {
               isDuplicate = true
               matchedQuestion = match.question
               matchedQuestionId = match.questionId
               matchedScore = highestScore
-              referenceSourcefrom=match.referenceSource
+              referenceSourcefrom = match.referenceSource
               break
             }
-      
+
             // Rule 2: collect candidates for LLM
             if (highestScore >= 85 && highestScore < 95) {
               llmCandidates.push(match)
             }
           }
-      
-            // Rule 3: call LLM once
-            if (!isDuplicate && llmCandidates.length > 0) {
-              const candidateQuestions = llmCandidates.map(q => q.question)
-      
-              const matchedQuestionfromllm = await checkConceptDuplicate(
-                baseQuestion.question,
-                candidateQuestions
-              )
-            
-             if (matchedQuestionfromllm) {
-  
-              let filtermatchinQuestion=topSimilar.filter(ele=>ele.question==matchedQuestionfromllm)
-              
-              matchedQuestion=filtermatchinQuestion[0].question
-              matchedQuestionId=filtermatchinQuestion[0].questionId
-              matchedScore=filtermatchinQuestion[0].similarityScore
-              referenceSourcefrom=filtermatchinQuestion[0].referenceSource
-             
+
+          // Rule 3: call LLM once
+          if (!isDuplicate && llmCandidates.length > 0) {
+            const candidateQuestions = llmCandidates.map(q => q.question)
+
+            const matchedQuestionfromllm = await checkConceptDuplicate(
+              baseQuestion.question,
+              candidateQuestions
+            )
+
+            if (matchedQuestionfromllm) {
+
+              let filtermatchinQuestion = topSimilar.filter(ele => ele.question == matchedQuestionfromllm)
+
+              matchedQuestion = filtermatchinQuestion[0].question
+              matchedQuestionId = filtermatchinQuestion[0].questionId
+              matchedScore = filtermatchinQuestion[0].similarityScore
+              referenceSourcefrom = filtermatchinQuestion[0].referenceSource
+
               const duplicateQuestion = {
                 ...baseQuestion,
                 similarityScore: Number(matchedScore.toFixed(2)),
                 referenceQuestionId: matchedQuestionId,
                 referenceQuestion: matchedQuestion,
-                referenceSource:referenceSourcefrom
-                }
-      
-                await this.duplicateQuestionRepository.addDuplicate(
-                  duplicateQuestion,
-                  session
-                )
-                logData.outcome = 'DUPLICATE_DETECTED'
-                logData.matchedQuestion = matchedQuestion
-                logData.similarityScore = matchedScore.toFixed(2)
-          
-                chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData)
-                return { isDuplicate: true, data: duplicateQuestion }
+                referenceSource: referenceSourcefrom
               }
+
+              await this.duplicateQuestionRepository.addDuplicate(
+                duplicateQuestion,
+                session
+              )
+              logData.outcome = 'DUPLICATE_DETECTED'
+              logData.matchedQuestion = matchedQuestion
+              logData.similarityScore = matchedScore.toFixed(2)
+
+              chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData)
+              return { isDuplicate: true, data: duplicateQuestion }
             }
-      
+          }
+
           if (isDuplicate && matchedQuestionId && matchedQuestion) {
             const duplicateQuestion = {
-            ...baseQuestion,
-            similarityScore: Number(matchedScore.toFixed(2)),
-            referenceQuestionId: matchedQuestionId,
-            referenceQuestion: matchedQuestion,
-            referenceSource:referenceSourcefrom
+              ...baseQuestion,
+              similarityScore: Number(matchedScore.toFixed(2)),
+              referenceQuestionId: matchedQuestionId,
+              referenceQuestion: matchedQuestion,
+              referenceSource: referenceSourcefrom
             }
-      
+
             await this.duplicateQuestionRepository.addDuplicate(
-            duplicateQuestion,
-            session
+              duplicateQuestion,
+              session
             )
-      
+
             logData.outcome = 'DUPLICATE_DETECTED'
             logData.matchedQuestion = matchedQuestion
             logData.similarityScore = matchedScore.toFixed(2)
-      
+
             chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData)
-      
+
             return { isDuplicate: true, data: duplicateQuestion }
           }
-         }
+        }
 
-		
+
 
         // =====================================================
         // 🔥 IF NOT SIMILAR → NORMAL FLOW
         // =====================================================
-    
+
         logData.outcome = 'NEW_QUESTION_ADDED';
         chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
 
@@ -1112,22 +1112,22 @@ export class QuestionService extends BaseService implements IQuestionService {
           baseQuestion,
           session,
         );
-  
+
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
         }
-  
+
         const users = await this.userRepo.findExpertsByPreference(
           details as PreferenceDto,
           session,
         );
-  
+
         const initialUsersToAllocate = users.slice(0, 3);
-  
+
         const queue = initialUsersToAllocate.map(
           (user) => new ObjectId(user._id.toString()),
         );
-  
+
         if (initialUsersToAllocate[0]) {
           await this.userRepo.updateReputationScore(
             initialUsersToAllocate[0]._id.toString(),
@@ -1135,7 +1135,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             session,
           );
         }
-  
+
         const submissionData: IQuestionSubmission = {
           questionId: new ObjectId(savedQuestion._id.toString()),
           lastRespondedBy: null,
@@ -1144,9 +1144,9 @@ export class QuestionService extends BaseService implements IQuestionService {
           createdAt: new Date(),
           updatedAt: new Date(),
         };
-  
+
         await this.questionSubmissionRepo.addSubmission(submissionData, session);
-  
+
         if (initialUsersToAllocate[0]) {
           await this.notificationService.saveTheNotifications(
             `A Question has been assigned for answering`,
@@ -1156,7 +1156,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             'answer_creation',
           );
         }
-  
+
         return { isDuplicate: false, data: baseQuestion };
       });
     } catch (error) {
@@ -1166,7 +1166,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       logData.errorMessage = error.message;
       logData.stack = error.stack;
       chatbotSimilarityLogger.error('ADD_QUESTION_LOG', logData);
-            
+
       throw new InternalServerError(`Failed to add question: ${error}`);
     }
   }
@@ -1244,7 +1244,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
-  ): Promise<{modifiedCount: number}> {
+  ): Promise<{ modifiedCount: number }> {
     try {
       // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
       // Lifted OUTSIDE the transaction: cropRepository calls don't use the session,
@@ -1387,7 +1387,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (filteredExperts.length === 0) {
         await this.questionRepo.updateQuestion(
           questionId,
-          {status: 'in-review'},
+          { status: 'in-review' },
           session,
         );
         const payload: Partial<IAnswer> = {
@@ -1489,7 +1489,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     return true;
   }
 
-  async toggleAutoAllocate(questionId: string): Promise<{message: string}> {
+  async toggleAutoAllocate(questionId: string): Promise<{ message: string }> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
         //1. Validate question existence
@@ -2112,7 +2112,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async deleteQuestion(
     questionId: string,
     session?: ClientSession,
-  ): Promise<{deletedCount: number}> {
+  ): Promise<{ deletedCount: number }> {
     const execute = async (activeSession: ClientSession) => {
       const question = await this.questionRepo.getById(
         questionId,
@@ -2227,7 +2227,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         deletedCount += res.deletedCount ?? 0;
       }
 
-      return {deletedCount};
+      return { deletedCount };
     });
   }
 
@@ -2271,7 +2271,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (query?.search) {
         try {
           // const embedding=[]
-          const {embedding} = await this.aiService.getEmbedding(query.search);
+          const { embedding } = await this.aiService.getEmbedding(query.search);
           searchEmbedding = embedding;
         } catch (err) {
           console.error(
@@ -2323,7 +2323,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       session,
     );
     for (const submission of submissions) {
-      const {questionId, queue = [], history = []} = submission;
+      const { questionId, queue = [], history = [] } = submission;
 
       if (!queue.length) continue;
       const indicesToRemove = new Set<number>();
@@ -2364,7 +2364,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           'system',
           questionId.toString(),
           index,
-          {skipAutoAllocate: true},
+          { skipAutoAllocate: true },
           session,
         );
       }
@@ -2720,7 +2720,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
     }
 
-    const flatAssignments: {submissionId: string; expertId: string}[] = [];
+    const flatAssignments: { submissionId: string; expertId: string }[] = [];
 
     // console.log("the assignments=======",assignments)
 
@@ -2766,7 +2766,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     startDate: string,
     endDate: string,
     emails: string | string[],
-  ): Promise<{success: boolean; message: string}> {
+  ): Promise<{ success: boolean; message: string }> {
     try {
       if (!startDate || !endDate) {
         throw new Error('startDate and endDate are required');
@@ -2781,10 +2781,10 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
 
       const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(start, end, 'AJRASAKHA');
-        const combineQuestions=[...questions,...duplicateQuestions]
+      const combineQuestions = [...questions, ...duplicateQuestions]
       const allQuestions = [
         ...combineQuestions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-              
+
       ];
 
 
@@ -2814,7 +2814,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // NEW EXCEL IMPLEMENTATION
       const excelBuffer = await this.convertQuestionsToExcel(allQuestions, startDate, endDate);
-      
+
       await sendEmailWithAttachment(
         emails,
         'Ajrasakha Outreach Questions Report',
@@ -2829,7 +2829,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         'out_reach_questions.xlsx',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       );
-      
+
       return {
         success: true,
         message: 'Outreach questions report sent via email',
@@ -3012,33 +3012,33 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Question Reasons");
-  
+
     sheet.columns = [
       { header: "Created At", key: "createdAt", width: 22 },
       { header: "Question", key: "question", width: 50 },
       { header: "Reason For Modification", key: "mod", width: 50 },
       { header: "Reason For Rejection", key: "rej", width: 50 }
     ];
-  
+
     let rowCount = 0;
     result.reasons.forEach(item => {
       const modList = (item.reasonForModification || []).filter(Boolean);
       const rejList = (item.reasonForRejection || []).filter(Boolean);
-      
+
       if (!modList.length && !rejList.length) return;
-  
+
       const row = sheet.addRow({
         createdAt: item.createdAt,
         question: item.question,
         mod: modList.map((r, i) => `${i + 1}) ${r}`).join("\n"),
         rej: rejList.map((r, i) => `${i + 1}) ${r}`).join("\n"),
       });
-  
+
       row.getCell("mod").alignment = { wrapText: true };
       row.getCell("rej").alignment = { wrapText: true };
       rowCount++;
     });
-  
+
     const data = await workbook.xlsx.writeBuffer();
     return data;
   }
@@ -3110,12 +3110,12 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (filters.normalised_crop && filters.normalised_crop !== 'all') {
         if (filters.normalised_crop === '__NOT_SET__') {
           query.$or = [
-            {'details.normalised_crop': {$exists: false}},
-            {'details.normalised_crop': null},
-            {'details.normalised_crop': ''},
+            { 'details.normalised_crop': { $exists: false } },
+            { 'details.normalised_crop': null },
+            { 'details.normalised_crop': '' },
           ];
         } else {
-          query['details.normalised_crop'] = {$regex: `^${filters.normalised_crop}$`, $options: 'i'};
+          query['details.normalised_crop'] = { $regex: `^${filters.normalised_crop}$`, $options: 'i' };
         }
       }
       if (filters.season && filters.season !== 'all') {
@@ -3181,14 +3181,14 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
   }
 
-    async generateDuplicateQuestionReport(startDate?: Date, endDate?: Date): Promise<ArrayBuffer | null> {
+  async generateDuplicateQuestionReport(startDate?: Date, endDate?: Date): Promise<ArrayBuffer | null> {
     return this._withTransaction(async (session) => {
       if (!startDate || !endDate) {
         throw new BadRequestError('startDate and endDate are required');
       }
 
       // Fetch duplicates using the repository
-      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(startDate, endDate, 'AJRASAKHA',session);
+      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(startDate, endDate, 'AJRASAKHA', session);
 
       if (!duplicateQuestions || duplicateQuestions.length === 0) {
         return null;
@@ -3196,7 +3196,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // Fetch reference question details for metadata
       // Use a Map to avoid duplicate fetches for the same reference question
-      const refDetailsMap = new Map<string, {state: string; district: string; crop: string | import('#root/shared/interfaces/models.js').ICropRef; season: string; domain: string} | null>();
+      const refDetailsMap = new Map<string, { state: string; district: string; crop: string | import('#root/shared/interfaces/models.js').ICropRef; season: string; domain: string } | null>();
 
       for (const q of duplicateQuestions) {
         const refId = q.referenceQuestionId?.toString();

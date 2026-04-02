@@ -3,8 +3,8 @@ import { BadRequestError } from 'routing-controllers';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { BaseService, MongoDatabase } from '#root/shared/index.js';
 import { ICrop } from '#root/shared/interfaces/models.js';
-import { CropRepository } from '#root/shared/database/providers/mongo/repositories/CropRepository.js';
-import { QuestionRepository } from '#root/shared/database/providers/mongo/repositories/QuestionRepository.js';
+import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
+import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
 import { ICropService } from '../interfaces/ICropService.js';
 import {
   CreateCropDto,
@@ -16,10 +16,10 @@ import {
 export class CropService extends BaseService implements ICropService {
   constructor(
     @inject(GLOBAL_TYPES.CropRepository)
-    private readonly cropRepository: CropRepository,
+    private readonly cropRepository: ICropRepository,
 
     @inject(GLOBAL_TYPES.QuestionRepository)
-    private readonly questionRepository: QuestionRepository,
+    private readonly questionRepository: IQuestionRepository,
 
     @inject(GLOBAL_TYPES.Database)
     mongoDatabase: MongoDatabase,
