@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent } from "@/components/atoms/card";
 
 type BadgeVariant = "green" | "red" | "amber" | "blue";
@@ -34,6 +35,7 @@ function SmallBadge({ label, variant = "green" }: { label: string; variant?: Bad
 }
 
 function Sparkline({ points, color }: { points: number[]; color: string }) {
+	const [hovered, setHovered] = useState<number | null>(null);
 	const max = Math.max(...points);
 	const min = Math.min(...points);
 	const width = 120;
@@ -42,12 +44,50 @@ function Sparkline({ points, color }: { points: number[]; color: string }) {
 	const py = (v: number) => height - ((v - min) / (max - min || 1)) * height;
 	const d = points.map((v, i) => `${i === 0 ? "M" : "L"} ${px(i)} ${py(v)}`).join(" ");
 	const fill = `${d} L ${width} ${height} L 0 ${height} Z`;
+	const sliceWidth = width / points.length;
 
 	return (
-		<svg viewBox={`0 0 ${width} ${height}`} className="w-full h-13" preserveAspectRatio="none">
-			<path d={fill} fill={color} fillOpacity={0.08} />
-			<path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-		</svg>
+		<div style={{ position: "relative" }}>
+			{hovered !== null && (
+				<div style={{
+					position: "absolute",
+					left: `${(px(hovered) / width) * 100}%`,
+					bottom: "100%",
+					transform: "translateX(-50%)",
+					background: "#1a1a1a",
+					color: "#fff",
+					fontSize: 10,
+					padding: "2px 6px",
+					borderRadius: 3,
+					pointerEvents: "none",
+					whiteSpace: "nowrap",
+					zIndex: 10,
+					marginBottom: 2,
+				}}>
+					{points[hovered].toLocaleString()}
+				</div>
+			)}
+			<svg viewBox={`0 0 ${width} ${height}`} className="w-full h-13" preserveAspectRatio="none">
+				<path d={fill} fill={color} fillOpacity={0.08} />
+				<path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+				{hovered !== null && (
+					<circle cx={px(hovered)} cy={py(points[hovered])} r={2.5} fill={color} />
+				)}
+				{points.map((_, i) => (
+					<rect
+						key={i}
+						x={i * sliceWidth}
+						y={0}
+						width={sliceWidth}
+						height={height}
+						fill="transparent"
+						onMouseEnter={() => setHovered(i)}
+						onMouseLeave={() => setHovered(null)}
+						style={{ cursor: "crosshair" }}
+					/>
+				))}
+			</svg>
+		</div>
 	);
 }
 

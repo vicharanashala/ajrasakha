@@ -1,6 +1,7 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Spinner } from "@/components/atoms/spinner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
 
 const FALLBACK_DATA = [
     30, 32, 35, 33, 40, 42, 45, 48, 50, 52, 55, 58, 60, 62, 65, 68, 70, 72,
@@ -54,22 +55,31 @@ const DailyActiveUsers = ({ data: propData, isLoading = false, error = null }: P
                     <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
                         <div style={{ minWidth: 360 }}>
                             <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 120 }}>
+                                <TooltipProvider>
                                 {data.map((value, index) => {
                                     const heightPercent = (value / maxData) * 100;
                                     return (
-                                        <div
-                                            key={index}
-                                            style={{
-                                                flex: 1,
-                                                height: `${heightPercent}%`,
-                                                background: getBarColor(value, index),
-                                                borderRadius: "2px 2px 0 0",
-                                                outline: index === data.length - 1 ? "1.5px solid #BA7517" : "none",
-                                                minHeight: 2,
-                                            }}
-                                        />
+                                        <Tooltip key={index}>
+                                            <TooltipTrigger asChild>
+                                                <div
+                                                    style={{
+                                                        flex: 1,
+                                                        height: `${heightPercent}%`,
+                                                        background: getBarColor(value, index),
+                                                        borderRadius: "2px 2px 0 0",
+                                                        outline: index === data.length - 1 ? "1.5px solid #BA7517" : "none",
+                                                        minHeight: 2,
+                                                        cursor: "pointer",
+                                                    }}
+                                                />
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top">
+                                                <p className="text-xs">{value.toLocaleString()}</p>
+                                            </TooltipContent>
+                                        </Tooltip>
                                     );
                                 })}
+                                </TooltipProvider>
                             </div>
                             <div
                                 style={{
