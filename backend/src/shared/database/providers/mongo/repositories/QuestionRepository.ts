@@ -1019,10 +1019,23 @@ export class QuestionRepository implements IQuestionRepository {
         sub => new ObjectId(sub?.questionId),
       );
 
+      const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
       const filter: any = {
         status: {$in: ['open', 'delayed']},
         _id: {$in: questionIdsToAttempt},
       };
+
+      // Apply preferences filters
+      if (query.source && query.source !== 'all') {
+        filter.source = {$regex: `^${escapeRegex(query.source)}$`, $options: 'i'};
+      }
+      if (query.state && query.state !== 'all') {
+        filter['details.state'] = {$regex: `^${escapeRegex(query.state)}$`, $options: 'i'};
+      }
+      if (query.crop && query.crop !== 'all') {
+        filter['details.crop'] = {$regex: `^${escapeRegex(query.crop)}$`, $options: 'i'};
+      }
 
       const pipeline: any = [{$match: filter}];
 
