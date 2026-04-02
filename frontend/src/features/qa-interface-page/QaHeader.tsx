@@ -101,9 +101,9 @@ const QaPreferencesDialog = ({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="flex items-center gap-2 px-3 py-1.5 h-9 bg-background hover:bg-accent hover:text-accent-foreground border border-input rounded-md transition-all shadow-sm">
-          <Settings size={16} className="text-muted-foreground" />
-          <span className="text-sm font-medium text-gray-900 dark:text-white">
+        <button className="flex items-center gap-1.5 px-2 py-1 h-8 bg-background hover:bg-accent hover:text-accent-foreground border border-input rounded-md transition-all shadow-sm shrink-0">
+          <Settings size={14} className="text-muted-foreground" />
+          <span className="text-xs font-medium text-gray-900 dark:text-white whitespace-nowrap">
             Preferences
           </span>
           {activeFiltersCount > 0 && (
@@ -314,15 +314,15 @@ export const QaHeader=({ questions,
   return(
     <div>
       <Card className="w-full md:max-h-[120vh]  max-h-[80vh] min-h-[90vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent">
-            <CardHeader className="border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4">
+            <CardHeader className="border-b flex flex-row flex-wrap items-center justify-between gap-2 sm:gap-3 py-3 sm:py-4 px-3 sm:px-4">
               <TooltipProvider>
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-md md:text-lg font-semibold">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <CardTitle className="text-sm md:text-base font-semibold whitespace-nowrap">
                     Question Queues
                   </CardTitle>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help flex-shrink-0" />
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-sm">
                       <p>
@@ -334,10 +334,9 @@ export const QaHeader=({ questions,
                   </Tooltip>
                 </div>
               </TooltipProvider>
-             
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto sm:justify-end">
+
               <Select value={actionType} onValueChange={onActionTypeChange}>
-                <SelectTrigger className="w-[180px] sm:w-auto">
+                <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3 min-w-fit shrink-0">
                   <SelectValue placeholder="Select action" />
                 </SelectTrigger>
 
@@ -346,7 +345,8 @@ export const QaHeader=({ questions,
                   <SelectItem value="reroute">ReRouted Questions</SelectItem>
                 </SelectContent>
               </Select>
-
+             
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <QaPreferencesDialog
                   reviewLevel={reviewLevel}
                   source={source}
@@ -357,11 +357,11 @@ export const QaHeader=({ questions,
 
                 <Button 
                   variant="outline"
-                  size="sm"
+                  size="icon"
                   onClick={onRefresh}
-                  className="h-9 px-3 bg-transparent hidden md:block"
+                  className="h-8 w-8 shrink-0 bg-transparent"
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  <RefreshCw className="w-3.5 h-3.5" />
                   <span className="sr-only">Refresh</span>
                 </Button>
 
@@ -370,9 +370,9 @@ export const QaHeader=({ questions,
                    && (
                     <Button
                   variant="ghost"
-                  size="sm"
+                  size="icon"
                   onClick={onToggleCollapse}
-                  className="h-9 px-2 ml-2"
+                  className="h-8 w-8 shrink-0"
                   title="Collapse Questions"
                 >
                   <ChevronLeft className="w-4 h-4" />
