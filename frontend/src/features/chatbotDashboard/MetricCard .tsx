@@ -174,28 +174,9 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
 				style={{ background: kpi.accentColor }}
 			/>
 			<CardContent className="p-4 flex flex-col gap-3">
-				{/* Upper: label + date range badge */}
-				<div className="flex items-start justify-between gap-2 flex-wrap">
-				  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-				    {kpi.label}
-				  </div>
-				  {kpi.sparkPoints && (
-				    <div
-				      style={{
-				        background: `${kpi.accentColor}22`,
-				        border: `1px solid ${kpi.accentColor}55`,
-				        borderRadius: 6,
-				        padding: "2px 6px",
-				        fontSize: 10,
-				        fontWeight: 600,
-				        color: kpi.accentColor,
-				        whiteSpace: "nowrap",
-				        flexShrink: 0,
-				      }}
-				    >
-				      {kpi.dateRange || getDateRangeLabel(30)}
-				    </div>
-				  )}
+				{/* Upper: label */}
+				<div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+				  {kpi.label}
 				</div>
 
 				{/* Lower: value, delta, sparkline, badges */}
