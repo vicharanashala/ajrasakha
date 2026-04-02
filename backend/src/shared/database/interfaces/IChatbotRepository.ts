@@ -47,6 +47,11 @@ export interface DailyQueryCountEntry {
   count: number;
 }
 
+export interface WeeklyQueryCountEntry {
+  week: string; // ISO week string, e.g. '2025-W03'
+  count: number;
+}
+
 // ─── Single consolidated interface ───────────────────────────────────────────
 
 export interface IChatbotRepository {
@@ -76,6 +81,9 @@ export interface IChatbotRepository {
 
   /** Count of user messages created today from the messages collection. */
   getTodayQueryCount(session?: ClientSession): Promise<number>;
+
+  /** Weekly query totals (all-time) from the messages collection, sorted ascending by ISO week. */
+  getWeeklyQueryCounts(session?: ClientSession): Promise<WeeklyQueryCountEntry[]>;
 
   /** Daily user activity trend (users active per day) over the last `days` days, sorted ascending. */
   getDailyUserTrend(days?: number, session?: ClientSession): Promise<DailyActiveUsersEntry[]>;
