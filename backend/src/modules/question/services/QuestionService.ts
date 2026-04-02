@@ -1246,6 +1246,33 @@ export class QuestionService extends BaseService implements IQuestionService {
     updates: Partial<IQuestion>,
   ): Promise<{modifiedCount: number}> {
     try {
+      // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
+      // Lifted OUTSIDE the transaction: cropRepository calls don't use the session,
+      // so they shouldn't inflate the transaction scope.
+      if (updates.details?.crop) {
+        const rawCropName = typeof updates.details.crop === 'string'
+          ? updates.details.crop
+          : (updates.details.crop as any)?.name || '';
+        let normalised_crop = rawCropName.trim().toLowerCase();
+        if (rawCropName.trim()) {
+          try {
+            const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
+            if (existingCrop) {
+              normalised_crop = existingCrop.name;
+            } else {
+              // Crop not found — auto-create it
+              const normalizedName = rawCropName.trim().toLowerCase();
+              await this.cropRepository.createCrop(normalizedName, '', []);
+              normalised_crop = normalizedName;
+            }
+          } catch (cropError: any) {
+            console.error('Crop normalization warning (updateQuestion):', cropError.message);
+          }
+        }
+        updates.details.crop = rawCropName.trim();
+        updates.details.normalised_crop = normalised_crop;
+      }
+
       return this._withTransaction(async (session: ClientSession) => {
         const existingQuestion = await this.questionRepo.getById(
           questionId,
@@ -1272,31 +1299,6 @@ export class QuestionService extends BaseService implements IQuestionService {
           throw new BadRequestError(
             `Cannot close this question as it has non-final answer`,
           );
-        }
-
-        // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
-        if (updates.details?.crop) {
-          const rawCropName = typeof updates.details.crop === 'string'
-            ? updates.details.crop
-            : (updates.details.crop as any)?.name || '';
-          let normalised_crop = rawCropName.trim().toLowerCase();
-          if (rawCropName.trim()) {
-            try {
-              const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
-              if (existingCrop) {
-                normalised_crop = existingCrop.name;
-              } else {
-                // Crop not found — auto-create it
-                const normalizedName = rawCropName.trim().toLowerCase();
-                await this.cropRepository.createCrop(normalizedName, '', []);
-                normalised_crop = normalizedName;
-              }
-            } catch (cropError: any) {
-              console.error('Crop normalization warning (updateQuestion):', cropError.message);
-            }
-          }
-          updates.details.crop = rawCropName.trim();
-          updates.details.normalised_crop = normalised_crop;
         }
 
         return this.questionRepo.updateQuestion(questionId, updates, session);
