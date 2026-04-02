@@ -271,9 +271,10 @@ export const CropManagementModal = ({
             </Button>
             <button
               onClick={() => onOpenChange(false)}
-              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              className="group h-8 w-8 flex items-center justify-center rounded-full bg-gray-50 dark:bg-[#1a1a1a] hover:bg-rose-50 dark:hover:bg-rose-500/10 border border-gray-200 dark:border-gray-800 hover:border-rose-200 dark:hover:border-rose-800/30 text-gray-500 dark:text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 shadow-sm transition-all duration-300 focus:outline-none"
+              title="Close"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4 transition-transform duration-300 group-hover:scale-110 group-active:scale-95" />
             </button>
           </div>
         </div>
