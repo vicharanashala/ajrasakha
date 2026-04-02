@@ -76,4 +76,7 @@ export interface IChatbotRepository {
 
   /** Count of user messages created today from the messages collection. */
   getTodayQueryCount(session?: ClientSession): Promise<number>;
+
+  /** Daily user activity trend (users active per day) over the last `days` days, sorted ascending. */
+  getDailyUserTrend(days?: number, session?: ClientSession): Promise<DailyActiveUsersEntry[]>;
 }

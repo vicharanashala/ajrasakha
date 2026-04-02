@@ -31,4 +31,5 @@ export interface IChatbotService {
   getWeeklyAvgSessionDuration(weeks?: number): Promise<WeeklySessionDurationEntry[]>;
   getDailyQueryCounts(days?: number): Promise<DailyQueryCountEntry[]>;
   getTodayQueryCount(): Promise<number>;
+  getDailyUserTrend(days?: number): Promise<DailyActiveUsersEntry[]>;
 }

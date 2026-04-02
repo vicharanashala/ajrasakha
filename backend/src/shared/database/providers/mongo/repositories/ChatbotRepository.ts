@@ -211,6 +211,45 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  async getDailyUserTrend(days = 30, session?: ClientSession): Promise<DailyActiveUsersEntry[]> {
+    try {
+      await this.init();
+
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+      since.setHours(0, 0, 0, 0);
+
+      const result = await this.messagesCollection
+        .aggregate([
+          // Filter to last N days, user-sent messages only
+          { $match: { createdAt: { $gte: since }, isCreatedByUser: true } },
+          // Deduplicate: one entry per (day, user) pair
+          {
+            $group: {
+              _id: {
+                day: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } },
+                user: '$user',
+              },
+            },
+          },
+          // Count distinct users per day
+          {
+            $group: {
+              _id: '$_id.day',
+              count: { $sum: 1 },
+            },
+          },
+          { $project: { day: '$_id', count: 1, _id: 0 } },
+          { $sort: { day: 1 } },
+        ], { session })
+        .toArray();
+
+      return result as DailyActiveUsersEntry[];
+    } catch (error) {
+      throw new InternalServerError(`Failed to get daily user trend: ${error}`);
+    }
+  }
+
   async getTodayQueryCount(session?: ClientSession): Promise<number> {
     try {
       await this.init();

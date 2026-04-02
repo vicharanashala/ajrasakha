@@ -78,4 +78,12 @@ export class ChatbotController {
   async getQueryCategories() {
     return this.chatbotService.getQueryCategories();
   }
+
+  @Get('/user-trend')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Get daily user activity trend for bar graph (last N days, daily granularity)' })
+  async getDailyUserTrend(@QueryParam('days') days = 30) {
+    return this.chatbotService.getDailyUserTrend(days);
+  }
 }

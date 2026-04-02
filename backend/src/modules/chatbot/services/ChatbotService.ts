@@ -112,4 +112,12 @@ export class ChatbotService implements IChatbotService {
       throw new InternalServerError(`Failed to fetch today query count: ${error}`);
     }
   }
+
+  async getDailyUserTrend(days = 30) {
+    try {
+      return await this.chatbotRepository.getDailyUserTrend(days);
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch daily user trend: ${error}`);
+    }
+  }
 }
