@@ -3344,4 +3344,43 @@ return await this.QuestionCollection.countDocuments({ status: 'closed' }, { sess
 
     return topSimilar as any;
   }
+
+  // Backfill normalised_crop (OPTIMIZED)
+async backfillNormalisedCrop(
+  name: string,
+  aliases: string[],
+): Promise<number> {
+  await this.init();
+
+  const allValues = [name, ...(aliases || [])].map(v =>
+    v.toLowerCase().trim(),
+  );
+
+  const conditions = allValues.map(val => ({
+    'details.crop': { $regex: `^${val}$`, $options: 'i' },
+  }));
+
+  const result = await this.QuestionCollection.updateMany(
+    {
+      $and: [
+        { $or: conditions },
+        {
+          $or: [
+            { 'details.normalised_crop': { $exists: false } },
+            { 'details.normalised_crop': null },
+          ],
+        },
+      ],
+    },
+    {
+      $set: {
+        'details.normalised_crop': name.toLowerCase(),
+      },
+    },
+  );
+
+  return result.modifiedCount;
 }
+}
+
+
