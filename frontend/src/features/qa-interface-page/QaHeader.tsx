@@ -101,9 +101,9 @@ const QaPreferencesDialog = ({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="flex items-center gap-2 px-3 py-1.5 h-9 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-md transition-all shadow-sm">
-          <Settings size={16} className="text-purple-500 dark:text-purple-400" />
-          <span className="text-sm font-medium text-gray-900 dark:text-white hidden md:inline">
+        <button className="flex items-center gap-2 px-3 py-1.5 h-9 bg-background hover:bg-accent hover:text-accent-foreground border border-input rounded-md transition-all shadow-sm">
+          <Settings size={16} className="text-muted-foreground" />
+          <span className="text-sm font-medium text-gray-900 dark:text-white">
             Preferences
           </span>
           {activeFiltersCount > 0 && (
@@ -130,8 +130,8 @@ const QaPreferencesDialog = ({
           </DialogHeader>
 
           <div className="space-y-6 py-4">
-            {/* Source */}
-            <div className="grid grid-cols-1 gap-4">
+            {/* Top Section: Source & Review Level */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2 min-w-0">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <Globe className="h-4 w-4 text-primary" />
@@ -163,31 +163,6 @@ const QaPreferencesDialog = ({
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <Separator />
-
-            {/* Location & Crop & Review Level */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2 min-w-0">
-                <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  State/Region
-                </Label>
-                <Select value={localState} onValueChange={setLocalState}>
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All States</SelectItem>
-                    {STATES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
               <div className="space-y-2 min-w-0">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
@@ -203,6 +178,31 @@ const QaPreferencesDialog = ({
                     {Review_Level_QAI.map((d) => (
                       <SelectItem key={d} value={d}>
                         {d}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Bottom Section: Location & Crop */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2 min-w-0">
+                <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <MapPin className="h-4 w-4 text-primary" />
+                  State/Region
+                </Label>
+                <Select value={localState} onValueChange={setLocalState}>
+                  <SelectTrigger className="bg-background w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All States</SelectItem>
+                    {STATES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -314,7 +314,7 @@ export const QaHeader=({ questions,
   return(
     <div>
       <Card className="w-full md:max-h-[120vh]  max-h-[80vh] min-h-[90vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent">
-            <CardHeader className="border-b flex flex-row items-center justify-between pb-4">
+            <CardHeader className="border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4">
               <TooltipProvider>
                 <div className="flex items-center gap-2">
                   <CardTitle className="text-md md:text-lg font-semibold">
@@ -335,9 +335,9 @@ export const QaHeader=({ questions,
                 </div>
               </TooltipProvider>
              
-              <div className="sm:flex sm:flex-row sm:justify-end sm:items-center gap-3 ">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto sm:justify-end">
               <Select value={actionType} onValueChange={onActionTypeChange}>
-                <SelectTrigger className="">
+                <SelectTrigger className="w-[180px] sm:w-auto">
                   <SelectValue placeholder="Select action" />
                 </SelectTrigger>
 
@@ -347,15 +347,13 @@ export const QaHeader=({ questions,
                 </SelectContent>
               </Select>
 
-                {actionType === "allocated" && (
-                  <QaPreferencesDialog
-                    reviewLevel={reviewLevel}
-                    source={source}
-                    state={state}
-                    crop={crop}
-                    onFilterChange={onFilterChange}
-                  />
-                )}  
+                <QaPreferencesDialog
+                  reviewLevel={reviewLevel}
+                  source={source}
+                  state={state}
+                  crop={crop}
+                  onFilterChange={onFilterChange}
+                />
 
                 <Button 
                   variant="outline"
