@@ -1274,6 +1274,31 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
         }
 
+        // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
+        if (updates.details?.crop) {
+          const rawCropName = typeof updates.details.crop === 'string'
+            ? updates.details.crop
+            : (updates.details.crop as any)?.name || '';
+          let normalised_crop = rawCropName.trim().toLowerCase();
+          if (rawCropName.trim()) {
+            try {
+              const existingCrop = await this.cropRepository.findByNameOrAlias(rawCropName);
+              if (existingCrop) {
+                normalised_crop = existingCrop.name;
+              } else {
+                // Crop not found — auto-create it
+                const normalizedName = rawCropName.trim().toLowerCase();
+                await this.cropRepository.createCrop(normalizedName, '', []);
+                normalised_crop = normalizedName;
+              }
+            } catch (cropError: any) {
+              console.error('Crop normalization warning (updateQuestion):', cropError.message);
+            }
+          }
+          updates.details.crop = rawCropName.trim();
+          updates.details.normalised_crop = normalised_crop;
+        }
+
         return this.questionRepo.updateQuestion(questionId, updates, session);
       });
     } catch (error) {
