@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { apiFetch } from '@/hooks/api/api-fetch';
 import { env } from '@/config/env';
 import { DASHBOARD_DATA } from '../mockData';
-import { formatIndian, calcDelta } from '../utils/dashboardHelpers';
+import { formatIndian, calcDelta, calcWeeklyDelta } from '../utils/dashboardHelpers';
 import type { DailyEntry } from '../utils/dashboardHelpers';
 import type { DashboardFilterValues } from '../DashboardFilters';
 
@@ -65,11 +65,10 @@ export function useDashboardData(filters?: DashboardFilterValues) {
             ? { text: `${pct}% vs last month`, dir: 'down' as const }
             : { text: 'Stable vs last month', dir: 'neutral' as const };
 
-          // Build sparkline from monthly DAU data points
+          // Build sparkline from all DAU data points (up to 30 days)
           const sparkPoints = result.dau.length > 0
-            ? result.dau.slice(-13).map(d => d.count)
-            : DASHBOARD_DATA.kpiRow1[0].sparkPoints;
-
+            ? result.dau.map(d => d.count)
+            : DASHBOARD_DATA.kpiRow1[0].sparkPoints; // fallback to mock sparkline
           // Session duration: compare current week vs last week
           const sessionWeekly = result.weeklySessionDuration ?? [];
           const thisWeek = sessionWeekly.at(-1)?.avgSessionDurationMin ?? 0;
@@ -78,20 +77,20 @@ export function useDashboardData(filters?: DashboardFilterValues) {
             lastWeek === 0 || sessionWeekly.length < 2
               ? { text: 'Not enough data', dir: 'neutral' }
               : (() => {
-                  const pct = Math.round(((thisWeek - lastWeek) / lastWeek) * 100);
-                  if (pct > 0) return { text: `+${pct}% vs last week`, dir: 'up' };
-                  if (pct < 0) return { text: `${pct}% vs last week`, dir: 'down' };
-                  return { text: 'Stable vs last week', dir: 'neutral' };
-                })();
+                const pct = Math.round(((thisWeek - lastWeek) / lastWeek) * 100);
+                if (pct > 0) return { text: `+${pct}% vs last week`, dir: 'up' };
+                if (pct < 0) return { text: `${pct}% vs last week`, dir: 'down' };
+                return { text: 'Stable vs last week', dir: 'neutral' };
+              })();
           const sessionSparkPoints = sessionWeekly.length > 0
             ? sessionWeekly.map(w => w.avgSessionDurationMin)
             : DASHBOARD_DATA.kpiRow1.find(c => c.id === 'session')?.sparkPoints ?? [];
 
-          // Daily queries: compare recent half vs older half for week-on-week delta
+          // Daily queries: true week-over-week delta (last 7 days vs prior 7 days)
           const queryTrend = result.dailyQueries ?? [];
-          const queryDelta = calcDelta(queryTrend, 'last week');
+          const queryDelta = calcWeeklyDelta(queryTrend);
           const querySparkPoints = queryTrend.length > 0
-            ? queryTrend.slice(-13).map(d => d.count)
+            ? queryTrend.map(d => d.count)
             : DASHBOARD_DATA.kpiRow1.find(c => c.id === 'queries')?.sparkPoints ?? [];
 
           updatedData.kpiRow1 = DASHBOARD_DATA.kpiRow1.map(card => {
