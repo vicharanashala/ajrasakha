@@ -111,39 +111,59 @@ const truncate = (s: string, n = 80) => {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 };
 
-// ── Crop Select with DB data + alias tooltips ────────────────────────
+// ── Crop Select with DB data — shows crop names + aliases as selectable items ──
 const CropSelect = ({
   value,
   onValueChange,
   hasError,
   invalidFieldClass,
   placeholder,
-  showAliases = true,
+  onNormalisedCropResolved,
 }: {
   value?: string;
   onValueChange: (val: string) => void;
   hasError: boolean;
   invalidFieldClass: string;
   placeholder?: string;
-  showAliases?: boolean;
+  onNormalisedCropResolved?: (canonicalName: string) => void;
 }) => {
   const { data: cropsData, isLoading } = useGetAllCrops();
   const dbCrops = cropsData?.crops || [];
-
-  // If DB has crops, use them; otherwise fallback to hardcoded CROPS
   const useDbCrops = dbCrops.length > 0;
 
+  // Build a flat list of all selectable items: each crop name + each alias
+  // Every item maps back to its canonical (normalised) crop name
+  const selectItems: { label: string; value: string; canonicalName: string; isAlias: boolean }[] = [];
+  if (useDbCrops) {
+    for (const crop of dbCrops) {
+      // Add the crop name itself
+      selectItems.push({ label: crop.name, value: crop.name, canonicalName: crop.name, isAlias: false });
+      // Add each alias as a separate selectable item
+      for (const alias of (crop.aliases || [])) {
+        selectItems.push({ label: alias, value: alias, canonicalName: crop.name, isAlias: true });
+      }
+    }
+  }
+
+  // Try to match current value against the items list
   const normalizedVal = value?.trim().toLowerCase();
-  const matchedValue = normalizedVal
-    ? useDbCrops
-      ? dbCrops.find((c) => c.name.toLowerCase() === normalizedVal)?.name
-      : CROPS.find((c) => c.toLowerCase() === normalizedVal)
+  const matchedItem = normalizedVal
+    ? selectItems.find((item) => item.value.toLowerCase() === normalizedVal)
     : undefined;
+
+  const handleChange = (selectedValue: string) => {
+    onValueChange(selectedValue);
+    // Resolve the canonical crop name and notify parent
+    const item = selectItems.find((i) => i.value === selectedValue);
+    if (item && onNormalisedCropResolved) {
+      onNormalisedCropResolved(item.canonicalName);
+    }
+  };
 
   return (
     <Select
-      value={matchedValue ?? (value?.trim() ? value : undefined)}
-      onValueChange={onValueChange}
+      value={matchedItem?.value ?? (value?.trim() ? value : undefined)}
+      onValueChange={handleChange}
     >
       <SelectTrigger
         className={`w-full ${hasError ? invalidFieldClass : ""}`}
@@ -151,34 +171,14 @@ const CropSelect = ({
         <SelectValue placeholder={isLoading ? "Loading crops..." : (placeholder ?? "Select crop")} />
       </SelectTrigger>
       <SelectContent>
-        {!matchedValue && value?.trim() && (
+        {/* Show current value if it doesn't match any known item (legacy data) */}
+        {!matchedItem && value?.trim() && (
           <SelectItem key={value.trim()} value={value.trim()}>{value.trim()}</SelectItem>
         )}
         {useDbCrops
-          ? dbCrops.map((crop) => (
-              <SelectItem key={crop._id || crop.name} value={crop.name}>
-                {showAliases && crop.aliases && crop.aliases.length > 0 ? (
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex items-center gap-2 cursor-default">
-                          <span className="capitalize">{crop.name}</span>
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
-                            +{crop.aliases.length}
-                          </span>
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="text-xs">
-                        <p className="font-semibold mb-0.5">Also known as:</p>
-                        {crop.aliases.map((a) => (
-                          <p key={a} className="capitalize text-muted-foreground">{a}</p>
-                        ))}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : (
-                  <span className="capitalize">{crop.name}</span>
-                )}
+          ? selectItems.map((item) => (
+              <SelectItem key={`${item.canonicalName}-${item.value}`} value={item.value}>
+                <span className="capitalize">{item.label}</span>
               </SelectItem>
             ))
           : CROPS.map((crop) => (
@@ -578,18 +578,6 @@ export const AddOrEditQuestionDialog = ({
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                       <label>Crop*</label>
-                      {mode !== "edit" && (
-                      <TooltipProvider delayDuration={200}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-4 w-4 cursor-pointer hover:text-foreground transition-colors" aria-hidden="true" />
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-xs text-xs">
-                            <p>The names here are normalized and unique. You can view a crop's alternative names by hovering over the "+" icon next to it.</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      )}
                     </div>
                     <CropSelect
                       value={updatedData?.details?.crop}
@@ -607,9 +595,21 @@ export const AddOrEditQuestionDialog = ({
                             : prev
                         );
                       }}
+                      onNormalisedCropResolved={(canonicalName) => {
+                        setUpdatedData((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                details: {
+                                  ...prev.details,
+                                  normalised_crop: canonicalName,
+                                },
+                              }
+                            : prev
+                        );
+                      }}
                       hasError={!!(mode === "add" && validationErrors?.crop)}
                       invalidFieldClass={invalidFieldClass}
-                      showAliases={mode !== "edit"}
                     />
                     {mode === "add" && validationErrors?.crop && (
                       <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
@@ -618,30 +618,17 @@ export const AddOrEditQuestionDialog = ({
                     )}
                   </div>
 
-                  {/* ── Normalised Crop (from DB) ── */}
+                  {/* ── Normalised Crop (auto-filled, read-only) ── */}
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                       <label>Normalised Crop</label>
                     </div>
-                    <CropSelect
-                      value={updatedData?.details?.normalised_crop}
-                      onValueChange={(val) =>
-                        setUpdatedData((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                details: {
-                                  ...prev.details,
-                                  normalised_crop: val,
-                                },
-                              }
-                            : prev
-                        )
-                      }
-                      hasError={false}
-                      invalidFieldClass={invalidFieldClass}
-                      placeholder="Select normalised crop"
-                      showAliases={false}
+                    <Input
+                      type="text"
+                      value={updatedData?.details?.normalised_crop || ""}
+                      disabled
+                      placeholder="Will auto-fill when crop is selected"
+                      className="capitalize bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                     />
                   </div>
 
