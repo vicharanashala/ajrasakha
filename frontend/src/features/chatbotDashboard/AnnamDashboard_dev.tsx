@@ -33,7 +33,7 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
   const [filters, setFilters]             = useState<DashboardFilterValues>(DEFAULT_FILTERS);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const { data, isLoading, error } = useDashboardData(filters);
-  const { data: dauTrend, isLoading: dauLoading } = useDailyUserTrend(30);
+  const { data: dauTrend, isLoading: dauLoading, error: dauError } = useDailyUserTrend(30);
 
   const sectionRefs = useRef<Partial<Record<DashboardView, HTMLDivElement | null>>>({});
 
@@ -106,7 +106,7 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
           {/* DAU trend + Channel split */}
           <div ref={(el) => { sectionRefs.current["usage-patterns"] = el; }}
             className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4">
-            <DailyActiveUsers data={dauTrend} isLoading={dauLoading} />
+            <DailyActiveUsers data={dauTrend} isLoading={dauLoading} error={dauError} />
             <ChannelSplitCard channelSplit={data.channelSplit} voiceAccuracy={data.voiceAccuracy} />
           </div>
 

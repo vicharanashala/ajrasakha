@@ -10,9 +10,10 @@ const FALLBACK_DATA = [
 interface Props {
     data?: number[];
     isLoading?: boolean;
+    error?: Error | null;
 }
 
-const DailyActiveUsers = ({ data: propData, isLoading = false }: Props) => {
+const DailyActiveUsers = ({ data: propData, isLoading = false, error = null }: Props) => {
     const data = propData && propData.length > 0 ? propData : FALLBACK_DATA;
     const maxData = Math.max(...data);
 
@@ -85,6 +86,11 @@ const DailyActiveUsers = ({ data: propData, isLoading = false }: Props) => {
                             </div>
                         </div>
                     </div>
+                    {error && (
+                        <p className="text-[11px] text-red-500 mt-2">
+                            Could not load live data — showing last known values.
+                        </p>
+                    )}
                     <div
                         style={{
                             display: "flex",
