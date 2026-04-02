@@ -13,6 +13,7 @@ import type {
   QueryCategoryEntry,
   WeeklySessionDurationEntry,
   DailyQueryCountEntry,
+  WeeklyQueryCountEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 
 interface IUser {
@@ -247,6 +248,35 @@ export class ChatbotRepository implements IChatbotRepository {
       return result as DailyActiveUsersEntry[];
     } catch (error) {
       throw new InternalServerError(`Failed to get daily user trend: ${error}`);
+    }
+  }
+
+  async getWeeklyQueryCounts(session?: ClientSession): Promise<WeeklyQueryCountEntry[]> {
+    try {
+      await this.init();
+
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            { $match: { isCreatedByUser: true } },
+            {
+              $group: {
+                _id: {
+                  $dateToString: { format: '%G-W%V', date: '$createdAt', timezone: '+05:30' },
+                },
+                count: { $sum: 1 },
+              },
+            },
+            { $project: { week: '$_id', count: 1, _id: 0 } },
+            { $sort: { week: 1 } },
+          ],
+          { session },
+        )
+        .toArray();
+
+      return result as WeeklyQueryCountEntry[];
+    } catch (error) {
+      throw new InternalServerError(`Failed to get weekly query counts: ${error}`);
     }
   }
 
