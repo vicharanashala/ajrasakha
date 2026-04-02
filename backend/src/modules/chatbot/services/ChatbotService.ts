@@ -13,7 +13,7 @@ export class ChatbotService implements IChatbotService {
 
   async getDashboard(days = 30): Promise<DashboardResponse> {
     try {
-      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, weeklySessionDuration, dailyQueries, todayQueryCount] =
+      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, weeklySessionDuration, dailyQueries, todayQueryCount, weeklyQueries] =
         await Promise.all([
           this.chatbotRepository.getKpiSummary(),
           this.chatbotRepository.getDailyActiveUsers(days),
@@ -24,6 +24,7 @@ export class ChatbotService implements IChatbotService {
           this.chatbotRepository.getWeeklyAvgSessionDuration(Math.ceil(days / 7)),
           this.chatbotRepository.getDailyQueryCounts(days),
           this.chatbotRepository.getTodayQueryCount(),
+          this.chatbotRepository.getWeeklyQueryCounts(),
         ]);
 
       return {
@@ -35,6 +36,7 @@ export class ChatbotService implements IChatbotService {
         queryCategories,
         weeklySessionDuration,
         dailyQueries,
+        weeklyQueries,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch dashboard data: ${error}`);
@@ -118,6 +120,14 @@ export class ChatbotService implements IChatbotService {
       return await this.chatbotRepository.getDailyUserTrend(days);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch daily user trend: ${error}`);
+    }
+  }
+
+  async getWeeklyQueryCounts() {
+    try {
+      return await this.chatbotRepository.getWeeklyQueryCounts();
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch weekly query counts: ${error}`);
     }
   }
 }

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { apiFetch } from '@/hooks/api/api-fetch';
 import { env } from '@/config/env';
 import { DASHBOARD_DATA } from '../mockData';
-import { formatIndian, calcDelta, calcWeeklyDelta } from '../utils/dashboardHelpers';
+import { formatIndian, calcWeeklyDelta } from '../utils/dashboardHelpers';
 import type { DailyEntry } from '../utils/dashboardHelpers';
 import type { DashboardFilterValues } from '../DashboardFilters';
 
@@ -21,6 +21,7 @@ interface DashboardApiResponse {
   dau: DailyEntry[];
   weeklySessionDuration: Array<{ week: string; avgSessionDurationMin: number }>;
   dailyQueries: DailyEntry[];
+  weeklyQueries: Array<{ week: string; count: number }>;
   channelSplit: any[];
   voiceAccuracy: any[];
   geo: any[];
@@ -89,8 +90,10 @@ export function useDashboardData(filters?: DashboardFilterValues) {
           // Daily queries: true week-over-week delta (last 7 days vs prior 7 days)
           const queryTrend = result.dailyQueries ?? [];
           const queryDelta = calcWeeklyDelta(queryTrend);
-          const querySparkPoints = queryTrend.length > 0
-            ? queryTrend.map(d => d.count)
+          // Sparkline: use all-time weekly totals as data points
+          const weeklyQueryData = result.weeklyQueries ?? [];
+          const querySparkPoints = weeklyQueryData.length > 0
+            ? weeklyQueryData.map(w => w.count)
             : DASHBOARD_DATA.kpiRow1.find(c => c.id === 'queries')?.sparkPoints ?? [];
 
           updatedData.kpiRow1 = DASHBOARD_DATA.kpiRow1.map(card => {
