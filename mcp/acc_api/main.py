@@ -42,6 +42,10 @@ class SearchRequest(BaseModel):
     query: str
     top_k: int = 5
     threshold: float = 0.8
+    # When set, reviewer + golden are restricted to this district, except documents
+    # whose district is FAQ or Unknown (those are always included). PoP has no
+    # district field and is never filtered by district.
+    district: str | None = None
 
 
 class QAItem(BaseModel):
@@ -73,6 +77,19 @@ class MultiSearchResponse(BaseModel):
     reviewer: list[QAItem]
     golden: list[GoldenQAItem]
     pop: list[PopItem]
+
+
+def _passes_district_filter(doc_district: str | None, filter_district: str | None) -> bool:
+    """If filter_district is set, keep docs whose district matches it, or is FAQ/Unknown."""
+    if not filter_district or not str(filter_district).strip():
+        return True
+    want = str(filter_district).strip()
+    got = (doc_district or "").strip()
+    if not got:
+        return False
+    if got.casefold() in ("faq", "unknown"):
+        return True
+    return got.casefold() == want.casefold()
 
 
 def parse_answer(text: str | None) -> str | None:
@@ -166,7 +183,16 @@ def search_questions(request: SearchRequest):
 
     if not results:
         return []
-    return [serialize_doc(doc) for doc in results]
+    items = [serialize_doc(doc) for doc in results]
+    if request.district:
+        items = [
+            x
+            for x in items
+            if _passes_district_filter(
+                (x.details or {}).get("district"), request.district
+            )
+        ]
+    return items
 
 
 # @app.post("/search_all", response_model=MultiSearchResponse)
@@ -301,6 +327,14 @@ def search_all(request: SearchRequest):
 
     reviewer_items.sort(key=lambda x: x.score, reverse=True)
 
+    if request.district:
+        reviewer_items = [
+            x
+            for x in reviewer_items
+            if _passes_district_filter(
+                (x.details or {}).get("district"), request.district
+            )
+        ]
 
     # ---------------- Golden QA Search ----------------
 
@@ -344,6 +378,14 @@ def search_all(request: SearchRequest):
 
     golden_items.sort(key=lambda x: x.score, reverse=True)
 
+    if request.district:
+        golden_items = [
+            x
+            for x in golden_items
+            if _passes_district_filter(
+                (x.metadata or {}).get("District"), request.district
+            )
+        ]
 
     # ---------------- PoP Search ----------------
 
