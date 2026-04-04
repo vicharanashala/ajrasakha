@@ -45,10 +45,10 @@ export class CropService extends BaseService implements ICropService {
         dto.aliases,
       );
 
-      //  Backfill via repository
+      //  Backfill via repository — use the DB-normalised values (trimmed + lowercased)
       await this.questionRepository.backfillNormalisedCrop(
-        dto.name,
-        dto.aliases,
+        crop.name,
+        crop.aliases || [],
       );
 
       return crop;
@@ -73,10 +73,10 @@ export class CropService extends BaseService implements ICropService {
       );
 
       if (updatedCrop) {
-        //  Backfill via repository
+        //  Backfill via repository — use the DB-normalised values (trimmed + lowercased)
         await this.questionRepository.backfillNormalisedCrop(
           updatedCrop.name,
-          dto.aliases,
+          updatedCrop.aliases || [],
         );
       }
 

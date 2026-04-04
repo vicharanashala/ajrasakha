@@ -3377,7 +3377,7 @@ async backfillNormalisedCrop(
     },
     {
       $set: {
-        'details.normalised_crop': name.toLowerCase(),
+        'details.normalised_crop': name.trim().toLowerCase(),
       },
     },
   );
