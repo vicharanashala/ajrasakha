@@ -3352,12 +3352,15 @@ async backfillNormalisedCrop(
 ): Promise<number> {
   await this.init();
 
+  const escapeRegex = (v: string) =>
+    v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
   const allValues = [name, ...(aliases || [])].map(v =>
     v.toLowerCase().trim(),
   );
 
   const conditions = allValues.map(val => ({
-    'details.crop': { $regex: `^${val}$`, $options: 'i' },
+    'details.crop': { $regex: `^\\s*${escapeRegex(val)}\\s*$`, $options: 'i' },
   }));
 
   const result = await this.QuestionCollection.updateMany(
