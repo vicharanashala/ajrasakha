@@ -49,13 +49,13 @@ export const AllocationQueueHeader = ({
     useToggleAutoAllocateQuestion();
 
   const expertsIdsInQueue = new Set(queue.map((expert) => expert._id));
-  /*const experts =
+  const experts =
     usersData?.users.filter(
       (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id)
-    ) || [];*/
-    let experts = [];
+    ) || [];
+   // let experts = [];
 
-      if (question.source === "AJRASAKHA") {
+   /*   if (question.source === "AJRASAKHA") {
         experts =
           usersData?.users.filter(
             (user) =>
@@ -70,7 +70,7 @@ export const AllocationQueueHeader = ({
               user.role === "expert" &&
               !expertsIdsInQueue.has(user._id)
           ) || [];
-      }
+      }*/
 
   const filteredExperts = experts.filter(
     (expert) =>
