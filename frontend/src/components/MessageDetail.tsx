@@ -473,7 +473,7 @@ const ContentAnswer = ({ text, question }: ContentAnswerProps) => {
                 )}
             </div>
 
-            {approved === null && question && question.isAutoAllocate === false && question.source == "AJRASAKHA" && (
+            {approved === null && question && question.isAutoAllocate === false && question.source == "AJRASAKHA" && question.status !== "open" && (
                 <div className="w-full flex items-center justify-between gap-4 px-4 py-3 border-t border-border">
                     <p className="text-xs text-muted-foreground leading-relaxed max-w-[65%]">
                         On approval, this answer will be finalized, the question will be marked as closed, and the result will be pushed to the Golden dataset. Please review carefully before approving.
