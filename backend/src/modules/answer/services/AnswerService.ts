@@ -1609,9 +1609,10 @@ answer: ${updates.answer}`;
     return this._withTransaction(async (session: ClientSession) => {
   
       const isAjrasakha = updates.source === 'AJRASAKHA';
+      
   
       // ✅ AJRASAKHA flow
-      if (isAjrasakha) {
+      if (isAjrasakha ) {
         if (!updates.questionId) {
           throw new BadRequestError('questionId is required for AJRASAKHA source');
         }
@@ -1629,9 +1630,14 @@ answer: ${updates.answer}`;
           throw new BadRequestError(`Question with ID ${updates.questionId} not found`);
         }
   
-        if (question.status !== 'in-review') {
+       /* if (question.isAutoAllocate ==true) {
           throw new BadRequestError(
-            `Can't approve this answer, currently question is not in review!`,
+            `Can't approve this answer, currently question is auto allocated!`,
+          );
+        }*/
+        if (question.status=='closed') {
+          throw new BadRequestError(
+            `Can't approve this answer, currently question is closed!`,
           );
         }
   
