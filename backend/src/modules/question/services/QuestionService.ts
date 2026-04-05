@@ -969,8 +969,8 @@ export class QuestionService extends BaseService implements IQuestionService {
              details.state,
              details.district,
              typeof details.crop === 'string' ? details.crop : details.crop.name,
-             details.season,
-             details.domain
+             //details.season,
+            // details.domain
            );
            console.log("the questions coming=====",questions)
            // merge reviewer + golden
