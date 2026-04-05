@@ -312,7 +312,7 @@ const ContentAnswer = ({ text, question }: ContentAnswerProps) => {
     };
 
     const handleEdit = () => {
-        setEditedText(text);
+        // setEditedText(text);
         setIsEditMode(true);
     };
 
