@@ -122,7 +122,6 @@ const MessageDetail = ({
         isLoading,
     } = useGetQuestionMessageDetailsByQuestionId(selectedQuestionId);
 
-    console.log("Fetched message details:", messageDetails);
 
     const msg = messageDetails?.data
 
@@ -179,6 +178,17 @@ const MessageDetail = ({
                         <div className="p-5 text-sm text-destructive">Failed to fetch message details.</div>
                     )}
 
+                    {!isLoading && !isError && !msg && (
+                        <div className="p-6 text-center">
+                            <p className="text-sm font-medium text-foreground">
+                                No message details available
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                No processing steps or message metadata were found for this question.
+                            </p>
+                        </div>
+                    )}
+
                     {msg && (
                         <div className="divide-y divide-border">
                             {/* User & Meta */}
@@ -196,7 +206,7 @@ const MessageDetail = ({
                                         </span>
                                         {msg.user.emailVerified && (
                                             <Badge className="text-[10px] bg-success/10 text-success border-success/20">Verified</Badge>
-                                        )} 
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                         <Mail className="h-3 w-3" /> {msg.user.email}
@@ -269,7 +279,7 @@ const ContentAnswer = ({ text, question }: ContentAnswerProps) => {
             toast.error("Answer cannot be empty.");
             return;
         }
-        if (!question || question._id) {
+        if (!question || !question._id) {
             toast.error("Question data is missing. Cannot approve the answer.");
             return;
         }
