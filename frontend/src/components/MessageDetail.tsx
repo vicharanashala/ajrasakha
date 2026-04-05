@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Save, Pencil, X } from "lucide-react";
+import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Save, Pencil, X, SkipForward } from "lucide-react";
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
@@ -8,6 +8,7 @@ import { Button } from "./atoms/button";
 import type { IQuestionFullData, IUser } from "@/types";
 import { useGetQuestionMessageDetailsByQuestionId } from "@/hooks/api/question/useGetQuestionMessageDetailsByQuestionId";
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
+import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 
 // const msg = {
 //     messageId: "msg_67f0a1b2c3d4",
@@ -266,6 +267,9 @@ const ContentAnswer = ({ text, question }: ContentAnswerProps) => {
     const { mutateAsync: updateAnswer, isPending: isUpdating } =
         useUpdateAnswer();
 
+    const { mutateAsync: updateQuestion, isPending: updatingQuestion } =
+        useUpdateQuestion();
+
     useEffect(() => {
         setEditedText(text);
     }, [text]);
@@ -325,6 +329,10 @@ const ContentAnswer = ({ text, question }: ContentAnswerProps) => {
         toast.success("Answer updated successfully");
         setIsEditMode(false);
     };
+
+    const handleSkip = async () => {
+        await updateQuestion({ isHidden: true, _id: question._id! })
+    }
 
     const renderText = (raw: string) => {
         const lines = raw.split("\n");
@@ -435,7 +443,7 @@ const ContentAnswer = ({ text, question }: ContentAnswerProps) => {
             </div>
 
             <div className="px-4 py-4 text-sm text-foreground/90">
-                {isEditMode  ? (
+                {isEditMode ? (
                     <div className="space-y-3">
                         <textarea
                             value={editedText}
@@ -474,13 +482,13 @@ const ContentAnswer = ({ text, question }: ContentAnswerProps) => {
             </div>
 
             {approved === null && question && question.isAutoAllocate === false && question.source == "AJRASAKHA" && question.status !== "closed" && (
-                <div className="w-full flex items-center justify-between gap-4 px-4 py-3 border-t border-border">
-                    <p className="text-xs text-muted-foreground leading-relaxed max-w-[65%]">
+                <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
+                    <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">
                         On approval, this answer will be finalized, the question will be marked as closed, and the result will be pushed to the Golden dataset. Please review carefully before approving.
                     </p>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                        {!isEditMode  && (
+                    <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
+                        {!isEditMode && (
                             <Button
                                 type="button"
                                 variant="outline"
@@ -493,16 +501,27 @@ const ContentAnswer = ({ text, question }: ContentAnswerProps) => {
                             </Button>
                         )}
 
-                        <div className="rounded-2xl px-3 py-2 shrink-0">
-                            <Button
-                                onClick={handleApprove}
-                                size="sm"
-                                className="bg-primary hover:bg-success/90 text-success-foreground gap-2 rounded-xl px-4"
-                            >
-                                <CheckCircle className="h-4 w-4" />
-                                Approve
-                            </Button>
-                        </div>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={updatingQuestion}
+                            onClick={async () => await handleSkip()}
+                            className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}
+                        >
+                            <SkipForward className="h-4 w-4" />
+                            Pass
+                        </Button>
+
+                        <Button
+                            type="button"
+                            onClick={handleApprove}
+                            size="sm"
+                            className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90"
+                        >
+                            <CheckCircle className="h-4 w-4" />
+                            Approve
+                        </Button>
                     </div>
                 </div>
             )}

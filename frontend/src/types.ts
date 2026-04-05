@@ -490,6 +490,7 @@ export interface IDetailedQuestion {
   updatedAt?: string;
   review_level_number?: number;
   closedAt?: string;
+  isHidden?: boolean;
 }
 
 export interface IDetailedQuestionResponse {
