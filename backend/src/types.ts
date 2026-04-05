@@ -44,6 +44,10 @@ const TYPES = {
   analyticsUri: Symbol.for('analyticsDbURI'),
   analyticsDbName: Symbol.for('analyticsDbName'),
   analyticsDatabase: Symbol.for('AnalyticsDatabase'),
+
+  annamanalyticsUri: Symbol.for('annamanalyticsDbURI'),
+  annamanalyticsDbName: Symbol.for('annamanalyticsDbName'),
+  annamanalyticsDatabase: Symbol.for('annamAnalyticsDatabase'),
 };
 
 export {TYPES as GLOBAL_TYPES};

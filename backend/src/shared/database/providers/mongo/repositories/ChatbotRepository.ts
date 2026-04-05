@@ -2,6 +2,7 @@ import { inject, injectable } from 'inversify';
 import { Collection, ClientSession } from 'mongodb';
 import { InternalServerError } from 'routing-controllers';
 import { AnalyticsMongoDatabase } from '../AnalyticsMongoDatabase.js';
+import {AnnamDatabase} from '../AnnamDatabase.js'
 import { GLOBAL_TYPES } from '#root/types.js';
 import type {
   IChatbotRepository,
@@ -45,6 +46,11 @@ export class ChatbotRepository implements IChatbotRepository {
     @inject(GLOBAL_TYPES.analyticsDatabase)
     private analyticsDb: AnalyticsMongoDatabase,
   ) {}
+
+  /*constructor(
+    @inject(GLOBAL_TYPES.annamanalyticsDatabase)
+    private analyticsDb: AnnamDatabase,
+  ) {}*/
 
   private async init() {
     this.users = await this.analyticsDb.getCollection<IUser>('users');
