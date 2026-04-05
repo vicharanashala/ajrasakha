@@ -332,6 +332,7 @@ const ContentAnswer = ({ text, question }: ContentAnswerProps) => {
 
     const handleSkip = async () => {
         await updateQuestion({ isHidden: true, _id: question._id! })
+        toast.success("Question has been hidden");
     }
 
     const renderText = (raw: string) => {
