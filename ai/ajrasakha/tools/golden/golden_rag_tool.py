@@ -4,6 +4,7 @@ from mcp.server.fastmcp import FastMCP
 
 from bson import ObjectId
 from langchain.tools import tool
+from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import BaseModel
 from pymongo import AsyncMongoClient
 
@@ -29,7 +30,12 @@ database = mongo_client[MONGODB_DATABASE]
 answers_collection = database["answers"]
 users_collection = database["users"]
 
-mcp = FastMCP("ajrasakha-golden-mcp")
+mcp = FastMCP(
+    "ajrasakha-golden-mcp",
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=False
+    )
+)
 
 class QuestionAnswerPair(BaseModel):
     question_id: str

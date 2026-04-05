@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 load_dotenv()
 
@@ -15,7 +16,12 @@ MAUSAM_BASE = os.getenv("IMD_MAUSAM_BASE", "https://mausam.imd.gov.in/api").rstr
 TIMEOUT = float(os.getenv("IMD_TIMEOUT_SECONDS", "30"))
 RETRIES = int(os.getenv("IMD_MAX_RETRIES", "3"))
 
-mcp = FastMCP("ajrasakha-imd-mcp")
+mcp = FastMCP(
+    "ajrasakha-imd-mcp",
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=False
+    )
+)
 
 WARNING_CODES = {
     "1": "No Warning", "2": "Heavy Rain", "3": "Heavy Snow",

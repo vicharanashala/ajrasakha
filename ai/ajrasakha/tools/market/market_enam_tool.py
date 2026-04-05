@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 load_dotenv()
 
@@ -15,7 +16,12 @@ ENAM_BASE = os.getenv("ENAM_BASE_URL", "https://enam.gov.in/web/Ajax_ctrl").rstr
 TIMEOUT = float(os.getenv("ENAM_TIMEOUT_SECONDS", "30"))
 RETRIES = int(os.getenv("ENAM_MAX_RETRIES", "3"))
 
-mcp = FastMCP("ajrasakha-enam-mcp")
+mcp = FastMCP(
+    "ajrasakha-enam-mcp",
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=False
+    )
+)
 
 async def _post(path: str, data: dict[str, str] | None = None) -> dict[str, Any]:
     url = f"{ENAM_BASE}/{path.lstrip('/')}"

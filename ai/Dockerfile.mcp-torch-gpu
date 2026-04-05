@@ -5,7 +5,6 @@ WORKDIR /app
 # Copy only dependency files first
 COPY pyproject.toml README.md .
 # Install dependencies (cached layer)
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -e .
 
 COPY . .
