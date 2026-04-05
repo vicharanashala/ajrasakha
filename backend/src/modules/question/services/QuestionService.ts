@@ -922,7 +922,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           const { insertedId } = await this.contextRepo.addContext(context, session);
           contextId = new ObjectId(insertedId);
         }
-
+       // source="AJRASAKHA"
         // 🔹 Create Base Question Object
         const baseQuestion: IQuestion = {
           userId: userId?.trim() !== '' ? new ObjectId(userId) : null,
@@ -933,7 +933,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           totalAnswersCount: 0,
           contextId,
           details,
-          isAutoAllocate: true,
+          isAutoAllocate: source=="AJRASAKHA"?false:true,
           embedding: textEmbedding,
           metrics: null,
           aiInitialAnswer: body.aiInitialAnswer || '',
@@ -1112,7 +1112,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           baseQuestion,
           session,
         );
-       // source="AJRASAKHA"
+        
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
         }
