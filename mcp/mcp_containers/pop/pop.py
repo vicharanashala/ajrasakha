@@ -38,7 +38,7 @@ async def get_states_for_pop() -> dict:
         raw_states = client[DB_NAME][COLLECTION_POP].distinct("metadata.state")
     except Exception as e:
         print(f"Error fetching states from DB: {e}")
-        return {"PUNJAB": "PB"}  # Fallback
+        return {"POPS_MULTIPLE_STATES": "MULTIPLE"} # Fallback
 
     STATE_CODE_MAP = {
         "ANDHRA_PRADESH": "AP", "ARUNACHAL_PRADESH": "AR", "ASSAM": "AS",
