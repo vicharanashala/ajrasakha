@@ -451,7 +451,7 @@ export interface QuestionMessageDetail {
 
 export interface QuestionMessageDetailsResponse {
   success: boolean;
-  data: QuestionMessageDetail[];
+  data: QuestionMessageDetail,
   message?: string;
 }
 

@@ -128,6 +128,7 @@ export const QuestionsFilters = ({
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
     null,
   );
+  const [answerMode, setAnswerMode] = useState<"ajraskha" | "manual">("ajraskha");
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion((count, isBulkUpload) => {
@@ -136,11 +137,11 @@ export const QuestionsFilters = ({
     });
   const { mutateAsync: reAllocateLessWorkload, isPending: reAllocateQuestion } =
     useReAllocateLessWorkload();
- 
-  const [isReAllocateOpen,setIsReAllocateOpen] = useState(false);
+
+  const [isReAllocateOpen, setIsReAllocateOpen] = useState(false);
   const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
-  
+
   const handleReAllocateLessWorkload = async () => {
     try {
       setIsReAllocateDisabled(true);
@@ -428,6 +429,36 @@ export const QuestionsFilters = ({
       </div>
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
+        <div className="flex items-center rounded-lg border border-border bg-muted/40 p-1">
+          <button
+            onClick={() => {
+              setAnswerMode("ajraskha")
+              onChange({ ...advanceFilter, source: "AJRASAKHA" });
+            }}
+            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "ajraskha"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+              }`}
+          >
+            AJRASKHA
+          </button>
+
+          <button
+            onClick={() => {
+              setAnswerMode("manual")
+              onChange({ ...advanceFilter, source: "AGRI_EXPERT" });
+            }}
+            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "manual"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+              }`}
+          >
+            Manual
+          </button>
+        </div>
+      </div>
+
+      <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
         <div className="relative hidden md:flex items-center gap-2">
           <ViewDropdown view={view} setView={setView} />
           <TopRightBadge label="New" />
@@ -442,7 +473,7 @@ export const QuestionsFilters = ({
           <span className="sm:inline font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">
             Tools & Filters
           </span>
-           <TopRightBadge label="New" />
+          <TopRightBadge label="New" />
         </button>
 
         {userRole !== "expert" && (
@@ -465,11 +496,9 @@ export const QuestionsFilters = ({
             {/* Bulk delete with count */}
             <ConfirmationModal
               title="Delete Selected Questions?"
-              description={`Are you sure you want to delete ${
-                selectedQuestionIds.length
-              } selected question${
-                selectedQuestionIds.length > 1 ? "s" : ""
-              }? This action is irreversible.`}
+              description={`Are you sure you want to delete ${selectedQuestionIds.length
+                } selected question${selectedQuestionIds.length > 1 ? "s" : ""
+                }? This action is irreversible.`}
               confirmText="Delete"
               cancelText="Cancel"
               isLoading={bulkDeletingQuestions}
@@ -630,7 +659,7 @@ export const QuestionsFilters = ({
                         <div className="flex items-center gap-2">
                           <p className="relative text-sm font-semibold text-gray-900 dark:text-white">
                             Turnaround Time
-                          <TopRightBadge label="New" right={4} />
+                            <TopRightBadge label="New" right={4} />
                           </p>
                         </div>
 
@@ -677,7 +706,7 @@ export const QuestionsFilters = ({
                       <div className="flex items-center gap-2">
                         <p className="relative text-sm font-bold text-gray-900 dark:text-white">
                           Update Crops
-                        <TopRightBadge label="New" right={4} />
+                          <TopRightBadge label="New" right={4} />
                         </p>
                       </div>
                       <p className="text-[11px] text-gray-500">
@@ -705,7 +734,7 @@ export const QuestionsFilters = ({
                       <div className="flex items-center gap-2">
                         <p className="relative text-sm font-bold text-gray-900 dark:text-white">
                           ReAllocate Questions
-                        <TopRightBadge label="New" right={4} />
+                          <TopRightBadge label="New" right={4} />
                         </p>
                       </div>
                       <p className="text-[11px] text-gray-500">
@@ -809,16 +838,16 @@ export const QuestionsFilters = ({
         </span>
       </div>
       <ConfirmationModal
-                title="ReAllocate work load?"
-                description="Are you sure you want to ReAllocate work load?"
-                confirmText="ReAllocate"
-                cancelText="Cancel"
-                isLoading={reAllocateQuestion}
-                type="default"
-                open={isReAllocateOpen}
-                onOpenChange={setIsReAllocateOpen}
-                onConfirm={handleReAllocateLessWorkload}
-              />
+        title="ReAllocate work load?"
+        description="Are you sure you want to ReAllocate work load?"
+        confirmText="ReAllocate"
+        cancelText="Cancel"
+        isLoading={reAllocateQuestion}
+        type="default"
+        open={isReAllocateOpen}
+        onOpenChange={setIsReAllocateOpen}
+        onConfirm={handleReAllocateLessWorkload}
+      />
       <CropManagementModal open={isCropModalOpen} onOpenChange={setIsCropModalOpen} />
     </div>
   );

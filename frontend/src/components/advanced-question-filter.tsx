@@ -364,13 +364,14 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 </div>
               )}
 
-              <div className="space-y-2 min-w-0">
+              <div className="space-y-2 min-w-0 cursor-not-allowed">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <MessageSquare className="h-4 w-4 text-primary" />
                   Source
                 </Label>
                 <Select
                   value={advanceFilter.source}
+                  disabled
                   onValueChange={(v) => handleDialogChange("source", v)}
                 >
                   <SelectTrigger className="bg-background w-full">
