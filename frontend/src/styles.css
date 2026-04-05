@@ -72,6 +72,8 @@ body {
   --tooltip-text: #111827;
 }
 
+
+
 .dark {
   --background: oklch(0.1822 0 0);
   --foreground: oklch(0.9288 0.0126 255.5078);

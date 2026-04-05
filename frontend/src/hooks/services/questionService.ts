@@ -6,7 +6,8 @@ import type {
   RejectReRoutePayload,
   IRerouteHistoryResponse,
   ReroutedQuestionItem,
-  WorkloadBalanceResponse
+  WorkloadBalanceResponse,
+  QuestionMessageDetailsResponse
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { QuestionFilter } from "@/features/qa-interface-page/QA-interface";
@@ -83,10 +84,10 @@ export class QuestionService {
     limit: number,
     filter: QuestionFilter,
     preferences: AdvanceFilterValues,
-    actionType:string,
-    autoSelectQuestionId?:string|null,
-    reviewLevel?:string
-  ): Promise<IQuestion[] | ReroutedQuestionItem[] |null> {
+    actionType: string,
+    autoSelectQuestionId?: string | null,
+    reviewLevel?: string
+  ): Promise<IQuestion[] | ReroutedQuestionItem[] | null> {
     const params = new URLSearchParams({
       page: pageParam.toString(),
       limit: limit.toString(),
@@ -113,54 +114,50 @@ export class QuestionService {
       params.append("answersCountMin", String(min));
       params.append("answersCountMax", String(max));
     }
-    if(autoSelectQuestionId)
-    {
+    if (autoSelectQuestionId) {
       params.append("autoSelectQuestionId", autoSelectQuestionId);
 
     }
-    if(reviewLevel)
-    {
-      params.append("review_level",reviewLevel);
+    if (reviewLevel) {
+      params.append("review_level", reviewLevel);
 
     }
 
     if (preferences.dateRange && preferences.dateRange !== "all")
       params.append("dateRange", preferences.dateRange);
-      if(actionType=="allocated")
-      {
-        return apiFetch<IQuestion[] | null>(
-          `${this._baseUrl}/allocated?${params.toString()}`
-        );
-      }
-      else{
-        return apiFetch<ReroutedQuestionItem[]| null>(
-          `${this._reRouteUrl}/allocated?${params.toString()}`
-        );
-      }
+    if (actionType == "allocated") {
+      return apiFetch<IQuestion[] | null>(
+        `${this._baseUrl}/allocated?${params.toString()}`
+      );
+    }
+    else {
+      return apiFetch<ReroutedQuestionItem[] | null>(
+        `${this._reRouteUrl}/allocated?${params.toString()}`
+      );
+    }
 
-   
+
   }
 
-  async getQuestionById(id: string,actionType:string): Promise<IQuestion | null> {
-    if(actionType=="allocated")
-      {
-        return apiFetch<IQuestion | null>(`${this._baseUrl}/${id}`);
-      }
-      else{
-        return apiFetch<IQuestion | null>(`${this._reRouteUrl}/${id}`);
-      }
+  async getQuestionById(id: string, actionType: string): Promise<IQuestion | null> {
+    if (actionType == "allocated") {
+      return apiFetch<IQuestion | null>(`${this._baseUrl}/${id}`);
+    }
+    else {
+      return apiFetch<IQuestion | null>(`${this._reRouteUrl}/${id}`);
+    }
 
-    
+
   }
   async rejectRerouteRequest(payload: RejectReRoutePayload) {
-  const { rerouteId, questionId, ...body } = payload;
+    const { rerouteId, questionId, ...body } = payload;
 
-  return apiFetch<void>(`${this._reRouteUrl}/${rerouteId}/${questionId}`,{
-    body:JSON.stringify(body),
-    method:"PATCH"
-  })
- 
-}
+    return apiFetch<void>(`${this._reRouteUrl}/${rerouteId}/${questionId}`, {
+      body: JSON.stringify(body),
+      method: "PATCH"
+    })
+
+  }
 
   async getQuestionFullDataById(
     id: string
@@ -169,9 +166,20 @@ export class QuestionService {
       `${this._baseUrl}/${id}/full`
     );
   }
+  
+  async getQuestionMessageDetailsByQuestionId(
+    questionId: string
+  ): Promise<QuestionMessageDetailsResponse | null> {
+    const response = await apiFetch<QuestionMessageDetailsResponse | null>(
+      `${this._baseUrl}/${questionId}/chatbot`
+    );
+
+    return response;
+  }
+
   async getReRoutedQuestionFullDataById(
     answerId: string
-  ): Promise< IRerouteHistoryResponse[]| null> {
+  ): Promise<IRerouteHistoryResponse[] | null> {
     return apiFetch<IRerouteHistoryResponse[] | null>(
       `${this._reRouteUrl}/${answerId}/history`
     );
@@ -260,21 +268,23 @@ export class QuestionService {
   async allocateReRouteExperts(
     questionId: string,
     expertId: string,
-    moderatorId?:string,
-    answerId?:string,
-    comment?:string,
-    status?:string
+    moderatorId?: string,
+    answerId?: string,
+    comment?: string,
+    status?: string
 
   ): Promise<IDetailedQuestion | null> {
     return apiFetch<IDetailedQuestion>(
       `${this._reRouteUrl}/${questionId}/allocate-reroute-experts`,
       {
         method: "POST",
-        body: JSON.stringify({ expertId,
+        body: JSON.stringify({
+          expertId,
           moderatorId,
           answerId,
           comment,
-        status }),
+          status
+        }),
       }
     );
   }
@@ -292,16 +302,16 @@ export class QuestionService {
     });
   }
 
-  
+
   async GetQuestionsAndLevels(
-  pageParam: number,
-  limit: number,
-  search: string,
-  filter:AdvanceFilterValues,
-  sort: string
-):Promise<ReviewLevelsApiResponse | null> {
-  const params = new URLSearchParams();
-    if(sort) params.append('sort',sort)
+    pageParam: number,
+    limit: number,
+    search: string,
+    filter: AdvanceFilterValues,
+    sort: string
+  ): Promise<ReviewLevelsApiResponse | null> {
+    const params = new URLSearchParams();
+    if (sort) params.append('sort', sort)
     if (search) params.append("search", search);
     params.append("page", pageParam.toString());
     params.append("limit", limit.toString());

@@ -2,6 +2,7 @@ import { inject, injectable } from 'inversify';
 import { Collection, ClientSession } from 'mongodb';
 import { InternalServerError } from 'routing-controllers';
 import { AnalyticsMongoDatabase } from '../AnalyticsMongoDatabase.js';
+import {AnnamDatabase} from '../AnnamDatabase.js'
 import { GLOBAL_TYPES } from '#root/types.js';
 import type {
   IChatbotRepository,
@@ -44,13 +45,26 @@ export class ChatbotRepository implements IChatbotRepository {
   constructor(
     @inject(GLOBAL_TYPES.analyticsDatabase)
     private analyticsDb: AnalyticsMongoDatabase,
+
+    @inject(GLOBAL_TYPES.annamanalyticsDatabase)
+    private annamDb: AnnamDatabase,
   ) {}
+
+  /*constructor(
+    @inject(GLOBAL_TYPES.annamanalyticsDatabase)
+    private analyticsDb: AnnamDatabase,
+  ) {}*/
 
   private async init() {
     this.users = await this.analyticsDb.getCollection<IUser>('users');
     this.conversations = await this.analyticsDb.getCollection<IConversation>('conversations');
     this.messagesCollection = await this.analyticsDb.getCollection<any>('messages');
   }
+  private annamMessagesCollection!: Collection<any>;
+
+private async initSecondDb() {
+  this.annamMessagesCollection = await this.annamDb.getCollection<any>('messages');
+}
 
   async getKpiSummary(session?: ClientSession): Promise<KpiSummary> {
     try {
@@ -295,4 +309,357 @@ export class ChatbotRepository implements IChatbotRepository {
       throw new InternalServerError(`Failed to get today query count: ${error}`);
     }
   }
+
+  async findMatchingMessages(data: {
+  question: string;
+  details: any;
+  createdAt: Date;
+}) {
+  await this.init();
+
+  const { question, details, createdAt } = data;
+
+  const start = new Date(new Date(createdAt).getTime() - 60 * 1000);
+  const end = new Date(new Date(createdAt).getTime() + 60 * 1000);
+
+  /*return this.messagesCollection
+    .aggregate([
+      {
+        $match: {
+          content: {
+            $elemMatch: {
+              type: 'tool_call',
+              'tool_call.name':
+                'upload_question_to_reviewer_system_mcp_pop',
+            },
+          },
+        },
+      },
+
+      {
+        $addFields: {
+          matchedToolCall: {
+            $first: {
+              $filter: {
+                input: '$content',
+                as: 'item',
+                cond: {
+                  $and: [
+                    { $eq: ['$$item.type', 'tool_call'] },
+                    {
+                      $eq: [
+                        '$$item.tool_call.name',
+                        'upload_question_to_reviewer_system_mcp_pop',
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+
+      {
+        $addFields: {
+          parsedArgs: {
+            $function: {
+              body: function (args: string) {
+                try {
+                  return JSON.parse(args);
+                } catch (e) {
+                  return null;
+                }
+              },
+              args: ['$matchedToolCall.tool_call.args'],
+              lang: 'js',
+            },
+          },
+        },
+      },
+
+      {
+        $match: {
+          $expr: {
+            $and: [
+              { $eq: ['$parsedArgs.question', question] },
+              { $eq: ['$parsedArgs.details.state', details.state] },
+              { $eq: ['$parsedArgs.details.crop', details.crop] },
+            ],
+          },
+        },
+      },
+
+      {
+        $match: {
+          createdAt: {
+            $gte: start,
+            $lte: end,
+          },
+        },
+      },
+
+      // 🔥 JOIN USERS COLLECTION
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user',
+          foreignField: '_id',
+          as: 'userDetails',
+        },
+      },
+
+      {
+        $unwind: {
+          path: '$userDetails',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+    ])
+    .toArray();*/
+    return await this.messagesCollection
+  .aggregate([
+    {
+      $match: {
+        content: {
+          $elemMatch: {
+            type: 'tool_call',
+            'tool_call.name':
+              'upload_question_to_reviewer_system_mcp_pop',
+          },
+        },
+      },
+    },
+    {
+      $addFields: {
+        matchedToolCall: {
+          $first: {
+            $filter: {
+              input: '$content',
+              as: 'item',
+              cond: {
+                $and: [
+                  { $eq: ['$$item.type', 'tool_call'] },
+                  {
+                    $eq: [
+                      '$$item.tool_call.name',
+                      'upload_question_to_reviewer_system_mcp_pop',
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+    {
+      $match: {
+        createdAt: {
+          $gte: start,
+          $lte: end,
+        },
+      },
+    },
+    {
+      $addFields: {
+        userObjectId: {
+          $toObjectId: '$user',
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'userObjectId',
+        foreignField: '_id',
+        as: 'userDetails',
+      },
+    },
+    {
+      $unwind: {
+        path: '$userDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+  ])
+  .toArray();
+}
+
+  // SECOND DB (optional example)
+  async findFromSecondDb(data: {
+  question: string;
+  details: any;
+  createdAt: Date;
+}) {
+  await this.initSecondDb();
+
+  const { question, details, createdAt } = data;
+
+  const start = new Date(new Date(createdAt).getTime() - 60 * 1000);
+  const end = new Date(new Date(createdAt).getTime() + 60 * 1000);
+
+ /* return this.annamMessagesCollection
+    .aggregate([
+      {
+        $match: {
+          content: {
+            $elemMatch: {
+              type: 'tool_call',
+              'tool_call.name':
+                'upload_question_to_reviewer_system_mcp_pop',
+            },
+          },
+        },
+      },
+
+      {
+        $addFields: {
+          matchedToolCall: {
+            $first: {
+              $filter: {
+                input: '$content',
+                as: 'item',
+                cond: {
+                  $and: [
+                    { $eq: ['$$item.type', 'tool_call'] },
+                    {
+                      $eq: [
+                        '$$item.tool_call.name',
+                        'upload_question_to_reviewer_system_mcp_pop',
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+
+      {
+        $addFields: {
+          parsedArgs: {
+            $function: {
+              body: function (args: string) {
+                try {
+                  return JSON.parse(args);
+                } catch (e) {
+                  return null;
+                }
+              },
+              args: ['$matchedToolCall.tool_call.args'],
+              lang: 'js',
+            },
+          },
+        },
+      },
+
+      {
+        $match: {
+          $expr: {
+            $and: [
+              { $eq: ['$parsedArgs.question', question] },
+              { $eq: ['$parsedArgs.details.state', details.state] },
+              { $eq: ['$parsedArgs.details.crop', details.crop] },
+            ],
+          },
+        },
+      },
+
+      {
+        $match: {
+          createdAt: {
+            $gte: start,
+            $lte: end,
+          },
+        },
+      },
+
+      // Optional: join users if exists in this DB
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user',
+          foreignField: '_id',
+          as: 'userDetails',
+        },
+      },
+      {
+        $unwind: {
+          path: '$userDetails',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+    ])
+    .toArray();*/
+    let result= await  this.annamMessagesCollection
+  .aggregate([
+    {
+      $match: {
+        content: {
+          $elemMatch: {
+            type: 'tool_call',
+            'tool_call.name':
+              'upload_question_to_reviewer_system_mcp_pop',
+          },
+        },
+      },
+    },
+    {
+      $addFields: {
+        matchedToolCall: {
+          $first: {
+            $filter: {
+              input: '$content',
+              as: 'item',
+              cond: {
+                $and: [
+                  { $eq: ['$$item.type', 'tool_call'] },
+                  {
+                    $eq: [
+                      '$$item.tool_call.name',
+                      'upload_question_to_reviewer_system_mcp_pop',
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+    {
+      $match: {
+        createdAt: {
+          $gte: start,
+          $lte: end,
+        },
+      },
+    },
+    {
+      $addFields: {
+        userObjectId: {
+          $toObjectId: '$user',
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'userObjectId',
+        foreignField: '_id',
+        as: 'userDetails',
+      },
+    },
+    {
+      $unwind: {
+        path: '$userDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+  ])
+  .toArray();
+  return result
+}
 }

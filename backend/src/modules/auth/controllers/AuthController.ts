@@ -145,20 +145,20 @@ export class AuthController {
       const lookupData:any = await lookup.json();
       const userInfo = lookupData.users?.[0];
 
-      if (!userInfo?.emailVerified) {
+       if (!userInfo?.emailVerified) {
         await this.authService.sendVerificationEmail(userInfo.email);
-        throw new HttpError(
-          401,
-          'Please verify your email before logging in. A new verification link has been sent to your email.'
-        );
-      }
+         throw new HttpError(
+           401,
+           'Please verify your email before logging in. A new verification link has been sent to your email.'
+         );
+       }
 
       // Ensure the user exists in database
-      await this.authService.syncUserWithDb(
-        userInfo.localId,
-        userInfo.email,
-        userInfo.displayName || ''
-      );
+       await this.authService.syncUserWithDb(
+         userInfo.localId,
+         userInfo.email,
+         userInfo.displayName || ''
+       );
 
       return result;
     } catch (error) {

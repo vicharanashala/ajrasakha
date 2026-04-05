@@ -14,17 +14,19 @@ interface QuestionHeaderProps {
 
 export const QuestionHeader = ({ question, goBack }: QuestionHeaderProps) => {
   //translation state
-    const [translatedText, setTranslatedText] = useState<string>("");
-  const timer = useCountdown(question.createdAt!, 4, () => {});
+  const [translatedText, setTranslatedText] = useState<string>("");
+  const DURATION_HOURS = question && question.source == "AJRASAKHA" ? 2 : 4;
+
+  const timer = useCountdown(question.createdAt!, DURATION_HOURS, () => { });
 
   return (
     <header className="grid gap-3 w-full">
       {/* Title + Timer + Exit */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <h1 className="text-xl sm:text-2xl font-semibold text-pretty break-words flex-1">
-          {translatedText||question.question}
+          {translatedText || question.question}
         </h1>
-        <SarvamTranslateDropdown query={question.question} onTranslate={(result)=>setTranslatedText(result)}/>
+        <SarvamTranslateDropdown query={question.question} onTranslate={(result) => setTranslatedText(result)} />
 
         <div className="flex sm:flex-row flex-col sm:items-center items-end gap-3 sm:gap-6">
           <TimerDisplay timer={timer} status={question.status} size="lg" />

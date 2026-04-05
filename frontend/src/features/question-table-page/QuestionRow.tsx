@@ -87,8 +87,9 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
 
   const uploadedCountRef = useRef(uploadedQuestionsCount);
 
-  const DURATION_HOURS = 4;
-  const timer = useCountdown(q.createdAt, DURATION_HOURS, () => {});
+  // const DURATION_HOURS = 4;
+  const DURATION_HOURS = q && q.source == "AJRASAKHA" ? 2 : 4;
+  const timer = useCountdown(q.createdAt, DURATION_HOURS, () => { });
 
   const totalSeconds = DURATION_HOURS * 60 * 60;
 
@@ -167,9 +168,8 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
       <ContextMenuTrigger asChild>
         <TableRow
           key={q._id}
-          className={`text-center transition-colors ${
-            isSelected ? "bg-primary/10" : "hover:bg-muted/50"
-          }`}
+          className={`text-center transition-colors ${isSelected ? "bg-primary/10" : "hover:bg-muted/50"
+            }`}
           onClick={() => {
             if (!q._id || !hasSelectedQuestions) return;
             handleQuestionsSelection?.(q._id);
@@ -203,13 +203,12 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span
-                        className={`cursor-pointer ${
-                          isClickable
+                        className={`cursor-pointer ${isClickable
                             ? hasSelectedQuestions
                               ? ""
                               : "hover:underline"
                             : "opacity-50 cursor-not-allowed"
-                        }`}
+                          }`}
                         onClick={() => {
                           if (!isClickable || hasSelectedQuestions) return;
                           onViewMore(q._id?.toString() || "");
@@ -225,11 +224,10 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                           allocation is underway and may take{" "}
                           {delayMinutes < 1
                             ? "less than 1 minute"
-                            : `up to ${Math.ceil(delayMinutes)} ${
-                                Math.ceil(delayMinutes) === 1
-                                  ? "minute"
-                                  : "minutes"
-                              }`}{" "}
+                            : `up to ${Math.ceil(delayMinutes)} ${Math.ceil(delayMinutes) === 1
+                              ? "minute"
+                              : "minutes"
+                            }`}{" "}
                           to complete.
                         </p>
                       </TooltipContent>

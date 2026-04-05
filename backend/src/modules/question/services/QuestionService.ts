@@ -50,6 +50,8 @@ import {IDuplicateQuestionRepository} from '#root/shared/database/interfaces/IDu
 import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
 import {checkConceptDuplicate} from '#root/modules/question/aiservice/checkConceptDuplicate.js'
 import {CropRepository} from '#root/shared/database/providers/mongo/repositories/CropRepository.js';
+import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
+import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -89,6 +91,9 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     @inject(GLOBAL_TYPES.CropRepository)
     private readonly cropRepository: CropRepository,
+
+    @inject(CHATBOT_TYPES.ChatbotRepository)
+    private readonly chatbotRepository: IChatbotRepository,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -922,7 +927,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           const { insertedId } = await this.contextRepo.addContext(context, session);
           contextId = new ObjectId(insertedId);
         }
-
+       // source="AJRASAKHA"
         // 🔹 Create Base Question Object
         const baseQuestion: IQuestion = {
           userId: userId?.trim() !== '' ? new ObjectId(userId) : null,
@@ -933,7 +938,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           totalAnswersCount: 0,
           contextId,
           details,
-          isAutoAllocate: true,
+          isAutoAllocate: source=="AJRASAKHA"?false:true,
           embedding: textEmbedding,
           metrics: null,
           aiInitialAnswer: body.aiInitialAnswer || '',
@@ -1112,7 +1117,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           baseQuestion,
           session,
         );
-  
+        
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
         }
@@ -1121,12 +1126,22 @@ export class QuestionService extends BaseService implements IQuestionService {
           details as PreferenceDto,
           session,
         );
+        let queue: ObjectId[] = [];
+        let initialUsersToAllocate: typeof users = [];
+
+        if (source !== 'AJRASAKHA') {
+          initialUsersToAllocate = users.slice(0, 3);
+
+          queue = initialUsersToAllocate.map(
+            (user) => new ObjectId(user._id.toString()),
+          );
+        }
   
-        const initialUsersToAllocate = users.slice(0, 3);
+      //  const initialUsersToAllocate = users.slice(0, 3);
   
-        const queue = initialUsersToAllocate.map(
+       /* const queue = initialUsersToAllocate.map(
           (user) => new ObjectId(user._id.toString()),
-        );
+        );*/
   
         if (initialUsersToAllocate[0]) {
           await this.userRepo.updateReputationScore(
@@ -3242,6 +3257,55 @@ export class QuestionService extends BaseService implements IQuestionService {
       return buffer as ArrayBuffer;
     });
   }
+
+    async getMatchedQuestion(questionId: string) {
+  const questionData = await this.questionRepo.getById(questionId);
+
+  if (!questionData) {
+    throw new Error('Question not found');
+  }
+
+  const { question, details, createdAt } = questionData;
+
+  const [analyticsMessages, annamMessages] = await Promise.all([
+    this.chatbotRepository.findMatchingMessages({
+      question,
+      details,
+      createdAt,
+    }),
+     this.chatbotRepository.findFromSecondDb({
+      question,
+      details,
+      createdAt,
+    }),
+  ]);
+
+  // Take first matched message (assuming 1 expected)
+  const allMessages = [...analyticsMessages, ...annamMessages];
+
+  const message = allMessages?.[0];
+
+  if (!message) {
+    throw new Error('No matching message found');
+  }
+
+  return {
+    messageId: message.messageId || '',
+    createdAt: message.createdAt
+      ? new Date(message.createdAt).toISOString()
+      : '',
+    updatedAt: message.updatedAt
+      ? new Date(message.updatedAt).toISOString()
+      : '',
+    user: {
+      username: message?.userDetails?.username || 'N/A',
+      email: message?.userDetails?.email || '',
+      emailVerified: message?.userDetails?.emailVerified || false,
+      avatar: message?.userDetails?.avatar || null,
+    },
+    content: message.content || [],
+  };
+}
 
 
 }
