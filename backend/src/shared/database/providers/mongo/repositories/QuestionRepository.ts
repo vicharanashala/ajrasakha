@@ -325,7 +325,10 @@ export class QuestionRepository implements IQuestionRepository {
         sort
       } = query;
 
-      const filter: any = {};
+    //  const filter: any = {};
+    const filter: any = {
+      isHidden: { $ne: true }, // 👈 exclude hidden questions
+    };
       // --- Auto Allocate Filter ---
       if (autoAllocateFilter && autoAllocateFilter !== 'all') {
         if (autoAllocateFilter === 'on') {

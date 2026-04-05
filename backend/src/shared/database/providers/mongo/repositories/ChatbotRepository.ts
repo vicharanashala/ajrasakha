@@ -417,7 +417,7 @@ private async initSecondDb() {
       },
     ])
     .toArray();*/
-    return this.messagesCollection
+    return await this.messagesCollection
   .aggregate([
     {
       $match: {
@@ -593,7 +593,7 @@ private async initSecondDb() {
       },
     ])
     .toArray();*/
-    return this.annamMessagesCollection
+    let result= await  this.annamMessagesCollection
   .aggregate([
     {
       $match: {
@@ -660,5 +660,6 @@ private async initSecondDb() {
     },
   ])
   .toArray();
+  return result
 }
 }
