@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Save, Pencil, X, SkipForward, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Save, Pencil, X, SkipForward, Loader2, RefreshCw } from "lucide-react";
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
@@ -123,7 +123,7 @@ const MessageDetail = ({
 
     const {
         data: messageDetails,
-        // refetch: refechMessageDetails,
+        refetch: refechMessageDetails,
         isLoading,
     } = useGetQuestionMessageDetailsByQuestionId(selectedQuestionId);
 
@@ -158,15 +158,32 @@ const MessageDetail = ({
                 ) : (
                     <ChevronRight className="h-5 w-5 text-primary shrink-0 transition-transform" />
                 )}
+
                 <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
                     <span className="text-sm font-semibold text-foreground">Message Details</span>
                     <span className="text-xs text-muted-foreground">
                         {expanded ? "Click to collapse" : "Click to expand & fetch details"}
                     </span>
                 </div>
-                <Badge variant="secondary" className="text-[10px]">
-                    {isLoading ? "Loading…" : expanded && msg ? `ID: ${msg.messageId}` : "View More"}
-                </Badge>
+
+                <div className="flex items-center gap-2">
+                    {!expanded && !isLoading && (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                refechMessageDetails();
+                            }}
+                            className="inline-flex items-center justify-center h-7 w-7 rounded-md border bg-background hover:bg-muted transition-colors"
+                        >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                        </button>
+                    )}
+
+                    <Badge variant="secondary" className="text-[10px]">
+                        {isLoading ? "Loading…" : expanded && msg ? `ID: ${msg.messageId}` : "View More"}
+                    </Badge>
+                </div>
             </button>
 
             {expanded && (
@@ -315,6 +332,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
 
             setApproved(true);
             toast.success("Answer approved successfully");
+            navigateToQuestionPage();
         } catch (error) {
             console.error("Failed to approve answer:", error);
             toast.error("Failed to approve the answer. Please try again.");

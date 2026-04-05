@@ -68,11 +68,7 @@ export const QuestionDetails = ({
       
 
       {question && currentUser && question?.source == "AJRASAKHA" && currentUser.role != "expert" &&
-<<<<<<< Updated upstream
-      <MessageDetail question={question} isQuestionAllocatedToExpert={question?.submission?.history?.length !== 0} />
-=======
-        <MessageDetail question={question} isQuestionAllocatedToExpert={question?.submission?.queue?.length !== 0} navigateToQuestionPage ={navigateToQuestionPage}/>
->>>>>>> Stashed changes
+        <MessageDetail question={question} isQuestionAllocatedToExpert={question?.submission?.history?.length !== 0} navigateToQuestionPage ={navigateToQuestionPage}/>
       }
 
       {/* {currentUser.role !== "expert" && ( */}
