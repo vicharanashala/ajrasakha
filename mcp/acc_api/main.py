@@ -2,9 +2,18 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from pymongo import MongoClient
 from sentence_transformers import SentenceTransformer
+import logging
 import os
+import time
 import uvicorn
 from dotenv import load_dotenv
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-7s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+log = logging.getLogger("agri_search")
 
 load_dotenv()
 
@@ -322,16 +331,24 @@ def _vector_search(
 
 @app.post("/search", response_model=list[QAItem])
 def search_questions(request: SearchRequest):
+    t0 = time.perf_counter()
+    log.info("[/search] query=%r  top_k=%d  threshold=%.2f  filters=%s",
+             request.query[:80], request.top_k, request.threshold,
+             {k: v for k, v in {"state": request.state, "district": request.district,
+              "crop": request.crop, "domain": request.domain,
+              "season": request.season}.items() if v})
+
     if not request.query.strip():
         raise HTTPException(status_code=400, detail="Query must not be empty.")
 
     query_text = f"Represent this sentence for searching relevant passages: {request.query}"
     query_embedding = model.encode(query_text, normalize_embeddings=True).tolist()
 
+    pool_k = _fetch_k(request)
     results = _vector_search(
         collection=reviewer_collection,
         query_embedding=query_embedding,
-        top_k=_fetch_k(request),
+        top_k=pool_k,
         index_name=VECTOR_INDEX_NAME,
         project={
             "_id": 1,
@@ -344,12 +361,19 @@ def search_questions(request: SearchRequest):
         },
     )
 
+    log.info("[/search] reviewer fetched=%d (pool_k=%d)", len(results), pool_k)
+
     if not results:
+        log.info("[/search] returning 0 results (%.0fms)", (time.perf_counter() - t0) * 1000)
         return []
     items = [serialize_doc(doc) for doc in results]
+    before_filter = len(items)
     if _any_request_filters(request):
         items = [x for x in items if _reviewer_passes_filters(request, x)]
-    return items[: request.top_k]
+        log.info("[/search] reviewer after filters=%d (dropped %d)", len(items), before_filter - len(items))
+    items = items[: request.top_k]
+    log.info("[/search] returning %d results (%.0fms)", len(items), (time.perf_counter() - t0) * 1000)
+    return items
 
 
 # @app.post("/search_all", response_model=MultiSearchResponse)
@@ -439,6 +463,14 @@ def search_questions(request: SearchRequest):
 
 @app.post("/search_all", response_model=MultiSearchResponse)
 def search_all(request: SearchRequest):
+    t0 = time.perf_counter()
+    active_filters = {k: v for k, v in {
+        "state": request.state, "district": request.district,
+        "crop": request.crop, "domain": request.domain,
+        "season": request.season,
+    }.items() if v}
+    log.info("[/search_all] query=%r  top_k=%d  threshold=%.2f  filters=%s",
+             request.query[:80], request.top_k, request.threshold, active_filters)
 
     if not request.query.strip():
         raise HTTPException(status_code=400, detail="Query must not be empty.")
@@ -452,10 +484,12 @@ def search_all(request: SearchRequest):
     query_text = f"Represent this sentence for searching relevant passages: {request.query}"
     query_embedding = model.encode(query_text, normalize_embeddings=True).tolist()
 
+    pool_k = _fetch_k(request)
+    has_filters = _any_request_filters(request)
+    log.info("[/search_all] pool_k=%d  has_filters=%s", pool_k, has_filters)
 
     # ---------------- Reviewer Search ----------------
-
-    pool_k = _fetch_k(request)
+    t_rev = time.perf_counter()
 
     reviewer_raw = _vector_search(
         collection=reviewer_collection,
@@ -475,24 +509,37 @@ def search_all(request: SearchRequest):
     )
 
     reviewer_items = []
+    skipped_threshold = 0
+    skipped_no_answer = 0
     for d in reviewer_raw:
         item = serialize_doc(d)
         if item.score < request.threshold:
+            skipped_threshold += 1
             continue
         if not item.answer or not item.answer.strip():
+            skipped_no_answer += 1
             continue
         reviewer_items.append(item)
 
     reviewer_items.sort(key=lambda x: x.score, reverse=True)
 
-    if _any_request_filters(request):
+    reviewer_before = len(reviewer_items)
+    if has_filters:
         reviewer_items = [
             x for x in reviewer_items if _reviewer_passes_filters(request, x)
         ]
 
     reviewer_items = reviewer_items[: request.top_k]
+    log.info("[/search_all] REVIEWER  fetched=%d  below_threshold=%d  no_answer=%d  "
+             "passed_quality=%d  after_filters=%d  returned=%d  (%.0fms)",
+             len(reviewer_raw), skipped_threshold, skipped_no_answer,
+             reviewer_before, reviewer_before if not has_filters else len(reviewer_items) + (reviewer_before - len(reviewer_items)),
+             len(reviewer_items), (time.perf_counter() - t_rev) * 1000)
+    if has_filters:
+        log.info("[/search_all] REVIEWER  filter_dropped=%d", reviewer_before - len(reviewer_items) if reviewer_before > len(reviewer_items) else 0)
 
     # ---------------- Golden QA Search ----------------
+    t_gold = time.perf_counter()
 
     golden_raw = _vector_search(
         collection=golden_qa_collection,
@@ -507,19 +554,21 @@ def search_all(request: SearchRequest):
     )
 
     golden_items: list[GoldenQAItem] = []
+    golden_skip_threshold = 0
+    golden_skip_no_answer = 0
 
     for d in golden_raw:
         score = float(d.get("score", 0.0) or 0.0)
 
         if score < request.threshold:
+            golden_skip_threshold += 1
             continue
 
         text = d.get("text", "") or ""
-
         q, a = _parse_golden_qa_text(text)
 
-        # skip if answer missing
         if not a or not a.strip():
+            golden_skip_no_answer += 1
             continue
 
         golden_items.append(
@@ -534,14 +583,23 @@ def search_all(request: SearchRequest):
 
     golden_items.sort(key=lambda x: x.score, reverse=True)
 
-    if _any_request_filters(request):
+    golden_before = len(golden_items)
+    if has_filters:
         golden_items = [
             x for x in golden_items if _golden_passes_filters(request, x)
         ]
 
     golden_items = golden_items[: request.top_k]
+    log.info("[/search_all] GOLDEN   fetched=%d  below_threshold=%d  no_answer=%d  "
+             "passed_quality=%d  after_filters=%d  returned=%d  (%.0fms)",
+             len(golden_raw), golden_skip_threshold, golden_skip_no_answer,
+             golden_before, golden_before if not has_filters else len(golden_items) + (golden_before - len(golden_items)),
+             len(golden_items), (time.perf_counter() - t_gold) * 1000)
+    if has_filters:
+        log.info("[/search_all] GOLDEN   filter_dropped=%d", golden_before - len(golden_items) if golden_before > len(golden_items) else 0)
 
     # ---------------- PoP Search ----------------
+    t_pop = time.perf_counter()
 
     pop_raw = _vector_search(
         collection=golden_pop_collection,
@@ -564,15 +622,27 @@ def search_all(request: SearchRequest):
         for d in pop_raw
         if float(d.get("score", 0.0) or 0.0) >= request.threshold
     ]
+    pop_below_threshold = len(pop_raw) - len(pop_items)
 
     pop_items.sort(key=lambda x: x.score, reverse=True)
 
-    if _any_request_filters(request):
+    pop_before = len(pop_items)
+    if has_filters:
         pop_items = [x for x in pop_items if _pop_passes_filters(request, x)]
 
     pop_items = pop_items[: request.top_k]
+    log.info("[/search_all] POP      fetched=%d  below_threshold=%d  "
+             "passed_quality=%d  after_filters=%d  returned=%d  (%.0fms)",
+             len(pop_raw), pop_below_threshold,
+             pop_before, pop_before if not has_filters else len(pop_items) + (pop_before - len(pop_items)),
+             len(pop_items), (time.perf_counter() - t_pop) * 1000)
+    if has_filters:
+        log.info("[/search_all] POP      filter_dropped=%d", pop_before - len(pop_items) if pop_before > len(pop_items) else 0)
 
     # ---------------- Final Response ----------------
+    log.info("[/search_all] TOTAL  reviewer=%d  golden=%d  pop=%d  (%.0fms)",
+             len(reviewer_items), len(golden_items), len(pop_items),
+             (time.perf_counter() - t0) * 1000)
 
     return MultiSearchResponse(
         reviewer=reviewer_items,
