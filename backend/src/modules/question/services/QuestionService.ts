@@ -1135,9 +1135,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           queue = initialUsersToAllocate.map(
             (user) => new ObjectId(user._id.toString()),
           );
-        }
-  
-      //  const initialUsersToAllocate = users.slice(0, 3);
+          //  const initialUsersToAllocate = users.slice(0, 3);
   
        /* const queue = initialUsersToAllocate.map(
           (user) => new ObjectId(user._id.toString()),
@@ -1171,6 +1169,9 @@ export class QuestionService extends BaseService implements IQuestionService {
             'answer_creation',
           );
         }
+        }
+  
+      
   
         return { isDuplicate: false, data: baseQuestion };
       });
@@ -1219,7 +1220,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
 
         // Only author needs to see ai initial answer
-        let aiInitialAnswer = '';
+        let aiInitialAnswer = currentQuestion.aiInitialAnswer;
 
         const answers = await this.answerRepo.getByQuestionId(
           questionId,
@@ -3279,6 +3280,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       createdAt,
     }),
   ]);
+  console.log("analytics====",analyticsMessages)
+  console.log("analytics====annnam",annamMessages)
+
 
   // Take first matched message (assuming 1 expected)
   const allMessages = [...analyticsMessages, ...annamMessages];
