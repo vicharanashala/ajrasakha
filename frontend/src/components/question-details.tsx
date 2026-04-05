@@ -27,6 +27,7 @@ interface QuestionDetailProps {
   isRefetching: boolean;
   currentUser: IUser;
   rerouteQuestion?: IRerouteHistoryResponse[];
+  navigateToQuestionPage: () => void;
 }
 
 export const QuestionDetails = ({
@@ -37,6 +38,7 @@ export const QuestionDetails = ({
   currentUser,
   goBack,
   rerouteQuestion,
+  navigateToQuestionPage
 }: QuestionDetailProps) => {
   //console.log("the question details====",question)
   // console.log("reroutedetail====",rerouteQuestion)
@@ -66,7 +68,7 @@ export const QuestionDetails = ({
       
 
       {question && currentUser && question?.source == "AJRASAKHA" && currentUser.role != "expert" &&
-      <MessageDetail question={question} isQuestionAllocatedToExpert={question?.submission?.history?.length !== 0} />
+        <MessageDetail question={question} isQuestionAllocatedToExpert={question?.submission?.history?.length !== 0} navigateToQuestionPage ={navigateToQuestionPage}/>
       }
 
       {/* {currentUser.role !== "expert" && ( */}

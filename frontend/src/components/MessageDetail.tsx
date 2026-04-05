@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Save, Pencil, X, SkipForward } from "lucide-react";
+import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Save, Pencil, X, SkipForward, Loader2, RefreshCw } from "lucide-react";
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
@@ -110,18 +110,20 @@ import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 interface MessageDetailCardProps {
     question: IQuestionFullData;
     isQuestionAllocatedToExpert: boolean;
+    navigateToQuestionPage: () => void;
 }
 
 const MessageDetail = ({
     question,
-    isQuestionAllocatedToExpert
+    isQuestionAllocatedToExpert,
+    navigateToQuestionPage
 }: MessageDetailCardProps) => {
     const [expanded, setExpanded] = useState(false);
     const selectedQuestionId = question?._id || null;
 
     const {
         data: messageDetails,
-        // refetch: refechMessageDetails,
+        refetch: refechMessageDetails,
         isLoading,
     } = useGetQuestionMessageDetailsByQuestionId(selectedQuestionId);
 
@@ -156,15 +158,32 @@ const MessageDetail = ({
                 ) : (
                     <ChevronRight className="h-5 w-5 text-primary shrink-0 transition-transform" />
                 )}
+
                 <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
                     <span className="text-sm font-semibold text-foreground">Message Details</span>
                     <span className="text-xs text-muted-foreground">
                         {expanded ? "Click to collapse" : "Click to expand & fetch details"}
                     </span>
                 </div>
-                <Badge variant="secondary" className="text-[10px]">
-                    {isLoading ? "Loading…" : expanded && msg ? `ID: ${msg.messageId}` : "View More"}
-                </Badge>
+
+                <div className="flex items-center gap-2">
+                    {!expanded && !isLoading && (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                refechMessageDetails();
+                            }}
+                            className="inline-flex items-center justify-center h-7 w-7 rounded-md border bg-background hover:bg-muted transition-colors"
+                        >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                        </button>
+                    )}
+
+                    <Badge variant="secondary" className="text-[10px]">
+                        {isLoading ? "Loading…" : expanded && msg ? `ID: ${msg.messageId}` : "View More"}
+                    </Badge>
+                </div>
             </button>
 
             {expanded && (
@@ -231,18 +250,31 @@ const MessageDetail = ({
                                     Processing Steps ({msg.content.length})
                                 </p>
                                 {msg.content.map((item: any, i: number) => {
-                                    if (item.type === "think") {
-                                        const idx = thinkIndex++;
-                                        return <ContentThinkStep key={i} think={item.think} index={idx} />;
-                                    }
-                                    if (item.type === "tool_call") {
-                                        return <ContentToolCall key={i} toolCall={item.tool_call} />;
-                                    }
-                                    if (item.type === "text") {
-                                        return <ContentAnswer key={i} text={item.text} question={question} isQuestionAllocatedToExpert={isQuestionAllocatedToExpert} />;
-                                    }
-                                    return null;
-                                })}
+  const isLastItem = i === msg.content.length - 1;
+ 
+  if (item.type === "think") {
+    const idx = thinkIndex++;
+    return <ContentThinkStep key={i} think={item.think} index={idx} />;
+  }
+ 
+  if (item.type === "tool_call") {
+    return <ContentToolCall key={i} toolCall={item.tool_call} />;
+  }
+ 
+  if (item.type === "text" && isLastItem) {
+    return (
+      <ContentAnswer
+        key={i}
+        text={item.text}
+        question={question}
+        isQuestionAllocatedToExpert={isQuestionAllocatedToExpert}
+        navigateToQuestionPage={navigateToQuestionPage}
+      />
+    );
+  }
+ 
+  return null;
+})}
                             </div>
                         </div>
                     )}
@@ -260,9 +292,10 @@ interface ContentAnswerProps {
     text: string;
     question: IQuestionFullData;
     isQuestionAllocatedToExpert: boolean;
+    navigateToQuestionPage(): void;
 }
 
-const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert }: ContentAnswerProps) => {
+const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateToQuestionPage }: ContentAnswerProps) => {
     const [approved, setApproved] = useState<boolean | null>(null);
     const [editedText, setEditedText] = useState(text);
     const [isEditMode, setIsEditMode] = useState(false);
@@ -312,6 +345,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert }: ContentA
 
             setApproved(true);
             toast.success("Answer approved successfully");
+            navigateToQuestionPage();
         } catch (error) {
             console.error("Failed to approve answer:", error);
             toast.error("Failed to approve the answer. Please try again.");
@@ -336,6 +370,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert }: ContentA
     const handleSkip = async () => {
         await updateQuestion({ isHidden: true, _id: question._id! })
         toast.success("Question has been hidden");
+        navigateToQuestionPage();
     }
 
     const renderText = (raw: string) => {
@@ -504,19 +539,22 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert }: ContentA
                                 Edit Answer
                             </Button>
                         )}
-
                         <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             disabled={updatingQuestion}
-                            onClick={async () => await handleSkip()}
-                            className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}
+                            onClick={handleSkip}
+                            className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""
+                                }`}
                         >
-                            <SkipForward className="h-4 w-4" />
-                            Pass
+                            {updatingQuestion ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <SkipForward className="h-4 w-4" />
+                            )}
+                            {updatingQuestion ? "Passing..." : "Pass"}
                         </Button>
-
                         <Button
                             type="button"
                             onClick={handleApprove}
