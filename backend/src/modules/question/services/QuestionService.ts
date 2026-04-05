@@ -1112,7 +1112,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           baseQuestion,
           session,
         );
-  
+       // source="AJRASAKHA"
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
         }
@@ -1121,12 +1121,22 @@ export class QuestionService extends BaseService implements IQuestionService {
           details as PreferenceDto,
           session,
         );
+        let queue: ObjectId[] = [];
+        let initialUsersToAllocate: typeof users = [];
+
+        if (source !== 'AJRASAKHA') {
+          initialUsersToAllocate = users.slice(0, 3);
+
+          queue = initialUsersToAllocate.map(
+            (user) => new ObjectId(user._id.toString()),
+          );
+        }
   
-        const initialUsersToAllocate = users.slice(0, 3);
+      //  const initialUsersToAllocate = users.slice(0, 3);
   
-        const queue = initialUsersToAllocate.map(
+       /* const queue = initialUsersToAllocate.map(
           (user) => new ObjectId(user._id.toString()),
-        );
+        );*/
   
         if (initialUsersToAllocate[0]) {
           await this.userRepo.updateReputationScore(
