@@ -42,12 +42,17 @@ class SearchRequest(BaseModel):
     query: str
     top_k: int = 5
     threshold: float = 0.8
-    # Reviewer, golden, PoP: optional geographic filter when district and/or state is set.
-    # Normal rows match district and/or state when those fields are sent.
-    # District FAQ/Unknown is only included when document state matches request.state
-    # (so Haryana FAQ does not appear when the client asked for another state).
+    # Reviewer + golden: optional district/state/crop/domain/season (see schema).
+    # PoP has no district — only state + attributes apply. Wildcard districts still
+    # require crop/domain/season when those are sent.
     district: str | None = None
     state: str | None = None
+    # When set, documents must match these (case-insensitive). Applies to every hit,
+    # including wildcard districts (FAQ / N/A / All / …), so location wildcards do
+    # not bypass crop / domain / season.
+    crop: str | None = None
+    domain: str | None = None
+    season: str | None = None
 
 
 class QAItem(BaseModel):
@@ -84,23 +89,18 @@ class MultiSearchResponse(BaseModel):
 # District values that are not a specific place: include only when document state
 # matches request state (same rule as legacy FAQ / Unknown).
 _STATE_SCOPED_WILDCARD_DISTRICTS_CF = frozenset(
-    {
-        x.casefold()
-        for x in (
-            "#N/A",
-            "N/A",
-            "All",
-            "all",
-            "General",
-            "Multiple",
-            "Unknown",
-            "unknown",
-            "Not specified",
-            "not specified",
-            "not provided",
-            "FAQ",
-        )
-    }
+    x.casefold()
+    for x in (
+        "#N/A",
+        "N/A",
+        "All",
+        "General",
+        "Multiple",
+        "Unknown",
+        "Not specified",
+        "not provided",
+        "FAQ",
+    )
 )
 
 
@@ -145,6 +145,114 @@ def _passes_location_filter(
         if ds.casefold() != fs.casefold():
             return False
     return True
+
+
+def _want(s: str | None) -> str | None:
+    if s is None:
+        return None
+    t = str(s).strip()
+    return t or None
+
+
+def _passes_attribute_filters(
+    request: SearchRequest,
+    *,
+    crop: str | None,
+    domain: str | None,
+    season: str | None,
+) -> bool:
+    """Require crop/domain/season to match when the client sends them."""
+    wc, wd, ws = _want(request.crop), _want(request.domain), _want(request.season)
+    if wc:
+        dc = _want(crop)
+        if not dc or dc.casefold() != wc.casefold():
+            return False
+    if wd:
+        dd = _want(domain)
+        if not dd or dd.casefold() != wd.casefold():
+            return False
+    if ws:
+        ds = _want(season)
+        if not ds or ds.casefold() != ws.casefold():
+            return False
+    return True
+
+
+def _any_request_filters(request: SearchRequest) -> bool:
+    return bool(
+        _want(request.district)
+        or _want(request.state)
+        or _want(request.crop)
+        or _want(request.domain)
+        or _want(request.season)
+    )
+
+
+_FILTER_POOL_MULTIPLIER = 20
+
+def _fetch_k(request: SearchRequest) -> int:
+    """When filters are active, widen the candidate pool so post-filtering
+    doesn't eat all results.  Return value replaces top_k in _vector_search."""
+    if _any_request_filters(request):
+        return max(request.top_k * _FILTER_POOL_MULTIPLIER, 50)
+    return request.top_k
+
+
+def _reviewer_passes_filters(request: SearchRequest, item: QAItem) -> bool:
+    d = item.details or {}
+    if not _passes_location_filter(
+        d.get("district"),
+        d.get("state"),
+        request.district,
+        request.state,
+    ):
+        return False
+    return _passes_attribute_filters(
+        request,
+        crop=d.get("crop"),
+        domain=d.get("domain"),
+        season=d.get("season"),
+    )
+
+
+def _golden_passes_filters(request: SearchRequest, item: GoldenQAItem) -> bool:
+    md = item.metadata or {}
+    if not _passes_location_filter(
+        md.get("District"),
+        md.get("State"),
+        request.district,
+        request.state,
+    ):
+        return False
+    # Golden schema: Crop, Category (maps to request "domain"), Season, District, State
+    return _passes_attribute_filters(
+        request,
+        crop=md.get("Crop"),
+        domain=md.get("Category"),
+        season=md.get("Season"),
+    )
+
+
+def _pop_passes_filters(request: SearchRequest, item: PopItem) -> bool:
+    md = item.metadata or {}
+    # PoP has no district in metadata — only filter by state (and crop/domain/season).
+    # Never pass request.district here or every PoP row would fail district match.
+    if not _passes_location_filter(
+        None,
+        md.get("state") or md.get("State"),
+        None,
+        request.state,
+    ):
+        return False
+    return _passes_attribute_filters(
+        request,
+        crop=md.get("crop") or md.get("Crop"),
+        domain=md.get("domain")
+        or md.get("Domain")
+        or md.get("category")
+        or md.get("Category"),
+        season=md.get("season") or md.get("Season"),
+    )
 
 
 def parse_answer(text: str | None) -> str | None:
@@ -223,7 +331,7 @@ def search_questions(request: SearchRequest):
     results = _vector_search(
         collection=reviewer_collection,
         query_embedding=query_embedding,
-        top_k=request.top_k,
+        top_k=_fetch_k(request),
         index_name=VECTOR_INDEX_NAME,
         project={
             "_id": 1,
@@ -239,18 +347,9 @@ def search_questions(request: SearchRequest):
     if not results:
         return []
     items = [serialize_doc(doc) for doc in results]
-    if request.district or request.state:
-        items = [
-            x
-            for x in items
-            if _passes_location_filter(
-                (x.details or {}).get("district"),
-                (x.details or {}).get("state"),
-                request.district,
-                request.state,
-            )
-        ]
-    return items
+    if _any_request_filters(request):
+        items = [x for x in items if _reviewer_passes_filters(request, x)]
+    return items[: request.top_k]
 
 
 # @app.post("/search_all", response_model=MultiSearchResponse)
@@ -356,10 +455,12 @@ def search_all(request: SearchRequest):
 
     # ---------------- Reviewer Search ----------------
 
+    pool_k = _fetch_k(request)
+
     reviewer_raw = _vector_search(
         collection=reviewer_collection,
         query_embedding=query_embedding,
-        top_k=request.top_k,
+        top_k=pool_k,
         index_name=VECTOR_INDEX_NAME,
         project={
             "_id": 1,
@@ -378,31 +479,25 @@ def search_all(request: SearchRequest):
         item = serialize_doc(d)
         if item.score < request.threshold:
             continue
-        # skip if answer missing
         if not item.answer or not item.answer.strip():
             continue
         reviewer_items.append(item)
 
     reviewer_items.sort(key=lambda x: x.score, reverse=True)
 
-    if request.district or request.state:
+    if _any_request_filters(request):
         reviewer_items = [
-            x
-            for x in reviewer_items
-            if _passes_location_filter(
-                (x.details or {}).get("district"),
-                (x.details or {}).get("state"),
-                request.district,
-                request.state,
-            )
+            x for x in reviewer_items if _reviewer_passes_filters(request, x)
         ]
+
+    reviewer_items = reviewer_items[: request.top_k]
 
     # ---------------- Golden QA Search ----------------
 
     golden_raw = _vector_search(
         collection=golden_qa_collection,
         query_embedding=query_embedding,
-        top_k=request.top_k,
+        top_k=pool_k,
         index_name=GOLDEN_VECTOR_INDEX_NAME,
         project={
             "text": 1,
@@ -439,24 +534,19 @@ def search_all(request: SearchRequest):
 
     golden_items.sort(key=lambda x: x.score, reverse=True)
 
-    if request.district or request.state:
+    if _any_request_filters(request):
         golden_items = [
-            x
-            for x in golden_items
-            if _passes_location_filter(
-                (x.metadata or {}).get("District"),
-                (x.metadata or {}).get("State"),
-                request.district,
-                request.state,
-            )
+            x for x in golden_items if _golden_passes_filters(request, x)
         ]
+
+    golden_items = golden_items[: request.top_k]
 
     # ---------------- PoP Search ----------------
 
     pop_raw = _vector_search(
         collection=golden_pop_collection,
         query_embedding=query_embedding,
-        top_k=request.top_k,
+        top_k=pool_k,
         index_name=GOLDEN_VECTOR_INDEX_NAME,
         project={
             "text": 1,
@@ -477,21 +567,10 @@ def search_all(request: SearchRequest):
 
     pop_items.sort(key=lambda x: x.score, reverse=True)
 
-    # PoP metadata uses lowercase keys (e.g. "state"); align with request district/state.
-    if request.district or request.state:
-        pop_items = [
-            x
-            for x in pop_items
-            if _passes_location_filter(
-                (x.metadata or {}).get("district")
-                or (x.metadata or {}).get("District"),
-                (x.metadata or {}).get("state")
-                or (x.metadata or {}).get("State"),
-                request.district,
-                request.state,
-            )
-        ]
+    if _any_request_filters(request):
+        pop_items = [x for x in pop_items if _pop_passes_filters(request, x)]
 
+    pop_items = pop_items[: request.top_k]
 
     # ---------------- Final Response ----------------
 
