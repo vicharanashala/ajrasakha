@@ -38,7 +38,7 @@ async def get_states_for_pop() -> dict:
         raw_states = client[DB_NAME][COLLECTION_POP].distinct("metadata.state")
     except Exception as e:
         print(f"Error fetching states from DB: {e}")
-        return {"POPS_MULTIPLE_STATES": "MULTIPLE"} # Fallback
+        return {}
 
     STATE_CODE_MAP = {
         "ANDHRA_PRADESH": "AP", "ARUNACHAL_PRADESH": "AR", "ASSAM": "AS",
@@ -110,25 +110,39 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
     "PB": "Punjab",
     "RJ": "Rajasthan",
     "SK": "Sikkim",
-    "TN": "Tamilnadu",
+    "TN": "Tamil Nadu",
     "TG": "Telangana",
     "TR": "Tripura",
-    "UP": "Uttarpradesh",
+    "UP": "Uttar Pradesh",
     "UK": "Uttarakhand",
-    "WB": "West_Bengal",
+    "WB": "West Bengal",
     "AN": "Andaman_and_Nicobar",
     "CH": "Chandigarh",
     "DN": "Dadra_and_Nagar_Haveli_and_Daman_and_Diu",
     "DD": "Daman_and_Diu",
     "DL": "Delhi",
-    "JK": "Jammu_and_Kashmir",
+    "JK": "Jammu & Kashmir",
     "LA": "Ladakh",
     "LD": "Lakshadweep",
     "PY": "Puducherry",
     "MULTIPLE": "POPs_Multiple_States"
 }
 
-    state_value = STATE_CODE_TO_NAME.get(state_code.upper(), state_code.upper())
+    normalized_state_code = (state_code or "").strip().upper()
+    valid_state_codes = sorted(STATE_CODE_TO_NAME.keys())
+    valid_state_codes_str = ", ".join(valid_state_codes)
+
+    if not normalized_state_code:
+        raise ValueError(
+            f"Missing required parameter: state_code. Available state_code values are: {valid_state_codes_str}"
+        )
+
+    if normalized_state_code not in STATE_CODE_TO_NAME:
+        raise ValueError(
+            f"Invalid state_code '{state_code}'. Available state_code values are: {valid_state_codes_str}"
+        )
+
+    state_value = STATE_CODE_TO_NAME[normalized_state_code]
     
     nodes = await retriever_pop.aretrieve(query, state_value=state_value)
 
