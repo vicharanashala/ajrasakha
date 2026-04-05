@@ -42,10 +42,12 @@ class SearchRequest(BaseModel):
     query: str
     top_k: int = 5
     threshold: float = 0.8
-    # When set, reviewer + golden are restricted to this district, except documents
-    # whose district is FAQ or Unknown (those are always included). PoP has no
-    # district field and is never filtered by district.
+    # Reviewer, golden, PoP: optional geographic filter when district and/or state is set.
+    # Normal rows match district and/or state when those fields are sent.
+    # District FAQ/Unknown is only included when document state matches request.state
+    # (so Haryana FAQ does not appear when the client asked for another state).
     district: str | None = None
+    state: str | None = None
 
 
 class QAItem(BaseModel):
@@ -79,17 +81,70 @@ class MultiSearchResponse(BaseModel):
     pop: list[PopItem]
 
 
-def _passes_district_filter(doc_district: str | None, filter_district: str | None) -> bool:
-    """If filter_district is set, keep docs whose district matches it, or is FAQ/Unknown."""
-    if not filter_district or not str(filter_district).strip():
-        return True
-    want = str(filter_district).strip()
-    got = (doc_district or "").strip()
-    if not got:
+# District values that are not a specific place: include only when document state
+# matches request state (same rule as legacy FAQ / Unknown).
+_STATE_SCOPED_WILDCARD_DISTRICTS_CF = frozenset(
+    {
+        x.casefold()
+        for x in (
+            "#N/A",
+            "N/A",
+            "All",
+            "all",
+            "General",
+            "Multiple",
+            "Unknown",
+            "unknown",
+            "Not specified",
+            "not specified",
+            "not provided",
+            "FAQ",
+        )
+    }
+)
+
+
+def _is_state_scoped_wildcard_district(doc_district: str) -> bool:
+    dd = (doc_district or "").strip()
+    if not dd:
         return False
-    if got.casefold() in ("faq", "unknown"):
+    return dd.casefold() in _STATE_SCOPED_WILDCARD_DISTRICTS_CF
+
+
+def _passes_location_filter(
+    doc_district: str | None,
+    doc_state: str | None,
+    filter_district: str | None,
+    filter_state: str | None,
+) -> bool:
+    """Apply optional district/state filter for reviewer, golden, and PoP.
+
+    Wildcard districts (FAQ, Unknown, N/A, All, General, etc.) pass only when
+    ``filter_state`` is set and matches ``doc_state`` (case-insensitive).
+    """
+    fd = (filter_district or "").strip() or None
+    fs = (filter_state or "").strip() or None
+    dd = (doc_district or "").strip()
+    ds = (doc_state or "").strip()
+
+    if not fd and not fs:
         return True
-    return got.casefold() == want.casefold()
+
+    if _is_state_scoped_wildcard_district(dd):
+        if not fs:
+            return False
+        if not ds:
+            return False
+        return ds.casefold() == fs.casefold()
+
+    if fd and dd.casefold() != fd.casefold():
+        return False
+    if fs:
+        if not ds:
+            return False
+        if ds.casefold() != fs.casefold():
+            return False
+    return True
 
 
 def parse_answer(text: str | None) -> str | None:
@@ -184,12 +239,15 @@ def search_questions(request: SearchRequest):
     if not results:
         return []
     items = [serialize_doc(doc) for doc in results]
-    if request.district:
+    if request.district or request.state:
         items = [
             x
             for x in items
-            if _passes_district_filter(
-                (x.details or {}).get("district"), request.district
+            if _passes_location_filter(
+                (x.details or {}).get("district"),
+                (x.details or {}).get("state"),
+                request.district,
+                request.state,
             )
         ]
     return items
@@ -327,12 +385,15 @@ def search_all(request: SearchRequest):
 
     reviewer_items.sort(key=lambda x: x.score, reverse=True)
 
-    if request.district:
+    if request.district or request.state:
         reviewer_items = [
             x
             for x in reviewer_items
-            if _passes_district_filter(
-                (x.details or {}).get("district"), request.district
+            if _passes_location_filter(
+                (x.details or {}).get("district"),
+                (x.details or {}).get("state"),
+                request.district,
+                request.state,
             )
         ]
 
@@ -378,12 +439,15 @@ def search_all(request: SearchRequest):
 
     golden_items.sort(key=lambda x: x.score, reverse=True)
 
-    if request.district:
+    if request.district or request.state:
         golden_items = [
             x
             for x in golden_items
-            if _passes_district_filter(
-                (x.metadata or {}).get("District"), request.district
+            if _passes_location_filter(
+                (x.metadata or {}).get("District"),
+                (x.metadata or {}).get("State"),
+                request.district,
+                request.state,
             )
         ]
 
@@ -412,6 +476,21 @@ def search_all(request: SearchRequest):
     ]
 
     pop_items.sort(key=lambda x: x.score, reverse=True)
+
+    # PoP metadata uses lowercase keys (e.g. "state"); align with request district/state.
+    if request.district or request.state:
+        pop_items = [
+            x
+            for x in pop_items
+            if _passes_location_filter(
+                (x.metadata or {}).get("district")
+                or (x.metadata or {}).get("District"),
+                (x.metadata or {}).get("state")
+                or (x.metadata or {}).get("State"),
+                request.district,
+                request.state,
+            )
+        ]
 
 
     # ---------------- Final Response ----------------
