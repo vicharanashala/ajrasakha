@@ -1334,13 +1334,41 @@ export class QuestionService extends BaseService implements IQuestionService {
       this.userRepo.findExpertsByPreference(details, session),
     ]);
 
-    const expertIdsSet = new Set<string>();
+    /*const expertIdsSet = new Set<string>();
     preferredExperts.forEach(user => expertIdsSet.add(user._id.toString()));
     users
       .filter(user => user.role === 'expert' && user.isBlocked !== true)
       .forEach(user => expertIdsSet.add(user._id.toString()));
 
-    const allExpertIds = Array.from(expertIdsSet);
+    const allExpertIds = Array.from(expertIdsSet);*/
+    let allExpertIds: string[] = [];
+    const isAjrasakha=question.source=="AJRASAKHA"?true:false
+      if (isAjrasakha) {
+        // ✅ AJRASAKHA FLOW
+        const users = await this.userRepo.getSpecialTaskForceExperts(session);
+
+        allExpertIds = users.map(user => user._id.toString());
+      } else {
+        // ✅ NORMAL FLOW
+        const [users, preferredExperts] = await Promise.all([
+          this.userRepo.findAll(),
+          this.userRepo.findExpertsByPreference(details, session),
+        ]);
+
+        const expertIdsSet = new Set<string>();
+
+        preferredExperts.forEach(user =>
+          expertIdsSet.add(user._id.toString()),
+        );
+
+  users
+    .filter(user => user.role === 'expert' && user.isBlocked !== true)
+    .forEach(user =>
+      expertIdsSet.add(user._id.toString()),
+    );
+
+  allExpertIds = Array.from(expertIdsSet);
+}
 
     if (
       EXISTING_QUEUE_COUNT < 3 ||

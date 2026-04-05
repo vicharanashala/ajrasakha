@@ -201,7 +201,8 @@ async getAllUsersforManualSelect(
           incentive: u.incentive ?? 0,
           penaltyPercentage: u.penalty ?? 0,
           createdAt: u.createdAt ?? null,
-          isBlocked:u.isBlocked
+          isBlocked:u.isBlocked,
+          special_task_force:u.special_task_force
         })),
         totalUsers: users.length,
         totalPages: 5,

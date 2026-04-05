@@ -63,9 +63,10 @@ export const QuestionDetails = ({
       <QuestionHeader question={question} goBack={goBack} />
 
       <QuestionDetailsCard question={question} currentUser={currentUser} />
+      
 
       {question && currentUser && question?.source == "AJRASAKHA" && currentUser.role != "expert" &&
-        <MessageDetail question={question} isQuestionAllocatedToExpert={question?.submission?.queue?.length !== 0} />
+      <MessageDetail question={question} isQuestionAllocatedToExpert={question?.submission?.history?.length !== 0} />
       }
 
       {/* {currentUser.role !== "expert" && ( */}

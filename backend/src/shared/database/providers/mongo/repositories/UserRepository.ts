@@ -542,6 +542,21 @@ async findAllUsers(
     let result = [...matched, ...unmatched].map(s => s.user);
     return result;
   }
+  async getSpecialTaskForceExperts(session: ClientSession): Promise<IUser[]> {
+    await this.init();
+    const allUsersRaw = await this.usersCollection
+      .find(
+        {
+          role: 'expert',
+          isBlocked: false,
+          special_task_force: true, // 👈 added condition
+        },
+        { session },
+      )
+      .toArray();
+  
+    return allUsersRaw;
+  }
   async findExpertsByReputationScore(
     details: PreferenceDto,
     session?: ClientSession,

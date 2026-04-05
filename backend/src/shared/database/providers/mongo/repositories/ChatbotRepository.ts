@@ -417,7 +417,7 @@ private async initSecondDb() {
       },
     ])
     .toArray();*/
-    return await this.messagesCollection
+    let result= await this.messagesCollection
   .aggregate([
     {
       $match: {
@@ -484,6 +484,7 @@ private async initSecondDb() {
     },
   ])
   .toArray();
+  return result
 }
 
   // SECOND DB (optional example)
