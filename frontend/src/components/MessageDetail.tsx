@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Save, Pencil, X, SkipForward } from "lucide-react";
+import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Save, Pencil, X, SkipForward, Loader2 } from "lucide-react";
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
@@ -110,11 +110,13 @@ import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 interface MessageDetailCardProps {
     question: IQuestionFullData;
     isQuestionAllocatedToExpert: boolean;
+    navigateToQuestionPage: () => void;
 }
 
 const MessageDetail = ({
     question,
-    isQuestionAllocatedToExpert
+    isQuestionAllocatedToExpert,
+    navigateToQuestionPage
 }: MessageDetailCardProps) => {
     const [expanded, setExpanded] = useState(false);
     const selectedQuestionId = question?._id || null;
@@ -239,7 +241,7 @@ const MessageDetail = ({
                                         return <ContentToolCall key={i} toolCall={item.tool_call} />;
                                     }
                                     if (item.type === "text") {
-                                        return <ContentAnswer key={i} text={item.text} question={question} isQuestionAllocatedToExpert={isQuestionAllocatedToExpert} />;
+                                        return <ContentAnswer key={i} text={item.text} question={question} isQuestionAllocatedToExpert={isQuestionAllocatedToExpert} navigateToQuestionPage={navigateToQuestionPage} />;
                                     }
                                     return null;
                                 })}
@@ -260,9 +262,10 @@ interface ContentAnswerProps {
     text: string;
     question: IQuestionFullData;
     isQuestionAllocatedToExpert: boolean;
+    navigateToQuestionPage(): void;
 }
 
-const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert }: ContentAnswerProps) => {
+const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateToQuestionPage }: ContentAnswerProps) => {
     const [approved, setApproved] = useState<boolean | null>(null);
     const [editedText, setEditedText] = useState(text);
     const [isEditMode, setIsEditMode] = useState(false);
@@ -336,6 +339,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert }: ContentA
     const handleSkip = async () => {
         await updateQuestion({ isHidden: true, _id: question._id! })
         toast.success("Question has been hidden");
+        navigateToQuestionPage();
     }
 
     const renderText = (raw: string) => {
@@ -504,19 +508,22 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert }: ContentA
                                 Edit Answer
                             </Button>
                         )}
-
                         <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             disabled={updatingQuestion}
-                            onClick={async () => await handleSkip()}
-                            className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}
+                            onClick={handleSkip}
+                            className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""
+                                }`}
                         >
-                            <SkipForward className="h-4 w-4" />
-                            Pass
+                            {updatingQuestion ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <SkipForward className="h-4 w-4" />
+                            )}
+                            {updatingQuestion ? "Passing..." : "Pass"}
                         </Button>
-
                         <Button
                             type="button"
                             onClick={handleApprove}

@@ -306,6 +306,9 @@ export const QuestionsPage = ({
               refetchAnswers={refechSelectedQuestion}
               isRefetching={isLoadingSelectedQuestion}
               goBack={goBack}
+              navigateToQuestionPage={() => {
+                setSelectedQuestionId("");
+              }}
               currentUser={currentUser!}
             />
           )
@@ -364,7 +367,7 @@ export const QuestionsPage = ({
               uploadedQuestionsCount={uploadedQuestionsCount}
               selectedQuestionIds={selectedQuestionIds}
               setIsSelectionModeOn={setIsSelectionModeOn}
-              isSelectionModeOn = { isSelectionModeOn}
+              isSelectionModeOn={isSelectionModeOn}
               setSelectedQuestionIds={setSelectedQuestionIds}
               showClosedAt={showClosedAt}
               sort={questionSort}
