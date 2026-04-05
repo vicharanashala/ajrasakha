@@ -9,101 +9,101 @@ import type { IQuestionFullData, IUser } from "@/types";
 import { useGetQuestionMessageDetailsByQuestionId } from "@/hooks/api/question/useGetQuestionMessageDetailsByQuestionId";
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
 
-// const msg = {
-//     messageId: "msg_67f0a1b2c3d4",
-//     createdAt: "2026-04-05T09:15:00.000Z",
-//     updatedAt: "2026-04-05T09:18:45.000Z",
-//     user: {
-//         username: "abi",
-//         email: "abi@example.com",
-//         emailVerified: true,
-//         avatar: "https://i.pravatar.cc/150?img=12",
-//     },
-//     content: [
-//         {
-//             type: "think",
-//             think: `The user is asking about guar crop in Haryana state. The question is in English, so I must respond in English.
+const msg = {
+    messageId: "msg_67f0a1b2c3d4",
+    createdAt: "2026-04-05T09:15:00.000Z",
+    updatedAt: "2026-04-05T09:18:45.000Z",
+    user: {
+        username: "abi",
+        email: "abi@example.com",
+        emailVerified: true,
+        avatar: "https://i.pravatar.cc/150?img=12",
+    },
+    content: [
+        {
+            type: "think",
+            think: `The user is asking about guar crop in Haryana state. The question is in English, so I must respond in English.
 
-// Key points:
-// 1. Recommended sowing time for guar
-// 2. Why weed control should be done up to 30 days after sowing
-// 3. Location: Haryana state
+Key points:
+1. Recommended sowing time for guar
+2. Why weed control should be done up to 30 days after sowing
+3. Location: Haryana state
 
-// I need to:
-// 1. First upload the question to the reviewer system
-// 2. Search the reviewer dataset
-// 3. Search golden dataset with state code HR
-// 4. Search package of practices dataset
-// 5. Search FAQ videos if relevant`,
-//         },
-//         {
-//             type: "tool_call",
-//             tool_call: {
-//                 id: "toolu_01QfeYmWSZFSg1AnaEEuMvVJ",
-//                 name: "upload_question_to_reviewer_system_mcp_pop",
-//                 args: {
-//                     question:
-//                         "What is the recommended sowing time and why should weed control be carried out up to 30 days after sowing in guar crop?",
-//                     state_name: "Haryana",
-//                     crop: "Guar",
-//                 },
-//                 type: "tool_call",
-//                 progress: 1,
-//                 output: [
-//                     {
-//                         type: "text",
-//                         text: {
-//                             status: "Uploaded Successfully",
-//                         },
-//                     },
-//                 ],
-//             },
-//         },
-//         {
-//             type: "tool_call",
-//             tool_call: {
-//                 id: "toolu_01GSPkaMtCNtdnTiFG9vguym",
-//                 name: "get_context_from_reviewer_dataset_mcp_reviewer",
-//                 args: {
-//                     query: "recommended sowing time weed control 30 days guar crop Haryana",
-//                     state: "Haryana",
-//                     crop: "Guar",
-//                 },
-//                 type: "tool_call",
-//                 progress: 1,
-//                 output: [
-//                     {
-//                         type: "text",
-//                         text: [
-//                             {
-//                                 question_id: "69ce0ad8201d9072ae36b07a",
-//                                 similarity_score: 0.916,
-//                             },
-//                         ],
-//                     },
-//                 ],
-//             },
-//         },
-//         {
-//             type: "think",
-//             think: `The reviewer dataset provides the most relevant Haryana-specific guar crop guidance. I should now formulate a concise answer using the approved sources and include weed control timing rationale.`,
-//         },
-//         {
-//             type: "text",
-//             text: `The recommended sowing time for guar (cluster bean) in Haryana varies by variety maturity: **early maturing varieties** (HG 365, HG 563) should be sown in the **second fortnight of June**, **medium maturing varieties** (HG 870, HG 2-20) in the **first fortnight of July**, and **late maturing varieties** (HG 75) in **mid-July**.
+I need to:
+1. First upload the question to the reviewer system
+2. Search the reviewer dataset
+3. Search golden dataset with state code HR
+4. Search package of practices dataset
+5. Search FAQ videos if relevant`,
+        },
+        {
+            type: "tool_call",
+            tool_call: {
+                id: "toolu_01QfeYmWSZFSg1AnaEEuMvVJ",
+                name: "upload_question_to_reviewer_system_mcp_pop",
+                args: {
+                    question:
+                        "What is the recommended sowing time and why should weed control be carried out up to 30 days after sowing in guar crop?",
+                    state_name: "Haryana",
+                    crop: "Guar",
+                },
+                type: "tool_call",
+                progress: 1,
+                output: [
+                    {
+                        type: "text",
+                        text: {
+                            status: "Uploaded Successfully",
+                        },
+                    },
+                ],
+            },
+        },
+        {
+            type: "tool_call",
+            tool_call: {
+                id: "toolu_01GSPkaMtCNtdnTiFG9vguym",
+                name: "get_context_from_reviewer_dataset_mcp_reviewer",
+                args: {
+                    query: "recommended sowing time weed control 30 days guar crop Haryana",
+                    state: "Haryana",
+                    crop: "Guar",
+                },
+                type: "tool_call",
+                progress: 1,
+                output: [
+                    {
+                        type: "text",
+                        text: [
+                            {
+                                question_id: "69ce0ad8201d9072ae36b07a",
+                                similarity_score: 0.916,
+                            },
+                        ],
+                    },
+                ],
+            },
+        },
+        {
+            type: "think",
+            think: `The reviewer dataset provides the most relevant Haryana-specific guar crop guidance. I should now formulate a concise answer using the approved sources and include weed control timing rationale.`,
+        },
+        {
+            type: "text",
+            text: `The recommended sowing time for guar (cluster bean) in Haryana varies by variety maturity: **early maturing varieties** (HG 365, HG 563) should be sown in the **second fortnight of June**, **medium maturing varieties** (HG 870, HG 2-20) in the **first fortnight of July**, and **late maturing varieties** (HG 75) in **mid-July**.
 
-// **Weed control up to 30 days after sowing is critical** because this is when guar plants are in the early establishment phase. During the first 25–30 days, weeds compete strongly for **water, nutrients, sunlight, and space**, which can reduce crop vigor, nodulation, and final yield.
+**Weed control up to 30 days after sowing is critical** because this is when guar plants are in the early establishment phase. During the first 25–30 days, weeds compete strongly for **water, nutrients, sunlight, and space**, which can reduce crop vigor, nodulation, and final yield.
 
-// **Recommended practice:**
-// - One hoeing at **25–30 days after sowing**
-// - If required, a second hoeing later
-// - For chemical control, apply **Fluchloralin 45% EC @ 800 ml/acre** in **250 liters of water before sowing** and incorporate into the soil
-// - Increase dose by **25% in heavy soils**
+**Recommended practice:**
+- One hoeing at **25–30 days after sowing**
+- If required, a second hoeing later
+- For chemical control, apply **Fluchloralin 45% EC @ 800 ml/acre** in **250 liters of water before sowing** and incorporate into the soil
+- Increase dose by **25% in heavy soils**
 
-// Always follow label directions, use PPE, and observe PHI.`,
-//         },
-//     ],
-// };
+Always follow label directions, use PPE, and observe PHI.`,
+        },
+    ],
+};
 
 
 interface MessageDetailCardProps {
@@ -116,17 +116,17 @@ const MessageDetail = ({
     const [expanded, setExpanded] = useState(false);
     const selectedQuestionId = question?._id || null;
 
-    const {
-        data: messageDetails,
-        // refetch: refechMessageDetails,
-        isLoading,
-    } = useGetQuestionMessageDetailsByQuestionId(selectedQuestionId);
+    // const {
+    //     data: messageDetails,
+    //     // refetch: refechMessageDetails,
+    //     isLoading,
+    // } = useGetQuestionMessageDetailsByQuestionId(selectedQuestionId);
 
 
-    const msg = messageDetails?.data
+    // const msg = messageDetails?.data
 
     const isError = false;
-    // const isLoading = false;
+    const isLoading = false;
 
     let thinkIndex = 0;
 
@@ -261,8 +261,9 @@ interface ContentAnswerProps {
 const ContentAnswer = ({ text, question }: ContentAnswerProps) => {
     const [approved, setApproved] = useState<boolean | null>(null);
     const [editedText, setEditedText] = useState(text);
+    const [isEditMode, setIsEditMode] = useState(false);
 
-    const { mutateAsync: updateAnswer, isPending: isEditing } =
+    const { mutateAsync: updateAnswer, isPending: isUpdating } =
         useUpdateAnswer();
 
     useEffect(() => {
@@ -270,7 +271,7 @@ const ContentAnswer = ({ text, question }: ContentAnswerProps) => {
     }, [text]);
 
     const handleApprove = async () => {
-        if (isEditing) {
+        if (isEditMode) {
             toast.error("Please save or cancel your edits before approving.");
             return;
         }
@@ -312,14 +313,17 @@ const ContentAnswer = ({ text, question }: ContentAnswerProps) => {
 
     const handleEdit = () => {
         setEditedText(text);
+        setIsEditMode(true);
     };
 
     const handleCancelEdit = () => {
         setEditedText(text);
+        setIsEditMode(false);
     };
 
     const handleSaveEdit = () => {
         toast.success("Answer updated successfully");
+        setIsEditMode(false);
     };
 
     const renderText = (raw: string) => {
@@ -431,7 +435,7 @@ const ContentAnswer = ({ text, question }: ContentAnswerProps) => {
             </div>
 
             <div className="px-4 py-4 text-sm text-foreground/90">
-                {isEditing ? (
+                {isEditMode  ? (
                     <div className="space-y-3">
                         <textarea
                             value={editedText}
@@ -476,7 +480,7 @@ const ContentAnswer = ({ text, question }: ContentAnswerProps) => {
                     </p>
 
                     <div className="flex items-center gap-2 shrink-0">
-                        {!isEditing && (
+                        {!isEditMode  && (
                             <Button
                                 type="button"
                                 variant="outline"
