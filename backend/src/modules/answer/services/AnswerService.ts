@@ -14,6 +14,7 @@ import {
   ReviewAction,
   ReviewType,
   SourceItem,
+  IQuestionSubmission
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -33,6 +34,7 @@ import { CORE_TYPES, NotificationService} from '#root/modules/core/index.js';
 import { ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { QuestionService } from '#root/modules/question/services/QuestionService.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
+import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
 
 @injectable()
 export class AnswerService extends BaseService implements IAnswerService{
@@ -1613,6 +1615,7 @@ answer: ${updates.answer}`;
   
       // ✅ AJRASAKHA flow
       if (isAjrasakha ) {
+       
         if (!updates.questionId) {
           throw new BadRequestError('questionId is required for AJRASAKHA source');
         }
@@ -1659,8 +1662,10 @@ answer: ${updates.answer}`;
           {
             text,
             embedding: questionEmbedding,
-            status: 'closed',
+            status: 'open',
             closedAt: new Date(),
+            aiInitialAnswer:updates.answer,
+            isAutoAllocate:true
           },
           session,
           true,
@@ -1679,11 +1684,11 @@ answer: ${updates.answer}`;
           questionId: new ObjectId(updates.questionId),
           approvedBy: new ObjectId(userId),
           embedding: textEmbedding,
-          isFinalAnswer: true,
-          status: 'approved',
+          isFinalAnswer: false,
+          status: 'pending',
+          
         };
-  
-        return this.answerRepo.addAjrasakhaAnswer(
+        let answerId= await this.answerRepo.addAjrasakhaAnswer(
           updates.questionId,
           userId,
           updates.answer,
@@ -1691,6 +1696,58 @@ answer: ${updates.answer}`;
           textEmbedding,
           session,
         );
+        const users = await this.userRepo.getSpecialTaskForceExperts(
+          session,
+        );
+  
+       
+        let queue: ObjectId[] = [];
+        let initialUsersToAllocate: typeof users = [];
+
+        
+          initialUsersToAllocate = users.slice(0, 4);
+
+          queue = initialUsersToAllocate.map(
+            (user) => new ObjectId(user._id.toString()),
+          );
+        
+  
+      //  const initialUsersToAllocate = users.slice(0, 3);
+  
+       /* const queue = initialUsersToAllocate.map(
+          (user) => new ObjectId(user._id.toString()),
+        );*/
+  
+        if (initialUsersToAllocate[0]) {
+          await this.userRepo.updateReputationScore(
+            initialUsersToAllocate[0]._id.toString(),
+            true,
+            session,
+          );
+        }
+  
+        const submissionData: IQuestionSubmission = {
+          questionId: new ObjectId(updates?.questionId?.toString()),
+          lastRespondedBy: null,
+          history: [],
+          queue,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+  
+        await this.questionSubmissionRepo.addSubmission(submissionData, session);
+  
+        if (initialUsersToAllocate[0]) {
+          await this.notificationService.saveTheNotifications(
+            `A Question has been assigned for answering`,
+            'Answer Creation Assigned',
+            updates.questionId.toString(),
+            initialUsersToAllocate[0]._id.toString(),
+            'answer_creation',
+          );
+        }
+  
+        return answerId
       }
   
       // ✅ Original default flow (unchanged)

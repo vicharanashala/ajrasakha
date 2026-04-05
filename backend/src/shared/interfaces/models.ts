@@ -27,6 +27,7 @@ export interface IUser {
   createdAt?: Date;
   updatedAt?: Date;
   status?: UserStatus;
+  special_task_force?:boolean
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high';
