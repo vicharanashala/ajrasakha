@@ -322,7 +322,7 @@ private async initSecondDb() {
   const start = new Date(new Date(createdAt).getTime() - 60 * 1000);
   const end = new Date(new Date(createdAt).getTime() + 60 * 1000);
 
-  return this.messagesCollection
+  /*return this.messagesCollection
     .aggregate([
       {
         $match: {
@@ -416,7 +416,74 @@ private async initSecondDb() {
         },
       },
     ])
-    .toArray();
+    .toArray();*/
+    return this.messagesCollection
+  .aggregate([
+    {
+      $match: {
+        content: {
+          $elemMatch: {
+            type: 'tool_call',
+            'tool_call.name':
+              'upload_question_to_reviewer_system_mcp_pop',
+          },
+        },
+      },
+    },
+    {
+      $addFields: {
+        matchedToolCall: {
+          $first: {
+            $filter: {
+              input: '$content',
+              as: 'item',
+              cond: {
+                $and: [
+                  { $eq: ['$$item.type', 'tool_call'] },
+                  {
+                    $eq: [
+                      '$$item.tool_call.name',
+                      'upload_question_to_reviewer_system_mcp_pop',
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+    {
+      $match: {
+        createdAt: {
+          $gte: start,
+          $lte: end,
+        },
+      },
+    },
+    {
+      $addFields: {
+        userObjectId: {
+          $toObjectId: '$user',
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'userObjectId',
+        foreignField: '_id',
+        as: 'userDetails',
+      },
+    },
+    {
+      $unwind: {
+        path: '$userDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+  ])
+  .toArray();
 }
 
   // SECOND DB (optional example)
@@ -432,7 +499,7 @@ private async initSecondDb() {
   const start = new Date(new Date(createdAt).getTime() - 60 * 1000);
   const end = new Date(new Date(createdAt).getTime() + 60 * 1000);
 
-  return this.annamMessagesCollection
+ /* return this.annamMessagesCollection
     .aggregate([
       {
         $match: {
@@ -525,6 +592,73 @@ private async initSecondDb() {
         },
       },
     ])
-    .toArray();
+    .toArray();*/
+    return this.annamMessagesCollection
+  .aggregate([
+    {
+      $match: {
+        content: {
+          $elemMatch: {
+            type: 'tool_call',
+            'tool_call.name':
+              'upload_question_to_reviewer_system_mcp_pop',
+          },
+        },
+      },
+    },
+    {
+      $addFields: {
+        matchedToolCall: {
+          $first: {
+            $filter: {
+              input: '$content',
+              as: 'item',
+              cond: {
+                $and: [
+                  { $eq: ['$$item.type', 'tool_call'] },
+                  {
+                    $eq: [
+                      '$$item.tool_call.name',
+                      'upload_question_to_reviewer_system_mcp_pop',
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+    {
+      $match: {
+        createdAt: {
+          $gte: start,
+          $lte: end,
+        },
+      },
+    },
+    {
+      $addFields: {
+        userObjectId: {
+          $toObjectId: '$user',
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'userObjectId',
+        foreignField: '_id',
+        as: 'userDetails',
+      },
+    },
+    {
+      $unwind: {
+        path: '$userDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+  ])
+  .toArray();
 }
 }
