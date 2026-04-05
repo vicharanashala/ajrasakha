@@ -95,6 +95,46 @@ export class AnswerRepository implements IAnswerRepository {
       );
     }
   }
+  async addAjrasakhaAnswer(
+    questionId: string,
+    userId: string,
+    answer: string,
+    sources: SourceItem[],
+    embedding: number[],
+    session?: ClientSession,
+  ): Promise<{insertedId: string}> {
+    try {
+      await this.init();
+  
+      if (!questionId || !isValidObjectId(questionId)) {
+        throw new BadRequestError('Invalid or missing questionId');
+      }
+  
+      const doc: IAnswer = {
+        questionId: new ObjectId(questionId),
+        authorId: new ObjectId(userId),
+        answer,
+        isFinalAnswer: true,
+        answerIteration: 1,
+        approvalCount: 3,
+        remarks: undefined,
+        status: 'approved',
+        embedding,
+        reRouted: false,
+        sources,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+  
+      const result = await this.AnswerCollection.insertOne(doc, {session});
+  
+      return {insertedId: result.insertedId.toString()};
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while adding ajrasakha answer, More/ ${error}`,
+      );
+    }
+  }
 
   async getByQuestionId(
     questionId: string,

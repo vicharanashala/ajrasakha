@@ -36,6 +36,15 @@ export interface IAnswerRepository {
     type?:string,
   ): Promise<{insertedId: string}>;
 
+  addAjrasakhaAnswer(
+    questionId: string,
+    userId: string,
+    answer: string,
+    sources: SourceItem[],
+    embedding: number[],
+    session?: ClientSession,
+  ): Promise<{insertedId: string}>;
+
   /**
    * Retrieves all questions that have not been answered yet.
    * @param userId- Author id to check submissions

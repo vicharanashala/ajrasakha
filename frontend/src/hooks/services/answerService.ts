@@ -65,13 +65,39 @@ export class AnswerService {
       throw error;
     }
   }
-  async updateAnswer(answerId: string, updatedAnswer: string,sources:SourceItem[]) {
+ /* async updateAnswer(answerId: string, updatedAnswer: string,sources:SourceItem[]) {
     try {
       return await apiFetch<SubmitAnswerResponse>(
         `${this._baseUrl}/${answerId}`,
         {
           method: "PUT",
           body: JSON.stringify({ answer: updatedAnswer,sources:sources }),
+        }
+      );
+    } catch (error) {
+      console.error(`Error in updating(${answerId}):`, error);
+      throw error;
+    }
+  }*/
+  async updateAnswer(
+    answerId?: string,
+    updatedAnswer?: string,
+    sources?: SourceItem[],
+    source?: string,
+    questionId?: string,
+  ) {
+    try {
+      return await apiFetch<SubmitAnswerResponse>(
+        `${this._baseUrl}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            ...(answerId && { answerId }),
+            ...(updatedAnswer && { answer: updatedAnswer }),
+            ...(sources && { sources }),
+            ...(source && { source }),
+            ...(questionId && { questionId }),
+          }),
         }
       );
     } catch (error) {
