@@ -316,11 +316,13 @@ private async initSecondDb() {
   createdAt: Date;
 }) {
   await this.init();
+  
 
   const { question, details, createdAt } = data;
 
-  const start = new Date(new Date(createdAt).getTime() - 60 * 1000);
-  const end = new Date(new Date(createdAt).getTime() + 60 * 1000);
+  const start = new Date(new Date(createdAt).getTime() - 6*60 * 1000);
+  const end = new Date(new Date(createdAt).getTime() + 6*60 * 1000);
+  
 
   /*return this.messagesCollection
     .aggregate([
@@ -417,103 +419,18 @@ private async initSecondDb() {
       },
     ])
     .toArray();*/
-    let result= await this.messagesCollection
-  .aggregate([
-    {
-      $match: {
-        content: {
-          $elemMatch: {
-            type: 'tool_call',
-            'tool_call.name':
-              'upload_question_to_reviewer_system_mcp_pop',
-          },
-        },
-      },
-    },
-    {
-      $addFields: {
-        matchedToolCall: {
-          $first: {
-            $filter: {
-              input: '$content',
-              as: 'item',
-              cond: {
-                $and: [
-                  { $eq: ['$$item.type', 'tool_call'] },
-                  {
-                    $eq: [
-                      '$$item.tool_call.name',
-                      'upload_question_to_reviewer_system_mcp_pop',
-                    ],
-                  },
-                ],
-              },
-            },
-          },
-        },
-      },
-    },
-    {
-      $match: {
-        createdAt: {
-          $gte: start,
-          $lte: end,
-        },
-      },
-    },
-    {
-      $addFields: {
-        userObjectId: {
-          $toObjectId: '$user',
-        },
-      },
-    },
-    {
-      $lookup: {
-        from: 'users',
-        localField: 'userObjectId',
-        foreignField: '_id',
-        as: 'userDetails',
-      },
-    },
-    {
-      $unwind: {
-        path: '$userDetails',
-        preserveNullAndEmptyArrays: true,
-      },
-    },
-  ])
-  .toArray();
-  return result
-}
-
-  // SECOND DB (optional example)
-  async findFromSecondDb(data: {
-  question: string;
-  details: any;
-  createdAt: Date;
-}) {
-  await this.initSecondDb();
-
-  const { question, details, createdAt } = data;
-
-  const start = new Date(new Date(createdAt).getTime() - 60 * 1000);
-  const end = new Date(new Date(createdAt).getTime() + 60 * 1000);
-
- /* return this.annamMessagesCollection
+   /* let result = await this.messagesCollection
     .aggregate([
       {
         $match: {
           content: {
             $elemMatch: {
               type: 'tool_call',
-              'tool_call.name':
-                'upload_question_to_reviewer_system_mcp_pop',
+              'tool_call.name': 'upload_question_to_reviewer_system_mcp_pop',
             },
           },
         },
       },
-
       {
         $addFields: {
           matchedToolCall: {
@@ -537,37 +454,6 @@ private async initSecondDb() {
           },
         },
       },
-
-      {
-        $addFields: {
-          parsedArgs: {
-            $function: {
-              body: function (args: string) {
-                try {
-                  return JSON.parse(args);
-                } catch (e) {
-                  return null;
-                }
-              },
-              args: ['$matchedToolCall.tool_call.args'],
-              lang: 'js',
-            },
-          },
-        },
-      },
-
-      {
-        $match: {
-          $expr: {
-            $and: [
-              { $eq: ['$parsedArgs.question', question] },
-              { $eq: ['$parsedArgs.details.state', details.state] },
-              { $eq: ['$parsedArgs.details.crop', details.crop] },
-            ],
-          },
-        },
-      },
-
       {
         $match: {
           createdAt: {
@@ -576,12 +462,17 @@ private async initSecondDb() {
           },
         },
       },
-
-      // Optional: join users if exists in this DB
+      {
+        $addFields: {
+          userObjectId: {
+            $toObjectId: '$user',
+          },
+        },
+      },
       {
         $lookup: {
           from: 'users',
-          localField: 'user',
+          localField: 'userObjectId',
           foreignField: '_id',
           as: 'userDetails',
         },
@@ -594,42 +485,8 @@ private async initSecondDb() {
       },
     ])
     .toArray();*/
-    let result= await  this.annamMessagesCollection
+    let result = await this.messagesCollection
   .aggregate([
-    {
-      $match: {
-        content: {
-          $elemMatch: {
-            type: 'tool_call',
-            'tool_call.name':
-              'upload_question_to_reviewer_system_mcp_pop',
-          },
-        },
-      },
-    },
-    {
-      $addFields: {
-        matchedToolCall: {
-          $first: {
-            $filter: {
-              input: '$content',
-              as: 'item',
-              cond: {
-                $and: [
-                  { $eq: ['$$item.type', 'tool_call'] },
-                  {
-                    $eq: [
-                      '$$item.tool_call.name',
-                      'upload_question_to_reviewer_system_mcp_pop',
-                    ],
-                  },
-                ],
-              },
-            },
-          },
-        },
-      },
-    },
     {
       $match: {
         createdAt: {
@@ -641,26 +498,211 @@ private async initSecondDb() {
     {
       $addFields: {
         userObjectId: {
-          $toObjectId: '$user',
+          $cond: [
+            {
+              $and: [
+                { $ne: ["$user", null] },
+                { $ne: ["$user", ""] },
+              ],
+            },
+            { $toObjectId: "$user" },
+            null,
+          ],
         },
       },
     },
     {
       $lookup: {
-        from: 'users',
-        localField: 'userObjectId',
-        foreignField: '_id',
-        as: 'userDetails',
+        from: "users",
+        localField: "userObjectId",
+        foreignField: "_id",
+        as: "userDetails",
       },
     },
     {
       $unwind: {
-        path: '$userDetails',
+        path: "$userDetails",
         preserveNullAndEmptyArrays: true,
       },
     },
   ])
   .toArray();
-  return result
+   
+
+  // ✅ filter in JS since $function is not allowed on this Atlas tier
+  const result1 = result.filter((doc) => {
+    try {
+      const matchedContent = doc.content?.find(
+        (item: any) =>
+          item?.type === 'tool_call' &&
+          item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_pop'
+      );
+   
+      if (!matchedContent?.tool_call?.args) return false;
+   
+      const args = JSON.parse(matchedContent.tool_call.args);
+      
+
+   
+      return (
+        args?.question?.toLowerCase() === question?.toLowerCase() &&
+        args?.details?.state?.toLowerCase() === details?.state?.toLowerCase() &&
+        args?.details?.crop?.toLowerCase() === details?.crop?.toLowerCase()
+      );
+    } catch (e) {
+      return false;
+    }
+  });
+  
+  return result1
 }
+
+  // SECOND DB (optional example)
+  async findFromSecondDb(data: {
+    question: string;
+    details: any;
+    createdAt: Date;
+  }) {
+    await this.initSecondDb();
+  
+    const { question, details, createdAt } = data;
+  
+    const start = new Date(new Date(createdAt).getTime() - 5*60 * 1000);
+    const end = new Date(new Date(createdAt).getTime() + 5*60 * 1000);
+  
+   /* let result = await this.annamMessagesCollection
+      .aggregate([
+        {
+          $match: {
+            content: {
+              $elemMatch: {
+                type: 'tool_call',
+                'tool_call.name': 'upload_question_to_reviewer_system_mcp_pop',
+              },
+            },
+          },
+        },
+        {
+          $addFields: {
+            matchedToolCall: {
+              $first: {
+                $filter: {
+                  input: '$content',
+                  as: 'item',
+                  cond: {
+                    $and: [
+                      { $eq: ['$$item.type', 'tool_call'] },
+                      {
+                        $eq: [
+                          '$$item.tool_call.name',
+                          'upload_question_to_reviewer_system_mcp_pop',
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          $match: {
+            createdAt: {
+              $gte: start,
+              $lte: end,
+            },
+          },
+        },
+        {
+          $addFields: {
+            userObjectId: {
+              $toObjectId: '$user',
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'userObjectId',
+            foreignField: '_id',
+            as: 'userDetails',
+          },
+        },
+        {
+          $unwind: {
+            path: '$userDetails',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+      ])
+      .toArray();*/
+      let result = await this.annamMessagesCollection//vicharanasala
+  .aggregate([
+    {
+      $match: {
+        createdAt: {
+          $gte: start,
+          $lte: end,
+        },
+      },
+    },
+    {
+      $addFields: {
+        userObjectId: {
+          $cond: [
+            {
+              $and: [
+                { $ne: ["$user", null] },
+                { $ne: ["$user", ""] },
+              ],
+            },
+            { $toObjectId: "$user" },
+            null,
+          ],
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "userObjectId",
+        foreignField: "_id",
+        as: "userDetails",
+      },
+    },
+    {
+      $unwind: {
+        path: "$userDetails",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+  ])
+  .toArray();
+    
+  
+    // ✅ filter in JS since $function is not allowed on this Atlas tier
+    const result1 = result.filter((doc) => {
+      try {
+        const matchedContent = doc.content?.find(
+          (item: any) =>
+            item?.type === 'tool_call' &&
+            item?.tool_call?.name === 'upload_question_to_reviewer_system_mcp_pop'
+        );
+     
+        if (!matchedContent?.tool_call?.args) return false;
+     
+        const args = JSON.parse(matchedContent.tool_call.args);
+        
+     
+        return (
+          args?.question?.toLowerCase() === question?.toLowerCase() &&
+          args?.details?.state?.toLowerCase() === details?.state?.toLowerCase() &&
+          args?.details?.crop?.toLowerCase() === details?.crop?.toLowerCase()
+        );
+      } catch (e) {
+        return false;
+      }
+    });
+    return result1
+  }
 }

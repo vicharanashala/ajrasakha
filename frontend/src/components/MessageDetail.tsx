@@ -250,18 +250,31 @@ const MessageDetail = ({
                                     Processing Steps ({msg.content.length})
                                 </p>
                                 {msg.content.map((item: any, i: number) => {
-                                    if (item.type === "think") {
-                                        const idx = thinkIndex++;
-                                        return <ContentThinkStep key={i} think={item.think} index={idx} />;
-                                    }
-                                    if (item.type === "tool_call") {
-                                        return <ContentToolCall key={i} toolCall={item.tool_call} />;
-                                    }
-                                    if (item.type === "text") {
-                                        return <ContentAnswer key={i} text={item.text} question={question} isQuestionAllocatedToExpert={isQuestionAllocatedToExpert} navigateToQuestionPage={navigateToQuestionPage} />;
-                                    }
-                                    return null;
-                                })}
+  const isLastItem = i === msg.content.length - 1;
+ 
+  if (item.type === "think") {
+    const idx = thinkIndex++;
+    return <ContentThinkStep key={i} think={item.think} index={idx} />;
+  }
+ 
+  if (item.type === "tool_call") {
+    return <ContentToolCall key={i} toolCall={item.tool_call} />;
+  }
+ 
+  if (item.type === "text" && isLastItem) {
+    return (
+      <ContentAnswer
+        key={i}
+        text={item.text}
+        question={question}
+        isQuestionAllocatedToExpert={isQuestionAllocatedToExpert}
+        navigateToQuestionPage={navigateToQuestionPage}
+      />
+    );
+  }
+ 
+  return null;
+})}
                             </div>
                         </div>
                     )}
