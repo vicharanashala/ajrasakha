@@ -77,6 +77,10 @@ export interface IUserRepository {
     details: PreferenceDto,
     session?: ClientSession,
   ): Promise<IUser[]>;
+  getSpecialTaskForceExperts(
+   
+    session?: ClientSession,
+  ): Promise<IUser[]>;
   findActiveLowReputationExpertsToday(
     session?: ClientSession,
     ): Promise<IUser[]>;

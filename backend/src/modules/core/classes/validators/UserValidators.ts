@@ -46,6 +46,8 @@ class UserDto {
   preference: PreferenceDto;
 
   isBlocked:boolean
+
+  special_task_force:boolean
 }
 
 // Main Response DTO

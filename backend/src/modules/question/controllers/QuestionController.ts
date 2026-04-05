@@ -531,4 +531,33 @@ async outreachQuestions(
   }
 }
 
+@Get('/:questionId/chatbot')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Get full chatbot details of selected question by ID'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async getChatbotDetails(
+    @Params() params: QuestionIdParam,
+    @CurrentUser() user: IUser,
+  ) {
+    const {questionId} = params;
+    const userId = user._id.toString();
+    const data = await this.questionService.getMatchedQuestion(
+      questionId,
+      userId,
+    );
+
+    if (!data) {
+      throw new NotFoundError(`Question with id ${questionId} not found`);
+    }
+
+    return {success: true, data: {
+      messageId: data.messageId,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+        user: data.user,
+        content: data.content,
+    }};
+  }
+
 }

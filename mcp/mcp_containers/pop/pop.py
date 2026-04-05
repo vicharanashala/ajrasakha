@@ -36,39 +36,31 @@ async def get_states_for_pop() -> dict:
     """
     try:
         raw_states = client[DB_NAME][COLLECTION_POP].distinct("metadata.state")
+        print(f"[POP] get_states_for_pop: fetched {len(raw_states)} raw states from DB", flush=True)
     except Exception as e:
-        print(f"Error fetching states from DB: {e}")
-        return {"PUNJAB": "PB"}  # Fallback
+        print(f"[POP] get_states_for_pop: error fetching states from DB: {e}", flush=True)
+        return {}
 
     STATE_CODE_MAP = {
         "ANDHRA_PRADESH": "AP", "ARUNACHAL_PRADESH": "AR", "ASSAM": "AS",
-        "BIHAR": "BR", "CHHATTISGARH": "CG", "CHATTISGARH": "CG", "GOA": "GA", "GUJARAT": "GJ",
-        "HARYANA": "HR", "HIMACHAL_PRADESH": "HP", "JHARKHAND": "JH",
-        "KARNATAKA": "KA", "KERALA": "KL", "MADHYA_PRADESH": "MP",
-        "MAHARASHTRA": "MH", "MANIPUR": "MN", "MEGHALAYA": "ML",
+        "BIHAR": "BR", "CHATTISGARH": "CG", "CHHATTISGARH": "CG", "GOA": "GA", "GUJARAT": "GJ",
+        "HARYANA": "HR", "JAMMU_AND_KASHMIR": "JK", "JAMMU_&_KASHMIR": "JK", "JHARKHAND": "JH",
+        "KERALA": "KL", "MAHARASHTRA": "MH", "MANIPUR": "MN", "MEGHALAYA": "ML",
         "MIZORAM": "MZ", "NAGALAND": "NL", "ODISHA": "OR", "ORISSA": "OR", "PUNJAB": "PB",
-        "RAJASTHAN": "RJ", "SIKKIM": "SK", "TAMILNADU": "TN", "TAMIL_NADU": "TN", "TELANGANA": "TG",
-        "TRIPURA": "TR", "UTTAR_PRADESH": "UP", "UTTARPRADESH": "UP", "UTTARAKHAND": "UK", "UTTARANCHAL": "UK",
-        "WEST_BENGAL": "WB", 
-        "ANDAMAN_AND_NICOBAR": "AN", "ANDAMAN_AND_NICOBAR_ISLANDS": "AN",
-        "CHANDIGARH": "CH", 
-        "DADRA_AND_NAGAR_HAVELI": "DN", "DAMAN_AND_DIU": "DD", 
-        "DADRA_AND_NAGAR_HAVELI_AND_DAMAN_AND_DIU": "DN",
-        "DELHI": "DL", "NATIONAL_CAPITAL_TERRITORY_OF_DELHI": "DL",
-        "JAMMU_AND_KASHMIR": "JK", 
-        "LADAKH": "LA", 
-        "LAKSHADWEEP": "LD", 
-        "PUDUCHERRY": "PY", "PONDICHERRY": "PY",
+        "RAJASTHAN": "RJ", "SIKKIM": "SK", "TAMILNADU": "TN", "TAMIL_NADU": "TN",
+        "TRIPURA": "TR", "UTTAR_PRADESH": "UP", "UTTARPRADESH": "UP", "UTTARAKHAND": "UK",
+        "WEST_BENGAL": "WB",
         "POPS_MULTIPLE_STATES": "MULTIPLE"
     }
 
     state_codes = {}
     for state in raw_states:
         if not state: continue
-        normalized = str(state).strip().upper().replace(" ", "_")
+        normalized = str(state).strip().upper().replace("&", "AND").replace(" ", "_")
         if normalized in STATE_CODE_MAP:
             state_codes[normalized] = STATE_CODE_MAP[normalized]
 
+    print(f"[POP] get_states_for_pop: mapped {len(state_codes)} states to codes", flush=True)
     return state_codes
 
 @mcp.tool()
@@ -88,19 +80,16 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
                           used to narrow the search context to region-specific questions.
     """
     STATE_CODE_TO_NAME = {
-    "AP": "Andhra_Pradesh",
-    "AR": "Arunachal_Pradesh",
+    "AP": "Andhra Pradesh",
+    "AR": "Arunachal Pradesh",
     "AS": "Assam",
     "BR": "Bihar",
     "CG": "Chattisgarh",
     "GA": "Goa",
     "GJ": "Gujarat",
     "HR": "Haryana",
-    "HP": "Himachal_Pradesh",
     "JH": "Jharkhand",
-    "KA": "Karnataka",
     "KL": "Kerala",
-    "MP": "Madhya_Pradesh",
     "MH": "Maharashtra",
     "MN": "Manipur",
     "ML": "Meghalaya",
@@ -110,29 +99,50 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
     "PB": "Punjab",
     "RJ": "Rajasthan",
     "SK": "Sikkim",
-    "TN": "Tamilnadu",
-    "TG": "Telangana",
+    "TN": "Tamil Nadu",
     "TR": "Tripura",
-    "UP": "Uttarpradesh",
+    "UP": "Uttar Pradesh",
     "UK": "Uttarakhand",
-    "WB": "West_Bengal",
-    "AN": "Andaman_and_Nicobar",
-    "CH": "Chandigarh",
-    "DN": "Dadra_and_Nagar_Haveli_and_Daman_and_Diu",
-    "DD": "Daman_and_Diu",
-    "DL": "Delhi",
-    "JK": "Jammu_and_Kashmir",
-    "LA": "Ladakh",
-    "LD": "Lakshadweep",
-    "PY": "Puducherry",
-    "MULTIPLE": "POPs_Multiple_States"
+    "WB": "West Bengal",
+    "JK": "Jammu & Kashmir",
+    "MULTIPLE": "Pops_Multiple_States"
 }
 
-    state_value = STATE_CODE_TO_NAME.get(state_code.upper(), state_code.upper())
+    normalized_state_code = (state_code or "").strip().upper()
+    valid_state_codes = sorted(STATE_CODE_TO_NAME.keys())
+    valid_state_codes_str = ", ".join(valid_state_codes)
+    print(
+        f"[POP] get_context_from_package_of_practices: received state_code='{state_code}', normalized='{normalized_state_code}'",
+        flush=True,
+    )
+
+    if not normalized_state_code:
+        raise ValueError(
+            f"Missing required parameter: state_code. Available state_code values are: {valid_state_codes_str}"
+        )
+
+    if normalized_state_code not in STATE_CODE_TO_NAME:
+        raise ValueError(
+            f"Invalid state_code '{state_code}'. Available state_code values are: {valid_state_codes_str}"
+        )
+
+    state_value = STATE_CODE_TO_NAME[normalized_state_code]
+    print(
+        f"[POP] get_context_from_package_of_practices: resolved state_code='{normalized_state_code}' to state_value='{state_value}'",
+        flush=True,
+    )
     
     nodes = await retriever_pop.aretrieve(query, state_value=state_value)
+    print(
+        f"[POP] get_context_from_package_of_practices: retrieved {len(nodes)} nodes for state='{state_value}'",
+        flush=True,
+    )
 
     processed_nodes = await process_nodes_pop(nodes)
+    print(
+        f"[POP] get_context_from_package_of_practices: returning {len(processed_nodes)} processed nodes",
+        flush=True,
+    )
     return processed_nodes
 
 

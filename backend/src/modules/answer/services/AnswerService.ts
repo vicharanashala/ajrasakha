@@ -14,6 +14,7 @@ import {
   ReviewAction,
   ReviewType,
   SourceItem,
+  IQuestionSubmission
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -33,6 +34,7 @@ import { CORE_TYPES, NotificationService} from '#root/modules/core/index.js';
 import { ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { QuestionService } from '#root/modules/question/services/QuestionService.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
+import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
 
 @injectable()
 export class AnswerService extends BaseService implements IAnswerService{
@@ -1511,9 +1513,9 @@ export class AnswerService extends BaseService implements IAnswerService{
   }
 
   // Currently using for approving answer
-  async approveAnswer(
+ /* async approveAnswer(
     userId: string,
-    answerId: string,
+    answerId: string|undefined,
     updates: UpdateAnswerBody,
   ): Promise<{modifiedCount: number}> {
     return this._withTransaction(async (session: ClientSession) => {
@@ -1599,6 +1601,241 @@ answer: ${updates.answer}`;
         isFinalAnswer: true,
         status: 'approved',
       };
+      return this.answerRepo.updateAnswer(answerId, payload, session);
+    });
+  }*/
+  async approveAnswer(
+    userId: string,
+    updates: UpdateAnswerBody,
+  ): Promise<{modifiedCount: number} | {insertedId: string}> {
+    return this._withTransaction(async (session: ClientSession) => {
+  
+      const isAjrasakha = updates.source === 'AJRASAKHA';
+      
+  
+      // ✅ AJRASAKHA flow
+      if (isAjrasakha ) {
+       
+        if (!updates.questionId) {
+          throw new BadRequestError('questionId is required for AJRASAKHA source');
+        }
+  
+        const user = await this.userRepo.findById(userId, session);
+  
+        if (!user || user.role == 'expert')
+          throw new UnauthorizedError(
+            "You don't have permission to approve an answer!",
+          );
+  
+        const question = await this.questionRepo.getById(updates.questionId);
+  
+        if (!question) {
+          throw new BadRequestError(`Question with ID ${updates.questionId} not found`);
+        }
+  
+       /* if (question.isAutoAllocate ==true) {
+          throw new BadRequestError(
+            `Can't approve this answer, currently question is auto allocated!`,
+          );
+        }*/
+        if (question.status=='closed') {
+          throw new BadRequestError(
+            `Can't approve this answer, currently question is closed!`,
+          );
+        }
+  
+        const text = `Question: ${question.question}
+  
+  answer: ${updates.answer}`;
+  
+        let questionEmbedding = [];
+  
+        const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+  
+        if (ENABLE_AI_SERVER) {
+          const {embedding} = await this.aiService.getEmbedding(text);
+          questionEmbedding = embedding;
+        }
+  
+        await this.questionRepo.updateQuestion(
+          updates.questionId,
+          {
+            text,
+            embedding: questionEmbedding,
+            status: 'open',
+            closedAt: new Date(),
+            aiInitialAnswer:updates.answer,
+            isAutoAllocate:true
+          },
+          session,
+          true,
+        );
+  
+        let textEmbedding = [];
+  
+        if (ENABLE_AI_SERVER) {
+          const {embedding} = await this.aiService.getEmbedding(text);
+          textEmbedding = embedding;
+        }
+  
+        const payload: Partial<IAnswer> = {
+          answer: updates.answer,
+          sources: updates.sources,
+          questionId: new ObjectId(updates.questionId),
+          approvedBy: new ObjectId(userId),
+          embedding: textEmbedding,
+          isFinalAnswer: false,
+          status: 'pending',
+          
+        };
+        let answerId= await this.answerRepo.addAjrasakhaAnswer(
+          updates.questionId,
+          userId,
+          updates.answer,
+          updates.sources,
+          textEmbedding,
+          session,
+        );
+        const users = await this.userRepo.getSpecialTaskForceExperts(
+          session,
+        );
+  
+       
+        let queue: ObjectId[] = [];
+        let initialUsersToAllocate: typeof users = [];
+
+        
+          initialUsersToAllocate = users.slice(0, 4);
+
+          queue = initialUsersToAllocate.map(
+            (user) => new ObjectId(user._id.toString()),
+          );
+        
+  
+      //  const initialUsersToAllocate = users.slice(0, 3);
+  
+       /* const queue = initialUsersToAllocate.map(
+          (user) => new ObjectId(user._id.toString()),
+        );*/
+  
+        if (initialUsersToAllocate[0]) {
+          await this.userRepo.updateReputationScore(
+            initialUsersToAllocate[0]._id.toString(),
+            true,
+            session,
+          );
+        }
+  
+        const submissionData: IQuestionSubmission = {
+          questionId: new ObjectId(updates?.questionId?.toString()),
+          lastRespondedBy: null,
+          history: [],
+          queue,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+  
+        await this.questionSubmissionRepo.addSubmission(submissionData, session);
+  
+        if (initialUsersToAllocate[0]) {
+          await this.notificationService.saveTheNotifications(
+            `A Question has been assigned for answering`,
+            'Answer Creation Assigned',
+            updates.questionId.toString(),
+            initialUsersToAllocate[0]._id.toString(),
+            'answer_creation',
+          );
+        }
+  
+        return answerId
+      }
+  
+      // ✅ Original default flow (unchanged)
+      const answerId = updates.answerId;
+  
+      if (!answerId) throw new BadRequestError('AnswerId not found');
+      const answer = await this.answerRepo.getById(answerId, session);
+  
+      if (!answer) {
+        throw new BadRequestError(`Answer with ID ${answerId} not found`);
+      }
+  
+      const user = await this.userRepo.findById(userId, session);
+  
+      if (!user || user.role == 'expert')
+        throw new UnauthorizedError(
+          "You don't have permission to approve an answer!",
+        );
+  
+      const questionId = answer.questionId.toString();
+  
+      const question = await this.questionRepo.getById(questionId);
+  
+      if (!question) {
+        throw new BadRequestError(`Question with ID ${questionId} not found`);
+      }
+  
+      if (question.status !== 'in-review') {
+        throw new BadRequestError(
+          `Can't approve this answer:${answerId}, currently question is not in review!`,
+        );
+      }
+  
+      await this.answerRepo.getByQuestionId(questionId, session);
+  
+      const text = `Question: ${question.question}
+  
+  answer: ${updates.answer}`;
+  
+      let questionEmbedding = [];
+  
+      const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+  
+      if (ENABLE_AI_SERVER) {
+        const {embedding} = await this.aiService.getEmbedding(text);
+        questionEmbedding = embedding;
+      }
+  
+      // const {embedding: questionEmbedding} = await this.aiService.getEmbedding(
+      //   text,
+      // );
+      // const questionEmbedding = [];
+      const authorId = answer.authorId.toString();
+  
+      await this.userRepo.updatePenaltyAndIncentive(
+        authorId,
+        'incentive',
+        session,
+      );
+  
+      await this.questionRepo.updateQuestion(
+        questionId,
+        {
+          text,
+          embedding: questionEmbedding,
+          status: 'closed',
+          closedAt: new Date(),
+        },
+        session,
+        true,
+      );
+  
+      let textEmbedding = [];
+  
+      if (ENABLE_AI_SERVER) {
+        const {embedding} = await this.aiService.getEmbedding(text);
+        textEmbedding = embedding;
+      }
+  
+      const payload: Partial<IAnswer> = {
+        answer: updates.answer,
+        sources: updates.sources,
+        approvedBy: new ObjectId(userId),
+        embedding: textEmbedding,
+        isFinalAnswer: true,
+        status: 'approved',
+      };
+  
       return this.answerRepo.updateAnswer(answerId, payload, session);
     });
   }

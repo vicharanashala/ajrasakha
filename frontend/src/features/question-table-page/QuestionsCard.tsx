@@ -80,8 +80,9 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
 
   const uploadedCountRef = useRef(uploadedQuestionsCount);
 
-  const DURATION_HOURS = 4;
-  const timer = useCountdown(q.createdAt, DURATION_HOURS, () => {});
+  // const DURATION_HOURS = 4;
+  const DURATION_HOURS = q && q.source == "AJRASAKHA" ? 2 : 4;
+  const timer = useCountdown(q.createdAt, DURATION_HOURS, () => { });
   const totalSeconds = DURATION_HOURS * 3600;
 
   const [h, m, s] = timer.split(":").map(Number);
@@ -157,8 +158,8 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
   };
 
   const hoverClasses = userRole === 'expert'
-  ? "hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400"
-  : "hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400";
+    ? "hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400"
+    : "hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400";
 
   return (
     <div
@@ -173,10 +174,9 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
       }}
       className={`
         group relative w-full rounded-2xl border transition-all duration-300 ease-in-out cursor-pointer overflow-hidden
-        ${
-          isSelected
-            ? "border-green-500 ring-2 ring-green-500/20 shadow-md bg-green-50/10 dark:bg-green-900/20 dark:ring-green-400/30"
-            : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600 hover:shadow-lg dark:hover:shadow-gray-900/50"
+        ${isSelected
+          ? "border-green-500 ring-2 ring-green-500/20 shadow-md bg-green-50/10 dark:bg-green-900/20 dark:ring-green-400/30"
+          : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600 hover:shadow-lg dark:hover:shadow-gray-900/50"
         }
       `}
     >

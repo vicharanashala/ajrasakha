@@ -3,9 +3,12 @@ import {
   MongoDatabase,
   // UserRepository,
   HttpErrorHandler,
+  AnalyticsMongoDatabase,
+  AnnamDatabase
 } from '#shared/index.js';
 import {GLOBAL_TYPES} from './types.js';
 import {dbConfig} from './config/db.js';
+import {analyticsDbConfig} from './config/analyticsDbConfig.js';
 import { FirebaseAuthService } from './modules/auth/services/FirebaseAuthService.js';
 
 
@@ -25,5 +28,13 @@ export const sharedContainerModule = new ContainerModule(options => {
 
   // Other
   options.bind(HttpErrorHandler).toSelf().inSingletonScope(); 
+
+  options.bind(GLOBAL_TYPES.analyticsUri).toConstantValue(analyticsDbConfig.url);
+  options.bind(GLOBAL_TYPES.analyticsDbName).toConstantValue(analyticsDbConfig.dbName);
+  options.bind(GLOBAL_TYPES.analyticsDatabase).to(AnalyticsMongoDatabase).inSingletonScope();
+
+  options.bind(GLOBAL_TYPES.annamanalyticsUri).toConstantValue(analyticsDbConfig.annamUrl);
+  options.bind(GLOBAL_TYPES.annamanalyticsDbName).toConstantValue(analyticsDbConfig.annamDbName);
+  options.bind(GLOBAL_TYPES.annamanalyticsDatabase).to(AnnamDatabase).inSingletonScope();
 }); 
 

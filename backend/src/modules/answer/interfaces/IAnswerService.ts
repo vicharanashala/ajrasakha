@@ -45,11 +45,15 @@ export interface IAnswerService {
     status: string,
   ): Promise<{ finalizedSubmissions: any[] }>;
 
-  approveAnswer(
+  /*approveAnswer(
     userId: string,
     answerId: string,
     updates: UpdateAnswerBody,
-  ): Promise<{ modifiedCount: number }>;
+  ): Promise<{ modifiedCount: number }>;*/
+  approveAnswer(
+    userId: string,
+    updates: UpdateAnswerBody,
+  ): Promise<{modifiedCount: number} | {insertedId: string}>;
 
   deleteAnswer(
     questionId: string,

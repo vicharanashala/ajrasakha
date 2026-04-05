@@ -15,7 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../components/atoms/dialog";
-import {AlertCircle,
+import {
+  AlertCircle,
   Check,
   CheckCircle,
   Edit,
@@ -156,36 +157,36 @@ const CropSelect = ({
         )}
         {useDbCrops
           ? dbCrops.map((crop) => (
-              <SelectItem key={crop._id || crop.name} value={crop.name}>
-                {showAliases && crop.aliases && crop.aliases.length > 0 ? (
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex items-center gap-2 cursor-default">
-                          <span className="capitalize">{crop.name}</span>
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
-                            +{crop.aliases.length}
-                          </span>
+            <SelectItem key={crop._id || crop.name} value={crop.name}>
+              {showAliases && crop.aliases && crop.aliases.length > 0 ? (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center gap-2 cursor-default">
+                        <span className="capitalize">{crop.name}</span>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                          +{crop.aliases.length}
                         </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="text-xs">
-                        <p className="font-semibold mb-0.5">Also known as:</p>
-                        {crop.aliases.map((a) => (
-                          <p key={a} className="capitalize text-muted-foreground">{a}</p>
-                        ))}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : (
-                  <span className="capitalize">{crop.name}</span>
-                )}
-              </SelectItem>
-            ))
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="text-xs">
+                      <p className="font-semibold mb-0.5">Also known as:</p>
+                      {crop.aliases.map((a) => (
+                        <p key={a} className="capitalize text-muted-foreground">{a}</p>
+                      ))}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                <span className="capitalize">{crop.name}</span>
+              )}
+            </SelectItem>
+          ))
           : CROPS.map((crop) => (
-              <SelectItem key={crop} value={crop}>
-                {crop}
-              </SelectItem>
-            ))}
+            <SelectItem key={crop} value={crop}>
+              {crop}
+            </SelectItem>
+          ))}
       </SelectContent>
     </Select>
   );
@@ -344,13 +345,12 @@ export const AddOrEditQuestionDialog = ({
                   <Textarea
                     placeholder="Enter question text"
                     value={updatedData?.question || ""}
-                    onChange={(e) =>
-                      {
-                        onFieldValidatedChange?.("question");
+                    onChange={(e) => {
+                      onFieldValidatedChange?.("question");
                       setUpdatedData((prev) =>
                         prev ? { ...prev, question: e.target.value } : prev
                       );
-                      }
+                    }
                     }
                     className={
                       mode === "add" && validationErrors?.question
@@ -365,25 +365,25 @@ export const AddOrEditQuestionDialog = ({
                     </p>
                   )}
 
-                      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                        <Info className="h-4 w-4" aria-hidden="true" />
-                        <label>Context</label>
-                      </div>
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Info className="h-4 w-4" aria-hidden="true" />
+                    <label>Context</label>
+                  </div>
 
-                      <Textarea
-                        placeholder="Mention the context for this question...."
-                        value={updatedData?.context || ""}
-                        onChange={(e) =>
-                          setUpdatedData((prev) =>
-                            prev ? { ...prev, context: e.target.value } : prev
-                          )
-                        }
-                        className="h-32 resize-none overflow-y-auto"
-                      />
-                      <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
-                        Suggestion: Adding clear context improves question quality and helps experts respond faster.
-                      </p>
-                    
+                  <Textarea
+                    placeholder="Mention the context for this question...."
+                    value={updatedData?.context || ""}
+                    onChange={(e) =>
+                      setUpdatedData((prev) =>
+                        prev ? { ...prev, context: e.target.value } : prev
+                      )
+                    }
+                    className="h-32 resize-none overflow-y-auto"
+                  />
+                  <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                    Suggestion: Adding clear context improves question quality and helps experts respond faster.
+                  </p>
+
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <FlagTriangleRight className="h-4 w-4" aria-hidden="true" />
                     <label>Priority*</label>
@@ -400,11 +400,10 @@ export const AddOrEditQuestionDialog = ({
                     }}
                   >
                     <SelectTrigger
-                      className={`w-full ${
-                        mode === "add" && validationErrors?.priority
+                      className={`w-full ${mode === "add" && validationErrors?.priority
                           ? invalidFieldClass
                           : ""
-                      }`}
+                        }`}
                     >
                       <SelectValue placeholder="Select priority" />
                     </SelectTrigger>
@@ -481,9 +480,9 @@ export const AddOrEditQuestionDialog = ({
                       ? Object.keys(DISTRICTS).find((k) => k.toLowerCase() === stateVal.toLowerCase())
                       : undefined;
                     const fieldOptions =
-                                          field === "district"
-                                            ? districtKey ? DISTRICTS[districtKey] : []
-                                            : OPTIONS[field];
+                      field === "district"
+                        ? districtKey ? DISTRICTS[districtKey] : []
+                        : OPTIONS[field];
                     return (
                       <div key={field} className="flex flex-col gap-2">
                         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -496,8 +495,8 @@ export const AddOrEditQuestionDialog = ({
                             value={
                               updatedData?.details?.[field]?.trim()
                                 ? fieldOptions.find(
-                                    (o) => o.toLowerCase() === updatedData.details![field].toLowerCase().trim()
-                                  ) ?? updatedData.details[field]
+                                  (o) => o.toLowerCase() === updatedData.details![field].toLowerCase().trim()
+                                ) ?? updatedData.details[field]
                                 : undefined
                             }
                             onValueChange={(val) => {
@@ -505,22 +504,21 @@ export const AddOrEditQuestionDialog = ({
                               setUpdatedData((prev) =>
                                 prev
                                   ? {
-                                      ...prev,
-                                      details: {
-                                        ...prev.details,
-                                        [field]: val,
-                                      },
-                                    }
+                                    ...prev,
+                                    details: {
+                                      ...prev.details,
+                                      [field]: val,
+                                    },
+                                  }
                                   : prev
                               );
                             }}
                           >
                             <SelectTrigger
-                              className={`w-full ${
-                                mode === "add" && validationErrors?.[field as AddQuestionField]
+                              className={`w-full ${mode === "add" && validationErrors?.[field as AddQuestionField]
                                   ? invalidFieldClass
                                   : ""
-                              }`}
+                                }`}
                             >
                               <SelectValue placeholder={`Select ${field}`} />
                             </SelectTrigger>
@@ -549,12 +547,12 @@ export const AddOrEditQuestionDialog = ({
                               setUpdatedData((prev) =>
                                 prev
                                   ? {
-                                      ...prev,
-                                      details: {
-                                        ...prev.details,
-                                        district: e.target.value,
-                                      },
-                                    }
+                                    ...prev,
+                                    details: {
+                                      ...prev.details,
+                                      district: e.target.value,
+                                    },
+                                  }
                                   : prev
                               );
                             }}
@@ -579,16 +577,16 @@ export const AddOrEditQuestionDialog = ({
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                       <label>Crop*</label>
                       {mode !== "edit" && (
-                      <TooltipProvider delayDuration={200}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-4 w-4 cursor-pointer hover:text-foreground transition-colors" aria-hidden="true" />
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-xs text-xs">
-                            <p>The names here are normalized and unique. You can view a crop's alternative names by hovering over the "+" icon next to it.</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 cursor-pointer hover:text-foreground transition-colors" aria-hidden="true" />
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs text-xs">
+                              <p>The names here are normalized and unique. You can view a crop's alternative names by hovering over the "+" icon next to it.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       )}
                     </div>
                     <CropSelect
@@ -598,12 +596,12 @@ export const AddOrEditQuestionDialog = ({
                         setUpdatedData((prev) =>
                           prev
                             ? {
-                                ...prev,
-                                details: {
-                                  ...prev.details,
-                                  crop: val,
-                                },
-                              }
+                              ...prev,
+                              details: {
+                                ...prev.details,
+                                crop: val,
+                              },
+                            }
                             : prev
                         );
                       }}
@@ -629,12 +627,12 @@ export const AddOrEditQuestionDialog = ({
                         setUpdatedData((prev) =>
                           prev
                             ? {
-                                ...prev,
-                                details: {
-                                  ...prev.details,
-                                  normalised_crop: val,
-                                },
-                              }
+                              ...prev,
+                              details: {
+                                ...prev.details,
+                                normalised_crop: val,
+                              },
+                            }
                             : prev
                         )
                       }
@@ -652,12 +650,12 @@ export const AddOrEditQuestionDialog = ({
                     ] as DetailField[]
                   ).map((field) => {
                     const fieldOptions =
-                                          field === "district"
-                                            ? updatedData?.details?.state &&
-                                              DISTRICTS[updatedData.details.state]
-                                              ? DISTRICTS[updatedData.details.state]
-                                              : []
-                                            : OPTIONS[field];
+                      field === "district"
+                        ? updatedData?.details?.state &&
+                          DISTRICTS[updatedData.details.state]
+                          ? DISTRICTS[updatedData.details.state]
+                          : []
+                        : OPTIONS[field];
                     return (
                       <div key={field} className="flex flex-col gap-2">
                         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -687,8 +685,8 @@ export const AddOrEditQuestionDialog = ({
                             value={
                               updatedData?.details?.[field]?.trim()
                                 ? fieldOptions.find(
-                                    (o) => o.toLowerCase() === updatedData.details![field].toLowerCase().trim()
-                                  ) ?? updatedData.details[field]
+                                  (o) => o.toLowerCase() === updatedData.details![field].toLowerCase().trim()
+                                ) ?? updatedData.details[field]
                                 : undefined
                             }
                             onValueChange={(val) => {
@@ -696,22 +694,21 @@ export const AddOrEditQuestionDialog = ({
                               setUpdatedData((prev) =>
                                 prev
                                   ? {
-                                      ...prev,
-                                      details: {
-                                        ...prev.details,
-                                        [field]: val,
-                                      },
-                                    }
+                                    ...prev,
+                                    details: {
+                                      ...prev.details,
+                                      [field]: val,
+                                    },
+                                  }
                                   : prev
                               );
                             }}
                           >
                             <SelectTrigger
-                              className={`w-full ${
-                                mode === "add" && validationErrors?.[field as AddQuestionField]
+                              className={`w-full ${mode === "add" && validationErrors?.[field as AddQuestionField]
                                   ? invalidFieldClass
                                   : ""
-                              }`}
+                                }`}
                             >
                               <SelectValue placeholder={`Select ${field}`} />
                             </SelectTrigger>
@@ -740,12 +737,12 @@ export const AddOrEditQuestionDialog = ({
                               setUpdatedData((prev) =>
                                 prev
                                   ? {
-                                      ...prev,
-                                      details: {
-                                        ...prev.details,
-                                        district: e.target.value,
-                                      },
-                                    }
+                                    ...prev,
+                                    details: {
+                                      ...prev.details,
+                                      district: e.target.value,
+                                    },
+                                  }
                                   : prev
                               );
                             }}
