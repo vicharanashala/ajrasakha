@@ -109,10 +109,12 @@ import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 
 interface MessageDetailCardProps {
     question: IQuestionFullData;
+    isQuestionAllocatedToExpert: boolean;
 }
 
 const MessageDetail = ({
     question,
+    isQuestionAllocatedToExpert
 }: MessageDetailCardProps) => {
     const [expanded, setExpanded] = useState(false);
     const selectedQuestionId = question?._id || null;
@@ -237,7 +239,7 @@ const MessageDetail = ({
                                         return <ContentToolCall key={i} toolCall={item.tool_call} />;
                                     }
                                     if (item.type === "text") {
-                                        return <ContentAnswer key={i} text={item.text} question={question} />;
+                                        return <ContentAnswer key={i} text={item.text} question={question} isQuestionAllocatedToExpert={isQuestionAllocatedToExpert} />;
                                     }
                                     return null;
                                 })}
@@ -257,9 +259,10 @@ export default MessageDetail;
 interface ContentAnswerProps {
     text: string;
     question: IQuestionFullData;
+    isQuestionAllocatedToExpert: boolean;
 }
 
-const ContentAnswer = ({ text, question }: ContentAnswerProps) => {
+const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert }: ContentAnswerProps) => {
     const [approved, setApproved] = useState<boolean | null>(null);
     const [editedText, setEditedText] = useState(text);
     const [isEditMode, setIsEditMode] = useState(false);
@@ -482,7 +485,7 @@ const ContentAnswer = ({ text, question }: ContentAnswerProps) => {
                 )}
             </div>
 
-            {approved === null && question && question.isAutoAllocate === false && question.source == "AJRASAKHA" && question.status !== "closed" && (
+            {approved === null && question && question.isAutoAllocate === false && question.source == "AJRASAKHA" && question.status !== "closed" && !isQuestionAllocatedToExpert && (
                 <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                     <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">
                         On approval, this answer will be finalized, the question will be marked as closed, and the result will be pushed to the Golden dataset. Please review carefully before approving.
