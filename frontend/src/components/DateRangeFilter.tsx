@@ -110,7 +110,7 @@ const handleDateSelect = (range: DateRange | undefined) => {
   const isRangeSelected = dateRange.from && dateRange.to;
 
   return (
-    <div className={`space-y-2 min-w-0 relative${className}`}>
+    <div className={`space-y-2 min-w-0 relative ${className || ""}`}>
       <Label className="flex items-center gap-2 text-sm font-semibold">
         <Clock className="h-4 w-4 text-primary" />
        {customName || "Custom Date Range"}
@@ -153,7 +153,7 @@ const handleDateSelect = (range: DateRange | undefined) => {
 
       {/* Conditional Rendering of the Calendar */}
       {isCalendarVisible && (
-        <div className="absolute z-50 mt-2 border rounded-lg bg-popover text-popover-foreground shadow-lg min-w-full sm:min-w-[300px]">
+        <div className="absolute right-0 z-[100] mt-2 border rounded-lg bg-popover text-popover-foreground shadow-lg w-[280px] sm:w-[320px]">
 
           <Calendar
             initialFocus
