@@ -10,6 +10,17 @@ import { useGetQuestionMessageDetailsByQuestionId } from "@/hooks/api/question/u
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 import { SourceUrlManager } from "./source-url-manager";
+import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/atoms/alert-dialog";
 
 // const msg = {
 //     messageId: "msg_67f0a1b2c3d4",
@@ -372,6 +383,8 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const [editedPdfSources, setEditedPdfSources] = useState<PdfSource[]>(parsed.pdfSources);
     const [extraSources, setExtraSources] = useState<SourceItem[]>([]);
     const [isEditMode, setIsEditMode] = useState(false);
+    const [translatedText, setTranslatedText] = useState<string>("");
+    const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; type: "save" | "cancel" | "pass" | "approve" }>({ open: false, type: "save" });
 
     const { mutateAsync: updateAnswer, isPending: isUpdating } = useUpdateAnswer();
     const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
@@ -382,13 +395,18 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         setEditedSpecialists(p.agriSpecialists);
         setEditedPdfSources(p.pdfSources);
         setExtraSources([]);
+        setTranslatedText("");
     }, [text]);
 
-    const handleApprove = async () => {
+    const handleApprove = () => {
         if (isEditMode) { toast.error("Please save or cancel your edits before approving."); return; }
         if (!editedAnswerBody.trim()) { toast.error("Answer cannot be empty."); return; }
         if (!question?._id) { toast.error("Question data is missing."); return; }
         if (question.source !== "AJRASAKHA") { toast.error("Only AJRASAKHA answers can be approved."); return; }
+        setConfirmDialog({ open: true, type: "approve" });
+    };
+
+    const doApprove = async () => {
         try {
             const sources: SourceItem[] = [];
             for (const spec of editedSpecialists) {
@@ -416,9 +434,20 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     };
 
     const handleEdit = () => setIsEditMode(true);
-    const handleCancelEdit = () => { const p = parseChatbotText(text); setEditedAnswerBody(p.answerBody); setEditedSpecialists(p.agriSpecialists); setEditedPdfSources(p.pdfSources); setExtraSources([]); setIsEditMode(false); };
-    const handleSaveEdit = () => { toast.success("Changes saved"); setIsEditMode(false); };
-    const handleSkip = async () => { await updateQuestion({ isHidden: true, _id: question._id! }); toast.success("Question has been hidden"); navigateToQuestionPage(); };
+    const handleCancelEdit = () => { setConfirmDialog({ open: true, type: "cancel" }); };
+    const handleSaveEdit = () => { setConfirmDialog({ open: true, type: "save" }); };
+    const handleSkip = () => { setConfirmDialog({ open: true, type: "pass" }); };
+
+    const doSkip = async () => { await updateQuestion({ isHidden: true, _id: question._id! }); toast.success("Question has been hidden"); navigateToQuestionPage(); };
+
+    const handleConfirm = () => {
+        const type = confirmDialog.type;
+        setConfirmDialog({ open: false, type: "save" });
+        if (type === "save") { toast.success("Changes saved"); setIsEditMode(false); }
+        else if (type === "cancel") { const p = parseChatbotText(text); setEditedAnswerBody(p.answerBody); setEditedSpecialists(p.agriSpecialists); setEditedPdfSources(p.pdfSources); setExtraSources([]); setIsEditMode(false); }
+        else if (type === "pass") { doSkip(); }
+        else if (type === "approve") { doApprove(); }
+    };
 
     const updateSpecialist = (idx: number, field: keyof AgriSpecialist, value: string) => setEditedSpecialists(prev => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
     const removeSpecialist = (idx: number) => setEditedSpecialists(prev => prev.filter((_, i) => i !== idx));
@@ -438,12 +467,20 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     });
 
     return (
+        <>
         <div className="rounded-lg border-2 border-info/30 bg-card overflow-hidden">
             <div className="flex items-center gap-2 px-4 py-3 bg-info/5 border-b border-info/20">
                 <MessageSquareText className="h-4 w-4 text-info" />
                 <span className="text-sm font-semibold text-foreground">Final Answer</span>
-                {approved === true && <span className="ml-auto flex items-center gap-1 text-xs text-success font-medium"><CheckCircle className="h-3.5 w-3.5" /> Approved</span>}
-                {approved === false && <span className="ml-auto flex items-center gap-1 text-xs text-destructive font-medium"><XCircle className="h-3.5 w-3.5" /> Rejected</span>}
+
+                <div className="ml-auto flex items-center gap-2">
+                    <SarvamTranslateDropdown
+                        query={editedAnswerBody}
+                        onTranslate={(result) => setTranslatedText(result)}
+                    />
+                    {approved === true && <span className="flex items-center gap-1 text-xs text-success font-medium"><CheckCircle className="h-3.5 w-3.5" /> Approved</span>}
+                    {approved === false && <span className="flex items-center gap-1 text-xs text-destructive font-medium"><XCircle className="h-3.5 w-3.5" /> Rejected</span>}
+                </div>
             </div>
 
             <div className="px-4 py-4 text-sm text-foreground/90 space-y-4">
@@ -452,7 +489,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Answer Text</label>
                         <textarea value={editedAnswerBody} onChange={(e) => setEditedAnswerBody(e.target.value)} rows={10} className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm text-foreground outline-none resize-y min-h-[180px] focus:ring-2 focus:ring-primary/30" placeholder="Edit the answer..." />
                     </div>
-                ) : renderAnswerBody(editedAnswerBody)}
+                ) : renderAnswerBody(translatedText || editedAnswerBody)}
 
                 {(editedSpecialists.length > 0 || isEditMode) && (
                     <div className="mt-4">
@@ -538,6 +575,38 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 </div>
             )}
         </div>
+
+        <AlertDialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>
+                        {confirmDialog.type === "save" && "Save changes?"}
+                        {confirmDialog.type === "cancel" && "Discard changes?"}
+                        {confirmDialog.type === "pass" && "Pass this question?"}
+                        {confirmDialog.type === "approve" && "Approve this answer?"}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                        {confirmDialog.type === "save" && "Are you sure you want to save these changes to the answer?"}
+                        {confirmDialog.type === "cancel" && "Are you sure you want to cancel? Any unsaved changes will be lost."}
+                        {confirmDialog.type === "pass" && "Are you sure you want to pass this question? It will be hidden from the queue."}
+                        {confirmDialog.type === "approve" && "Are you sure you want to approve this answer? The question will be marked as closed and pushed to the Golden dataset."}
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Go back</AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={handleConfirm}
+                        className={confirmDialog.type === "cancel" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+                    >
+                        {confirmDialog.type === "save" && "Yes, save"}
+                        {confirmDialog.type === "cancel" && "Yes, discard"}
+                        {confirmDialog.type === "pass" && "Yes, pass"}
+                        {confirmDialog.type === "approve" && "Yes, approve"}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+        </>
     );
 };
 
