@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Save, Pencil, X, SkipForward, Loader2, RefreshCw, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Save, Pencil, X, SkipForward, Loader2, RefreshCw, ExternalLink, ArrowUpRight } from "lucide-react";
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
@@ -494,10 +494,17 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         ) : (
                             <div className="space-y-2">
                                 {editedPdfSources.map((src, idx) => (
-                                    <div key={idx} className="rounded-lg border border-border bg-surface/30 px-3 py-2.5 space-y-1">
-                                        <p className="text-xs text-muted-foreground font-medium">other : {src.name}</p>
-                                        {src.link ? <a href={src.link} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline break-all inline-flex items-center gap-1">{src.link} <ExternalLink className="h-3 w-3 shrink-0" /></a> : <span className="text-xs text-muted-foreground">No link</span>}
-                                        {src.pages && <p className="text-xs text-muted-foreground">Pages: {src.pages}</p>}
+                                    <div key={idx} className="grid grid-cols-[140px_1fr_auto_auto] items-center gap-6 rounded-lg border bg-muted/30 p-3">
+                                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap overflow-x-auto">
+                                            Other{src.name ? `: ${src.name}` : ""}
+                                        </span>
+                                        <span className="text-sm truncate text-blue-600 dark:text-blue-400 hover:underline cursor-pointer" onClick={() => src.link && window.open(src.link, "_blank")}>
+                                            {src.link || <span className="text-muted-foreground">No link</span>}
+                                        </span>
+                                        {src.pages ? <span className="text-xs text-muted-foreground whitespace-nowrap">pg {src.pages}</span> : <span />}
+                                        <a href={src.link} target="_blank" rel="noopener noreferrer" className="p-1 rounded hover:bg-muted/20 transition-colors">
+                                            <ArrowUpRight className="w-4 h-4 text-foreground/80" />
+                                        </a>
                                     </div>
                                 ))}
                             </div>
