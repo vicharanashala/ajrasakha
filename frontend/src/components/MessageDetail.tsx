@@ -5,10 +5,11 @@ import { Skeleton } from "./atoms/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
 import { toast } from "sonner";
 import { Button } from "./atoms/button";
-import type { IQuestionFullData, IUser, SourceItem } from "@/types";
+import type { IQuestionFullData, SourceItem } from "@/types";
 import { useGetQuestionMessageDetailsByQuestionId } from "@/hooks/api/question/useGetQuestionMessageDetailsByQuestionId";
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
+import { SourceUrlManager } from "./source-url-manager";
 
 // const msg = {
 //     messageId: "msg_67f0a1b2c3d4",
@@ -369,6 +370,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const [editedAnswerBody, setEditedAnswerBody] = useState(parsed.answerBody);
     const [editedSpecialists, setEditedSpecialists] = useState<AgriSpecialist[]>(parsed.agriSpecialists);
     const [editedPdfSources, setEditedPdfSources] = useState<PdfSource[]>(parsed.pdfSources);
+    const [extraSources, setExtraSources] = useState<SourceItem[]>([]);
     const [isEditMode, setIsEditMode] = useState(false);
 
     const { mutateAsync: updateAnswer, isPending: isUpdating } = useUpdateAnswer();
@@ -379,6 +381,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         setEditedAnswerBody(p.answerBody);
         setEditedSpecialists(p.agriSpecialists);
         setEditedPdfSources(p.pdfSources);
+        setExtraSources([]);
     }, [text]);
 
     const handleApprove = async () => {
@@ -389,14 +392,15 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         try {
             const sources: SourceItem[] = [];
             for (const spec of editedSpecialists) {
-                if (spec.sourceLink) sources.push({ sourceType: "other", sourceName: spec.sourceName || spec.name, source: spec.sourceLink });
+                if (spec.sourceLink) sources.push({ sourceType: "other", sourceName: spec.sourceName || spec.name || "chatbot", source: spec.sourceLink });
             }
             for (const pdf of editedPdfSources) {
                 if (pdf.link) {
-                    const pageNum = pdf.pages ? parseInt(pdf.pages.split(',')[0].trim(), 10) : undefined;
-                    sources.push({ sourceType: "other", sourceName: pdf.name, source: pdf.link, page: isNaN(pageNum!) ? undefined : pageNum });
+                    const firstPage = pdf.pages ? parseInt(pdf.pages.split(',')[0].trim(), 10) : NaN;
+                    sources.push({ sourceType: "other", sourceName: pdf.name || "chatbot", source: pdf.link, page: isNaN(firstPage) ? undefined : firstPage });
                 }
             }
+            sources.push(...extraSources);
             await updateAnswer({
                 updatedAnswer: editedAnswerBody.trim(),
                 sources: sources.length > 0 ? sources : [{ sourceType: "MODERATOR_REVIEW", source: "Answer reviewed and approved by moderator" }],
@@ -412,7 +416,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     };
 
     const handleEdit = () => setIsEditMode(true);
-    const handleCancelEdit = () => { const p = parseChatbotText(text); setEditedAnswerBody(p.answerBody); setEditedSpecialists(p.agriSpecialists); setEditedPdfSources(p.pdfSources); setIsEditMode(false); };
+    const handleCancelEdit = () => { const p = parseChatbotText(text); setEditedAnswerBody(p.answerBody); setEditedSpecialists(p.agriSpecialists); setEditedPdfSources(p.pdfSources); setExtraSources([]); setIsEditMode(false); };
     const handleSaveEdit = () => { toast.success("Changes saved"); setIsEditMode(false); };
     const handleSkip = async () => { await updateQuestion({ isHidden: true, _id: question._id! }); toast.success("Question has been hidden"); navigateToQuestionPage(); };
 
@@ -482,17 +486,29 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                     <div key={idx} className="flex items-center gap-2 p-2 rounded-lg border border-border bg-surface/30">
                                         <input type="text" value={src.name} onChange={(e) => updatePdfSource(idx, 'name', e.target.value)} placeholder="Source Name" className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
                                         <input type="text" value={src.link} onChange={(e) => updatePdfSource(idx, 'link', e.target.value)} placeholder="URL" className="flex-[2] rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
-                                        <input type="text" value={src.pages} onChange={(e) => updatePdfSource(idx, 'pages', e.target.value)} placeholder="Pages" className="w-24 rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
+                                        <input type="text" value={src.pages} onChange={(e) => updatePdfSource(idx, 'pages', e.target.value)} placeholder="Pages (e.g. 12,13)" className="w-32 rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
                                         <button type="button" onClick={() => removePdfSource(idx)} className="p-1 rounded hover:bg-destructive/10 text-destructive"><X className="h-3.5 w-3.5" /></button>
                                     </div>
                                 ))}
-                                <button type="button" onClick={addPdfSource} className="flex items-center gap-1 text-xs text-primary hover:underline mt-1"><span className="text-lg leading-none">+</span> Add Source</button>
                             </div>
                         ) : (
-                            <div className="overflow-x-auto"><table className="w-full text-sm border border-border rounded"><thead><tr className="bg-surface"><th className="px-3 py-2 text-left text-xs font-semibold text-foreground border-b border-border">Source / PDF</th><th className="px-3 py-2 text-left text-xs font-semibold text-foreground border-b border-border">Page Number</th></tr></thead><tbody>
-                                {editedPdfSources.map((src, idx) => (<tr key={idx} className="border-b border-border last:border-0"><td className="px-3 py-2">{src.link ? <a href={src.link} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">{src.name} <ExternalLink className="h-3 w-3" /></a> : <span className="text-muted-foreground">{src.name}</span>}</td><td className="px-3 py-2 text-muted-foreground">{src.pages}</td></tr>))}
-                            </tbody></table></div>
+                            <div className="space-y-2">
+                                {editedPdfSources.map((src, idx) => (
+                                    <div key={idx} className="rounded-lg border border-border bg-surface/30 px-3 py-2.5 space-y-1">
+                                        <p className="text-xs text-muted-foreground font-medium">other : {src.name}</p>
+                                        {src.link ? <a href={src.link} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline break-all inline-flex items-center gap-1">{src.link} <ExternalLink className="h-3 w-3 shrink-0" /></a> : <span className="text-xs text-muted-foreground">No link</span>}
+                                        {src.pages && <p className="text-xs text-muted-foreground">Pages: {src.pages}</p>}
+                                    </div>
+                                ))}
+                            </div>
                         )}
+                    </div>
+                )}
+
+                {isEditMode && (
+                    <div className="mt-4 space-y-2">
+                        <div className="flex items-center gap-2 mb-2"><span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Additional Sources</span></div>
+                        <SourceUrlManager sources={extraSources} onSourcesChange={setExtraSources} />
                     </div>
                 )}
 
