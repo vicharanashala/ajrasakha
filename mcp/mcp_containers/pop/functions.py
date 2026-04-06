@@ -176,6 +176,7 @@ async def process_nodes_pop(nodes: List[NodeWithScore]) -> List[ContextPOP]:
                     source=node.metadata.get("source", "https://linknotavailable.com"),
                     topics=node.metadata.get("headings", "No topics available"),
                     similarity_score=node.score,
+                    source_name=node.metadata.get("pop_name","Not Available") 
                 ),
             )
         )
