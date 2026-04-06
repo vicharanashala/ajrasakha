@@ -165,6 +165,8 @@ export interface IQuestion {
   };
   isAutoAllocate: boolean;
   aiInitialAnswer?: string;
+  aiApprovedSources?: SourceItem[];
+  aiApprovedAnswer?: string;
   currentAnswers?: {
     answer: string;
     id: string;
