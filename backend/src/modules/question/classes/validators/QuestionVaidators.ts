@@ -325,6 +325,21 @@ class QuestionResponse {
   @ValidateNested({each: true})
   @Type(() => HistoryItem)
   history?: HistoryItem[];
+
+  @IsOptional()
+  @IsString()
+  aiInitialAnswer?: string;
+
+  @IsOptional()
+  @IsArray()
+  aiApprovedSources?: any[];
+
+  @IsOptional()
+  @IsString()
+  aiApprovedAnswer?: string;
+
+  @IsOptional()
+  isAutoAllocate?: boolean;
 }
 class AddQuestionBodyDto {
   @IsString()
