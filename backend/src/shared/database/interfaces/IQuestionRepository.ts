@@ -365,4 +365,9 @@ export interface IQuestionRepository {
     session?: ClientSession,
   ): Promise<(ISimilarQuestion & { _vectorSearchScore: number })[]>
 
+  //  Backfill normalised crop
+  backfillNormalisedCrop(
+    name: string,
+    aliases: string[],
+  ): Promise<number>;
 }

@@ -1,10 +1,11 @@
-import {injectable, inject} from 'inversify';
-import {BadRequestError} from 'routing-controllers';
-import {GLOBAL_TYPES} from '#root/types.js';
-import {BaseService, MongoDatabase} from '#root/shared/index.js';
-import {ICrop} from '#root/shared/interfaces/models.js';
-import {CropRepository} from '#root/shared/database/providers/mongo/repositories/CropRepository.js';
-import {ICropService} from '../interfaces/ICropService.js';
+import { injectable, inject } from 'inversify';
+import { BadRequestError } from 'routing-controllers';
+import { GLOBAL_TYPES } from '#root/types.js';
+import { BaseService, MongoDatabase } from '#root/shared/index.js';
+import { ICrop } from '#root/shared/interfaces/models.js';
+import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
+import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
+import { ICropService } from '../interfaces/ICropService.js';
 import {
   CreateCropDto,
   UpdateCropDto,
@@ -15,7 +16,11 @@ import {
 export class CropService extends BaseService implements ICropService {
   constructor(
     @inject(GLOBAL_TYPES.CropRepository)
-    private readonly cropRepository: CropRepository,
+    private readonly cropRepository: ICropRepository,
+
+    @inject(GLOBAL_TYPES.QuestionRepository)
+    private readonly questionRepository: IQuestionRepository,
+
     @inject(GLOBAL_TYPES.Database)
     mongoDatabase: MongoDatabase,
   ) {
@@ -24,51 +29,12 @@ export class CropService extends BaseService implements ICropService {
 
   async getAllCrops(
     query?: GetAllCropsQuery,
-  ): Promise<{crops: ICrop[]; totalCount: number; totalPages: number}> {
+  ): Promise<{ crops: ICrop[]; totalCount: number; totalPages: number }> {
     return this.cropRepository.getAllCrops(query);
   }
 
   async getCropById(cropId: string): Promise<ICrop | null> {
     return this.cropRepository.getCropById(cropId);
-  }
-
-  // Backfill normalised_crop in questions (OPTIMIZED)
-  private async backfillNormalisedCropForSingleCrop(
-    name: string,
-    aliases: string[],
-  ): Promise<void> {
-    const questionsCollection = await (this.cropRepository as any).db.getCollection('questions');
-
-    const allValues = [name, ...(aliases || [])].map((v) =>
-      v.toLowerCase().trim(),
-    );
-
-    const conditions = allValues.map((val) => ({
-      'details.crop': { $regex: `^${val}$`, $options: 'i' },
-    }));
-
-    const result = await questionsCollection.updateMany(
-      {
-        $and: [
-          { $or: conditions },
-          {
-            $or: [
-              { 'details.normalised_crop': { $exists: false } },
-              { 'details.normalised_crop': null },
-            ],
-          },
-        ],
-      },
-      {
-        $set: {
-          'details.normalised_crop': name.toLowerCase(),
-        },
-      },
-    );
-
-    console.log(
-      `✅ Backfilled ${result.modifiedCount} questions for crop: ${name}`,
-    );
   }
 
   async createCrop(dto: CreateCropDto, userId: string): Promise<ICrop> {
@@ -79,10 +45,10 @@ export class CropService extends BaseService implements ICropService {
         dto.aliases,
       );
 
-      // Trigger backfill after creation
-      await this.backfillNormalisedCropForSingleCrop(
-        dto.name,
-        dto.aliases,
+      //  Backfill via repository — use the DB-normalised values (trimmed + lowercased)
+      await this.questionRepository.backfillNormalisedCrop(
+        crop.name,
+        crop.aliases || [],
       );
 
       return crop;
@@ -102,15 +68,15 @@ export class CropService extends BaseService implements ICropService {
     try {
       const updatedCrop = await this.cropRepository.updateCrop(
         cropId,
-        {aliases: dto.aliases},
+        { aliases: dto.aliases },
         userId,
       );
 
       if (updatedCrop) {
-        // Trigger backfill after alias update
-        await this.backfillNormalisedCropForSingleCrop(
+        //  Backfill via repository — use the DB-normalised values (trimmed + lowercased)
+        await this.questionRepository.backfillNormalisedCrop(
           updatedCrop.name,
-          dto.aliases,
+          updatedCrop.aliases || [],
         );
       }
 

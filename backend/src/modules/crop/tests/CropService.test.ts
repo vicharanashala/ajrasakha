@@ -30,6 +30,10 @@ const mockRepo = {
   updateCrop: vi.fn(),
 };
 
+const mockQuestionRepo = {
+  backfillNormalisedCrop: vi.fn(),
+};
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('CropService', () => {
@@ -37,7 +41,7 @@ describe('CropService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new CropService(mockRepo as any, {} as any);
+    service = new CropService(mockRepo as any, mockQuestionRepo as any, {} as any);
   });
 
   // ── getAllCrops ─────────────────────────────────────────────────────────────
