@@ -588,8 +588,8 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     <AlertDialogDescription>
                         {confirmDialog.type === "save" && "Are you sure you want to save these changes to the answer?"}
                         {confirmDialog.type === "cancel" && "Are you sure you want to cancel? Any unsaved changes will be lost."}
-                        {confirmDialog.type === "pass" && "Are you sure you want to pass this question? It will be hidden from the queue."}
-                        {confirmDialog.type === "approve" && "Are you sure you want to approve this answer? The question will be marked as closed and pushed to the Golden dataset."}
+                        {confirmDialog.type === "pass" && "Are you sure you want to pass this question? It will be hidden from the Question list."}
+                        {confirmDialog.type === "approve" && "Are you sure you want to approve this answer? The question will  allocate to task_force team."}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

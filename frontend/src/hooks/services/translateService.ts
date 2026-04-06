@@ -31,7 +31,13 @@ export async function translateService(
   text: string,
   targetLang: string
 ): Promise<string> {
-  if (targetLang === "en-IN") return text;
+  // Detect source language from a sample of the text (max 1000 chars for LID API)
+  const sample = text.slice(0, 1000);
+  const lidResponse = await client.text.identifyLanguage({ input: sample });
+  const sourceLang = lidResponse.language_code ?? "en-IN";
+
+  // If source and target are the same, return as-is
+  if (sourceLang === targetLang) return text;
 
   const chunks = splitIntoChunks(text);
 
@@ -39,7 +45,7 @@ export async function translateService(
     chunks.map(async (chunk) => {
       const response = await client.text.translate({
         input: chunk,
-        source_language_code: "en-IN",
+        source_language_code: sourceLang as any,
         target_language_code: targetLang as any,
         model: "sarvam-translate:v1",
       });
