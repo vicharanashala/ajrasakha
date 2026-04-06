@@ -419,16 +419,49 @@ export const QAInterface = ({
   // };
 
   useEffect(() => {
-    if (!selectedQuestionData?.aiInitialAnswer || !selectedQuestion) return;
+    if (!selectedQuestion || !selectedQuestionData) return;
+
+    // For AJRASAKHA: the answer comes from aiApprovedAnswer (answers collection)
+    // For others: the answer comes from aiInitialAnswer (questions collection)
+    const hasPrefilledAnswer =
+      selectedQuestionData.aiApprovedAnswer ||
+      selectedQuestionData.aiInitialAnswer;
+
+    if (!hasPrefilledAnswer) return;
 
     const draft = drafts[selectedQuestion]; // previous answer that were stored in localstorage
 
     // Set AI initial answer only if user hasn't typed anything
     if (!newAnswer && !draft?.answer) {
-      setNewAnswer(selectedQuestionData.aiInitialAnswer);
+      let prefillAnswer = '';
+
+      if (selectedQuestionData.source === 'AJRASAKHA') {
+        // Prefer the clean answer from answers collection (set by moderator approval)
+        if (selectedQuestionData.aiApprovedAnswer) {
+          prefillAnswer = selectedQuestionData.aiApprovedAnswer;
+        } else if (selectedQuestionData.aiInitialAnswer) {
+          prefillAnswer = selectedQuestionData.aiInitialAnswer;
+        }
+      } else {
+        prefillAnswer = selectedQuestionData.aiInitialAnswer || '';
+      }
+
+      if (prefillAnswer) {
+        setNewAnswer(prefillAnswer);
+      }
     }
-    const isAiAnswer =
-      newAnswer.trim() === selectedQuestionData.aiInitialAnswer.trim();
+
+    // For AJRASAKHA questions, pre-fill sources from moderator-approved sources stored on the question
+    if (
+      selectedQuestionData.source === 'AJRASAKHA' &&
+      selectedQuestionData.aiApprovedSources?.length &&
+      !draft?.sources?.length
+    ) {
+      setSources(selectedQuestionData.aiApprovedSources);
+    }
+
+    const aiAnswer = selectedQuestionData.aiApprovedAnswer || selectedQuestionData.aiInitialAnswer || '';
+    const isAiAnswer = aiAnswer && newAnswer.trim() === aiAnswer.trim();
 
     if (!draft?.remarks) setRemarks(isAiAnswer ? "AI Generated Answer" : "");
   }, [selectedQuestionData, newAnswer]);
