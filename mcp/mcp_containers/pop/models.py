@@ -81,6 +81,7 @@ class POPMetaData(BaseModel):
     page_no: Optional[int] = None
     source: str
     topics: Optional[List[str]] = None
+    source_name: Optional[str] = None   
 
 
 class ContextPOP(BaseModel):
