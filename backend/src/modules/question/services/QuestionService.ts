@@ -50,6 +50,8 @@ import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/I
 import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
 import { checkConceptDuplicate } from '#root/modules/question/aiservice/checkConceptDuplicate.js'
 import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
+import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
+import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -89,6 +91,9 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     @inject(GLOBAL_TYPES.CropRepository)
     private readonly cropRepository: ICropRepository,
+
+    @inject(CHATBOT_TYPES.ChatbotRepository)
+    private readonly chatbotRepository: IChatbotRepository,
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
@@ -922,7 +927,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           const { insertedId } = await this.contextRepo.addContext(context, session);
           contextId = new ObjectId(insertedId);
         }
-
+       // source="AJRASAKHA"
         // 🔹 Create Base Question Object
         const baseQuestion: IQuestion = {
           userId: userId?.trim() !== '' ? new ObjectId(userId) : null,
@@ -933,7 +938,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           totalAnswersCount: 0,
           contextId,
           details,
-          isAutoAllocate: true,
+          isAutoAllocate: source=="AJRASAKHA"?false:true,
           embedding: textEmbedding,
           metrics: null,
           aiInitialAnswer: body.aiInitialAnswer || '',
@@ -964,8 +969,8 @@ export class QuestionService extends BaseService implements IQuestionService {
             details.state,
             details.district,
             typeof details.crop === 'string' ? details.crop : details.crop.name,
-            details.season,
-            details.domain
+            //details.season,
+            // details.domain
           );
           console.log("the questions coming=====", questions)
           // merge reviewer + golden
@@ -1113,6 +1118,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           session,
         );
 
+
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
         }
@@ -1121,12 +1127,16 @@ export class QuestionService extends BaseService implements IQuestionService {
           details as PreferenceDto,
           session,
         );
+        let queue: ObjectId[] = [];
+        let initialUsersToAllocate: typeof users = [];
 
-        const initialUsersToAllocate = users.slice(0, 3);
+        if (source !== 'AJRASAKHA') {
+          initialUsersToAllocate = users.slice(0, 3);
 
-        const queue = initialUsersToAllocate.map(
-          (user) => new ObjectId(user._id.toString()),
-        );
+          queue = initialUsersToAllocate.map(
+            (user) => new ObjectId(user._id.toString()),
+          );
+
 
         if (initialUsersToAllocate[0]) {
           await this.userRepo.updateReputationScore(
@@ -1156,6 +1166,8 @@ export class QuestionService extends BaseService implements IQuestionService {
             'answer_creation',
           );
         }
+        }
+
 
         return { isDuplicate: false, data: baseQuestion };
       });
@@ -1204,7 +1216,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
 
         // Only author needs to see ai initial answer
-        let aiInitialAnswer = '';
+        let aiInitialAnswer = currentQuestion.aiInitialAnswer;
 
         const answers = await this.answerRepo.getByQuestionId(
           questionId,
@@ -1346,13 +1358,41 @@ export class QuestionService extends BaseService implements IQuestionService {
       this.userRepo.findExpertsByPreference(details, session),
     ]);
 
-    const expertIdsSet = new Set<string>();
+    /*const expertIdsSet = new Set<string>();
     preferredExperts.forEach(user => expertIdsSet.add(user._id.toString()));
     users
       .filter(user => user.role === 'expert' && user.isBlocked !== true)
       .forEach(user => expertIdsSet.add(user._id.toString()));
 
-    const allExpertIds = Array.from(expertIdsSet);
+    const allExpertIds = Array.from(expertIdsSet);*/
+    let allExpertIds: string[] = [];
+    const isAjrasakha=question.source=="AJRASAKHA"?true:false
+      if (isAjrasakha) {
+        // ✅ AJRASAKHA FLOW
+        const users = await this.userRepo.getSpecialTaskForceExperts(session);
+
+        allExpertIds = users.map(user => user._id.toString());
+      } else {
+        // ✅ NORMAL FLOW
+        const [users, preferredExperts] = await Promise.all([
+          this.userRepo.findAll(),
+          this.userRepo.findExpertsByPreference(details, session),
+        ]);
+
+        const expertIdsSet = new Set<string>();
+
+        preferredExperts.forEach(user =>
+          expertIdsSet.add(user._id.toString()),
+        );
+
+  users
+    .filter(user => user.role === 'expert' && user.isBlocked !== true)
+    .forEach(user =>
+      expertIdsSet.add(user._id.toString()),
+    );
+
+  allExpertIds = Array.from(expertIdsSet);
+}
 
     if (
       EXISTING_QUEUE_COUNT < 3 ||
@@ -3269,6 +3309,58 @@ export class QuestionService extends BaseService implements IQuestionService {
       return buffer as ArrayBuffer;
     });
   }
+
+    async getMatchedQuestion(questionId: string) {
+  const questionData = await this.questionRepo.getById(questionId);
+
+  if (!questionData) {
+    throw new Error('Question not found');
+  }
+
+  const { question, details, createdAt } = questionData;
+
+  const [analyticsMessages, annamMessages] = await Promise.all([
+    this.chatbotRepository.findMatchingMessages({
+      question,
+      details,
+      createdAt,
+    }),
+     this.chatbotRepository.findFromSecondDb({
+      question,
+      details,
+      createdAt,
+    }),
+  ]);
+  console.log("analytics====",analyticsMessages)
+  console.log("analytics====annnam",annamMessages)
+
+
+  // Take first matched message (assuming 1 expected)
+  const allMessages = [...analyticsMessages, ...annamMessages];
+
+  const message = allMessages?.[0];
+
+  if (!message) {
+    throw new Error('No matching message found');
+  }
+
+  return {
+    messageId: message.messageId || '',
+    createdAt: message.createdAt
+      ? new Date(message.createdAt).toISOString()
+      : '',
+    updatedAt: message.updatedAt
+      ? new Date(message.updatedAt).toISOString()
+      : '',
+    user: {
+      username: message?.userDetails?.username || 'N/A',
+      email: message?.userDetails?.email || '',
+      emailVerified: message?.userDetails?.emailVerified || false,
+      avatar: message?.userDetails?.avatar || null,
+    },
+    content: message.content || [],
+  };
+}
 
 
 }

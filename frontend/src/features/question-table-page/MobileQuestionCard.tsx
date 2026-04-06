@@ -12,7 +12,8 @@ import { Badge } from "../../components/atoms/badge";
 import { Button } from "../../components/atoms/button";
 import { TimerDisplay } from "../../components/timer-display";
 import { formatDate } from "@/utils/formatDate";
-import {AlertCircle,
+import {
+  AlertCircle,
   Check,
   CheckCircle,
   Edit,
@@ -101,8 +102,9 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
 }) => {
   const uploadedCountRef = useRef(uploadedQuestionsCount);
 
-  const DURATION_HOURS = 4;
-  const timer = useCountdown(q.createdAt, DURATION_HOURS, () => {});
+  // const DURATION_HOURS = 4;
+  const DURATION_HOURS = q && q.source == "AJRASAKHA" ? 2 : 4;
+  const timer = useCountdown(q.createdAt, DURATION_HOURS, () => { });
   const totalSeconds = DURATION_HOURS * 3600;
 
   const [h, m, s] = timer.split(":").map(Number);
@@ -128,10 +130,10 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
       effectiveStatus === "in-review"
         ? "bg-green-500/10 text-green-600 border-green-500/30"
         : effectiveStatus === "open"
-        ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-        : effectiveStatus === "closed"
-        ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
-        : "bg-muted text-foreground";
+          ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+          : effectiveStatus === "closed"
+            ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
+            : "bg-muted text-foreground";
 
     return (
       <Badge variant="outline" className={colorClass}>
@@ -152,8 +154,8 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
       q.priority === "high"
         ? "bg-red-500/10 text-red-600 border-red-500/30"
         : q.priority === "medium"
-        ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-        : "bg-green-500/10 text-green-600 border-green-500/30";
+          ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+          : "bg-green-500/10 text-green-600 border-green-500/30";
 
     return (
       <Badge variant="outline" className={colorClass}>
@@ -174,9 +176,8 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
 
       {/* Question */}
       <p
-        className={`mt-1 font-medium break-words ${
-          isClickable ? "hover:underline cursor-pointer" : "opacity-50"
-        }`}
+        className={`mt-1 font-medium break-words ${isClickable ? "hover:underline cursor-pointer" : "opacity-50"
+          }`}
         onClick={() => isClickable && onViewMore(q._id!)}
       >
         {truncate(q.question, 80)}

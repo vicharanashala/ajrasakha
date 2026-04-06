@@ -52,8 +52,8 @@ export class AiService {
         state: state,
         district: district,
         crop: crop,
-        season: season,
-        domain: domain
+        //season: season,
+        //domain: domain
       }),
     });
   

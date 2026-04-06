@@ -49,11 +49,28 @@ export const AllocationQueueHeader = ({
     useToggleAutoAllocateQuestion();
 
   const expertsIdsInQueue = new Set(queue.map((expert) => expert._id));
-
   const experts =
     usersData?.users.filter(
       (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id)
     ) || [];
+   // let experts = [];
+
+   /*   if (question.source === "AJRASAKHA") {
+        experts =
+          usersData?.users.filter(
+            (user) =>
+              user.role === "expert" &&
+              user.special_task_force === true && // 👈 key condition
+              !expertsIdsInQueue.has(user._id)
+          ) || [];
+      } else {
+        experts =
+          usersData?.users.filter(
+            (user) =>
+              user.role === "expert" &&
+              !expertsIdsInQueue.has(user._id)
+          ) || [];
+      }*/
 
   const filteredExperts = experts.filter(
     (expert) =>

@@ -35,7 +35,7 @@ export const QuestionsPage = ({
   const [view, setView] = useState<"table" | "grid">("table");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
-  const [source, setSource] = useState<QuestionSourceFilter>("all");
+  const [source, setSource] = useState<QuestionSourceFilter>("AJRASAKHA");
   const [priority, setPriority] = useState<QuestionPriorityFilter>("all");
   const [state, setState] = useState("all");
   const [crop, setCrop] = useState("all");
@@ -306,6 +306,9 @@ export const QuestionsPage = ({
               refetchAnswers={refechSelectedQuestion}
               isRefetching={isLoadingSelectedQuestion}
               goBack={goBack}
+              navigateToQuestionPage={() => {
+                setSelectedQuestionId("");
+              }}
               currentUser={currentUser!}
             />
           )
@@ -364,7 +367,7 @@ export const QuestionsPage = ({
               uploadedQuestionsCount={uploadedQuestionsCount}
               selectedQuestionIds={selectedQuestionIds}
               setIsSelectionModeOn={setIsSelectionModeOn}
-              isSelectionModeOn = { isSelectionModeOn}
+              isSelectionModeOn={isSelectionModeOn}
               setSelectedQuestionIds={setSelectedQuestionIds}
               showClosedAt={showClosedAt}
               sort={questionSort}

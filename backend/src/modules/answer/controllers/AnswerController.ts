@@ -105,7 +105,7 @@ export class AnswerController {
     return this.answerService.getFinalAnswerQuestions(userId,currentUserId,date,status);
   }
 
-  @OpenAPI({summary: 'Update an existing answer'})
+ /* @OpenAPI({summary: 'Update an existing answer'})
   @Put('/:answerId')
   @HttpCode(200)
   @Authorized()
@@ -118,7 +118,24 @@ export class AnswerController {
     const {answerId} = params;
     const {_id: userId} = user;
     return this.answerService.approveAnswer(userId.toString(), answerId, body);
+  }*/
+  @OpenAPI({ summary: 'Update or create answer (supports ajrasakha)' })
+  @Put('/')
+  @HttpCode(200)
+  @Authorized()
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  async approveAnswer(
+    @Body() body: UpdateAnswerBody,
+    @CurrentUser() user: IUser,
+  ) {
+    const {_id: userId} = user;
+
+    return this.answerService.approveAnswer(
+      userId.toString(),
+      body,
+    );
   }
+
 
   @OpenAPI({summary: 'Delete an answer and update the related question state'})
   @Delete('/:questionId/:answerId')

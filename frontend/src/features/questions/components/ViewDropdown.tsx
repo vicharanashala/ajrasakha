@@ -64,10 +64,9 @@ const ViewDropdown: React.FC<ViewDropdownProps> = ({ view, setView }) => {
             onClick={() => handleSelect("table")}
             className={`w-full flex items-center gap-2 px-3 py-2 text-sm 
               hover:bg-gray-100  transition-colors dark:bg-[#1a1a1a] dark:border-gray-800 dark:hover:bg-gray-600 dark:shadow-none 
-              ${
-                view === "table"
-                  ? "bg-gray-100 dark:bg-gray-800 font-medium"
-                  : ""
+              ${view === "table"
+                ? "bg-gray-100 dark:bg-gray-800 font-medium"
+                : ""
               }`}
           >
             <List size={14} />
@@ -79,10 +78,9 @@ const ViewDropdown: React.FC<ViewDropdownProps> = ({ view, setView }) => {
             className={`w-full flex items-center gap-2 px-3 py-2 text-sm 
               hover:bg-gray-100 transition-colors
               dark:bg-[#1a1a1a] dark:border-gray-800 dark:hover:bg-gray-700 dark:shadow-none
-              ${
-                view === "grid"
-                  ? "bg-gray-100 dark:bg-gray-800 font-medium"
-                  : ""
+              ${view === "grid"
+                ? "bg-gray-100 dark:bg-gray-800 font-medium"
+                : ""
               }`}
           >
             <LayoutGrid size={14} />

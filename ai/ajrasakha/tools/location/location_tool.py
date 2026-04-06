@@ -2,7 +2,15 @@ from typing import Dict, Any
 
 import aiohttp
 from langchain.tools import tool
+from mcp.server import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
+mcp=FastMCP(
+    "ajrasakha-location-mcp",
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=False
+    )
+)
 
 @tool
 async def location_information_tool(latitude: float, longitude: float) -> Dict[str, Any]:

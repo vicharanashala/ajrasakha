@@ -17,6 +17,7 @@ import { AllocationTimeline } from "@/features/question_details/components/Alloc
 import { flattenAnswers } from "@/features/question_details/utils/flattenAnswers";
 import { QuestionHeader } from "@/features/question_details/components/QuestionHeader";
 import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
+import MessageDetail from "./MessageDetail";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -26,6 +27,7 @@ interface QuestionDetailProps {
   isRefetching: boolean;
   currentUser: IUser;
   rerouteQuestion?: IRerouteHistoryResponse[];
+  navigateToQuestionPage: () => void;
 }
 
 export const QuestionDetails = ({
@@ -36,6 +38,7 @@ export const QuestionDetails = ({
   currentUser,
   goBack,
   rerouteQuestion,
+  navigateToQuestionPage
 }: QuestionDetailProps) => {
   //console.log("the question details====",question)
   // console.log("reroutedetail====",rerouteQuestion)
@@ -62,6 +65,11 @@ export const QuestionDetails = ({
       <QuestionHeader question={question} goBack={goBack} />
 
       <QuestionDetailsCard question={question} currentUser={currentUser} />
+      
+
+      {question && currentUser && question?.source == "AJRASAKHA" && currentUser.role != "expert" &&
+        <MessageDetail question={question} isQuestionAllocatedToExpert={question?.submission?.history?.length !== 0} navigateToQuestionPage ={navigateToQuestionPage}/>
+      }
 
       {/* {currentUser.role !== "expert" && ( */}
       <AllocationTimeline
