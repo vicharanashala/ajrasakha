@@ -56,6 +56,7 @@ const VECTOR_COUNT_LIMIT = 20000;
 
 export class QuestionRepository implements IQuestionRepository {
   private QuestionCollection: Collection<IQuestion>;
+  private DuplicateQuestionCollection: Collection<ISimilarQuestion>;
   private QuestionSubmissionCollection: Collection<IQuestionSubmission>;
   private AnswersCollection: Collection<IAnswer>;
   private UsersCollection!: Collection<IUser>;
@@ -73,6 +74,8 @@ export class QuestionRepository implements IQuestionRepository {
 
     this.QuestionCollection =
       await this.db.getCollection<IQuestion>('questions');
+    this.DuplicateQuestionCollection =
+      await this.db.getCollection<ISimilarQuestion>('duplicate_questions');
     this.QuestionSubmissionCollection =
       await this.db.getCollection<IQuestionSubmission>('question_submissions');
     this.UsersCollection = await this.db.getCollection<IUser>('users');
@@ -335,6 +338,12 @@ export class QuestionRepository implements IQuestionRepository {
     if(hiddenQuestions === 'true'){
         filter.isHidden = { $eq: true }; // 👈 exclude hidden questions
     }
+      const questionsCollection = (
+        duplicateQuestions === 'true'
+          ? this.DuplicateQuestionCollection
+          : this.QuestionCollection
+      ) as Collection<IQuestion>;
+
       // --- Auto Allocate Filter ---
       if (autoAllocateFilter && autoAllocateFilter !== 'all') {
         if (autoAllocateFilter === 'on') {
@@ -594,7 +603,7 @@ export class QuestionRepository implements IQuestionRepository {
         ];
 
         const countResult =
-          await this.QuestionCollection.aggregate(countPipeline).toArray();
+          await questionsCollection.aggregate(countPipeline).toArray();
         totalCount = countResult[0]?.count ?? 0;
 
         const totalPages = Math.ceil(totalCount / limit);
@@ -683,7 +692,7 @@ export class QuestionRepository implements IQuestionRepository {
           { $limit: limit },
         ];
 
-        result = await this.QuestionCollection.aggregate(pipeline).toArray();
+        result = await questionsCollection.aggregate(pipeline).toArray();
 
         const formattedQuestions: IQuestion[] = result.map((q: any) => ({
           ...q,
@@ -713,7 +722,7 @@ export class QuestionRepository implements IQuestionRepository {
         ];
       }
 
-      totalCount = await this.QuestionCollection.countDocuments(filter);
+      totalCount = await questionsCollection.countDocuments(filter);
       const totalPages = Math.ceil(totalCount / limit);
 
       // Determine sort order
@@ -779,7 +788,7 @@ export class QuestionRepository implements IQuestionRepository {
         { $limit: limit },
       );
 
-      result = await this.QuestionCollection.aggregate([
+      result = await questionsCollection.aggregate([
         ...aggregationPipeline,
 
         // JOIN submissions → extract history length
