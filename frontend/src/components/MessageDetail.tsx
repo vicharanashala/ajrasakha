@@ -530,6 +530,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
             }}
             editedAnswerBody={editedAnswerBody}
             onAnswerBodyChange={setEditedAnswerBody}
+            initialTranslatedText={translatedText}
             editedSpecialists={editedSpecialists}
             onSpecialistsChange={setEditedSpecialists}
             editedPdfSources={editedPdfSources}
@@ -580,6 +581,7 @@ interface EditAnswerModalProps {
     onPdfSourcesChange: (v: PdfSource[]) => void;
     onSave: () => void;
     onCancel: () => void;
+    initialTranslatedText?: string;
 }
 
 const EditAnswerModal = ({
@@ -593,8 +595,10 @@ const EditAnswerModal = ({
     onPdfSourcesChange,
     onSave,
     onCancel,
+    initialTranslatedText,
 }: EditAnswerModalProps) => {
     const [pendingAction, setPendingAction] = useState<'save' | 'cancel' | null>(null);
+    const [translatedText, setTranslatedText] = useState<string>(initialTranslatedText ?? "");
 
     const updateSpecialist = (idx: number, field: keyof AgriSpecialist, value: string) =>
         onSpecialistsChange(editedSpecialists.map((s, i) => i === idx ? { ...s, [field]: value } : s));
@@ -630,10 +634,16 @@ const EditAnswerModal = ({
                     <div className="grid grid-cols-2 gap-0 divide-x divide-border">
                         {/* Left column: Answer text */}
                         <div className="p-5 space-y-3">
-                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Answer Text</label>
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Answer Text</label>
+                                <SarvamTranslateDropdown
+                                    query={editedAnswerBody}
+                                    onTranslate={(result) => setTranslatedText(result)}
+                                />
+                            </div>
                             <textarea
-                                value={editedAnswerBody}
-                                onChange={(e) => onAnswerBodyChange(e.target.value)}
+                                value={translatedText || editedAnswerBody}
+                                onChange={(e) => { setTranslatedText(""); onAnswerBodyChange(e.target.value); }}
                                 className="w-full h-[420px] rounded-xl border border-border bg-background px-3 py-3 text-sm text-foreground outline-none resize-none focus:ring-2 focus:ring-primary/30"
                                 placeholder="Edit the answer..."
                             />
