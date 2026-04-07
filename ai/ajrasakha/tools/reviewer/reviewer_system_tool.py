@@ -1,6 +1,7 @@
 import requests
 from typing import List, Dict, Any
-from mcp.server.fastmcp import FastMCP, TransportSecuritySettings
+from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 CREATE_QUESTION_URL = "https://desk.vicharanashala.ai/api/questions"
 CHECK_STATUS_URL = "https://desk.vicharanashala.ai/api/questions/check-status"
