@@ -3351,8 +3351,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       createdAt,
     }),
   ]);
-  console.log("analytics====",analyticsMessages)
-  console.log("analytics====annnam",annamMessages)
+
 
 
   // Take first matched message (assuming 1 expected)

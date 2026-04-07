@@ -3414,9 +3414,9 @@ async backfillNormalisedCrop(
 }
 
 async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusResponse[]> {
- await  this.init()
+  await  this.init()
   const objectIds = questionIds.map(id => new ObjectId(id));
-
+  
   const data =await this.QuestionCollection.aggregate([
     {
       $match: {
@@ -3540,14 +3540,34 @@ async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusR
       },
     },
   ]).toArray()
-  return data.map(item => ({
-    question_id: item.question_id,
-    status: item.status,
-    answer: item.answer ?? null,
-    sources: item.sources ?? [],
-    author: item.author ?? null,
-    metadata:item.metadata??null,
-  }));
+  // 🔥 Create map for quick lookup
+  const map = new Map(data.map(item => [item.question_id, item]));
+
+  // 🔥 Final response based on input order
+  return questionIds.map(id => {
+    const found = map.get(id);
+
+    if (!found) {
+      return {
+        question_id: id,
+        status: 'not_found',
+        answer: null,
+        sources: [],
+        author: null,
+        metadata: null,
+        message: 'Question not exist',
+      };
+    }
+
+    return {
+      question_id: found.question_id,
+      status: found.status,
+      answer: found.status === 'closed' ? found.answer : null,
+      sources: found.status === 'closed' ? found.sources : [],
+      author: found.status === 'closed' ? found.author : null,
+      metadata: found.metadata ?? null,
+    };
+  });
 }
 }
 

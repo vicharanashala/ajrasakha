@@ -575,11 +575,9 @@ async outreachQuestions(
       if (!question_ids || !Array.isArray(question_ids)) {
         throw new BadRequestError('question_ids must be an array');
       }
-
       const results = await this.questionService.checkStatus(
         question_ids
       );
-
       return {
         success: true,
         data: results,

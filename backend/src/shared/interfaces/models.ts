@@ -363,17 +363,18 @@ export interface IAuthor {
 
 export interface ICheckStatusResponse {
   question_id: string;
-  status: 'pending' | 'closed';
+  status: 'pending' | 'closed'|'not_found';
   answer: string | null;
   sources: ISource[];
   author: IAuthor | null;
-  metadata: {
+  metadata?: {
     state?: string;
     district?: string;
     crop?: string | ICropRef;
     season?: string;
     domain?: string;
   };
+  message?: string | null;
 }
 
 
