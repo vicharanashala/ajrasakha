@@ -349,7 +349,7 @@ const parseChatbotText = (text: string): ParsedChatbotText => {
             if (cells.length >= 2) {
                 const name = cells[0].trim();
                 const lm = cells[1].trim().match(/\[([^\]]+)\]\(([^)]+)\)/);
-                agriSpecialists.push({ name, sourceName: lm ? lm[1] : cells[1].trim(), sourceLink: lm ? lm[2] : '' });
+                agriSpecialists.push({ name, sourceName: name, sourceLink: lm ? lm[2] : '' });
             }
         }
     }
