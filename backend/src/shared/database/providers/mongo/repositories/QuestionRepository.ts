@@ -322,13 +322,19 @@ export class QuestionRepository implements IQuestionRepository {
         closedAtEnd,
         consecutiveApprovals,
         autoAllocateFilter,
-        sort
+        sort,
+        hiddenQuestions,
+        duplicateQuestions,
       } = query;
 
     //  const filter: any = {};
     const filter: any = {
-      isHidden: { $ne: true }, // 👈 exclude hidden questions
+      isHidden: { $ne: true }, // default to exclude hidden questions
     };
+    console.log('hiddenQuestions:', hiddenQuestions, 'duplicateQuestions:', duplicateQuestions);
+    if(hiddenQuestions === 'true'){
+        filter.isHidden = { $eq: true }; // 👈 exclude hidden questions
+    }
       // --- Auto Allocate Filter ---
       if (autoAllocateFilter && autoAllocateFilter !== 'all') {
         if (autoAllocateFilter === 'on') {
