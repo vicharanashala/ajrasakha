@@ -304,7 +304,7 @@ export default MessageDetail;
 // --- Types for parsed chatbot text ---
 interface AgriSpecialist {
     name: string;
-    sourceName: string;
+    sourceType: string;
     sourceLink: string;
 }
 
@@ -349,8 +349,13 @@ const parseChatbotText = (text: string): ParsedChatbotText => {
             const cells = row.split('|').filter((c: string) => c.trim() !== '');
             if (cells.length >= 2) {
                 const name = cells[0].trim();
-                const lm = cells[1].trim().match(/\[([^\]]+)\]\(([^)]+)\)/);
-                agriSpecialists.push({ name, sourceName: name, sourceLink: lm ? lm[2] : '' });
+                const raw = cells[1].trim();
+                const lm = raw.match(/\[([^\]]+)\]\(([^)]+)\)/);
+                agriSpecialists.push({
+                    name,
+                    sourceType: 'other',
+                    sourceLink: lm ? lm[2] : raw,
+                });
             }
         }
     }
@@ -410,7 +415,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         try {
             const sources: SourceItem[] = [];
             for (const spec of editedSpecialists) {
-                if (spec.sourceLink) sources.push({ sourceType: "other", sourceName: spec.sourceName || spec.name || "chatbot", source: spec.sourceLink });
+                if (spec.sourceLink) sources.push({ sourceType: (spec.sourceType || "other") as any, sourceName: spec.name || "chatbot", source: spec.sourceLink });
             }
             for (const pdf of editedPdfSources) {
                 if (pdf.link) {
@@ -481,7 +486,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     <div className="mt-4">
                         <div className="flex items-center gap-2 mb-2"><User className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Agri Specialists</span></div>
                         <div className="overflow-x-auto"><table className="w-full text-sm border border-border rounded"><thead><tr className="bg-surface"><th className="px-3 py-2 text-left text-xs font-semibold text-foreground border-b border-border">Specialist Name</th><th className="px-3 py-2 text-left text-xs font-semibold text-foreground border-b border-border">Source</th></tr></thead><tbody>
-                            {editedSpecialists.map((spec, idx) => (<tr key={idx} className="border-b border-border last:border-0"><td className="px-3 py-2 text-muted-foreground">{spec.name}</td><td className="px-3 py-2">{spec.sourceLink ? <a href={spec.sourceLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">{spec.sourceName} <ExternalLink className="h-3 w-3" /></a> : <span className="text-muted-foreground">{spec.sourceName}</span>}</td></tr>))}
+                            {editedSpecialists.map((spec, idx) => (<tr key={idx} className="border-b border-border last:border-0"><td className="px-3 py-2 text-muted-foreground">{spec.name}</td><td className="px-3 py-2">{spec.sourceLink ? <a href={spec.sourceLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">{spec.sourceLink} <ExternalLink className="h-3 w-3" /></a> : <span className="text-muted-foreground">No link</span>}</td></tr>))}
                         </tbody></table></div>
                     </div>
                 )}
@@ -623,7 +628,6 @@ const EditAnswerModal = ({
     const validateSources = (): boolean => {
         for (const spec of editedSpecialists) {
             if (!spec.name.trim()) { toast.error("Each agri specialist must have a name."); return false; }
-            if (!spec.sourceName.trim()) { toast.error("Each agri specialist must have a source name."); return false; }
             if (!spec.sourceLink.trim()) { toast.error("Each agri specialist must have a source URL."); return false; }
         }
         for (const src of editedPdfSources) {
@@ -679,7 +683,16 @@ const EditAnswerModal = ({
                                             <input type="text" value={spec.name} onChange={(e) => updateSpecialist(idx, 'name', e.target.value)} placeholder="Name" className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
                                             <button type="button" onClick={() => removeSpecialist(idx)} className="p-1 rounded hover:bg-destructive/10 text-destructive shrink-0"><X className="h-3.5 w-3.5" /></button>
                                         </div>
-                                        <input type="text" value={spec.sourceName} onChange={(e) => updateSpecialist(idx, 'sourceName', e.target.value)} placeholder="Source Name" className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
+                                        <Select value={spec.sourceType || 'other'} onValueChange={(val) => updateSpecialist(idx, 'sourceType', val)}>
+                                            <SelectTrigger className="w-full h-7 text-xs">
+                                                <SelectValue placeholder="Select Source Type" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {SOURCE_TYPE_OPTIONS.map(opt => (
+                                                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                         <input type="text" value={spec.sourceLink} onChange={(e) => updateSpecialist(idx, 'sourceLink', e.target.value)} placeholder="Source URL" className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
                                     </div>
                                 ))}
