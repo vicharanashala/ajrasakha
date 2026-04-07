@@ -145,7 +145,7 @@ export class AuthController {
       const lookupData:any = await lookup.json();
       const userInfo = lookupData.users?.[0];
 
-       if (!userInfo?.emailVerified) {
+       if (!userInfo?.emailVerified && !appConfig.isDevelopment) {
         await this.authService.sendVerificationEmail(userInfo.email);
          throw new HttpError(
            401,
@@ -176,7 +176,7 @@ export class AuthController {
       // Decode the token manually
       const decodedEmail = await admin.auth().verifyIdToken(firebaseToken);
 
-      if (!decodedEmail.email_verified) {
+      if (!decodedEmail.email_verified && !appConfig.isDevelopment) {
         throw new HttpError(401, 'Please verify your email before syncing account.');
       }
 
