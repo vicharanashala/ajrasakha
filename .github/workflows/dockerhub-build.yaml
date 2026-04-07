@@ -33,7 +33,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./ai/ajrasakha
-          file: Dockerfile
+          file: ./ai/Dockerfile
           push: true
           platforms: linux/amd64
           tags: |
