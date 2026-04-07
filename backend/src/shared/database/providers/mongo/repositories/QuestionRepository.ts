@@ -8,7 +8,8 @@ import {
   IUser,
   QuestionStatus,
   IReroute,
-  ISimilarQuestion
+  ISimilarQuestion,
+  ICheckStatusResponse
 } from '#root/shared/interfaces/models.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { inject } from 'inversify';
@@ -3410,6 +3411,143 @@ async backfillNormalisedCrop(
   );
 
   return result.modifiedCount;
+}
+
+async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusResponse[]> {
+ await  this.init()
+  const objectIds = questionIds.map(id => new ObjectId(id));
+
+  const data =await this.QuestionCollection.aggregate([
+    {
+      $match: {
+        _id: { $in: objectIds },
+      },
+    },
+
+    // Lookup FINAL ANSWERS ONLY
+    {
+      $lookup: {
+        from: 'answers',
+        let: { qId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$questionId', '$$qId'] },
+                  { $eq: ['$isFinalAnswer', true] },
+                ],
+              },
+            },
+          },
+
+          // Join author
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'authorId',
+              foreignField: '_id',
+              as: 'author',
+            },
+          },
+          {
+            $unwind: {
+              path: '$author',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+
+          // Shape answer
+          {
+            $project: {
+              _id: 0,
+              answer: 1,
+
+              sources: {
+                $map: {
+                  input: { $ifNull: ['$sources', []] },
+                  as: 's',
+                  in: {
+                    source: '$$s.source',
+                    page: '$$s.page',
+                    sourceType: '$$s.sourceType',
+                    sourceName: '$$s.sourceName',
+                  },
+                },
+              },
+
+              
+                authorName: {
+                  $trim: {
+                    input: {
+                      $concat: [
+                        { $ifNull: ['$author.firstName', ''] },
+                        ' ',
+                        { $ifNull: ['$author.lastName', ''] },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          
+        ],
+        as: 'finalAnswer',
+      },
+    },
+
+    // Flatten answer (take first if exists)
+    {
+      $addFields: {
+        finalAnswer: { $arrayElemAt: ['$finalAnswer', 0] },
+      },
+    },
+
+    // Final response shape
+    {
+      $project: {
+        _id: 0,
+
+        question_id: { $toString: '$_id' },
+
+        status: {
+          $cond: {
+            if: { $ifNull: ['$finalAnswer', false] },
+            then: 'closed',
+            else: 'pending',
+          },
+        },
+
+        // Question fields (include what you need)
+        question: '$text',
+        metadata:"$details",
+        priority: 1,
+        details: 1,
+        createdAt: 1,
+
+        // Answer fields
+        answer: {
+          $ifNull: ['$finalAnswer.answer', null],
+        },
+
+        sources: {
+          $ifNull: ['$finalAnswer.sources', []],
+        },
+
+        author: {
+          $ifNull: ['$finalAnswer.authorName', null],
+        },
+      },
+    },
+  ]).toArray()
+  return data.map(item => ({
+    question_id: item.question_id,
+    status: item.status,
+    answer: item.answer ?? null,
+    sources: item.sources ?? [],
+    author: item.author ?? null,
+    metadata:item.metadata??null,
+  }));
 }
 }
 

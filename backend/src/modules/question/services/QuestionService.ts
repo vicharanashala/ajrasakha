@@ -12,7 +12,8 @@ import {
   INotificationType,
   IQuestionPriority,
   ISimilarQuestion,
-  AddQuestionResult
+  AddQuestionResult,
+  ICheckStatusResponse
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -1169,7 +1170,15 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
 
 
-        return { isDuplicate: false, data: baseQuestion };
+       // return { isDuplicate: false, data: baseQuestion };
+       return {
+        isDuplicate: false,
+        data: {
+          ...baseQuestion,
+          _id: baseQuestion._id?.toString?.(),
+          userId: baseQuestion.userId?.toString?.(),
+        },
+      };
       });
     } catch (error) {
       console.error(error);
@@ -3372,6 +3381,19 @@ export class QuestionService extends BaseService implements IQuestionService {
     content: message.content || [],
   };
 }
+async checkStatus(
+  questionIds: string[],
+): Promise<ICheckStatusResponse[]> {
+
+  const result=await this.questionRepo.getQuestionsWithAnswerDetails(questionIds)
+
+  // 1. Fetch data
+  
+return result
+        
+ 
+}
+
 
 
 }
