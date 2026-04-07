@@ -203,7 +203,7 @@ export class QuestionController {
       return {
         success: true,
         message: 'Question submitted successfully.',
-        data,
+        question_id:data._id
       };
     }
   }
