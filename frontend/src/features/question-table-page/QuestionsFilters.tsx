@@ -42,8 +42,13 @@ import {
   AddOrEditQuestionDialog,
   type AddQuestionValidationErrors,
 } from "./AddOrEditQuestionDialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
-import { useReAllocateLessWorkload } from '@/hooks/api/question/useReAllocateLessWorkload';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
+import { useReAllocateLessWorkload } from "@/hooks/api/question/useReAllocateLessWorkload";
 import { DownloadReportButton } from "./DownloadReportButton";
 import { DownloadOverallReportButton } from "./DownloadOverallReportButton";
 import { DownloadFilteredReportButton } from "./DownloadFilteredReportButton";
@@ -128,7 +133,9 @@ export const QuestionsFilters = ({
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
     null,
   );
-  const [answerMode, setAnswerMode] = useState<"ajraskha" | "manual">("ajraskha");
+  const [answerMode, setAnswerMode] = useState<"ajraskha" | "manual">(
+    "ajraskha",
+  );
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion((count, isBulkUpload) => {
@@ -211,13 +218,16 @@ export const QuestionsFilters = ({
       const validationErrors: AddQuestionValidationErrors = {};
 
       if (!payload.question) {
-        validationErrors.question = "Please enter a question before submitting.";
+        validationErrors.question =
+          "Please enter a question before submitting.";
       } else if (payload.question.length < 10) {
-        validationErrors.question = "Question must be at least 10 characters long.";
+        validationErrors.question =
+          "Question must be at least 10 characters long.";
       }
 
       if (!payload.priority) {
-        validationErrors.priority = "Please select a priority (Low, Medium, or High).";
+        validationErrors.priority =
+          "Please select a priority (Low, Medium, or High).";
       } else if (!["low", "medium", "high"].includes(payload.priority)) {
         validationErrors.priority =
           "Invalid priority value. Please reselect from the options.";
@@ -305,6 +315,9 @@ export const QuestionsFilters = ({
       closedAtEnd: advanceFilter?.closedAtEnd,
       consecutiveApprovals: advanceFilter?.consecutiveApprovals,
       autoAllocateFilter: advanceFilter?.autoAllocateFilter,
+      hiddenQuestions: advanceFilter?.hiddenQuestions,
+      duplicateQuestions: advanceFilter?.duplicateQuestions,
+
     });
   };
 
@@ -327,7 +340,9 @@ export const QuestionsFilters = ({
       }
 
       // ignore defaults
-      if (value === undefined || value === "all") return false;
+      if (value === undefined || value === "all" || value === null)
+        return false;
+      if (typeof value === "boolean" && value === false) return false;
 
       //  ignore default slider range
       if (Array.isArray(value) && value[0] === 0 && value[1] === 100) {
@@ -432,26 +447,28 @@ export const QuestionsFilters = ({
         <div className="flex items-center rounded-lg border border-border bg-muted/40 p-1">
           <button
             onClick={() => {
-              setAnswerMode("ajraskha")
+              setAnswerMode("ajraskha");
               onChange({ ...advanceFilter, source: "AJRASAKHA" });
             }}
-            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "ajraskha"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-              }`}
+            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
+              answerMode === "ajraskha"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
           >
             AJRASKHA
           </button>
 
           <button
             onClick={() => {
-              setAnswerMode("manual")
+              setAnswerMode("manual");
               onChange({ ...advanceFilter, source: "AGRI_EXPERT" });
             }}
-            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "manual"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-              }`}
+            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
+              answerMode === "manual"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
           >
             Manual
           </button>
@@ -496,9 +513,11 @@ export const QuestionsFilters = ({
             {/* Bulk delete with count */}
             <ConfirmationModal
               title="Delete Selected Questions?"
-              description={`Are you sure you want to delete ${selectedQuestionIds.length
-                } selected question${selectedQuestionIds.length > 1 ? "s" : ""
-                }? This action is irreversible.`}
+              description={`Are you sure you want to delete ${
+                selectedQuestionIds.length
+              } selected question${
+                selectedQuestionIds.length > 1 ? "s" : ""
+              }? This action is irreversible.`}
               confirmText="Delete"
               cancelText="Cancel"
               isLoading={bulkDeletingQuestions}
@@ -611,10 +630,11 @@ export const QuestionsFilters = ({
                         key={key}
                         onClick={() => toggleColumn(key)}
                         className={`flex items-center justify-between px-5 py-2 rounded-lg border transition-all duration-300 hover:border-emerald-500/60
-              ${isVisible
-                            ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
-                            : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
-                          }
+              ${
+                isVisible
+                  ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
+                  : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
+              }
             `}
                       >
                         <span className="text-xs font-semibold tracking-wider capitalize">
@@ -772,27 +792,38 @@ export const QuestionsFilters = ({
                 Download Reports
               </h3>
               <p className="text-xs text-gray-500 mb-4">
-                Export question reports with custom date ranges and filters for analysis and record-keeping.
+                Export question reports with custom date ranges and filters for
+                analysis and record-keeping.
               </p>
               <div className="space-y-3">
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-blue-50 dark:hover:bg-blue-500/5 border border-gray-200 dark:border-gray-800 hover:border-blue-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
-                  <DownloadReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
+                  <DownloadReportButton
+                    onOpenDialog={() => setIsSidebarOpen(false)}
+                  />
                 </div>
 
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
-                  <DownloadOverallReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
+                  <DownloadOverallReportButton
+                    onOpenDialog={() => setIsSidebarOpen(false)}
+                  />
                 </div>
 
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
-                  <DownloadFilteredReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
+                  <DownloadFilteredReportButton
+                    onOpenDialog={() => setIsSidebarOpen(false)}
+                  />
                 </div>
 
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-teal-50 dark:hover:bg-teal-500/5 border border-gray-200 dark:border-gray-800 hover:border-teal-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
-                  <DownloadDuplicateReportButton onOpenDialog={() => setIsSidebarOpen(false)} />
+                  <DownloadDuplicateReportButton
+                    onOpenDialog={() => setIsSidebarOpen(false)}
+                  />
                 </div>
 
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
-                  <DownloadLevelWiseReportButton closeSideBar={() => setIsSidebarOpen(false)} />
+                  <DownloadLevelWiseReportButton
+                    closeSideBar={() => setIsSidebarOpen(false)}
+                  />
                 </div>
               </div>
             </section>
@@ -848,7 +879,10 @@ export const QuestionsFilters = ({
         onOpenChange={setIsReAllocateOpen}
         onConfirm={handleReAllocateLessWorkload}
       />
-      <CropManagementModal open={isCropModalOpen} onOpenChange={setIsCropModalOpen} />
+      <CropManagementModal
+        open={isCropModalOpen}
+        onOpenChange={setIsCropModalOpen}
+      />
     </div>
   );
 };

@@ -74,6 +74,9 @@ export class QuestionService {
     if (filter.dateRange && filter.dateRange !== "all")
       params.append("dateRange", filter.dateRange);
 
+    params.append("hiddenQuestions", String(filter.hiddenQuestions));
+    params.append("duplicateQuestions", String(filter.duplicateQuestions));
+
     return apiFetch<IDetailedQuestionResponse | null>(
       `${this._baseUrl}/detailed?${params.toString()}`
     );
