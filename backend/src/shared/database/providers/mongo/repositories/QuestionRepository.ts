@@ -334,10 +334,13 @@ export class QuestionRepository implements IQuestionRepository {
     const filter: any = {
       isHidden: { $ne: true }, // default to exclude hidden questions
     };
-    console.log('hiddenQuestions:', hiddenQuestions, 'duplicateQuestions:', duplicateQuestions);
+
+    // --- Hidden question filter ---
     if(hiddenQuestions === 'true'){
-        filter.isHidden = { $eq: true }; // 👈 exclude hidden questions
+        filter.isHidden = { $eq: true }; // filter by hidden questions
     }
+
+    // --- setting the collection with respect to the duplicate questions filter ---
       const questionsCollection = (
         duplicateQuestions === 'true'
           ? this.DuplicateQuestionCollection
