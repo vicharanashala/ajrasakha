@@ -1662,40 +1662,14 @@ answer: ${updates.answer}`;
           {
             text,
             embedding: questionEmbedding,
-            status: 'open',
-            closedAt: new Date(),
-            aiInitialAnswer:updates.answer,
-            isAutoAllocate:true
+            aiApprovedSources: updates.sources ?? [],
+            aiApprovedAnswer: updates.answer ?? '',
+            // question stays 'open' so experts can call reviewAnswer()
           },
           session,
           true,
         );
-  
-        let textEmbedding = [];
-  
-        if (ENABLE_AI_SERVER) {
-          const {embedding} = await this.aiService.getEmbedding(text);
-          textEmbedding = embedding;
-        }
-  
-        const payload: Partial<IAnswer> = {
-          answer: updates.answer,
-          sources: updates.sources,
-          questionId: new ObjectId(updates.questionId),
-          approvedBy: new ObjectId(userId),
-          embedding: textEmbedding,
-          isFinalAnswer: false,
-          status: 'pending',
-          
-        };
-        let answerId= await this.answerRepo.addAjrasakhaAnswer(
-          updates.questionId,
-          userId,
-          updates.answer,
-          updates.sources,
-          textEmbedding,
-          session,
-        );
+
         const users = await this.userRepo.getSpecialTaskForceExperts(
           session,
         );
@@ -1725,10 +1699,48 @@ answer: ${updates.answer}`;
             session,
           );
         }
-  
+
+        // Create an answer document so the expert can see the moderator-approved
+        // answer text from the answers collection (not the raw AI blob)
+        const firstExpertId = initialUsersToAllocate[0]
+          ? initialUsersToAllocate[0]._id.toString()
+          : userId;
+
+        let answerEmbedding: number[] = [];
+        if (ENABLE_AI_SERVER) {
+          try {
+            const { embedding } = await this.aiService.getEmbedding(updates.answer);
+            answerEmbedding = embedding;
+          } catch {
+            answerEmbedding = [];
+          }
+        }
+
+        const { insertedId: answerId } = await this.answerRepo.addAnswer(
+          updates.questionId,
+          firstExpertId,
+          updates.answer,
+          updates.sources ?? [],
+          answerEmbedding,
+          false,       // isFinalAnswer
+          1,           // updatedAnswerCount
+          session,
+          'pending',   // status
+          'AI Generated Answer', // remarks
+        );
+
+        // Update question totalAnswersCount
+        await this.questionRepo.updateQuestion(
+          updates.questionId,
+          { totalAnswersCount: 1 },
+          session,
+        );
+
+        // Create submission with empty history — expert is the author
+        // and will see the pre-filled answer from the answers collection
         const submissionData: IQuestionSubmission = {
           questionId: new ObjectId(updates?.questionId?.toString()),
-          lastRespondedBy: null,
+          lastRespondedBy: new ObjectId(userId),
           history: [],
           queue,
           createdAt: new Date(),
@@ -1747,7 +1759,7 @@ answer: ${updates.answer}`;
           );
         }
   
-        return answerId
+        return { modifiedCount: 1 };
       }
   
       // ✅ Original default flow (unchanged)

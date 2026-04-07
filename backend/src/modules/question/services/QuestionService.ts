@@ -1226,6 +1226,20 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (answers && answers.length == 0)
           aiInitialAnswer = currentQuestion.aiInitialAnswer;
 
+        // For AJRASAKHA: if aiApprovedAnswer is not set (old data), fall back
+        // to the first answer from the answers collection
+        let aiApprovedAnswer = currentQuestion.aiApprovedAnswer;
+        let aiApprovedSources = currentQuestion.aiApprovedSources;
+        if (
+          currentQuestion.source === 'AJRASAKHA' &&
+          !aiApprovedAnswer &&
+          answers &&
+          answers.length > 0
+        ) {
+          aiApprovedAnswer = answers[0].answer;
+          aiApprovedSources = answers[0].sources;
+        }
+
         return {
           id: currentQuestion._id.toString(),
           text: currentQuestion.question,
@@ -1234,16 +1248,13 @@ export class QuestionService extends BaseService implements IQuestionService {
           status: currentQuestion.status,
           priority: currentQuestion.priority,
           aiInitialAnswer,
+          aiApprovedAnswer,
+          aiApprovedSources,
+          isAutoAllocate: currentQuestion.isAutoAllocate,
           createdAt: new Date(currentQuestion.createdAt).toLocaleString(),
           updatedAt: new Date(currentQuestion.updatedAt).toLocaleString(),
           totalAnswersCount: currentQuestion.totalAnswersCount,
           history: submissionHistory,
-          // currentAnswers: currentAnswers.map(currentAnswer => ({
-          //   id: currentAnswer._id.toString(),
-          //   answer: currentAnswer.answer,
-          //   isFinalAnswer: currentAnswer.isFinalAnswer,
-          //   createdAt: currentAnswer.createdAt,
-          // })),
         };
       });
     } catch (error) {

@@ -58,6 +58,8 @@ export interface IQuestion {
   source: 'AJRASAKHA' | 'AGRI_EXPERT';
   embedding: number[];
   aiInitialAnswer?: string;
+  aiApprovedSources?: SourceItem[];
+  aiApprovedAnswer?: string;
   metrics: IQuestionMetrics | null;
   text?: string;
   closedAt?: Date;
