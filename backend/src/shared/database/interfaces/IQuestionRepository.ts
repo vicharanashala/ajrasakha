@@ -353,6 +353,7 @@ export interface IQuestionRepository {
   getQuestionsByFilters(
     filters: any,
     session?: ClientSession,
+    useDuplicateCollection?: boolean,
   ): Promise<IQuestion[]>;
 
   getAllQuestionEmbeddings(

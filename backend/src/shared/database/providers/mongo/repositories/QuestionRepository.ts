@@ -3301,10 +3301,15 @@ export class QuestionRepository implements IQuestionRepository {
   async getQuestionsByFilters(
     filters: any,
     session?: ClientSession,
+    useDuplicateCollection = false,
   ): Promise<IQuestion[]> {
     await this.init();
 
-    return await this.QuestionCollection
+    const collection = useDuplicateCollection
+      ? this.DuplicateQuestionCollection
+      : this.QuestionCollection;
+
+    return await collection
       .find(filters, { session })
       .sort({ createdAt: -1 })
       .toArray();

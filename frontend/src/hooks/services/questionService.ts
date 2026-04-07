@@ -519,6 +519,8 @@ export class QuestionService {
     season?: string;
     domain?: string;
     status?: string;
+    hiddenQuestions?: boolean;
+    duplicateQuestions?: boolean;
   }): Promise<Blob> {
     const params = new URLSearchParams();
     if (filters.state && filters.state !== 'all') {
@@ -538,6 +540,12 @@ export class QuestionService {
     }
     if (filters.status && filters.status !== 'all') {
       params.append("status", filters.status);
+    }
+    if (filters.hiddenQuestions) {
+      params.append("hiddenQuestions", String(filters.hiddenQuestions));
+    }
+    if (filters.duplicateQuestions) {
+      params.append("duplicateQuestions", String(filters.duplicateQuestions));
     }
 
     // Get the current Firebase user and token

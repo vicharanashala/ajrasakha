@@ -3148,6 +3148,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     season?: string;
     domain?: string;
     status?: string;
+    hiddenQuestions?: string;
+    duplicateQuestions?: string;
   }): Promise<ArrayBuffer | null> {
     return this._withTransaction(async (session) => {
       // Build filter query
@@ -3178,9 +3180,16 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (filters.status && filters.status !== 'all') {
         query.status = filters.status;
       }
+      if (filters.hiddenQuestions === 'true') {
+        query.isHidden = { $eq: true };
+      }
 
       // Get questions from repository
-      const questions = await this.questionRepo.getQuestionsByFilters(query, session);
+      const questions = await this.questionRepo.getQuestionsByFilters(
+        query,
+        session,
+        filters.duplicateQuestions === 'true',
+      );
 
       if (!questions || questions.length === 0) {
         console.log("No questions found for given filters");

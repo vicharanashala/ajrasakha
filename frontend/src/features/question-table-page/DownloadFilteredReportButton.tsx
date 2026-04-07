@@ -44,11 +44,15 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
     season: "all",
     domain: "all",
     status: "all",
+    hiddenQuestions: false,
+    duplicateQuestions: false,
   });
 
   const handleDownloadReport = async () => {
     // Check if at least one filter is selected
-    const hasFilter = Object.values(filters).some(value => value !== "all");
+    const hasFilter = Object.entries(filters).some(([, value]) =>
+      typeof value === "boolean" ? value : value !== "all",
+    );
     
     if (!hasFilter) {
       toast.error("Please select at least one filter");
@@ -70,6 +74,8 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
       if (filters.season !== "all") filterParts.push(filters.season);
       if (filters.domain !== "all") filterParts.push(filters.domain);
       if (filters.status !== "all") filterParts.push(filters.status);
+      if (filters.hiddenQuestions) filterParts.push("hidden");
+      if (filters.duplicateQuestions) filterParts.push("duplicate");
       
       const filename = `questions_${filterParts.join("_") || "filtered"}.xlsx`;
 
@@ -98,6 +104,10 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
+  const handleCheckboxChange = (key: "hiddenQuestions" | "duplicateQuestions", value: boolean) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
   const handleReset = () => {
     setFilters({
       state: "all",
@@ -106,6 +116,8 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
       season: "all",
       domain: "all",
       status: "all",
+      hiddenQuestions: false,
+      duplicateQuestions: false,
     });
   };
 
@@ -289,6 +301,35 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-3 col-span-2">
+                <Label className="text-sm font-medium">Question Type</Label>
+                <div className="grid grid-cols-2 gap-3 rounded-md border p-3">
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={filters.hiddenQuestions}
+                      onChange={(event) =>
+                        handleCheckboxChange("hiddenQuestions", event.target.checked)
+                      }
+                      className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <span className="text-sm">Show hidden questions</span>
+                  </label>
+
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={filters.duplicateQuestions}
+                      onChange={(event) =>
+                        handleCheckboxChange("duplicateQuestions", event.target.checked)
+                      }
+                      className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <span className="text-sm">Show duplicate questions</span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
