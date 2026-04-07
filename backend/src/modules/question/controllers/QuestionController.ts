@@ -26,6 +26,7 @@ import {
   IQuestion,
   IQuestionSubmission,
   IUser,
+  IcheckStatusResponseDto
 } from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {
@@ -559,5 +560,28 @@ async outreachQuestions(
         content: data.content,
     }};
   }
+
+    @Post('/check-status')
+    @HttpCode(200)
+  //  @Authorized()
+    @OpenAPI({ summary: 'Check status of multiple questions' })
+    @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+    async checkStatus(
+      @Body() body: { question_ids: string[] },
+      @CurrentUser() user: IUser,
+    ) :Promise<IcheckStatusResponseDto>{
+      const { question_ids } = body;
+
+      if (!question_ids || !Array.isArray(question_ids)) {
+        throw new BadRequestError('question_ids must be an array');
+      }
+      const results = await this.questionService.checkStatus(
+        question_ids
+      );
+      return {
+        success: true,
+        data: results,
+      };
+    }
 
 }
