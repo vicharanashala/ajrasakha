@@ -29,7 +29,8 @@ export const QuestionHeader = ({ question, goBack }: QuestionHeaderProps) => {
         <SarvamTranslateDropdown query={question.question} onTranslate={(result) => setTranslatedText(result)} />
 
         <div className="flex sm:flex-row flex-col sm:items-center items-end gap-3 sm:gap-6">
-          <TimerDisplay timer={timer} status={question.status} size="lg" />
+          {/* <TimerDisplay timer={timer} status={question.status} size="lg" /> */}
+          <TimerDisplay timer={timer} status={question.status} source={question.source} size="lg" />
 
           <div className="flex justify-end">
             <Button

@@ -185,7 +185,8 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
 
       {/* Timer */}
       <div className="mt-1 text-xs text-muted-foreground">
-        <TimerDisplay timer={timer} status={q.status} />
+        {/* <TimerDisplay timer={timer} status={q.status} /> */}
+        <TimerDisplay timer={timer} status={q.status} source={q.source} />
       </div>
 
       {/* Grid of details */}
