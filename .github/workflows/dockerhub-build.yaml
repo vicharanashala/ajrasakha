@@ -1,4 +1,4 @@
-name: Build Container Image, Deploy to Production
+name: Build MCPs Container Image
 on:
   workflow_dispatch:    
 
@@ -32,7 +32,7 @@ jobs:
       - name: Build & Push Image
         uses: docker/build-push-action@v5
         with:
-          context: ./ai/ajrasakha
+          context: ./ai/
           file: ./ai/Dockerfile
           push: true
           platforms: linux/amd64
