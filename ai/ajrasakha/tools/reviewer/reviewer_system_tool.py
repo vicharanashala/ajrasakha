@@ -39,23 +39,6 @@ def upload_question_to_reviewer_system(
         print(f"Error submitting question: {e}")
         return {"error": str(e)}
 
-@mcp.tool()
-def check_reviewer_question_status(question_ids: List[str]) -> Dict[str, Any]:
-    """
-    Checks the status of a question in the reviewer system.
-    If the status is 'approved', it returns the answer along with metadata and author details.
-    """
-    payload = {
-        "question_ids": question_ids
-    }
-    
-    try:
-        response = requests.post(CHECK_STATUS_URL, json=payload, timeout=10)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"Error checking status: {e}")
-        return {"error": str(e)}
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http")
