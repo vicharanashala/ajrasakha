@@ -1,24 +1,6 @@
 name: Build Container Image, Deploy to Production
 on:
   workflow_dispatch:    
-    inputs:
-      should_build:
-        description: "Build and Push"
-        required: true
-        default: "true"
-        type: choice
-        options:
-          - "false"
-          - "true"
-      should_deploy:
-        description: "Deploy"
-        required: true
-        default: "true"
-        type: choice
-        options:
-          - "false"
-          - "true"
-
 
 permissions:
   contents: read
@@ -27,13 +9,10 @@ permissions:
 
 env:
   DOCKER_IMAGE: ajrasakha-mcps
-  INFISICAL_ENVIRONMENT: prod
-  INFISICAL_SECRET_PATH: /annam-ajrasakha/MCPs
 
 
 jobs:
   build:
-    if: github.event.inputs.should_build == 'true'
     name: Build & Push Image
     runs-on: ubuntu-latest
 
