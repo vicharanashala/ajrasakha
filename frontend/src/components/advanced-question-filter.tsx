@@ -706,21 +706,22 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
             <div className="space-y-2 mb-4">
               <Label className="flex items-center gap-2 text-sm font-semibold">
                 <Clock className="h-4 w-4 text-primary" />
-                Closed in Last 2 Hours
+                Closed within 2 Hours
               </Label>
               <div className="flex items-center gap-2">
                 <Checkbox
+                  className="border-primary"
                   checked={advanceFilter.closedInTwoHrs ?? false}
                   onCheckedChange={(checked) =>
                     handleDialogChange("closedInTwoHrs", checked === true)
                   }
                 />
                 <span className="text-sm text-muted-foreground">
-                  Show only questions closed within the last 2 hours
+                  Show questions closed within 2 hours
                 </span>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
               <div className="space-y-2 min-w-0">
                 <DateRangeFilter
                   customName={"CreatedAt Date Range"}
