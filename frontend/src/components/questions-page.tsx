@@ -30,7 +30,6 @@ export const QuestionsPage = ({
   currentUser?: IUser;
   autoOpenQuestionId?: string | null;
 }) => {
-
   //grid or table
   const [view, setView] = useState<"table" | "grid">("table");
   const [search, setSearch] = useState("");
@@ -51,6 +50,7 @@ export const QuestionsPage = ({
   const [consecutiveApprovals, setConsecutiveApprovals] = useState("all");
   const [autoAllocateFilter, setAutoAllocateFilter] = useState("all");
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
+  const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
   // const observerRef = useRef<IntersectionObserver | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -121,6 +121,7 @@ export const QuestionsPage = ({
       closedAtEnd,
       consecutiveApprovals,
       autoAllocateFilter,
+      closedInTwoHrs,
     }),
     [
       status,
@@ -140,6 +141,7 @@ export const QuestionsPage = ({
       closedAtStart,
       consecutiveApprovals,
       autoAllocateFilter,
+      closedInTwoHrs,
     ],
   );
 
@@ -209,12 +211,14 @@ export const QuestionsPage = ({
     closedAtStart?: Date | undefined;
     consecutiveApprovals?: string;
     autoAllocateFilter?: string;
+    closedInTwoHrs?: boolean;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
     if (next.state !== undefined) setState(next.state);
     if (next.crop !== undefined) setCrop(next.crop);
-    if (next.normalised_crop !== undefined) setNormalisedCrop(next.normalised_crop);
+    if (next.normalised_crop !== undefined)
+      setNormalisedCrop(next.normalised_crop);
     if (next.answersCount !== undefined) setAnswersCount(next.answersCount);
     if (next.dateRange !== undefined) setDateRange(next.dateRange);
     if (next.priority !== undefined) setPriority(next.priority);
@@ -229,6 +233,8 @@ export const QuestionsPage = ({
       setConsecutiveApprovals(next.consecutiveApprovals);
     if (next.autoAllocateFilter !== undefined)
       setAutoAllocateFilter(next.autoAllocateFilter);
+    if (next.closedInTwoHrs !== undefined)
+      setClosedInTwoHrs(next.closedInTwoHrs);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);
@@ -260,6 +266,7 @@ export const QuestionsPage = ({
     setClosedAtStart(undefined);
     setConsecutiveApprovals("all");
     setAutoAllocateFilter("all");
+    setClosedInTwoHrs(false);
   };
 
   const handleViewMore = (questoinId: string) => {

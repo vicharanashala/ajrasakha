@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/atoms/button";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Label } from "@/components/atoms/label";
+import { Checkbox } from "@/components/atoms/checkbox";
 import {
   Select,
   SelectTrigger,
@@ -52,13 +53,16 @@ import {
   BadgeCheck,
   Hand,
   Users,
-  Settings
-
-
+  Settings,
 } from "lucide-react";
 import { Plus } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./atoms/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./atoms/tooltip";
 import type { IMyPreference } from "@/types";
 import { CROPS, STATES, DOMAINS, Review_Level } from "@/components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
@@ -111,10 +115,11 @@ export type AdvanceFilterValues = {
   startTime?: Date | undefined | null; // Use a specific name like startTime/endTime
   endTime?: Date | undefined | null;
   review_level?: ReviewLevel;
-  closedAtEnd?: Date | undefined | null,
-  closedAtStart?: Date | undefined | null,
-  consecutiveApprovals?:string,
-  autoAllocateFilter?:string,
+  closedAtEnd?: Date | undefined | null;
+  closedAtStart?: Date | undefined | null;
+  consecutiveApprovals?: string;
+  autoAllocateFilter?: string;
+  closedInTwoHrs?: boolean;
 };
 
 // Define the props for your new component
@@ -220,7 +225,7 @@ interface AdvanceFilterDialogProps {
   activeFiltersCount: number;
   onReset: () => void;
   isForQA: boolean;
-  setIsSidebarOpen: (value:boolean) => void;
+  setIsSidebarOpen: (value: boolean) => void;
 }
 
 export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
@@ -241,7 +246,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   const dbCrops = cropsData?.crops || [];
 
   const users = (userNameReponse?.users || []).sort((a, b) =>
-    a.userName.localeCompare(b.userName)
+    a.userName.localeCompare(b.userName),
   );
 
   return (
@@ -457,7 +462,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
             {/* Domain & Users */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
               <div className="space-y-2 min-w-0">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <Sprout className="h-4 w-4 text-primary" />
@@ -473,14 +477,19 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-sm">
                       <p>
-                        Filter by the standardized crop name. You can view a crop's alternative names by hovering over the "+" icon next to it. Use "Not Set" to find older questions without a normalized crop.
+                        Filter by the standardized crop name. You can view a
+                        crop's alternative names by hovering over the "+" icon
+                        next to it. Use "Not Set" to find older questions
+                        without a normalized crop.
                       </p>
                     </TooltipContent>
                   </Tooltip>
                 </Label>
                 <Select
                   value={advanceFilter.normalised_crop}
-                  onValueChange={(v) => handleDialogChange("normalised_crop", v)}
+                  onValueChange={(v) =>
+                    handleDialogChange("normalised_crop", v)
+                  }
                 >
                   <SelectTrigger className="bg-background w-full">
                     <SelectValue />
@@ -490,27 +499,44 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     <SelectItem value="__NOT_SET__">
                       <div className="flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                        <span className="text-yellow-700 dark:text-yellow-400 font-medium">Not Set (Legacy)</span>
+                        <span className="text-yellow-700 dark:text-yellow-400 font-medium">
+                          Not Set (Legacy)
+                        </span>
                       </div>
                     </SelectItem>
                     {dbCrops.length > 0
                       ? dbCrops.map((crop) => (
-                          <SelectItem key={crop._id || crop.name} value={crop.name}>
+                          <SelectItem
+                            key={crop._id || crop.name}
+                            value={crop.name}
+                          >
                             {crop.aliases && crop.aliases.length > 0 ? (
                               <TooltipProvider delayDuration={200}>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <span className="flex items-center gap-2 cursor-default">
-                                      <span className="capitalize">{crop.name}</span>
+                                      <span className="capitalize">
+                                        {crop.name}
+                                      </span>
                                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
                                         +{crop.aliases.length}
                                       </span>
                                     </span>
                                   </TooltipTrigger>
-                                  <TooltipContent side="right" className="text-xs">
-                                    <p className="font-semibold mb-0.5">Also known as:</p>
+                                  <TooltipContent
+                                    side="right"
+                                    className="text-xs"
+                                  >
+                                    <p className="font-semibold mb-0.5">
+                                      Also known as:
+                                    </p>
                                     {crop.aliases.map((a) => (
-                                      <p key={a} className="capitalize text-muted-foreground">{a}</p>
+                                      <p
+                                        key={a}
+                                        className="capitalize text-muted-foreground"
+                                      >
+                                        {a}
+                                      </p>
                                     ))}
                                   </TooltipContent>
                                 </Tooltip>
@@ -677,6 +703,23 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
             </div>
 
             <Separator />
+            <div className="space-y-2 mb-4">
+              <Label className="flex items-center gap-2 text-sm font-semibold">
+                <Clock className="h-4 w-4 text-primary" />
+                Closed in Last 2 Hours
+              </Label>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={advanceFilter.closedInTwoHrs ?? false}
+                  onCheckedChange={(checked) =>
+                    handleDialogChange("closedInTwoHrs", checked === true)
+                  }
+                />
+                <span className="text-sm text-muted-foreground">
+                  Show only questions closed within the last 2 hours
+                </span>
+              </div>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2 min-w-0">
                 <DateRangeFilter
@@ -703,19 +746,20 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   Consecutive Approvals
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button type="button" className="text-muted-foreground hover:text-primary transition-colors">
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-primary transition-colors"
+                      >
                         <Info className="h-4 w-4" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-sm">
                       <p>
-                        Filter questions based on the number of consecutive approvals received by their latest answer.
+                        Filter questions based on the number of consecutive
+                        approvals received by their latest answer.
                       </p>
                     </TooltipContent>
-
                   </Tooltip>
-
-                  
                 </Label>
                 <Select
                   value={advanceFilter.consecutiveApprovals}
@@ -761,7 +805,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 <Label className="relative flex items-center gap-2 text-sm font-semibold">
                   <Users className="h-4 w-4 text-primary" />
                   Auto Allocate Experts
-                  
                 </Label>
                 <Select
                   value={advanceFilter.autoAllocateFilter}
@@ -851,6 +894,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                         value === "all" ||
                         key === "closedAtStart" ||
                         key === "closedAtEnd" ||
+                        (key === "closedInTwoHrs" && value === false) ||
                         (Array.isArray(value) &&
                           value[0] === 0 &&
                           value[1] === 100)
@@ -871,7 +915,11 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                             onClick={() =>
                               handleDialogChange(
                                 key,
-                                Array.isArray(value) ? [0, 100] : "all",
+                                Array.isArray(value)
+                                  ? [0, 100]
+                                  : key === "closedInTwoHrs"
+                                    ? false
+                                    : "all",
                               )
                             }
                           />
@@ -900,6 +948,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   user: "all",
                   domain: "all",
                   review_level: "all",
+                  closedInTwoHrs: false,
 
                   endTime: undefined,
                   startTime: undefined,
