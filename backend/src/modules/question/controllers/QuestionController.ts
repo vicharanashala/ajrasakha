@@ -18,6 +18,7 @@ import {
   BadRequestError,
   ContentType,
   Res,
+  UseBefore,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -52,6 +53,7 @@ import { QuestionService } from '../services/QuestionService.js';
 import { UploadFileOptions } from '#root/modules/core/classes/validators/fileUploadOptions.js';
 import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
+import { InternalApiAuth } from '#root/shared/functions/internalApiAuth.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -563,12 +565,11 @@ async outreachQuestions(
 
     @Post('/check-status')
     @HttpCode(200)
-  //  @Authorized()
+    @UseBefore(InternalApiAuth)
     @OpenAPI({ summary: 'Check status of multiple questions' })
     @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
     async checkStatus(
       @Body() body: { question_ids: string[] },
-      @CurrentUser() user: IUser,
     ) :Promise<IcheckStatusResponseDto>{
       const { question_ids } = body;
 

@@ -15,6 +15,7 @@ import {printStartupSummary} from './utils/logDetails.js';
 import type {CorsOptions} from 'cors';
 import {authorizationChecker} from './shared/functions/authorizationChecker.js';
 import {currentUserChecker} from './shared/functions/currentUserChecker.js';
+import { InternalApiAuth } from './shared/index.js';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import { initJobs } from './bootstrap/jobs/index.js';
