@@ -201,7 +201,7 @@ export class QuestionService {
     const body: BodyInit | null = isFormData
       ? (newQuestionData as FormData)
       : JSON.stringify(newQuestionData);
-    return apiFetch<void>(`${this._baseUrl}`, {
+    return apiFetch<void>(`${this._baseUrl}/reviewer-add-que`, {
       // method: "POST",
       // // body: JSON.stringify(newQuestionData),
       // body:isFormData ? newQuestionData : JSON.stringify(newQuestionData),
