@@ -26,6 +26,8 @@ import type {
 } from "@/types";
 import { Label } from "../../components/atoms/label";
 import { formatDate } from "@/utils/formatDate";
+import { useCountdown } from "@/hooks/ui/useCountdown";
+import { TimerDisplay } from "../../components/timer-display";
 
 type QaHeaderProps={
   questions: any
@@ -292,6 +294,139 @@ const QaPreferencesDialog = ({
   );
 };
 
+const QaQuestionItem = ({
+  question,
+  selectedQuestion,
+  onQuestionSelect,
+  setQuestionRef,
+}: {
+  question: any;
+  selectedQuestion: string | null;
+  onQuestionSelect: (id: string) => void;
+  setQuestionRef: (id: string, el: HTMLDivElement | null) => void;
+}) => {
+  const DURATION_HOURS = question?.source === "AJRASAKHA" ? 2 : 4;
+  const timer = useCountdown(question?.createdAt, DURATION_HOURS, () => {});
+
+  return (
+    <div
+      key={question?.id}
+      ref={(el) => setQuestionRef(question?.id || "", el)}
+      className={`relative group rounded-xl border transition-all duration-200 overflow-hidden bg-transparent ${
+        selectedQuestion === question?.id
+          ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
+          : "border-border bg-card hover:border-primary/40 hover:bg-accent/20 hover:shadow-sm"
+      }`}
+    >
+      {selectedQuestion === question?.id && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+      )}
+
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          <RadioGroupItem
+            value={question?.id || ""}
+            id={question?.id}
+            className="mt-1  w-5 h-5 rounded-full border-2 border-gray-400 dark:border-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 checked:bg-green-600 dark:checked:bg-green-400"
+          />
+
+          <div className="flex-1 min-w-0">
+            <Label
+              htmlFor={question?.id}
+              className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
+            >
+              {question?.text}
+            </Label>
+          </div>
+        </div>
+        <div className="mt-2 ml-7">
+          <TimerDisplay timer={timer} status={question?.status} source={question?.source} size="sm" />
+        </div>
+        <div className="mt-1 ml-7 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+          <div className="items-center gap-1.5 flex">
+            {question?.priority && (
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                  question.priority === "high"
+                    ? "bg-red-500/10 text-red-600 border-red-500/30"
+                    : question.priority === "medium"
+                    ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+                    : "bg-green-500/10 text-green-600 border-green-500/30"
+                }`}
+              >
+                {question.priority.charAt(0).toUpperCase() +
+                  question.priority.slice(1)}
+              </span>
+            )}
+
+            <svg
+              className="w-3 h-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span className="font-medium text-xs">
+              Created:
+            </span>
+            <span>
+              {formatDate(new Date(question?.createdAt!))}
+            </span>
+          </div>
+
+          <div className="hidden md:flex items-center gap-1.5">
+            <svg
+              className="w-3 h-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
+            </svg>
+            <span className="font-medium">Updated:</span>
+            {formatDate(new Date(question?.updatedAt!))}
+          </div>
+
+          <div className="hidden md:flex items-center gap-1.5">
+            <svg
+              className="w-3 h-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.965 8.965 0 01-4.126-.937l-3.157.937.937-3.157A8.965 8.965 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
+              />
+            </svg>
+            <span className="font-medium">Answers:</span>
+            <span className="px-1.5 py-0.5 bg-muted text-muted-foreground rounded text-xs font-medium">
+              {question?.totalAnswersCount}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {selectedQuestion === question?.id && (
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none"></div>
+      )}
+    </div>
+  );
+};
+
 export const QaHeader=({ questions,
   selectedQuestion,
   onQuestionSelect,
@@ -455,119 +590,13 @@ export const QaHeader=({ questions,
                   className="space-y-4"
                 >
                   {questions?.map((question:any) => (
-                    <div
-                      // key={index}
+                    <QaQuestionItem
                       key={question?.id}
-                      ref={(el) => setQuestionRef(question?.id || "", el)} //comment if scroll is not needed
-                      className={`relative group rounded-xl border transition-all duration-200 overflow-hidden bg-transparent ${
-                        selectedQuestion === question?.id
-                          ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
-                          : "border-border bg-card hover:border-primary/40 hover:bg-accent/20 hover:shadow-sm"
-                      }`}
-                    >
-                      {selectedQuestion === question?.id && (
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
-                      )}
-
-                      <div className="p-4">
-                        <div className="flex items-start gap-3">
-                          <RadioGroupItem
-                            value={question?.id || ""}
-                            id={question?.id}
-                            className="mt-1  w-5 h-5 rounded-full border-2 border-gray-400 dark:border-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 checked:bg-green-600 dark:checked:bg-green-400"
-                          />
-
-                          <div className="flex-1 min-w-0">
-                            <Label
-                              htmlFor={question?.id}
-                              className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
-                            >
-                              {question?.text}
-                            </Label>
-                          </div>
-                        </div>
-                        <div className="mt-3 ml-7 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-                          <div className="items-center gap-1.5 flex">
-                            {question?.priority && (
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                  question.priority === "high"
-                                    ? "bg-red-500/10 text-red-600 border-red-500/30"
-                                    : question.priority === "medium"
-                                    ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-                                    : "bg-green-500/10 text-green-600 border-green-500/30"
-                                }`}
-                              >
-                                {question.priority.charAt(0).toUpperCase() +
-                                  question.priority.slice(1)}
-                              </span>
-                            )}
-
-                            <svg
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                            <span className="font-medium text-xs">
-                              Created:
-                            </span>
-                            <span>
-                              {formatDate(new Date(question?.createdAt!))}
-                            </span>
-                          </div>
-
-                          <div className="hidden md:flex items-center gap-1.5">
-                            <svg
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                              />
-                            </svg>
-                            <span className="font-medium">Updated:</span>
-                            {formatDate(new Date(question?.updatedAt!))}
-                          </div>
-
-                          <div className="hidden md:flex items-center gap-1.5">
-                            <svg
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.965 8.965 0 01-4.126-.937l-3.157.937.937-3.157A8.965 8.965 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
-                              />
-                            </svg>
-                            <span className="font-medium">Answers:</span>
-                            <span className="px-1.5 py-0.5 bg-muted text-muted-foreground rounded text-xs font-medium">
-                              {question?.totalAnswersCount}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {selectedQuestion === question?.id && (
-                        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none"></div>
-                      )}
-                    </div>
+                      question={question}
+                      selectedQuestion={selectedQuestion}
+                      onQuestionSelect={onQuestionSelect}
+                      setQuestionRef={setQuestionRef}
+                    />
                   ))}
                 </RadioGroup>
                 {isFetchingNextPage && (
