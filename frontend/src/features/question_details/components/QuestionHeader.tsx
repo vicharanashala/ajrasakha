@@ -3,7 +3,7 @@ import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
 import { TimerDisplay } from "@/components/timer-display";
 import { formatDate } from "@/utils/formatDate";
-import { useCountdown } from "@/hooks/ui/useCountdown";
+import { useQuestionTimer } from "@/hooks/ui/useQuestionTimer";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { useState } from "react";
 
@@ -15,9 +15,7 @@ interface QuestionHeaderProps {
 export const QuestionHeader = ({ question, goBack }: QuestionHeaderProps) => {
   //translation state
   const [translatedText, setTranslatedText] = useState<string>("");
-  const DURATION_HOURS = question && question.source == "AJRASAKHA" ? 2 : 4;
-
-  const timer = useCountdown(question.createdAt!, DURATION_HOURS, () => { });
+  const { timer } = useQuestionTimer(question.source, question.createdAt!);
 
   return (
     <header className="grid gap-3 w-full">

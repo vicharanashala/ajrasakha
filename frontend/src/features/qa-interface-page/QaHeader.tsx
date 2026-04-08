@@ -26,7 +26,7 @@ import type {
 } from "@/types";
 import { Label } from "../../components/atoms/label";
 import { formatDate } from "@/utils/formatDate";
-import { useCountdown } from "@/hooks/ui/useCountdown";
+import { useQuestionTimer } from "@/hooks/ui/useQuestionTimer";
 import { TimerDisplay } from "../../components/timer-display";
 
 type QaHeaderProps={
@@ -305,8 +305,7 @@ const QaQuestionItem = ({
   onQuestionSelect: (id: string) => void;
   setQuestionRef: (id: string, el: HTMLDivElement | null) => void;
 }) => {
-  const DURATION_HOURS = question?.source === "AJRASAKHA" ? 2 : 4;
-  const timer = useCountdown(question?.createdAt, DURATION_HOURS, () => {});
+  const { timer } = useQuestionTimer(question?.source, question?.createdAt);
 
   return (
     <div
