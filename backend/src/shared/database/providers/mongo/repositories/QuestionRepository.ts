@@ -323,9 +323,9 @@ export class QuestionRepository implements IQuestionRepository {
         closedAtEnd,
         consecutiveApprovals,
         autoAllocateFilter,
-        sort
+        sort,
+        closedInTwoHrs
       } = query;
-
     //  const filter: any = {};
     const filter: any = {
       isHidden: { $ne: true }, // 👈 exclude hidden questions
@@ -506,6 +506,11 @@ export class QuestionRepository implements IQuestionRepository {
         }
 
         filter.closedAt = filterDate;
+      } else if (closedInTwoHrs) {
+        // Filter for questions closed within the last 2 hours
+        const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+        filter.status = 'closed';
+        filter.closedAt = {$gte: twoHoursAgo};
       }
 
       let questionIdsByUser: string[] | null = null;
