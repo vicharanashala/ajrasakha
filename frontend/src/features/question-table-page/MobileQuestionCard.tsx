@@ -3,11 +3,8 @@ import type {
   QuestionStatus,
   UserRole,
 } from "@/types";
-import {
-  useMemo,
-  useRef,
-} from "react";
-import { useCountdown } from "@/hooks/ui/useCountdown";
+import { useMemo } from "react";
+import { useQuestionClickability } from "@/hooks/ui/useQuestionClickability";
 import { Badge } from "../../components/atoms/badge";
 import { Button } from "../../components/atoms/button";
 import { TimerDisplay } from "../../components/timer-display";
@@ -100,21 +97,9 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
   handleDelete,
   onViewMore,
 }) => {
-  const uploadedCountRef = useRef(uploadedQuestionsCount);
-
-  const DURATION_HOURS = 2;
-  const timer = useCountdown(q.createdAt, DURATION_HOURS, () => { });
-  const totalSeconds = DURATION_HOURS * 3600;
-
-  const [h, m, s] = timer.split(":").map(Number);
-  const remainingSeconds = h * 3600 + m * 60 + s;
-
-  const delayPerQuestion = 180 / 200;
-  let delaySeconds = uploadedCountRef.current * delayPerQuestion;
-  if (userRole === "expert") delaySeconds = 200;
-
-  const isClickable =
-    remainingSeconds <= totalSeconds - delaySeconds && !isBulkUpload;
+  const { timer, isClickable } = useQuestionClickability(
+    q.source, q.createdAt, uploadedQuestionsCount, userRole, isBulkUpload
+  );
 
   const statusBadge = useMemo(() => {
     // const status = q.status || "NIL";
