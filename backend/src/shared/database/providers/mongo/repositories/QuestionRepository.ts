@@ -506,11 +506,17 @@ export class QuestionRepository implements IQuestionRepository {
         }
 
         filter.closedAt = filterDate;
-      } else if (closedInTwoHrs) {
-        // Filter for questions closed within the last 2 hours
-        const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      } 
+
+      if (closedInTwoHrs) {
+        // Filter for questions closed within 2 hours of creation
         filter.status = 'closed';
-        filter.closedAt = {$gte: twoHoursAgo};
+        filter.$expr = {
+          $lte: [
+            {$subtract: ['$closedAt', '$createdAt']},
+            2 * 60 * 60 * 1000, // 2 hours in milliseconds
+          ],
+        };
       }
 
       let questionIdsByUser: string[] | null = null;
