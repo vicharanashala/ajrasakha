@@ -1084,6 +1084,7 @@ export class QuestionRepository implements IQuestionRepository {
           'details.crop': 1,
           'details.state': 1,
           source: 1,
+          status: 1,
           _id: 0,
         },
       });
