@@ -130,21 +130,52 @@ export class QuestionController {
   @HttpCode(201)
   @ResponseSchema(Object, {statusCode: 400})
   @UseBefore(InternalApiAuth)
-  @OpenAPI({summary: 'Add a new question from chatbot/bulk upload'})
+  @OpenAPI({summary: 'Add a new question from chatbot'})
   async addQuestion(
+    @Body() body: AddQuestionBodyDto,
+    @CurrentUser() user: IUser,
+  ): Promise<Partial<any> | {message: string}> {
+    const userId = user?._id?.toString();
+
+    body.source = 'AJRASAKHA'; // force source for chatbot
+    console.log("the body coming=====", body)
+    const { isDuplicate, data } = await this.questionService.addQuestion(userId, body);
+    console.log("the duplicate coming====", isDuplicate)
+    console.log("the data coming=====", data)
+    if (isDuplicate) {
+      return {
+        success: true,
+        message: 'Your question is similar to an existing question.',
+        data,
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Question submitted successfully.',
+      question_id: data._id
+    };
+  }
+
+  @Post('/reviewer-add-que')
+  @HttpCode(201)
+  @Authorized()
+  @ResponseSchema(Object, {statusCode: 400})
+  @OpenAPI({summary: 'Add a new question by reviewer (single or bulk upload)'})
+  async addReviewerQuestion(
     @UploadedFile('file', {options: UploadFileOptions})
     file: Express.Multer.File,
     @Body() body: AddQuestionBodyDto,
     @CurrentUser() user: IUser,
   ): Promise<Partial<any> | {message: string}> {
     const userId = user?._id?.toString();
- 
+
     if (file) {
       let payload: any[] = [];
       try {
         const mimetype = file.mimetype;
         const filename = file.originalname.toLowerCase();
- 
+
         if (mimetype === 'application/json' || filename.endsWith('.json')) {
           const fileContent = file.buffer
             .toString('utf-8')
@@ -167,14 +198,14 @@ export class QuestionController {
             'Unsupported file type. Please upload a JSON or Excel file.',
           );
         }
- 
+
         if (!Array.isArray(payload)) {
           throw new BadRequestError(
             'File content must be an array of questions',
           );
         }
- 
-        console.log('Paylod: ', payload);
+
+        console.log('Payload: ', payload);
         const insertedIds = await this.questionService.createBulkQuestions(
           userId,
           payload,
@@ -191,11 +222,10 @@ export class QuestionController {
         );
       }
     } else {
-      body.source = 'AJRASAKHA'; // force source for chatbot
-      console.log("the body coming=====", body)
-      const { isDuplicate, data } = await this.questionService.addQuestion(userId, body);
-      console.log("the duplicate coming====", isDuplicate)
-      console.log("the data coming=====", data)
+      body.source = 'AGRI_EXPERT'; // force source for reviewer
+
+      const {isDuplicate, data} = await this.questionService.addQuestion(userId, body);
+
       if (isDuplicate) {
         return {
           success: true,
@@ -203,43 +233,13 @@ export class QuestionController {
           data,
         };
       }
- 
+
       return {
         success: true,
         message: 'Question submitted successfully.',
-        question_id: data._id
+        question_id: data._id,
       };
     }
-  }
-
-  @Post('/reviewer-add-que')
-  @HttpCode(201)
-  @Authorized()
-  @ResponseSchema(Object, {statusCode: 400})
-  @OpenAPI({summary: 'Add a new question by reviewer'})
-  async addReviewerQuestion(
-    @Body() body: AddQuestionBodyDto,
-    @CurrentUser() user: IUser,
-  ): Promise<Partial<any> | {message: string}> {
-    const userId = user?._id?.toString();
-
-    body.source = 'AGRI_EXPERT'; // force source for reviewer
-
-    const {isDuplicate, data} = await this.questionService.addQuestion(userId, body);
-
-    if (isDuplicate) {
-      return {
-        success: true,
-        message: 'Your question is similar to an existing question.',
-        data,
-      };
-    }
-
-    return {
-      success: true,
-      message: 'Question submitted successfully.',
-      question_id: data._id,
-    };
   }
 
   @Post('/reAllocateLessWorkload')
