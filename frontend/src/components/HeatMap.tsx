@@ -119,6 +119,33 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
     return "bg-green-900 dark:bg-green-200"; // for 12+ bucket
   };
 
+  const MAX_LABEL_CHARS = 18;
+
+  const truncate = (name: string) =>
+    name.length > MAX_LABEL_CHARS ? name.slice(0, MAX_LABEL_CHARS) + "…" : name;
+
+  // Custom left-axis tick with native SVG tooltip on hover
+  const CustomLeftTick = ({ x, y, value }: { x: number; y: number; value: string }) => {
+    const label = truncate(value);
+
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <title>{value}</title>
+        <text
+          x={-10}
+          y={0}
+          dy="0.35em"
+          textAnchor="end"
+          fontSize={13}
+          fill="currentColor"
+          style={{ cursor: "default" }}
+        >
+          {label}
+        </text>
+      </g>
+    );
+  };
+
   return (
     <div className="  min-w-[80vw] border rounded-lg overflow-auto text-gray-900 dark:text-white">
       {/* This inner div must NOT be flex centered. It must be inline-block. */}
@@ -190,6 +217,14 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
             legend: "Experts",
             legendPosition: "middle",
             legendOffset: -150,
+            renderTick: (tick) => (
+              <CustomLeftTick
+                key={tick.value}
+                x={tick.x}
+                y={tick.y}
+                value={tick.value}
+              />
+            ),
           }}
           legends={[
             {
@@ -238,8 +273,13 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
                 key={`${row.reviewerId}_${idx}`}
                 className="border-t"
               >
-                <td className="px-4 py-2 font-medium  left-0  z-10">
-                  {row.reviewerName}
+                <td className="px-4 py-2 font-medium  left-0  z-10 max-w-[120px]">
+                  <span
+                    className="block truncate"
+                    title={row.reviewerName}
+                  >
+                    {row.reviewerName}
+                  </span>
                 </td>
 
                 {allBuckets.map((bucket, index) => {
