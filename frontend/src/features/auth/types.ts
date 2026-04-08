@@ -18,7 +18,7 @@ export type AuthField = {
 
 // Return type of the `useAuthForm` hook.
 export type UseAuthFormReturn = {
-  mode: "login" | "signup";
+  mode: "login" | "signup" | "forgot";
   formData: AuthFormData;
   errors: Record<string, string>;
   isLoading: boolean;
@@ -36,7 +36,7 @@ export type UseAuthFormReturn = {
   setShowPassword: Dispatch<SetStateAction<boolean>>;
   setShowConfirmPassword: Dispatch<SetStateAction<boolean>>;
 
-  handleModeChange: (mode: "login" | "signup") => void;
+  handleModeChange: (mode: "login" | "signup" | "forgot") => void;
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleSubmit: (e: FormEvent) => Promise<void>;
 };
