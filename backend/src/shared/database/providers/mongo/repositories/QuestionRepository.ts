@@ -363,7 +363,15 @@ export class QuestionRepository implements IQuestionRepository {
       caseInsensitiveStringFilter('status', status);
       caseInsensitiveStringFilter('source', source);
       caseInsensitiveStringFilter('priority', priority);
-      caseInsensitiveStringFilter('details.state', state);
+      if (state) {
+        const stateArr = Array.isArray(state) ? state : [state];
+        const validStates = stateArr.filter((s) => s && s !== 'all');
+        if (validStates.length === 1) {
+          filter['details.state'] = { $regex: `^${escapeRegex(validStates[0])}$`, $options: 'i' };
+        } else if (validStates.length > 1) {
+          filter['details.state'] = { $in: validStates.map((s) => new RegExp(`^${escapeRegex(s)}$`, 'i')) };
+        }
+      }
       caseInsensitiveStringFilter('details.crop', crop);
       caseInsensitiveStringFilter('details.domain', domain);
 
@@ -1052,8 +1060,14 @@ export class QuestionRepository implements IQuestionRepository {
       if (query.source && query.source !== 'all') {
         filter.source = {$regex: `^${escapeRegex(query.source)}$`, $options: 'i'};
       }
-      if (query.state && query.state !== 'all') {
-        filter['details.state'] = {$regex: `^${escapeRegex(query.state)}$`, $options: 'i'};
+      if (query.state) {
+        const stateArr = Array.isArray(query.state) ? query.state : [query.state];
+        const validStates = stateArr.filter((s) => s && s !== 'all');
+        if (validStates.length === 1) {
+          filter['details.state'] = {$regex: `^${escapeRegex(validStates[0])}$`, $options: 'i'};
+        } else if (validStates.length > 1) {
+          filter['details.state'] = {$in: validStates.map((s) => new RegExp(`^${escapeRegex(s)}$`, 'i'))};
+        }
       }
       if (query.crop && query.crop !== 'all') {
         filter['details.crop'] = {$regex: `^${escapeRegex(query.crop)}$`, $options: 'i'};

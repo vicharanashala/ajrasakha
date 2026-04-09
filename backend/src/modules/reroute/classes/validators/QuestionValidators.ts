@@ -15,7 +15,7 @@ import {
 import {JSONSchema} from 'class-validator-jsonschema';
 import {ObjectId} from 'mongodb';
 import {IQuestionPriority, QuestionStatus} from '#shared/interfaces/models.js';
-import {Type} from 'class-transformer';
+import {Type, Transform} from 'class-transformer';
 
 class QuestionIdParam {
   @JSONSchema({
@@ -223,13 +223,16 @@ class GetDetailedQuestionsQuery {
   source?: string;
 
   @JSONSchema({
-    description: 'State/region filter',
+    description: 'State/region filter (single or multiple)',
     example: 'Karnataka',
-    type: 'string',
+    oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
   })
   @IsOptional()
-  @IsString()
-  state?: string;
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    return Array.isArray(value) ? value : [value];
+  })
+  state?: string[];
 
   @JSONSchema({
     description: 'Priority filter',
