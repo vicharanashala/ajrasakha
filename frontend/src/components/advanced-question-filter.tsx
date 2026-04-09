@@ -21,6 +21,7 @@ import {
 import { Separator } from "@/components/atoms/separator";
 import { Badge } from "@/components/atoms/badge";
 import { Slider } from "@/components/atoms/slider";
+import { Checkbox } from "@/components/atoms/checkbox";
 import {
   Filter,
   FileText,
@@ -867,16 +868,12 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
               <div className="space-y-3 rounded-lg border border-border bg-background p-4">
                 <label className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={advanceFilter.hiddenQuestions ?? false}
-                    onChange={(event) =>
-                      handleDialogChange(
-                        "hiddenQuestions",
-                        event.target.checked,
-                      )
+                    onCheckedChange={(checked) =>
+                      handleDialogChange("hiddenQuestions", checked === true)
                     }
-                    className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                    className="h-3.5 w-3.5 border-green-300"
                   />
                   <span className="text-sm">Show passed questions</span>
                 </label>
