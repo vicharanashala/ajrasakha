@@ -4,6 +4,8 @@ import type {
   IRerouteHistoryResponse,
 } from "@/types";
 import { useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { QuestionService } from "@/hooks/services/questionService";
 
 import { Button } from "./atoms/button";
 
@@ -18,6 +20,8 @@ import { flattenAnswers } from "@/features/question_details/utils/flattenAnswers
 import { QuestionHeader } from "@/features/question_details/components/QuestionHeader";
 import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
 import MessageDetail from "./MessageDetail";
+
+const questionService = new QuestionService();
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -60,6 +64,13 @@ export const QuestionDetails = ({
     isLoading: isLoadingrerouteSelectedQuestion,
   } = useGetReRoutedQuestionFullData(question?._id);
 
+  const { data: submissionCheck } = useQuery({
+    queryKey: ["question_submission_exists", question?._id],
+    queryFn: () => questionService.checkSubmissionExists(question._id),
+    enabled: !!question?._id && question?.source === "AJRASAKHA",
+  });
+  const submissionExists = submissionCheck?.exists ?? false;
+
   return (
     <main className="mx-auto p-6 pt-0 grid gap-6">
       <QuestionHeader question={question} goBack={goBack} />
@@ -68,7 +79,7 @@ export const QuestionDetails = ({
       
 
       {question && currentUser && question?.source == "AJRASAKHA" && currentUser.role != "expert" &&
-        <MessageDetail question={question} isQuestionAllocatedToExpert={question?.submission?.history?.length >= 0} navigateToQuestionPage ={navigateToQuestionPage}/>
+        <MessageDetail question={question} isQuestionAllocatedToExpert={submissionExists} navigateToQuestionPage={navigateToQuestionPage}/>
       }
 
       {/* {currentUser.role !== "expert" && ( */}

@@ -354,6 +354,17 @@ export class QuestionController {
     return Buffer.from(data);
   }
 
+  @Get('/:questionId/submission-exists')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Check if a submission exists for this question'})
+  async checkSubmissionExists(
+    @Params() params: QuestionIdParam,
+  ): Promise<{exists: boolean}> {
+    const exists = await this.questionService.checkSubmissionExists(params.questionId);
+    return {exists};
+  }
+
   @Get('/:questionId')
   @HttpCode(200)
   @Authorized()

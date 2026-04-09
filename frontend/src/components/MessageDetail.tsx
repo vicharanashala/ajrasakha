@@ -391,7 +391,8 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editModalKey, setEditModalKey] = useState(0);
     const [translatedText, setTranslatedText] = useState<string>("");
-    const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; type: "pass" | "approve" | "save" | "cancel" }>({ open: false, type: "pass" });
+    const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; type: "pass" | "approve" | "save" | "cancel"; remark?: string }>({ open: false, type: "pass" });
+    const [ passRemarkError, setPassRemarkError] = useState("");
 
     const { mutateAsync: updateAnswer, isPending: isUpdating } = useUpdateAnswer();
     const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
@@ -440,14 +441,25 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const handleEdit = () => { setEditModalKey(k => k + 1); setIsEditModalOpen(true); };
     const handleCancelEdit = () => { const p = parseChatbotText(text); setEditedAnswerBody(p.answerBody); setEditedSpecialists(p.agriSpecialists); setEditedPdfSources(p.pdfSources); setIsEditModalOpen(false); };
     const handleSaveEdit = () => { toast.success("Changes saved"); setIsEditModalOpen(false); };
-    const handleSkip = () => { setConfirmDialog({ open: true, type: "pass" }); };
+    const handleSkip = () => { setPassRemarkError(""); setConfirmDialog({ open: true, type: "pass", remark: "" }); };
 
-    const doSkip = async () => { await updateQuestion({ isHidden: true, _id: question._id! }); toast.success("Question has been hidden"); navigateToQuestionPage(); };
+    const doSkip = async (remark?: string) => {
+        await updateQuestion({ isHidden: true, _id: question._id!, ...(remark ? { passingRemark: remark } : {}) } as any);
+        toast.success("Question has been hidden");
+        navigateToQuestionPage();
+    };
 
     const handleConfirm = () => {
         const type = confirmDialog.type;
-        setConfirmDialog({ open: false, type: "pass" });
-        if (type === "pass") { doSkip(); }
+        const remark = confirmDialog.remark?.trim() || "";
+        if (type === "pass" && !remark) {
+            setPassRemarkError("Remark is required to pass this question.");
+            return;
+        }
+
+        setPassRemarkError("");
+        setConfirmDialog({ open: false, type: "pass", remark: "" });
+        if (type === "pass") { doSkip(remark); }
         else if (type === "approve") { doApprove(); }
     };
 
@@ -513,8 +525,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     </div>
                 )}
             </div>
-
-            {approved === null && question && question.isAutoAllocate === false && question.source == "AJRASAKHA" && question.status !== "closed" && !isQuestionAllocatedToExpert && (
+            {approved === null && question && question.isAutoAllocate === false && question.source == "AJRASAKHA" && question.status !== "closed" && !isQuestionAllocatedToExpert  && (
                 <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                     <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">On approval, this answer will be finalized, the question will be marked as closed, and the result will be pushed to the Golden dataset. Please review carefully before approving.</p>
                     <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
@@ -545,7 +556,10 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
             onCancel={handleCancelEdit}
         />
 
-        <AlertDialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}>
+        <AlertDialog open={confirmDialog.open} onOpenChange={(open) => {
+                if (!open) setPassRemarkError("");
+                setConfirmDialog((prev) => open ? { ...prev, open } : { open: false, type: "pass", remark: "" });
+            }}>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>
@@ -559,12 +573,37 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         {confirmDialog.type === "approve" && "Are you sure you want to approve this answer? The question will  allocate to task_force team."}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
+                {confirmDialog.type === "pass" && (
+                    <div className="px-6 pb-4">
+                            <label htmlFor="pass-remark" className="block text-xs font-semibold text-muted-foreground tracking-wider mb-2">
+                                Remark<span className="text-red-500 ml-0 mb-4">*</span>
+                            </label>
+                        <textarea
+                            id="pass-remark"
+                            value={confirmDialog.remark ?? ""}
+                            onChange={(event) => {
+                                setConfirmDialog((prev) => ({ ...prev, remark: event.target.value }));
+                                if (passRemarkError) setPassRemarkError("");
+                            }}
+                            className={`w-full min-h-[100px] rounded-xl border ${passRemarkError ? "border-destructive" : "border-border"} bg-background px-3 py-3 text-sm text-foreground outline-none resize-none focus:ring-2 focus:ring-primary/30`}
+                            placeholder="Enter remark explaining why this question is being passed..."
+                        />
+                        {passRemarkError && (
+                            <p className="mt-2 text-xs text-destructive">{passRemarkError}</p>
+                        )}
+                    </div>
+                )}
                 <AlertDialogFooter>
                     <AlertDialogCancel>Go back</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleConfirm}>
-                        {confirmDialog.type === "pass" && "Yes, pass"}
-                        {confirmDialog.type === "approve" && "Yes, approve"}
-                    </AlertDialogAction>
+                    {confirmDialog.type === "pass" ? (
+                        <Button type="button" size="sm" onClick={handleConfirm} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
+                            <CheckCircle className="h-4 w-4" /> Yes, pass
+                        </Button>
+                    ) : (
+                        <AlertDialogAction onClick={handleConfirm}>
+                            Yes, approve
+                        </AlertDialogAction>
+                    )}
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

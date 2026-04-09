@@ -429,6 +429,10 @@ export class QuestionService {
   }
 
 
+  async checkSubmissionExists(questionId: string): Promise<{ exists: boolean } | null> {
+    return apiFetch<{ exists: boolean }>(`${this._baseUrl}/${questionId}/submission-exists`);
+  }
+
   async sendOutreachReport(
     startDate: Date,
     endDate: Date,

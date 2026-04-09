@@ -344,12 +344,13 @@ export class QuestionRepository implements IQuestionRepository {
         filter.isHidden = { $eq: true }; // filter by hidden questions
     }
 
+    //for duplicate questions.
+    // duplicateQuestions === 'true'
+    //       ? this.DuplicateQuestionCollection
+    //       :
+
     // --- setting the collection with respect to the duplicate questions filter ---
-      const questionsCollection = (
-        duplicateQuestions === 'true'
-          ? this.DuplicateQuestionCollection
-          : this.QuestionCollection
-      ) as Collection<IQuestion>;
+      const questionsCollection = this.QuestionCollection as Collection<IQuestion>;
 
       // --- Auto Allocate Filter ---
       if (autoAllocateFilter && autoAllocateFilter !== 'all') {
@@ -3325,9 +3326,11 @@ export class QuestionRepository implements IQuestionRepository {
   ): Promise<IQuestion[]> {
     await this.init();
 
-    const collection = useDuplicateCollection
-      ? this.DuplicateQuestionCollection
-      : this.QuestionCollection;
+    // for duplicate question
+    //  useDuplicateCollection
+    //   ? this.DuplicateQuestionCollection
+    //   :
+    const collection = this.QuestionCollection;
 
     return await collection
       .find(filters, { session })

@@ -3400,11 +3400,16 @@ async checkStatus(
   const result=await this.questionRepo.getQuestionsWithAnswerDetails(questionIds)
 
   // 1. Fetch data
-  
+
 return result
-        
- 
+
+
 }
+
+  async checkSubmissionExists(questionId: string): Promise<boolean> {
+    const submission = await this.questionSubmissionRepo.getByQuestionId(questionId);
+    return !!submission;
+  }
 
 
 
