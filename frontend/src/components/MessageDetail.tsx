@@ -331,9 +331,14 @@ const parseChatbotText = (text: string): ParsedChatbotText => {
     let sourcesSection = '';
     const parts = workingText.split(/\n---\n/);
     if (parts.length > 1) {
-        answerBody = parts[0].trim();
-        sourcesSection = parts.slice(1).join('\n---\n').trim();
-    } else {
+        const lastPart = parts[parts.length - 1].trim();
+        const looksLikeSources = /\|\s*(?:Agri Specialist Name|Source\/PDF Link)/i.test(lastPart);
+        if (looksLikeSources) {
+            answerBody = parts[0].trim();
+            sourcesSection = parts.slice(1).join('\n---\n').trim();
+        }
+    }
+    if (!sourcesSection) {
         const sourceMarker = workingText.match(/\*?\*?The answer I provided[^*\n]*/i);
         if (sourceMarker && sourceMarker.index !== undefined) {
             answerBody = workingText.substring(0, sourceMarker.index).trim();
@@ -350,12 +355,17 @@ const parseChatbotText = (text: string): ParsedChatbotText => {
             if (cells.length >= 2) {
                 const name = cells[0].trim();
                 const raw = cells[1].trim();
-                const lm = raw.match(/\[([^\]]+)\]\(([^)]+)\)/);
-                agriSpecialists.push({
-                    name,
-                    sourceType: 'other',
-                    sourceLink: lm ? lm[2] : raw,
-                });
+                const links = [...raw.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)];
+                if (links.length > 0) {
+                    for (const link of links) {
+                        agriSpecialists.push({ name, sourceType: 'other', sourceLink: link[2] });
+                    }
+                } else {
+                    // plain URL(s), possibly semicolon-separated
+                    for (const url of raw.split(';').map(s => s.trim()).filter(Boolean)) {
+                        agriSpecialists.push({ name, sourceType: 'other', sourceLink: url });
+                    }
+                }
             }
         }
     }
@@ -367,9 +377,43 @@ const parseChatbotText = (text: string): ParsedChatbotText => {
             const cells = row.split('|').filter((c: string) => c.trim() !== '');
             if (cells.length >= 2) {
                 const lm = cells[0].trim().match(/\[([^\]]+)\]\(([^)]+)\)/);
-                pdfSources.push({ name: lm ? lm[1] : cells[0].trim(), link: lm ? lm[2] : '', pages: cells[1].trim(), sourceType: 'other' });
+                if (lm) {
+                    pdfSources.push({ name: lm[1], link: lm[2], pages: cells[1].trim(), sourceType: 'other' });
+                } else {
+                    const raw = cells[0].trim();
+                    const isUrl = /^https?:\/\//.test(raw);
+                    pdfSources.push({
+                        name: isUrl ? cells[1].trim() : raw,
+                        link: isUrl ? raw : '',
+                        pages: isUrl ? '' : cells[1].trim(),
+                        sourceType: 'other',
+                    });
+                }
             }
         }
+    }
+
+    for (const line of sourcesSection.split('\n')) {
+        if (!line.includes('📺')) continue;
+        const lm = line.match(/\[([^\]]+)\]\(([^)]+)\)/);
+        if (lm) pdfSources.push({ name: lm[1], link: lm[2], pages: '', sourceType: 'other' });
+    }
+
+    // Extract from tables where cells[1] is entirely a markdown link (e.g. Video Resources table)
+    for (const line of workingText.split('\n')) {
+        if (!line.startsWith('|')) continue;
+        const cells = line.split('|').filter(c => c.trim() !== '');
+        if (cells.length < 2) continue;
+        const lm = cells[1].trim().match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+        if (!lm) continue;
+        const url = lm[2];
+        if (pdfSources.some(s => s.link === url) || agriSpecialists.some(s => s.sourceLink === url)) continue;
+        pdfSources.push({
+            name: cells[0].trim(),
+            link: url,
+            pages: cells.length > 2 ? cells[2].trim() : '',
+            sourceType: 'other',
+        });
     }
 
     return { answerBody, agriSpecialists, pdfSources };
