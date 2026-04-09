@@ -156,4 +156,6 @@ export interface IQuestionService {
   getMatchedQuestion(questionId, userId);
 
   checkStatus(questionIds)
+
+  checkSubmissionExists(questionId: string): Promise<boolean>;
 }
