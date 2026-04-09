@@ -131,7 +131,7 @@ export function UserDetailsView() {
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <CardTitle className="text-sm font-medium">All Farmers</CardTitle>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
               <div className="relative flex-1 sm:w-56">
                 <svg
                   width={14}
@@ -151,7 +151,7 @@ export function UserDetailsView() {
                   className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
                 />
               </div>
-              <div className="shrink-0 [&_label]:hidden [&_#date-toggle]:!whitespace-nowrap [&_#date-toggle_span]:!whitespace-nowrap [&_#date-toggle]:!h-9">
+              <div className="w-full sm:w-auto [&_label]:hidden [&_#date-toggle]:!whitespace-nowrap [&_#date-toggle_span]:!whitespace-nowrap [&_#date-toggle]:!h-9 [&_.absolute]:!left-0 [&_.absolute]:sm:!left-auto [&_.absolute]:sm:!right-0">
                 <DateRangeFilter
                   customName=""
                   advanceFilter={{ startTime, endTime }}
