@@ -290,6 +290,11 @@ export class QuestionRepository implements IQuestionRepository {
     query: GetDetailedQuestionsQuery & { searchEmbedding: number[] | null },
   ): Promise<{ questions: IQuestion[]; totalPages: number; totalCount: number }> {
     try {
+      console.log("*****************")
+      console.log("*****************")
+      console.log("Find detailed questions repository")
+      console.log("*****************")
+      console.log("*****************")
       await this.init();
       const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const caseInsensitiveStringFilter = (field: string, value?: string) => {

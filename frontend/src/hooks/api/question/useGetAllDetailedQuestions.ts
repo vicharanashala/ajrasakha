@@ -35,6 +35,7 @@ export const useGetAllDetailedQuestions = (
   enabled: boolean,
   sort?: string
 ) => {
+  console.log("Use get all detailed Questions");
   return useQuery({
     queryKey: ["detailed_questions", page, limit, filter, search, sort],
     queryFn: async () =>
