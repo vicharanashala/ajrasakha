@@ -313,7 +313,7 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
                       onCheckedChange={(checked) =>
                         handleCheckboxChange("hiddenQuestions", checked === true)
                       }
-                      className="h-3.5 w-3.5 border-gray-300"
+                      className="h-3.5 w-3.5 border-primary"
                     />
                     <span className="text-sm">Show passed questions</span>
                   </label>

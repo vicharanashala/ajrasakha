@@ -873,7 +873,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     onCheckedChange={(checked) =>
                       handleDialogChange("hiddenQuestions", checked === true)
                     }
-                    className="h-3.5 w-3.5 border-green-300"
+                    className="h-3.5 w-3.5 border-primary"
                   />
                   <span className="text-sm">Show passed questions</span>
                 </label>
