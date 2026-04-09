@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/hooks/api/api-fetch';
 import { env } from '@/config/env';
 
@@ -10,45 +10,25 @@ export interface UserDetail {
 }
 
 export function useUserDetails(startDate?: Date, endDate?: Date) {
-  const [data, setData] = useState<UserDetail[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const startISO = startDate?.toISOString();
+  const endISO = endDate?.toISOString();
 
-  useEffect(() => {
-    let isMounted = true;
+  const { data, isLoading, error } = useQuery<UserDetail[], Error>({
+    queryKey: ['user-details', startISO, endISO],
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const params = new URLSearchParams();
+      if (startISO) params.set('startDate', startISO);
+      if (endISO) params.set('endDate', endISO);
+      const qs = params.toString();
 
-    async function fetchData() {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const API_BASE_URL = env.apiBaseUrl();
-        const params = new URLSearchParams();
-        if (startDate) params.set('startDate', startDate.toISOString());
-        if (endDate) params.set('endDate', endDate.toISOString());
-        const qs = params.toString();
+      const result = await apiFetch<UserDetail[]>(
+        `${API_BASE_URL}/analytics/user-details${qs ? `?${qs}` : ''}`,
+      );
 
-        const result = await apiFetch<UserDetail[]>(
-          `${API_BASE_URL}/analytics/user-details${qs ? `?${qs}` : ''}`,
-        );
+      return result ?? [];
+    },
+  });
 
-        if (isMounted && result) {
-          setData(result);
-        }
-      } catch (err) {
-        if (isMounted) {
-          setError(err instanceof Error ? err : new Error(String(err)));
-        }
-      } finally {
-        if (isMounted) setIsLoading(false);
-      }
-    }
-
-    fetchData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [startDate?.toISOString(), endDate?.toISOString()]);
-
-  return { data, isLoading, error };
+  return { data: data ?? [], isLoading, error };
 }
