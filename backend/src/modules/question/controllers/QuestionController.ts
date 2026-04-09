@@ -18,6 +18,7 @@ import {
   BadRequestError,
   ContentType,
   Res,
+  UseBefore,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -26,6 +27,7 @@ import {
   IQuestion,
   IQuestionSubmission,
   IUser,
+  IcheckStatusResponseDto
 } from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {
@@ -51,6 +53,7 @@ import { QuestionService } from '../services/QuestionService.js';
 import { UploadFileOptions } from '#root/modules/core/classes/validators/fileUploadOptions.js';
 import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
+import { InternalApiAuth } from '#root/shared/functions/internalApiAuth.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -202,7 +205,7 @@ export class QuestionController {
       return {
         success: true,
         message: 'Question submitted successfully.',
-        data,
+        question_id:data._id
       };
     }
   }
@@ -563,5 +566,27 @@ async outreachQuestions(
         content: data.content,
     }};
   }
+
+    @Post('/check-status')
+    @HttpCode(200)
+    @UseBefore(InternalApiAuth)
+    @OpenAPI({ summary: 'Check status of multiple questions' })
+    @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+    async checkStatus(
+      @Body() body: { question_ids: string[] },
+    ) :Promise<IcheckStatusResponseDto>{
+      const { question_ids } = body;
+
+      if (!question_ids || !Array.isArray(question_ids)) {
+        throw new BadRequestError('question_ids must be an array');
+      }
+      const results = await this.questionService.checkStatus(
+        question_ids
+      );
+      return {
+        success: true,
+        data: results,
+      };
+    }
 
 }

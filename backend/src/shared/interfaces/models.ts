@@ -349,4 +349,37 @@ export interface ICrop {
   createdAt?: Date;
   updatedAt?: Date;
 }
+export interface ISource {
+  source: string;     // URL or document reference
+  page?: number;      // optional (some sources may not have page)
+  title?: string;     // optional (future-proof)
+  type?: string;      // optional (pdf, link, doc, etc.)
+}
 
+export interface IAuthor {
+  id: string;
+  name: string;
+}
+
+export interface ICheckStatusResponse {
+  question_id: string;
+  status: 'pending' | 'closed'|'not_found';
+  answer: string | null;
+  sources: ISource[];
+  author: IAuthor | null;
+  metadata?: {
+    state?: string;
+    district?: string;
+    crop?: string | ICropRef;
+    season?: string;
+    domain?: string;
+  };
+  message?: string | null;
+}
+
+
+
+export interface IcheckStatusResponseDto {
+  success: boolean;
+  data: ICheckStatusResponse;
+}

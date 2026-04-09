@@ -8,7 +8,8 @@ import {
   IUser,
   QuestionStatus,
   IReroute,
-  ISimilarQuestion
+  ISimilarQuestion,
+  ICheckStatusResponse
 } from '#root/shared/interfaces/models.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { inject } from 'inversify';
@@ -1101,6 +1102,7 @@ export class QuestionRepository implements IQuestionRepository {
           'details.crop': 1,
           'details.state': 1,
           source: 1,
+          status: 1,
           _id: 0,
         },
       });
@@ -1532,7 +1534,6 @@ export class QuestionRepository implements IQuestionRepository {
       await this.init();
       await this.ensureIndexes();
 
-      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
 
       // const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
@@ -1548,7 +1549,7 @@ export class QuestionRepository implements IQuestionRepository {
             },
             {
               source: { $ne: "AJRASAKHA" },
-              createdAt: { $lte: fourHoursAgo },
+              createdAt: { $lte: twoHoursAgo },
             },
           ],
         },
@@ -3433,6 +3434,163 @@ async backfillNormalisedCrop(
   );
 
   return result.modifiedCount;
+}
+
+async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusResponse[]> {
+  await  this.init()
+  const objectIds = questionIds.map(id => new ObjectId(id));
+  
+  const data =await this.QuestionCollection.aggregate([
+    {
+      $match: {
+        _id: { $in: objectIds },
+      },
+    },
+
+    // Lookup FINAL ANSWERS ONLY
+    {
+      $lookup: {
+        from: 'answers',
+        let: { qId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$questionId', '$$qId'] },
+                  { $eq: ['$isFinalAnswer', true] },
+                ],
+              },
+            },
+          },
+
+          // Join author
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'authorId',
+              foreignField: '_id',
+              as: 'author',
+            },
+          },
+          {
+            $unwind: {
+              path: '$author',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+
+          // Shape answer
+          {
+            $project: {
+              _id: 0,
+              answer: 1,
+
+              sources: {
+                $map: {
+                  input: { $ifNull: ['$sources', []] },
+                  as: 's',
+                  in: {
+                    source: '$$s.source',
+                    page: '$$s.page',
+                    sourceType: '$$s.sourceType',
+                    sourceName: '$$s.sourceName',
+                  },
+                },
+              },
+
+              
+                authorName: {
+                  $trim: {
+                    input: {
+                      $concat: [
+                        { $ifNull: ['$author.firstName', ''] },
+                        ' ',
+                        { $ifNull: ['$author.lastName', ''] },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          
+        ],
+        as: 'finalAnswer',
+      },
+    },
+
+    // Flatten answer (take first if exists)
+    {
+      $addFields: {
+        finalAnswer: { $arrayElemAt: ['$finalAnswer', 0] },
+      },
+    },
+
+    // Final response shape
+    {
+      $project: {
+        _id: 0,
+
+        question_id: { $toString: '$_id' },
+
+        status: {
+          $cond: {
+            if: { $ifNull: ['$finalAnswer', false] },
+            then: 'closed',
+            else: 'pending',
+          },
+        },
+
+        // Question fields (include what you need)
+        question: '$text',
+        metadata:"$details",
+        priority: 1,
+        details: 1,
+        createdAt: 1,
+
+        // Answer fields
+        answer: {
+          $ifNull: ['$finalAnswer.answer', null],
+        },
+
+        sources: {
+          $ifNull: ['$finalAnswer.sources', []],
+        },
+
+        author: {
+          $ifNull: ['$finalAnswer.authorName', null],
+        },
+      },
+    },
+  ]).toArray()
+  // 🔥 Create map for quick lookup
+  const map = new Map(data.map(item => [item.question_id, item]));
+
+  // 🔥 Final response based on input order
+  return questionIds.map(id => {
+    const found = map.get(id);
+
+    if (!found) {
+      return {
+        question_id: id,
+        status: 'not_found',
+        answer: null,
+        sources: [],
+        author: null,
+        metadata: null,
+        message: 'Question not exist',
+      };
+    }
+
+    return {
+      question_id: found.question_id,
+      status: found.status,
+      answer: found.status === 'closed' ? found.answer : null,
+      sources: found.status === 'closed' ? found.sources : [],
+      author: found.status === 'closed' ? found.author : null,
+      metadata: found.metadata ?? null,
+    };
+  });
 }
 }
 

@@ -78,7 +78,7 @@ export default function SarvamTranslateDropdown({ query, onTranslate }: Props) {
   };
 
   return (
-    <div ref={dropdownRef} className="relative z-10">
+    <div ref={dropdownRef} className="relative">
       <button
         onClick={() => !loading && setIsOpen((prev) => !prev)}
         disabled={loading}
@@ -116,7 +116,7 @@ export default function SarvamTranslateDropdown({ query, onTranslate }: Props) {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100">
+        <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 z-50">
           <div className="px-3 py-2 border-b border-gray-100 bg-white">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
               Select Language

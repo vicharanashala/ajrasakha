@@ -16,7 +16,8 @@ import {
   IUser,
   QuestionStatus,
   IQuestionEmbedding,
-  ISimilarQuestion
+  ISimilarQuestion,
+  ICheckStatusResponse
 } from '#root/shared/interfaces/models.js';
 import {ClientSession} from 'mongodb';
 
@@ -371,4 +372,9 @@ export interface IQuestionRepository {
     name: string,
     aliases: string[],
   ): Promise<number>;
+
+  getQuestionsWithAnswerDetails(
+    questionIds?:string[],
+    session?: ClientSession,
+  ):Promise<ICheckStatusResponse[]>
 }

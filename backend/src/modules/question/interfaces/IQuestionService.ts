@@ -156,4 +156,6 @@ export interface IQuestionService {
     endDate?: Date,
   ): Promise<ArrayBuffer | null>;
   getMatchedQuestion(questionId, userId);
+
+  checkStatus(questionIds)
 }
