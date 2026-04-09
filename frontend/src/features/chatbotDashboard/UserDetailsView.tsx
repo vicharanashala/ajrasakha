@@ -1,72 +1,207 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/atoms/card";
+import { useState, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
+import { Spinner } from "@/components/atoms/spinner";
+import { useUserDetails } from "./hooks/useUserDetails";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 
 export function UserDetailsView() {
+  const [startTime, setStartTime] = useState<Date | undefined>(undefined);
+  const [endTime, setEndTime] = useState<Date | undefined>(undefined);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const { data: users, isLoading, error } = useUserDetails(startTime, endTime);
+
+  const handleDateChange = (key: string, value: any) => {
+    if (key === "startTime") setStartTime(value);
+    if (key === "endTime") setEndTime(value);
+  };
+
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery.trim()) return users;
+    const q = searchQuery.toLowerCase();
+    return users.filter(
+      (u) =>
+        u.name.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q)
+    );
+  }, [users, searchQuery]);
+
+  const totalQuestions = useMemo(
+    () => filteredUsers.reduce((sum, u) => sum + u.totalQuestions, 0),
+    [filteredUsers]
+  );
+
+  const activeUsers = useMemo(
+    () => filteredUsers.filter((u) => u.totalQuestions > 0).length,
+    [filteredUsers]
+  );
+
+  const dateLabel = startTime && endTime
+    ? `${startTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${endTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
+    : "All time";
+
   return (
     <div style={{ padding: "0px 20px 20px 20px", flex: 1, overflowY: "auto" }}>
-      {/* Page header */}
-      <div style={{ marginBottom: 20 }}>
-        <h2
-          className="text-lg font-semibold text-(--foreground)"
-          style={{ margin: 0 }}
-        >
-          User Details
-        </h2>
-        <p
-          className="text-xs text-(--muted-foreground)"
-          style={{ marginTop: 4 }}
-        >
-          View and manage all registered users and their activity
-        </p>
-      </div>
-
-      {/* Placeholder cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
-          <CardContent className="p-4 flex flex-col items-center gap-1">
-            <span className="text-2xl font-semibold text-[#3AAA5A]">—</span>
-            <span className="text-xs text-(--muted-foreground)">Total Users</span>
-          </CardContent>
-        </Card>
-        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
-          <CardContent className="p-4 flex flex-col items-center gap-1">
-            <span className="text-2xl font-semibold text-[#3AAA5A]">—</span>
-            <span className="text-xs text-(--muted-foreground)">Active Today</span>
-          </CardContent>
-        </Card>
-        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
-          <CardContent className="p-4 flex flex-col items-center gap-1">
-            <span className="text-2xl font-semibold text-[#3AAA5A]">—</span>
-            <span className="text-xs text-(--muted-foreground)">New This Month</span>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">User List</CardTitle>
-          <CardDescription>
-            This section is under development. User details, activity logs, and management tools will appear here.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div
-            className="flex flex-col items-center justify-center py-16 text-(--muted-foreground)"
-            style={{ gap: 12 }}
+      {/* Header + filter row */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5">
+        <div>
+          <h2
+            className="text-base font-semibold text-(--foreground)"
+            style={{ margin: 0 }}
           >
-            <svg width={48} height={48} viewBox="0 0 48 48" fill="none">
-              <circle cx="24" cy="20" r="8" stroke="currentColor" strokeWidth="2" />
-              <path
-                d="M8 42c0-8.8 7.2-16 16-16s16 7.2 16 16"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-            <span className="text-sm font-medium">Coming soon</span>
-            <span className="text-xs" style={{ maxWidth: 320, textAlign: "center" }}>
-              User details, search, filters, and individual activity breakdowns will be available here.
-            </span>
+            User Details
+          </h2>
+          <p
+            className="text-xs text-(--muted-foreground)"
+            style={{ marginTop: 4 }}
+          >
+            {dateLabel} · {filteredUsers.length} users
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="w-full sm:w-auto [&_label]:hidden [&_#date-toggle]:!w-full [&_#date-toggle]:!whitespace-nowrap [&_#date-toggle_span]:!whitespace-nowrap [&_#date-toggle]:!h-9">
+            <DateRangeFilter
+              customName=""
+              advanceFilter={{ startTime, endTime }}
+              handleDialogChange={handleDateChange}
+              className={
+                startTime
+                  ? "!h-9 !text-sm !w-full !border-green-500 dark:!border-green-500 !bg-green-50 dark:!bg-[#1a1a1a] !text-green-700 dark:!text-green-400 !font-medium hover:!bg-green-100 dark:hover:!bg-[#2a2a2a]"
+                  : "!h-9 !text-sm !w-full !border-gray-200 dark:!border-gray-700 !bg-white dark:!bg-[#1a1a1a] !text-gray-700 dark:!text-gray-200 !font-normal hover:!bg-gray-50 dark:hover:!bg-[#2a2a2a]"
+              }
+            />
           </div>
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-1" style={{ background: "#3AAA5A" }} />
+          <CardContent className="p-4 flex flex-col gap-0.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              Total Users
+            </span>
+            <span className="text-2xl font-semibold dark:text-slate-100">
+              {isLoading ? "—" : filteredUsers.length.toLocaleString()}
+            </span>
+          </CardContent>
+        </Card>
+        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-1" style={{ background: "#3B82F6" }} />
+          <CardContent className="p-4 flex flex-col gap-0.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              Active Users
+            </span>
+            <span className="text-2xl font-semibold dark:text-slate-100">
+              {isLoading ? "—" : activeUsers.toLocaleString()}
+            </span>
+          </CardContent>
+        </Card>
+        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-1" style={{ background: "#EF9F27" }} />
+          <CardContent className="p-4 flex flex-col gap-0.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              Total Questions
+            </span>
+            <span className="text-2xl font-semibold dark:text-slate-100">
+              {isLoading ? "—" : totalQuestions.toLocaleString()}
+            </span>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Users table */}
+      <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <CardTitle className="text-sm font-medium">All Farmers</CardTitle>
+            <div className="relative w-full sm:w-64">
+              <svg
+                width={14}
+                height={14}
+                viewBox="0 0 16 16"
+                fill="none"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-(--muted-foreground)"
+              >
+                <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.3" />
+                <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
+              />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoading && (
+            <div className="py-12">
+              <Spinner text="Fetching user details..." fullScreen={false} />
+            </div>
+          )}
+
+          {error && (
+            <div className="px-4 py-8 text-center text-red-500 text-sm">
+              Failed to load user details. Please try again.
+            </div>
+          )}
+
+          {!isLoading && !error && (
+            <div style={{ overflowX: "auto" }}>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#151515]">
+                    <th className="text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-(--muted-foreground)">#</th>
+                    <th className="text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-(--muted-foreground)">Name</th>
+                    <th className="text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-(--muted-foreground)">Email</th>
+                    <th className="text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-(--muted-foreground)">Questions Asked</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-10 text-center text-(--muted-foreground) text-sm">
+                        {searchQuery ? "No users match your search." : "No users found."}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredUsers.map((user, idx) => (
+                      <tr
+                        key={user.userId}
+                        className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-[#1e1e1e] transition-colors"
+                      >
+                        <td className="px-4 py-2.5 text-(--muted-foreground) tabular-nums">
+                          {idx + 1}
+                        </td>
+                        <td className="px-4 py-2.5 font-medium text-(--foreground) whitespace-nowrap">
+                          {user.name}
+                        </td>
+                        <td className="px-4 py-2.5 text-(--muted-foreground) whitespace-nowrap">
+                          {user.email}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">
+                          <span
+                            className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold ${
+                              user.totalQuestions > 0
+                                ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
+                                : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                            }`}
+                          >
+                            {user.totalQuestions.toLocaleString()}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
