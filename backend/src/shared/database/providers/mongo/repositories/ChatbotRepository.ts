@@ -16,6 +16,7 @@ import type {
   DailyQueryCountEntry,
   WeeklyQueryCountEntry,
   UserDetailEntry,
+  PaginatedUserDetails,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 
 interface IUser {
@@ -726,8 +727,11 @@ private async initSecondDb() {
   async getUserDetails(
     startDate?: Date,
     endDate?: Date,
+    page = 1,
+    limit = 10,
+    search = '',
     session?: ClientSession,
-  ): Promise<UserDetailEntry[]> {
+  ): Promise<PaginatedUserDetails> {
     try {
       await this.init();
 
@@ -761,11 +765,22 @@ private async initSecondDb() {
         countMap.set(String(entry._id), entry.totalQuestions);
       }
 
-      // Get all users
-      const allUsers = await this.users.find({}, { session }).toArray();
+      // Get users — optionally filtered by search
+      const userFilter: Record<string, any> = {};
+      if (search && search.trim()) {
+        const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = { $regex: escaped, $options: 'i' };
+        userFilter.$or = [
+          { name: regex },
+          { username: regex },
+          { email: regex },
+        ];
+      }
+
+      const allUsers = await this.users.find(userFilter, { session }).toArray();
 
       // Merge
-      const result: UserDetailEntry[] = allUsers.map((u) => ({
+      const merged: UserDetailEntry[] = allUsers.map((u) => ({
         userId: String(u._id),
         name: u.name || u.username || 'Unknown',
         email: u.email || '',
@@ -773,9 +788,25 @@ private async initSecondDb() {
       }));
 
       // Sort by totalQuestions desc
-      result.sort((a, b) => b.totalQuestions - a.totalQuestions);
+      merged.sort((a, b) => b.totalQuestions - a.totalQuestions);
 
-      return result;
+      // Compute summary stats over the full filtered set
+      const totalUsers = merged.length;
+      const activeUsers = merged.filter((u) => u.totalQuestions > 0).length;
+      const totalQuestions = merged.reduce((sum, u) => sum + u.totalQuestions, 0);
+      const totalPages = Math.max(1, Math.ceil(totalUsers / limit));
+
+      // Paginate
+      const startIdx = (page - 1) * limit;
+      const users = merged.slice(startIdx, startIdx + limit);
+
+      return {
+        users,
+        totalUsers,
+        totalPages,
+        activeUsers,
+        totalQuestions,
+      };
     } catch (error) {
       throw new InternalServerError(`Failed to get user details: ${error}`);
     }

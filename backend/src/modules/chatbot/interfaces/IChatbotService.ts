@@ -9,6 +9,7 @@ import type {
   DailyQueryCountEntry,
   WeeklyQueryCountEntry,
   UserDetailEntry,
+  PaginatedUserDetails,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 
 export interface DashboardResponse {
@@ -36,5 +37,6 @@ export interface IChatbotService {
   getTodayQueryCount(): Promise<number>;
   getWeeklyQueryCounts(): Promise<WeeklyQueryCountEntry[]>;
   getDailyUserTrend(days?: number): Promise<DailyActiveUsersEntry[]>;
-  getUserDetails(startDate?: string, endDate?: string): Promise<UserDetailEntry[]>;
+  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string): Promise<PaginatedUserDetails>;
 }
+

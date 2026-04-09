@@ -90,11 +90,14 @@ export class ChatbotController {
   @Get('/user-details')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({ summary: 'Get all users with question counts, optionally filtered by date range' })
+  @OpenAPI({ summary: 'Get users with question counts, paginated, optionally filtered by date range and search' })
   async getUserDetails(
     @QueryParam('startDate') startDate?: string,
     @QueryParam('endDate') endDate?: string,
+    @QueryParam('page') page = 1,
+    @QueryParam('limit') limit = 10,
+    @QueryParam('search') search = '',
   ) {
-    return this.chatbotService.getUserDetails(startDate, endDate);
+    return this.chatbotService.getUserDetails(startDate, endDate, Number(page), Number(limit), search);
   }
 }
