@@ -10,7 +10,8 @@ export type DashboardView =
     | "feedback-sentiment"
     | "bugs-ux"
     | "query-analysis"
-    | "app-health";
+    | "app-health"
+    | "user-details";
 
 interface NavItemConfig {
     label: string;
@@ -81,6 +82,14 @@ const ListIcon: React.FC = () => (
         <path d="M3 4h10M3 8h7M3 12h5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
 );
+const UsersIcon: React.FC = () => (
+    <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+        <circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.2" />
+        <path d="M1 14c0-2.8 2.2-5 5-5s5 2.2 5 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+        <circle cx="11.5" cy="5.5" r="2" stroke="currentColor" strokeWidth="1" opacity="0.6" />
+        <path d="M12 9c1.7.4 3 1.8 3 3.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.6" />
+    </svg>
+);
 const SunIcon: React.FC = () => (
     <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
         <path d="M8 2v2M8 12v2M2 8h2M12 8h2M4.5 4.5l1.4 1.4M10.1 10.1l1.4 1.4M4.5 11.5l1.4-1.4M10.1 5.9l1.4-1.4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
@@ -121,6 +130,12 @@ const NAV_SECTIONS: SidebarSection[] = [
         items: [
             { label: "Query analysis", icon: <ListIcon />, view: "query-analysis", badge: "28%", badgeVariant: "amber" },
             { label: "App health score", icon: <SunIcon />, view: "app-health" },
+        ],
+    },
+    {
+        sectionLabel: "Management",
+        items: [
+            { label: "User details", icon: <UsersIcon />, view: "user-details" },
         ],
     },
 ];

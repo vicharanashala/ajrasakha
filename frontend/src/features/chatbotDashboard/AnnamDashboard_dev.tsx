@@ -18,6 +18,7 @@ import { GeoCard } from "./GeoCard";
 import { HealthScoreCard } from "./HealthScoreCard";
 import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
 import { StatusBar } from "./components/StatusBar";
+import { UserDetailsView } from "./UserDetailsView";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -90,12 +91,15 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
           activeView={activeView}
           onViewChange={(view) => {
             setActiveView(view);
-            scrollTo(view);
+            if (view !== "user-details") scrollTo(view);
           }}
           healthScore={70}
           healthLabel="Moderate · needs improvement"
         />
 
+        {activeView === "user-details" ? (
+          <UserDetailsView />
+        ) : (
         <div style={{ flex: 1, overflowY: "auto", padding: "0px 20px 20px 20px" }}>
                 {/* Page header */}                                
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>      
@@ -153,6 +157,7 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
             </div>
           </div>
         </div>
+        )}
       </div>
 
         <StatusBar
