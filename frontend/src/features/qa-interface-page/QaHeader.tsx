@@ -17,6 +17,7 @@ import { Badge } from "../../components/atoms/badge";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Separator } from "@/components/atoms/separator";
 import { STATES, CROPS } from "@/components/MetaData";
+import { StateMultiSelect, CropMultiSelect } from "@/components/advanced-question-filter";
 import type {
   HistoryItem,
   IQuestion,
@@ -41,9 +42,9 @@ type QaHeaderProps={
   onActionTypeChange: (type: "allocated" | "reroute") => void;
   reviewLevel: string;
   source: string;
-  state: string;
-  crop: string;
-  onFilterChange: (key: string, value: string) => void;
+  states: string[];
+  crops: string[];
+  onFilterChange: (key: string, value: any) => void;
   scrollRef: React.RefObject<HTMLDivElement|null>;
   questionItemRefs: React.MutableRefObject<Record<string, HTMLDivElement>>;
   setQuestionRef: (id: string, el: HTMLDivElement | null) => void;
@@ -52,52 +53,52 @@ type QaHeaderProps={
 const QaPreferencesDialog = ({
   reviewLevel,
   source,
-  state,
-  crop,
+  states,
+  crops,
   onFilterChange,
 }: {
   reviewLevel: string;
   source: string;
-  state: string;
-  crop: string;
-  onFilterChange: (key: string, value: string) => void;
+  states: string[];
+  crops: string[];
+  onFilterChange: (key: string, value: any) => void;
 }) => {
   const [open, setOpen] = useState(false);
   const { data: cropsData } = useGetAllCrops();
   const dbCrops = cropsData?.crops || [];
   const [localReviewLevel, setLocalReviewLevel] = useState(reviewLevel);
   const [localSource, setLocalSource] = useState(source);
-  const [localState, setLocalState] = useState(state);
-  const [localCrop, setLocalCrop] = useState(crop);
+  const [localStates, setLocalStates] = useState<string[]>(states);
+  const [localCrops, setLocalCrops] = useState<string[]>(crops);
 
   useEffect(() => {
     if (open) {
       setLocalReviewLevel(reviewLevel);
       setLocalSource(source);
-      setLocalState(state);
-      setLocalCrop(crop);
+      setLocalStates(states);
+      setLocalCrops(crops);
     }
-  }, [open, reviewLevel, source, state, crop]);
+  }, [open, reviewLevel, source, states, crops]);
 
   let activeFiltersCount = 0;
   if (reviewLevel && reviewLevel !== "all") activeFiltersCount++;
   if (source && source !== "all") activeFiltersCount++;
-  if (state && state !== "all") activeFiltersCount++;
-  if (crop && crop !== "all") activeFiltersCount++;
+  if (states.length > 0) activeFiltersCount++;
+  if (crops.length > 0) activeFiltersCount++;
 
   const handleApply = () => {
     onFilterChange("review_level", localReviewLevel);
     onFilterChange("source", localSource);
-    onFilterChange("state", localState);
-    onFilterChange("crop", localCrop);
+    onFilterChange("states", localStates);
+    onFilterChange("crops", localCrops);
     setOpen(false);
   };
 
   const handleReset = () => {
     setLocalReviewLevel("all");
     setLocalSource("all");
-    setLocalState("all");
-    setLocalCrop("all");
+    setLocalStates([]);
+    setLocalCrops([]);
   };
 
   return (
@@ -195,19 +196,11 @@ const QaPreferencesDialog = ({
                   <MapPin className="h-4 w-4 text-primary" />
                   State/Region
                 </Label>
-                <Select value={localState} onValueChange={setLocalState}>
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All States</SelectItem>
-                    {STATES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <StateMultiSelect
+                  states={STATES}
+                  selected={localStates}
+                  onChange={setLocalStates}
+                />
               </div>
 
               <div className="space-y-2 min-w-0">
@@ -230,52 +223,12 @@ const QaPreferencesDialog = ({
                     </TooltipContent>
                   </Tooltip>
                 </Label>
-                <Select value={localCrop} onValueChange={setLocalCrop}>
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Crops</SelectItem>
-                    <SelectItem value="__NOT_SET__">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                        <span className="text-yellow-700 dark:text-yellow-400 font-medium">Not Set (Legacy)</span>
-                      </div>
-                    </SelectItem>
-                    {dbCrops.length > 0
-                      ? dbCrops.map((c: any) => (
-                          <SelectItem key={c._id || c.name} value={c.name}>
-                            {c.aliases && c.aliases.length > 0 ? (
-                              <TooltipProvider delayDuration={200}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="flex items-center gap-2 cursor-default">
-                                      <span className="capitalize">{c.name}</span>
-                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
-                                        +{c.aliases.length}
-                                      </span>
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="right" className="text-xs">
-                                    <p className="font-semibold mb-0.5">Also known as:</p>
-                                    {c.aliases.map((a: string) => (
-                                      <p key={a} className="capitalize text-muted-foreground">{a}</p>
-                                    ))}
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            ) : (
-                              <span className="capitalize">{c.name}</span>
-                            )}
-                          </SelectItem>
-                        ))
-                      : CROPS.map((c) => (
-                          <SelectItem key={c} value={c}>
-                            {c}
-                          </SelectItem>
-                        ))}
-                  </SelectContent>
-                </Select>
+                <CropMultiSelect
+                  dbCrops={dbCrops}
+                  crops={CROPS}
+                  selected={localCrops}
+                  onChange={setLocalCrops}
+                />
               </div>
             </div>
           </div>
@@ -437,8 +390,8 @@ export const QaHeader=({ questions,
   onActionTypeChange,
   reviewLevel,
   source,
-  state,
-  crop,
+  states,
+  crops,
   onFilterChange,
   scrollRef,
   setQuestionRef,
@@ -483,8 +436,8 @@ export const QaHeader=({ questions,
                 <QaPreferencesDialog
                   reviewLevel={reviewLevel}
                   source={source}
-                  state={state}
-                  crop={crop}
+                  states={states}
+                  crops={crops}
                   onFilterChange={onFilterChange}
                 />
 

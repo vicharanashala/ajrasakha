@@ -243,10 +243,17 @@ class GetDetailedQuestionsQuery {
   @IsString()
   priority?: string;
 
-  @JSONSchema({description: 'Crop filter', example: 'Wheat', type: 'string'})
+  @JSONSchema({
+    description: 'Crop filter (single or multiple)',
+    example: 'Wheat',
+    oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
+  })
   @IsOptional()
-  @IsString()
-  crop?: string;
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    return Array.isArray(value) ? value : [value];
+  })
+  crop?: string[];
 
   @JSONSchema({
     description: 'Domain filter',
@@ -356,12 +363,24 @@ class GetDetailedQuestionsQuery {
   @IsString()
   review_level?: string;
 }
+export class AllocatedQuestionsBodyDto {
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  states?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  crops?: string[];
+}
+
 export const QUESTION_VALIDATORS = [
- 
   QuestionIdParam,
   AllocateReRouteExpertsRequest,
   QuestionResponse,
-  GetDetailedQuestionsQuery
+  GetDetailedQuestionsQuery,
+  AllocatedQuestionsBodyDto,
 ];
 
-export{QuestionIdParam,AllocateReRouteExpertsRequest,QuestionResponse,GetDetailedQuestionsQuery}
+export {QuestionIdParam, AllocateReRouteExpertsRequest, QuestionResponse, GetDetailedQuestionsQuery}

@@ -110,6 +110,7 @@ export type AdvanceFilterValues = {
   user: string;
   domain: string;
   crop: string;
+  crops?: string[]; // multi-select for expert Preferences filter
   normalised_crop: string;
   normalisedCrops?: string[]; // multi-select for Preferences filter
   priority: QuestionPriorityFilter;
@@ -218,7 +219,7 @@ interface DateRangeFilterProps {
 // };
 
 // Inline multi-select for State/Region with hover-to-scroll zones
-const StateMultiSelect = ({
+export const StateMultiSelect = ({
   states,
   selected,
   onChange,
@@ -351,7 +352,7 @@ const StateMultiSelect = ({
   );
 };
 
-const CropMultiSelect = ({
+export const CropMultiSelect = ({
   dbCrops,
   crops,
   selected,
