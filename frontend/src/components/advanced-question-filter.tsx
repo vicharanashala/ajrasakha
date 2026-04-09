@@ -310,8 +310,8 @@ const StateMultiSelect = ({
                   className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
                 >
                   <div
-                    className={`h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
-                      isSelected ? "bg-primary border-primary" : "border-input"
+                    className={`h-4 w-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                      isSelected ? "bg-primary border-primary" : "border-gray-400 bg-white"
                     }`}
                   >
                     {isSelected && (
