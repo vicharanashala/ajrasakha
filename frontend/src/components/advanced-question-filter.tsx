@@ -927,7 +927,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
                       const label =
                         key === "hiddenQuestions"
-                          ? "Show hidden questions"
+                          ? "Show passed questions"
                           : key === "duplicateQuestions"
                             ? "Show duplicate questions"
                             : key;
