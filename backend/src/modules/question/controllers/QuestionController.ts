@@ -298,6 +298,8 @@ export class QuestionController {
       season?: string; 
       domain?: string; 
       status?: string; 
+      hiddenQuestions?: string;
+      duplicateQuestions?: string;
     },
     @CurrentUser() user: IUser,
     @Res() response: any,
@@ -309,6 +311,8 @@ export class QuestionController {
       season: query.season,
       domain: query.domain,
       status: query.status,
+      hiddenQuestions: query.hiddenQuestions,
+      duplicateQuestions: query.duplicateQuestions,
     });
 
     if (!data) {

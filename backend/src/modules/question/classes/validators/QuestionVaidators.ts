@@ -634,6 +634,24 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   autoAllocateFilter?: string;
+
+  @JSONSchema({
+    description: 'to filter hidden questions',
+    example: 'true',
+    type: 'string',
+    
+  })
+  @IsOptional()
+  hiddenQuestions?: string;
+
+  @JSONSchema({
+    description: 'to filter duplicate questions',
+    example: 'true',
+    type: 'string',
+    
+  })
+  @IsOptional()
+  duplicateQuestions?: string;
 }
 
 export interface IQuestionWithAnswerTexts {

@@ -148,6 +148,8 @@ export interface IQuestionService {
     season?: string;
     domain?: string;
     status?: string;
+    hiddenQuestions?: string;
+    duplicateQuestions?: string;
   }): Promise<ArrayBuffer | null>;
   generateDuplicateQuestionReport(
     startDate?: Date,

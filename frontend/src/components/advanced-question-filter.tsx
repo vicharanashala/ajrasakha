@@ -52,13 +52,16 @@ import {
   BadgeCheck,
   Hand,
   Users,
-  Settings
-
-
+  Settings,
 } from "lucide-react";
 import { Plus } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./atoms/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./atoms/tooltip";
 import type { IMyPreference } from "@/types";
 import { CROPS, STATES, DOMAINS, Review_Level } from "@/components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
@@ -112,10 +115,12 @@ export type AdvanceFilterValues = {
   startTime?: Date | undefined | null; // Use a specific name like startTime/endTime
   endTime?: Date | undefined | null;
   review_level?: ReviewLevel;
-  closedAtEnd?: Date | undefined | null,
-  closedAtStart?: Date | undefined | null,
-  consecutiveApprovals?:string,
-  autoAllocateFilter?:string,
+  closedAtEnd?: Date | undefined | null;
+  closedAtStart?: Date | undefined | null;
+  consecutiveApprovals?: string;
+  autoAllocateFilter?: string;
+  hiddenQuestions?: boolean;
+  duplicateQuestions?: boolean;
 };
 
 // Define the props for your new component
@@ -221,7 +226,7 @@ interface AdvanceFilterDialogProps {
   activeFiltersCount: number;
   onReset: () => void;
   isForQA: boolean;
-  setIsSidebarOpen: (value:boolean) => void;
+  setIsSidebarOpen: (value: boolean) => void;
 }
 
 export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
@@ -242,7 +247,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   const dbCrops = cropsData?.crops || [];
 
   const users = (userNameReponse?.users || []).sort((a, b) =>
-    a.userName.localeCompare(b.userName)
+    a.userName.localeCompare(b.userName),
   );
 
   return (
@@ -458,7 +463,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
             {/* Domain & Users */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
               <div className="space-y-2 min-w-0">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <Sprout className="h-4 w-4 text-primary" />
@@ -474,14 +478,19 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-sm">
                       <p>
-                        Filter by the standardized crop name. You can view a crop's alternative names by hovering over the "+" icon next to it. Use "Not Set" to find older questions without a normalized crop.
+                        Filter by the standardized crop name. You can view a
+                        crop's alternative names by hovering over the "+" icon
+                        next to it. Use "Not Set" to find older questions
+                        without a normalized crop.
                       </p>
                     </TooltipContent>
                   </Tooltip>
                 </Label>
                 <Select
                   value={advanceFilter.normalised_crop}
-                  onValueChange={(v) => handleDialogChange("normalised_crop", v)}
+                  onValueChange={(v) =>
+                    handleDialogChange("normalised_crop", v)
+                  }
                 >
                   <SelectTrigger className="bg-background w-full">
                     <SelectValue />
@@ -491,27 +500,44 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     <SelectItem value="__NOT_SET__">
                       <div className="flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                        <span className="text-yellow-700 dark:text-yellow-400 font-medium">Not Set (Legacy)</span>
+                        <span className="text-yellow-700 dark:text-yellow-400 font-medium">
+                          Not Set (Legacy)
+                        </span>
                       </div>
                     </SelectItem>
                     {dbCrops.length > 0
                       ? dbCrops.map((crop) => (
-                          <SelectItem key={crop._id || crop.name} value={crop.name}>
+                          <SelectItem
+                            key={crop._id || crop.name}
+                            value={crop.name}
+                          >
                             {crop.aliases && crop.aliases.length > 0 ? (
                               <TooltipProvider delayDuration={200}>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <span className="flex items-center gap-2 cursor-default">
-                                      <span className="capitalize">{crop.name}</span>
+                                      <span className="capitalize">
+                                        {crop.name}
+                                      </span>
                                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
                                         +{crop.aliases.length}
                                       </span>
                                     </span>
                                   </TooltipTrigger>
-                                  <TooltipContent side="right" className="text-xs">
-                                    <p className="font-semibold mb-0.5">Also known as:</p>
+                                  <TooltipContent
+                                    side="right"
+                                    className="text-xs"
+                                  >
+                                    <p className="font-semibold mb-0.5">
+                                      Also known as:
+                                    </p>
                                     {crop.aliases.map((a) => (
-                                      <p key={a} className="capitalize text-muted-foreground">{a}</p>
+                                      <p
+                                        key={a}
+                                        className="capitalize text-muted-foreground"
+                                      >
+                                        {a}
+                                      </p>
                                     ))}
                                   </TooltipContent>
                                 </Tooltip>
@@ -704,19 +730,20 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   Consecutive Approvals
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button type="button" className="text-muted-foreground hover:text-primary transition-colors">
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-primary transition-colors"
+                      >
                         <Info className="h-4 w-4" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-sm">
                       <p>
-                        Filter questions based on the number of consecutive approvals received by their latest answer.
+                        Filter questions based on the number of consecutive
+                        approvals received by their latest answer.
                       </p>
                     </TooltipContent>
-
                   </Tooltip>
-
-                  
                 </Label>
                 <Select
                   value={advanceFilter.consecutiveApprovals}
@@ -762,7 +789,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 <Label className="relative flex items-center gap-2 text-sm font-semibold">
                   <Users className="h-4 w-4 text-primary" />
                   Auto Allocate Experts
-                  
                 </Label>
                 <Select
                   value={advanceFilter.autoAllocateFilter}
@@ -833,6 +859,45 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 Filter questions based on the number of answers received
               </p>
             </div>
+            {/* Hidden and Duplicate Questions */}
+            <div className="space-y-4">
+              <div className="text-sm font-semibold flex items-center gap-2">
+                <Eye className="h-4 w-4 text-primary" />
+                Question Visibility
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-border bg-background p-4">
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={advanceFilter.hiddenQuestions ?? false}
+                    onChange={(event) =>
+                      handleDialogChange(
+                        "hiddenQuestions",
+                        event.target.checked,
+                      )
+                    }
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <span className="text-sm">Show passed questions</span>
+                </label>
+
+                {/* <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={advanceFilter.duplicateQuestions ?? false}
+                    onChange={(event) =>
+                      handleDialogChange(
+                        "duplicateQuestions",
+                        event.target.checked,
+                      )
+                    }
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <span className="text-sm">Show duplicate questions</span>
+                </label> */}
+              </div>
+            </div>
 
             {/* Active Filters Badges */}
             {activeFiltersCount > 0 && (
@@ -849,30 +914,48 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                       if (
                         key == "startTime" ||
                         key == "endTime" ||
-                        value === "all" ||
                         key === "closedAtStart" ||
                         key === "closedAtEnd" ||
+                        value === "all" ||
+                        value === undefined ||
+                        value === null ||
+                        (typeof value === "boolean" && value === false) ||
                         (Array.isArray(value) &&
                           value[0] === 0 &&
                           value[1] === 100)
                       )
                         return null;
+
+                      const label =
+                        key === "hiddenQuestions"
+                          ? "Show hidden questions"
+                          : key === "duplicateQuestions"
+                            ? "Show duplicate questions"
+                            : key;
+
                       return (
                         <Badge
                           key={key}
                           variant="secondary"
                           className="text-xs flex items-center gap-1"
                         >
-                          {key}:{" "}
+                          {label}:{" "}
                           {Array.isArray(value)
                             ? `${value[0]}-${value[1]}`
-                            : (value as String)}
+                            : typeof value === "boolean"
+                              ? "Yes"
+                              : (value as String)}
                           <XCircle
                             className="h-3 w-3 ml-1 cursor-pointer"
                             onClick={() =>
                               handleDialogChange(
                                 key,
-                                Array.isArray(value) ? [0, 100] : "all",
+                                Array.isArray(value)
+                                  ? [0, 100]
+                                  : key === "hiddenQuestions" ||
+                                      key === "duplicateQuestions"
+                                    ? false
+                                    : "all",
                               )
                             }
                           />
