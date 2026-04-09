@@ -47,8 +47,32 @@ if (autoAllocateFilter && autoAllocateFilter !== 'all') {
   caseInsensitive("status", status);
   caseInsensitive("source", source);
   caseInsensitive("priority", priority);
-  caseInsensitive("details.state", state);
-  caseInsensitive("details.crop", crop);
+
+  // state supports single value or array (multi-select)
+  if (state) {
+    const stateArr = Array.isArray(state) ? state : [state];
+    const validStates = stateArr.filter((s) => s && s !== "all");
+    if (validStates.length === 1) {
+      filter["details.state"] = { $regex: `^${validStates[0]}$`, $options: "i" };
+    } else if (validStates.length > 1) {
+      filter["details.state"] = {
+        $in: validStates.map((s) => new RegExp(`^${s}$`, "i")),
+      };
+    }
+  }
+
+  // crop supports single value or array (multi-select)
+  if (crop) {
+    const cropArr = Array.isArray(crop) ? crop : [crop];
+    const validCrops = cropArr.filter((c) => c && c !== "all");
+    if (validCrops.length === 1) {
+      filter["details.crop"] = { $regex: `^${validCrops[0]}$`, $options: "i" };
+    } else if (validCrops.length > 1) {
+      filter["details.crop"] = {
+        $in: validCrops.map((c) => new RegExp(`^${c}$`, "i")),
+      };
+    }
+  }
   caseInsensitive("details.domain", domain);
 
   if (answersCountMin !== undefined || answersCountMax !== undefined) {

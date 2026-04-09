@@ -33,6 +33,8 @@ import { appConfig } from '#root/config/app.js';
 import { AiService } from '#root/modules/core/services/AiService.js';
 import {
   AddQuestionBodyDto,
+  AllocatedQuestionsBodyDto,
+  DetailedQuestionsBodyDto,
   GeneratedQuestionResponse,
   GetDetailedQuestionsQuery,
   QuestionResponse,
@@ -289,10 +291,11 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
+    body: AllocatedQuestionsBodyDto,
   ): Promise<QuestionResponse[]> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        return this.questionRepo.getAllocatedQuestions(userId, query, session);
+        return this.questionRepo.getAllocatedQuestions(userId, query, session, body);
       });
     } catch (error) {
       throw new InternalServerError(
@@ -303,6 +306,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   async getDetailedQuestions(
     query: GetDetailedQuestionsQuery,
+    body: DetailedQuestionsBodyDto,
   ): Promise<{ questions: IQuestion[]; totalPages: number }> {
     let searchEmbedding: number[] | null = null;
 
@@ -323,7 +327,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     return this.questionRepo.findDetailedQuestions({
       ...query,
       searchEmbedding,
-    });
+    }, body);
   }
 
   async getQuestionFromRawContext(
