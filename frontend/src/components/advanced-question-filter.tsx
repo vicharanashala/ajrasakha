@@ -79,7 +79,7 @@ export type QuestionDateRangeFilter =
   | "quarter"
   | "year";
 
-export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT";
+export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP";
 // New Type
 export type QuestionPriorityFilter = "all" | "high" | "low" | "medium";
 export type QuestionTimeRange = {
