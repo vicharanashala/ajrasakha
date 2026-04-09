@@ -571,4 +571,15 @@ export class QuestionService {
     return await response.blob();
   }
 
+ async holdQuestion(
+  questionId: string
+): Promise<{ id: string } | null> {
+  return apiFetch<{ id: string }>(
+    `${this._baseUrl}/hold/${questionId}`,
+    {
+      method: "PATCH",
+    }
+  );
+}
+
 }
