@@ -129,8 +129,40 @@ export class QuestionController {
   @Post('/')
   @HttpCode(201)
   @ResponseSchema(Object, {statusCode: 400})
-  @OpenAPI({summary: 'Add a new question (single or bulk upload)'})
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({summary: 'Add a new question from chatbot'})
   async addQuestion(
+    @Body() body: AddQuestionBodyDto,
+    @CurrentUser() user: IUser,
+  ): Promise<Partial<any> | {message: string}> {
+    const userId = user?._id?.toString();
+
+    body.source = 'AJRASAKHA'; // force source for chatbot
+    console.log("the body coming=====", body)
+    const { isDuplicate, data } = await this.questionService.addQuestion(userId, body);
+    console.log("the duplicate coming====", isDuplicate)
+    console.log("the data coming=====", data)
+    if (isDuplicate) {
+      return {
+        success: true,
+        message: 'Your question is similar to an existing question.',
+        data,
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Question submitted successfully.',
+      question_id: data._id
+    };
+  }
+
+  @Post('/reviewer-add-que')
+  @HttpCode(201)
+  @Authorized()
+  @ResponseSchema(Object, {statusCode: 400})
+  @OpenAPI({summary: 'Add a new question by reviewer (single or bulk upload)'})
+  async addReviewerQuestion(
     @UploadedFile('file', {options: UploadFileOptions})
     file: Express.Multer.File,
     @Body() body: AddQuestionBodyDto,
@@ -173,7 +205,7 @@ export class QuestionController {
           );
         }
 
-        console.log('Paylod: ', payload);
+        console.log('Payload: ', payload);
         const insertedIds = await this.questionService.createBulkQuestions(
           userId,
           payload,
@@ -190,10 +222,10 @@ export class QuestionController {
         );
       }
     } else {
-      console.log("the body coming=====",body)
-      const { isDuplicate, data } = await this.questionService.addQuestion(userId, body);
-      console.log("the duplicate coming====",isDuplicate)
-      console.log("the data coming=====",data)
+      body.source = 'AGRI_EXPERT'; // force source for reviewer
+
+      const {isDuplicate, data} = await this.questionService.addQuestion(userId, body);
+
       if (isDuplicate) {
         return {
           success: true,
@@ -201,14 +233,15 @@ export class QuestionController {
           data,
         };
       }
-      
+
       return {
         success: true,
         message: 'Question submitted successfully.',
-        question_id:data._id
+        question_id: data._id,
       };
     }
   }
+
   @Post('/reAllocateLessWorkload')
   @HttpCode(200)
  // @ResponseSchema(Object, {statusCode: 400})
