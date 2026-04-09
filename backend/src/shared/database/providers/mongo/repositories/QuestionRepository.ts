@@ -57,6 +57,7 @@ const VECTOR_COUNT_LIMIT = 20000;
 
 export class QuestionRepository implements IQuestionRepository {
   private QuestionCollection: Collection<IQuestion>;
+  private DuplicateQuestionCollection: Collection<ISimilarQuestion>;
   private QuestionSubmissionCollection: Collection<IQuestionSubmission>;
   private AnswersCollection: Collection<IAnswer>;
   private UsersCollection!: Collection<IUser>;
@@ -74,6 +75,8 @@ export class QuestionRepository implements IQuestionRepository {
 
     this.QuestionCollection =
       await this.db.getCollection<IQuestion>('questions');
+    this.DuplicateQuestionCollection =
+      await this.db.getCollection<ISimilarQuestion>('duplicate_questions');
     this.QuestionSubmissionCollection =
       await this.db.getCollection<IQuestionSubmission>('question_submissions');
     this.UsersCollection = await this.db.getCollection<IUser>('users');
@@ -323,13 +326,29 @@ export class QuestionRepository implements IQuestionRepository {
         closedAtEnd,
         consecutiveApprovals,
         autoAllocateFilter,
-        sort
+        sort,
+        hiddenQuestions,
+        duplicateQuestions,
       } = query;
 
     //  const filter: any = {};
     const filter: any = {
-      isHidden: { $ne: true }, // 👈 exclude hidden questions
+      isHidden: { $ne: true }, // default to exclude hidden questions
     };
+
+    // --- Hidden question filter ---
+    if(hiddenQuestions === 'true'){
+        filter.isHidden = { $eq: true }; // filter by hidden questions
+    }
+
+    //for duplicate questions.
+    // duplicateQuestions === 'true'
+    //       ? this.DuplicateQuestionCollection
+    //       :
+
+    // --- setting the collection with respect to the duplicate questions filter ---
+      const questionsCollection = this.QuestionCollection as Collection<IQuestion>;
+
       // --- Auto Allocate Filter ---
       if (autoAllocateFilter && autoAllocateFilter !== 'all') {
         if (autoAllocateFilter === 'on') {
@@ -589,7 +608,7 @@ export class QuestionRepository implements IQuestionRepository {
         ];
 
         const countResult =
-          await this.QuestionCollection.aggregate(countPipeline).toArray();
+          await questionsCollection.aggregate(countPipeline).toArray();
         totalCount = countResult[0]?.count ?? 0;
 
         const totalPages = Math.ceil(totalCount / limit);
@@ -678,7 +697,7 @@ export class QuestionRepository implements IQuestionRepository {
           { $limit: limit },
         ];
 
-        result = await this.QuestionCollection.aggregate(pipeline).toArray();
+        result = await questionsCollection.aggregate(pipeline).toArray();
 
         const formattedQuestions: IQuestion[] = result.map((q: any) => ({
           ...q,
@@ -708,7 +727,7 @@ export class QuestionRepository implements IQuestionRepository {
         ];
       }
 
-      totalCount = await this.QuestionCollection.countDocuments(filter);
+      totalCount = await questionsCollection.countDocuments(filter);
       const totalPages = Math.ceil(totalCount / limit);
 
       // Determine sort order
@@ -774,7 +793,7 @@ export class QuestionRepository implements IQuestionRepository {
         { $limit: limit },
       );
 
-      result = await this.QuestionCollection.aggregate([
+      result = await questionsCollection.aggregate([
         ...aggregationPipeline,
 
         // JOIN submissions → extract history length
@@ -3287,10 +3306,17 @@ export class QuestionRepository implements IQuestionRepository {
   async getQuestionsByFilters(
     filters: any,
     session?: ClientSession,
+    useDuplicateCollection = false,
   ): Promise<IQuestion[]> {
     await this.init();
 
-    return await this.QuestionCollection
+    // for duplicate question
+    //  useDuplicateCollection
+    //   ? this.DuplicateQuestionCollection
+    //   :
+    const collection = this.QuestionCollection;
+
+    return await collection
       .find(filters, { session })
       .sort({ createdAt: -1 })
       .toArray();

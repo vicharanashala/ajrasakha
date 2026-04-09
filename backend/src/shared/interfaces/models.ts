@@ -38,6 +38,8 @@ export interface IQuestionMetrics {
   recent_similarity: number;
   collusion_score: number;
 }
+
+export type QuestionSource = 'AJRASAKHA' | "AGRI_EXPERT" | "WHATSAPP";
 export interface IQuestion {
   _id?: string | ObjectId;
   userId?: ObjectId | string;
@@ -55,7 +57,7 @@ export interface IQuestion {
     normalised_crop?: string;
   };
   isAutoAllocate: boolean;
-  source: 'AJRASAKHA' | 'AGRI_EXPERT';
+  source: QuestionSource;
   embedding: number[];
   aiInitialAnswer?: string;
   aiApprovedSources?: SourceItem[];
@@ -65,7 +67,8 @@ export interface IQuestion {
   closedAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
-  isHidden?:false
+  isHidden?:false;
+  passingRemark?:string;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';

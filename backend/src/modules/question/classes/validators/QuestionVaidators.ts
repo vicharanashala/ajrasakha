@@ -13,10 +13,11 @@ import {
   ValidateNested,
   ArrayNotEmpty,
   IsEmail,
+  IsIn,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 import {ObjectId} from 'mongodb';
-import {IQuestionPriority, ICropRef, QuestionStatus} from '#shared/interfaces/models.js';
+import {IQuestionPriority, ICropRef, QuestionStatus, QuestionSource} from '#shared/interfaces/models.js';
 import {Type} from 'class-transformer';
 
 class AddQuestionBody {
@@ -311,8 +312,8 @@ class QuestionResponse {
   @IsEnum(['open', 'answered', 'closed'])
   status?: QuestionStatus;
 
-  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT'])
-  source!: 'AJRASAKHA' | 'AGRI_EXPERT';
+  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', "WHATSAPP"])
+  source!: QuestionSource;
 
   @IsOptional()
   @IsArray()
@@ -351,8 +352,8 @@ class AddQuestionBodyDto {
   priority!: 'low' | 'medium' | 'high';
 
   @IsOptional()
-  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT'])
-  source!: 'AJRASAKHA' | 'AGRI_EXPERT';
+  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', 'WHATSAPP'])
+  source!: QuestionSource;
 
   @IsOptional()
   @ValidateNested()
@@ -468,7 +469,7 @@ class GetDetailedQuestionsQuery {
     type: 'string',
   })
   @IsOptional()
-  @IsString()
+  @IsIn(['all',"AGRI_EXPERT","AJRASAKHA","WHATSAPP"])
   source?: string;
 
   @JSONSchema({
@@ -633,6 +634,24 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   autoAllocateFilter?: string;
+
+  @JSONSchema({
+    description: 'to filter hidden questions',
+    example: 'true',
+    type: 'string',
+    
+  })
+  @IsOptional()
+  hiddenQuestions?: string;
+
+  @JSONSchema({
+    description: 'to filter duplicate questions',
+    example: 'true',
+    type: 'string',
+    
+  })
+  @IsOptional()
+  duplicateQuestions?: string;
 }
 
 export interface IQuestionWithAnswerTexts {
