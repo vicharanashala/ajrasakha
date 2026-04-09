@@ -47,7 +47,20 @@ if (autoAllocateFilter && autoAllocateFilter !== 'all') {
   caseInsensitive("status", status);
   caseInsensitive("source", source);
   caseInsensitive("priority", priority);
-  caseInsensitive("details.state", state);
+
+  // state supports single value or array (multi-select)
+  if (state) {
+    const stateArr = Array.isArray(state) ? state : [state];
+    const validStates = stateArr.filter((s) => s && s !== "all");
+    if (validStates.length === 1) {
+      filter["details.state"] = { $regex: `^${validStates[0]}$`, $options: "i" };
+    } else if (validStates.length > 1) {
+      filter["details.state"] = {
+        $in: validStates.map((s) => new RegExp(`^${s}$`, "i")),
+      };
+    }
+  }
+
   caseInsensitive("details.crop", crop);
   caseInsensitive("details.domain", domain);
 

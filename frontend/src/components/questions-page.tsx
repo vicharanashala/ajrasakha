@@ -38,6 +38,7 @@ export const QuestionsPage = ({
   const [source, setSource] = useState<QuestionSourceFilter>("AJRASAKHA");
   const [priority, setPriority] = useState<QuestionPriorityFilter>("all");
   const [state, setState] = useState("all");
+  const [states, setStates] = useState<string[]>([]);
   const [crop, setCrop] = useState("all");
   const [normalisedCrop, setNormalisedCrop] = useState("all");
   const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
@@ -108,6 +109,7 @@ export const QuestionsPage = ({
     () => ({
       status,
       state,
+      states,
       source,
       crop,
       normalised_crop: normalisedCrop,
@@ -129,6 +131,7 @@ export const QuestionsPage = ({
     [
       status,
       state,
+      states,
       source,
       crop,
       normalisedCrop,
@@ -202,6 +205,7 @@ export const QuestionsPage = ({
     source?: QuestionSourceFilter;
     priority?: QuestionPriorityFilter;
     state?: string;
+    states?: string[];
     crop?: string;
     normalised_crop?: string;
     domain?: string;
@@ -221,6 +225,7 @@ export const QuestionsPage = ({
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
     if (next.state !== undefined) setState(next.state);
+    if (next.states !== undefined) setStates(next.states);
     if (next.crop !== undefined) setCrop(next.crop);
     if (next.normalised_crop !== undefined) setNormalisedCrop(next.normalised_crop);
     if (next.answersCount !== undefined) setAnswersCount(next.answersCount);
@@ -256,6 +261,7 @@ export const QuestionsPage = ({
     setStatus("all");
     setSource("all");
     setState("all");
+    setStates([]);
     setCrop("all");
     setNormalisedCrop("all");
     setAnswersCount([0, 100]);
