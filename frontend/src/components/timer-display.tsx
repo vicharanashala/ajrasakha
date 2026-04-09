@@ -4,6 +4,7 @@ import React from "react";
 interface TimerDisplayProps {
   timer: string;
   status?: string;
+  source?: string;
   warningThreshold?: number;
   criticalThreshold?: number;
   className?: string;
@@ -13,6 +14,7 @@ interface TimerDisplayProps {
 export const TimerDisplay: React.FC<TimerDisplayProps> = ({
   timer,
   status,
+  source,
   warningThreshold = 30,
   criticalThreshold = 10,
   className = "",
@@ -23,7 +25,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
 
   const [hours, minutes] = timer.split(":").map(Number);
   if (timer === "00:00:00") return null;
-  
+
   const sizeMap = {
     sm: { icon: "w-3 h-3", text: "text-xs" },
     md: { icon: "w-4 h-4", text: "text-sm" },
@@ -35,20 +37,32 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
   let iconColor = "text-muted-foreground";
   let icon = <Clock className={`${iconSize} ${iconColor}`} />;
 
-  if (hours === 0 && minutes < criticalThreshold) {
-    textColor = "text-red-600 font-semibold";
-    iconColor = "text-red-500 animate-pulse";
-    icon = <AlertTriangle className={`${iconSize} ${iconColor}`} />;
-  } else if (hours === 0 && minutes < warningThreshold) {
-    textColor = "text-orange-500 font-semibold";
-    iconColor = "text-orange-400";
-    icon = <AlertTriangle className={`${iconSize} ${iconColor}`} />;
-  } else if (hours < 1) {
-    textColor = "text-yellow-500 font-medium";
-    iconColor = "text-yellow-400";
+  // if (hours === 0 && minutes < criticalThreshold) {
+  if (source === "AJRASAKHA") {
+    // AJRASAKHA: green >= 1hr, yellow 30-60min, red < 30min
+    if (hours === 0 && minutes < warningThreshold) {
+      textColor = "text-red-600 font-semibold";
+      iconColor = "text-red-500 animate-pulse";
+      icon = <AlertTriangle className={`${iconSize} ${iconColor}`} />;
+  //   } else if (hours === 0 && minutes < warningThreshold) {
+  //   textColor = "text-orange-500 font-semibold";
+  //   iconColor = "text-orange-400";
+  //   icon = <AlertTriangle className={`${iconSize} ${iconColor}`} />;
+  // } else if (hours < 1) {
+    } else if (hours === 0 && minutes >= warningThreshold) {
+      textColor = "text-yellow-500 font-medium";
+      iconColor = "text-yellow-400";
+    } else {
+      textColor = "text-green-600";
+      iconColor = "text-green-500";
+    }
   } else {
-    textColor = "text-green-600";
-    iconColor = "text-green-500";
+    // Default: only show red alert when critically low (< 10 min)
+    if (hours === 0 && minutes < criticalThreshold) {
+      textColor = "text-red-600 font-semibold";
+      iconColor = "text-red-500 animate-pulse";
+      icon = <AlertTriangle className={`${iconSize} ${iconColor}`} />;
+    }
   }
 
   return (

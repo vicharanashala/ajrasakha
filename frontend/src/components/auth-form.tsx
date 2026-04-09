@@ -11,6 +11,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Check, Eye, EyeOff } from "lucide-react";
 import { loginWithEmail } from "@/lib/firebase";
 import { useSignup } from "@/hooks/api/auth/useSignup";
+import { isDevelopment } from "@/shared/app";
 
 interface AuthFormProps extends React.ComponentProps<"div"> {
   mode?: "login" | "signup";
@@ -81,10 +82,9 @@ export const AuthForm = ({
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-
     if (!formData.email) {
       newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@annam\.ai$/.test(formData.email)) {
+    } else if (!/^[^\s@]+@annam\.ai$/.test(formData.email) && !isDevelopment) {
       newErrors.email = "Please enter a valid email";
     }
 
@@ -97,8 +97,8 @@ export const AuthForm = ({
     if (mode === "signup") {
       if (!formData.name) {
         newErrors.name = "Name is required";
-      } else if (!formData.name.trim()){
-        newErrors.name="Name cannot be empty or blank spaces";
+      } else if (!formData.name.trim()) {
+        newErrors.name = "Name cannot be empty or blank spaces";
       } else if (!/^[a-zA-Z\s]+$/.test(formData.name)) {
         newErrors.name = "Name cannot contain special characters or numbers";
       }
@@ -167,8 +167,10 @@ export const AuthForm = ({
             firstName,
             lastName,
           });
-
-          setIsEmailSent(true);
+          if (!isDevelopment) {
+            setIsEmailSent(true);
+          }
+          handleModeChange("login")
           return;
         } catch (e) {
           console.error("signupMutation failed:", e);
@@ -184,7 +186,6 @@ export const AuthForm = ({
         name: result!.user.displayName || firstName,
         avatar: result!.user.photoURL || "",
       });
-
       navigate({ to: "/home" });
     } catch (error: any) {
       console.error("Auth failed", error);
@@ -199,7 +200,7 @@ export const AuthForm = ({
       ) {
         toast.error("Incorrect email or password.");
       } else {
-        let message =error.message || "Something went wrong. Please try again.";
+        let message = error.message || "Something went wrong. Please try again.";
 
         try {
           // Look for embedded JSON in error message
@@ -216,9 +217,9 @@ export const AuthForm = ({
         }
 
         console.error(error);
-        if(message==='User Is Blocked Please Contact Moderator'){
+        if (message === 'User Is Blocked Please Contact Moderator') {
           toast.warning(error.message)
-        }else{
+        } else {
           toast.error(message);
         }
       }
@@ -277,10 +278,10 @@ export const AuthForm = ({
           ) : (
             <form onSubmit={handleEmailAuth}>
               <div className="grid gap-6">
-              {mode == "login" && (
-                <>
-                  <div className="flex flex-col gap-4">
-                    {/* {
+                {mode == "login" && (
+                  <>
+                    <div className="flex flex-col gap-4">
+                      {/* {
                     {<Button
                       variant="outline"
                       className="w-full h-12 border-2 border-green-100 hover:border-green-200  transition-all duration-300 group hover:bg-green/100  text-gray-700 dark:text-gray-300 hover:bg-none"
@@ -321,19 +322,18 @@ export const AuthForm = ({
                     </Button>}
 
               } */}
-                  </div>
+                    </div>
 
-                  {/* <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-green-200 dark:after:border-green-800">
+                    {/* <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-green-200 dark:after:border-green-800">
                     <span className="relative z-10 bg-white dark:bg-gray-900 px-4 text-muted-foreground font-medium">
                       Or continue with email
                     </span>
                   </div> */}
-                </>
-              )}
-              <div
-                className={`grid ${
-                  mode == "signup" ? "gap-2" : "gap-5"
-                } animate-in fade-in-0 slide-in-from-right-2 duration-500 delay-200`}
+                  </>
+                )}
+                <div
+                  className={`grid ${mode == "signup" ? "gap-2" : "gap-5"
+                    } animate-in fade-in-0 slide-in-from-right-2 duration-500 delay-200`}
                 >
                   {mode === "signup" && (
                     <div className="grid gap-2 animate-in fade-in-0 slide-in-from-left-2 duration-500 delay-300">
@@ -390,7 +390,7 @@ export const AuthForm = ({
                       >
                         Password
                       </Label>
-                    {/* {mode === "login" && (
+                      {/* {mode === "login" && (
                       <a
                         href="#"
                         className="text-sm text-green-600 hover:text-green-700 underline-offset-4 hover:underline transition-colors duration-300"
@@ -412,7 +412,7 @@ export const AuthForm = ({
                       <button
                         type="button"
                         onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700"
+                        className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700"
                       >
                         {showPassword ? (
                           <EyeOff className="w-5 h-5" />
@@ -507,13 +507,13 @@ export const AuthForm = ({
                                 : "text-gray-400"
                             )}
                           />
-                        <span
-                          className={
-                            formData.password.length >= 8
-                              ? "text-green-700 dark:text-green-400"
-                              : "text-gray-500"
-                          }
-                        >
+                          <span
+                            className={
+                              formData.password.length >= 8
+                                ? "text-green-700 dark:text-green-400"
+                                : "text-gray-500"
+                            }
+                          >
                             8+ characters
                           </span>
                         </div>
@@ -526,13 +526,13 @@ export const AuthForm = ({
                                 : "text-gray-400"
                             )}
                           />
-                        <span
-                          className={
-                            /[A-Z]/.test(formData.password)
-                              ? "text-green-700 dark:text-green-400"
-                              : "text-gray-500"
-                          }
-                        >
+                          <span
+                            className={
+                              /[A-Z]/.test(formData.password)
+                                ? "text-green-700 dark:text-green-400"
+                                : "text-gray-500"
+                            }
+                          >
                             Uppercase
                           </span>
                         </div>
@@ -545,13 +545,13 @@ export const AuthForm = ({
                                 : "text-gray-400"
                             )}
                           />
-                        <span
-                          className={
-                            /\d/.test(formData.password)
-                              ? "text-green-700 dark:text-green-400"
-                              : "text-gray-500"
-                          }
-                        >
+                          <span
+                            className={
+                              /\d/.test(formData.password)
+                                ? "text-green-700 dark:text-green-400"
+                                : "text-gray-500"
+                            }
+                          >
                             Numbers
                           </span>
                         </div>
@@ -564,13 +564,13 @@ export const AuthForm = ({
                                 : "text-gray-400"
                             )}
                           />
-                        <span
-                          className={
-                            /[!@#$%^&*(),.?":{}|<>]/.test(formData.password)
-                              ? "text-green-700 dark:text-green-400"
-                              : "text-gray-500"
-                          }
-                        >
+                          <span
+                            className={
+                              /[!@#$%^&*(),.?":{}|<>]/.test(formData.password)
+                                ? "text-green-700 dark:text-green-400"
+                                : "text-gray-500"
+                            }
+                          >
                             Special chars
                           </span>
                         </div>
@@ -579,47 +579,46 @@ export const AuthForm = ({
                   )}
 
                   <Button
-                  className={`w-full h-12 rounded-md font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center cursor-pointer bg-primary ${
-                    mode == "signup" && !Object.keys(errors).length && "mt-3"
-                  } `}
+                    className={`w-full h-12 rounded-md font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center cursor-pointer bg-primary ${mode == "signup" && !Object.keys(errors).length && "mt-3"
+                      } `}
                     style={{
                       color: "#FFFFFF",
                       border: "none",
                       opacity: isLoading ? 0.7 : 1,
                       pointerEvents: isLoading ? "none" : "auto",
                     }}
-                  // onClick={!isLoading ? handleEmailAuth : undefined}
+                    // onClick={!isLoading ? handleEmailAuth : undefined}
                     type="submit"
                     disabled={isLoading}
                   >
-                  <span
-                    style={{
-                      // color: "#FFFFFF",
-                      fontWeight: "600",
-                      fontSize: "14px",
-                    }}
-                  >
-                    {isLoading
-                      ? "Please wait..."
-                      : mode === "login"
-                      ? "Sign In"
-                      : "Create Account"}
+                    <span
+                      style={{
+                        // color: "#FFFFFF",
+                        fontWeight: "600",
+                        fontSize: "14px",
+                      }}
+                    >
+                      {isLoading
+                        ? "Please wait..."
+                        : mode === "login"
+                          ? "Sign In"
+                          : "Create Account"}
                     </span>
                   </Button>
                 </div>
 
                 <div className="text-center text-sm animate-in fade-in-0 slide-in-from-bottom-2 duration-700 delay-500">
                   <span className="text-gray-600 dark:text-gray-400">
-                  {mode === "login"
-                    ? "New to Annam?"
-                    : "Already have an account?"}{" "}
+                    {mode === "login"
+                      ? "New to Annam?"
+                      : "Already have an account?"}{" "}
                   </span>
                   <button
                     type="button"
-                  onClick={() =>
-                    handleModeChange(mode === "login" ? "signup" : "login")
-                  }
-                  className="font-semibold text-green-400 underline cursor-pointer hover:text-green-300 hover:underline-offset-2 hover:brightness-110 transition-all duration-300"
+                    onClick={() =>
+                      handleModeChange(mode === "login" ? "signup" : "login")
+                    }
+                    className="font-semibold text-green-400 underline cursor-pointer hover:text-green-300 hover:underline-offset-2 hover:brightness-110 transition-all duration-300"
                   >
                     {mode === "login" ? "Sign up" : "Sign in"}
                   </button>

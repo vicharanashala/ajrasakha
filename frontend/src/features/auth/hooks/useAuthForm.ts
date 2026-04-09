@@ -11,6 +11,7 @@ import {
   validateName,
 } from "../utils/validate";
 import type { AuthError, AuthFormData, UseAuthFormReturn } from "../types";
+import { isDevelopment } from "@/shared/app";
 
 /**
  * Custom hook to manage the state and behavior of an Auth form
@@ -116,7 +117,11 @@ export const useAuthForm = (
       if (mode === "signup") {
         // Call signup API
         await signupMutation({ email, password, firstName, lastName });
-        setIsEmailSent(true);
+        if (!isDevelopment) {
+          setIsEmailSent(true);
+        }
+        handleModeChange("login")
+
         return;
       } else {
         // Login API

@@ -1,6 +1,6 @@
 import type { IDetailedQuestion, QuestionStatus, UserRole } from "@/types";
-import { useMemo, useRef } from "react";
-import { useCountdown } from "@/hooks/ui/useCountdown";
+import { useMemo } from "react";
+import { useQuestionClickability } from "@/hooks/ui/useQuestionClickability";
 import { Badge } from "../../components/atoms/badge";
 import {
   ContextMenu,
@@ -85,33 +85,9 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
   // To track cont
 
-  const uploadedCountRef = useRef(uploadedQuestionsCount);
-
-  // const DURATION_HOURS = 4;
-  const DURATION_HOURS = q && q.source == "AJRASAKHA" ? 2 : 4;
-  const timer = useCountdown(q.createdAt, DURATION_HOURS, () => { });
-
-  const totalSeconds = DURATION_HOURS * 60 * 60;
-
-  // Parse timer string ("hh:mm:ss") to seconds
-  const [h, m, s] = timer.split(":").map(Number);
-  const remainingSeconds = h * 3600 + m * 60 + s;
-
-  //  Calculate delay based on uploaded questions
-  // 200 questions → 3 minutes = 180 seconds
-  const delayPerQuestion = 180 / 200; // 0.9 seconds per question
-  let delaySeconds = uploadedCountRef.current * delayPerQuestion;
-
-  if (userRole === "expert") {
-    delaySeconds = 200;
-  }
-
-  // For tooltip
-  const delayMinutes = delaySeconds / 60;
-
-  //  Check if enough time has passed
-  const isClickable =
-    remainingSeconds <= totalSeconds - delaySeconds && !isBulkUpload;
+  const { timer, isClickable, delayMinutes } = useQuestionClickability(
+    q.source, q.createdAt, uploadedQuestionsCount, userRole, isBulkUpload
+  );
 
   const priorityBadge = useMemo(() => {
     if (!q.priority)
@@ -235,7 +211,8 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                   </Tooltip>
                 </TooltipProvider>
                 {q.status !== "delayed" && (
-                  <TimerDisplay timer={timer} status={q.status} />
+                  // <TimerDisplay timer={timer} status={q.status} />
+                  <TimerDisplay timer={timer} status={q.status} source={q.source} />
                 )}
               </div>
             </TableCell>
