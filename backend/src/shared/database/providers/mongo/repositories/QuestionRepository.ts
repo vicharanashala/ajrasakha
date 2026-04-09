@@ -377,19 +377,31 @@ export class QuestionRepository implements IQuestionRepository {
       caseInsensitiveStringFilter('details.domain', domain);
 
       // --- Normalized Crop Filter ---
-      if (normalised_crop && normalised_crop !== 'all') {
-        if (normalised_crop === '__NOT_SET__') {
-          // Find questions where normalised_crop does not exist, is null, or is empty string
-          if (!filter.$and) filter.$and = [];
-          filter.$and.push({
-            $or: [
+      if (normalised_crop && normalised_crop.length > 0) {
+        const validCrops = normalised_crop.filter((c) => c && c !== 'all');
+        if (validCrops.length > 0) {
+          const hasNotSet = validCrops.includes('__NOT_SET__');
+          const realCrops = validCrops.filter((c) => c !== '__NOT_SET__');
+          if (!hasNotSet) {
+            if (realCrops.length === 1) {
+              filter['details.normalised_crop'] = { $regex: `^${escapeRegex(realCrops[0])}$`, $options: 'i' };
+            } else {
+              filter['details.normalised_crop'] = { $in: realCrops.map((c) => new RegExp(`^${escapeRegex(c)}$`, 'i')) };
+            }
+          } else {
+            const orConditions: any[] = [
               { 'details.normalised_crop': { $exists: false } },
               { 'details.normalised_crop': null },
               { 'details.normalised_crop': '' },
-            ],
-          });
-        } else {
-          caseInsensitiveStringFilter('details.normalised_crop', normalised_crop);
+            ];
+            if (realCrops.length === 1) {
+              orConditions.push({ 'details.normalised_crop': { $regex: `^${escapeRegex(realCrops[0])}$`, $options: 'i' } });
+            } else if (realCrops.length > 1) {
+              orConditions.push({ 'details.normalised_crop': { $in: realCrops.map((c) => new RegExp(`^${escapeRegex(c)}$`, 'i')) } });
+            }
+            if (!filter.$and) filter.$and = [];
+            filter.$and.push({ $or: orConditions });
+          }
         }
       }
       const approvalCount =

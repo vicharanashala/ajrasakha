@@ -497,10 +497,17 @@ class GetDetailedQuestionsQuery {
   @IsString()
   crop?: string;
 
-  @JSONSchema({description: 'Normalized crop filter', example: 'wheat', type: 'string'})
+  @JSONSchema({
+    description: 'Normalized crop filter (single or multiple)',
+    example: 'wheat',
+    oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
+  })
   @IsOptional()
-  @IsString()
-  normalised_crop?: string;
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    return Array.isArray(value) ? value : [value];
+  })
+  normalised_crop?: string[];
 
   @JSONSchema({
     description: 'Domain filter',
