@@ -112,11 +112,7 @@ export class QuestionController {
   async getDetailedQuestions(
     @QueryParams() query: GetDetailedQuestionsQuery,
   ): Promise<{questions: IQuestion[]; totalPages: number}> {
-    console.log("****************8")
-    console.log("****************8")
-    console.log("Question Controller")
-    console.log("****************8")
-    console.log("****************8")
+    
     return this.questionService.getDetailedQuestions(query);
   }
 
