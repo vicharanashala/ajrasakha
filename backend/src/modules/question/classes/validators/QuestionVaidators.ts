@@ -17,7 +17,7 @@ import {
 import {JSONSchema} from 'class-validator-jsonschema';
 import {ObjectId} from 'mongodb';
 import {IQuestionPriority, ICropRef, QuestionStatus} from '#shared/interfaces/models.js';
-import {Type} from 'class-transformer';
+import {Type, Transform} from 'class-transformer';
 
 class AddQuestionBody {
   @JSONSchema({
@@ -477,7 +477,11 @@ class GetDetailedQuestionsQuery {
     oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
   })
   @IsOptional()
-  state?: string | string[];
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    return Array.isArray(value) ? value : [value];
+  })
+  state?: string[];
 
   @JSONSchema({
     description: 'Priority filter',
