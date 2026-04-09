@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { useDashboardData } from "./hooks/useDashboardData";
 import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 import type { Segment } from "./types";
@@ -48,6 +48,21 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
   }, [activeSegment]);
 
   const clearSegment = () => setActiveSegment(null);
+
+  // Patch the DAU card to show "today / total" instead of just total
+  const patchedKpiRow1 = useMemo(() => {
+    if (!data?.kpiRow1) return data.kpiRow1;
+    const todayCount = dauTrend && dauTrend.length > 0 ? dauTrend[dauTrend.length - 1] : null;
+    return data.kpiRow1.map(card => {
+      if (card.id === 'dau' && todayCount !== null) {
+        return {
+          ...card,
+          value: `${todayCount.toLocaleString()} / ${Number(card.value).toLocaleString()}`,
+        };
+      }
+      return card;
+    });
+  }, [data.kpiRow1, dauTrend]);
 
   return (
     <div className={className} style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif", background: "var(--background)", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -100,7 +115,7 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
 
           <div ref={(el) => { sectionRefs.current["overview"] = el; }} className="relative">
             {isLoading && <Spinner text="Fetching metrics..." fullScreen={false} />}
-            <EightCardsComponent kpiRow1={data.kpiRow1} kpiRow2={data.kpiRow2} />
+            <EightCardsComponent kpiRow1={patchedKpiRow1} kpiRow2={data.kpiRow2} />
           </div>
 
           {/* DAU trend + Channel split */}
