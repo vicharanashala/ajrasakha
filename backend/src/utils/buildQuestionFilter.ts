@@ -61,7 +61,18 @@ if (autoAllocateFilter && autoAllocateFilter !== 'all') {
     }
   }
 
-  caseInsensitive("details.crop", crop);
+  // crop supports single value or array (multi-select)
+  if (crop) {
+    const cropArr = Array.isArray(crop) ? crop : [crop];
+    const validCrops = cropArr.filter((c) => c && c !== "all");
+    if (validCrops.length === 1) {
+      filter["details.crop"] = { $regex: `^${validCrops[0]}$`, $options: "i" };
+    } else if (validCrops.length > 1) {
+      filter["details.crop"] = {
+        $in: validCrops.map((c) => new RegExp(`^${c}$`, "i")),
+      };
+    }
+  }
   caseInsensitive("details.domain", domain);
 
   if (answersCountMin !== undefined || answersCountMax !== undefined) {

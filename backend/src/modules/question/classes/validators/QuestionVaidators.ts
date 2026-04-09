@@ -492,10 +492,17 @@ class GetDetailedQuestionsQuery {
   @IsString()
   priority?: string;
 
-  @JSONSchema({description: 'Crop filter', example: 'Wheat', type: 'string'})
+  @JSONSchema({
+    description: 'Crop filter (single or multiple)',
+    example: 'Wheat',
+    oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
+  })
   @IsOptional()
-  @IsString()
-  crop?: string;
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    return Array.isArray(value) ? value : [value];
+  })
+  crop?: string[];
 
   @JSONSchema({
     description: 'Normalized crop filter (single or multiple)',
@@ -684,6 +691,30 @@ class BulkDeleteQuestionDto {
   questionIds: string[];
 }
 
+export class AllocatedQuestionsBodyDto {
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  states?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  crops?: string[];
+}
+
+export class DetailedQuestionsBodyDto {
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  states?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  normalisedCrops?: string[];
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,
@@ -697,7 +728,9 @@ export const QUESTION_VALIDATORS = [
   UpdatedBy,
   HistoryItem,
   BulkDeleteQuestionDto,
-  DateRangeRequest
+  DateRangeRequest,
+  AllocatedQuestionsBodyDto,
+  DetailedQuestionsBodyDto,
 ];
 
 export {
@@ -714,5 +747,5 @@ export {
   UpdatedBy,
   HistoryItem,
   BulkDeleteQuestionDto,
-  DateRangeRequest
+  DateRangeRequest,
 };

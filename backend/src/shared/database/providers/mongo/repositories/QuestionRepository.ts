@@ -46,6 +46,8 @@ import {
 } from '#root/modules/core/classes/transformers/QuestionLevel.js';
 import { buildQuestionFilter } from '#root/utils/buildQuestionFilter.js';
 import {
+  AllocatedQuestionsBodyDto,
+  DetailedQuestionsBodyDto,
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '#root/modules/question/classes/validators/QuestionVaidators.js';
@@ -291,6 +293,7 @@ export class QuestionRepository implements IQuestionRepository {
 
   async findDetailedQuestions(
     query: GetDetailedQuestionsQuery & { searchEmbedding: number[] | null },
+    body?: DetailedQuestionsBodyDto,
   ): Promise<{ questions: IQuestion[]; totalPages: number; totalCount: number }> {
     try {
       await this.init();
@@ -364,44 +367,37 @@ export class QuestionRepository implements IQuestionRepository {
       caseInsensitiveStringFilter('status', status);
       caseInsensitiveStringFilter('source', source);
       caseInsensitiveStringFilter('priority', priority);
-      if (state) {
-        const stateArr = Array.isArray(state) ? state : [state];
-        const validStates = stateArr.filter((s) => s && s !== 'all');
-        if (validStates.length === 1) {
-          filter['details.state'] = { $regex: `^${escapeRegex(validStates[0])}$`, $options: 'i' };
-        } else if (validStates.length > 1) {
-          filter['details.state'] = { $in: validStates.map((s) => new RegExp(`^${escapeRegex(s)}$`, 'i')) };
+      // --- State filter (from body array) ---
+      if (body?.states && body.states.length > 0) {
+        filter['details.state'] = { $in: body.states };
+      }
+      if (crop && crop.length > 0) {
+        const validCrops = crop.filter((c) => c && c !== 'all');
+        if (validCrops.length === 1) {
+          filter['details.crop'] = { $regex: `^${escapeRegex(validCrops[0])}$`, $options: 'i' };
+        } else if (validCrops.length > 1) {
+          filter['details.crop'] = { $in: validCrops.map((c) => new RegExp(`^${escapeRegex(c)}$`, 'i')) };
         }
       }
-      caseInsensitiveStringFilter('details.crop', crop);
       caseInsensitiveStringFilter('details.domain', domain);
 
-      // --- Normalized Crop Filter ---
-      if (normalised_crop && normalised_crop.length > 0) {
-        const validCrops = normalised_crop.filter((c) => c && c !== 'all');
-        if (validCrops.length > 0) {
-          const hasNotSet = validCrops.includes('__NOT_SET__');
-          const realCrops = validCrops.filter((c) => c !== '__NOT_SET__');
-          if (!hasNotSet) {
-            if (realCrops.length === 1) {
-              filter['details.normalised_crop'] = { $regex: `^${escapeRegex(realCrops[0])}$`, $options: 'i' };
-            } else {
-              filter['details.normalised_crop'] = { $in: realCrops.map((c) => new RegExp(`^${escapeRegex(c)}$`, 'i')) };
-            }
-          } else {
-            const orConditions: any[] = [
-              { 'details.normalised_crop': { $exists: false } },
-              { 'details.normalised_crop': null },
-              { 'details.normalised_crop': '' },
-            ];
-            if (realCrops.length === 1) {
-              orConditions.push({ 'details.normalised_crop': { $regex: `^${escapeRegex(realCrops[0])}$`, $options: 'i' } });
-            } else if (realCrops.length > 1) {
-              orConditions.push({ 'details.normalised_crop': { $in: realCrops.map((c) => new RegExp(`^${escapeRegex(c)}$`, 'i')) } });
-            }
-            if (!filter.$and) filter.$and = [];
-            filter.$and.push({ $or: orConditions });
+      // --- Normalized Crop Filter (from body array) ---
+      if (body?.normalisedCrops && body.normalisedCrops.length > 0) {
+        const hasNotSet = body.normalisedCrops.includes('__NOT_SET__');
+        const realCrops = body.normalisedCrops.filter((c) => c !== '__NOT_SET__');
+        if (!hasNotSet) {
+          filter['details.normalised_crop'] = { $in: realCrops };
+        } else {
+          const orConditions: any[] = [
+            { 'details.normalised_crop': { $exists: false } },
+            { 'details.normalised_crop': null },
+            { 'details.normalised_crop': '' },
+          ];
+          if (realCrops.length > 0) {
+            orConditions.push({ 'details.normalised_crop': { $in: realCrops } });
           }
+          if (!filter.$and) filter.$and = [];
+          filter.$and.push({ $or: orConditions });
         }
       }
       const approvalCount =
@@ -916,8 +912,8 @@ export class QuestionRepository implements IQuestionRepository {
   async getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
-    // userPreference: IUser['preference'] | null,
     session?: ClientSession,
+    body?: AllocatedQuestionsBodyDto,
   ): Promise<QuestionResponse[]> {
     try {
       await this.init();
@@ -1073,17 +1069,11 @@ export class QuestionRepository implements IQuestionRepository {
       if (query.source && query.source !== 'all') {
         filter.source = {$regex: `^${escapeRegex(query.source)}$`, $options: 'i'};
       }
-      if (query.state) {
-        const stateArr = Array.isArray(query.state) ? query.state : [query.state];
-        const validStates = stateArr.filter((s) => s && s !== 'all');
-        if (validStates.length === 1) {
-          filter['details.state'] = {$regex: `^${escapeRegex(validStates[0])}$`, $options: 'i'};
-        } else if (validStates.length > 1) {
-          filter['details.state'] = {$in: validStates.map((s) => new RegExp(`^${escapeRegex(s)}$`, 'i'))};
-        }
+      if (body?.states && body.states.length > 0) {
+        filter['details.state'] = {$in: body.states};
       }
-      if (query.crop && query.crop !== 'all') {
-        filter['details.crop'] = {$regex: `^${escapeRegex(query.crop)}$`, $options: 'i'};
+      if (body?.crops && body.crops.length > 0) {
+        filter['details.crop'] = {$in: body.crops};
       }
 
       const pipeline: any = [{$match: filter}];
