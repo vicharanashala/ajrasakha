@@ -59,6 +59,14 @@ export interface UserDetailEntry {
   totalQuestions: number;
 }
 
+export interface PaginatedUserDetails {
+  users: UserDetailEntry[];
+  totalUsers: number;
+  totalPages: number;
+  activeUsers: number;
+  totalQuestions: number;
+}
+
 // ─── Single consolidated interface ───────────────────────────────────────────
 
 export interface IChatbotRepository {
@@ -113,10 +121,13 @@ export interface IChatbotRepository {
   findMatchingMessages(data: {question: string; details: any; createdAt: Date});
   findFromSecondDb(data: {question: string; details: any; createdAt: Date});
 
-  /** Get all users with their question counts, optionally filtered by date range. */
+  /** Get all users with their question counts, optionally filtered by date range, with server-side pagination. */
   getUserDetails(
     startDate?: Date,
     endDate?: Date,
+    page?: number,
+    limit?: number,
+    search?: string,
     session?: ClientSession,
-  ): Promise<UserDetailEntry[]>;
+  ): Promise<PaginatedUserDetails>;
 }

@@ -1,71 +1,47 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Spinner } from "@/components/atoms/spinner";
 import { useUserDetails } from "./hooks/useUserDetails";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { Pagination } from "@/components/pagination";
+
+const PAGE_SIZE = 10;
 
 export function UserDetailsView() {
   const [startTime, setStartTime] = useState<Date | undefined>(undefined);
   const [endTime, setEndTime] = useState<Date | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
-  const PAGE_SIZE = 30;
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const sentinelRef = useRef<HTMLTableRowElement | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const { data: users, isLoading, error } = useUserDetails(startTime, endTime);
+  // Debounce the search input so we don't fire a request on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1); // reset to page 1 on new search
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Reset page when date filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [startTime, endTime]);
+
+  const { data, isLoading, error } = useUserDetails(
+    startTime,
+    endTime,
+    currentPage,
+    PAGE_SIZE,
+    debouncedSearch,
+  );
+
+  const { users, totalUsers, totalPages, activeUsers, totalQuestions } = data;
 
   const handleDateChange = (key: string, value: any) => {
     if (key === "startTime") setStartTime(value);
     if (key === "endTime") setEndTime(value);
   };
-
-  const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) return users;
-    const q = searchQuery.toLowerCase();
-    return users.filter(
-      (u) =>
-        u.name.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q)
-    );
-  }, [users, searchQuery]);
-
-  // Reset visible count when filters change
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [searchQuery, startTime, endTime]);
-
-  const visibleUsers = useMemo(
-    () => filteredUsers.slice(0, visibleCount),
-    [filteredUsers, visibleCount]
-  );
-
-  const hasMore = visibleCount < filteredUsers.length;
-
-  // IntersectionObserver for infinite scroll
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore) {
-          setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredUsers.length));
-        }
-      },
-      { rootMargin: "200px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [hasMore, filteredUsers.length]);
-
-  const totalQuestions = useMemo(
-    () => filteredUsers.reduce((sum, u) => sum + u.totalQuestions, 0),
-    [filteredUsers]
-  );
-
-  const activeUsers = useMemo(
-    () => filteredUsers.filter((u) => u.totalQuestions > 0).length,
-    [filteredUsers]
-  );
 
   const dateLabel = startTime && endTime
     ? `${startTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${endTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
@@ -85,7 +61,7 @@ export function UserDetailsView() {
           className="text-xs text-(--muted-foreground)"
           style={{ marginTop: 4 }}
         >
-          {dateLabel} · {filteredUsers.length} users
+          {dateLabel} · {totalUsers} users
         </p>
       </div>
 
@@ -98,7 +74,7 @@ export function UserDetailsView() {
               Total Users
             </span>
             <span className="text-2xl font-semibold dark:text-slate-100">
-              {isLoading ? "—" : filteredUsers.length.toLocaleString()}
+              {isLoading ? "—" : totalUsers.toLocaleString()}
             </span>
           </CardContent>
         </Card>
@@ -191,54 +167,56 @@ export function UserDetailsView() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsers.length === 0 ? (
+                  {users.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="px-4 py-10 text-center text-(--muted-foreground) text-sm">
-                        {searchQuery ? "No users match your search." : "No users found."}
+                        {debouncedSearch ? "No users match your search." : "No users found."}
                       </td>
                     </tr>
                   ) : (
-                    <>
-                      {visibleUsers.map((user, idx) => (
-                        <tr
-                          key={user.userId}
-                          className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-[#1e1e1e] transition-colors"
-                        >
-                          <td className="px-4 py-2.5 text-(--muted-foreground) tabular-nums">
-                            {idx + 1}
-                          </td>
-                          <td className="px-4 py-2.5 font-medium text-(--foreground) whitespace-nowrap">
-                            {user.name}
-                          </td>
-                          <td className="px-4 py-2.5 text-(--muted-foreground) whitespace-nowrap">
-                            {user.email}
-                          </td>
-                          <td className="px-4 py-2.5 text-right tabular-nums">
-                            <span
-                              className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                user.totalQuestions > 0
-                                  ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
-                                  : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                              }`}
-                            >
-                              {user.totalQuestions.toLocaleString()}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                      {/* Scroll sentinel — triggers loading more rows */}
-                      <tr ref={sentinelRef} style={{ height: 1 }}>
-                        <td colSpan={4} />
+                    users.map((user, idx) => (
+                      <tr
+                        key={user.userId}
+                        className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-[#1e1e1e] transition-colors"
+                      >
+                        <td className="px-4 py-2.5 text-(--muted-foreground) tabular-nums">
+                          {(currentPage - 1) * PAGE_SIZE + idx + 1}
+                        </td>
+                        <td className="px-4 py-2.5 font-medium text-(--foreground) whitespace-nowrap">
+                          {user.name}
+                        </td>
+                        <td className="px-4 py-2.5 text-(--muted-foreground) whitespace-nowrap">
+                          {user.email}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">
+                          <span
+                            className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold ${
+                              user.totalQuestions > 0
+                                ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
+                                : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                            }`}
+                          >
+                            {user.totalQuestions.toLocaleString()}
+                          </span>
+                        </td>
                       </tr>
-                    </>
+                    ))
                   )}
                 </tbody>
               </table>
-              {/* Showing X of Y indicator */}
-              {filteredUsers.length > 0 && (
-                <div className="px-4 py-2.5 text-center text-xs text-(--muted-foreground) border-t border-gray-100 dark:border-gray-800">
-                  Showing {Math.min(visibleCount, filteredUsers.length)} of {filteredUsers.length} users
-                  {hasMore && " · scroll for more"}
+              {/* Pagination footer */}
+              {totalPages > 0 && (
+                <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+                    <span className="text-xs text-(--muted-foreground)">
+                      Showing {users.length > 0 ? (currentPage - 1) * PAGE_SIZE + 1 : 0}–{(currentPage - 1) * PAGE_SIZE + users.length} of {totalUsers} users
+                    </span>
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={(page) => setCurrentPage(page)}
+                    />
+                  </div>
                 </div>
               )}
             </div>
