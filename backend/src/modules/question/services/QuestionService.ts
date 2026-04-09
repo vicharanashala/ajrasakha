@@ -17,6 +17,7 @@ import {
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
+  ForbiddenError,
   InternalServerError,
   NotFoundError,
   UnauthorizedError,
@@ -3391,6 +3392,27 @@ async checkStatus(
 return result
         
  
+}
+
+async holdQuestion(questionId:string,userId:string):Promise<{id:string}>{
+  return await this._withTransaction(async session=>{
+    const user = await this.userRepo.findById(userId, session);
+    if(user.role!='moderator'){
+      throw new ForbiddenError('Only moderators can hold questions');
+    }
+    const question = await this.questionRepo.getById(questionId, session);
+    if(!question){
+      throw new NotFoundError('Question not found');
+    }
+    const submission = await this.questionSubmissionRepo.getByQuestionId(questionId, session);
+    if(!submission){
+      throw new NotFoundError('Question submission not found');
+    }
+    console.log("submissio",submission)
+    const last_queue_item = submission.queue[submission.queue.length - 1].toString()
+    console.log('last queue item',last_queue_item)
+    return {id:userId}
+  })
 }
 
 

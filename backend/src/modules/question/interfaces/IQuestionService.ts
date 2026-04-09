@@ -156,4 +156,6 @@ export interface IQuestionService {
   getMatchedQuestion(questionId, userId);
 
   checkStatus(questionIds)
+
+  holdQuestion(questionId:string,userId:string):Promise<{id:string}>
 }

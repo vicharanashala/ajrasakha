@@ -585,4 +585,14 @@ async outreachQuestions(
       };
     }
 
+  @Patch('/hold/:questionId/')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'To hold the question for some time'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async holdQuestion(@Params() params: QuestionIdParam,@CurrentUser() user: IUser,) {
+    const {questionId} = params;
+    return await this.questionService.holdQuestion(questionId,user._id.toString());
+  }
+
 }
