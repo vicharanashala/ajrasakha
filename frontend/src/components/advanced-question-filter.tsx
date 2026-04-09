@@ -270,7 +270,7 @@ export const StateMultiSelect = ({
       </button>
 
       {open && (
-        <div className="mt-1 rounded-md border border-input bg-popover shadow-md">
+        <div className="absolute z-50 left-0 right-0 mt-1 rounded-md border border-input bg-popover shadow-md">
           {/* header */}
           <div className="flex items-center justify-between px-3 py-2 border-b">
             <span className="text-xs font-medium text-muted-foreground">
@@ -295,7 +295,7 @@ export const StateMultiSelect = ({
           </div>
 
           {/* list */}
-          <div ref={scrollRef} className="max-h-48 overflow-y-auto overflow-x-hidden">
+          <div ref={scrollRef} className="max-h-48 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {states.map((s) => {
               const isSelected = selected.includes(s);
               return (
@@ -312,8 +312,8 @@ export const StateMultiSelect = ({
                   className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
                 >
                   <div
-                    className={`h-4 w-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                      isSelected ? "bg-primary border-primary" : "border-gray-400 bg-white"
+                    className={`h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
+                      isSelected ? "bg-primary border-primary" : "border-gray-400"
                     }`}
                   >
                     {isSelected && (
@@ -415,7 +415,7 @@ export const CropMultiSelect = ({
       </button>
 
       {open && (
-        <div className="mt-1 rounded-md border border-input bg-popover shadow-md z-50 relative">
+        <div className="absolute z-50 left-0 right-0 mt-1 rounded-md border border-input bg-popover shadow-md">
           {/* header */}
           <div className="flex items-center justify-between px-3 py-2 border-b">
             <span className="text-xs font-medium text-muted-foreground">
@@ -440,7 +440,7 @@ export const CropMultiSelect = ({
           </div>
 
           {/* list */}
-          <div ref={scrollRef} className="max-h-48 overflow-y-auto overflow-x-hidden">
+          <div ref={scrollRef} className="max-h-48 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {/* Not Set option */}
             <button
               type="button"
