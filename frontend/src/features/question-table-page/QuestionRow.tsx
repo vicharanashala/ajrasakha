@@ -87,8 +87,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
 
   const uploadedCountRef = useRef(uploadedQuestionsCount);
 
-  // const DURATION_HOURS = 4;
-  const DURATION_HOURS = q && q.source == "AJRASAKHA" ? 2 : 4;
+  const DURATION_HOURS = 2;
   const timer = useCountdown(q.createdAt, DURATION_HOURS, () => { });
 
   const totalSeconds = DURATION_HOURS * 60 * 60;

@@ -272,7 +272,7 @@ export const buildEmailTemplate = (
         ⏳ Time Remaining
       </p>
       <p style="margin: 8px 0 0 0; font-size: 14px; color: #1E3A8A;">
-        <strong>${remaining.hrs}h ${remaining.mins}m</strong> left to complete the review (SLA: 4 hours).
+        <strong>${remaining.hrs}h ${remaining.mins}m</strong> left to complete the review (SLA: 2 hours).
       </p>
     </div>
   `;
@@ -289,7 +289,7 @@ export const buildEmailTemplate = (
         ⚠️ Delayed Submission
       </p>
       <p style="margin: 8px 0 0 0; font-size: 14px; color: #7F1D1D;">
-        The allowed 4-hour review window has passed.
+        The allowed 2-hour review window has passed.
       </p>
     </div>
   `;

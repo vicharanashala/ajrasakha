@@ -1515,7 +1515,6 @@ export class QuestionRepository implements IQuestionRepository {
       await this.init();
       await this.ensureIndexes();
 
-      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
 
       // const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
@@ -1531,7 +1530,7 @@ export class QuestionRepository implements IQuestionRepository {
             },
             {
               source: { $ne: "AJRASAKHA" },
-              createdAt: { $lte: fourHoursAgo },
+              createdAt: { $lte: twoHoursAgo },
             },
           ],
         },

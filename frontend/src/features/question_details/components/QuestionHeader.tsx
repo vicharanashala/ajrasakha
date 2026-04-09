@@ -15,7 +15,7 @@ interface QuestionHeaderProps {
 export const QuestionHeader = ({ question, goBack }: QuestionHeaderProps) => {
   //translation state
   const [translatedText, setTranslatedText] = useState<string>("");
-  const DURATION_HOURS = question && question.source == "AJRASAKHA" ? 2 : 4;
+  const DURATION_HOURS = 2;
 
   const timer = useCountdown(question.createdAt!, DURATION_HOURS, () => { });
 
