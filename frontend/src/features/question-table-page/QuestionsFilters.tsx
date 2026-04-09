@@ -304,6 +304,7 @@ export const QuestionsFilters = ({
       states: advanceFilter.states || [],
       crop: myPreference?.crop || advanceFilter.crop,
       normalised_crop: advanceFilter.normalised_crop,
+      normalisedCrops: advanceFilter.normalisedCrops || [],
       answersCount: advanceFilter.answersCount,
       dateRange: advanceFilter.dateRange,
       priority: advanceFilter.priority,
@@ -335,13 +336,14 @@ export const QuestionsFilters = ({
         key === "endTime" ||
         key === "closedAtStart" ||
         key === "closedAtEnd" ||
-        key === "state" // replaced by states
+        key === "state" || // replaced by states
+        key === "normalised_crop" // replaced by normalisedCrops
       ) {
         return false;
       }
 
-      // states array: count as active only if non-empty
-      if (key === "states") return Array.isArray(value) && value.length > 0;
+      // array filters: count as active only if non-empty
+      if (key === "states" || key === "normalisedCrops") return Array.isArray(value) && value.length > 0;
 
       if (value === undefined || value === "all" || value === null) return false;
       if (typeof value === "boolean" && value === false) return false;

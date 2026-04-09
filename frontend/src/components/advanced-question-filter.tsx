@@ -111,6 +111,7 @@ export type AdvanceFilterValues = {
   domain: string;
   crop: string;
   normalised_crop: string;
+  normalisedCrops?: string[]; // multi-select for Preferences filter
   priority: QuestionPriorityFilter;
   startTime?: Date | undefined | null; // Use a specific name like startTime/endTime
   endTime?: Date | undefined | null;
@@ -331,6 +332,161 @@ const StateMultiSelect = ({
                     )}
                   </div>
                   {s}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* scroll-down zone */}
+          <div
+            className="flex items-center justify-center h-6 cursor-pointer select-none text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+            onMouseEnter={() => startScroll("down")}
+            onMouseLeave={stopScroll}
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const CropMultiSelect = ({
+  dbCrops,
+  crops,
+  selected,
+  onChange,
+}: {
+  dbCrops: { _id?: string; name: string; aliases?: string[] }[];
+  crops: string[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) => {
+  const [open, setOpen] = React.useState(false);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const scrollInterval = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startScroll = (direction: "up" | "down") => {
+    stopScroll();
+    scrollInterval.current = setInterval(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop += direction === "down" ? 6 : -6;
+      }
+    }, 16);
+  };
+
+  const stopScroll = () => {
+    if (scrollInterval.current) {
+      clearInterval(scrollInterval.current);
+      scrollInterval.current = null;
+    }
+  };
+
+  const cropList = dbCrops.length > 0 ? dbCrops : crops.map((c) => ({ name: c }));
+
+  const getLabel = (value: string) => {
+    if (value === "__NOT_SET__") return "Not Set (Legacy)";
+    return value;
+  };
+
+  const toggle = (value: string) =>
+    onChange(selected.includes(value) ? selected.filter((x) => x !== value) : [...selected, value]);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+      >
+        <span className="truncate text-left">
+          {selected.length === 0
+            ? "All Crops"
+            : selected.length === 1
+            ? getLabel(selected[0])
+            : `${selected.length} crops selected`}
+        </span>
+        {open ? (
+          <ChevronUp className="h-4 w-4 opacity-50 flex-shrink-0 ml-2" />
+        ) : (
+          <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0 ml-2" />
+        )}
+      </button>
+
+      {open && (
+        <div className="mt-1 rounded-md border border-input bg-popover shadow-md z-50 relative">
+          {/* header */}
+          <div className="flex items-center justify-between px-3 py-2 border-b">
+            <span className="text-xs font-medium text-muted-foreground">
+              {selected.length} selected
+            </span>
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline"
+              onClick={() => onChange([])}
+            >
+              Clear all
+            </button>
+          </div>
+
+          {/* scroll-up zone */}
+          <div
+            className="flex items-center justify-center h-6 cursor-pointer select-none text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+            onMouseEnter={() => startScroll("up")}
+            onMouseLeave={stopScroll}
+          >
+            <ChevronUp className="h-3.5 w-3.5" />
+          </div>
+
+          {/* list */}
+          <div ref={scrollRef} className="max-h-48 overflow-y-auto overflow-x-hidden">
+            {/* Not Set option */}
+            <button
+              type="button"
+              onClick={() => toggle("__NOT_SET__")}
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
+            >
+              <div
+                className={`h-4 w-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                  selected.includes("__NOT_SET__") ? "bg-primary border-primary" : "border-gray-400 bg-white"
+                }`}
+              >
+                {selected.includes("__NOT_SET__") && (
+                  <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+              <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
+              <span className="text-yellow-700 dark:text-yellow-400 font-medium">Not Set (Legacy)</span>
+            </button>
+
+            {cropList.map((crop) => {
+              const isSelected = selected.includes(crop.name);
+              return (
+                <button
+                  key={crop.name}
+                  type="button"
+                  onClick={() => toggle(crop.name)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
+                >
+                  <div
+                    className={`h-4 w-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                      isSelected ? "bg-primary border-primary" : "border-gray-400 bg-white"
+                    }`}
+                  >
+                    {isSelected && (
+                      <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                  <span className="capitalize">{crop.name}</span>
+                  {crop.aliases && crop.aliases.length > 0 && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                      +{crop.aliases.length}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -614,74 +770,12 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     </TooltipContent>
                   </Tooltip>
                 </Label>
-                <Select
-                  value={advanceFilter.normalised_crop}
-                  onValueChange={(v) =>
-                    handleDialogChange("normalised_crop", v)
-                  }
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Crops</SelectItem>
-                    <SelectItem value="__NOT_SET__">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                        <span className="text-yellow-700 dark:text-yellow-400 font-medium">
-                          Not Set (Legacy)
-                        </span>
-                      </div>
-                    </SelectItem>
-                    {dbCrops.length > 0
-                      ? dbCrops.map((crop) => (
-                          <SelectItem
-                            key={crop._id || crop.name}
-                            value={crop.name}
-                          >
-                            {crop.aliases && crop.aliases.length > 0 ? (
-                              <TooltipProvider delayDuration={200}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="flex items-center gap-2 cursor-default">
-                                      <span className="capitalize">
-                                        {crop.name}
-                                      </span>
-                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
-                                        +{crop.aliases.length}
-                                      </span>
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent
-                                    side="right"
-                                    className="text-xs"
-                                  >
-                                    <p className="font-semibold mb-0.5">
-                                      Also known as:
-                                    </p>
-                                    {crop.aliases.map((a) => (
-                                      <p
-                                        key={a}
-                                        className="capitalize text-muted-foreground"
-                                      >
-                                        {a}
-                                      </p>
-                                    ))}
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            ) : (
-                              <span className="capitalize">{crop.name}</span>
-                            )}
-                          </SelectItem>
-                        ))
-                      : crops.map((crop) => (
-                          <SelectItem key={crop} value={crop}>
-                            {crop}
-                          </SelectItem>
-                        ))}
-                  </SelectContent>
-                </Select>
+                <CropMultiSelect
+                  dbCrops={dbCrops}
+                  crops={crops}
+                  selected={advanceFilter.normalisedCrops || []}
+                  onChange={(next) => handleDialogChange("normalisedCrops", next)}
+                />
               </div>
 
               <div className="space-y-2 min-w-0">
@@ -1045,6 +1139,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                         key === "closedAtStart" ||
                         key === "closedAtEnd" ||
                         key === "state" || // replaced by states
+                        key === "normalised_crop" || // replaced by normalisedCrops
                         value === "all" ||
                         value === undefined ||
                         value === null ||
@@ -1063,10 +1158,12 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                             ? "Show duplicate questions"
                             : key === "states"
                               ? "state"
-                              : key;
+                              : key === "normalisedCrops"
+                                ? "crop"
+                                : key;
 
                       const displayValue =
-                        key === "states" && Array.isArray(value)
+                        (key === "states" || key === "normalisedCrops") && Array.isArray(value)
                           ? (value as string[]).join(", ")
                           : Array.isArray(value)
                             ? `${value[0]}-${value[1]}`
@@ -1086,7 +1183,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                             onClick={() =>
                               handleDialogChange(
                                 key,
-                                key === "states"
+                                key === "states" || key === "normalisedCrops"
                                   ? []
                                   : Array.isArray(value)
                                     ? [0, 100]
@@ -1119,6 +1216,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   dateRange: "all",
                   crop: "all",
                   normalised_crop: "all",
+                  normalisedCrops: [],
                   priority: "all",
                   user: "all",
                   domain: "all",
