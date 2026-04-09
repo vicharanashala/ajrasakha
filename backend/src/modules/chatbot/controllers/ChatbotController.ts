@@ -96,7 +96,7 @@ export class ChatbotController {
     @QueryParam('endDate') endDate?: string,
     @QueryParam('page') page = 1,
     @QueryParam('limit') limit = 10,
-    @QueryParam('search') search = '',
+    @QueryParam('search') search: string = '',
   ) {
     return this.chatbotService.getUserDetails(startDate, endDate, Number(page), Number(limit), search);
   }

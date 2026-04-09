@@ -1,9 +1,19 @@
 import { useState, useEffect } from "react";
+import { X } from "lucide-react";
+import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Spinner } from "@/components/atoms/spinner";
 import { useUserDetails } from "./hooks/useUserDetails";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { Pagination } from "@/components/pagination";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/atoms/table";
 
 const PAGE_SIZE = 10;
 
@@ -139,6 +149,21 @@ export function UserDetailsView() {
                   }
                 />
               </div>
+              {(searchQuery || startTime || endTime) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setStartTime(undefined);
+                    setEndTime(undefined);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <X />
+                  Reset
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -156,39 +181,36 @@ export function UserDetailsView() {
           )}
 
           {!isLoading && !error && (
-            <div style={{ overflowX: "auto" }}>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#151515]">
-                    <th className="text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-(--muted-foreground)">#</th>
-                    <th className="text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-(--muted-foreground)">Name</th>
-                    <th className="text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-(--muted-foreground)">Email</th>
-                    <th className="text-right px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-(--muted-foreground)">Questions Asked</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <div className="rounded-lg border bg-card overflow-x-auto">
+              <Table className="min-w-[600px]">
+                <TableHeader className="bg-card sticky top-0 z-10">
+                  <TableRow>
+                    <TableHead className="text-center w-12">S.No</TableHead>
+                    <TableHead className="text-center">Name</TableHead>
+                    <TableHead className="text-center">Email</TableHead>
+                    <TableHead className="text-center">Questions Asked</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {users.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-4 py-10 text-center text-(--muted-foreground) text-sm">
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
                         {debouncedSearch ? "No users match your search." : "No users found."}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     users.map((user, idx) => (
-                      <tr
-                        key={user.userId}
-                        className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-[#1e1e1e] transition-colors"
-                      >
-                        <td className="px-4 py-2.5 text-(--muted-foreground) tabular-nums">
+                      <TableRow key={user.userId} className="text-center">
+                        <TableCell className="align-middle">
                           {(currentPage - 1) * PAGE_SIZE + idx + 1}
-                        </td>
-                        <td className="px-4 py-2.5 font-medium text-(--foreground) whitespace-nowrap">
+                        </TableCell>
+                        <TableCell className="align-middle font-medium whitespace-nowrap">
                           {user.name}
-                        </td>
-                        <td className="px-4 py-2.5 text-(--muted-foreground) whitespace-nowrap">
+                        </TableCell>
+                        <TableCell className="align-middle whitespace-nowrap">
                           {user.email}
-                        </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums">
+                        </TableCell>
+                        <TableCell className="align-middle">
                           <span
                             className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold ${
                               user.totalQuestions > 0
@@ -198,12 +220,12 @@ export function UserDetailsView() {
                           >
                             {user.totalQuestions.toLocaleString()}
                           </span>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))
                   )}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
               {/* Pagination footer */}
               {totalPages > 0 && (
                 <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800">
