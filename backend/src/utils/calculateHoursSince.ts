@@ -4,8 +4,8 @@ export const calculateHoursSince = (date: Date) => {
 
   const diffMs = now.getTime() - createdAt.getTime();
 
-  // SLA = 4 hours
-  const totalAllowedMs = 4 * 60 * 60 * 1000;
+  // SLA = 2 hours
+  const totalAllowedMs = 2 * 60 * 60 * 1000;
   const remainingMs = totalAllowedMs - diffMs;
 
   const hrs = Math.floor(remainingMs / (1000 * 60 * 60));
