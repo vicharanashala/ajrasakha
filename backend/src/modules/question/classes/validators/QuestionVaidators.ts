@@ -472,13 +472,12 @@ class GetDetailedQuestionsQuery {
   source?: string;
 
   @JSONSchema({
-    description: 'State/region filter',
+    description: 'State/region filter (single or multiple)',
     example: 'Karnataka',
-    type: 'string',
+    oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
   })
   @IsOptional()
-  @IsString()
-  state?: string;
+  state?: string | string[];
 
   @JSONSchema({
     description: 'Priority filter',
