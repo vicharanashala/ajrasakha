@@ -86,4 +86,15 @@ export class ChatbotController {
   async getDailyUserTrend(@QueryParam('days') days = 30) {
     return this.chatbotService.getDailyUserTrend(days);
   }
+
+  @Get('/user-details')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Get all users with question counts, optionally filtered by date range' })
+  async getUserDetails(
+    @QueryParam('startDate') startDate?: string,
+    @QueryParam('endDate') endDate?: string,
+  ) {
+    return this.chatbotService.getUserDetails(startDate, endDate);
+  }
 }

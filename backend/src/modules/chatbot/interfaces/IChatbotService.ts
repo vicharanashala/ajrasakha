@@ -8,6 +8,7 @@ import type {
   WeeklySessionDurationEntry,
   DailyQueryCountEntry,
   WeeklyQueryCountEntry,
+  UserDetailEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 
 export interface DashboardResponse {
@@ -35,4 +36,5 @@ export interface IChatbotService {
   getTodayQueryCount(): Promise<number>;
   getWeeklyQueryCounts(): Promise<WeeklyQueryCountEntry[]>;
   getDailyUserTrend(days?: number): Promise<DailyActiveUsersEntry[]>;
+  getUserDetails(startDate?: string, endDate?: string): Promise<UserDetailEntry[]>;
 }

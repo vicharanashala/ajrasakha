@@ -15,6 +15,7 @@ import type {
   WeeklySessionDurationEntry,
   DailyQueryCountEntry,
   WeeklyQueryCountEntry,
+  UserDetailEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 
 interface IUser {
@@ -720,5 +721,63 @@ private async initSecondDb() {
       }
     });
     return result1
+  }
+
+  async getUserDetails(
+    startDate?: Date,
+    endDate?: Date,
+    session?: ClientSession,
+  ): Promise<UserDetailEntry[]> {
+    try {
+      await this.init();
+
+      // Build date match for messages (optional)
+      const dateMatch: Record<string, any> = { isCreatedByUser: true };
+      if (startDate || endDate) {
+        dateMatch.createdAt = {};
+        if (startDate) dateMatch.createdAt.$gte = startDate;
+        if (endDate) dateMatch.createdAt.$lte = endDate;
+      }
+
+      // Get question counts per user from messages
+      const messageCounts = await this.messagesCollection
+        .aggregate(
+          [
+            { $match: dateMatch },
+            {
+              $group: {
+                _id: '$user',
+                totalQuestions: { $sum: 1 },
+              },
+            },
+          ],
+          { session },
+        )
+        .toArray();
+
+      // Build a map: userId string → count
+      const countMap = new Map<string, number>();
+      for (const entry of messageCounts) {
+        countMap.set(String(entry._id), entry.totalQuestions);
+      }
+
+      // Get all users
+      const allUsers = await this.users.find({}, { session }).toArray();
+
+      // Merge
+      const result: UserDetailEntry[] = allUsers.map((u) => ({
+        userId: String(u._id),
+        name: u.name || u.username || 'Unknown',
+        email: u.email || '',
+        totalQuestions: countMap.get(String(u._id)) ?? 0,
+      }));
+
+      // Sort by totalQuestions desc
+      result.sort((a, b) => b.totalQuestions - a.totalQuestions);
+
+      return result;
+    } catch (error) {
+      throw new InternalServerError(`Failed to get user details: ${error}`);
+    }
   }
 }

@@ -52,6 +52,13 @@ export interface WeeklyQueryCountEntry {
   count: number;
 }
 
+export interface UserDetailEntry {
+  userId: string;
+  name: string;
+  email: string;
+  totalQuestions: number;
+}
+
 // ─── Single consolidated interface ───────────────────────────────────────────
 
 export interface IChatbotRepository {
@@ -105,4 +112,11 @@ export interface IChatbotRepository {
   ): Promise<DailyActiveUsersEntry[]>;
   findMatchingMessages(data: {question: string; details: any; createdAt: Date});
   findFromSecondDb(data: {question: string; details: any; createdAt: Date});
+
+  /** Get all users with their question counts, optionally filtered by date range. */
+  getUserDetails(
+    startDate?: Date,
+    endDate?: Date,
+    session?: ClientSession,
+  ): Promise<UserDetailEntry[]>;
 }

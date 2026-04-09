@@ -130,4 +130,14 @@ export class ChatbotService implements IChatbotService {
       throw new InternalServerError(`Failed to fetch weekly query counts: ${error}`);
     }
   }
+
+  async getUserDetails(startDate?: string, endDate?: string) {
+    try {
+      const start = startDate ? new Date(startDate) : undefined;
+      const end = endDate ? new Date(endDate) : undefined;
+      return await this.chatbotRepository.getUserDetails(start, end);
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch user details: ${error}`);
+    }
+  }
 }
