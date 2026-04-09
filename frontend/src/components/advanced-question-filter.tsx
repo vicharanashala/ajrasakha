@@ -881,7 +881,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   <span className="text-sm">Show passed questions</span>
                 </label>
 
-                <label className="flex items-center gap-3">
+                {/* <label className="flex items-center gap-3">
                   <input
                     type="checkbox"
                     checked={advanceFilter.duplicateQuestions ?? false}
@@ -894,7 +894,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
                   />
                   <span className="text-sm">Show duplicate questions</span>
-                </label>
+                </label> */}
               </div>
             </div>
 

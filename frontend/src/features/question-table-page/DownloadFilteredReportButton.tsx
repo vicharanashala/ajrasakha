@@ -318,7 +318,7 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
                     <span className="text-sm">Show passed questions</span>
                   </label>
 
-                  <label className="flex items-center gap-3">
+                  {/* <label className="flex items-center gap-3">
                     <input
                       type="checkbox"
                       checked={filters.duplicateQuestions}
@@ -328,7 +328,7 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
                       className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
                     />
                     <span className="text-sm">Show duplicate questions</span>
-                  </label>
+                  </label> */}
                 </div>
               </div>
             </div>
