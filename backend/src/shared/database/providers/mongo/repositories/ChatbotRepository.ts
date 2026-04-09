@@ -129,12 +129,28 @@ private async initSecondDb() {
     try {
       await this.init();
 
-      // Group active users by month using IST timezone (matches KPI logic)
-      const result = await this.users
+      // Count distinct users who sent messages per month (true monthly active users)
+      const since = new Date();
+      since.setMonth(since.getMonth() - days); // `days` param used as number of months to look back
+      since.setDate(1);
+      since.setHours(0, 0, 0, 0);
+
+      const result = await this.messagesCollection
         .aggregate([
+          { $match: { createdAt: { $gte: since }, isCreatedByUser: true } },
+          // Deduplicate: one entry per (month, user) pair
           {
             $group: {
-              _id: { $dateToString: { format: '%Y-%m', date: '$updatedAt', timezone: '+05:30' } },
+              _id: {
+                month: { $dateToString: { format: '%Y-%m', date: '$createdAt', timezone: '+05:30' } },
+                user: '$user',
+              },
+            },
+          },
+          // Count distinct users per month
+          {
+            $group: {
+              _id: '$_id.month',
               count: { $sum: 1 },
             },
           },
