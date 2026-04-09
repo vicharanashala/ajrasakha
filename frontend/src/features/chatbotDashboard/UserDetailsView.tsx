@@ -42,37 +42,20 @@ export function UserDetailsView() {
 
   return (
     <div style={{ padding: "0px 20px 20px 20px", flex: 1, overflowY: "auto" }}>
-      {/* Header + filter row */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5">
-        <div>
-          <h2
-            className="text-base font-semibold text-(--foreground)"
-            style={{ margin: 0 }}
-          >
-            User Details
-          </h2>
-          <p
-            className="text-xs text-(--muted-foreground)"
-            style={{ marginTop: 4 }}
-          >
-            {dateLabel} · {filteredUsers.length} users
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="w-full sm:w-auto [&_label]:hidden [&_#date-toggle]:!w-full [&_#date-toggle]:!whitespace-nowrap [&_#date-toggle_span]:!whitespace-nowrap [&_#date-toggle]:!h-9">
-            <DateRangeFilter
-              customName=""
-              advanceFilter={{ startTime, endTime }}
-              handleDialogChange={handleDateChange}
-              className={
-                startTime
-                  ? "!h-9 !text-sm !w-full !border-green-500 dark:!border-green-500 !bg-green-50 dark:!bg-[#1a1a1a] !text-green-700 dark:!text-green-400 !font-medium hover:!bg-green-100 dark:hover:!bg-[#2a2a2a]"
-                  : "!h-9 !text-sm !w-full !border-gray-200 dark:!border-gray-700 !bg-white dark:!bg-[#1a1a1a] !text-gray-700 dark:!text-gray-200 !font-normal hover:!bg-gray-50 dark:hover:!bg-[#2a2a2a]"
-              }
-            />
-          </div>
-        </div>
+      {/* Header */}
+      <div className="mb-5">
+        <h2
+          className="text-base font-semibold text-(--foreground)"
+          style={{ margin: 0 }}
+        >
+          User Details
+        </h2>
+        <p
+          className="text-xs text-(--muted-foreground)"
+          style={{ marginTop: 4 }}
+        >
+          {dateLabel} · {filteredUsers.length} users
+        </p>
       </div>
 
       {/* Summary cards */}
@@ -117,24 +100,38 @@ export function UserDetailsView() {
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <CardTitle className="text-sm font-medium">All Farmers</CardTitle>
-            <div className="relative w-full sm:w-64">
-              <svg
-                width={14}
-                height={14}
-                viewBox="0 0 16 16"
-                fill="none"
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-(--muted-foreground)"
-              >
-                <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.3" />
-                <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search by name or email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
-              />
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-56">
+                <svg
+                  width={14}
+                  height={14}
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-(--muted-foreground)"
+                >
+                  <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.3" />
+                  <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search by name or email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
+                />
+              </div>
+              <div className="shrink-0 [&_label]:hidden [&_#date-toggle]:!whitespace-nowrap [&_#date-toggle_span]:!whitespace-nowrap [&_#date-toggle]:!h-9">
+                <DateRangeFilter
+                  customName=""
+                  advanceFilter={{ startTime, endTime }}
+                  handleDialogChange={handleDateChange}
+                  className={
+                    startTime
+                      ? "!h-9 !text-sm !border-green-500 dark:!border-green-500 !bg-green-50 dark:!bg-[#1a1a1a] !text-green-700 dark:!text-green-400 !font-medium hover:!bg-green-100 dark:hover:!bg-[#2a2a2a]"
+                      : "!h-9 !text-sm !border-gray-200 dark:!border-gray-700 !bg-white dark:!bg-[#1a1a1a] !text-gray-700 dark:!text-gray-200 !font-normal hover:!bg-gray-50 dark:hover:!bg-[#2a2a2a]"
+                  }
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
