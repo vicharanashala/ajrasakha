@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Spinner } from "@/components/atoms/spinner";
 import { useUserDetails } from "./hooks/useUserDetails";
@@ -8,6 +8,9 @@ export function UserDetailsView() {
   const [startTime, setStartTime] = useState<Date | undefined>(undefined);
   const [endTime, setEndTime] = useState<Date | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
+  const PAGE_SIZE = 30;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef<HTMLTableRowElement | null>(null);
 
   const { data: users, isLoading, error } = useUserDetails(startTime, endTime);
 
@@ -25,6 +28,34 @@ export function UserDetailsView() {
         u.email.toLowerCase().includes(q)
     );
   }, [users, searchQuery]);
+
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [searchQuery, startTime, endTime]);
+
+  const visibleUsers = useMemo(
+    () => filteredUsers.slice(0, visibleCount),
+    [filteredUsers, visibleCount]
+  );
+
+  const hasMore = visibleCount < filteredUsers.length;
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredUsers.length));
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, filteredUsers.length]);
 
   const totalQuestions = useMemo(
     () => filteredUsers.reduce((sum, u) => sum + u.totalQuestions, 0),
@@ -167,36 +198,49 @@ export function UserDetailsView() {
                       </td>
                     </tr>
                   ) : (
-                    filteredUsers.map((user, idx) => (
-                      <tr
-                        key={user.userId}
-                        className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-[#1e1e1e] transition-colors"
-                      >
-                        <td className="px-4 py-2.5 text-(--muted-foreground) tabular-nums">
-                          {idx + 1}
-                        </td>
-                        <td className="px-4 py-2.5 font-medium text-(--foreground) whitespace-nowrap">
-                          {user.name}
-                        </td>
-                        <td className="px-4 py-2.5 text-(--muted-foreground) whitespace-nowrap">
-                          {user.email}
-                        </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums">
-                          <span
-                            className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold ${
-                              user.totalQuestions > 0
-                                ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
-                                : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                            }`}
-                          >
-                            {user.totalQuestions.toLocaleString()}
-                          </span>
-                        </td>
+                    <>
+                      {visibleUsers.map((user, idx) => (
+                        <tr
+                          key={user.userId}
+                          className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-[#1e1e1e] transition-colors"
+                        >
+                          <td className="px-4 py-2.5 text-(--muted-foreground) tabular-nums">
+                            {idx + 1}
+                          </td>
+                          <td className="px-4 py-2.5 font-medium text-(--foreground) whitespace-nowrap">
+                            {user.name}
+                          </td>
+                          <td className="px-4 py-2.5 text-(--muted-foreground) whitespace-nowrap">
+                            {user.email}
+                          </td>
+                          <td className="px-4 py-2.5 text-right tabular-nums">
+                            <span
+                              className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                user.totalQuestions > 0
+                                  ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
+                                  : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                              }`}
+                            >
+                              {user.totalQuestions.toLocaleString()}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {/* Scroll sentinel — triggers loading more rows */}
+                      <tr ref={sentinelRef} style={{ height: 1 }}>
+                        <td colSpan={4} />
                       </tr>
-                    ))
+                    </>
                   )}
                 </tbody>
               </table>
+              {/* Showing X of Y indicator */}
+              {filteredUsers.length > 0 && (
+                <div className="px-4 py-2.5 text-center text-xs text-(--muted-foreground) border-t border-gray-100 dark:border-gray-800">
+                  Showing {Math.min(visibleCount, filteredUsers.length)} of {filteredUsers.length} users
+                  {hasMore && " · scroll for more"}
+                </div>
+              )}
             </div>
           )}
         </CardContent>
