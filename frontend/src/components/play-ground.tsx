@@ -10,11 +10,12 @@ import { QAInterface } from "../features/qa-interface-page/QA-interface";
 import { FullSubmissionHistory } from "./submission-history";
 import { VoiceRecorderCard } from "./voice-recorder-card";
 import { QuestionsPage } from "./questions-page";
-import { BellIcon } from "lucide-react";
+import { BellIcon, ChevronDownIcon } from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { RequestsPage } from "./request-page";
 import { initializeNotifications } from "@/services/pushService";
 import { useEffect, useState } from "react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/atoms/dropdown-menu";
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 import { MobileSidebar } from "./mobile-sidebar";
 import { HoverCard } from "./atoms/hover-card";
@@ -45,6 +46,7 @@ export const PlaygroundPage = () => {
   // Initialize from localStorage or default
 
   const [activeTab, setActiveTab] = useState<string>("all_questions");
+  const [chatbotSource, setChatbotSource] = useState<'vicharanashala' | 'annam'>('vicharanashala');
   const getStorageKey = (user?: { email?: string }) => {
     if (!user?.email) return null;
     return `playground_active_tab_${user.email}`;
@@ -384,17 +386,30 @@ export const PlaygroundPage = () => {
                   </HoverCard>
                 </TabsTrigger>
 
-                {/*user && user.role !== "expert" && (
-                  <TabsTrigger
-                    value="chatbotanalytics"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                  >
-                    <HoverCard openDelay={150}>
-                      <span>ChatBot Analytics</span>
-                     
-                    </HoverCard>
-                  </TabsTrigger>
-                )*/}
+                {user && user.role !== "expert" && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className={`px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0 flex items-center gap-1 ${
+                          activeTab === 'chatbotanalytics'
+                            ? 'bg-accent text-accent-foreground'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                        }`}
+                      >
+                        ChatBot Analytics
+                        <ChevronDownIcon className="w-3.5 h-3.5 opacity-60" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={() => { setChatbotSource('vicharanashala'); handleTabChange('chatbotanalytics'); }}>
+                        Vicharanashala
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setChatbotSource('annam'); handleTabChange('chatbotanalytics'); }}>
+                        Annam
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
 
                 {user && (
                   <TabsTrigger
@@ -475,7 +490,7 @@ export const PlaygroundPage = () => {
                 value="chatbotanalytics"
                 className="-mt-8 border-0 p-0"
               >
-                <AnnamDashboard />
+                <AnnamDashboard source={chatbotSource} />
               </TabsContent>
 
               {user && user.role !== "expert" && (

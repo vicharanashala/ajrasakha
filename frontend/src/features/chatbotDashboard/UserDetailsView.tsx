@@ -17,7 +17,11 @@ import {
 
 const PAGE_SIZE = 10;
 
-export function UserDetailsView() {
+interface UserDetailsViewProps {
+  source?: 'vicharanashala' | 'annam';
+}
+
+export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewProps) {
   const [startTime, setStartTime] = useState<Date | undefined>(undefined);
   const [endTime, setEndTime] = useState<Date | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
@@ -44,6 +48,7 @@ export function UserDetailsView() {
     currentPage,
     PAGE_SIZE,
     debouncedSearch,
+    source,
   );
 
   const { users, totalUsers, totalPages, activeUsers, totalQuestions } = data;

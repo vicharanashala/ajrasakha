@@ -196,7 +196,7 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function useDashboardData(filters?: DashboardFilterValues) {
+export function useDashboardData(filters?: DashboardFilterValues, source: 'vicharanashala' | 'annam' = 'vicharanashala') {
   const startISO = filters?.startTime?.toISOString();
   const endISO = filters?.endTime?.toISOString();
 
@@ -208,6 +208,7 @@ export function useDashboardData(filters?: DashboardFilterValues) {
       filters?.season ?? 'all',
       startISO,
       endISO,
+      source,
     ],
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
@@ -219,6 +220,7 @@ export function useDashboardData(filters?: DashboardFilterValues) {
       if (filters?.season && filters.season !== 'all') params.set('season', filters.season);
       if (startISO) params.set('startTime', startISO);
       if (endISO) params.set('endTime', endISO);
+      params.set('source', source);
       const queryString = params.toString();
 
       const result = await apiFetch<DashboardApiResponse>(

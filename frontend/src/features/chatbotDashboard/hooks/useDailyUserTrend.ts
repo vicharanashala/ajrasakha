@@ -8,13 +8,13 @@ interface DailyUserTrendEntry {
   count: number;
 }
 
-export function useDailyUserTrend(days = 30) {
+export function useDailyUserTrend(days = 30, source: 'vicharanashala' | 'annam' = 'vicharanashala') {
   const { data: rawData, isLoading, error } = useQuery<DailyUserTrendEntry[], Error>({
-    queryKey: ['daily-user-trend', days],
+    queryKey: ['daily-user-trend', days, source],
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
       const result = await apiFetch<DailyUserTrendEntry[]>(
-        `${API_BASE_URL}/analytics/user-trend?days=${days}`,
+        `${API_BASE_URL}/analytics/user-trend?days=${days}&source=${source}`,
       );
       return result ?? [];
     },

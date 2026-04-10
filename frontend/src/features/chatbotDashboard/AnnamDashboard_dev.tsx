@@ -28,13 +28,13 @@ const DEFAULT_FILTERS: DashboardFilterValues = {
   endTime: undefined,
 };
 
-export function AnnamDashboard_dev({ className }: { className?: string }) {
+export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { className?: string; source?: 'vicharanashala' | 'annam' }) {
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView]       = useState<DashboardView>("overview");
   const [filters, setFilters]             = useState<DashboardFilterValues>(DEFAULT_FILTERS);
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
-  const { data, isLoading, error } = useDashboardData(filters);
-  const { data: dauTrend, isLoading: dauLoading, error: dauError } = useDailyUserTrend(30);
+  const { data, isLoading, error } = useDashboardData(filters, source);
+  const { data: dauTrend, isLoading: dauLoading, error: dauError } = useDailyUserTrend(30, source);
 
   const sectionRefs = useRef<Partial<Record<DashboardView, HTMLDivElement | null>>>({});
 
@@ -86,7 +86,7 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
 
       {!error && data && (
         <>
-        <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+<div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <DashboardSidebar
           activeView={activeView}
           onViewChange={(view) => {
@@ -98,7 +98,7 @@ export function AnnamDashboard_dev({ className }: { className?: string }) {
         />
 
         {activeView === "user-details" ? (
-          <UserDetailsView />
+          <UserDetailsView source={source} />
         ) : (
         <div style={{ flex: 1, overflowY: "auto", padding: "0px 20px 20px 20px" }}>
                 {/* Page header */}                                
