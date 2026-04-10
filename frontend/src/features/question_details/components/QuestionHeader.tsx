@@ -1,4 +1,4 @@
-import type { IQuestionFullData } from "@/types";
+import type { IQuestionFullData, IUser } from "@/types";
 import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
 import { TimerDisplay } from "@/components/timer-display";
@@ -13,9 +13,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 interface QuestionHeaderProps {
   question: IQuestionFullData;
   goBack: () => void;
+  currentUser: IUser;
 }
 
-export const QuestionHeader = ({ question, goBack }: QuestionHeaderProps) => {
+export const QuestionHeader = ({ question, goBack, currentUser }: QuestionHeaderProps) => {
   //translation state
   const [translatedText, setTranslatedText] = useState<string>("");
   const { timer } = useQuestionTimer(question.source, question.createdAt!);
@@ -45,7 +46,7 @@ export const QuestionHeader = ({ question, goBack }: QuestionHeaderProps) => {
     setConfirmDialog({ open: false, type: "hold" });
     doHold();
   };
-
+  const isQuestionOnHold = question.isOnHold;
   return (
     <>
       <header className="grid gap-3 w-full">
@@ -54,7 +55,7 @@ export const QuestionHeader = ({ question, goBack }: QuestionHeaderProps) => {
           <h1 className="text-xl sm:text-2xl font-semibold text-pretty break-words flex-1">
             {translatedText || question.question}
           </h1>
-          <Button size="sm" variant="outline" onClick={handleHold} className="whitespace-nowrap">Hold the question</Button>
+          {currentUser.role !='expert' &&<Button size="sm" variant="outline" onClick={handleHold} className="whitespace-nowrap">{isQuestionOnHold ? "Release Hold" : "Hold the question"}</Button>}
           <SarvamTranslateDropdown query={question.question} onTranslate={(result) => setTranslatedText(result)} />
 
           <div className="flex sm:flex-row flex-col sm:items-center items-end gap-3 sm:gap-6">
