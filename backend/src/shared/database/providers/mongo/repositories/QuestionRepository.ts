@@ -332,17 +332,22 @@ export class QuestionRepository implements IQuestionRepository {
         sort,
         hiddenQuestions,
         duplicateQuestions,
+        isOnHold,
       } = query;
 
     //  const filter: any = {};
     const filter: any = {
       isHidden: { $ne: true }, // default to exclude hidden questions
+      isOnHold: { $ne: true }, // default to exclude on hold questions
     };
 
     // --- Hidden question filter ---
     if(hiddenQuestions === 'true'){
         filter.isHidden = { $eq: true }; // filter by hidden questions
     }
+
+    // --- on Hold question filter ---
+    if(isOnHold === 'true')filter.isOnHold = { $eq: true }; // filter by on hold questions
 
     //for duplicate questions.
     // duplicateQuestions === 'true'

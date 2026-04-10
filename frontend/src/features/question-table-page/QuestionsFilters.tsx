@@ -317,7 +317,7 @@ export const QuestionsFilters = ({
       autoAllocateFilter: advanceFilter?.autoAllocateFilter,
       hiddenQuestions: advanceFilter?.hiddenQuestions,
       duplicateQuestions: advanceFilter?.duplicateQuestions,
-
+        isOnHold: advanceFilter?.isOnHold,
     });
   };
 
@@ -471,7 +471,7 @@ export const QuestionsFilters = ({
             Manual
           </button>
             {/* Should Add new Button Here */}
-          <button
+          {/* <button
             onClick={() => {
               setAnswerMode("whatsapp")
               onChange({ ...advanceFilter, source: "WHATSAPP" });
@@ -482,7 +482,7 @@ export const QuestionsFilters = ({
               }`}
           >
             Whatsapp
-          </button>
+          </button> */}
          
         </div>
       </div>
