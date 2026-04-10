@@ -562,7 +562,7 @@ async findAllUsers(
     const allUsersRaw = await this.usersCollection
       .find(
         {
-          role: 'expert',
+          // role: 'expert',
           isBlocked: false,
           special_task_force_moderator: true,
         },
