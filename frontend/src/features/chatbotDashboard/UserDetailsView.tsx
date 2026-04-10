@@ -137,7 +137,7 @@ export function UserDetailsView() {
                   className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
                 />
               </div>
-              <div className="w-full sm:w-auto [&_label]:hidden [&_#date-toggle]:!whitespace-nowrap [&_#date-toggle_span]:!whitespace-nowrap [&_#date-toggle]:!h-9 [&_.absolute]:!left-0 [&_.absolute]:sm:!left-auto [&_.absolute]:sm:!right-0">
+              <div className="w-full sm:w-auto [&_label]:hidden [&_#date-toggle]:!whitespace-nowrap [&_#date-toggle_span]:!whitespace-nowrap [&_#date-toggle]:!h-9 [&_.absolute]:!left-0 [&_.absolute]:md:!left-auto [&_.absolute]:md:!right-0">
                 <DateRangeFilter
                   customName=""
                   advanceFilter={{ startTime, endTime }}
