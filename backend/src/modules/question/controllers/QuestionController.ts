@@ -195,6 +195,7 @@ export class QuestionController {
       }
     } else {
       console.log("the body coming=====",body)
+      
       const { isDuplicate, data } = await this.questionService.addQuestion(userId, body);
       console.log("the duplicate coming====",isDuplicate)
       console.log("the data coming=====",data)

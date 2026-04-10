@@ -29,7 +29,7 @@ export const sendPushNotification = async (
 export const notifyUser = async (userId: string, message: string,subscription:any) => {
   if (!subscription) return;
   const payload = {
-    title: 'Notification',
+    title: 'Annam.AI',
     body: message,
     url: '/notifications'
   };

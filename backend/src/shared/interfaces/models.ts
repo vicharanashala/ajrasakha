@@ -222,6 +222,8 @@ export type INotificationType =
   | 're-routed-rejected-expert'
   |'re-routed-rejected-moderator'
   |'re-routed-answer-created'
+  | 'question_from_whatsapp'
+  | 'question_from_ajrasakha'
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;
