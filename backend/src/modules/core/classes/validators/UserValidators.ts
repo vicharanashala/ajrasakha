@@ -146,6 +146,9 @@ class UpdateUserDto {
   @IsOptional()
   @IsEnum(['expert', 'moderator', 'admin'])
   role?: UserRole;
+  @IsOptional()
+  @IsString()
+  avatar?: string;
 }
 
 export {PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive,BlockUnblockBody,ExpertReviewLevelDto, UpdateUserDto};

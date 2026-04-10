@@ -43,6 +43,7 @@ export interface IUser {
   penaltyPercentage?: number;
   rankPosition?: number;
   status?: 'active' | 'in-active';
+  avatar?: string;
   special_task_force?: boolean;
   special_task_force_moderator?: boolean
 }
