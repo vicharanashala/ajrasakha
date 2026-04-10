@@ -31,61 +31,39 @@ export class QuestionService {
     search: string,
     sort?: string
   ): Promise<IDetailedQuestionResponse | null> {
-    const params = new URLSearchParams();
-
-    if (search) params.append("search", search);
-    if (sort) params.append("sort", sort);
-    params.append("page", pageParam.toString());
-    params.append("limit", limit.toString());
-
-    if (filter.status) params.append("status", filter.status);
-    if (filter.source) params.append("source", filter.source);
-    if (filter.crop) params.append("crop", filter.crop);
-    if (filter.priority) params.append("priority", filter.priority);
-    if (filter.domain) params.append("domain", filter.domain);
-    if (filter.user) params.append("user", filter.user);
-    if (filter.review_level) params.append("review_level", filter.review_level);
-    if (filter.startTime) {
-      params.append("startTime", formatDateLocal(filter.startTime));
-    }
-    if (filter.endTime) {
-      params.append("endTime", formatDateLocal(filter.endTime));
-    }
-    if (filter.closedAtEnd) {
-      params.append("closedAtEnd", formatDateLocal(filter.closedAtEnd));
-    }
-    if (filter.closedAtStart) {
-      params.append("closedAtStart", formatDateLocal(filter.closedAtStart));
-    }
-    if (filter.consecutiveApprovals) {
-      params.append("consecutiveApprovals", filter.consecutiveApprovals);
-    }
-    if (filter.autoAllocateFilter) {
-      params.append("autoAllocateFilter", filter.autoAllocateFilter);
-    }
-
-    if (filter.answersCount) {
-      params.append("answersCountMin", filter.answersCount[0].toString());
-      params.append("answersCountMax", filter.answersCount[1].toString());
-    }
-
-    if (filter.dateRange && filter.dateRange !== "all")
-      params.append("dateRange", filter.dateRange);
-
-    params.append("hiddenQuestions", String(filter.hiddenQuestions));
-    params.append("duplicateQuestions", String(filter.duplicateQuestions));
-
-    // states and normalisedCrops sent as JSON arrays in request body
-    const requestBody: { states?: string[]; normalisedCrops?: string[] } = {};
-    if (filter.states && filter.states.length > 0) {
-      requestBody.states = filter.states;
-    }
-    if (filter.normalisedCrops && filter.normalisedCrops.length > 0) {
-      requestBody.normalisedCrops = filter.normalisedCrops;
-    }
+    const requestBody = {
+      page: pageParam,
+      limit,
+      ...(search && { search }),
+      ...(sort && { sort }),
+      filters: {
+        ...(filter.status && { status: filter.status }),
+        ...(filter.source && { source: filter.source }),
+        ...(filter.crop && { crop: filter.crop }),
+        ...(filter.priority && { priority: filter.priority }),
+        ...(filter.domain && { domain: filter.domain }),
+        ...(filter.user && { user: filter.user }),
+        ...(filter.review_level && { review_level: filter.review_level }),
+        ...(filter.consecutiveApprovals && { consecutiveApprovals: filter.consecutiveApprovals }),
+        ...(filter.autoAllocateFilter && { autoAllocateFilter: filter.autoAllocateFilter }),
+        ...(filter.answersCount && {
+          answersCountMin: filter.answersCount[0],
+          answersCountMax: filter.answersCount[1],
+        }),
+        hiddenQuestions: String(filter.hiddenQuestions),
+        duplicateQuestions: String(filter.duplicateQuestions),
+        ...(filter.states && filter.states.length > 0 && { states: filter.states }),
+        ...(filter.normalisedCrops && filter.normalisedCrops.length > 0 && { normalisedCrops: filter.normalisedCrops }),
+        ...(filter.dateRange && filter.dateRange !== "all" && { dateRange: filter.dateRange }),
+        ...(filter.startTime && { startTime: formatDateLocal(filter.startTime) }),
+        ...(filter.endTime && { endTime: formatDateLocal(filter.endTime) }),
+        ...(filter.closedAtEnd && { closedAtEnd: formatDateLocal(filter.closedAtEnd) }),
+        ...(filter.closedAtStart && { closedAtStart: formatDateLocal(filter.closedAtStart) }),
+      },
+    };
 
     return apiFetch<IDetailedQuestionResponse | null>(
-      `${this._baseUrl}/detailed?${params.toString()}`,
+      `${this._baseUrl}/detailed`,
       { method: "POST", body: JSON.stringify(requestBody) }
     );
   }
@@ -99,59 +77,39 @@ export class QuestionService {
     autoSelectQuestionId?: string | null,
     reviewLevel?: string
   ): Promise<IQuestion[] | ReroutedQuestionItem[] | null> {
-    const params = new URLSearchParams({
-      page: pageParam.toString(),
-      limit: limit.toString(),
+    const requestBody = {
+      page: pageParam,
+      limit,
       filter: filter.toString(),
-    });
+      filters: {
+        ...(preferences.status && preferences.status !== "all" && { status: preferences.status }),
+        ...(preferences.source && preferences.source !== "all" && { source: preferences.source }),
+        ...(preferences.priority && preferences.priority !== "all" && { priority: preferences.priority }),
+        ...(preferences.domain && preferences.domain !== "all" && { domain: preferences.domain }),
+        ...(preferences.user && preferences.user !== "all" && { user: preferences.user }),
+        ...(reviewLevel && { review_level: reviewLevel }),
+        ...(preferences.answersCount && {
+          answersCountMin: preferences.answersCount[0],
+          answersCountMax: preferences.answersCount[1],
+        }),
+        ...(autoSelectQuestionId && { autoSelectQuestionId }),
+        ...(preferences.dateRange && preferences.dateRange !== "all" && { dateRange: preferences.dateRange }),
+        ...(preferences.states && preferences.states.length > 0 && { states: preferences.states }),
+        ...(preferences.crops && preferences.crops.length > 0 && { crops: preferences.crops }),
+      },
+    };
 
-    if (preferences.status && preferences.status !== "all")
-      params.append("status", preferences.status);
-    if (preferences.source && preferences.source !== "all")
-      params.append("source", preferences.source);
-    if (preferences.priority && preferences.priority !== "all")
-      params.append("priority", preferences.priority);
-    if (preferences.domain && preferences.domain !== "all")
-      params.append("domain", preferences.domain);
-    if (preferences.user && preferences.user !== "all")
-      params.append("user", preferences.user);
-
-    if (preferences.answersCount) {
-      const [min, max] = preferences.answersCount;
-      params.append("answersCountMin", String(min));
-      params.append("answersCountMax", String(max));
-    }
-    if (autoSelectQuestionId) {
-      params.append("autoSelectQuestionId", autoSelectQuestionId);
-    }
-    if (reviewLevel) {
-      params.append("review_level", reviewLevel);
-    }
-    if (preferences.dateRange && preferences.dateRange !== "all")
-      params.append("dateRange", preferences.dateRange);
-
-    // states and crops sent as JSON arrays in request body
-    const requestBody: { states?: string[]; crops?: string[] } = {};
-    if (preferences.states && preferences.states.length > 0) {
-      requestBody.states = preferences.states;
-    }
-    if (preferences.crops && preferences.crops.length > 0) {
-      requestBody.crops = preferences.crops;
-    }
-
-    if (actionType == "allocated") {
+    if (actionType === "allocated") {
       return apiFetch<IQuestion[] | null>(
-        `${this._baseUrl}/allocated?${params.toString()}`,
+        `${this._baseUrl}/allocated`,
         { method: "POST", body: JSON.stringify(requestBody) }
       );
     } else {
       return apiFetch<ReroutedQuestionItem[] | null>(
-        `${this._reRouteUrl}/allocated?${params.toString()}`,
+        `${this._reRouteUrl}/allocated`,
         { method: "POST", body: JSON.stringify(requestBody) }
       );
     }
-
-
   }
 
   async getQuestionById(id: string, actionType: string): Promise<IQuestion | null> {

@@ -363,16 +363,34 @@ class GetDetailedQuestionsQuery {
   @IsString()
   review_level?: string;
 }
+export class AllocatedQuestionsFiltersDto {
+  @IsOptional() @IsString() status?: string;
+  @IsOptional() @IsString() source?: string;
+  @IsOptional() @IsString() priority?: string;
+  @IsOptional() @IsString() domain?: string;
+  @IsOptional() @IsString() user?: string;
+  @IsOptional() @IsString() review_level?: string;
+  @IsOptional() @IsInt() @Min(0) answersCountMin?: number;
+  @IsOptional() @IsInt() @Max(1000) answersCountMax?: number;
+  @IsOptional() @IsString() dateRange?: string;
+  @IsOptional() @IsString() autoSelectQuestionId?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) states?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) crops?: string[];
+}
+
 export class AllocatedQuestionsBodyDto {
-  @IsOptional()
-  @IsArray()
-  @IsString({each: true})
-  states?: string[];
+  @IsOptional() @IsInt() @Min(1) page?: number;
+  @IsOptional() @IsInt() @Min(1) limit?: number;
+  @IsOptional() @IsString() filter?: string;
 
   @IsOptional()
-  @IsArray()
-  @IsString({each: true})
-  crops?: string[];
+  @ValidateNested()
+  @Type(() => AllocatedQuestionsFiltersDto)
+  filters?: AllocatedQuestionsFiltersDto;
+
+  // Legacy flat fields — kept for backward compatibility
+  @IsOptional() @IsArray() @IsString({ each: true }) states?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) crops?: string[];
 }
 
 export const QUESTION_VALIDATORS = [

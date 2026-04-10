@@ -93,13 +93,34 @@ export class ReRouteController {
   @Authorized()
   @OpenAPI({summary: 'Get all re-routed allocated'})
   async getAllocatedQuestions(
-    @QueryParams()
-    query: GetDetailedQuestionsQuery,
     @Body() body: AllocatedQuestionsBodyDto,
     @CurrentUser() user: IUser,
   ): Promise<any[]> {
     const userId = user._id.toString();
-    return this.reRouteService.getAllocatedQuestions(userId, query, body);
+    const { page, limit, filter, filters } = body;
+
+    const query: GetDetailedQuestionsQuery = {
+      page,
+      limit,
+      filter: filter as any,
+      status: filters?.status,
+      source: filters?.source,
+      priority: filters?.priority,
+      domain: filters?.domain,
+      user: filters?.user,
+      review_level: filters?.review_level,
+      answersCountMin: filters?.answersCountMin,
+      answersCountMax: filters?.answersCountMax,
+      dateRange: filters?.dateRange,
+      autoSelectQuestionId: filters?.autoSelectQuestionId,
+    };
+
+    const allocatedBody = {
+      states: filters?.states,
+      crops: filters?.crops,
+    };
+
+    return this.reRouteService.getAllocatedQuestions(userId, query, allocatedBody);
   }
 
   @Get('/:questionId')
