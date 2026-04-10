@@ -1173,11 +1173,11 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
         }
         } else {
-          const [allModerators, taskForceExperts] = await Promise.all([
+          const [allModerators, taskForceModerators] = await Promise.all([
             this.userRepo.findModerators(),
             this.userRepo.getSpecialTaskForceModerators()
           ]);
-          const allUsers = [...allModerators,...taskForceExperts]
+          const allUsers = [...allModerators,...taskForceModerators]
 
           const sourceLabel =
             source === "AJRASAKHA" ? "Ajrasakha" : "WhatsApp";
