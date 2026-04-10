@@ -48,6 +48,8 @@ class UserDto {
   isBlocked:boolean
 
   special_task_force:boolean
+  
+  special_task_force_moderator: boolean
 }
 
 // Main Response DTO

@@ -17,7 +17,11 @@
       Trash,
       Unlock,
       Gavel,
-    } from "lucide-react";
+  Zap,
+  ShieldCheck,
+} from "lucide-react";
+
+import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 
     import { Pagination } from "./pagination";
     import type { IUser, UserRole } from "@/types";
@@ -351,7 +355,7 @@
 
           {/* User name */}
           <TableCell className="align-middle w-36" title={u.firstName}>
-            <div>
+            <div className="flex items-center justify-center gap-1">
               <span
                 className={"hover:underline hover:cursor-pointer"}
                 onClick={() => {
@@ -360,6 +364,38 @@
               >
                 {truncate(u.firstName + " " + u.lastName, 60)}
               </span>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {u?.special_task_force && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge 
+                        variant="outline"
+                        className="bg-indigo-50/50 hover:bg-indigo-50 text-indigo-700 border-indigo-200 text-[9px] h-5 px-1.5 rounded-full flex items-center gap-1 transition-colors whitespace-nowrap"
+                      >
+                        <Zap className="w-2.5 h-2.5 fill-indigo-500" />
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Special Task Force
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {u?.special_task_force_moderator && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge 
+                        variant="outline"
+                        className="bg-purple-50/50 hover:bg-purple-50 text-purple-700 border-purple-200 text-[9px] h-5 px-1.5 rounded-full flex items-center gap-1 transition-colors whitespace-nowrap"
+                      >
+                        <ShieldCheck className="w-2.5 h-2.5 fill-purple-500" />
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Special Task Force Moderator
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
             </div>
           </TableCell>
 
