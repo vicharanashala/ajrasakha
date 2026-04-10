@@ -153,6 +153,7 @@ export interface IQuestionService {
     status?: string;
     hiddenQuestions?: string;
     duplicateQuestions?: string;
+    isOnHold?: string;
   }): Promise<ArrayBuffer | null>;
   generateDuplicateQuestionReport(
     startDate?: Date,

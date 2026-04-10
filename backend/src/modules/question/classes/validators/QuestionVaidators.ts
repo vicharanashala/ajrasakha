@@ -669,6 +669,15 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   duplicateQuestions?: string;
+
+  @JSONSchema({
+    description: 'to filter on hold questions',
+    example: 'true',
+    type: 'string',
+  })
+
+  @IsOptional()
+  isOnHold?: string;
 }
 
 export interface IQuestionWithAnswerTexts {
