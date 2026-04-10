@@ -81,6 +81,12 @@ export interface IUserRepository {
    
     session?: ClientSession,
   ): Promise<IUser[]>;
+
+  getSpecialTaskForceModerators(
+   
+    session?: ClientSession,
+  ): Promise<IUser[]>;
+  
   findActiveLowReputationExpertsToday(
     session?: ClientSession,
     ): Promise<IUser[]>;
