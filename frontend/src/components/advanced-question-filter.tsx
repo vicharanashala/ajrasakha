@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { CommonFilterFields } from "./CommonFilterFields";
+import type { CommonFilterKey } from "./CommonFilterFields";
 import {
   Dialog,
   DialogTrigger,
@@ -11,68 +13,22 @@ import {
 import { Button } from "@/components/atoms/button";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Label } from "@/components/atoms/label";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/atoms/select";
 import { Separator } from "@/components/atoms/separator";
 import { Badge } from "@/components/atoms/badge";
 import { Slider } from "@/components/atoms/slider";
-import { Checkbox } from "@/components/atoms/checkbox";
 import {
   Filter,
-  FileText,
   MessageSquare,
-  MapPin,
-  Flag,
   RefreshCcw,
-  Sprout,
-  UserIcon,
-  Globe,
-  Loader2,
-  Info,
   AlertTriangle,
-  Circle,
-  Clock,
-  CheckCircle2,
-  Eye,
-  Bot,
-  UserRound,
-  ArrowUp,
-  ArrowDown,
-  ListFilter,
-  CalendarIcon,
   ChevronUp,
   ChevronDown,
   XCircle,
-  Layers,
-  Send,
-  BadgeCheck,
-  Hand,
-  Users,
   Settings,
 } from "lucide-react";
-import { Plus } from "lucide-react";
-import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "./atoms/tooltip";
 import type { IMyPreference } from "@/types";
-import { CROPS, STATES, DOMAINS, Review_Level } from "@/components/MetaData";
-import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
-import { Popover, PopoverContent, PopoverTrigger } from "./atoms/popover";
-import { format } from "date-fns";
+import { CROPS, STATES, DOMAINS } from "@/components/MetaData";
 export { STATES, CROPS, DOMAINS };
-import type { DateRange } from "react-day-picker";
-import { Calendar } from "./atoms/calendar";
-import { DateRangeFilter } from "./DateRangeFilter";
-import { TopRightBadge } from "./NewBadge";
 
 export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed";
 export type QuestionDateRangeFilter =
@@ -127,14 +83,7 @@ export type AdvanceFilterValues = {
   isOnHold?: boolean;
 };
 
-// Define the props for your new component
-interface DateRangeFilterProps {
-  // advanceFilter prop now includes startTime and endTime
-  advanceFilter: Partial<AdvanceFilterValues>;
-  // The handler to update the parent state
-  handleDialogChange: (key: string, value: any) => void;
-  className?: string;
-}
+// interface DateRangeFilterProps { ... } // unused — was for the commented-out DateRangeFilter below
 
 // export const DateRangeFilter = ({
 //   advanceFilter,
@@ -385,7 +334,8 @@ export const CropMultiSelect = ({
     }
   };
 
-  const cropList = dbCrops.length > 0 ? dbCrops : crops.map((c) => ({ name: c }));
+  const cropList: { name: string; aliases?: string[] }[] =
+    dbCrops.length > 0 ? dbCrops : crops.map((c) => ({ name: c }));
 
   const getLabel = (value: string) => {
     if (value === "__NOT_SET__") return "Not Set (Legacy)";
@@ -519,7 +469,15 @@ interface AdvanceFilterDialogProps {
   activeFiltersCount: number;
   onReset: () => void;
   isForQA: boolean;
-  setIsSidebarOpen: (value: boolean) => void;
+  setIsSidebarOpen?: (value: boolean) => void;
+  /** Subset of filter fields to render (default: all fields). */
+  visibleFields?: CommonFilterKey[];
+  /** Override review level options shown in the dropdown. */
+  reviewLevelOptions?: string[];
+  /** Whether Source dropdown is disabled (default: true). */
+  sourceDisabled?: boolean;
+  /** Trigger button style: "card" (default) or "compact" pill. */
+  triggerVariant?: "card" | "compact";
 }
 
 export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
@@ -532,17 +490,14 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   activeFiltersCount,
   onReset,
   isForQA,
-  setIsSidebarOpen,
+  setIsSidebarOpen = () => {},
+  visibleFields,
+  reviewLevelOptions,
+  sourceDisabled = true,
+  triggerVariant = "card",
 }) => {
   const [open, setOpen] = useState(false);
-  const { data: userNameReponse, isLoading } = useGetAllUsers();
-  const { data: cropsData } = useGetAllCrops();
-  const dbCrops = cropsData?.crops || [];
-
-  const users = (userNameReponse?.users || []).sort((a, b) =>
-    a.userName.localeCompare(b.userName),
-  );
-
+  // useGetAllUsers and useGetAllCrops moved into CommonFilterFields
   return (
     <Dialog
       open={open}
@@ -552,31 +507,49 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
       }}
     >
       <DialogTrigger asChild>
-        <button className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-500/10 flex items-center justify-center text-purple-500 dark:text-purple-400">
-              <Settings size={20} />
-            </div>
-            <div className="text-left">
-              <div className="flex items-center gap-1">
-                <p className="text-sm font-bold text-gray-900 dark:text-white">
-                  Preferences
-                </p>
-
-                {activeFiltersCount > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="bg-red-500 h-4 px-2 rounded-full flex items-center justify-center text-xs"
-                  >
-                    {activeFiltersCount}
-                  </Badge>
-                )}
+        {triggerVariant === "compact" ? (
+          /* Compact pill button — used by QaHeader */
+          <button className="flex items-center gap-1.5 px-2 sm:px-3 py-1 h-8 sm:h-9 bg-background hover:bg-accent hover:text-accent-foreground border border-input rounded-md transition-all shadow-sm shrink-0">
+            <span className="text-xs sm:text-sm font-normal text-gray-900 dark:text-white whitespace-nowrap">
+              Preferences
+            </span>
+            {activeFiltersCount > 0 && (
+              <Badge
+                variant="destructive"
+                className="bg-red-500 h-4 px-1.5 min-w-4 rounded-full flex items-center justify-center text-[10px]"
+              >
+                {activeFiltersCount}
+              </Badge>
+            )}
+          </button>
+        ) : (
+          /* Default card button — used by QuestionsFilters sidebar */
+          <button className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-500/10 flex items-center justify-center text-purple-500 dark:text-purple-400">
+                <Settings size={20} />
               </div>
+              <div className="text-left">
+                <div className="flex items-center gap-1">
+                  <p className="text-sm font-bold text-gray-900 dark:text-white">
+                    Preferences
+                  </p>
 
-              <p className="text-[11px] text-gray-500">Advanced Filters</p>
+                  {activeFiltersCount > 0 && (
+                    <Badge
+                      variant="destructive"
+                      className="bg-red-500 h-4 px-2 rounded-full flex items-center justify-center text-xs"
+                    >
+                      {activeFiltersCount}
+                    </Badge>
+                  )}
+                </div>
+
+                <p className="text-[11px] text-gray-500">Advanced Filters</p>
+              </div>
             </div>
-          </div>
-        </button>
+          </button>
+        )}
       </DialogTrigger>
 
       <ScrollArea>
@@ -602,457 +575,51 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
           </DialogHeader>
 
           <div className="space-y-6 py-4">
-            {/* Question Status & Source */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {!isForQA && (
-                <div className="space-y-2 min-w-0 ">
-                  <Label className="flex items-center gap-2 text-sm font-semibold">
-                    <FileText className="h-4 w-4 text-primary" />
-                    Question Status
-                  </Label>
-                  <Select
-                    value={advanceFilter.status}
-                    onValueChange={(v) => handleDialogChange("status", v)}
-                  >
-                    <SelectTrigger className="bg-background w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">
-                        <div className="flex items-center gap-2">
-                          <Eye className="w-4 h-4 text-primary" />
-                          <span>All Statuses</span>
-                        </div>
-                      </SelectItem>
+            {/* ── CommonFilterFields replaces the duplicated filter dropdowns below ── */}
+            <CommonFilterFields
+              values={advanceFilter}
+              onChange={handleDialogChange}
+              visibleFields={
+                visibleFields ??
+                ((isForQA
+                  ? [
+                      "source",
+                      "states",
+                      "reviewLevel",
+                      "cropType",
+                      "domain",
+                      "priority",
+                      "dateRange",
+                      "closedDate",
+                      "consecutiveApprovals",
+                      "autoAllocate",
+                      "hiddenQuestions",
+                    ]
+                  : [
+                      "status",
+                      "source",
+                      "states",
+                      "reviewLevel",
+                      "cropType",
+                      "user",
+                      "domain",
+                      "priority",
+                      "dateRange",
+                      "closedDate",
+                      "consecutiveApprovals",
+                      "autoAllocate",
+                      "hiddenQuestions",
+                      "isOnHold",
+                    ]) as CommonFilterKey[])
+              }
+              sourceDisabled={sourceDisabled}
+              reviewLevelOptions={reviewLevelOptions}
+              normalizedStates={normalizedStates}
+              crops={crops}
+            />
 
-                      <SelectItem value="open">
-                        <div className="flex items-center gap-2">
-                          <Circle className="w-4 h-4 text-green-500 fill-green-500/20" />
-                          <span>Open</span>
-                        </div>
-                      </SelectItem>
-
-                      <SelectItem value="in-review">
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-blue-500" />
-                          <span>In Review</span>
-                        </div>
-                      </SelectItem>
-
-                      <SelectItem value="delayed">
-                        <div className="flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                          <span>Delayed</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="re-routed">
-                        <div className="flex items-center gap-2">
-                          <Send className="w-4 h-4 text-green-500" />
-                          <span>Re Routed</span>
-                        </div>
-                      </SelectItem>
-
-                      <SelectItem value="closed">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-red-500" />
-                          <span>Closed</span>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              <div className="space-y-2 min-w-0 cursor-not-allowed">
-                <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <MessageSquare className="h-4 w-4 text-primary" />
-                  Source
-                </Label>
-                <Select
-                  value={advanceFilter.source}
-                  disabled
-                  onValueChange={(v) => handleDialogChange("source", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue placeholder="Select Source" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <div className="flex items-center gap-2">
-                        <Globe className="w-4 h-4 text-primary" />
-                        <span>All Sources</span>
-                      </div>
-                    </SelectItem>
-
-                    <SelectItem value="AJRASAKHA">
-                      <div className="flex items-center gap-2">
-                        <Bot className="w-4 h-4 text-primary" />
-                        <span>Ajrasakha </span>
-                      </div>
-                    </SelectItem>
-
-                    <SelectItem value="AGRI_EXPERT">
-                      <div className="flex items-center gap-2">
-                        <UserRound className="w-4 h-4 text-primary" />
-                        <span>Agri Expert</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
+            {/* ── Number of Answers Slider (kept inline — not shared) ── */}
             <Separator />
-
-            {/* Location & Crop */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2 min-w-0">
-                <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  State/Region
-                  {advanceFilter.states && advanceFilter.states.length > 0 && (
-                    <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
-                      {advanceFilter.states.length}
-                    </Badge>
-                  )}
-                </Label>
-                <StateMultiSelect
-                  states={normalizedStates}
-                  selected={advanceFilter.states || []}
-                  onChange={(next) => handleDialogChange("states", next)}
-                />
-              </div>
-              <div className="space-y-2 min-w-0">
-                <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Layers className="h-4 w-4 text-primary" />
-                  Review Level
-                </Label>
-                <Select
-                  value={advanceFilter.review_level}
-                  onValueChange={(v) => handleDialogChange("review_level", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Levels</SelectItem>
-                    {Review_Level.map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Domain & Users */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2 min-w-0">
-                <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Sprout className="h-4 w-4 text-primary" />
-                  Crop Type
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        <Info className="h-4 w-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-xs text-sm">
-                      <p>
-                        Filter by the standardized crop name. You can view a
-                        crop's alternative names by hovering over the "+" icon
-                        next to it. Use "Not Set" to find older questions
-                        without a normalized crop.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </Label>
-                <CropMultiSelect
-                  dbCrops={dbCrops}
-                  crops={crops}
-                  selected={advanceFilter.normalisedCrops || []}
-                  onChange={(next) => handleDialogChange("normalisedCrops", next)}
-                />
-              </div>
-
-              <div className="space-y-2 min-w-0">
-                <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <UserIcon className="h-4 w-4 text-primary" />
-                  User
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        <Info className="h-4 w-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-xs text-sm">
-                      <p>
-                        This option allows filtering questions that have been
-                        submitted at least once by the selected user.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </Label>
-
-                <Select
-                  value={advanceFilter.user}
-                  onValueChange={(v) => handleDialogChange("user", v)}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    {isLoading ? (
-                      <div className="flex items-center justify-center p-3">
-                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                        <span className="ml-2 text-sm text-muted-foreground">
-                          Loading users...
-                        </span>
-                      </div>
-                    ) : (
-                      <>
-                        <SelectItem value="all">All Users</SelectItem>
-                        {users?.map((u) => (
-                          <SelectItem key={u._id} value={u._id}>
-                            {u.userName}
-                          </SelectItem>
-                        ))}
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2 min-w-0">
-                {/* <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <CalendarIcon className="h-4 w-4 text-primary" />
-                  Date Range
-                </Label>
-                <Select
-                  value={advanceFilter.dateRange}
-                  onValueChange={(v) => handleDialogChange("dateRange", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Time</SelectItem>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="week">This Week</SelectItem>
-                    <SelectItem value="month">This Month</SelectItem>
-                    <SelectItem value="quarter">Last 3 Months</SelectItem>
-                    <SelectItem value="year">This Year</SelectItem>
-                  </SelectContent>
-                </Select> */}
-
-                <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Globe className="h-4 w-4 text-primary" />
-                  Domain
-                </Label>
-                <Select
-                  value={advanceFilter.domain}
-                  onValueChange={(v) => handleDialogChange("domain", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Domains</SelectItem>
-                    {DOMAINS.map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2 min-w-0">
-                <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <Flag className="h-4 w-4 text-primary" />
-                  Priority
-                </Label>
-                <Select
-                  value={advanceFilter.priority}
-                  onValueChange={(v) => handleDialogChange("priority", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue placeholder="Select Priority" />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <div className="flex items-center gap-2">
-                        <ListFilter className="w-4 h-4 text-gray-500" />
-                        <span>All</span>
-                      </div>
-                    </SelectItem>
-
-                    <SelectItem value="low">
-                      <div className="flex items-center gap-2">
-                        <ArrowDown className="w-4 h-4 text-green-500" />
-                        <span>Low</span>
-                      </div>
-                    </SelectItem>
-
-                    <SelectItem value="medium">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                        <span>Medium</span>
-                      </div>
-                    </SelectItem>
-
-                    <SelectItem value="high">
-                      <div className="flex items-center gap-2">
-                        <ArrowUp className="w-4 h-4 text-red-500" />
-                        <span>High</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <Separator />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2 min-w-0">
-                <DateRangeFilter
-                  customName={"CreatedAt Date Range"}
-                  advanceFilter={advanceFilter}
-                  handleDialogChange={handleDialogChange}
-                />
-              </div>
-              <div className="space-y-2 min-w-0">
-                <DateRangeFilter
-                  customName={"ClosedAt Date Range"}
-                  advanceFilter={advanceFilter}
-                  handleDialogChange={handleDialogChange}
-                  type={"closedDateRange"}
-                />
-              </div>
-            </div>
-
-            <Separator />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2 min-w-0 ">
-                <Label className="relative flex items-center gap-2 text-sm font-semibold">
-                  <BadgeCheck className="h-4 w-4 text-primary" />
-                  Consecutive Approvals
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        <Info className="h-4 w-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-xs text-sm">
-                      <p>
-                        Filter questions based on the number of consecutive
-                        approvals received by their latest answer.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </Label>
-                <Select
-                  value={advanceFilter.consecutiveApprovals}
-                  onValueChange={(v) =>
-                    handleDialogChange("consecutiveApprovals", v)
-                  }
-                >
-                  <SelectTrigger className="bg-background w-full w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <div className="flex items-center gap-2">
-                        <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
-                        <span>All</span>
-                      </div>
-                    </SelectItem>
-
-                    <SelectItem value="1">
-                      <div className="flex items-center gap-2">
-                        <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
-                        <span>1</span>
-                      </div>
-                    </SelectItem>
-
-                    <SelectItem value="2">
-                      <div className="flex items-center gap-2">
-                        <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
-                        <span>2</span>
-                      </div>
-                    </SelectItem>
-
-                    <SelectItem value="3">
-                      <div className="flex items-center gap-2">
-                        <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
-                        <span>3</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 min-w-0 ">
-                <Label className="relative flex items-center gap-2 text-sm font-semibold">
-                  <Users className="h-4 w-4 text-primary" />
-                  Auto Allocate Experts
-                </Label>
-                <Select
-                  value={advanceFilter.autoAllocateFilter}
-                  onValueChange={(v) =>
-                    handleDialogChange("autoAllocateFilter", v)
-                  }
-                >
-                  <SelectTrigger className="bg-background w-full w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <div className="flex items-center gap-2">
-                        <Layers className="w-4 h-4 text-green-500 fill-green-500/20" />
-                        <span>All</span>
-                      </div>
-                    </SelectItem>
-
-                    <SelectItem value="on">
-                      <div className="flex items-center gap-2">
-                        <Bot className="w-4 h-4 text-green-500 fill-green-500/20" />
-                        <span>ON</span>
-                      </div>
-                    </SelectItem>
-
-                    <SelectItem value="off">
-                      <div className="flex items-center gap-2">
-                        <Hand className="w-4 h-4 text-red-500 fill-green-500/20" />
-                        <span>OFF</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Number of Answers Slider */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
@@ -1084,52 +651,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 Filter questions based on the number of answers received
               </p>
             </div>
-            {/* Hidden and Duplicate Questions */}
-            <div className="space-y-4">
-              <div className="text-sm font-semibold flex items-center gap-2">
-                <Eye className="h-4 w-4 text-primary" />
-                Question Visibility
-              </div>
 
-              <div className="space-y-3 rounded-lg border border-border bg-background p-4">
-                <label className="flex items-center gap-3">
-                  <Checkbox
-                    checked={advanceFilter.hiddenQuestions ?? false}
-                    onCheckedChange={(checked) =>
-                      handleDialogChange("hiddenQuestions", checked === true)
-                    }
-                    className="h-3.5 w-3.5 border-primary"
-                  />
-                  <span className="text-sm">Show passed questions</span>
-                </label>
-                {/* show holded questions */}
-                <label className="flex items-center gap-3">
-                  <Checkbox
-                    checked={advanceFilter.isOnHold ?? false}
-                    onCheckedChange={(checked) =>
-                      handleDialogChange("isOnHold", checked === true)
-                    }
-                    className="h-3.5 w-3.5 border-primary"
-                  />
-                  <span className="text-sm">Show questions on Hold</span>
-                </label>
-
-                {/* <label className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={advanceFilter.duplicateQuestions ?? false}
-                    onChange={(event) =>
-                      handleDialogChange(
-                        "duplicateQuestions",
-                        event.target.checked,
-                      )
-                    }
-                    className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
-                  />
-                  <span className="text-sm">Show duplicate questions</span>
-                </label> */}
-              </div>
-            </div>
 
             {/* Active Filters Badges */}
             {activeFiltersCount > 0 && (
@@ -1240,6 +762,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   closedAtEnd: undefined,
                   consecutiveApprovals: "all",
                   autoAllocateFilter: "all",
+                  hiddenQuestions: false,
+                  duplicateQuestions: false,
                 });
                 onReset();
               }}
