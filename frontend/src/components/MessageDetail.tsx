@@ -331,9 +331,14 @@ const parseChatbotText = (text: string): ParsedChatbotText => {
     let sourcesSection = '';
     const parts = workingText.split(/\n---\n/);
     if (parts.length > 1) {
-        answerBody = parts[0].trim();
-        sourcesSection = parts.slice(1).join('\n---\n').trim();
-    } else {
+        const lastPart = parts[parts.length - 1].trim();
+        const looksLikeSources = /\|\s*(?:Agri Specialist Name|Source\/PDF Link)/i.test(lastPart);
+        if (looksLikeSources) {
+            answerBody = parts[0].trim();
+            sourcesSection = parts.slice(1).join('\n---\n').trim();
+        }
+    }
+    if (!sourcesSection) {
         const sourceMarker = workingText.match(/\*?\*?The answer I provided[^*\n]*/i);
         if (sourceMarker && sourceMarker.index !== undefined) {
             answerBody = workingText.substring(0, sourceMarker.index).trim();
@@ -350,12 +355,17 @@ const parseChatbotText = (text: string): ParsedChatbotText => {
             if (cells.length >= 2) {
                 const name = cells[0].trim();
                 const raw = cells[1].trim();
-                const lm = raw.match(/\[([^\]]+)\]\(([^)]+)\)/);
-                agriSpecialists.push({
-                    name,
-                    sourceType: 'other',
-                    sourceLink: lm ? lm[2] : raw,
-                });
+                const links = [...raw.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)];
+                if (links.length > 0) {
+                    for (const link of links) {
+                        agriSpecialists.push({ name, sourceType: 'other', sourceLink: link[2] });
+                    }
+                } else {
+                    // plain URL(s), possibly semicolon-separated
+                    for (const url of raw.split(';').map(s => s.trim()).filter(Boolean)) {
+                        agriSpecialists.push({ name, sourceType: 'other', sourceLink: url });
+                    }
+                }
             }
         }
     }
@@ -367,9 +377,43 @@ const parseChatbotText = (text: string): ParsedChatbotText => {
             const cells = row.split('|').filter((c: string) => c.trim() !== '');
             if (cells.length >= 2) {
                 const lm = cells[0].trim().match(/\[([^\]]+)\]\(([^)]+)\)/);
-                pdfSources.push({ name: lm ? lm[1] : cells[0].trim(), link: lm ? lm[2] : '', pages: cells[1].trim(), sourceType: 'other' });
+                if (lm) {
+                    pdfSources.push({ name: lm[1], link: lm[2], pages: cells[1].trim(), sourceType: 'other' });
+                } else {
+                    const raw = cells[0].trim();
+                    const isUrl = /^https?:\/\//.test(raw);
+                    pdfSources.push({
+                        name: isUrl ? cells[1].trim() : raw,
+                        link: isUrl ? raw : '',
+                        pages: isUrl ? '' : cells[1].trim(),
+                        sourceType: 'other',
+                    });
+                }
             }
         }
+    }
+
+    for (const line of sourcesSection.split('\n')) {
+        if (!line.includes('📺')) continue;
+        const lm = line.match(/\[([^\]]+)\]\(([^)]+)\)/);
+        if (lm) pdfSources.push({ name: lm[1], link: lm[2], pages: '', sourceType: 'other' });
+    }
+
+    // Extract from tables where cells[1] is entirely a markdown link (e.g. Video Resources table)
+    for (const line of workingText.split('\n')) {
+        if (!line.startsWith('|')) continue;
+        const cells = line.split('|').filter(c => c.trim() !== '');
+        if (cells.length < 2) continue;
+        const lm = cells[1].trim().match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+        if (!lm) continue;
+        const url = lm[2];
+        if (pdfSources.some(s => s.link === url) || agriSpecialists.some(s => s.sourceLink === url)) continue;
+        pdfSources.push({
+            name: cells[0].trim(),
+            link: url,
+            pages: cells.length > 2 ? cells[2].trim() : '',
+            sourceType: 'other',
+        });
     }
 
     return { answerBody, agriSpecialists, pdfSources };
@@ -391,7 +435,8 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editModalKey, setEditModalKey] = useState(0);
     const [translatedText, setTranslatedText] = useState<string>("");
-    const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; type: "pass" | "approve" | "save" | "cancel" }>({ open: false, type: "pass" });
+    const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; type: "pass" | "approve" | "save" | "cancel"; remark?: string }>({ open: false, type: "pass" });
+    const [ passRemarkError, setPassRemarkError] = useState("");
 
     const { mutateAsync: updateAnswer, isPending: isUpdating } = useUpdateAnswer();
     const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
@@ -440,14 +485,25 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const handleEdit = () => { setEditModalKey(k => k + 1); setIsEditModalOpen(true); };
     const handleCancelEdit = () => { const p = parseChatbotText(text); setEditedAnswerBody(p.answerBody); setEditedSpecialists(p.agriSpecialists); setEditedPdfSources(p.pdfSources); setIsEditModalOpen(false); };
     const handleSaveEdit = () => { toast.success("Changes saved"); setIsEditModalOpen(false); };
-    const handleSkip = () => { setConfirmDialog({ open: true, type: "pass" }); };
+    const handleSkip = () => { setPassRemarkError(""); setConfirmDialog({ open: true, type: "pass", remark: "" }); };
 
-    const doSkip = async () => { await updateQuestion({ isHidden: true, _id: question._id! }); toast.success("Question has been hidden"); navigateToQuestionPage(); };
+    const doSkip = async (remark?: string) => {
+        await updateQuestion({ isHidden: true, _id: question._id!, ...(remark ? { passingRemark: remark } : {}) } as any);
+        toast.success("Question has been hidden");
+        navigateToQuestionPage();
+    };
 
     const handleConfirm = () => {
         const type = confirmDialog.type;
-        setConfirmDialog({ open: false, type: "pass" });
-        if (type === "pass") { doSkip(); }
+        const remark = confirmDialog.remark?.trim() || "";
+        if (type === "pass" && !remark) {
+            setPassRemarkError("Remark is required to pass this question.");
+            return;
+        }
+
+        setPassRemarkError("");
+        setConfirmDialog({ open: false, type: "pass", remark: "" });
+        if (type === "pass") { doSkip(remark); }
         else if (type === "approve") { doApprove(); }
     };
 
@@ -513,8 +569,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     </div>
                 )}
             </div>
-
-            {approved === null && question && question.isAutoAllocate === false && question.source == "AJRASAKHA" && question.status !== "closed" && !isQuestionAllocatedToExpert && (
+            {approved === null && question && question.isAutoAllocate === false && question.source == "AJRASAKHA" && question.status !== "closed" && !isQuestionAllocatedToExpert  && (
                 <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                     <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">On approval, this answer will be finalized, the question will be marked as closed, and the result will be pushed to the Golden dataset. Please review carefully before approving.</p>
                     <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
@@ -545,7 +600,10 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
             onCancel={handleCancelEdit}
         />
 
-        <AlertDialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}>
+        <AlertDialog open={confirmDialog.open} onOpenChange={(open) => {
+                if (!open) setPassRemarkError("");
+                setConfirmDialog((prev) => open ? { ...prev, open } : { open: false, type: "pass", remark: "" });
+            }}>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>
@@ -559,12 +617,37 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         {confirmDialog.type === "approve" && "Are you sure you want to approve this answer? The question will  allocate to task_force team."}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
+                {confirmDialog.type === "pass" && (
+                    <div className="px-6 pb-4">
+                            <label htmlFor="pass-remark" className="block text-xs font-semibold text-muted-foreground tracking-wider mb-2">
+                                Remark<span className="text-red-500 ml-0 mb-4">*</span>
+                            </label>
+                        <textarea
+                            id="pass-remark"
+                            value={confirmDialog.remark ?? ""}
+                            onChange={(event) => {
+                                setConfirmDialog((prev) => ({ ...prev, remark: event.target.value }));
+                                if (passRemarkError) setPassRemarkError("");
+                            }}
+                            className={`w-full min-h-[100px] rounded-xl border ${passRemarkError ? "border-destructive" : "border-border"} bg-background px-3 py-3 text-sm text-foreground outline-none resize-none focus:ring-2 focus:ring-primary/30`}
+                            placeholder="Enter remark explaining why this question is being passed..."
+                        />
+                        {passRemarkError && (
+                            <p className="mt-2 text-xs text-destructive">{passRemarkError}</p>
+                        )}
+                    </div>
+                )}
                 <AlertDialogFooter>
                     <AlertDialogCancel>Go back</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleConfirm}>
-                        {confirmDialog.type === "pass" && "Yes, pass"}
-                        {confirmDialog.type === "approve" && "Yes, approve"}
-                    </AlertDialogAction>
+                    {confirmDialog.type === "pass" ? (
+                        <Button type="button" size="sm" onClick={handleConfirm} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
+                            <CheckCircle className="h-4 w-4" /> Yes, pass
+                        </Button>
+                    ) : (
+                        <AlertDialogAction onClick={handleConfirm}>
+                            Yes, approve
+                        </AlertDialogAction>
+                    )}
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

@@ -73,7 +73,7 @@ export const QuestionDetails = ({
 
   return (
     <main className="mx-auto p-6 pt-0 grid gap-6">
-      <QuestionHeader question={question} goBack={goBack} />
+      <QuestionHeader question={question} goBack={goBack} currentUser={currentUser} isQuestionAllocatedToExpert={submissionExists}/>
 
       <QuestionDetailsCard question={question} currentUser={currentUser} />
       

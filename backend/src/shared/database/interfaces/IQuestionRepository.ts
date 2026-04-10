@@ -10,7 +10,7 @@ import {
   ModeratorApprovalRate,
   QuestionStatusOverview,
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
-import { GetDetailedQuestionsQuery, QuestionResponse } from '#root/modules/question/classes/validators/QuestionVaidators.js';
+import { AllocatedQuestionsBodyDto, DetailedQuestionsBodyDto, GetDetailedQuestionsQuery, QuestionResponse } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 import {
   IQuestion,
   IUser,
@@ -121,8 +121,8 @@ export interface IQuestionRepository {
   getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
-    // userPreference: IUser['preference'] | null,
     session?: ClientSession,
+    body?: AllocatedQuestionsBodyDto,
   ): Promise<QuestionResponse[]>;
   /**
    * @param query - Advance query filters.
@@ -130,6 +130,7 @@ export interface IQuestionRepository {
    */
   findDetailedQuestions(
     query: GetDetailedQuestionsQuery & {searchEmbedding: number[] | null},
+    body?: DetailedQuestionsBodyDto,
   ): Promise<{questions: IQuestion[]; totalPages: number; totalCount: number}>;
 
   /**
@@ -354,6 +355,7 @@ export interface IQuestionRepository {
   getQuestionsByFilters(
     filters: any,
     session?: ClientSession,
+    useDuplicateCollection?: boolean,
   ): Promise<IQuestion[]>;
 
   getAllQuestionEmbeddings(

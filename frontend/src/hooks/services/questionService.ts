@@ -33,6 +33,8 @@ export class QuestionService {
   ): Promise<IDetailedQuestionResponse | null> {
     const params = new URLSearchParams();
 
+    // console.log("Use get all detaied Questions")
+
     if (search) params.append("search", search);
     if (sort) params.append("sort", sort);
     params.append("page", pageParam.toString());
@@ -40,9 +42,7 @@ export class QuestionService {
 
     if (filter.status) params.append("status", filter.status);
     if (filter.source) params.append("source", filter.source);
-    if (filter.state) params.append("state", filter.state);
     if (filter.crop) params.append("crop", filter.crop);
-    if (filter.normalised_crop) params.append("normalised_crop", filter.normalised_crop);
     if (filter.priority) params.append("priority", filter.priority);
     if (filter.domain) params.append("domain", filter.domain);
     if (filter.user) params.append("user", filter.user);
@@ -74,8 +74,23 @@ export class QuestionService {
     if (filter.dateRange && filter.dateRange !== "all")
       params.append("dateRange", filter.dateRange);
 
+    params.append("hiddenQuestions", String(filter.hiddenQuestions));
+    params.append("duplicateQuestions", String(filter.duplicateQuestions));
+
+    params.append("isOnHold", String(filter.isOnHold));
+
+    // states and normalisedCrops sent as JSON arrays in request body
+    const requestBody: { states?: string[]; normalisedCrops?: string[] } = {};
+    if (filter.states && filter.states.length > 0) {
+      requestBody.states = filter.states;
+    }
+    if (filter.normalisedCrops && filter.normalisedCrops.length > 0) {
+      requestBody.normalisedCrops = filter.normalisedCrops;
+    }
+
     return apiFetch<IDetailedQuestionResponse | null>(
-      `${this._baseUrl}/detailed?${params.toString()}`
+      `${this._baseUrl}/detailed?${params.toString()}`,
+      { method: "POST", body: JSON.stringify(requestBody) }
     );
   }
 
@@ -98,10 +113,6 @@ export class QuestionService {
       params.append("status", preferences.status);
     if (preferences.source && preferences.source !== "all")
       params.append("source", preferences.source);
-    if (preferences.state && preferences.state !== "all")
-      params.append("state", preferences.state);
-    if (preferences.crop && preferences.crop !== "all")
-      params.append("crop", preferences.crop);
     if (preferences.priority && preferences.priority !== "all")
       params.append("priority", preferences.priority);
     if (preferences.domain && preferences.domain !== "all")
@@ -116,23 +127,31 @@ export class QuestionService {
     }
     if (autoSelectQuestionId) {
       params.append("autoSelectQuestionId", autoSelectQuestionId);
-
     }
     if (reviewLevel) {
       params.append("review_level", reviewLevel);
-
     }
-
     if (preferences.dateRange && preferences.dateRange !== "all")
       params.append("dateRange", preferences.dateRange);
+
+    // states and crops sent as JSON arrays in request body
+    const requestBody: { states?: string[]; crops?: string[] } = {};
+    if (preferences.states && preferences.states.length > 0) {
+      requestBody.states = preferences.states;
+    }
+    if (preferences.crops && preferences.crops.length > 0) {
+      requestBody.crops = preferences.crops;
+    }
+
     if (actionType == "allocated") {
       return apiFetch<IQuestion[] | null>(
-        `${this._baseUrl}/allocated?${params.toString()}`
+        `${this._baseUrl}/allocated?${params.toString()}`,
+        { method: "POST", body: JSON.stringify(requestBody) }
       );
-    }
-    else {
+    } else {
       return apiFetch<ReroutedQuestionItem[] | null>(
-        `${this._reRouteUrl}/allocated?${params.toString()}`
+        `${this._reRouteUrl}/allocated?${params.toString()}`,
+        { method: "POST", body: JSON.stringify(requestBody) }
       );
     }
 
@@ -318,8 +337,17 @@ export class QuestionService {
 
     if (filter.status) params.append("status", filter.status);
     if (filter.source) params.append("source", filter.source);
-    if (filter.state) params.append("state", filter.state);
+    if (filter.states && filter.states.length > 0) {
+      filter.states.forEach((s) => params.append("state", s));
+    } else if (filter.state && filter.state !== "all") {
+      params.append("state", filter.state);
+    }
     if (filter.crop) params.append("crop", filter.crop);
+    if (filter.normalisedCrops && filter.normalisedCrops.length > 0) {
+      filter.normalisedCrops.forEach((c) => params.append("normalised_crop", c));
+    } else if (filter.normalised_crop && filter.normalised_crop !== "all") {
+      params.append("normalised_crop", filter.normalised_crop);
+    }
     if (filter.priority) params.append("priority", filter.priority);
     if (filter.domain) params.append("domain", filter.domain);
     if (filter.user) params.append("user", filter.user);
@@ -520,6 +548,8 @@ export class QuestionService {
     season?: string;
     domain?: string;
     status?: string;
+    hiddenQuestions?: boolean;
+    duplicateQuestions?: boolean;
   }): Promise<Blob> {
     const params = new URLSearchParams();
     if (filters.state && filters.state !== 'all') {
@@ -539,6 +569,12 @@ export class QuestionService {
     }
     if (filters.status && filters.status !== 'all') {
       params.append("status", filters.status);
+    }
+    if (filters.hiddenQuestions) {
+      params.append("hiddenQuestions", String(filters.hiddenQuestions));
+    }
+    if (filters.duplicateQuestions) {
+      params.append("duplicateQuestions", String(filters.duplicateQuestions));
     }
 
     // Get the current Firebase user and token
@@ -574,5 +610,18 @@ export class QuestionService {
 
     return await response.blob();
   }
+
+ async holdQuestion(
+  questionId: string,
+  action: "hold" | "unhold"
+): Promise<{ id: string } | null> {
+  return apiFetch<{ id: string }>(
+    `${this._baseUrl}/${questionId}/hold`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ action }),
+    }
+  );
+}
 
 }
