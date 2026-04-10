@@ -25,7 +25,11 @@ export function useUserDetails(
   search = '',
 ) {
   const startISO = startDate?.toISOString();
-  const endISO = endDate?.toISOString();
+  // Extend endDate to end of day (23:59:59.999) so the selected day is fully included.
+  // react-day-picker sets the date to midnight, which would exclude the entire selected day.
+  const endISO = endDate
+    ? new Date(endDate.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString()
+    : undefined;
 
   const { data, isLoading, error } = useQuery<PaginatedUserDetailsResponse, Error>({
     queryKey: ['user-details', startISO, endISO, page, limit, search],
