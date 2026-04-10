@@ -1107,6 +1107,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         // }
 
 
+        // if(source === "WHATSAPP"){
+          // Some Question or Context processing required Needs attention
+        // }
 
         // =====================================================
         // 🔥 IF NOT SIMILAR → NORMAL FLOW
@@ -1132,7 +1135,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         let queue: ObjectId[] = [];
         let initialUsersToAllocate: typeof users = [];
 
-        if (source === "AGRI_EXPERT") {
+        if (source === 'AGRI_EXPERT') {
           initialUsersToAllocate = users.slice(0, 3);
 
           queue = initialUsersToAllocate.map(
@@ -1174,16 +1177,16 @@ export class QuestionService extends BaseService implements IQuestionService {
           const sourceLabel =
             source === "AJRASAKHA" ? "Ajrasakha" : "WhatsApp";
 
-          const message = `A new question has been received from ${sourceLabel} and needs moderation.`;
+          const message = `A new question has been received from ${sourceLabel} and needs your attention.`;
 
           await Promise.all(
             allModerators.map((moderator: any) =>
               this.notificationService.saveTheNotifications(
                 message,
-                "New Question Assigned",
+                "New Question Received",
                 savedQuestion._id.toString(),
                 moderator._id.toString(),
-                source==="AJRASAKHA"?"question_from_whatsapp":"question_from_ajrasakha"
+                source === "AJRASAKHA" ? "question_from_ajrasakha" : "question_from_whatsapp"
               )
             )
           );
