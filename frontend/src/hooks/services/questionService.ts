@@ -75,6 +75,8 @@ export class QuestionService {
     params.append("hiddenQuestions", String(filter.hiddenQuestions));
     params.append("duplicateQuestions", String(filter.duplicateQuestions));
 
+    params.append("isOnHold", String(filter.isOnHold));
+
     // states and normalisedCrops sent as JSON arrays in request body
     const requestBody: { states?: string[]; normalisedCrops?: string[] } = {};
     if (filter.states && filter.states.length > 0) {
