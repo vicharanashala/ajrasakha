@@ -52,6 +52,7 @@ export class QuestionService {
         }),
         hiddenQuestions: String(filter.hiddenQuestions),
         duplicateQuestions: String(filter.duplicateQuestions),
+        isOnHold: String(filter.isOnHold),
         ...(filter.states && filter.states.length > 0 && { states: filter.states }),
         ...(filter.normalisedCrops && filter.normalisedCrops.length > 0 && { normalisedCrops: filter.normalisedCrops }),
         ...(filter.dateRange && filter.dateRange !== "all" && { dateRange: filter.dateRange }),
@@ -563,6 +564,19 @@ export class QuestionService {
     }
 
     return await response.blob();
+  }
+
+  async holdQuestion(
+    questionId: string,
+    action: "hold" | "unhold"
+  ): Promise<{ id: string } | null> {
+    return apiFetch<{ id: string }>(
+      `${this._baseUrl}/${questionId}/hold`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ action }),
+      }
+    );
   }
 
 }

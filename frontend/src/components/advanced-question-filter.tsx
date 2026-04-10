@@ -123,6 +123,7 @@ export type AdvanceFilterValues = {
   autoAllocateFilter?: string;
   hiddenQuestions?: boolean;
   duplicateQuestions?: boolean;
+  isOnHold?: boolean;
 };
 
 // Define the props for your new component
