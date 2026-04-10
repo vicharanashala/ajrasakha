@@ -1167,7 +1167,11 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
         }
         } else {
-          const allModerators = await this.userRepo.findModerators();
+          const [allModerators, taskForceExperts] = await Promise.all([
+            this.userRepo.findModerators(),
+            this.userRepo.getSpecialTaskForceExperts()
+          ]);
+          const allUsers = [...allModerators,...taskForceExperts]
 
           const sourceLabel =
             source === "AJRASAKHA" ? "Ajrasakha" : "WhatsApp";
@@ -1175,7 +1179,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           const message = `A new question has been received from ${sourceLabel} and needs your attention.`;
 
           await Promise.all(
-            allModerators.map((moderator: any) =>
+            allUsers.map((moderator: any) =>
               this.notificationService.saveTheNotifications(
                 message,
                 "New Question Received",
