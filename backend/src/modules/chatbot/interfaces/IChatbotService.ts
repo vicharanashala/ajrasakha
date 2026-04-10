@@ -25,18 +25,18 @@ export interface DashboardResponse {
 }
 
 export interface IChatbotService {
-  getDashboard(days: number): Promise<DashboardResponse>;
-  getKpiSummary(): Promise<KpiSummary>;
-  getDailyActiveUsers(days: number): Promise<DailyActiveUsersEntry[]>;
-  getChannelSplit(): Promise<ChannelSplitEntry[]>;
-  getVoiceAccuracyByLanguage(): Promise<VoiceAccuracyEntry[]>;
-  getGeoDistribution(): Promise<GeoStateEntry[]>;
-  getQueryCategories(): Promise<QueryCategoryEntry[]>;
-  getWeeklyAvgSessionDuration(weeks?: number): Promise<WeeklySessionDurationEntry[]>;
-  getDailyQueryCounts(days?: number): Promise<DailyQueryCountEntry[]>;
-  getTodayQueryCount(): Promise<number>;
-  getWeeklyQueryCounts(): Promise<WeeklyQueryCountEntry[]>;
-  getDailyUserTrend(days?: number): Promise<DailyActiveUsersEntry[]>;
-  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string): Promise<PaginatedUserDetails>;
+  getDashboard(days: number, source?: string): Promise<DashboardResponse>;
+  getKpiSummary(source?: string): Promise<KpiSummary>;
+  getDailyActiveUsers(days: number, source?: string): Promise<DailyActiveUsersEntry[]>;
+  getChannelSplit(source?: string): Promise<ChannelSplitEntry[]>;
+  getVoiceAccuracyByLanguage(source?: string): Promise<VoiceAccuracyEntry[]>;
+  getGeoDistribution(source?: string): Promise<GeoStateEntry[]>;
+  getQueryCategories(source?: string): Promise<QueryCategoryEntry[]>;
+  getWeeklyAvgSessionDuration(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
+  getDailyQueryCounts(days?: number, source?: string): Promise<DailyQueryCountEntry[]>;
+  getTodayQueryCount(source?: string): Promise<number>;
+  getWeeklyQueryCounts(source?: string): Promise<WeeklyQueryCountEntry[]>;
+  getDailyUserTrend(days?: number, source?: string): Promise<DailyActiveUsersEntry[]>;
+  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string): Promise<PaginatedUserDetails>;
 }
 

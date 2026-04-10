@@ -27,64 +27,73 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   @OpenAPI({ summary: 'Get full chatbot analytics dashboard data' })
-  async getDashboard(@QueryParam('days') days = 30) {
-    return this.chatbotService.getDashboard(days);
+  async getDashboard(
+    @QueryParam('days') days = 30,
+    @QueryParam('source') source: string = 'vicharanashala',
+  ) {
+    return this.chatbotService.getDashboard(days, source);
   }
 
   @Get('/kpi')
   @HttpCode(200)
   @Authorized()
   @OpenAPI({ summary: 'Get KPI summary for today' })
-  async getKpiSummary() {
-    return this.chatbotService.getKpiSummary();
+  async getKpiSummary(@QueryParam('source') source: string = 'vicharanashala') {
+    return this.chatbotService.getKpiSummary(source);
   }
 
   @Get('/dau')
   @HttpCode(200)
   @Authorized()
   @OpenAPI({ summary: 'Get daily active users trend' })
-  async getDailyActiveUsers(@QueryParam('days') days = 30) {
-    return this.chatbotService.getDailyActiveUsers(days);
+  async getDailyActiveUsers(
+    @QueryParam('days') days = 30,
+    @QueryParam('source') source: string = 'vicharanashala',
+  ) {
+    return this.chatbotService.getDailyActiveUsers(days, source);
   }
 
   @Get('/channel-split')
   @HttpCode(200)
   @Authorized()
   @OpenAPI({ summary: 'Get channel split percentages' })
-  async getChannelSplit() {
-    return this.chatbotService.getChannelSplit();
+  async getChannelSplit(@QueryParam('source') source: string = 'vicharanashala') {
+    return this.chatbotService.getChannelSplit(source);
   }
 
   @Get('/voice-accuracy')
   @HttpCode(200)
   @Authorized()
   @OpenAPI({ summary: 'Get voice accuracy by language' })
-  async getVoiceAccuracy() {
-    return this.chatbotService.getVoiceAccuracyByLanguage();
+  async getVoiceAccuracy(@QueryParam('source') source: string = 'vicharanashala') {
+    return this.chatbotService.getVoiceAccuracyByLanguage(source);
   }
 
   @Get('/geo')
   @HttpCode(200)
   @Authorized()
   @OpenAPI({ summary: 'Get geographic distribution of sessions' })
-  async getGeoDistribution() {
-    return this.chatbotService.getGeoDistribution();
+  async getGeoDistribution(@QueryParam('source') source: string = 'vicharanashala') {
+    return this.chatbotService.getGeoDistribution(source);
   }
 
   @Get('/query-categories')
   @HttpCode(200)
   @Authorized()
   @OpenAPI({ summary: 'Get query category breakdown' })
-  async getQueryCategories() {
-    return this.chatbotService.getQueryCategories();
+  async getQueryCategories(@QueryParam('source') source: string = 'vicharanashala') {
+    return this.chatbotService.getQueryCategories(source);
   }
 
   @Get('/user-trend')
   @HttpCode(200)
   @Authorized()
   @OpenAPI({ summary: 'Get daily user activity trend for bar graph (last N days, daily granularity)' })
-  async getDailyUserTrend(@QueryParam('days') days = 30) {
-    return this.chatbotService.getDailyUserTrend(days);
+  async getDailyUserTrend(
+    @QueryParam('days') days = 30,
+    @QueryParam('source') source: string = 'vicharanashala',
+  ) {
+    return this.chatbotService.getDailyUserTrend(days, source);
   }
 
   @Get('/user-details')
@@ -97,7 +106,8 @@ export class ChatbotController {
     @QueryParam('page') page = 1,
     @QueryParam('limit') limit = 10,
     @QueryParam('search') search: string = '',
+    @QueryParam('source') source: string = 'vicharanashala',
   ) {
-    return this.chatbotService.getUserDetails(startDate, endDate, Number(page), Number(limit), search);
+    return this.chatbotService.getUserDetails(startDate, endDate, Number(page), Number(limit), search, source);
   }
 }

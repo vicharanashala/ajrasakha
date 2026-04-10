@@ -45,10 +45,10 @@ export class ChatbotRepository implements IChatbotRepository {
   private messagesCollection!: Collection<any>;
 
   constructor(
-    @inject(GLOBAL_TYPES.analyticsDatabase)
+    @inject(GLOBAL_TYPES.analyticsDatabase) //vicharansahsa
     private analyticsDb: AnalyticsMongoDatabase,
 
-    @inject(GLOBAL_TYPES.annamanalyticsDatabase)
+    @inject(GLOBAL_TYPES.annamanalyticsDatabase) //annamalytics
     private annamDb: AnnamDatabase,
   ) {}
 
@@ -57,10 +57,11 @@ export class ChatbotRepository implements IChatbotRepository {
     private analyticsDb: AnnamDatabase,
   ) {}*/
 
-  private async init() {
-    this.users = await this.analyticsDb.getCollection<IUser>('users');
-    this.conversations = await this.analyticsDb.getCollection<IConversation>('conversations');
-    this.messagesCollection = await this.analyticsDb.getCollection<any>('messages');
+  private async init(source = 'vicharanashala') {
+    const db = source === 'annam' ? this.annamDb : this.analyticsDb;
+    this.users = await db.getCollection<IUser>('users');
+    this.conversations = await db.getCollection<IConversation>('conversations');
+    this.messagesCollection = await db.getCollection<any>('messages');
   }
   private annamMessagesCollection!: Collection<any>;
 
@@ -68,9 +69,9 @@ private async initSecondDb() {
   this.annamMessagesCollection = await this.annamDb.getCollection<any>('messages');
 }
 
-  async getKpiSummary(session?: ClientSession): Promise<KpiSummary> {
+  async getKpiSummary(source = 'vicharanashala', session?: ClientSession): Promise<KpiSummary> {
     try {
-      await this.init();
+      await this.init(source);
 
       // Use MongoDB $dateToString with IST timezone (+05:30) to correctly bucket months
       const now = new Date();
@@ -100,7 +101,7 @@ private async initSecondDb() {
           .toArray(),
 
         // Today's query count from messages
-        this.getTodayQueryCount(session),
+        this.getTodayQueryCount(source, session),
       ]);
 
       const monthMap = Object.fromEntries((monthlyActivity as any[]).map(m => [m._id, m.count]));
@@ -127,9 +128,9 @@ private async initSecondDb() {
     }
   }
 
-  async getDailyActiveUsers(days = 13, session?: ClientSession): Promise<DailyActiveUsersEntry[]> {
+  async getDailyActiveUsers(days = 13, source = 'vicharanashala', session?: ClientSession): Promise<DailyActiveUsersEntry[]> {
     try {
-      await this.init();
+      await this.init(source);
 
       // Count distinct users who sent messages per month (true monthly active users)
       const since = new Date();
@@ -167,25 +168,25 @@ private async initSecondDb() {
     }
   }
 
-  async getChannelSplit(_session?: ClientSession): Promise<ChannelSplitEntry[]> {
+  async getChannelSplit(_source = 'vicharanashala', _session?: ClientSession): Promise<ChannelSplitEntry[]> {
     return [];
   }
 
-  async getVoiceAccuracyByLanguage(_session?: ClientSession): Promise<VoiceAccuracyEntry[]> {
+  async getVoiceAccuracyByLanguage(_source = 'vicharanashala', _session?: ClientSession): Promise<VoiceAccuracyEntry[]> {
     return [];
   }
 
-  async getGeoDistribution(_session?: ClientSession): Promise<GeoStateEntry[]> {
+  async getGeoDistribution(_source = 'vicharanashala', _session?: ClientSession): Promise<GeoStateEntry[]> {
     return [];
   }
 
-  async getQueryCategories(_session?: ClientSession): Promise<QueryCategoryEntry[]> {
+  async getQueryCategories(_source = 'vicharanashala', _session?: ClientSession): Promise<QueryCategoryEntry[]> {
     return [];
   }
 
-  async getWeeklyAvgSessionDuration(weeks = 52, session?: ClientSession): Promise<WeeklySessionDurationEntry[]> {
+  async getWeeklyAvgSessionDuration(weeks = 52, source = 'vicharanashala', session?: ClientSession): Promise<WeeklySessionDurationEntry[]> {
     try {
-      await this.init();
+      await this.init(source);
 
       const since = new Date();
       since.setDate(since.getDate() - weeks * 7);
@@ -217,9 +218,9 @@ private async initSecondDb() {
     }
   }
 
-  async getDailyQueryCounts(days = 30, session?: ClientSession): Promise<DailyQueryCountEntry[]> {
+  async getDailyQueryCounts(days = 30, source = 'vicharanashala', session?: ClientSession): Promise<DailyQueryCountEntry[]> {
     try {
-      await this.init();
+      await this.init(source);
 
       const since = new Date();
       since.setDate(since.getDate() - days);
@@ -244,9 +245,9 @@ private async initSecondDb() {
     }
   }
 
-  async getDailyUserTrend(days = 30, session?: ClientSession): Promise<DailyActiveUsersEntry[]> {
+  async getDailyUserTrend(days = 30, source = 'vicharanashala', session?: ClientSession): Promise<DailyActiveUsersEntry[]> {
     try {
-      await this.init();
+      await this.init(source);
 
       const since = new Date();
       since.setDate(since.getDate() - days);
@@ -283,9 +284,9 @@ private async initSecondDb() {
     }
   }
 
-  async getWeeklyQueryCounts(session?: ClientSession): Promise<WeeklyQueryCountEntry[]> {
+  async getWeeklyQueryCounts(source = 'vicharanashala', session?: ClientSession): Promise<WeeklyQueryCountEntry[]> {
     try {
-      await this.init();
+      await this.init(source);
 
       const result = await this.messagesCollection
         .aggregate(
@@ -312,9 +313,9 @@ private async initSecondDb() {
     }
   }
 
-  async getTodayQueryCount(session?: ClientSession): Promise<number> {
+  async getTodayQueryCount(source = 'vicharanashala', session?: ClientSession): Promise<number> {
     try {
-      await this.init();
+      await this.init(source);
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -730,10 +731,11 @@ private async initSecondDb() {
     page = 1,
     limit = 10,
     search = '',
+    source = 'vicharanashala',
     session?: ClientSession,
   ): Promise<PaginatedUserDetails> {
     try {
-      await this.init();
+      await this.init(source);
 
       // Build date match for messages (optional)
       const dateMatch: Record<string, any> = { isCreatedByUser: true };

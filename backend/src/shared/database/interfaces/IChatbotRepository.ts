@@ -71,51 +71,57 @@ export interface PaginatedUserDetails {
 
 export interface IChatbotRepository {
   /** Aggregated KPI summary for the current day. */
-  getKpiSummary(session?: ClientSession): Promise<KpiSummary>;
+  getKpiSummary(source?: string, session?: ClientSession): Promise<KpiSummary>;
 
   /** Daily unique active users over the last `days` days. */
   getDailyActiveUsers(
     days: number,
+    source?: string,
     session?: ClientSession,
   ): Promise<DailyActiveUsersEntry[]>;
 
   /** Percentage breakdown of sessions by channel (voice / text / kcc_agent / ivrs). */
-  getChannelSplit(session?: ClientSession): Promise<ChannelSplitEntry[]>;
+  getChannelSplit(source?: string, session?: ClientSession): Promise<ChannelSplitEntry[]>;
 
   /** Average voice recognition accuracy grouped by language. */
   getVoiceAccuracyByLanguage(
+    source?: string,
     session?: ClientSession,
   ): Promise<VoiceAccuracyEntry[]>;
 
   /** Session counts grouped by state abbreviation, sorted descending. */
-  getGeoDistribution(session?: ClientSession): Promise<GeoStateEntry[]>;
+  getGeoDistribution(source?: string, session?: ClientSession): Promise<GeoStateEntry[]>;
 
   /** Percentage breakdown of sessions by query category, sorted descending. */
-  getQueryCategories(session?: ClientSession): Promise<QueryCategoryEntry[]>;
+  getQueryCategories(source?: string, session?: ClientSession): Promise<QueryCategoryEntry[]>;
 
   /** Weekly avg session duration (updatedAt - createdAt) over the last `weeks` ISO weeks, sorted ascending. */
   getWeeklyAvgSessionDuration(
     weeks?: number,
+    source?: string,
     session?: ClientSession,
   ): Promise<WeeklySessionDurationEntry[]>;
 
   /** Daily user-message counts from the messages collection over the last `days` days, sorted ascending. */
   getDailyQueryCounts(
     days?: number,
+    source?: string,
     session?: ClientSession,
   ): Promise<DailyQueryCountEntry[]>;
 
   /** Count of user messages created today from the messages collection. */
-  getTodayQueryCount(session?: ClientSession): Promise<number>;
+  getTodayQueryCount(source?: string, session?: ClientSession): Promise<number>;
 
   /** Weekly query totals (all-time) from the messages collection, sorted ascending by ISO week. */
   getWeeklyQueryCounts(
+    source?: string,
     session?: ClientSession,
   ): Promise<WeeklyQueryCountEntry[]>;
 
   /** Daily user activity trend (users active per day) over the last `days` days, sorted ascending. */
   getDailyUserTrend(
     days?: number,
+    source?: string,
     session?: ClientSession,
   ): Promise<DailyActiveUsersEntry[]>;
   findMatchingMessages(data: {question: string; details: any; createdAt: Date});
@@ -128,6 +134,7 @@ export interface IChatbotRepository {
     page?: number,
     limit?: number,
     search?: string,
+    source?: string,
     session?: ClientSession,
   ): Promise<PaginatedUserDetails>;
 }
