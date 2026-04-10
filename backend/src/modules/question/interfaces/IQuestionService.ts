@@ -153,6 +153,7 @@ export interface IQuestionService {
     status?: string;
     hiddenQuestions?: string;
     duplicateQuestions?: string;
+    isOnHold?: string;
   }): Promise<ArrayBuffer | null>;
   generateDuplicateQuestionReport(
     startDate?: Date,
@@ -162,5 +163,6 @@ export interface IQuestionService {
 
   checkStatus(questionIds)
 
+  holdQuestion(questionId:string,userId:string,action:"hold" | "unhold"):Promise<{id:string}>
   checkSubmissionExists(questionId: string): Promise<boolean>;
 }
