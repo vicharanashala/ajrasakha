@@ -31,13 +31,11 @@ import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {ReRouteService} from '../services/ReRouteService.js'
 import {ContextIdParam} from '../classes/validators/ContextValidators.js';
 import {
-  
   QuestionIdParam,
   AllocateReRouteExpertsRequest,
   QuestionResponse,
-  GetDetailedQuestionsQuery
-  
-  
+  GetDetailedQuestionsQuery,
+  AllocatedQuestionsBodyDto,
 } from '../classes/validators/QuestionValidators.js';
 import {UploadFileOptions} from '../classes/validators/fileUploadOptions.js';
 import * as XLSX from 'xlsx';
@@ -89,7 +87,7 @@ export class ReRouteController {
     await this.reRouteService.addrerouteAnswer(questionId,expertId,answerId,moderatorId,comment,status as RerouteStatus)
     return {message:"Re routed succesfully"}
   }
-  @Get('/allocated')
+  @Post('/allocated')
   @HttpCode(200)
   // @ResponseSchema(QuestionResponse, {isArray: true})
   @Authorized()
@@ -97,10 +95,11 @@ export class ReRouteController {
   async getAllocatedQuestions(
     @QueryParams()
     query: GetDetailedQuestionsQuery,
+    @Body() body: AllocatedQuestionsBodyDto,
     @CurrentUser() user: IUser,
   ): Promise<any[]> {
     const userId = user._id.toString();
-   return this.reRouteService.getAllocatedQuestions(userId,query);
+    return this.reRouteService.getAllocatedQuestions(userId, query, body);
   }
 
   @Get('/:questionId')

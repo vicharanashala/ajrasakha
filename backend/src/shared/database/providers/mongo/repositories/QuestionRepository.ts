@@ -46,6 +46,8 @@ import {
 } from '#root/modules/core/classes/transformers/QuestionLevel.js';
 import { buildQuestionFilter } from '#root/utils/buildQuestionFilter.js';
 import {
+  AllocatedQuestionsBodyDto,
+  DetailedQuestionsBodyDto,
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '#root/modules/question/classes/validators/QuestionVaidators.js';
@@ -291,6 +293,7 @@ export class QuestionRepository implements IQuestionRepository {
 
   async findDetailedQuestions(
     query: GetDetailedQuestionsQuery & { searchEmbedding: number[] | null },
+    body?: DetailedQuestionsBodyDto,
   ): Promise<{ questions: IQuestion[]; totalPages: number; totalCount: number }> {
     try {
       await this.init();
@@ -329,17 +332,22 @@ export class QuestionRepository implements IQuestionRepository {
         sort,
         hiddenQuestions,
         duplicateQuestions,
+        isOnHold,
       } = query;
 
     //  const filter: any = {};
     const filter: any = {
       isHidden: { $ne: true }, // default to exclude hidden questions
+      isOnHold: { $ne: true }, // default to exclude on hold questions
     };
 
     // --- Hidden question filter ---
     if(hiddenQuestions === 'true'){
         filter.isHidden = { $eq: true }; // filter by hidden questions
     }
+
+    // --- on Hold question filter ---
+    if(isOnHold === 'true')filter.isOnHold = { $eq: true }; // filter by on hold questions
 
     //for duplicate questions.
     // duplicateQuestions === 'true'
@@ -364,24 +372,37 @@ export class QuestionRepository implements IQuestionRepository {
       caseInsensitiveStringFilter('status', status);
       caseInsensitiveStringFilter('source', source);
       caseInsensitiveStringFilter('priority', priority);
-      caseInsensitiveStringFilter('details.state', state);
-      caseInsensitiveStringFilter('details.crop', crop);
+      // --- State filter (from body array) ---
+      if (body?.states && body.states.length > 0) {
+        filter['details.state'] = { $in: body.states };
+      }
+      if (crop && crop.length > 0) {
+        const validCrops = crop.filter((c) => c && c !== 'all');
+        if (validCrops.length === 1) {
+          filter['details.crop'] = { $regex: `^${escapeRegex(validCrops[0])}$`, $options: 'i' };
+        } else if (validCrops.length > 1) {
+          filter['details.crop'] = { $in: validCrops.map((c) => new RegExp(`^${escapeRegex(c)}$`, 'i')) };
+        }
+      }
       caseInsensitiveStringFilter('details.domain', domain);
 
-      // --- Normalized Crop Filter ---
-      if (normalised_crop && normalised_crop !== 'all') {
-        if (normalised_crop === '__NOT_SET__') {
-          // Find questions where normalised_crop does not exist, is null, or is empty string
-          if (!filter.$and) filter.$and = [];
-          filter.$and.push({
-            $or: [
-              { 'details.normalised_crop': { $exists: false } },
-              { 'details.normalised_crop': null },
-              { 'details.normalised_crop': '' },
-            ],
-          });
+      // --- Normalized Crop Filter (from body array) ---
+      if (body?.normalisedCrops && body.normalisedCrops.length > 0) {
+        const hasNotSet = body.normalisedCrops.includes('__NOT_SET__');
+        const realCrops = body.normalisedCrops.filter((c) => c !== '__NOT_SET__');
+        if (!hasNotSet) {
+          filter['details.normalised_crop'] = { $in: realCrops };
         } else {
-          caseInsensitiveStringFilter('details.normalised_crop', normalised_crop);
+          const orConditions: any[] = [
+            { 'details.normalised_crop': { $exists: false } },
+            { 'details.normalised_crop': null },
+            { 'details.normalised_crop': '' },
+          ];
+          if (realCrops.length > 0) {
+            orConditions.push({ 'details.normalised_crop': { $in: realCrops } });
+          }
+          if (!filter.$and) filter.$and = [];
+          filter.$and.push({ $or: orConditions });
         }
       }
       const approvalCount =
@@ -896,8 +917,8 @@ export class QuestionRepository implements IQuestionRepository {
   async getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
-    // userPreference: IUser['preference'] | null,
     session?: ClientSession,
+    body?: AllocatedQuestionsBodyDto,
   ): Promise<QuestionResponse[]> {
     try {
       await this.init();
@@ -1053,11 +1074,11 @@ export class QuestionRepository implements IQuestionRepository {
       if (query.source && query.source !== 'all') {
         filter.source = {$regex: `^${escapeRegex(query.source)}$`, $options: 'i'};
       }
-      if (query.state && query.state !== 'all') {
-        filter['details.state'] = {$regex: `^${escapeRegex(query.state)}$`, $options: 'i'};
+      if (body?.states && body.states.length > 0) {
+        filter['details.state'] = {$in: body.states};
       }
-      if (query.crop && query.crop !== 'all') {
-        filter['details.crop'] = {$regex: `^${escapeRegex(query.crop)}$`, $options: 'i'};
+      if (body?.crops && body.crops.length > 0) {
+        filter['details.crop'] = {$in: body.crops};
       }
 
       const pipeline: any = [{$match: filter}];

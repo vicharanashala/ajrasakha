@@ -13,11 +13,12 @@ import {
   ValidateNested,
   ArrayNotEmpty,
   IsEmail,
+  IsIn,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 import {ObjectId} from 'mongodb';
-import {IQuestionPriority, ICropRef, QuestionStatus} from '#shared/interfaces/models.js';
-import {Type} from 'class-transformer';
+import {IQuestionPriority, ICropRef, QuestionStatus, QuestionSource} from '#shared/interfaces/models.js';
+import {Type, Transform} from 'class-transformer';
 
 class AddQuestionBody {
   @JSONSchema({
@@ -311,8 +312,8 @@ class QuestionResponse {
   @IsEnum(['open', 'answered', 'closed'])
   status?: QuestionStatus;
 
-  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT'])
-  source!: 'AJRASAKHA' | 'AGRI_EXPERT';
+  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', "WHATSAPP"])
+  source!: QuestionSource;
 
   @IsOptional()
   @IsArray()
@@ -351,8 +352,8 @@ class AddQuestionBodyDto {
   priority!: 'low' | 'medium' | 'high';
 
   @IsOptional()
-  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT'])
-  source!: 'AJRASAKHA' | 'AGRI_EXPERT';
+  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', 'WHATSAPP'])
+  source!: QuestionSource;
 
   @IsOptional()
   @ValidateNested()
@@ -468,17 +469,20 @@ class GetDetailedQuestionsQuery {
     type: 'string',
   })
   @IsOptional()
-  @IsString()
+  @IsIn(['all',"AGRI_EXPERT","AJRASAKHA","WHATSAPP"])
   source?: string;
 
   @JSONSchema({
-    description: 'State/region filter',
+    description: 'State/region filter (single or multiple)',
     example: 'Karnataka',
-    type: 'string',
+    oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
   })
   @IsOptional()
-  @IsString()
-  state?: string;
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    return Array.isArray(value) ? value : [value];
+  })
+  state?: string[];
 
   @JSONSchema({
     description: 'Priority filter',
@@ -489,15 +493,29 @@ class GetDetailedQuestionsQuery {
   @IsString()
   priority?: string;
 
-  @JSONSchema({description: 'Crop filter', example: 'Wheat', type: 'string'})
+  @JSONSchema({
+    description: 'Crop filter (single or multiple)',
+    example: 'Wheat',
+    oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
+  })
   @IsOptional()
-  @IsString()
-  crop?: string;
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    return Array.isArray(value) ? value : [value];
+  })
+  crop?: string[];
 
-  @JSONSchema({description: 'Normalized crop filter', example: 'wheat', type: 'string'})
+  @JSONSchema({
+    description: 'Normalized crop filter (single or multiple)',
+    example: 'wheat',
+    oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
+  })
   @IsOptional()
-  @IsString()
-  normalised_crop?: string;
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    return Array.isArray(value) ? value : [value];
+  })
+  normalised_crop?: string[];
 
   @JSONSchema({
     description: 'Domain filter',
@@ -651,6 +669,15 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   duplicateQuestions?: string;
+
+  @JSONSchema({
+    description: 'to filter on hold questions',
+    example: 'true',
+    type: 'string',
+  })
+
+  @IsOptional()
+  isOnHold?: string;
 }
 
 export interface IQuestionWithAnswerTexts {
@@ -674,6 +701,30 @@ class BulkDeleteQuestionDto {
   questionIds: string[];
 }
 
+export class AllocatedQuestionsBodyDto {
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  states?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  crops?: string[];
+}
+
+export class DetailedQuestionsBodyDto {
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  states?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  normalisedCrops?: string[];
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,
@@ -687,7 +738,9 @@ export const QUESTION_VALIDATORS = [
   UpdatedBy,
   HistoryItem,
   BulkDeleteQuestionDto,
-  DateRangeRequest
+  DateRangeRequest,
+  AllocatedQuestionsBodyDto,
+  DetailedQuestionsBodyDto,
 ];
 
 export {
@@ -704,5 +757,5 @@ export {
   UpdatedBy,
   HistoryItem,
   BulkDeleteQuestionDto,
-  DateRangeRequest
+  DateRangeRequest,
 };

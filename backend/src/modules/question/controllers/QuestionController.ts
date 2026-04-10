@@ -32,6 +32,8 @@ import {
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {
   AddQuestionBodyDto,
+  AllocatedQuestionsBodyDto,
+  DetailedQuestionsBodyDto,
   AllocateExpertsRequest,
   BulkDeleteQuestionDto,
   DateRangeRequest,
@@ -77,7 +79,7 @@ export class QuestionController {
     return this.questionService.getByContextId(contextId);
   }
 
-  @Get('/allocated')
+  @Post('/allocated')
   @HttpCode(200)
   @ResponseSchema(QuestionResponse, {isArray: true})
   @Authorized()
@@ -85,10 +87,11 @@ export class QuestionController {
   async getAllocatedQuestions(
     @QueryParams()
     query: GetDetailedQuestionsQuery,
+    @Body() body: AllocatedQuestionsBodyDto,
     @CurrentUser() user: IUser,
   ): Promise<QuestionResponse[]> {
     const userId = user._id.toString();
-    return this.questionService.getAllocatedQuestions(userId, query);
+    return this.questionService.getAllocatedQuestions(userId, query, body);
   }
 
   @Get('/allocated/page')
@@ -104,15 +107,16 @@ export class QuestionController {
     );
   }
 
-  @Get('/detailed')
+  @Post('/detailed')
   @HttpCode(200)
   @Authorized()
   @OpenAPI({summary: 'Get detailed questions with advanced filters'})
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async getDetailedQuestions(
     @QueryParams() query: GetDetailedQuestionsQuery,
+    @Body() body: DetailedQuestionsBodyDto,
   ): Promise<{questions: IQuestion[]; totalPages: number}> {
-    return this.questionService.getDetailedQuestions(query);
+    return this.questionService.getDetailedQuestions(query, body);
   }
 
   @Post('/generate')
@@ -191,6 +195,7 @@ export class QuestionController {
       }
     } else {
       console.log("the body coming=====",body)
+      
       const { isDuplicate, data } = await this.questionService.addQuestion(userId, body);
       console.log("the duplicate coming====",isDuplicate)
       console.log("the data coming=====",data)
@@ -570,7 +575,7 @@ async outreachQuestions(
     }
 
     return {success: true, data: {
-      messageId: data.messageId,
+        messageId: data.messageId,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
         user: data.user,
@@ -599,5 +604,16 @@ async outreachQuestions(
         data: results,
       };
     }
+
+  @Patch('/:questionId/hold')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'To hold the question for some time'})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async holdQuestion(@Params() params: QuestionIdParam,@CurrentUser() user: IUser, @Body() body: { action: "hold" | "unhold" }) {
+    const {questionId} = params;
+    const {action} = body
+    return await this.questionService.holdQuestion(questionId,user._id.toString(),action);
+  }
 
 }

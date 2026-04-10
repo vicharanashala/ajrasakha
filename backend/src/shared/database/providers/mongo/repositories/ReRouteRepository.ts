@@ -20,7 +20,7 @@ import {
   InternalServerError,
   NotFoundError,
 } from 'routing-controllers';
-import {GetDetailedQuestionsQuery} from '#root/modules/reroute/classes/validators/QuestionValidators.js'
+import {AllocatedQuestionsBodyDto, GetDetailedQuestionsQuery} from '#root/modules/reroute/classes/validators/QuestionValidators.js'
 
 export class ReRouteRepository implements IReRouteRepository {
   private ReRouteCollection: Collection<IReroute>;
@@ -93,6 +93,7 @@ export class ReRouteRepository implements IReRouteRepository {
     userId: string,
     query: GetDetailedQuestionsQuery,
     session?: ClientSession,
+    body?: AllocatedQuestionsBodyDto,
   ) {
     try {
       await this.init();
@@ -197,6 +198,14 @@ export class ReRouteRepository implements IReRouteRepository {
                 },
               },
               {$unwind: '$question'},
+
+              // Filter by states/crops if provided
+              ...(body?.states && body.states.length > 0
+                ? [{$match: {'question.details.state': {$in: body.states}}}]
+                : []),
+              ...(body?.crops && body.crops.length > 0
+                ? [{$match: {'question.details.crop': {$in: body.crops}}}]
+                : []),
 
               // Lookup answer
               {

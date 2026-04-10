@@ -14,8 +14,8 @@ import {
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 import {ObjectId} from 'mongodb';
-import {IQuestionPriority, QuestionStatus} from '#shared/interfaces/models.js';
-import {Type} from 'class-transformer';
+import {IQuestionPriority, QuestionSource, QuestionStatus} from '#shared/interfaces/models.js';
+import {Type, Transform} from 'class-transformer';
 
 class QuestionIdParam {
   @JSONSchema({
@@ -183,8 +183,8 @@ class QuestionResponse {
   @IsEnum(['open', 'answered', 'closed'])
   status?: QuestionStatus;
 
-  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT'])
-  source!: 'AJRASAKHA' | 'AGRI_EXPERT';
+  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', 'WHATSAPP'])
+  source!: QuestionSource;
 
   @IsOptional()
   @IsArray()
@@ -223,13 +223,16 @@ class GetDetailedQuestionsQuery {
   source?: string;
 
   @JSONSchema({
-    description: 'State/region filter',
+    description: 'State/region filter (single or multiple)',
     example: 'Karnataka',
-    type: 'string',
+    oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
   })
   @IsOptional()
-  @IsString()
-  state?: string;
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    return Array.isArray(value) ? value : [value];
+  })
+  state?: string[];
 
   @JSONSchema({
     description: 'Priority filter',
@@ -240,10 +243,17 @@ class GetDetailedQuestionsQuery {
   @IsString()
   priority?: string;
 
-  @JSONSchema({description: 'Crop filter', example: 'Wheat', type: 'string'})
+  @JSONSchema({
+    description: 'Crop filter (single or multiple)',
+    example: 'Wheat',
+    oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
+  })
   @IsOptional()
-  @IsString()
-  crop?: string;
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    return Array.isArray(value) ? value : [value];
+  })
+  crop?: string[];
 
   @JSONSchema({
     description: 'Domain filter',
@@ -353,12 +363,24 @@ class GetDetailedQuestionsQuery {
   @IsString()
   review_level?: string;
 }
+export class AllocatedQuestionsBodyDto {
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  states?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  crops?: string[];
+}
+
 export const QUESTION_VALIDATORS = [
- 
   QuestionIdParam,
   AllocateReRouteExpertsRequest,
   QuestionResponse,
-  GetDetailedQuestionsQuery
+  GetDetailedQuestionsQuery,
+  AllocatedQuestionsBodyDto,
 ];
 
-export{QuestionIdParam,AllocateReRouteExpertsRequest,QuestionResponse,GetDetailedQuestionsQuery}
+export {QuestionIdParam, AllocateReRouteExpertsRequest, QuestionResponse, GetDetailedQuestionsQuery}

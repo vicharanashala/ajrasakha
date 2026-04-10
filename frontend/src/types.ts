@@ -430,6 +430,7 @@ export interface IQuestionFullData {
   updatedAt: string;
   submission: ISubmission;
   isAlreadySubmitted: boolean;
+  isOnHold?: boolean;
 }
 
 export interface QuestionFullDataResponse {
