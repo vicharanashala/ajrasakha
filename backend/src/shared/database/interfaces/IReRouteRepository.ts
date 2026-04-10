@@ -6,7 +6,7 @@ import {
   ModeratorApprovalRate,
   QuestionStatusOverview,
 } from '#root/modules/core/classes/validators/DashboardValidators.js';
-import { GetDetailedQuestionsQuery } from '#root/modules/question/classes/validators/QuestionVaidators.js';
+import { AllocatedQuestionsBodyDto, GetDetailedQuestionsQuery } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 import {
   IQuestion,
   IReroute,
@@ -39,7 +39,7 @@ export interface IReRouteRepository {
     updatedAt: Date,
     session?: ClientSession,
   ): Promise<void>
-  getAllocatedQuestions(userId:string,query:GetDetailedQuestionsQuery,session?:ClientSession)
+  getAllocatedQuestions(userId: string, query: GetDetailedQuestionsQuery, session?: ClientSession, body?: AllocatedQuestionsBodyDto): Promise<any>
   rejectRerouteRequest(rerouteId:string,reason:string,role:string,session?:ClientSession):Promise<number>
   getRerouteHistory(answerId: string, session?: ClientSession)
   getAllocatedQuestionsByID(questionId?:string,userId?:string,session?:ClientSession)

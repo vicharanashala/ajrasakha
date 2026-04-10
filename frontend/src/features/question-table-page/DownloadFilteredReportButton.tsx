@@ -21,6 +21,7 @@ import {
 } from "@/components/atoms/select";
 import { Label } from "@/components/atoms/label";
 import { Separator } from "@/components/atoms/separator";
+import { Checkbox } from "@/components/atoms/checkbox";
 import { STATES, CROPS, SEASONS, DOMAINS, STATUS } from "@/components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import {
@@ -307,13 +308,12 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
                 <Label className="text-sm font-medium">Question Type</Label>
                 <div className="grid grid-cols-2 gap-3 rounded-md border p-3">
                   <label className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={filters.hiddenQuestions}
-                      onChange={(event) =>
-                        handleCheckboxChange("hiddenQuestions", event.target.checked)
+                      onCheckedChange={(checked) =>
+                        handleCheckboxChange("hiddenQuestions", checked === true)
                       }
-                      className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                      className="h-3.5 w-3.5 border-primary"
                     />
                     <span className="text-sm">Show passed questions</span>
                   </label>
