@@ -17,6 +17,7 @@ import { Badge } from "../../components/atoms/badge";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Separator } from "@/components/atoms/separator";
 import { STATES, CROPS } from "@/components/MetaData";
+import { StateMultiSelect, CropMultiSelect } from "@/components/advanced-question-filter";
 import type {
   HistoryItem,
   IQuestion,
@@ -26,6 +27,8 @@ import type {
 } from "@/types";
 import { Label } from "../../components/atoms/label";
 import { formatDate } from "@/utils/formatDate";
+import { useQuestionTimer } from "@/hooks/ui/useQuestionTimer";
+import { TimerDisplay } from "../../components/timer-display";
 
 type QaHeaderProps={
   questions: any
@@ -39,9 +42,9 @@ type QaHeaderProps={
   onActionTypeChange: (type: "allocated" | "reroute") => void;
   reviewLevel: string;
   source: string;
-  state: string;
-  crop: string;
-  onFilterChange: (key: string, value: string) => void;
+  states: string[];
+  crops: string[];
+  onFilterChange: (key: string, value: any) => void;
   scrollRef: React.RefObject<HTMLDivElement|null>;
   questionItemRefs: React.MutableRefObject<Record<string, HTMLDivElement>>;
   setQuestionRef: (id: string, el: HTMLDivElement | null) => void;
@@ -50,52 +53,52 @@ type QaHeaderProps={
 const QaPreferencesDialog = ({
   reviewLevel,
   source,
-  state,
-  crop,
+  states,
+  crops,
   onFilterChange,
 }: {
   reviewLevel: string;
   source: string;
-  state: string;
-  crop: string;
-  onFilterChange: (key: string, value: string) => void;
+  states: string[];
+  crops: string[];
+  onFilterChange: (key: string, value: any) => void;
 }) => {
   const [open, setOpen] = useState(false);
   const { data: cropsData } = useGetAllCrops();
   const dbCrops = cropsData?.crops || [];
   const [localReviewLevel, setLocalReviewLevel] = useState(reviewLevel);
   const [localSource, setLocalSource] = useState(source);
-  const [localState, setLocalState] = useState(state);
-  const [localCrop, setLocalCrop] = useState(crop);
+  const [localStates, setLocalStates] = useState<string[]>(states);
+  const [localCrops, setLocalCrops] = useState<string[]>(crops);
 
   useEffect(() => {
     if (open) {
       setLocalReviewLevel(reviewLevel);
       setLocalSource(source);
-      setLocalState(state);
-      setLocalCrop(crop);
+      setLocalStates(states);
+      setLocalCrops(crops);
     }
-  }, [open, reviewLevel, source, state, crop]);
+  }, [open, reviewLevel, source, states, crops]);
 
   let activeFiltersCount = 0;
   if (reviewLevel && reviewLevel !== "all") activeFiltersCount++;
   if (source && source !== "all") activeFiltersCount++;
-  if (state && state !== "all") activeFiltersCount++;
-  if (crop && crop !== "all") activeFiltersCount++;
+  if (states.length > 0) activeFiltersCount++;
+  if (crops.length > 0) activeFiltersCount++;
 
   const handleApply = () => {
     onFilterChange("review_level", localReviewLevel);
     onFilterChange("source", localSource);
-    onFilterChange("state", localState);
-    onFilterChange("crop", localCrop);
+    onFilterChange("states", localStates);
+    onFilterChange("crops", localCrops);
     setOpen(false);
   };
 
   const handleReset = () => {
     setLocalReviewLevel("all");
     setLocalSource("all");
-    setLocalState("all");
-    setLocalCrop("all");
+    setLocalStates([]);
+    setLocalCrops([]);
   };
 
   return (
@@ -117,7 +120,7 @@ const QaPreferencesDialog = ({
       </DialogTrigger>
 
       <ScrollArea>
-        <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-w-[95vw]">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
               <Filter className="h-5 w-5 text-primary" />
@@ -193,19 +196,11 @@ const QaPreferencesDialog = ({
                   <MapPin className="h-4 w-4 text-primary" />
                   State/Region
                 </Label>
-                <Select value={localState} onValueChange={setLocalState}>
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All States</SelectItem>
-                    {STATES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <StateMultiSelect
+                  states={STATES}
+                  selected={localStates}
+                  onChange={setLocalStates}
+                />
               </div>
 
               <div className="space-y-2 min-w-0">
@@ -228,52 +223,12 @@ const QaPreferencesDialog = ({
                     </TooltipContent>
                   </Tooltip>
                 </Label>
-                <Select value={localCrop} onValueChange={setLocalCrop}>
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Crops</SelectItem>
-                    <SelectItem value="__NOT_SET__">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                        <span className="text-yellow-700 dark:text-yellow-400 font-medium">Not Set (Legacy)</span>
-                      </div>
-                    </SelectItem>
-                    {dbCrops.length > 0
-                      ? dbCrops.map((c: any) => (
-                          <SelectItem key={c._id || c.name} value={c.name}>
-                            {c.aliases && c.aliases.length > 0 ? (
-                              <TooltipProvider delayDuration={200}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="flex items-center gap-2 cursor-default">
-                                      <span className="capitalize">{c.name}</span>
-                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
-                                        +{c.aliases.length}
-                                      </span>
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="right" className="text-xs">
-                                    <p className="font-semibold mb-0.5">Also known as:</p>
-                                    {c.aliases.map((a: string) => (
-                                      <p key={a} className="capitalize text-muted-foreground">{a}</p>
-                                    ))}
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            ) : (
-                              <span className="capitalize">{c.name}</span>
-                            )}
-                          </SelectItem>
-                        ))
-                      : CROPS.map((c) => (
-                          <SelectItem key={c} value={c}>
-                            {c}
-                          </SelectItem>
-                        ))}
-                  </SelectContent>
-                </Select>
+                <CropMultiSelect
+                  dbCrops={dbCrops}
+                  crops={CROPS}
+                  selected={localCrops}
+                  onChange={setLocalCrops}
+                />
               </div>
             </div>
           </div>
@@ -292,6 +247,138 @@ const QaPreferencesDialog = ({
   );
 };
 
+const QaQuestionItem = ({
+  question,
+  selectedQuestion,
+  onQuestionSelect,
+  setQuestionRef,
+}: {
+  question: any;
+  selectedQuestion: string | null;
+  onQuestionSelect: (id: string) => void;
+  setQuestionRef: (id: string, el: HTMLDivElement | null) => void;
+}) => {
+  const { timer } = useQuestionTimer(question?.source, question?.createdAt);
+
+  return (
+    <div
+      key={question?.id}
+      ref={(el) => setQuestionRef(question?.id || "", el)}
+      className={`relative group rounded-xl border transition-all duration-200 overflow-hidden bg-transparent ${
+        selectedQuestion === question?.id
+          ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
+          : "border-border bg-card hover:border-primary/40 hover:bg-accent/20 hover:shadow-sm"
+      }`}
+    >
+      {selectedQuestion === question?.id && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+      )}
+
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          <RadioGroupItem
+            value={question?.id || ""}
+            id={question?.id}
+            className="mt-1  w-5 h-5 rounded-full border-2 border-gray-400 dark:border-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 checked:bg-green-600 dark:checked:bg-green-400"
+          />
+
+          <div className="flex-1 min-w-0">
+            <Label
+              htmlFor={question?.id}
+              className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
+            >
+              {question?.text}
+            </Label>
+          </div>
+        </div>
+        <div className="mt-2 ml-7">
+          <TimerDisplay timer={timer} status={question?.status} source={question?.source} size="sm" />
+        </div>
+        <div className="mt-1 ml-7 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+          <div className="items-center gap-1.5 flex">
+            {question?.priority && (
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                  question.priority === "high"
+                    ? "bg-red-500/10 text-red-600 border-red-500/30"
+                    : question.priority === "medium"
+                    ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+                    : "bg-green-500/10 text-green-600 border-green-500/30"
+                }`}
+              >
+                {question.priority.charAt(0).toUpperCase() +
+                  question.priority.slice(1)}
+              </span>
+            )}
+
+            <svg
+              className="w-3 h-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span className="font-medium text-xs">
+              Created:
+            </span>
+            <span>
+              {formatDate(new Date(question?.createdAt!))}
+            </span>
+          </div>
+
+          <div className="hidden md:flex items-center gap-1.5">
+            <svg
+              className="w-3 h-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
+            </svg>
+            <span className="font-medium">Updated:</span>
+            {formatDate(new Date(question?.updatedAt!))}
+          </div>
+
+          <div className="hidden md:flex items-center gap-1.5">
+            <svg
+              className="w-3 h-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.965 8.965 0 01-4.126-.937l-3.157.937.937-3.157A8.965 8.965 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
+              />
+            </svg>
+            <span className="font-medium">Answers:</span>
+            <span className="px-1.5 py-0.5 bg-muted text-muted-foreground rounded text-xs font-medium">
+              {question?.totalAnswersCount}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {selectedQuestion === question?.id && (
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none"></div>
+      )}
+    </div>
+  );
+};
+
 export const QaHeader=({ questions,
   selectedQuestion,
   onQuestionSelect,
@@ -303,8 +390,8 @@ export const QaHeader=({ questions,
   onActionTypeChange,
   reviewLevel,
   source,
-  state,
-  crop,
+  states,
+  crops,
   onFilterChange,
   scrollRef,
   setQuestionRef,
@@ -349,8 +436,8 @@ export const QaHeader=({ questions,
                 <QaPreferencesDialog
                   reviewLevel={reviewLevel}
                   source={source}
-                  state={state}
-                  crop={crop}
+                  states={states}
+                  crops={crops}
                   onFilterChange={onFilterChange}
                 />
 
@@ -455,119 +542,13 @@ export const QaHeader=({ questions,
                   className="space-y-4"
                 >
                   {questions?.map((question:any) => (
-                    <div
-                      // key={index}
+                    <QaQuestionItem
                       key={question?.id}
-                      ref={(el) => setQuestionRef(question?.id || "", el)} //comment if scroll is not needed
-                      className={`relative group rounded-xl border transition-all duration-200 overflow-hidden bg-transparent ${
-                        selectedQuestion === question?.id
-                          ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20"
-                          : "border-border bg-card hover:border-primary/40 hover:bg-accent/20 hover:shadow-sm"
-                      }`}
-                    >
-                      {selectedQuestion === question?.id && (
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
-                      )}
-
-                      <div className="p-4">
-                        <div className="flex items-start gap-3">
-                          <RadioGroupItem
-                            value={question?.id || ""}
-                            id={question?.id}
-                            className="mt-1  w-5 h-5 rounded-full border-2 border-gray-400 dark:border-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 checked:bg-green-600 dark:checked:bg-green-400"
-                          />
-
-                          <div className="flex-1 min-w-0">
-                            <Label
-                              htmlFor={question?.id}
-                              className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
-                            >
-                              {question?.text}
-                            </Label>
-                          </div>
-                        </div>
-                        <div className="mt-3 ml-7 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-                          <div className="items-center gap-1.5 flex">
-                            {question?.priority && (
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                  question.priority === "high"
-                                    ? "bg-red-500/10 text-red-600 border-red-500/30"
-                                    : question.priority === "medium"
-                                    ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-                                    : "bg-green-500/10 text-green-600 border-green-500/30"
-                                }`}
-                              >
-                                {question.priority.charAt(0).toUpperCase() +
-                                  question.priority.slice(1)}
-                              </span>
-                            )}
-
-                            <svg
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                            <span className="font-medium text-xs">
-                              Created:
-                            </span>
-                            <span>
-                              {formatDate(new Date(question?.createdAt!))}
-                            </span>
-                          </div>
-
-                          <div className="hidden md:flex items-center gap-1.5">
-                            <svg
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                              />
-                            </svg>
-                            <span className="font-medium">Updated:</span>
-                            {formatDate(new Date(question?.updatedAt!))}
-                          </div>
-
-                          <div className="hidden md:flex items-center gap-1.5">
-                            <svg
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.965 8.965 0 01-4.126-.937l-3.157.937.937-3.157A8.965 8.965 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
-                              />
-                            </svg>
-                            <span className="font-medium">Answers:</span>
-                            <span className="px-1.5 py-0.5 bg-muted text-muted-foreground rounded text-xs font-medium">
-                              {question?.totalAnswersCount}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {selectedQuestion === question?.id && (
-                        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none"></div>
-                      )}
-                    </div>
+                      question={question}
+                      selectedQuestion={selectedQuestion}
+                      onQuestionSelect={onQuestionSelect}
+                      setQuestionRef={setQuestionRef}
+                    />
                   ))}
                 </RadioGroup>
                 {isFetchingNextPage && (

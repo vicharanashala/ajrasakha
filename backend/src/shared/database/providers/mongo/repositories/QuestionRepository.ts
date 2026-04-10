@@ -46,6 +46,8 @@ import {
 } from '#root/modules/core/classes/transformers/QuestionLevel.js';
 import { buildQuestionFilter } from '#root/utils/buildQuestionFilter.js';
 import {
+  AllocatedQuestionsBodyDto,
+  DetailedQuestionsBodyDto,
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '#root/modules/question/classes/validators/QuestionVaidators.js';
@@ -57,6 +59,7 @@ const VECTOR_COUNT_LIMIT = 20000;
 
 export class QuestionRepository implements IQuestionRepository {
   private QuestionCollection: Collection<IQuestion>;
+  private DuplicateQuestionCollection: Collection<ISimilarQuestion>;
   private QuestionSubmissionCollection: Collection<IQuestionSubmission>;
   private AnswersCollection: Collection<IAnswer>;
   private UsersCollection!: Collection<IUser>;
@@ -74,6 +77,8 @@ export class QuestionRepository implements IQuestionRepository {
 
     this.QuestionCollection =
       await this.db.getCollection<IQuestion>('questions');
+    this.DuplicateQuestionCollection =
+      await this.db.getCollection<ISimilarQuestion>('duplicate_questions');
     this.QuestionSubmissionCollection =
       await this.db.getCollection<IQuestionSubmission>('question_submissions');
     this.UsersCollection = await this.db.getCollection<IUser>('users');
@@ -288,6 +293,7 @@ export class QuestionRepository implements IQuestionRepository {
 
   async findDetailedQuestions(
     query: GetDetailedQuestionsQuery & { searchEmbedding: number[] | null },
+    body?: DetailedQuestionsBodyDto,
   ): Promise<{ questions: IQuestion[]; totalPages: number; totalCount: number }> {
     try {
       await this.init();
@@ -324,12 +330,33 @@ export class QuestionRepository implements IQuestionRepository {
         consecutiveApprovals,
         autoAllocateFilter,
         sort,
-        closedInTwoHrs
+        closedInTwoHrs,
+        hiddenQuestions,
+        duplicateQuestions,
+        isOnHold,
       } = query;
     //  const filter: any = {};
     const filter: any = {
-      isHidden: { $ne: true }, // 👈 exclude hidden questions
+      isHidden: { $ne: true }, // default to exclude hidden questions
+      isOnHold: { $ne: true }, // default to exclude on hold questions
     };
+
+    // --- Hidden question filter ---
+    if(hiddenQuestions === 'true'){
+        filter.isHidden = { $eq: true }; // filter by hidden questions
+    }
+
+    // --- on Hold question filter ---
+    if(isOnHold === 'true')filter.isOnHold = { $eq: true }; // filter by on hold questions
+
+    //for duplicate questions.
+    // duplicateQuestions === 'true'
+    //       ? this.DuplicateQuestionCollection
+    //       :
+
+    // --- setting the collection with respect to the duplicate questions filter ---
+      const questionsCollection = this.QuestionCollection as Collection<IQuestion>;
+
       // --- Auto Allocate Filter ---
       if (autoAllocateFilter && autoAllocateFilter !== 'all') {
         if (autoAllocateFilter === 'on') {
@@ -345,24 +372,37 @@ export class QuestionRepository implements IQuestionRepository {
       caseInsensitiveStringFilter('status', status);
       caseInsensitiveStringFilter('source', source);
       caseInsensitiveStringFilter('priority', priority);
-      caseInsensitiveStringFilter('details.state', state);
-      caseInsensitiveStringFilter('details.crop', crop);
+      // --- State filter (from body array) ---
+      if (body?.states && body.states.length > 0) {
+        filter['details.state'] = { $in: body.states };
+      }
+      if (crop && crop.length > 0) {
+        const validCrops = crop.filter((c) => c && c !== 'all');
+        if (validCrops.length === 1) {
+          filter['details.crop'] = { $regex: `^${escapeRegex(validCrops[0])}$`, $options: 'i' };
+        } else if (validCrops.length > 1) {
+          filter['details.crop'] = { $in: validCrops.map((c) => new RegExp(`^${escapeRegex(c)}$`, 'i')) };
+        }
+      }
       caseInsensitiveStringFilter('details.domain', domain);
 
-      // --- Normalized Crop Filter ---
-      if (normalised_crop && normalised_crop !== 'all') {
-        if (normalised_crop === '__NOT_SET__') {
-          // Find questions where normalised_crop does not exist, is null, or is empty string
-          if (!filter.$and) filter.$and = [];
-          filter.$and.push({
-            $or: [
-              { 'details.normalised_crop': { $exists: false } },
-              { 'details.normalised_crop': null },
-              { 'details.normalised_crop': '' },
-            ],
-          });
+      // --- Normalized Crop Filter (from body array) ---
+      if (body?.normalisedCrops && body.normalisedCrops.length > 0) {
+        const hasNotSet = body.normalisedCrops.includes('__NOT_SET__');
+        const realCrops = body.normalisedCrops.filter((c) => c !== '__NOT_SET__');
+        if (!hasNotSet) {
+          filter['details.normalised_crop'] = { $in: realCrops };
         } else {
-          caseInsensitiveStringFilter('details.normalised_crop', normalised_crop);
+          const orConditions: any[] = [
+            { 'details.normalised_crop': { $exists: false } },
+            { 'details.normalised_crop': null },
+            { 'details.normalised_crop': '' },
+          ];
+          if (realCrops.length > 0) {
+            orConditions.push({ 'details.normalised_crop': { $in: realCrops } });
+          }
+          if (!filter.$and) filter.$and = [];
+          filter.$and.push({ $or: orConditions });
         }
       }
       const approvalCount =
@@ -600,7 +640,7 @@ export class QuestionRepository implements IQuestionRepository {
         ];
 
         const countResult =
-          await this.QuestionCollection.aggregate(countPipeline).toArray();
+          await questionsCollection.aggregate(countPipeline).toArray();
         totalCount = countResult[0]?.count ?? 0;
 
         const totalPages = Math.ceil(totalCount / limit);
@@ -689,7 +729,7 @@ export class QuestionRepository implements IQuestionRepository {
           { $limit: limit },
         ];
 
-        result = await this.QuestionCollection.aggregate(pipeline).toArray();
+        result = await questionsCollection.aggregate(pipeline).toArray();
 
         const formattedQuestions: IQuestion[] = result.map((q: any) => ({
           ...q,
@@ -719,7 +759,7 @@ export class QuestionRepository implements IQuestionRepository {
         ];
       }
 
-      totalCount = await this.QuestionCollection.countDocuments(filter);
+      totalCount = await questionsCollection.countDocuments(filter);
       const totalPages = Math.ceil(totalCount / limit);
 
       // Determine sort order
@@ -785,7 +825,7 @@ export class QuestionRepository implements IQuestionRepository {
         { $limit: limit },
       );
 
-      result = await this.QuestionCollection.aggregate([
+      result = await questionsCollection.aggregate([
         ...aggregationPipeline,
 
         // JOIN submissions → extract history length
@@ -888,8 +928,8 @@ export class QuestionRepository implements IQuestionRepository {
   async getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
-    // userPreference: IUser['preference'] | null,
     session?: ClientSession,
+    body?: AllocatedQuestionsBodyDto,
   ): Promise<QuestionResponse[]> {
     try {
       await this.init();
@@ -1045,11 +1085,11 @@ export class QuestionRepository implements IQuestionRepository {
       if (query.source && query.source !== 'all') {
         filter.source = {$regex: `^${escapeRegex(query.source)}$`, $options: 'i'};
       }
-      if (query.state && query.state !== 'all') {
-        filter['details.state'] = {$regex: `^${escapeRegex(query.state)}$`, $options: 'i'};
+      if (body?.states && body.states.length > 0) {
+        filter['details.state'] = {$in: body.states};
       }
-      if (query.crop && query.crop !== 'all') {
-        filter['details.crop'] = {$regex: `^${escapeRegex(query.crop)}$`, $options: 'i'};
+      if (body?.crops && body.crops.length > 0) {
+        filter['details.crop'] = {$in: body.crops};
       }
 
       const pipeline: any = [{$match: filter}];
@@ -1095,6 +1135,7 @@ export class QuestionRepository implements IQuestionRepository {
           'details.crop': 1,
           'details.state': 1,
           source: 1,
+          status: 1,
           _id: 0,
         },
       });
@@ -1526,7 +1567,6 @@ export class QuestionRepository implements IQuestionRepository {
       await this.init();
       await this.ensureIndexes();
 
-      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
 
       // const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
@@ -1542,7 +1582,7 @@ export class QuestionRepository implements IQuestionRepository {
             },
             {
               source: { $ne: "AJRASAKHA" },
-              createdAt: { $lte: fourHoursAgo },
+              createdAt: { $lte: twoHoursAgo },
             },
           ],
         },
@@ -3298,10 +3338,17 @@ export class QuestionRepository implements IQuestionRepository {
   async getQuestionsByFilters(
     filters: any,
     session?: ClientSession,
+    useDuplicateCollection = false,
   ): Promise<IQuestion[]> {
     await this.init();
 
-    return await this.QuestionCollection
+    // for duplicate question
+    //  useDuplicateCollection
+    //   ? this.DuplicateQuestionCollection
+    //   :
+    const collection = this.QuestionCollection;
+
+    return await collection
       .find(filters, { session })
       .sort({ createdAt: -1 })
       .toArray();

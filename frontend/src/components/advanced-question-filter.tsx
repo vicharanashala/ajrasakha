@@ -11,7 +11,6 @@ import {
 import { Button } from "@/components/atoms/button";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Label } from "@/components/atoms/label";
-import { Checkbox } from "@/components/atoms/checkbox";
 import {
   Select,
   SelectTrigger,
@@ -22,6 +21,7 @@ import {
 import { Separator } from "@/components/atoms/separator";
 import { Badge } from "@/components/atoms/badge";
 import { Slider } from "@/components/atoms/slider";
+import { Checkbox } from "@/components/atoms/checkbox";
 import {
   Filter,
   FileText,
@@ -83,7 +83,8 @@ export type QuestionDateRangeFilter =
   | "quarter"
   | "year";
 
-export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT";
+export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP";
+// New Type
 export type QuestionPriorityFilter = "all" | "high" | "low" | "medium";
 export type QuestionTimeRange = {
   startDate: Date | undefined;
@@ -105,12 +106,15 @@ export type AdvanceFilterValues = {
   status: QuestionFilterStatus;
   source: QuestionSourceFilter;
   state: string;
+  states?: string[]; // multi-select for Preferences filter
   answersCount: [number, number];
   dateRange: QuestionDateRangeFilter;
   user: string;
   domain: string;
   crop: string;
+  crops?: string[]; // multi-select for expert Preferences filter
   normalised_crop: string;
+  normalisedCrops?: string[]; // multi-select for Preferences filter
   priority: QuestionPriorityFilter;
   startTime?: Date | undefined | null; // Use a specific name like startTime/endTime
   endTime?: Date | undefined | null;
@@ -120,6 +124,9 @@ export type AdvanceFilterValues = {
   consecutiveApprovals?: string;
   autoAllocateFilter?: string;
   closedInTwoHrs?: boolean;
+  hiddenQuestions?: boolean;
+  duplicateQuestions?: boolean;
+  isOnHold?: boolean;
 };
 
 // Define the props for your new component
@@ -214,6 +221,295 @@ interface DateRangeFilterProps {
 //     </div>
 //   );
 // };
+
+// Inline multi-select for State/Region with hover-to-scroll zones
+export const StateMultiSelect = ({
+  states,
+  selected,
+  onChange,
+}: {
+  states: string[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) => {
+  const [open, setOpen] = React.useState(false);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const scrollInterval = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startScroll = (direction: "up" | "down") => {
+    stopScroll();
+    scrollInterval.current = setInterval(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop += direction === "down" ? 6 : -6;
+      }
+    }, 16);
+  };
+
+  const stopScroll = () => {
+    if (scrollInterval.current) {
+      clearInterval(scrollInterval.current);
+      scrollInterval.current = null;
+    }
+  };
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+      >
+        <span className="truncate text-left">
+          {selected.length === 0
+            ? "All States"
+            : selected.length === 1
+            ? selected[0]
+            : `${selected.length} states selected`}
+        </span>
+        {open ? (
+          <ChevronUp className="h-4 w-4 opacity-50 flex-shrink-0 ml-2" />
+        ) : (
+          <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0 ml-2" />
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute z-50 left-0 right-0 mt-1 rounded-md border border-input bg-popover shadow-md">
+          {/* header */}
+          <div className="flex items-center justify-between px-3 py-2 border-b">
+            <span className="text-xs font-medium text-muted-foreground">
+              {selected.length} selected
+            </span>
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline"
+              onClick={() => onChange([])}
+            >
+              Clear all
+            </button>
+          </div>
+
+          {/* scroll-up zone */}
+          <div
+            className="flex items-center justify-center h-6 cursor-pointer select-none text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+            onMouseEnter={() => startScroll("up")}
+            onMouseLeave={stopScroll}
+          >
+            <ChevronUp className="h-3.5 w-3.5" />
+          </div>
+
+          {/* list */}
+          <div ref={scrollRef} className="max-h-48 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {states.map((s) => {
+              const isSelected = selected.includes(s);
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() =>
+                    onChange(
+                      isSelected
+                        ? selected.filter((x) => x !== s)
+                        : [...selected, s],
+                    )
+                  }
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
+                >
+                  <div
+                    className={`h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
+                      isSelected ? "bg-primary border-primary" : "border-gray-400"
+                    }`}
+                  >
+                    {isSelected && (
+                      <svg
+                        className="h-3 w-3 text-primary-foreground"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={3}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                  {s}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* scroll-down zone */}
+          <div
+            className="flex items-center justify-center h-6 cursor-pointer select-none text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+            onMouseEnter={() => startScroll("down")}
+            onMouseLeave={stopScroll}
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export const CropMultiSelect = ({
+  dbCrops,
+  crops,
+  selected,
+  onChange,
+}: {
+  dbCrops: { _id?: string; name: string; aliases?: string[] }[];
+  crops: string[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) => {
+  const [open, setOpen] = React.useState(false);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const scrollInterval = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startScroll = (direction: "up" | "down") => {
+    stopScroll();
+    scrollInterval.current = setInterval(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop += direction === "down" ? 6 : -6;
+      }
+    }, 16);
+  };
+
+  const stopScroll = () => {
+    if (scrollInterval.current) {
+      clearInterval(scrollInterval.current);
+      scrollInterval.current = null;
+    }
+  };
+
+  const cropList = dbCrops.length > 0 ? dbCrops : crops.map((c) => ({ name: c }));
+
+  const getLabel = (value: string) => {
+    if (value === "__NOT_SET__") return "Not Set (Legacy)";
+    return value;
+  };
+
+  const toggle = (value: string) =>
+    onChange(selected.includes(value) ? selected.filter((x) => x !== value) : [...selected, value]);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+      >
+        <span className="truncate text-left">
+          {selected.length === 0
+            ? "All Crops"
+            : selected.length === 1
+            ? getLabel(selected[0])
+            : `${selected.length} crops selected`}
+        </span>
+        {open ? (
+          <ChevronUp className="h-4 w-4 opacity-50 flex-shrink-0 ml-2" />
+        ) : (
+          <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0 ml-2" />
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute z-50 left-0 right-0 mt-1 rounded-md border border-input bg-popover shadow-md">
+          {/* header */}
+          <div className="flex items-center justify-between px-3 py-2 border-b">
+            <span className="text-xs font-medium text-muted-foreground">
+              {selected.length} selected
+            </span>
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline"
+              onClick={() => onChange([])}
+            >
+              Clear all
+            </button>
+          </div>
+
+          {/* scroll-up zone */}
+          <div
+            className="flex items-center justify-center h-6 cursor-pointer select-none text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+            onMouseEnter={() => startScroll("up")}
+            onMouseLeave={stopScroll}
+          >
+            <ChevronUp className="h-3.5 w-3.5" />
+          </div>
+
+          {/* list */}
+          <div ref={scrollRef} className="max-h-48 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {/* Not Set option */}
+            <button
+              type="button"
+              onClick={() => toggle("__NOT_SET__")}
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
+            >
+              <div
+                className={`h-4 w-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                  selected.includes("__NOT_SET__") ? "bg-primary border-primary" : "border-gray-400 bg-white"
+                }`}
+              >
+                {selected.includes("__NOT_SET__") && (
+                  <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+              <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
+              <span className="text-yellow-700 dark:text-yellow-400 font-medium">Not Set (Legacy)</span>
+            </button>
+
+            {cropList.map((crop) => {
+              const isSelected = selected.includes(crop.name);
+              return (
+                <button
+                  key={crop.name}
+                  type="button"
+                  onClick={() => toggle(crop.name)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
+                >
+                  <div
+                    className={`h-4 w-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                      isSelected ? "bg-primary border-primary" : "border-gray-400 bg-white"
+                    }`}
+                  >
+                    {isSelected && (
+                      <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                  <span className="capitalize">{crop.name}</span>
+                  {crop.aliases && crop.aliases.length > 0 && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                      +{crop.aliases.length}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* scroll-down zone */}
+          <div
+            className="flex items-center justify-center h-6 cursor-pointer select-none text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+            onMouseEnter={() => startScroll("down")}
+            onMouseLeave={stopScroll}
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface AdvanceFilterDialogProps {
   advanceFilter: AdvanceFilterValues;
@@ -416,23 +712,17 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <MapPin className="h-4 w-4 text-primary" />
                   State/Region
+                  {advanceFilter.states && advanceFilter.states.length > 0 && (
+                    <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
+                      {advanceFilter.states.length}
+                    </Badge>
+                  )}
                 </Label>
-                <Select
-                  value={advanceFilter.state}
-                  onValueChange={(v) => handleDialogChange("state", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All States</SelectItem>
-                    {normalizedStates.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <StateMultiSelect
+                  states={normalizedStates}
+                  selected={advanceFilter.states || []}
+                  onChange={(next) => handleDialogChange("states", next)}
+                />
               </div>
               <div className="space-y-2 min-w-0">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
@@ -553,6 +843,12 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                         ))}
                   </SelectContent>
                 </Select>
+                <CropMultiSelect
+                  dbCrops={dbCrops}
+                  crops={crops}
+                  selected={advanceFilter.normalisedCrops || []}
+                  onChange={(next) => handleDialogChange("normalisedCrops", next)}
+                />
               </div>
 
               <div className="space-y-2 min-w-0">
@@ -710,7 +1006,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
               </Label>
               <div className="flex items-center gap-2">
                 <Checkbox
-                  className="border-primary"
+                  className="w-3.5 h-3.5 border-primary"
                   checked={advanceFilter.closedInTwoHrs ?? false}
                   onCheckedChange={(checked) =>
                     handleDialogChange("closedInTwoHrs", checked === true)
@@ -876,6 +1172,52 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 Filter questions based on the number of answers received
               </p>
             </div>
+            {/* Hidden and Duplicate Questions */}
+            <div className="space-y-4">
+              <div className="text-sm font-semibold flex items-center gap-2">
+                <Eye className="h-4 w-4 text-primary" />
+                Question Visibility
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-border bg-background p-4">
+                <label className="flex items-center gap-3">
+                  <Checkbox
+                    checked={advanceFilter.hiddenQuestions ?? false}
+                    onCheckedChange={(checked) =>
+                      handleDialogChange("hiddenQuestions", checked === true)
+                    }
+                    className="h-3.5 w-3.5 border-primary"
+                  />
+                  <span className="text-sm">Show passed questions</span>
+                </label>
+                {/* show holded questions */}
+                <label className="flex items-center gap-3">
+                  <Checkbox
+                    checked={advanceFilter.isOnHold ?? false}
+                    onCheckedChange={(checked) =>
+                      handleDialogChange("isOnHold", checked === true)
+                    }
+                    className="h-3.5 w-3.5 border-primary"
+                  />
+                  <span className="text-sm">Show questions on Hold</span>
+                </label>
+
+                {/* <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={advanceFilter.duplicateQuestions ?? false}
+                    onChange={(event) =>
+                      handleDialogChange(
+                        "duplicateQuestions",
+                        event.target.checked,
+                      )
+                    }
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <span className="text-sm">Show duplicate questions</span>
+                </label> */}
+              </div>
+            </div>
 
             {/* Active Filters Badges */}
             {activeFiltersCount > 0 && (
@@ -892,35 +1234,68 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                       if (
                         key == "startTime" ||
                         key == "endTime" ||
-                        value === "all" ||
                         key === "closedAtStart" ||
                         key === "closedAtEnd" ||
                         (key === "closedInTwoHrs" && value === false) ||
+                        key === "state" || // replaced by states
+                        key === "normalised_crop" || // replaced by normalisedCrops
+                        value === "all" ||
+                        value === undefined ||
+                        value === null ||
+                        (typeof value === "boolean" && value === false) ||
+                        (Array.isArray(value) && value.length === 0) ||
                         (Array.isArray(value) &&
                           value[0] === 0 &&
                           value[1] === 100)
                       )
                         return null;
+
+                      const label =
+                        key === "hiddenQuestions"
+                          ? "Show passed questions"
+                          : key === "duplicateQuestions"
+                            ? "Show duplicate questions"
+                            : key === "isOnHold"
+                            ? "Show holded questions"
+                            : key === "states"
+                              ? "state"
+                              : key === "normalisedCrops"
+                                ? "crop"
+                                : key === "closedInTwoHrs"
+                                ? "Question closed in 2 hrs"
+                                : key;
+
+                      const displayValue =
+                        (key === "states" || key === "normalisedCrops") && Array.isArray(value)
+                          ? (value as string[]).join(", ")
+                          : Array.isArray(value)
+                            ? `${value[0]}-${value[1]}`
+                            : typeof value === "boolean"
+                              ? "Yes"
+                              : (value as string);
+
                       return (
                         <Badge
                           key={key}
                           variant="secondary"
                           className="text-xs flex items-center gap-1"
                         >
-                          {key}:{" "}
-                          {Array.isArray(value)
-                            ? `${value[0]}-${value[1]}`
-                            : (value as String)}
+                          {label}: {displayValue}
                           <XCircle
                             className="h-3 w-3 ml-1 cursor-pointer"
                             onClick={() =>
                               handleDialogChange(
                                 key,
-                                Array.isArray(value)
-                                  ? [0, 100]
-                                  : key === "closedInTwoHrs"
-                                    ? false
-                                    : "all",
+                                key === "states" || key === "normalisedCrops"
+                                  ? []
+                                  : Array.isArray(value)
+                                    ? [0, 100]
+                                    : key === "hiddenQuestions" ||
+                                      key === "duplicateQuestions"||
+                                      key === "closedInTwoHrs"||
+                                      key === "isOnHold"
+                                      ? false
+                                      : "all",
                               )
                             }
                           />
@@ -941,10 +1316,12 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   status: "all",
                   source: "all",
                   state: "all",
+                  states: [],
                   answersCount: [0, 100],
                   dateRange: "all",
                   crop: "all",
                   normalised_crop: "all",
+                  normalisedCrops: [],
                   priority: "all",
                   user: "all",
                   domain: "all",

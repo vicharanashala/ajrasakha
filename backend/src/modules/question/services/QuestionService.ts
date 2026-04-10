@@ -17,6 +17,7 @@ import {
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
+  ForbiddenError,
   InternalServerError,
   NotFoundError,
   UnauthorizedError,
@@ -33,6 +34,8 @@ import { appConfig } from '#root/config/app.js';
 import { AiService } from '#root/modules/core/services/AiService.js';
 import {
   AddQuestionBodyDto,
+  AllocatedQuestionsBodyDto,
+  DetailedQuestionsBodyDto,
   GeneratedQuestionResponse,
   GetDetailedQuestionsQuery,
   QuestionResponse,
@@ -53,6 +56,7 @@ import { checkConceptDuplicate } from '#root/modules/question/aiservice/checkCon
 import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
 import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
 import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
+import { toObjectIdArray } from '#root/utils/normalizeToObjectIdArray.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -289,10 +293,11 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
+    body: AllocatedQuestionsBodyDto,
   ): Promise<QuestionResponse[]> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        return this.questionRepo.getAllocatedQuestions(userId, query, session);
+        return this.questionRepo.getAllocatedQuestions(userId, query, session, body);
       });
     } catch (error) {
       throw new InternalServerError(
@@ -303,7 +308,9 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   async getDetailedQuestions(
     query: GetDetailedQuestionsQuery,
+    body: DetailedQuestionsBodyDto,
   ): Promise<{ questions: IQuestion[]; totalPages: number }> {
+
     let searchEmbedding: number[] | null = null;
 
     if (query?.search) {
@@ -323,7 +330,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     return this.questionRepo.findDetailedQuestions({
       ...query,
       searchEmbedding,
-    });
+    }, body);
   }
 
   async getQuestionFromRawContext(
@@ -3157,6 +3164,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     season?: string;
     domain?: string;
     status?: string;
+    hiddenQuestions?: string;
+    duplicateQuestions?: string;
   }): Promise<ArrayBuffer | null> {
     return this._withTransaction(async (session) => {
       // Build filter query
@@ -3187,9 +3196,16 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (filters.status && filters.status !== 'all') {
         query.status = filters.status;
       }
+      if (filters.hiddenQuestions === 'true') {
+        query.isHidden = { $eq: true };
+      }
 
       // Get questions from repository
-      const questions = await this.questionRepo.getQuestionsByFilters(query, session);
+      const questions = await this.questionRepo.getQuestionsByFilters(
+        query,
+        session,
+        filters.duplicateQuestions === 'true',
+      );
 
       if (!questions || questions.length === 0) {
         console.log("No questions found for given filters");
@@ -3387,12 +3403,95 @@ async checkStatus(
   const result=await this.questionRepo.getQuestionsWithAnswerDetails(questionIds)
 
   // 1. Fetch data
-  
+
 return result
-        
- 
+
+
 }
 
+async holdQuestion(questionId:string,userId:string,action:"hold" | "unhold"):Promise<{id:string}>{
+  return await this._withTransaction(async session=>{
+    if(action==="unhold"){
+      const question = await this.questionRepo.getById(questionId, session);
+      if(!question){
+        throw new NotFoundError('Question not found');
+      }
+      const user = await this.userRepo.findById(userId, session);
+      if(!user || user.role=='expert'){
+        throw new ForbiddenError('Only moderators or Admins can unhold questions'); 
+      }
+      await this.questionRepo.updateQuestion(questionId,{isOnHold:false},session)
+      return {id:questionId}
+    }
+    const user = await this.userRepo.findById(userId, session);
+    if(user.role=='expert'){
+      throw new ForbiddenError('Only moderators can hold questions');
+    }
+    const question = await this.questionRepo.getById(questionId, session);
+    if(!question){
+      throw new NotFoundError('Question not found');
+    }
+    const submission = await this.questionSubmissionRepo.getByQuestionId(questionId, session);
+    if(!submission){
+      throw new NotFoundError('Question submission not found');
+    }
+    await this._handleSubmissionOnHold(submission, session);
+    await this.questionRepo.updateQuestion(questionId,{isOnHold:true,isAutoAllocate:false},session)
+    return {id:questionId}
+  })
+}
+  async checkSubmissionExists(questionId: string): Promise<boolean> {
+    const submission = await this.questionSubmissionRepo.getByQuestionId(questionId);
+    return !!submission;
+  }
 
+private async _handleSubmissionOnHold(
+  submission: IQuestionSubmission,
+  session: ClientSession
+): Promise<void> {
+  const questionId = submission.questionId.toString();
+  if (!submission.history || submission.history.length === 0) {
+    if (submission.queue?.length) {
+      const firstUserId = submission.queue[0].toString();
+      await this.userRepo.updateReputationScore(firstUserId, false,session);
+    }
+
+    await this.questionSubmissionRepo.updateSubmissionState(
+      questionId,
+      { queue: [] },
+      session
+    );
+
+    return;
+  }
+
+  const lastHistory = submission.history[submission.history.length - 1];
+
+  if (lastHistory.status !== 'in-review') return;
+
+  const updatedById = lastHistory.updatedBy?.toString();
+
+  let newQueue = submission.queue;
+
+  const index = submission.queue.findIndex(
+    (q) => q.toString() === updatedById
+  );
+
+  if (index !== -1) {
+    newQueue = submission.queue.slice(0, index);
+  }
+
+  if (updatedById) {
+    await this.userRepo.updateReputationScore(updatedById, false, session);
+  }
+  await this.questionSubmissionRepo.updateSubmissionState(
+    questionId,
+    {
+      queue: toObjectIdArray(newQueue || []),
+      popHistory: true,
+    },
+    session
+  );
+}
 
 }

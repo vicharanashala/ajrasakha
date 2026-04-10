@@ -11,6 +11,7 @@ import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/atoms/select";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -303,7 +304,7 @@ export default MessageDetail;
 // --- Types for parsed chatbot text ---
 interface AgriSpecialist {
     name: string;
-    sourceName: string;
+    sourceType: string;
     sourceLink: string;
 }
 
@@ -330,9 +331,14 @@ const parseChatbotText = (text: string): ParsedChatbotText => {
     let sourcesSection = '';
     const parts = workingText.split(/\n---\n/);
     if (parts.length > 1) {
-        answerBody = parts[0].trim();
-        sourcesSection = parts.slice(1).join('\n---\n').trim();
-    } else {
+        const lastPart = parts[parts.length - 1].trim();
+        const looksLikeSources = /\|\s*(?:Agri Specialist Name|Source\/PDF Link)/i.test(lastPart);
+        if (looksLikeSources) {
+            answerBody = parts[0].trim();
+            sourcesSection = parts.slice(1).join('\n---\n').trim();
+        }
+    }
+    if (!sourcesSection) {
         const sourceMarker = workingText.match(/\*?\*?The answer I provided[^*\n]*/i);
         if (sourceMarker && sourceMarker.index !== undefined) {
             answerBody = workingText.substring(0, sourceMarker.index).trim();
@@ -348,8 +354,18 @@ const parseChatbotText = (text: string): ParsedChatbotText => {
             const cells = row.split('|').filter((c: string) => c.trim() !== '');
             if (cells.length >= 2) {
                 const name = cells[0].trim();
-                const lm = cells[1].trim().match(/\[([^\]]+)\]\(([^)]+)\)/);
-                agriSpecialists.push({ name, sourceName: lm ? lm[1] : cells[1].trim(), sourceLink: lm ? lm[2] : '' });
+                const raw = cells[1].trim();
+                const links = [...raw.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)];
+                if (links.length > 0) {
+                    for (const link of links) {
+                        agriSpecialists.push({ name, sourceType: 'other', sourceLink: link[2] });
+                    }
+                } else {
+                    // plain URL(s), possibly semicolon-separated
+                    for (const url of raw.split(';').map(s => s.trim()).filter(Boolean)) {
+                        agriSpecialists.push({ name, sourceType: 'other', sourceLink: url });
+                    }
+                }
             }
         }
     }
@@ -361,9 +377,43 @@ const parseChatbotText = (text: string): ParsedChatbotText => {
             const cells = row.split('|').filter((c: string) => c.trim() !== '');
             if (cells.length >= 2) {
                 const lm = cells[0].trim().match(/\[([^\]]+)\]\(([^)]+)\)/);
-                pdfSources.push({ name: lm ? lm[1] : cells[0].trim(), link: lm ? lm[2] : '', pages: cells[1].trim(), sourceType: 'other' });
+                if (lm) {
+                    pdfSources.push({ name: lm[1], link: lm[2], pages: cells[1].trim(), sourceType: 'other' });
+                } else {
+                    const raw = cells[0].trim();
+                    const isUrl = /^https?:\/\//.test(raw);
+                    pdfSources.push({
+                        name: isUrl ? cells[1].trim() : raw,
+                        link: isUrl ? raw : '',
+                        pages: isUrl ? '' : cells[1].trim(),
+                        sourceType: 'other',
+                    });
+                }
             }
         }
+    }
+
+    for (const line of sourcesSection.split('\n')) {
+        if (!line.includes('📺')) continue;
+        const lm = line.match(/\[([^\]]+)\]\(([^)]+)\)/);
+        if (lm) pdfSources.push({ name: lm[1], link: lm[2], pages: '', sourceType: 'other' });
+    }
+
+    // Extract from tables where cells[1] is entirely a markdown link (e.g. Video Resources table)
+    for (const line of workingText.split('\n')) {
+        if (!line.startsWith('|')) continue;
+        const cells = line.split('|').filter(c => c.trim() !== '');
+        if (cells.length < 2) continue;
+        const lm = cells[1].trim().match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+        if (!lm) continue;
+        const url = lm[2];
+        if (pdfSources.some(s => s.link === url) || agriSpecialists.some(s => s.sourceLink === url)) continue;
+        pdfSources.push({
+            name: cells[0].trim(),
+            link: url,
+            pages: cells.length > 2 ? cells[2].trim() : '',
+            sourceType: 'other',
+        });
     }
 
     return { answerBody, agriSpecialists, pdfSources };
@@ -385,7 +435,8 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editModalKey, setEditModalKey] = useState(0);
     const [translatedText, setTranslatedText] = useState<string>("");
-    const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; type: "pass" | "approve" | "save" | "cancel" }>({ open: false, type: "pass" });
+    const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; type: "pass" | "approve" | "save" | "cancel"; remark?: string }>({ open: false, type: "pass" });
+    const [ passRemarkError, setPassRemarkError] = useState("");
 
     const { mutateAsync: updateAnswer, isPending: isUpdating } = useUpdateAnswer();
     const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
@@ -409,7 +460,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         try {
             const sources: SourceItem[] = [];
             for (const spec of editedSpecialists) {
-                if (spec.sourceLink) sources.push({ sourceType: "other", sourceName: spec.sourceName || spec.name || "chatbot", source: spec.sourceLink });
+                if (spec.sourceLink) sources.push({ sourceType: (spec.sourceType || "other") as any, sourceName: spec.name || "chatbot", source: spec.sourceLink });
             }
             for (const pdf of editedPdfSources) {
                 if (pdf.link) {
@@ -434,14 +485,25 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const handleEdit = () => { setEditModalKey(k => k + 1); setIsEditModalOpen(true); };
     const handleCancelEdit = () => { const p = parseChatbotText(text); setEditedAnswerBody(p.answerBody); setEditedSpecialists(p.agriSpecialists); setEditedPdfSources(p.pdfSources); setIsEditModalOpen(false); };
     const handleSaveEdit = () => { toast.success("Changes saved"); setIsEditModalOpen(false); };
-    const handleSkip = () => { setConfirmDialog({ open: true, type: "pass" }); };
+    const handleSkip = () => { setPassRemarkError(""); setConfirmDialog({ open: true, type: "pass", remark: "" }); };
 
-    const doSkip = async () => { await updateQuestion({ isHidden: true, _id: question._id! }); toast.success("Question has been hidden"); navigateToQuestionPage(); };
+    const doSkip = async (remark?: string) => {
+        await updateQuestion({ isHidden: true, _id: question._id!, ...(remark ? { passingRemark: remark } : {}) } as any);
+        toast.success("Question has been hidden");
+        navigateToQuestionPage();
+    };
 
     const handleConfirm = () => {
         const type = confirmDialog.type;
-        setConfirmDialog({ open: false, type: "pass" });
-        if (type === "pass") { doSkip(); }
+        const remark = confirmDialog.remark?.trim() || "";
+        if (type === "pass" && !remark) {
+            setPassRemarkError("Remark is required to pass this question.");
+            return;
+        }
+
+        setPassRemarkError("");
+        setConfirmDialog({ open: false, type: "pass", remark: "" });
+        if (type === "pass") { doSkip(remark); }
         else if (type === "approve") { doApprove(); }
     };
 
@@ -480,7 +542,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     <div className="mt-4">
                         <div className="flex items-center gap-2 mb-2"><User className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Agri Specialists</span></div>
                         <div className="overflow-x-auto"><table className="w-full text-sm border border-border rounded"><thead><tr className="bg-surface"><th className="px-3 py-2 text-left text-xs font-semibold text-foreground border-b border-border">Specialist Name</th><th className="px-3 py-2 text-left text-xs font-semibold text-foreground border-b border-border">Source</th></tr></thead><tbody>
-                            {editedSpecialists.map((spec, idx) => (<tr key={idx} className="border-b border-border last:border-0"><td className="px-3 py-2 text-muted-foreground">{spec.name}</td><td className="px-3 py-2">{spec.sourceLink ? <a href={spec.sourceLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">{spec.sourceName} <ExternalLink className="h-3 w-3" /></a> : <span className="text-muted-foreground">{spec.sourceName}</span>}</td></tr>))}
+                            {editedSpecialists.map((spec, idx) => (<tr key={idx} className="border-b border-border last:border-0"><td className="px-3 py-2 text-muted-foreground">{spec.name}</td><td className="px-3 py-2">{spec.sourceLink ? <a href={spec.sourceLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">{spec.sourceLink} <ExternalLink className="h-3 w-3" /></a> : <span className="text-muted-foreground">No link</span>}</td></tr>))}
                         </tbody></table></div>
                     </div>
                 )}
@@ -507,8 +569,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     </div>
                 )}
             </div>
-
-            {approved === null && question && question.isAutoAllocate === false && question.source == "AJRASAKHA" && question.status !== "closed" && !isQuestionAllocatedToExpert && (
+            {approved === null && question && question.isAutoAllocate === false && question.source == "AJRASAKHA" && question.status !== "closed" && !isQuestionAllocatedToExpert  && (
                 <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                     <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">On approval, this answer will be finalized, the question will be marked as closed, and the result will be pushed to the Golden dataset. Please review carefully before approving.</p>
                     <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
@@ -539,7 +600,10 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
             onCancel={handleCancelEdit}
         />
 
-        <AlertDialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}>
+        <AlertDialog open={confirmDialog.open} onOpenChange={(open) => {
+                if (!open) setPassRemarkError("");
+                setConfirmDialog((prev) => open ? { ...prev, open } : { open: false, type: "pass", remark: "" });
+            }}>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>
@@ -553,12 +617,37 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         {confirmDialog.type === "approve" && "Are you sure you want to approve this answer? The question will  allocate to task_force team."}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
+                {confirmDialog.type === "pass" && (
+                    <div className="px-6 pb-4">
+                            <label htmlFor="pass-remark" className="block text-xs font-semibold text-muted-foreground tracking-wider mb-2">
+                                Remark<span className="text-red-500 ml-0 mb-4">*</span>
+                            </label>
+                        <textarea
+                            id="pass-remark"
+                            value={confirmDialog.remark ?? ""}
+                            onChange={(event) => {
+                                setConfirmDialog((prev) => ({ ...prev, remark: event.target.value }));
+                                if (passRemarkError) setPassRemarkError("");
+                            }}
+                            className={`w-full min-h-[100px] rounded-xl border ${passRemarkError ? "border-destructive" : "border-border"} bg-background px-3 py-3 text-sm text-foreground outline-none resize-none focus:ring-2 focus:ring-primary/30`}
+                            placeholder="Enter remark explaining why this question is being passed..."
+                        />
+                        {passRemarkError && (
+                            <p className="mt-2 text-xs text-destructive">{passRemarkError}</p>
+                        )}
+                    </div>
+                )}
                 <AlertDialogFooter>
                     <AlertDialogCancel>Go back</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleConfirm}>
-                        {confirmDialog.type === "pass" && "Yes, pass"}
-                        {confirmDialog.type === "approve" && "Yes, approve"}
-                    </AlertDialogAction>
+                    {confirmDialog.type === "pass" ? (
+                        <Button type="button" size="sm" onClick={handleConfirm} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
+                            <CheckCircle className="h-4 w-4" /> Yes, pass
+                        </Button>
+                    ) : (
+                        <AlertDialogAction onClick={handleConfirm}>
+                            Yes, approve
+                        </AlertDialogAction>
+                    )}
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
@@ -619,9 +708,22 @@ const EditAnswerModal = ({
     const addPdfSource = () =>
         onPdfSourcesChange([...editedPdfSources, { name: '', link: '', pages: '', sourceType: '' }]);
 
+    const validateSources = (): boolean => {
+        for (const spec of editedSpecialists) {
+            if (!spec.name.trim()) { toast.error("Each agri specialist must have a name."); return false; }
+            if (!spec.sourceLink.trim()) { toast.error("Each agri specialist must have a source URL."); return false; }
+        }
+        for (const src of editedPdfSources) {
+            if (!src.name.trim()) { toast.error("Each reference source must have a name."); return false; }
+            if (!src.sourceType.trim()) { toast.error("Each reference source must have a source type selected."); return false; }
+            if (!src.link.trim()) { toast.error("Each reference source must have a source URL."); return false; }
+        }
+        return true;
+    };
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[880px] w-full flex flex-col overflow-hidden p-0">
+            <DialogContent className="sm:max-w-[880px] w-full flex flex-col overflow-hidden p-0 max-h-[90vh]">
                 {/* Header */}
                 <DialogHeader className="px-6 pt-5 pb-4 border-b border-border shrink-0">
                     <DialogTitle className="flex items-center gap-2">
@@ -629,11 +731,11 @@ const EditAnswerModal = ({
                     </DialogTitle>
                 </DialogHeader>
 
-                {/* Two-column scrollable body */}
+                {/* Scrollable body */}
                 <div className="flex-1 overflow-y-auto min-h-0">
-                    <div className="grid grid-cols-2 gap-0 divide-x divide-border">
-                        {/* Left column: Answer text */}
-                        <div className="p-5 space-y-3">
+                    <div className="p-5 space-y-5">
+                        {/* Answer text */}
+                        <div className="space-y-3">
                             <div className="flex items-center justify-between">
                                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Answer Text</label>
                                 <SarvamTranslateDropdown
@@ -644,60 +746,74 @@ const EditAnswerModal = ({
                             <textarea
                                 value={translatedText || editedAnswerBody}
                                 onChange={(e) => { setTranslatedText(""); onAnswerBodyChange(e.target.value); }}
-                                className="w-full h-[420px] rounded-xl border border-border bg-background px-3 py-3 text-sm text-foreground outline-none resize-none focus:ring-2 focus:ring-primary/30"
+                                className="w-full h-[280px] rounded-xl border border-border bg-background px-3 py-3 text-sm text-foreground outline-none resize-none focus:ring-2 focus:ring-primary/30"
                                 placeholder="Edit the answer..."
                             />
                         </div>
 
-                        {/* Right column: Sources */}
-                        <div className="p-5 space-y-5 overflow-y-auto max-h-[480px]">
-                            {/* Agri Specialists */}
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <User className="h-3.5 w-3.5 text-muted-foreground" />
-                                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Agri Specialists</span>
-                                </div>
-                                <div className="space-y-2">
-                                    {editedSpecialists.map((spec, idx) => (
-                                        <div key={idx} className="flex flex-col gap-1.5 p-2 rounded-lg border border-border bg-surface/30">
-                                            <div className="flex items-center gap-1.5">
-                                                <input type="text" value={spec.name} onChange={(e) => updateSpecialist(idx, 'name', e.target.value)} placeholder="Name" className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
-                                                <button type="button" onClick={() => removeSpecialist(idx)} className="p-1 rounded hover:bg-destructive/10 text-destructive shrink-0"><X className="h-3.5 w-3.5" /></button>
-                                            </div>
-                                            <input type="text" value={spec.sourceName} onChange={(e) => updateSpecialist(idx, 'sourceName', e.target.value)} placeholder="Source Name" className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
-                                            <input type="text" value={spec.sourceLink} onChange={(e) => updateSpecialist(idx, 'sourceLink', e.target.value)} placeholder="Source URL" className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+                        <div className="border-t border-border" />
 
-                            {/* Reference Sources */}
+                        {/* Agri Specialists */}
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Agri Specialists</span>
+                            </div>
                             <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <Hash className="h-3.5 w-3.5 text-muted-foreground" />
-                                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Reference Sources</span>
-                                </div>
-                                <div className="space-y-2">
-                                    {editedPdfSources.map((src, idx) => (
-                                        <div key={idx} className="flex flex-col gap-1.5 p-2 rounded-lg border border-border bg-surface/30">
-                                            <div className="flex items-center gap-1.5">
-                                                <input type="text" value={src.name} onChange={(e) => updatePdfSource(idx, 'name', e.target.value)} placeholder="Source Name" className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
-                                                <button type="button" onClick={() => removePdfSource(idx)} className="p-1 rounded hover:bg-destructive/10 text-destructive shrink-0"><X className="h-3.5 w-3.5" /></button>
-                                            </div>
-                                            <select value={src.sourceType} onChange={(e) => updatePdfSource(idx, 'sourceType', e.target.value)} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30">
-                                                <option value="">Select Source Type</option>
+                                {editedSpecialists.map((spec, idx) => (
+                                    <div key={idx} className="flex flex-col gap-1.5 p-2 rounded-lg border border-border bg-surface/30">
+                                        <div className="flex items-center gap-1.5">
+                                            <input type="text" value={spec.name} onChange={(e) => updateSpecialist(idx, 'name', e.target.value)} placeholder="Name" className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
+                                            <button type="button" onClick={() => removeSpecialist(idx)} className="p-1 rounded hover:bg-destructive/10 text-destructive shrink-0"><X className="h-3.5 w-3.5" /></button>
+                                        </div>
+                                        <Select value={spec.sourceType || 'other'} onValueChange={(val) => updateSpecialist(idx, 'sourceType', val)}>
+                                            <SelectTrigger className="w-full h-7 text-xs">
+                                                <SelectValue placeholder="Select Source Type" />
+                                            </SelectTrigger>
+                                            <SelectContent>
                                                 {SOURCE_TYPE_OPTIONS.map(opt => (
-                                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                                                 ))}
-                                            </select>
-                                            <input type="text" value={src.link} onChange={(e) => updatePdfSource(idx, 'link', e.target.value)} placeholder="Source URL" className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
-                                            <input type="text" value={src.pages} onChange={(e) => updatePdfSource(idx, 'pages', e.target.value)} placeholder="Pages (e.g. 12, 13)" className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
-                                        </div>
-                                    ))}
-                                    <button type="button" onClick={addPdfSource} className="flex items-center gap-1 text-xs text-primary hover:underline"><span className="text-base leading-none">+</span> Add Source</button>
-                                </div>
+                                            </SelectContent>
+                                        </Select>
+                                        <input type="text" value={spec.sourceLink} onChange={(e) => updateSpecialist(idx, 'sourceLink', e.target.value)} placeholder="Source URL" className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
+                                    </div>
+                                ))}
                             </div>
+                        </div>
 
+                        {/* Reference Sources */}
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                                <Hash className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Reference Sources</span>
+                            </div>
+                            <div className="space-y-2">
+                                {editedPdfSources.map((src, idx) => (
+                                    <div key={idx} className="flex flex-col gap-1.5 p-2 rounded-lg border border-border bg-surface/30">
+                                        <div className="flex items-center gap-1.5">
+                                            <input type="text" value={src.name} onChange={(e) => updatePdfSource(idx, 'name', e.target.value)} placeholder="Source Name" className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
+                                            <button type="button" onClick={() => removePdfSource(idx)} className="p-1 rounded hover:bg-destructive/10 text-destructive shrink-0"><X className="h-3.5 w-3.5" /></button>
+                                        </div>
+                                        <Select
+                                            value={src.sourceType || undefined}
+                                            onValueChange={(val) => updatePdfSource(idx, 'sourceType', val)}
+                                        >
+                                            <SelectTrigger className="w-full h-7 text-xs">
+                                                <SelectValue placeholder="Select Source Type" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {SOURCE_TYPE_OPTIONS.map(opt => (
+                                                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <input type="text" value={src.link} onChange={(e) => updatePdfSource(idx, 'link', e.target.value)} placeholder="Source URL" className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
+                                        <input type="text" value={src.pages} onChange={(e) => updatePdfSource(idx, 'pages', e.target.value)} placeholder="Pages (e.g. 12, 13)" className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary/30" />
+                                    </div>
+                                ))}
+                                <button type="button" onClick={addPdfSource} className="flex items-center gap-1 text-xs text-primary hover:underline"><span className="text-base leading-none">+</span> Add Source</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -709,7 +825,7 @@ const EditAnswerModal = ({
                             <Button type="button" variant="outline" size="sm" onClick={() => setPendingAction('cancel')} className="gap-2 rounded-xl">
                                 <X className="h-4 w-4" /> Cancel
                             </Button>
-                            <Button type="button" size="sm" onClick={() => setPendingAction('save')} className="gap-2 rounded-xl">
+                            <Button type="button" size="sm" onClick={() => { if (validateSources()) setPendingAction('save'); }} className="gap-2 rounded-xl">
                                 <Save className="h-4 w-4" /> Save Changes
                             </Button>
                         </>

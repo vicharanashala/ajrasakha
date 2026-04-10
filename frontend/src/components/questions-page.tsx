@@ -37,8 +37,10 @@ export const QuestionsPage = ({
   const [source, setSource] = useState<QuestionSourceFilter>("AJRASAKHA");
   const [priority, setPriority] = useState<QuestionPriorityFilter>("all");
   const [state, setState] = useState("all");
+  const [states, setStates] = useState<string[]>([]);
   const [crop, setCrop] = useState("all");
   const [normalisedCrop, setNormalisedCrop] = useState("all");
+  const [normalisedCrops, setNormalisedCrops] = useState<string[]>([]);
   const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
   const [startTime, setStartTime] = useState<Date | undefined>(undefined);
@@ -49,6 +51,9 @@ export const QuestionsPage = ({
   );
   const [consecutiveApprovals, setConsecutiveApprovals] = useState("all");
   const [autoAllocateFilter, setAutoAllocateFilter] = useState("all");
+  const [hiddenQuestions, setHiddenQuestions] = useState(false);
+  const [isOnHold, setIsOnHold] = useState(false);
+  const [duplicateQuestions, setDuplicateQuestions] = useState(false);
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
   const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
@@ -106,9 +111,11 @@ export const QuestionsPage = ({
     () => ({
       status,
       state,
+      states,
       source,
       crop,
       normalised_crop: normalisedCrop,
+      normalisedCrops,
       answersCount,
       dateRange,
       priority,
@@ -122,13 +129,18 @@ export const QuestionsPage = ({
       consecutiveApprovals,
       autoAllocateFilter,
       closedInTwoHrs,
+      hiddenQuestions,
+      duplicateQuestions,
+      isOnHold,
     }),
     [
       status,
       state,
+      states,
       source,
       crop,
       normalisedCrop,
+      normalisedCrops,
       answersCount,
       dateRange,
       priority,
@@ -142,6 +154,9 @@ export const QuestionsPage = ({
       consecutiveApprovals,
       autoAllocateFilter,
       closedInTwoHrs,
+      hiddenQuestions,
+      duplicateQuestions,
+      isOnHold,
     ],
   );
 
@@ -198,8 +213,10 @@ export const QuestionsPage = ({
     source?: QuestionSourceFilter;
     priority?: QuestionPriorityFilter;
     state?: string;
+    states?: string[];
     crop?: string;
     normalised_crop?: string;
+    normalisedCrops?: string[];
     domain?: string;
     user?: string;
     answersCount?: [number, number];
@@ -212,13 +229,17 @@ export const QuestionsPage = ({
     consecutiveApprovals?: string;
     autoAllocateFilter?: string;
     closedInTwoHrs?: boolean;
+    hiddenQuestions?: boolean;
+    duplicateQuestions?: boolean;
+    isOnHold?: boolean;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
     if (next.state !== undefined) setState(next.state);
+    if (next.states !== undefined) setStates(next.states);
     if (next.crop !== undefined) setCrop(next.crop);
-    if (next.normalised_crop !== undefined)
-      setNormalisedCrop(next.normalised_crop);
+    if (next.normalised_crop !== undefined) setNormalisedCrop(next.normalised_crop);
+    if (next.normalisedCrops !== undefined) setNormalisedCrops(next.normalisedCrops);
     if (next.answersCount !== undefined) setAnswersCount(next.answersCount);
     if (next.dateRange !== undefined) setDateRange(next.dateRange);
     if (next.priority !== undefined) setPriority(next.priority);
@@ -234,7 +255,13 @@ export const QuestionsPage = ({
     if (next.autoAllocateFilter !== undefined)
       setAutoAllocateFilter(next.autoAllocateFilter);
     if (next.closedInTwoHrs !== undefined)
-      setClosedInTwoHrs(next.closedInTwoHrs);
+      setClosedInTwoHrs(next.closedInTwoHrs);    
+    if (next.hiddenQuestions !== undefined)
+        setHiddenQuestions(next.hiddenQuestions);
+      if (next.duplicateQuestions !== undefined)
+        setDuplicateQuestions(next.duplicateQuestions);
+      if (next.isOnHold !== undefined)
+        setIsOnHold(next.isOnHold);    
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);
@@ -252,8 +279,10 @@ export const QuestionsPage = ({
     setStatus("all");
     setSource("all");
     setState("all");
+    setStates([]);
     setCrop("all");
     setNormalisedCrop("all");
+    setNormalisedCrops([]);
     setAnswersCount([0, 100]);
     setDateRange("all");
     setPriority("all");
@@ -267,6 +296,8 @@ export const QuestionsPage = ({
     setConsecutiveApprovals("all");
     setAutoAllocateFilter("all");
     setClosedInTwoHrs(false);
+    setHiddenQuestions(false);
+    setDuplicateQuestions(false);
   };
 
   const handleViewMore = (questoinId: string) => {

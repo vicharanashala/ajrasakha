@@ -576,18 +576,6 @@ export const AddOrEditQuestionDialog = ({
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                       <label>Crop*</label>
-                      {mode !== "edit" && (
-                        <TooltipProvider delayDuration={200}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="h-4 w-4 cursor-pointer hover:text-foreground transition-colors" aria-hidden="true" />
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-xs text-xs">
-                              <p>The names here are normalized and unique. You can view a crop's alternative names by hovering over the "+" icon next to it.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
                     </div>
                     <CropSelect
                       value={updatedData?.details?.crop}

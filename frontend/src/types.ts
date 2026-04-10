@@ -430,6 +430,7 @@ export interface IQuestionFullData {
   updatedAt: string;
   submission: ISubmission;
   isAlreadySubmitted: boolean;
+  isOnHold?: boolean;
 }
 
 export interface QuestionFullDataResponse {
@@ -493,6 +494,7 @@ export interface IDetailedQuestion {
   review_level_number?: number;
   closedAt?: string;
   isHidden?: boolean;
+  paassingRemark?: string;
 }
 
 export interface IDetailedQuestionResponse {

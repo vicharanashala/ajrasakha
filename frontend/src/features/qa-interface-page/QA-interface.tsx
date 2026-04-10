@@ -68,6 +68,7 @@ export const QAInterface = ({
 
   //translation state
   const [translatedText, setTranslatedText] = useState<string>("");
+  const [translatedDraftText, setTranslatedDraftText] = useState<string>("");
 
   // toggle sidebar
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -98,7 +99,9 @@ export const QAInterface = ({
   const [source, setSource] = useState<QuestionSourceFilter>("all");
   const [priority, setPriority] = useState<QuestionPriorityFilter>("all");
   const [state, setState] = useState("all");
+  const [states, setStates] = useState<string[]>([]);
   const [crop, setCrop] = useState("all");
+  const [crops, setCrops] = useState<string[]>([]);
   const [domain, setDomain] = useState("all");
   const [user, setUser] = useState("all");
   const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
@@ -123,7 +126,9 @@ export const QAInterface = ({
   const handleDialogChange = (key: string, value: any) => {
     if (key === "source") setSource(value);
     else if (key === "state") setState(value);
+    else if (key === "states") setStates(value);
     else if (key === "crop") setCrop(value);
+    else if (key === "crops") setCrops(value);
     else if (key === "review_level") setReviewLevel(value);
   };
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -131,8 +136,10 @@ export const QAInterface = ({
     () => ({
       status,
       state,
+      states,
       source,
       crop,
+      crops,
       normalised_crop: crop,
       review_level: reviewLevel,
       answersCount,
@@ -144,8 +151,10 @@ export const QAInterface = ({
     [
       status,
       state,
+      states,
       source,
       crop,
+      crops,
       reviewLevel,
       answersCount,
       dateRange,
@@ -468,6 +477,7 @@ export const QAInterface = ({
 
   const handleReset = () => {
     setNewAnswer("");
+    setTranslatedDraftText("");
     setSources([]);
     setRemarks("");
   };
@@ -608,8 +618,8 @@ const handleActionChange = (value: string) => {
   onActionTypeChange={handleActionChange}
   reviewLevel={reviewLevel}
   source={source}
-  state={state}
-  crop={crop}
+  states={states}
+  crops={crops}
   onFilterChange={handleDialogChange}
   scrollRef={scrollRef}
   questionItemRefs={questionItemRefs}
@@ -683,6 +693,11 @@ const handleActionChange = (value: string) => {
                             )}
                           </Label>
 
+                          <div className="flex items-center gap-2">
+                            <SarvamTranslateDropdown
+                              query={newAnswer}
+                              onTranslate={(result) => setTranslatedDraftText(result)}
+                            />
                           {selectedQuestionData.aiInitialAnswer &&
                             !newAnswer && (
                               <button
@@ -690,6 +705,7 @@ const handleActionChange = (value: string) => {
                                   setNewAnswer(
                                     selectedQuestionData.aiInitialAnswer || ""
                                   );
+                                  setTranslatedDraftText("");
                                   setRemarks("AI Suggested Answer");
                                 }}
                                 // The classes below are the ones you provided, slightly adjusted for square shape
@@ -711,12 +727,13 @@ const handleActionChange = (value: string) => {
                                 <Bot className="h-5 w-5" />
                               </button>
                             )}
+                          </div>
                         </div>
                         <Textarea
                           id="new-answer"
                           placeholder="Enter your answer here..."
-                          value={newAnswer}
-                          onChange={(e) => setNewAnswer(e.target.value)}
+                          value={translatedDraftText || newAnswer}
+                          onChange={(e) => { setTranslatedDraftText(""); setNewAnswer(e.target.value); }}
                           className={`mt-1 md:max-h-[240px] max-h-[170px] min-h-[210px] resize-y border text-sm md:text-md rounded-md overflow-y-auto p-3 pb-0 bg-transparent ${
                             newAnswer.trim() ===
                               selectedQuestionData?.aiInitialAnswer &&
