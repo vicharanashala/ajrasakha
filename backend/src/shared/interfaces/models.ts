@@ -28,6 +28,7 @@ export interface IUser {
   updatedAt?: Date;
   status?: UserStatus;
   special_task_force?:boolean
+  special_task_force_moderator?: boolean
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high';
@@ -70,6 +71,7 @@ export interface IQuestion {
   isHidden?:false;
   passingRemark?:string;
   isOnHold?:boolean;
+  messageId?:string;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
@@ -221,6 +223,8 @@ export type INotificationType =
   | 're-routed-rejected-expert'
   |'re-routed-rejected-moderator'
   |'re-routed-answer-created'
+  | 'question_from_whatsapp'
+  | 'question_from_ajrasakha'
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;
