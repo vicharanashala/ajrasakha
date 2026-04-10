@@ -14,7 +14,7 @@ import {
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 import {ObjectId} from 'mongodb';
-import {IQuestionPriority, QuestionStatus} from '#shared/interfaces/models.js';
+import {IQuestionPriority, QuestionSource, QuestionStatus} from '#shared/interfaces/models.js';
 import {Type, Transform} from 'class-transformer';
 
 class QuestionIdParam {
@@ -183,8 +183,8 @@ class QuestionResponse {
   @IsEnum(['open', 'answered', 'closed'])
   status?: QuestionStatus;
 
-  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT'])
-  source!: 'AJRASAKHA' | 'AGRI_EXPERT';
+  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', 'WHATSAPP'])
+  source!: QuestionSource;
 
   @IsOptional()
   @IsArray()

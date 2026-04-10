@@ -21,6 +21,7 @@ import {
 import { Separator } from "@/components/atoms/separator";
 import { Badge } from "@/components/atoms/badge";
 import { Slider } from "@/components/atoms/slider";
+import { Checkbox } from "@/components/atoms/checkbox";
 import {
   Filter,
   FileText,
@@ -82,7 +83,8 @@ export type QuestionDateRangeFilter =
   | "quarter"
   | "year";
 
-export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT";
+export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP";
+// New Type
 export type QuestionPriorityFilter = "all" | "high" | "low" | "medium";
 export type QuestionTimeRange = {
   startDate: Date | undefined;
@@ -1092,18 +1094,25 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
               <div className="space-y-3 rounded-lg border border-border bg-background p-4">
                 <label className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={advanceFilter.hiddenQuestions ?? false}
-                    onChange={(event) =>
-                      handleDialogChange(
-                        "hiddenQuestions",
-                        event.target.checked,
-                      )
+                    onCheckedChange={(checked) =>
+                      handleDialogChange("hiddenQuestions", checked === true)
                     }
-                    className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                    className="h-3.5 w-3.5 border-primary"
                   />
                   <span className="text-sm">Show passed questions</span>
+                </label>
+                {/* show holded questions */}
+                <label className="flex items-center gap-3">
+                  <Checkbox
+                    checked={advanceFilter.isOnHold ?? false}
+                    onCheckedChange={(checked) =>
+                      handleDialogChange("isOnHold", checked === true)
+                    }
+                    className="h-3.5 w-3.5 border-primary"
+                  />
+                  <span className="text-sm">Show questions on Hold</span>
                 </label>
 
                 {/* <label className="flex items-center gap-3">
@@ -1155,9 +1164,11 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
                       const label =
                         key === "hiddenQuestions"
-                          ? "Show hidden questions"
+                          ? "Show passed questions"
                           : key === "duplicateQuestions"
                             ? "Show duplicate questions"
+                            : key === "isOnHold"
+                            ? "Show holded questions"
                             : key === "states"
                               ? "state"
                               : key === "normalisedCrops"

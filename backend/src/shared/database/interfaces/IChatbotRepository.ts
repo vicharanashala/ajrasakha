@@ -103,6 +103,6 @@ export interface IChatbotRepository {
     days?: number,
     session?: ClientSession,
   ): Promise<DailyActiveUsersEntry[]>;
-  findMatchingMessages(data: {question: string; details: any; createdAt: Date});
-  findFromSecondDb(data: {question: string; details: any; createdAt: Date});
+  findMatchingMessages(data: {question: string; details: any; createdAt: Date,questionId:string});
+  findFromSecondDb(data: {question: string; details: any; createdAt: Date,questionId:string});
 }

@@ -3410,5 +3410,48 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     }).toArray();
     return result;
   }
+
+  async updateSubmissionState(
+  questionId: string,
+  update: {
+    queue?: ObjectId[];
+    popHistory?: boolean;
+  },
+  session?: ClientSession
+): Promise<void> {
+  try {
+    await this.init();
+
+    const updateDoc: any = {
+      $set: {
+        updatedAt: new Date(),
+      },
+    };
+
+    if (update.queue) {
+      updateDoc.$set.queue = update.queue;
+    }
+
+    if (update.popHistory) {
+      updateDoc.$pop = { history: 1 }; 
+    }
+
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      { questionId: new ObjectId(questionId) },
+      updateDoc,
+      { session }
+    );
+
+    if (result.matchedCount === 0) {
+      throw new InternalServerError(
+        `No submission found for questionId: ${questionId}`
+      );
+    }
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to update submission state: ${error}`
+    );
+  }
+}
   
 }

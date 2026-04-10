@@ -133,9 +133,7 @@ export const QuestionsFilters = ({
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
     null,
   );
-  const [answerMode, setAnswerMode] = useState<"ajraskha" | "manual">(
-    "ajraskha",
-  );
+  const [answerMode, setAnswerMode] = useState<"ajraskha" | "manual" | "whatsapp">("ajraskha");
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion((count, isBulkUpload) => {
@@ -319,7 +317,7 @@ export const QuestionsFilters = ({
       autoAllocateFilter: advanceFilter?.autoAllocateFilter,
       hiddenQuestions: advanceFilter?.hiddenQuestions,
       duplicateQuestions: advanceFilter?.duplicateQuestions,
-
+        isOnHold: advanceFilter?.isOnHold,
     });
   };
 
@@ -472,6 +470,19 @@ export const QuestionsFilters = ({
           >
             Manual
           </button>
+          {/* <button
+            onClick={() => {
+              setAnswerMode("whatsapp")
+              onChange({ ...advanceFilter, source: "WHATSAPP" });
+            }}
+            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "whatsapp"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+              }`}
+          >
+            Whatsapp
+          </button> */}
+         
         </div>
       </div>
 
