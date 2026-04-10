@@ -607,4 +607,17 @@ export class QuestionService {
     return await response.blob();
   }
 
+ async holdQuestion(
+  questionId: string,
+  action: "hold" | "unhold"
+): Promise<{ id: string } | null> {
+  return apiFetch<{ id: string }>(
+    `${this._baseUrl}/${questionId}/hold`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ action }),
+    }
+  );
+}
+
 }
