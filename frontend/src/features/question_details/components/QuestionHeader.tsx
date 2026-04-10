@@ -22,7 +22,7 @@ export const QuestionHeader = ({ question, goBack, currentUser }: QuestionHeader
   const { timer } = useQuestionTimer(question.source, question.createdAt!);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
-    type: "hold";
+    type: "hold" | "unhold";
   }>({
     open: false,
     type: "hold",
@@ -30,12 +30,15 @@ export const QuestionHeader = ({ question, goBack, currentUser }: QuestionHeader
   const { mutateAsync: holdQuestion, isPending: isHolding } = useHoldQuestion();
   const handleHold = () => {
     if (!question?._id) return;
-    setConfirmDialog({ open: true, type: "hold" });
+    setConfirmDialog({ open: true, type: question.isOnHold ? "unhold" : "hold", });
   };
   const doHold = async () => {
     try {
-      await holdQuestion(question._id!);
-      toast.success("Question moved to hold");
+      await holdQuestion({
+      questionId: question._id!,
+      action: question.isOnHold ? "unhold" : "hold",
+    });
+      toast.success(`Question ${question.isOnHold ? "released from hold" : "put on hold"} successfully`);
       goBack();
     } catch (error) {
       console.error(error);
@@ -140,17 +143,19 @@ export const QuestionHeader = ({ question, goBack, currentUser }: QuestionHeader
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Hold this question?
+              {question.isOnHold ? "Release this question?" : "Hold this question?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to put this question on hold?
+             {question.isOnHold
+    ? "Are you sure you want to release this question from hold?"
+    : "Are you sure you want to put this question on hold?"}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           <AlertDialogFooter>
             <AlertDialogCancel>Go back</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirm}>
-              Yes, hold
+              {question.isOnHold ? "Yes, Release" : "Yes, Hold"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

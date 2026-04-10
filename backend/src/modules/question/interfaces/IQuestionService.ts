@@ -162,6 +162,6 @@ export interface IQuestionService {
 
   checkStatus(questionIds)
 
-  holdQuestion(questionId:string,userId:string):Promise<{id:string}>
+  holdQuestion(questionId:string,userId:string,action:"hold" | "unhold"):Promise<{id:string}>
   checkSubmissionExists(questionId: string): Promise<boolean>;
 }

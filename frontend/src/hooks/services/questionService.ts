@@ -608,12 +608,14 @@ export class QuestionService {
   }
 
  async holdQuestion(
-  questionId: string
+  questionId: string,
+  action: "hold" | "unhold"
 ): Promise<{ id: string } | null> {
   return apiFetch<{ id: string }>(
-    `${this._baseUrl}/hold/${questionId}`,
+    `${this._baseUrl}/${questionId}/hold`,
     {
       method: "PATCH",
+      body: JSON.stringify({ action }),
     }
   );
 }

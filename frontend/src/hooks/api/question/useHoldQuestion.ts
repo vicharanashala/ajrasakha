@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { QuestionService } from "../../services/questionService";
-import type { IDetailedQuestion } from "@/types";
 
 const questionService = new QuestionService();
 
@@ -9,8 +8,8 @@ export const useHoldQuestion = () => {
 
   return useMutation({
     mutationKey: ["holdQuestion"],
-    mutationFn: async (questionId: string) => {
-      return await questionService.holdQuestion(questionId);
+    mutationFn: async ({ questionId, action }: { questionId: string; action: "hold" | "unhold" }) => {
+      return await questionService.holdQuestion(questionId, action);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
