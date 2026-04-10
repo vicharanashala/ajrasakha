@@ -70,6 +70,7 @@ export interface IQuestion {
   isHidden?:false;
   passingRemark?:string;
   isOnHold?:boolean;
+  messageId?:string;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
