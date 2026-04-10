@@ -35,7 +35,7 @@ def upload_question_to_reviewer_system(
         "state_name": state_name,
         "crop": crop,
         "details": details,
-        "source": "whatsapp" 
+        "source": "WHATSAPP" 
     }
     
     headers = {
