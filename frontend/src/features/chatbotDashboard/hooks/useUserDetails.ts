@@ -34,6 +34,7 @@ export function useUserDetails(
 
   const { data, isLoading, error } = useQuery<PaginatedUserDetailsResponse, Error>({
     queryKey: ['user-details', startISO, endISO, page, limit, search, source],
+    staleTime: 30 * 1000,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
       const params = new URLSearchParams();

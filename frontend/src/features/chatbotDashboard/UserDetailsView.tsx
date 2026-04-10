@@ -37,11 +37,6 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Reset page when date filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [startTime, endTime]);
-
   const { data, isLoading, error } = useUserDetails(
     startTime,
     endTime,
@@ -54,8 +49,8 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
   const { users, totalUsers, totalPages, activeUsers, totalQuestions } = data;
 
   const handleDateChange = (key: string, value: any) => {
-    if (key === "startTime") setStartTime(value);
-    if (key === "endTime") setEndTime(value);
+    if (key === "startTime") { setStartTime(value); setCurrentPage(1); }
+    if (key === "endTime") { setEndTime(value); setCurrentPage(1); }
   };
 
   const dateLabel = startTime && endTime
