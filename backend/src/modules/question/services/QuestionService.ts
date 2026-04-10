@@ -56,6 +56,7 @@ import { checkConceptDuplicate } from '#root/modules/question/aiservice/checkCon
 import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
 import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
 import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
+import { toObjectIdArray } from '#root/utils/normalizeToObjectIdArray.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -3421,10 +3422,9 @@ async holdQuestion(questionId:string,userId:string):Promise<{id:string}>{
     if(!submission){
       throw new NotFoundError('Question submission not found');
     }
-    console.log("submissio",submission)
-    const last_queue_item = submission.queue[submission.queue.length - 1].toString()
-    console.log('last queue item',last_queue_item)
-    return {id:userId}
+    await this._handleSubmissionOnHold(submission, session);
+    await this.questionRepo.updateQuestion(questionId,{isOnHold:true,isAutoAllocate:false},session)
+    return {id:questionId}
   })
 }
   async checkSubmissionExists(questionId: string): Promise<boolean> {
@@ -3432,6 +3432,53 @@ async holdQuestion(questionId:string,userId:string):Promise<{id:string}>{
     return !!submission;
   }
 
+private async _handleSubmissionOnHold(
+  submission: IQuestionSubmission,
+  session: ClientSession
+): Promise<void> {
+  const questionId = submission.questionId.toString();
+  if (!submission.history || submission.history.length === 0) {
+    if (submission.queue?.length) {
+      const firstUserId = submission.queue[0].toString();
+      await this.userRepo.updateReputationScore(firstUserId, false,session);
+    }
 
+    await this.questionSubmissionRepo.updateSubmissionState(
+      questionId,
+      { queue: [] },
+      session
+    );
+
+    return;
+  }
+
+  const lastHistory = submission.history[submission.history.length - 1];
+
+  if (lastHistory.status !== 'in-review') return;
+
+  const updatedById = lastHistory.updatedBy?.toString();
+
+  let newQueue = submission.queue;
+
+  const index = submission.queue.findIndex(
+    (q) => q.toString() === updatedById
+  );
+
+  if (index !== -1) {
+    newQueue = submission.queue.slice(0, index);
+  }
+
+  if (updatedById) {
+    await this.userRepo.updateReputationScore(updatedById, false, session);
+  }
+  await this.questionSubmissionRepo.updateSubmissionState(
+    questionId,
+    {
+      queue: toObjectIdArray(newQueue || []),
+      popHistory: true,
+    },
+    session
+  );
+}
 
 }
