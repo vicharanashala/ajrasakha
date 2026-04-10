@@ -33,6 +33,8 @@ export class QuestionService {
   ): Promise<IDetailedQuestionResponse | null> {
     const params = new URLSearchParams();
 
+    // console.log("Use get all detaied Questions")
+
     if (search) params.append("search", search);
     if (sort) params.append("sort", sort);
     params.append("page", pageParam.toString());

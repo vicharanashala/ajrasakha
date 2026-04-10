@@ -310,6 +310,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     query: GetDetailedQuestionsQuery,
     body: DetailedQuestionsBodyDto,
   ): Promise<{ questions: IQuestion[]; totalPages: number }> {
+
     let searchEmbedding: number[] | null = null;
 
     if (query?.search) {
