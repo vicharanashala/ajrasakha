@@ -7,6 +7,8 @@ import {
 } from '#root/shared/interfaces/models.js';
 import {
   AddQuestionBodyDto,
+  AllocatedQuestionsBodyDto,
+  DetailedQuestionsBodyDto,
   GeneratedQuestionResponse,
   GetDetailedQuestionsQuery,
   QuestionResponse,
@@ -33,10 +35,11 @@ export interface IQuestionService {
   getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
+    body: AllocatedQuestionsBodyDto,
   ): Promise<QuestionResponse[]>;
 
   /** Paginated + searchable question list */
-  getDetailedQuestions(query: GetDetailedQuestionsQuery): Promise<{
+  getDetailedQuestions(query: GetDetailedQuestionsQuery, body: DetailedQuestionsBodyDto): Promise<{
     questions: IQuestion[];
     totalPages: number;
   }>;
@@ -148,6 +151,8 @@ export interface IQuestionService {
     season?: string;
     domain?: string;
     status?: string;
+    hiddenQuestions?: string;
+    duplicateQuestions?: string;
   }): Promise<ArrayBuffer | null>;
   generateDuplicateQuestionReport(
     startDate?: Date,
@@ -158,4 +163,5 @@ export interface IQuestionService {
   checkStatus(questionIds)
 
   holdQuestion(questionId:string,userId:string):Promise<{id:string}>
+  checkSubmissionExists(questionId: string): Promise<boolean>;
 }

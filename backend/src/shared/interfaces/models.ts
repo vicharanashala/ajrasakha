@@ -65,7 +65,8 @@ export interface IQuestion {
   closedAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
-  isHidden?:false
+  isHidden?:false;
+  passingRemark?:string;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';

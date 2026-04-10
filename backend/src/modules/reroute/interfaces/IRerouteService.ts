@@ -2,7 +2,7 @@ import {
   IRerouteHistory,
   RerouteStatus,
 } from '#root/shared/interfaces/models.js';
-import { GetDetailedQuestionsQuery } from '../classes/validators/QuestionValidators.js';
+import { AllocatedQuestionsBodyDto, GetDetailedQuestionsQuery } from '../classes/validators/QuestionValidators.js';
 
 export interface IReRouteService {
   /**
@@ -22,7 +22,8 @@ export interface IReRouteService {
    */
   getAllocatedQuestions(
     userId: string,
-    query: GetDetailedQuestionsQuery
+    query: GetDetailedQuestionsQuery,
+    body: AllocatedQuestionsBodyDto,
   ): Promise<any>;
 
   /**

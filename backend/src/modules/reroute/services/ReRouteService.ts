@@ -24,7 +24,7 @@ import {
 import {IReRouteRepository} from '#root/shared/database/interfaces/IReRouteRepository.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {NotificationService} from '#root/modules/core/index.js';
-import { GetDetailedQuestionsQuery } from '../classes/validators/QuestionValidators.js';
+import { AllocatedQuestionsBodyDto, GetDetailedQuestionsQuery } from '../classes/validators/QuestionValidators.js';
 import { IReRouteService } from '../interfaces/IRerouteService.js';
 
 @injectable()
@@ -254,14 +254,14 @@ if (existingReRoute?.reroutes.at(-1)?.status === "pending") {
   }
   
 
-  async getAllocatedQuestions(userId:string,query:GetDetailedQuestionsQuery){
-    return await this._withTransaction(async (session:ClientSession) => {
+  async getAllocatedQuestions(userId: string, query: GetDetailedQuestionsQuery, body: AllocatedQuestionsBodyDto) {
+    return await this._withTransaction(async (session: ClientSession) => {
       const expert = await this.userRepo.findById(userId.toString());
-        if (!expert) {
-          throw new NotFoundError('Expert not found');
-        }
-        return await this.reRouteRepository.getAllocatedQuestions(userId.toString(),query,session)
-    })
+      if (!expert) {
+        throw new NotFoundError('Expert not found');
+      }
+      return await this.reRouteRepository.getAllocatedQuestions(userId.toString(), query, session, body);
+    });
   }
   async getQuestionById(questionId: string,userId:string){
     try {

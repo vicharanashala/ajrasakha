@@ -34,6 +34,8 @@ import { appConfig } from '#root/config/app.js';
 import { AiService } from '#root/modules/core/services/AiService.js';
 import {
   AddQuestionBodyDto,
+  AllocatedQuestionsBodyDto,
+  DetailedQuestionsBodyDto,
   GeneratedQuestionResponse,
   GetDetailedQuestionsQuery,
   QuestionResponse,
@@ -290,10 +292,11 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
+    body: AllocatedQuestionsBodyDto,
   ): Promise<QuestionResponse[]> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
-        return this.questionRepo.getAllocatedQuestions(userId, query, session);
+        return this.questionRepo.getAllocatedQuestions(userId, query, session, body);
       });
     } catch (error) {
       throw new InternalServerError(
@@ -304,6 +307,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   async getDetailedQuestions(
     query: GetDetailedQuestionsQuery,
+    body: DetailedQuestionsBodyDto,
   ): Promise<{ questions: IQuestion[]; totalPages: number }> {
     let searchEmbedding: number[] | null = null;
 
@@ -324,7 +328,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     return this.questionRepo.findDetailedQuestions({
       ...query,
       searchEmbedding,
-    });
+    }, body);
   }
 
   async getQuestionFromRawContext(
@@ -3158,6 +3162,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     season?: string;
     domain?: string;
     status?: string;
+    hiddenQuestions?: string;
+    duplicateQuestions?: string;
   }): Promise<ArrayBuffer | null> {
     return this._withTransaction(async (session) => {
       // Build filter query
@@ -3188,9 +3194,16 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (filters.status && filters.status !== 'all') {
         query.status = filters.status;
       }
+      if (filters.hiddenQuestions === 'true') {
+        query.isHidden = { $eq: true };
+      }
 
       // Get questions from repository
-      const questions = await this.questionRepo.getQuestionsByFilters(query, session);
+      const questions = await this.questionRepo.getQuestionsByFilters(
+        query,
+        session,
+        filters.duplicateQuestions === 'true',
+      );
 
       if (!questions || questions.length === 0) {
         console.log("No questions found for given filters");
@@ -3388,10 +3401,10 @@ async checkStatus(
   const result=await this.questionRepo.getQuestionsWithAnswerDetails(questionIds)
 
   // 1. Fetch data
-  
+
 return result
-        
- 
+
+
 }
 
 async holdQuestion(questionId:string,userId:string):Promise<{id:string}>{
@@ -3414,6 +3427,10 @@ async holdQuestion(questionId:string,userId:string):Promise<{id:string}>{
     return {id:userId}
   })
 }
+  async checkSubmissionExists(questionId: string): Promise<boolean> {
+    const submission = await this.questionSubmissionRepo.getByQuestionId(questionId);
+    return !!submission;
+  }
 
 
 
