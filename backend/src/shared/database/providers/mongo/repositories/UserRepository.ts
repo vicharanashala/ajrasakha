@@ -557,6 +557,21 @@ async findAllUsers(
   
     return allUsersRaw;
   }
+  async getSpecialTaskForceModerators(session: ClientSession): Promise<IUser[]> {
+    await this.init();
+    const allUsersRaw = await this.usersCollection
+      .find(
+        {
+          role: 'expert',
+          isBlocked: false,
+          special_task_force_moderator: true,
+        },
+        { session },
+      )
+      .toArray();
+  
+    return allUsersRaw;
+  }
   async findExpertsByReputationScore(
     details: PreferenceDto,
     session?: ClientSession,

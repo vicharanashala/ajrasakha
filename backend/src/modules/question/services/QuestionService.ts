@@ -1169,7 +1169,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         } else {
           const [allModerators, taskForceExperts] = await Promise.all([
             this.userRepo.findModerators(),
-            this.userRepo.getSpecialTaskForceExperts()
+            this.userRepo.getSpecialTaskForceModerators()
           ]);
           const allUsers = [...allModerators,...taskForceExperts]
 
