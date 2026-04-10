@@ -69,6 +69,7 @@ export interface IQuestion {
   updatedAt?: Date;
   isHidden?:false;
   passingRemark?:string;
+  isOnHold?:boolean;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';

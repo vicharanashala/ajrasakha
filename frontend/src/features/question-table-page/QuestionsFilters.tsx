@@ -299,8 +299,10 @@ export const QuestionsFilters = ({
       status: advanceFilter.status,
       source: advanceFilter.source,
       state: myPreference?.state || advanceFilter.state,
+      states: advanceFilter.states || [],
       crop: myPreference?.crop || advanceFilter.crop,
       normalised_crop: advanceFilter.normalised_crop,
+      normalisedCrops: advanceFilter.normalisedCrops || [],
       answersCount: advanceFilter.answersCount,
       dateRange: advanceFilter.dateRange,
       priority: advanceFilter.priority,
@@ -327,25 +329,23 @@ export const QuestionsFilters = ({
   ).length;*/
   const activeFiltersCount =
     Object.entries(advanceFilter).filter(([key, value]) => {
-      // ❌ exclude date range internal fields
       if (
         key === "startTime" ||
         key === "endTime" ||
         key === "closedAtStart" ||
-        key === "closedAtEnd"
+        key === "closedAtEnd" ||
+        key === "state" || // replaced by states
+        key === "normalised_crop" // replaced by normalisedCrops
       ) {
         return false;
       }
 
-      // ignore defaults
-      if (value === undefined || value === "all" || value === null)
-        return false;
-      if (typeof value === "boolean" && value === false) return false;
+      // array filters: count as active only if non-empty
+      if (key === "states" || key === "normalisedCrops") return Array.isArray(value) && value.length > 0;
 
-      //  ignore default slider range
-      if (Array.isArray(value) && value[0] === 0 && value[1] === 100) {
-        return false;
-      }
+      if (value === undefined || value === "all" || value === null) return false;
+      if (typeof value === "boolean" && value === false) return false;
+      if (Array.isArray(value) && value[0] === 0 && value[1] === 100) return false;
 
       return true;
     }).length +
