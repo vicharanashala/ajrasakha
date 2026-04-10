@@ -56,10 +56,12 @@ export default function ProfilePage() {
   const { data: user, isLoading } = useGetCurrentUser({});
   const { mutateAsync: updateUser, isPending: isUpdating } = useEditUser();
 
-  const handleSubmit = async (data: IUser) => {
+  const handleSubmit = async (data: IUser, showToast: boolean = true) => {
     try {
       await updateUser(data);
-      toast.success("Profile updated!");
+      if (showToast) {
+        toast.success("Profile updated!");
+      }
     } catch (error) {
       console.error(error);
     }
@@ -132,7 +134,7 @@ export default function ProfilePage() {
 
 type ProfileFormProps = {
   user: IUser;
-  onSubmit?: (data: IUser) => Promise<void> | void;
+  onSubmit?: (data: IUser, showToast?: boolean) => Promise<void> | void;
   isUpdating: boolean;
 };
 
@@ -172,6 +174,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
       userFromStore?.avatar || "",
     );
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -189,17 +192,19 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
       const base64 = reader.result as string;
       setAvatarPreview(base64);
       handleChange("avatar", base64);
+      setIsUploadingAvatar(true);
       try {
-        await onSubmit?.({ ...formData, avatar: base64 });
+        await onSubmit?.({ ...formData, avatar: base64 }, false);
         useAuthStore.getState().updateUser({ avatar: base64 });
         toast.success("Profile picture updated!");
       } catch (error) {
         toast.error("Failed to update profile picture");
+      } finally {
+        setIsUploadingAvatar(false);
       }
     };
     reader.readAsDataURL(file);
   };
-  
 
   const handleChange = useCallback((key: keyof IUser | string, value: any) => {
     if (key.startsWith("preference.")) {
@@ -427,8 +432,8 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 w-full md:w-auto">
           {/* Avatar */}
           <div
-            className="relative group cursor-pointer"
-            onClick={() => fileInputRef.current?.click()}
+              className={`relative group ${isUploadingAvatar ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+              onClick={() => !isUploadingAvatar && fileInputRef.current?.click()}
           >
             <Avatar className={`h-24 w-24 flex-shrink-0 ${avatarBg}`}>
               <AvatarImage src={avatarPreview || ""} alt={fullName} />
