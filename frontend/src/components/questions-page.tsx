@@ -53,6 +53,7 @@ export const QuestionsPage = ({
   const [consecutiveApprovals, setConsecutiveApprovals] = useState("all");
   const [autoAllocateFilter, setAutoAllocateFilter] = useState("all");
   const [hiddenQuestions, setHiddenQuestions] = useState(false);
+  const [isOnHold, setIsOnHold] = useState(false);
   const [duplicateQuestions, setDuplicateQuestions] = useState(false);
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
 
@@ -129,6 +130,7 @@ export const QuestionsPage = ({
       autoAllocateFilter,
       hiddenQuestions,
       duplicateQuestions,
+      isOnHold,
     }),
     [
       status,
@@ -152,6 +154,7 @@ export const QuestionsPage = ({
       autoAllocateFilter,
       hiddenQuestions,
       duplicateQuestions,
+      isOnHold,
     ],
   );
 
@@ -225,6 +228,7 @@ export const QuestionsPage = ({
     autoAllocateFilter?: string;
     hiddenQuestions?: boolean;
     duplicateQuestions?: boolean;
+    isOnHold?: boolean;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -246,10 +250,14 @@ export const QuestionsPage = ({
     if (next.consecutiveApprovals !== undefined)
       setConsecutiveApprovals(next.consecutiveApprovals);
     if (next.autoAllocateFilter !== undefined)
-      setAutoAllocateFilter(next.autoAllocateFilter);      if (next.hiddenQuestions !== undefined)
+      setAutoAllocateFilter(next.autoAllocateFilter);      
+    if (next.hiddenQuestions !== undefined)
         setHiddenQuestions(next.hiddenQuestions);
       if (next.duplicateQuestions !== undefined)
-        setDuplicateQuestions(next.duplicateQuestions);    // Reset pagination to page 1 when filters are applied
+        setDuplicateQuestions(next.duplicateQuestions);
+      if (next.isOnHold !== undefined)
+        setIsOnHold(next.isOnHold);    
+    // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);
   };

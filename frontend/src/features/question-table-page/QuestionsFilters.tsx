@@ -319,7 +319,7 @@ export const QuestionsFilters = ({
       autoAllocateFilter: advanceFilter?.autoAllocateFilter,
       hiddenQuestions: advanceFilter?.hiddenQuestions,
       duplicateQuestions: advanceFilter?.duplicateQuestions,
-
+        isOnHold: advanceFilter?.isOnHold,
     });
   };
 

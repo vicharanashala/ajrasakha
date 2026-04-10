@@ -124,6 +124,7 @@ export type AdvanceFilterValues = {
   autoAllocateFilter?: string;
   hiddenQuestions?: boolean;
   duplicateQuestions?: boolean;
+  isOnHold?: boolean;
 };
 
 // Define the props for your new component
@@ -1101,6 +1102,17 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   />
                   <span className="text-sm">Show passed questions</span>
                 </label>
+                {/* show holded questions */}
+                <label className="flex items-center gap-3">
+                  <Checkbox
+                    checked={advanceFilter.isOnHold ?? false}
+                    onCheckedChange={(checked) =>
+                      handleDialogChange("isOnHold", checked === true)
+                    }
+                    className="h-3.5 w-3.5 border-primary"
+                  />
+                  <span className="text-sm">Show holded questions</span>
+                </label>
 
                 {/* <label className="flex items-center gap-3">
                   <input
@@ -1154,6 +1166,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                           ? "Show passed questions"
                           : key === "duplicateQuestions"
                             ? "Show duplicate questions"
+                            : key === "isOnHold"
+                            ? "Show holded questions"
                             : key === "states"
                               ? "state"
                               : key === "normalisedCrops"
