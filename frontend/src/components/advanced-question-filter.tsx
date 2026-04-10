@@ -1111,7 +1111,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     }
                     className="h-3.5 w-3.5 border-primary"
                   />
-                  <span className="text-sm">Show holded questions</span>
+                  <span className="text-sm">Show questions on Hold</span>
                 </label>
 
                 {/* <label className="flex items-center gap-3">
