@@ -211,6 +211,7 @@ export const QuestionsFilters = ({
         source: "AGRI_EXPERT" as QuestionSource,
         details: updatedData.details,
         context: updatedData.context || "",
+        aiInitialAnswer: updatedData.aiInitialAnswer || "",
       };
 
       const validationErrors: AddQuestionValidationErrors = {};

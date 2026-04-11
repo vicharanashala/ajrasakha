@@ -479,6 +479,7 @@ export interface IDetailedQuestion {
   userId: string;
   question: string;
   context: string;
+  aiInitialAnswer: string;
   status: QuestionStatus;
   totalAnswersCount: number;
   priority: QuestionPriority;

@@ -834,6 +834,8 @@ export class QuestionService extends BaseService implements IQuestionService {
   ): Promise<AddQuestionResult> {
     const logData: Record<string, any> = {};
     try {
+      // Extract aiInitialAnswer before normalizing keys to lowercase
+      const aiInitialAnswer = body.aiInitialAnswer || '';
       body = normalizeKeysToLower(body);
 
       let {
@@ -949,7 +951,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           isAutoAllocate: !(source === "AJRASAKHA" || source === "WHATSAPP"),
           embedding: textEmbedding,
           metrics: null,
-          aiInitialAnswer: body.aiInitialAnswer || '',
+          aiInitialAnswer,
           text,
           createdAt: new Date(),
           updatedAt: new Date(),
