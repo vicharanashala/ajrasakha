@@ -495,13 +495,13 @@ export const QuestionsFilters = ({
         {/* tools and filters */}
         <button
           onClick={() => setIsSidebarOpen(true)}
-          className="relative flex-1 sm:flex-none flex items-center justify-center sm:justify-start gap-2 px-3 sm:px-4 py-2 sm:py-1.5 cursor-pointer bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-md hover:border-gray-300 dark:hover:border-gray-600 transition-all shadow-sm dark:shadow-none text-xs sm:text-sm"
+          className="relative flex-1 sm:flex-none flex items-center justify-center sm:justify-start gap-3 px-3 sm:px-4 py-2 sm:py-1.5 cursor-pointer bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-md hover:border-gray-300 dark:hover:border-gray-600 transition-all shadow-sm dark:shadow-none text-xs sm:text-sm mr-2"
         >
           <Filter className="h-4 w-4 flex-shrink-0" />
-          <span className="sm:inline font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">
+          <span className="sm:inline font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap mr-4">
             Tools & Filters
           </span>
-          <TopRightBadge label="New" />
+          <TopRightBadge label="New" right={3} />
         </button>
 
         {userRole !== "expert" && (
