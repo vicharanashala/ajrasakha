@@ -8,7 +8,7 @@ import {
 import {ClientSession, ObjectId} from 'mongodb';
 import {ExpertReviewLevelDto} from '#root/modules/core/classes/validators/UserValidators.js';
 import {IReviewWiseStats} from '#root/utils/getDailyStats.js';
-import { HistoryItem } from '#root/modules/question/classes/validators/QuestionVaidators.js';
+import {HistoryItem} from '#root/modules/question/classes/validators/QuestionVaidators.js';
 
 export interface IQuestionSubmissionRepository {
   /**
@@ -137,8 +137,32 @@ export interface IQuestionSubmissionRepository {
   getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any>;
   getModeratorReviewLevel(query: ExpertReviewLevelDto): Promise<any>;
 
-  getAbsentSubmissions(absentExpertIds:string[],session?:ClientSession):Promise<IQuestionSubmission[]>
-  findQuestionsNeedingEscalation(limit?:number,session?:ClientSession):Promise<IQuestionSubmission[]>
-  updateById(id?:string,update?:any,session?:any)
-  getLevelWiseReport(startDate:string,endDate:string,session?: ClientSession): Promise<LevelReportStat[]>;
+  getAbsentSubmissions(
+    absentExpertIds: string[],
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]>;
+  findQuestionsNeedingEscalation(
+    limit?: number,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]>;
+  updateById(id?: string, update?: any, session?: any);
+  getLevelWiseReport(
+    startDate: string,
+    endDate: string,
+    session?: ClientSession,
+  ): Promise<LevelReportStat[]>;
+
+  /**
+   * @param questionId - Question ID of the question
+   * @param update - Update parameters for the submission state
+   * @param session -   Optional MongoDB session for transaction
+   */
+  updateSubmissionState(
+    questionId: string,
+    update: {
+      queue?: ObjectId[];
+      popHistory?: boolean;
+    },
+    session?: ClientSession,
+  ): Promise<void>;
 }

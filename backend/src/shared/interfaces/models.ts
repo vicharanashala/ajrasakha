@@ -28,6 +28,7 @@ export interface IUser {
   updatedAt?: Date;
   status?: UserStatus;
   special_task_force?:boolean
+  special_task_force_moderator?: boolean
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high';
@@ -38,6 +39,8 @@ export interface IQuestionMetrics {
   recent_similarity: number;
   collusion_score: number;
 }
+
+export type QuestionSource = 'AJRASAKHA' | "AGRI_EXPERT" | "WHATSAPP";
 export interface IQuestion {
   _id?: string | ObjectId;
   userId?: ObjectId | string;
@@ -55,7 +58,7 @@ export interface IQuestion {
     normalised_crop?: string;
   };
   isAutoAllocate: boolean;
-  source: 'AJRASAKHA' | 'AGRI_EXPERT';
+  source: QuestionSource;
   embedding: number[];
   aiInitialAnswer?: string;
   aiApprovedSources?: SourceItem[];
@@ -67,6 +70,8 @@ export interface IQuestion {
   updatedAt?: Date;
   isHidden?:false;
   passingRemark?:string;
+  isOnHold?:boolean;
+  messageId?:string;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
@@ -218,6 +223,8 @@ export type INotificationType =
   | 're-routed-rejected-expert'
   |'re-routed-rejected-moderator'
   |'re-routed-answer-created'
+  | 'question_from_whatsapp'
+  | 'question_from_ajrasakha'
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;

@@ -206,11 +206,23 @@ async def upload_question_to_reviewer_system(question: str, state_name: str, cro
     print(f"DEBUG: Sending to URL: {url}", flush=True)
     try:
         response = await asyncio.to_thread(requests.post, url, json=payload, headers=headers, timeout=10)
-        
-        if response.status_code == 201:
-            return {"status": "Uploaded Successfully"}
-        else:
-            return {"status": "Failed", "message": response.text}
+
+        response_data = {}
+        try:
+            response_data = response.json()
+        except ValueError:
+            response_data = {}
+
+        is_success = response.status_code == 201 or bool(response_data.get("success"))
+        question_id = response_data.get("question_id")
+
+        if is_success:
+            result = {"status": "Uploaded Successfully"}
+            if question_id:
+                result["question_id"] = question_id
+            return result
+
+        return {"status": "Failed", "message": response.text}
 
     except requests.exceptions.RequestException as e:
         return {"status": "Error", "message": str(e)}
