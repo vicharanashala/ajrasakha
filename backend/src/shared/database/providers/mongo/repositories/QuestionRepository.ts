@@ -1595,11 +1595,12 @@ export class QuestionRepository implements IQuestionRepository {
       await this.init();
       const autoAllocateValue =
         typeof isAutoAllocate === 'boolean' ? !isAutoAllocate : false;
-      return await this.QuestionCollection.findOneAndUpdate(
+      const result = await this.QuestionCollection.findOneAndUpdate(
         { _id: new ObjectId(questionId) },
         { $set: { isAutoAllocate: autoAllocateValue } },
         { session, returnDocument: 'after' },
       );
+      return (result as any)?.value || result;
     } catch (error) {
       throw new InternalServerError(
         `Error while updating auto allocate field: ${error}`,
