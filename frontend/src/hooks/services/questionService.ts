@@ -33,6 +33,8 @@ export class QuestionService {
   ): Promise<IDetailedQuestionResponse | null> {
     const params = new URLSearchParams();
 
+    // console.log("Use get all detaied Questions")
+
     if (search) params.append("search", search);
     if (sort) params.append("sort", sort);
     params.append("page", pageParam.toString());
@@ -74,6 +76,8 @@ export class QuestionService {
 
     params.append("hiddenQuestions", String(filter.hiddenQuestions));
     params.append("duplicateQuestions", String(filter.duplicateQuestions));
+
+    params.append("isOnHold", String(filter.isOnHold));
 
     // states and normalisedCrops sent as JSON arrays in request body
     const requestBody: { states?: string[]; normalisedCrops?: string[] } = {};
@@ -606,5 +610,18 @@ export class QuestionService {
 
     return await response.blob();
   }
+
+ async holdQuestion(
+  questionId: string,
+  action: "hold" | "unhold"
+): Promise<{ id: string } | null> {
+  return apiFetch<{ id: string }>(
+    `${this._baseUrl}/${questionId}/hold`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ action }),
+    }
+  );
+}
 
 }

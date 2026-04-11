@@ -88,7 +88,7 @@ export class UserService extends BaseService {
     try {
       if (!userId) throw new NotFoundError('User ID is required');
 
-      if(!data.firstName.trim()) throw new BadRequestError("Firstname cannot be empty or blank space");
+      if(data.firstName !== undefined && !data.firstName.trim()) throw new BadRequestError("Firstname cannot be empty or blank space");
 
       const authService = getFromContainer(FirebaseAuthService);
 
@@ -202,7 +202,8 @@ async getAllUsersforManualSelect(
           penaltyPercentage: u.penalty ?? 0,
           createdAt: u.createdAt ?? null,
           isBlocked:u.isBlocked,
-          special_task_force:u.special_task_force
+          special_task_force: u.special_task_force,
+          special_task_force_moderator: u.special_task_force_moderator
         })),
         totalUsers: users.length,
         totalPages: 5,

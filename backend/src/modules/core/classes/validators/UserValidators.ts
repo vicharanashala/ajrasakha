@@ -48,6 +48,8 @@ class UserDto {
   isBlocked:boolean
 
   special_task_force:boolean
+  
+  special_task_force_moderator: boolean
 }
 
 // Main Response DTO
@@ -144,6 +146,9 @@ class UpdateUserDto {
   @IsOptional()
   @IsEnum(['expert', 'moderator', 'admin'])
   role?: UserRole;
+  @IsOptional()
+  @IsString()
+  avatar?: string;
 }
 
 export {PreferenceDto, UsersNameResponseDto, UserDto,NotificationDeletePreferenceDTO,UpdatePenaltyAndIncentive,BlockUnblockBody,ExpertReviewLevelDto, UpdateUserDto};

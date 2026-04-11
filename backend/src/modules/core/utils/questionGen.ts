@@ -1,4 +1,4 @@
-import {IQuestionPriority, QuestionStatus} from '#root/shared/index.js';
+import {IQuestionPriority, QuestionSource, QuestionStatus} from '#root/shared/index.js';
 
 const detailsArray = [
   {
@@ -76,7 +76,7 @@ const detailsArray = [
 const priorities: IQuestionPriority[] = ['high', 'low', 'medium'];
 const questionStatus: QuestionStatus[] = ['in-review', 'closed', 'open'];
 
-const sources: ('AJRASAKHA' | 'AGRI_EXPERT')[] = ['AJRASAKHA', 'AGRI_EXPERT'];
+const sources: QuestionSource[] = ['AJRASAKHA', 'AGRI_EXPERT', 'WHATSAPP'];
 
 const dummyQuestions: string[] = [
   'What are the major types of soil found in India?',

@@ -17,6 +17,7 @@ import {
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
+  ForbiddenError,
   InternalServerError,
   NotFoundError,
   UnauthorizedError,
@@ -55,6 +56,7 @@ import { checkConceptDuplicate } from '#root/modules/question/aiservice/checkCon
 import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
 import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
 import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
+import { toObjectIdArray } from '#root/utils/normalizeToObjectIdArray.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -308,6 +310,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     query: GetDetailedQuestionsQuery,
     body: DetailedQuestionsBodyDto,
   ): Promise<{ questions: IQuestion[]; totalPages: number }> {
+
     let searchEmbedding: number[] | null = null;
 
     if (query?.search) {
@@ -932,7 +935,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           const { insertedId } = await this.contextRepo.addContext(context, session);
           contextId = new ObjectId(insertedId);
         }
-       // source="AJRASAKHA"
+        // source="AJRASAKHA"
         // 🔹 Create Base Question Object
         const baseQuestion: IQuestion = {
           userId: userId?.trim() !== '' ? new ObjectId(userId) : null,
@@ -943,7 +946,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           totalAnswersCount: 0,
           contextId,
           details,
-          isAutoAllocate: source=="AJRASAKHA"?false:true,
+          isAutoAllocate: !(source === "AJRASAKHA" || source === "WHATSAPP"),
           embedding: textEmbedding,
           metrics: null,
           aiInitialAnswer: body.aiInitialAnswer || '',
@@ -964,7 +967,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
         const llmCandidates: typeof topMatches = []
         let dummysource = false
-        if (source == 'AJRASAKHA') {
+        if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
           console.log("the source is coming====", source)
           /* const topSimilar = await this.questionRepo.findTopSimilarQuestions(
            textEmbedding, 25,
@@ -1109,8 +1112,6 @@ export class QuestionService extends BaseService implements IQuestionService {
           }
         }
 
-
-
         // =====================================================
         // 🔥 IF NOT SIMILAR → NORMAL FLOW
         // =====================================================
@@ -1135,7 +1136,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         let queue: ObjectId[] = [];
         let initialUsersToAllocate: typeof users = [];
 
-        if (source !== 'AJRASAKHA') {
+        if (source === 'AGRI_EXPERT') {
           initialUsersToAllocate = users.slice(0, 3);
 
           queue = initialUsersToAllocate.map(
@@ -1143,46 +1144,69 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
 
 
-        if (initialUsersToAllocate[0]) {
-          await this.userRepo.updateReputationScore(
-            initialUsersToAllocate[0]._id.toString(),
-            true,
-            session,
+          if (initialUsersToAllocate[0]) {
+            await this.userRepo.updateReputationScore(
+              initialUsersToAllocate[0]._id.toString(),
+              true,
+              session,
+            );
+          }
+
+          const submissionData: IQuestionSubmission = {
+            questionId: new ObjectId(savedQuestion._id.toString()),
+            lastRespondedBy: null,
+            history: [],
+            queue,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          await this.questionSubmissionRepo.addSubmission(submissionData, session);
+
+          if (initialUsersToAllocate[0]) {
+            await this.notificationService.saveTheNotifications(
+              `A Question has been assigned for answering`,
+              'Answer Creation Assigned',
+              savedQuestion._id.toString(),
+              initialUsersToAllocate[0]._id.toString(),
+              'answer_creation',
+            );
+          }
+        } else {
+          const [allModerators, taskForceModerators] = await Promise.all([
+            this.userRepo.findModerators(),
+            this.userRepo.getSpecialTaskForceModerators()
+          ]);
+          const allUsers = [...allModerators, ...taskForceModerators]
+
+          const sourceLabel =
+            source === "AJRASAKHA" ? "Ajrasakha" : "WhatsApp";
+
+          const message = `A new question has been received from ${sourceLabel} and needs your attention.`;
+
+          await Promise.all(
+            allUsers.map((moderator: any) =>
+              this.notificationService.saveTheNotifications(
+                message,
+                "New Question Received",
+                savedQuestion._id.toString(),
+                moderator._id.toString(),
+                source === "AJRASAKHA" ? "question_from_ajrasakha" : "question_from_whatsapp"
+              )
+            )
           );
         }
 
-        const submissionData: IQuestionSubmission = {
-          questionId: new ObjectId(savedQuestion._id.toString()),
-          lastRespondedBy: null,
-          history: [],
-          queue,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+
+        // return { isDuplicate: false, data: baseQuestion };
+        return {
+          isDuplicate: false,
+          data: {
+            ...baseQuestion,
+            _id: baseQuestion._id?.toString?.(),
+            userId: baseQuestion.userId?.toString?.(),
+          },
         };
-
-        await this.questionSubmissionRepo.addSubmission(submissionData, session);
-
-        if (initialUsersToAllocate[0]) {
-          await this.notificationService.saveTheNotifications(
-            `A Question has been assigned for answering`,
-            'Answer Creation Assigned',
-            savedQuestion._id.toString(),
-            initialUsersToAllocate[0]._id.toString(),
-            'answer_creation',
-          );
-        }
-        }
-
-
-       // return { isDuplicate: false, data: baseQuestion };
-       return {
-        isDuplicate: false,
-        data: {
-          ...baseQuestion,
-          _id: baseQuestion._id?.toString?.(),
-          userId: baseQuestion.userId?.toString?.(),
-        },
-      };
       });
     } catch (error) {
       console.error(error);
@@ -1390,33 +1414,33 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     const allExpertIds = Array.from(expertIdsSet);*/
     let allExpertIds: string[] = [];
-    const isAjrasakha=question.source=="AJRASAKHA"?true:false
-      if (isAjrasakha) {
-        // ✅ AJRASAKHA FLOW
-        const users = await this.userRepo.getSpecialTaskForceExperts(session);
+    const isAjrasakha = question.source == "AJRASAKHA" ? true : false
+    if (isAjrasakha) {
+      // ✅ AJRASAKHA FLOW
+      const users = await this.userRepo.getSpecialTaskForceExperts(session);
 
-        allExpertIds = users.map(user => user._id.toString());
-      } else {
-        // ✅ NORMAL FLOW
-        const [users, preferredExperts] = await Promise.all([
-          this.userRepo.findAll(),
-          this.userRepo.findExpertsByPreference(details, session),
-        ]);
+      allExpertIds = users.map(user => user._id.toString());
+    } else {
+      // ✅ NORMAL FLOW
+      const [users, preferredExperts] = await Promise.all([
+        this.userRepo.findAll(),
+        this.userRepo.findExpertsByPreference(details, session),
+      ]);
 
-        const expertIdsSet = new Set<string>();
+      const expertIdsSet = new Set<string>();
 
-        preferredExperts.forEach(user =>
+      preferredExperts.forEach(user =>
+        expertIdsSet.add(user._id.toString()),
+      );
+
+      users
+        .filter(user => user.role === 'expert' && user.isBlocked !== true)
+        .forEach(user =>
           expertIdsSet.add(user._id.toString()),
         );
 
-  users
-    .filter(user => user.role === 'expert' && user.isBlocked !== true)
-    .forEach(user =>
-      expertIdsSet.add(user._id.toString()),
-    );
-
-  allExpertIds = Array.from(expertIdsSet);
-}
+      allExpertIds = Array.from(expertIdsSet);
+    }
 
     if (
       EXISTING_QUEUE_COUNT < 3 ||
@@ -3343,74 +3367,154 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
   }
 
-    async getMatchedQuestion(questionId: string) {
-  const questionData = await this.questionRepo.getById(questionId);
+  async getMatchedQuestion(questionId: string) {
+    const questionData = await this.questionRepo.getById(questionId);
 
-  if (!questionData) {
-    throw new Error('Question not found');
-  }
+    if (!questionData) {
+      throw new Error('Question not found');
+    }
 
-  const { question, details, createdAt } = questionData;
+  const { question, details, createdAt} = questionData;
 
   const [analyticsMessages, annamMessages] = await Promise.all([
     this.chatbotRepository.findMatchingMessages({
       question,
       details,
       createdAt,
+      questionId: questionId.toString(),
     }),
      this.chatbotRepository.findFromSecondDb({
       question,
       details,
       createdAt,
+      questionId: questionId.toString(),
     }),
   ]);
 
 
 
-  // Take first matched message (assuming 1 expected)
-  const allMessages = [...analyticsMessages, ...annamMessages];
+    // Take first matched message (assuming 1 expected)
+    const allMessages = [...analyticsMessages, ...annamMessages];
 
-  const message = allMessages?.[0];
+    const message = allMessages?.[0];
 
-  if (!message) {
-    throw new Error('No matching message found');
+    if (!message) {
+      throw new Error('No matching message found');
+    }
+
+    return {
+      messageId: message.messageId || '',
+      createdAt: message.createdAt
+        ? new Date(message.createdAt).toISOString()
+        : '',
+      updatedAt: message.updatedAt
+        ? new Date(message.updatedAt).toISOString()
+        : '',
+      user: {
+        username: message?.userDetails?.username || 'N/A',
+        email: message?.userDetails?.email || '',
+        emailVerified: message?.userDetails?.emailVerified || false,
+        avatar: message?.userDetails?.avatar || null,
+      },
+      content: message.content || [],
+    };
+  }
+  async checkStatus(
+    questionIds: string[],
+  ): Promise<ICheckStatusResponse[]> {
+
+    const result = await this.questionRepo.getQuestionsWithAnswerDetails(questionIds)
+
+    // 1. Fetch data
+
+    return result
+
+
   }
 
-  return {
-    messageId: message.messageId || '',
-    createdAt: message.createdAt
-      ? new Date(message.createdAt).toISOString()
-      : '',
-    updatedAt: message.updatedAt
-      ? new Date(message.updatedAt).toISOString()
-      : '',
-    user: {
-      username: message?.userDetails?.username || 'N/A',
-      email: message?.userDetails?.email || '',
-      emailVerified: message?.userDetails?.emailVerified || false,
-      avatar: message?.userDetails?.avatar || null,
-    },
-    content: message.content || [],
-  };
-}
-async checkStatus(
-  questionIds: string[],
-): Promise<ICheckStatusResponse[]> {
-
-  const result=await this.questionRepo.getQuestionsWithAnswerDetails(questionIds)
-
-  // 1. Fetch data
-
-return result
-
-
-}
-
+  async holdQuestion(questionId: string, userId: string, action: "hold" | "unhold"): Promise<{ id: string }> {
+    return await this._withTransaction(async session => {
+      if (action === "unhold") {
+        const question = await this.questionRepo.getById(questionId, session);
+        if (!question) {
+          throw new NotFoundError('Question not found');
+        }
+        const user = await this.userRepo.findById(userId, session);
+        if (!user || user.role == 'expert') {
+          throw new ForbiddenError('Only moderators or Admins can unhold questions');
+        }
+        await this.questionRepo.updateQuestion(questionId, { isOnHold: false }, session)
+        return { id: questionId }
+      }
+      const user = await this.userRepo.findById(userId, session);
+      if (user.role == 'expert') {
+        throw new ForbiddenError('Only moderators can hold questions');
+      }
+      const question = await this.questionRepo.getById(questionId, session);
+      if (!question) {
+        throw new NotFoundError('Question not found');
+      }
+      const submission = await this.questionSubmissionRepo.getByQuestionId(questionId, session);
+      if (!submission) {
+        throw new NotFoundError('Question submission not found');
+      }
+      await this._handleSubmissionOnHold(submission, session);
+      await this.questionRepo.updateQuestion(questionId, { isOnHold: true, isAutoAllocate: false }, session)
+      return { id: questionId }
+    })
+  }
   async checkSubmissionExists(questionId: string): Promise<boolean> {
     const submission = await this.questionSubmissionRepo.getByQuestionId(questionId);
     return !!submission;
   }
 
+  private async _handleSubmissionOnHold(
+    submission: IQuestionSubmission,
+    session: ClientSession
+  ): Promise<void> {
+    const questionId = submission.questionId.toString();
+    if (!submission.history || submission.history.length === 0) {
+      if (submission.queue?.length) {
+        const firstUserId = submission.queue[0].toString();
+        await this.userRepo.updateReputationScore(firstUserId, false, session);
+      }
 
+      await this.questionSubmissionRepo.updateSubmissionState(
+        questionId,
+        { queue: [] },
+        session
+      );
+
+      return;
+    }
+
+    const lastHistory = submission.history[submission.history.length - 1];
+
+    if (lastHistory.status !== 'in-review') return;
+
+    const updatedById = lastHistory.updatedBy?.toString();
+
+    let newQueue = submission.queue;
+
+    const index = submission.queue.findIndex(
+      (q) => q.toString() === updatedById
+    );
+
+    if (index !== -1) {
+      newQueue = submission.queue.slice(0, index);
+    }
+
+    if (updatedById) {
+      await this.userRepo.updateReputationScore(updatedById, false, session);
+    }
+    await this.questionSubmissionRepo.updateSubmissionState(
+      questionId,
+      {
+        queue: toObjectIdArray(newQueue || []),
+        popHistory: true,
+      },
+      session
+    );
+  }
 
 }
