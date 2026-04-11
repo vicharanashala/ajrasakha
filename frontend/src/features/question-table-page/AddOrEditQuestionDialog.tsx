@@ -238,7 +238,7 @@ export const AddOrEditQuestionDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-2xl h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {mode === "add" ? (
@@ -269,7 +269,7 @@ export const AddOrEditQuestionDialog = ({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col h-[420px]">
+        <div className="flex flex-col h-[450px]">
           {mode === "add" && (
             <div className="px-2 pt-2 flex-shrink-0">
               <div className="flex bg-muted rounded-lg p-1 gap-1">
@@ -594,11 +594,21 @@ Download Sample Excel Template
 
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <Info className="h-4 w-4" aria-hidden="true" />
-                    <label>Context</label>
+                    <label>Context   (optional)</label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-amber-500 cursor-pointer" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-xs">
+                          <p>Adding clear context improves question quality and helps experts respond faster.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
 
                   <Textarea
-                    placeholder="Mention the context for this question...."
+                    placeholder="Mention the context for this question..."
                     value={updatedData?.context || ""}
                     onChange={(e) =>
                       setUpdatedData((prev) =>
@@ -607,13 +617,20 @@ Download Sample Excel Template
                     }
                     className="h-32 resize-none overflow-y-auto"
                   />
-                  <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
-                    Suggestion: Adding clear context improves question quality and helps experts respond faster.
-                  </p>
 
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <Info className="h-4 w-4" aria-hidden="true" />
-                    <label>Ai intial answer</label>
+                    <label>AI Initial Answer   (optional)</label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-amber-500 cursor-pointer" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-xs">
+                          <p>Adding AI-generated response helps experts understand the question better.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
 
                   <Textarea
