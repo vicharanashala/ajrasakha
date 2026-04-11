@@ -73,11 +73,6 @@ export class ChatbotRepository implements IChatbotRepository {
     this.annamMessagesCollection =
       await this.annamDb.getCollection<any>('messages');
   }
-  private QuestionCollection: Collection<IQuestion>;
-  private async initReviewSystem() {
-    this.QuestionCollection =
-      await this.db.getCollection<IQuestion>('questions');
-  }
 
   async getKpiSummary(session?: ClientSession): Promise<KpiSummary> {
     try {
@@ -422,7 +417,6 @@ export class ChatbotRepository implements IChatbotRepository {
     questionId: string;
   }) {
     await this.init();
-    await this.initReviewSystem();
     const {question, details, createdAt, questionId} = data;
 
     const start = new Date(new Date(createdAt).getTime() - 10 * 60 * 1000);
@@ -505,12 +499,6 @@ export class ChatbotRepository implements IChatbotRepository {
         return false;
       }
     });
-    if (matchedMessageId && questionId) {
-      await this.QuestionCollection.updateOne(
-        {_id: new ObjectId(questionId)},
-        {$set: {messageId: matchedMessageId}},
-      );
-    }
     return result1;
   }
 
@@ -521,7 +509,6 @@ export class ChatbotRepository implements IChatbotRepository {
     questionId: string;
   }) {
     await this.initSecondDb();
-    await this.initReviewSystem();
     const {question, details, createdAt, questionId} = data;
 
     const start = new Date(new Date(createdAt).getTime() - 10 * 60 * 1000);
@@ -604,12 +591,96 @@ export class ChatbotRepository implements IChatbotRepository {
         return false;
       }
     });
-    if (matchedMessageId && questionId) {
-      await this.QuestionCollection.updateOne(
-        {_id: new ObjectId(questionId)},
-        {$set: {messageId: matchedMessageId}},
-      );
-    }
     return result1;
+  }
+
+  async findByMessageId(messageId: string, session?: ClientSession) {
+    await this.init();
+    const result = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              messageId: messageId,
+            },
+          },
+          {
+            $addFields: {
+              userObjectId: {
+                $cond: [
+                  {
+                    $and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}],
+                  },
+                  {$toObjectId: '$user'},
+                  null,
+                ],
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'userObjectId',
+              foreignField: '_id',
+              as: 'userDetails',
+            },
+          },
+          {
+            $unwind: {
+              path: '$userDetails',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+        ],
+        {session},
+      )
+      .toArray();
+
+    return result[0];
+  }
+
+  async findBySecondDbMessageId(messageId: string, session?: ClientSession) {
+    await this.initSecondDb();
+    const result = await this.annamMessagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              messageId: messageId,
+            },
+          },
+          {
+            $addFields: {
+              userObjectId: {
+                $cond: [
+                  {
+                    $and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}],
+                  },
+                  {$toObjectId: '$user'},
+                  null,
+                ],
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'userObjectId',
+              foreignField: '_id',
+              as: 'userDetails',
+            },
+          },
+          {
+            $unwind: {
+              path: '$userDetails',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+        ],
+        {session},
+      )
+      .toArray();
+
+    return result[0];
   }
 }
