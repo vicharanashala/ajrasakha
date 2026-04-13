@@ -4,7 +4,7 @@ import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Spinner } from "@/components/atoms/spinner";
 import { useUserDetails } from "./hooks/useUserDetails";
-import { BarGraph } from "@/components/atoms/BarGrapgh";
+import { BarGraph } from "./components/shared/BarGrapgh";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { Pagination } from "@/components/pagination";
 import {

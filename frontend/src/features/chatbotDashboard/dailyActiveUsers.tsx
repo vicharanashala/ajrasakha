@@ -1,7 +1,7 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Spinner } from "@/components/atoms/spinner";
-import { BarGraph } from "@/components/atoms/BarGrapgh";
+import { BarGraph } from "./components/shared/BarGrapgh";
 
 function getDateRangeLabel(days = 30): string {
     const end = new Date();
