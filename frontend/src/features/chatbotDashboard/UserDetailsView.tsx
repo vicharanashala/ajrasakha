@@ -76,20 +76,38 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
         </p>
       </div>
 
-      {/* Summary cards */}
+      {/* Summary cards + graphs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-1" style={{ background: "#3AAA5A" }} />
-          <CardContent className="p-4 flex flex-col gap-0.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Total Users
-            </span>
-            <span className="text-2xl font-semibold dark:text-slate-100">
-              {isLoading ? "—" : totalUsers.toLocaleString()}
-            </span>
-          </CardContent>
-        </Card>
-        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden">
+        {/* Column 1 — Total Users + bar graph */}
+        <div className="flex flex-col gap-3">
+          <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-1" style={{ background: "#3AAA5A" }} />
+            <CardContent className="p-4 flex flex-col gap-0.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Total Users
+              </span>
+              <span className="text-2xl font-semibold dark:text-slate-100">
+                {isLoading ? "—" : totalUsers.toLocaleString()}
+              </span>
+            </CardContent>
+          </Card>
+          {!isLoading && !error && users.length > 0 && (
+            <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Questions per User</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BarGraph
+                  data={users.map(u => ({ label: u.name, value: u.totalQuestions }))}
+                  height={120}
+                />
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Column 2 — Active Users (graph placeholder for later) */}
+        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start">
           <div className="absolute inset-x-0 top-0 h-1" style={{ background: "#3B82F6" }} />
           <CardContent className="p-4 flex flex-col gap-0.5">
             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -100,7 +118,9 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
             </span>
           </CardContent>
         </Card>
-        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden">
+
+        {/* Column 3 — Total Questions (graph placeholder for later) */}
+        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start">
           <div className="absolute inset-x-0 top-0 h-1" style={{ background: "#EF9F27" }} />
           <CardContent className="p-4 flex flex-col gap-0.5">
             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -112,21 +132,6 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
           </CardContent>
         </Card>
       </div>
-
-      {/* Questions per user bar graph */}
-      {!isLoading && !error && users.length > 0 && (
-        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] mb-5">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Questions per User</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BarGraph
-              data={users.map(u => ({ label: u.name, value: u.totalQuestions }))}
-              height={120}
-            />
-          </CardContent>
-        </Card>
-      )}
 
       {/* Users table */}
       <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">

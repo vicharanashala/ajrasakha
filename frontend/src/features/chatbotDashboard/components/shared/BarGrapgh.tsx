@@ -12,8 +12,7 @@ interface BarGraphProps {
     xAxisLabels?: string[];
 }
 
-function defaultBarColor(value: number, index: number, total: number): string {
-    if (index === total - 1) return "#EF9F27";
+function defaultBarColor(value: number, _index: number, _total: number): string {
     if (value < 50) return "#86efac";
     if (value < 75) return "#4ade80";
     if (value < 85) return "#22c55e";
@@ -25,12 +24,11 @@ export function BarGraph({ data, height = 120, getBarColor = defaultBarColor, xA
 
     return (
         <div className="overflow-x-auto">
-            <div className="min-w-[360px]">
+            <div className="w-full">
                 <div className="flex items-end gap-[3px]" style={{ height }}>
                     <TooltipProvider>
                         {data.map((item, index) => {
                             const heightPercent = (item.value / maxValue) * 100;
-                            const isLast = index === data.length - 1;
                             return (
                                 <Tooltip key={index}>
                                     <TooltipTrigger asChild>
@@ -39,7 +37,6 @@ export function BarGraph({ data, height = 120, getBarColor = defaultBarColor, xA
                                             style={{
                                                 height: `${heightPercent}%`,
                                                 background: getBarColor(item.value, index, data.length),
-                                                outline: isLast ? "1.5px solid #BA7517" : "none",
                                             }}
                                         />
                                     </TooltipTrigger>
