@@ -7,7 +7,6 @@ import {
   SelectItem,
 } from "@/components/atoms/select";
 import { Label } from "@/components/atoms/label";
-import { Separator } from "@/components/atoms/separator";
 import { Badge } from "@/components/atoms/badge";
 import { Checkbox } from "@/components/atoms/checkbox";
 import {
@@ -132,24 +131,11 @@ export const CommonFilterFields: React.FC<CommonFilterFieldsProps> = ({
 
   const show = (field: CommonFilterKey) => visibleFields.includes(field);
 
-  const showStatusOrSource = show("status") || show("source");
-  const showStatesOrReviewLevel = show("states") || show("reviewLevel");
-  const showCropOrUser = show("cropType") || show("user");
-  const showDomainOrPriority = show("domain") || show("priority");
-  const showDateRanges = show("dateRange") || show("closedDate");
-  const showConsecutiveOrAutoAllocate =
-    show("consecutiveApprovals") || show("autoAllocate");
-  const showStateOrSeason = show("state") || show("season");
   const showVisibility = show("hiddenQuestions") || show("duplicateQuestions") || show("isOnHold");
-
-  const hasMore = (...after: boolean[]) => after.some(Boolean);
 
   return (
     <div className="space-y-6 py-4">
-      {/* ── Status & Source ── */}
-      {showStatusOrSource && (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-8 gap-x-4">
             {show("status") && (
               <div className="space-y-2 min-w-0">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
@@ -244,23 +230,6 @@ export const CommonFilterFields: React.FC<CommonFilterFieldsProps> = ({
                 </Select>
               </div>
             )}
-          </div>
-          {hasMore(
-            showStatesOrReviewLevel,
-            showCropOrUser,
-            showDomainOrPriority,
-            showDateRanges,
-            showConsecutiveOrAutoAllocate,
-            showStateOrSeason,
-            showVisibility,
-          ) && <Separator />}
-        </>
-      )}
-
-      {/* ── States (multi) & Review Level ── */}
-      {showStatesOrReviewLevel && (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {show("states") && (
               <div className="space-y-2 min-w-0">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
@@ -304,22 +273,6 @@ export const CommonFilterFields: React.FC<CommonFilterFieldsProps> = ({
                 </Select>
               </div>
             )}
-          </div>
-          {hasMore(
-            showCropOrUser,
-            showDomainOrPriority,
-            showDateRanges,
-            showConsecutiveOrAutoAllocate,
-            showStateOrSeason,
-            showVisibility,
-          ) && <Separator />}
-        </>
-      )}
-
-      {/* ── Crop Type & User ── */}
-      {showCropOrUser && (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {show("cropType") && (
               <div className="space-y-2 min-w-0">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
@@ -360,7 +313,7 @@ export const CommonFilterFields: React.FC<CommonFilterFieldsProps> = ({
                     value={values.normalised_crop ?? "all"}
                     onValueChange={(v) => onChange("normalised_crop", v)}
                   >
-                    <SelectTrigger className="h-9">
+                    <SelectTrigger className="h-9 w-full">
                       <SelectValue placeholder="Select Crop Type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -480,21 +433,6 @@ export const CommonFilterFields: React.FC<CommonFilterFieldsProps> = ({
                 </Select>
               </div>
             )}
-          </div>
-          {hasMore(
-            showDomainOrPriority,
-            showDateRanges,
-            showConsecutiveOrAutoAllocate,
-            showStateOrSeason,
-            showVisibility,
-          ) && <Separator />}
-        </>
-      )}
-
-      {/* ── Domain & Priority ── */}
-      {showDomainOrPriority && (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {show("domain") && (
               <div className="space-y-2 min-w-0">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
@@ -562,20 +500,6 @@ export const CommonFilterFields: React.FC<CommonFilterFieldsProps> = ({
                 </Select>
               </div>
             )}
-          </div>
-          {hasMore(
-            showDateRanges,
-            showConsecutiveOrAutoAllocate,
-            showStateOrSeason,
-            showVisibility,
-          ) && <Separator />}
-        </>
-      )}
-
-      {/* ── Date Ranges ── */}
-      {showDateRanges && (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {show("dateRange") && (
               <div className="space-y-2 min-w-0">
                 <DateRangeFilter
@@ -595,19 +519,6 @@ export const CommonFilterFields: React.FC<CommonFilterFieldsProps> = ({
                 />
               </div>
             )}
-          </div>
-          {hasMore(
-            showConsecutiveOrAutoAllocate,
-            showStateOrSeason,
-            showVisibility,
-          ) && <Separator />}
-        </>
-      )}
-
-      {/* ── Consecutive Approvals & Auto Allocate ── */}
-      {showConsecutiveOrAutoAllocate && (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {show("consecutiveApprovals") && (
               <div className="space-y-2 min-w-0">
                 <Label className="relative flex items-center gap-2 text-sm font-semibold">
@@ -705,15 +616,6 @@ export const CommonFilterFields: React.FC<CommonFilterFieldsProps> = ({
                 </Select>
               </div>
             )}
-          </div>
-          {hasMore(showStateOrSeason, showVisibility) && <Separator />}
-        </>
-      )}
-
-      {/* ── Single-select State & Season (DownloadFilteredReportButton) ── */}
-      {showStateOrSeason && (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {show("state") && (
               <div className="space-y-2 min-w-0">
                 <Label className="text-sm font-medium">State</Label>
@@ -721,7 +623,7 @@ export const CommonFilterFields: React.FC<CommonFilterFieldsProps> = ({
                   value={values.state ?? "all"}
                   onValueChange={(v) => onChange("state", v)}
                 >
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-9 w-full">
                     <SelectValue placeholder="Select State" />
                   </SelectTrigger>
                   <SelectContent>
@@ -757,10 +659,7 @@ export const CommonFilterFields: React.FC<CommonFilterFieldsProps> = ({
                 </Select>
               </div>
             )}
-          </div>
-          {showVisibility && <Separator />}
-        </>
-      )}
+      </div>
 
       {/* ── Hidden & Duplicate Questions ── */}
       {showVisibility && (
