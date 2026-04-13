@@ -434,6 +434,9 @@ export interface IQuestionFullData {
   submission: ISubmission;
   isAlreadySubmitted: boolean;
   isOnHold?: boolean;
+  aiInitialAnswer?: string;
+  aiApprovedAnswer?: string;
+  aiApprovedSources?: SourceItem[];
 }
 
 export interface QuestionFullDataResponse {
