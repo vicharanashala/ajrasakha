@@ -4,7 +4,7 @@ import { getContainer } from "../loadModules.js";
 
 
 // Hourly schedule
-cron.schedule("* * * * *", 
+cron.schedule("0 * * * *", 
     async () => {
         try {
             const contaier=getContainer();
