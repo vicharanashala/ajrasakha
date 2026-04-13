@@ -2,19 +2,12 @@ import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetail
 //import { QuestionsFilters, QuestionsTable } from "./questions-table";
 import { QuestionsTable } from "../features/question-table-page/questions-table";
 import { QuestionsFilters } from "../features/question-table-page/QuestionsFilters";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "./question-details";
 import type { IUser } from "@/types";
-import {
-  CROPS,
-  STATES,
-  type QuestionDateRangeFilter,
-  type QuestionFilterStatus,
-  type QuestionPriorityFilter,
-  type QuestionSourceFilter,
-  type ReviewLevel,
-} from "./advanced-question-filter";
+import { CROPS, STATES } from "./advanced-question-filter";
+import { useFilterStore } from "@/stores/filter-store";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useBulkDeleteQuestions } from "@/hooks/api/question/useBulkDeleteQuestions";
 import { toast } from "sonner";
@@ -31,53 +24,17 @@ export const QuestionsPage = ({
   autoOpenQuestionId?: string | null;
 }) => {
 
-  const getInitialSource = (): QuestionSourceFilter => {
-    const sourceFromUrl = new URLSearchParams(window.location.search).get(
-      "source",
-    );
-    if (
-      sourceFromUrl === "all" ||
-      sourceFromUrl === "AJRASAKHA" ||
-      sourceFromUrl === "AGRI_EXPERT" ||
-      sourceFromUrl === "WHATSAPP"
-    ) {
-      return sourceFromUrl;
-    }
-    return "AJRASAKHA";
-  };
-
   //grid or table
   const [view, setView] = useState<"table" | "grid">("table");
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<QuestionFilterStatus>("all");
-  const [source, setSource] = useState<QuestionSourceFilter>(getInitialSource);
-  const [priority, setPriority] = useState<QuestionPriorityFilter>("all");
-  const [state, setState] = useState("all");
-  const [states, setStates] = useState<string[]>([]);
-  const [crop, setCrop] = useState("all");
-  const [normalisedCrop, setNormalisedCrop] = useState("all");
-  const [normalisedCrops, setNormalisedCrops] = useState<string[]>([]);
-  const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
-  const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
-  const [startTime, setStartTime] = useState<Date | undefined>(undefined);
-  const [endTime, setEndTime] = useState<Date | undefined>(undefined);
-  const [review_level, setReviewLevel] = useState<ReviewLevel>("all");
-  const [closedAtStart, setClosedAtStart] = useState<Date | undefined>(
-    undefined,
-  );
-  const [consecutiveApprovals, setConsecutiveApprovals] = useState("all");
-  const [autoAllocateFilter, setAutoAllocateFilter] = useState("all");
-  const [hiddenQuestions, setHiddenQuestions] = useState(false);
-  const [isOnHold, setIsOnHold] = useState(false);
-  const [duplicateQuestions, setDuplicateQuestions] = useState(false);
-  const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
+
+  const { questionTable, resetQuestionTableFilter } =
+    useFilterStore();
 
   // const observerRef = useRef<IntersectionObserver | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   // const [selectedQuestionId, setSelectedQuestionId] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [domain, setDomain] = useState("all");
-  const [user, setUser] = useState("all");
   const [selectedQuestionId, setSelectedQuestionId] = useState(
     autoOpenQuestionId || "",
   );
@@ -123,63 +80,6 @@ export const QuestionsPage = ({
 
   const LIMIT = 12;
 
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("source", source);
-    window.history.replaceState({}, "", url.toString());
-  }, [source]);
-
-  const filter = useMemo(
-    () => ({
-      status,
-      state,
-      states,
-      source,
-      crop,
-      normalised_crop: normalisedCrop,
-      normalisedCrops,
-      answersCount,
-      dateRange,
-      priority,
-      domain,
-      user,
-      startTime,
-      endTime,
-      review_level,
-      closedAtStart,
-      closedAtEnd,
-      consecutiveApprovals,
-      autoAllocateFilter,
-      hiddenQuestions,
-      duplicateQuestions,
-      isOnHold,
-    }),
-    [
-      status,
-      state,
-      states,
-      source,
-      crop,
-      normalisedCrop,
-      normalisedCrops,
-      answersCount,
-      dateRange,
-      priority,
-      domain,
-      user,
-      startTime,
-      endTime,
-      review_level,
-      closedAtEnd,
-      closedAtStart,
-      consecutiveApprovals,
-      autoAllocateFilter,
-      hiddenQuestions,
-      duplicateQuestions,
-      isOnHold,
-    ],
-  );
-
   const {
     data: questionData,
     isLoading,
@@ -187,7 +87,7 @@ export const QuestionsPage = ({
   } = useGetAllDetailedQuestions(
     currentPage,
     LIMIT,
-    filter,
+    questionTable,
     debouncedSearch,
     viewMode === "all",
     questionSort,
@@ -203,7 +103,7 @@ export const QuestionsPage = ({
       reviewPage,
       reviewLimit,
       search,
-      filter,
+      questionTable,
       viewMode === "review-level",
       sort,
     );
@@ -222,100 +122,21 @@ export const QuestionsPage = ({
     if (selectedQuestionId && !autoOpenQuestionId) {
       setSelectedQuestionId("");
     }
-  }, [filter, debouncedSearch]);
+  }, [questionTable, debouncedSearch]);
 
   useEffect(() => {
     if (debouncedSearch === "") return;
-    if (currentUser?.role !== "expert") onReset();
+    if (currentUser?.role !== "expert") resetQuestionTableFilter();
   }, [debouncedSearch]);
 
-  const onChangeFilters = (next: {
-    status?: QuestionFilterStatus;
-    source?: QuestionSourceFilter;
-    priority?: QuestionPriorityFilter;
-    state?: string;
-    states?: string[];
-    crop?: string;
-    normalised_crop?: string;
-    normalisedCrops?: string[];
-    domain?: string;
-    user?: string;
-    answersCount?: [number, number];
-    dateRange?: QuestionDateRangeFilter;
-    startTime?: Date | undefined;
-    endTime?: Date | undefined;
-    review_level?: ReviewLevel;
-    closedAtEnd?: Date | undefined;
-    closedAtStart?: Date | undefined;
-    consecutiveApprovals?: string;
-    autoAllocateFilter?: string;
-    hiddenQuestions?: boolean;
-    duplicateQuestions?: boolean;
-    isOnHold?: boolean;
-  }) => {
-    if (next.status !== undefined) setStatus(next.status);
-    if (next.source !== undefined) setSource(next.source);
-    if (next.state !== undefined) setState(next.state);
-    if (next.states !== undefined) setStates(next.states);
-    if (next.crop !== undefined) setCrop(next.crop);
-    if (next.normalised_crop !== undefined) setNormalisedCrop(next.normalised_crop);
-    if (next.normalisedCrops !== undefined) setNormalisedCrops(next.normalisedCrops);
-    if (next.answersCount !== undefined) setAnswersCount(next.answersCount);
-    if (next.dateRange !== undefined) setDateRange(next.dateRange);
-    if (next.priority !== undefined) setPriority(next.priority);
-    if (next.domain !== undefined) setDomain(next.domain);
-    if (next.user !== undefined) setUser(next.user);
-    if (next.startTime !== undefined) setStartTime(next.startTime);
-    if (next.endTime !== undefined) setEndTime(next.endTime);
-    if (next.review_level !== undefined) setReviewLevel(next.review_level);
-    if (next.closedAtStart !== undefined) setClosedAtStart(next.closedAtStart);
-    if (next.closedAtEnd !== undefined) setClosedAtEnd(next.closedAtEnd);
-    if (next.consecutiveApprovals !== undefined)
-      setConsecutiveApprovals(next.consecutiveApprovals);
-    if (next.autoAllocateFilter !== undefined)
-      setAutoAllocateFilter(next.autoAllocateFilter);      
-    if (next.hiddenQuestions !== undefined)
-        setHiddenQuestions(next.hiddenQuestions);
-      if (next.duplicateQuestions !== undefined)
-        setDuplicateQuestions(next.duplicateQuestions);
-      if (next.isOnHold !== undefined)
-        setIsOnHold(next.isOnHold);    
-    // Reset pagination to page 1 when filters are applied
+  // Reset pagination whenever the applied filter changes.
+  useEffect(() => {
     setCurrentPage(1);
     setReviewPage(1);
-  };
-  const [showClosedAt, setClosedAt] = useState(false);
-  useEffect(() => {
-    if (status == "closed" || closedAtStart != undefined) {
-      setClosedAt(true);
-    } else {
-      setClosedAt(false);
-    }
-  }, [status, closedAtStart]);
+  }, [questionTable]);
 
-  const onReset = () => {
-    setStatus("all");
-    setSource("all");
-    setState("all");
-    setStates([]);
-    setCrop("all");
-    setNormalisedCrop("all");
-    setNormalisedCrops([]);
-    setAnswersCount([0, 100]);
-    setDateRange("all");
-    setPriority("all");
-    setDomain("all");
-    setUser("all");
-    setReviewLevel("all");
-    setStartTime(undefined);
-    setEndTime(undefined);
-    setClosedAtEnd(undefined);
-    setClosedAtStart(undefined);
-    setConsecutiveApprovals("all");
-    setAutoAllocateFilter("all");
-    setHiddenQuestions(false);
-    setDuplicateQuestions(false);
-  };
+  const showClosedAt =
+    questionTable.status === "closed" || questionTable.closedAtStart != null;
 
   const handleViewMore = (questoinId: string) => {
     setSelectedQuestionId(questoinId);
@@ -373,12 +194,9 @@ export const QuestionsPage = ({
           <QuestionsFilters
             search={search}
             setSearch={setSearch}
-            appliedFilters={filter}
             setUploadedQuestionsCount={setUploadedQuestionsCount}
             setIsBulkUpload={setIsBulkUpload}
             states={STATES}
-            onChange={onChangeFilters}
-            onReset={onReset}
             crops={CROPS}
             refetch={() => {
               refetch();

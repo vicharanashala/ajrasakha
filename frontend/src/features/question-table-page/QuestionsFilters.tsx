@@ -22,10 +22,8 @@ import {
   Eye,
   Wheat,
 } from "lucide-react";
-import {
-  AdvanceFilterDialog,
-  type AdvanceFilterValues,
-} from "../../components/advanced-question-filter";
+import { AdvanceFilterDialog } from "../../components/advanced-question-filter";
+import { useFilterStore } from "@/stores/filter-store";
 import type {
   IDetailedQuestion,
   QuestionSource,
@@ -66,10 +64,7 @@ import { CropManagementModal } from "./CropManagementModal";
 type QuestionsFiltersProps = {
   search: string;
   states: string[];
-  appliedFilters: AdvanceFilterValues;
-  onChange: (next: AdvanceFilterValues) => void;
   crops: string[];
-  onReset: () => void;
   setSearch: (val: string) => void;
   setUploadedQuestionsCount: (val: number) => void;
   setIsBulkUpload: (val: boolean) => void;
@@ -112,13 +107,10 @@ const answerModeToSource = (
 export const QuestionsFilters = ({
   search,
   setSearch,
-  appliedFilters,
   setUploadedQuestionsCount,
   setIsBulkUpload,
   crops,
   states,
-  onChange,
-  onReset,
   refetch,
   totalQuestions,
   userRole,
@@ -138,6 +130,8 @@ export const QuestionsFilters = ({
 }: QuestionsFiltersProps) => {
   //question global state
   const { visibleColumns, toggleColumn } = useQuestionTableStore();
+  const { questionTable, setQuestionTableFilter, resetQuestionTableFilter } =
+    useFilterStore();
   const activeColumns = [
     ...commonColumns,
     ...(viewMode === "all" ? allModeColumns : reviewModeColumns),
@@ -309,7 +303,7 @@ export const QuestionsFilters = ({
   }, [addOpen]);
 
   const activeFiltersCount =
-    Object.entries(appliedFilters).filter(([key, value]) => {
+    Object.entries(questionTable).filter(([key, value]) => {
       if (
         key === "startTime" ||
         key === "endTime" ||
@@ -331,9 +325,9 @@ export const QuestionsFilters = ({
       return true;
     }).length +
     // ✅ Created date range counts as ONE
-    (appliedFilters.startTime || appliedFilters.endTime ? 1 : 0) +
+    (questionTable.startTime || questionTable.endTime ? 1 : 0) +
     // ✅ ClosedAt date range counts as ONE
-    (appliedFilters.closedAtStart || appliedFilters.closedAtEnd ? 1 : 0);
+    (questionTable.closedAtStart || questionTable.closedAtEnd ? 1 : 0);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   // Optimized Draggable Logic
@@ -405,7 +399,7 @@ export const QuestionsFilters = ({
             placeholder="Search questions by id, state, crops..."
             value={search}
             onChange={(e) => {
-              if (userRole !== "expert") onReset();
+              if (userRole !== "expert") resetQuestionTableFilter();
               setSearch(e.target.value);
             }}
             className="pl-9 pr-9 bg-background"
@@ -427,7 +421,7 @@ export const QuestionsFilters = ({
           <button
             onClick={() => {
               setAnswerMode("ajraskha");
-              onChange({ ...appliedFilters, source: "AJRASAKHA" });
+              setQuestionTableFilter({ ...questionTable, source: "AJRASAKHA" });
             }}
             className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
               answerMode === "ajraskha"
@@ -441,7 +435,7 @@ export const QuestionsFilters = ({
           <button
             onClick={() => {
               setAnswerMode("manual");
-              onChange({ ...appliedFilters, source: "AGRI_EXPERT" });
+              setQuestionTableFilter({ ...questionTable, source: "AGRI_EXPERT" });
             }}
             className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
               answerMode === "manual"
@@ -763,12 +757,12 @@ export const QuestionsFilters = ({
               )}
               {/* preferences */}
               <AdvanceFilterDialog
-                appliedFilter={appliedFilters}
-                onApply={onChange}
+                appliedFilter={questionTable}
+                onApply={setQuestionTableFilter}
+                onReset={resetQuestionTableFilter}
                 normalizedStates={states}
                 crops={crops}
                 activeFiltersCount={activeFiltersCount}
-                onReset={onReset}
                 isForQA={false}
                 setIsSidebarOpen={setIsSidebarOpen}
               />

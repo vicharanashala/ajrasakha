@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useFilterStore } from "@/stores/filter-store";
 import { useGetReviewLevel } from "@/hooks/api/user/useGetReviewLevel";
 import {
   Card,
@@ -56,21 +57,21 @@ const defaultFilters: Filters = {
 export const ReviewLevelComponent = () => {
   const { data: userNameReponse } = useGetAllUsers();
   const {key,ref} = useRestartOnView()
+  const { reviewLevel: appliedFilter, setReviewLevelFilter, resetReviewLevelFilter } = useFilterStore();
   const [openFilter, setOpenFilter] = useState(false);
   const [draftFilters, setDraftFilters] = useState<Filters>(defaultFilters);
-  const [filters, setFilters] = useState<Filters>(defaultFilters);
 
   let role = "moderator";
   const { data: reviewLevel, isLoading: isLoadingReviewLevel } =
     useGetReviewLevel({
       role,
-      dateRange: filters.dateRange,
-      state: filters.state,
-      crop: filters.crop,
-      normalised_crop: filters.normalised_crop,
-      domain: filters.domain,
-      status: filters.status,
-      userId: filters.userId,
+      dateRange: appliedFilter.dateRange,
+      state: appliedFilter.state,
+      crop: appliedFilter.crop,
+      normalised_crop: appliedFilter.normalised_crop,
+      domain: appliedFilter.domain,
+      status: appliedFilter.status,
+      userId: appliedFilter.userId,
     });
 
   const draftFilterValues: CommonFilterValues = {
@@ -97,12 +98,12 @@ export const ReviewLevelComponent = () => {
   };
 
   const handleApplyFilters = () => {
-    setFilters(draftFilters); // apply
-    setOpenFilter(false); // close modal
+    setReviewLevelFilter(draftFilters);
+    setOpenFilter(false);
   };
   const handleClearFilters = () => {
     setDraftFilters(defaultFilters);
-    setFilters(defaultFilters);
+    resetReviewLevelFilter();
   };
   const users = (userNameReponse?.users || [])
     .sort((a, b) => a.userName.localeCompare(b.userName))
@@ -116,23 +117,22 @@ export const ReviewLevelComponent = () => {
   const getDescription = () => {
     const parts: string[] = [];
 
-    if (filters.state !== "all") parts.push(`State: ${filters.state}`);
-    if (filters.crop !== "all") parts.push(`Crop: ${filters.crop}`);
-    if (filters.normalised_crop !== "all") parts.push(`Normalized Crop: ${filters.normalised_crop === '__NOT_SET__' ? 'Not Set' : filters.normalised_crop}`);
-    if (filters.domain !== "all") parts.push(`Domain: ${filters.domain}`);
-    if (filters.status !== "all") parts.push(`Status: ${filters.status}`);
+    if (appliedFilter.state !== "all") parts.push(`State: ${appliedFilter.state}`);
+    if (appliedFilter.normalised_crop !== "all") parts.push(`Normalized Crop: ${appliedFilter.normalised_crop === '__NOT_SET__' ? 'Not Set' : appliedFilter.normalised_crop}`);
+    if (appliedFilter.domain !== "all") parts.push(`Domain: ${appliedFilter.domain}`);
+    if (appliedFilter.status !== "all") parts.push(`Status: ${appliedFilter.status}`);
 
-    if (filters.userId !== "all") {
-      const user = users.find((u) => u._id === filters.userId);
+    if (appliedFilter.userId !== "all") {
+      const user = users.find((u) => u._id === appliedFilter.userId);
       if (user) parts.push(`User: ${user.userName}`);
     }
 
-    if (filters.dateRange?.startTime || filters.dateRange?.endTime) {
-      const start = filters.dateRange.startTime
-        ? filters.dateRange.startTime.toLocaleDateString()
+    if (appliedFilter.dateRange?.startTime || appliedFilter.dateRange?.endTime) {
+      const start = appliedFilter.dateRange.startTime
+        ? appliedFilter.dateRange.startTime.toLocaleDateString()
         : "Any";
-      const end = filters.dateRange.endTime
-        ? filters.dateRange.endTime.toLocaleDateString()
+      const end = appliedFilter.dateRange.endTime
+        ? appliedFilter.dateRange.endTime.toLocaleDateString()
         : "Any";
       parts.push(`Date: ${start} → ${end}`);
     }

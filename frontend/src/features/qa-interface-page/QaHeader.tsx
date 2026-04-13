@@ -12,6 +12,7 @@ import {Select,SelectTrigger, SelectValue,SelectContent,SelectItem,} from "@/com
 import {RefreshCw,Info,ChevronLeft} from "lucide-react";
 import { useMemo } from "react";
 import { AdvanceFilterDialog, type AdvanceFilterValues } from "@/components/advanced-question-filter";
+import { useFilterStore } from "@/stores/filter-store";
 import type { CommonFilterKey } from "@/components/CommonFilterFields";
 // import type { HistoryItem, IQuestion, IReviewParmeters, SourceItem, QuestionRerouteRepo } from "@/types"; // unused
 import { Label } from "../../components/atoms/label";
@@ -29,11 +30,6 @@ type QaHeaderProps={
   onRefresh: () => void;
   actionType: "allocated" | "reroute";
   onActionTypeChange: (type: "allocated" | "reroute") => void;
-  reviewLevel: string;
-  source: string;
-  states: string[];
-  crops: string[];
-  onFilterChange: (key: string, value: any) => void;
   scrollRef: React.RefObject<HTMLDivElement|null>;
   questionItemRefs: React.MutableRefObject<Record<string, HTMLDivElement>>;
   setQuestionRef: (id: string, el: HTMLDivElement | null) => void;
@@ -189,30 +185,37 @@ export const QaHeader=({ questions,
   onRefresh,
   actionType,
   onActionTypeChange,
-  reviewLevel,
-  source,
-  states,
-  crops,
-  onFilterChange,
   scrollRef,
   setQuestionRef,
   onToggleCollapse,
 }:QaHeaderProps)=>{
+  const { expertView, setExpertViewFilter, resetExpertViewFilter } =
+    useFilterStore();
+
   const appliedQaFilter: AdvanceFilterValues = {
-    status: "all", source: source as any, state: "all", states,
-    answersCount: [0, 100], dateRange: "all", crop: "all",
-    normalised_crop: "all", normalisedCrops: crops, priority: "all",
-    domain: "all", user: "all", review_level: reviewLevel as any,
+    status: "all",
+    source: expertView.source as any,
+    state: "all",
+    states: expertView.states,
+    answersCount: [0, 100],
+    dateRange: "all",
+    crop: "all",
+    normalised_crop: "all",
+    normalisedCrops: expertView.crops,
+    priority: "all",
+    domain: "all",
+    user: "all",
+    review_level: expertView.review_level as any,
   };
 
   const qaActiveFiltersCount = useMemo(() => {
     let count = 0;
-    if (reviewLevel && reviewLevel !== "all") count++;
-    if (source && source !== "all") count++;
-    if (states.length > 0) count++;
-    if (crops.length > 0) count++;
+    if (expertView.review_level && expertView.review_level !== "all") count++;
+    if (expertView.source && expertView.source !== "all") count++;
+    if (expertView.states.length > 0) count++;
+    if (expertView.crops.length > 0) count++;
     return count;
-  }, [reviewLevel, source, states, crops]);
+  }, [expertView]);
 
   return(
     <div>
@@ -253,18 +256,15 @@ export const QaHeader=({ questions,
                 {/* QaPreferencesDialog replaced by AdvanceFilterDialog with visibleFields */}
                 <AdvanceFilterDialog
                   appliedFilter={appliedQaFilter}
-                  onApply={(values) => {
-                    onFilterChange("review_level", values.review_level ?? "all");
-                    onFilterChange("source", values.source ?? "all");
-                    onFilterChange("states", values.states ?? []);
-                    onFilterChange("crops", values.normalisedCrops ?? []);
-                  }}
-                  onReset={() => {
-                    onFilterChange("review_level", "all");
-                    onFilterChange("source", "all");
-                    onFilterChange("states", []);
-                    onFilterChange("crops", []);
-                  }}
+                  onApply={(values) =>
+                    setExpertViewFilter({
+                      source: values.source ?? "all",
+                      review_level: values.review_level ?? "all",
+                      states: values.states ?? [],
+                      crops: values.normalisedCrops ?? [],
+                    })
+                  }
+                  onReset={resetExpertViewFilter}
                   visibleFields={
                     ["source", "reviewLevel", "states", "cropType"] as CommonFilterKey[]
                   }

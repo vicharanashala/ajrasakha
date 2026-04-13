@@ -20,12 +20,13 @@ import {
 } from "../../components/atoms/tooltip";
 import { SourceUrlManager } from "../../components/source-url-manager";
 import {
-  type AdvanceFilterValues,
   type QuestionDateRangeFilter,
   type QuestionFilterStatus,
   type QuestionPriorityFilter,
   type QuestionSourceFilter,
+  type ReviewLevel,
 } from "../../components/advanced-question-filter";
+import { useFilterStore, DEFAULT_QUESTION_TABLE_FILTER } from "@/stores/filter-store";
 import type {} from "../../components/questions-page";
 import type {
   HistoryItem,
@@ -96,52 +97,30 @@ export const QAInterface = ({
 
   //for preference
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
-  const [source, setSource] = useState<QuestionSourceFilter>("all");
   const [priority, setPriority] = useState<QuestionPriorityFilter>("all");
   const [state, setState] = useState("all");
-  const [states, setStates] = useState<string[]>([]);
   const [crop, setCrop] = useState("all");
-  const [crops, setCrops] = useState<string[]>([]);
   const [domain, setDomain] = useState("all");
   const [user, setUser] = useState("all");
   const [answersCount, setAnswersCount] = useState<[number, number]>([0, 100]);
   const [dateRange, setDateRange] = useState<QuestionDateRangeFilter>("all");
   const [remarks, setRemarks] = useState("");
-  const[reviewLevel,setReviewLevel]=useState('all')
+
+  const { expertView } = useFilterStore();
 
   const [isLoaded, setIsLoaded] = useState(false);
-  // const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
-  //   {
-  //     status: "all",
-  //     source: "all",
-  //     state: "all",
-  //     answersCount: [0, 100],
-  //     dateRange: "all",
-  //     crop: "all",
-  //     priority: "all",
-  //     domain: "all",
-  //     user: "all",
-  //   }
-  // );
-  const handleDialogChange = (key: string, value: any) => {
-    if (key === "source") setSource(value);
-    else if (key === "state") setState(value);
-    else if (key === "states") setStates(value);
-    else if (key === "crop") setCrop(value);
-    else if (key === "crops") setCrops(value);
-    else if (key === "review_level") setReviewLevel(value);
-  };
   const scrollRef = useRef<HTMLDivElement>(null);
   const preferences = useMemo(
     () => ({
+      ...DEFAULT_QUESTION_TABLE_FILTER,
       status,
       state,
-      states,
-      source,
+      states: expertView.states,
+      source: expertView.source as QuestionSourceFilter,
       crop,
-      crops,
+      normalisedCrops: expertView.crops,
       normalised_crop: crop,
-      review_level: reviewLevel,
+      review_level: expertView.review_level as ReviewLevel,
       answersCount,
       dateRange,
       priority,
@@ -151,11 +130,8 @@ export const QAInterface = ({
     [
       status,
       state,
-      states,
-      source,
+      expertView,
       crop,
-      crops,
-      reviewLevel,
       answersCount,
       dateRange,
       priority,
@@ -172,7 +148,7 @@ export const QAInterface = ({
     hasNextPage,
     isFetchingNextPage,
     refetch,
-  } = useGetAllocatedQuestions(LIMIT, filter, preferences,actionType,autoSelectQuestionId,reviewLevel);
+  } = useGetAllocatedQuestions(LIMIT, filter, preferences,actionType,autoSelectQuestionId,expertView.review_level);
   const { data: exactQuestionPage, isLoading: isLoading } =
     useGetAllocatedQuestionPage(autoSelectQuestionId!);
    
@@ -610,21 +586,16 @@ const handleActionChange = (value: string) => {
   questions={questions}
   selectedQuestion={selectedQuestion}
   onQuestionSelect={handleQuestionClick}
-  isLoading={isQuestionsLoading }
+  isLoading={isQuestionsLoading}
   isLoadingTarget={isLoadingTargetQuestion}
   isFetchingNextPage={isFetchingNextPage}
   onRefresh={refetch}
   actionType={actionType}
   onActionTypeChange={handleActionChange}
-  reviewLevel={reviewLevel}
-  source={source}
-  states={states}
-  crops={crops}
-  onFilterChange={handleDialogChange}
   scrollRef={scrollRef}
   questionItemRefs={questionItemRefs}
   setQuestionRef={setQuestionRef}
-  onToggleCollapse={() =>setIsSidebarCollapsed(!isSidebarCollapsed)}
+  onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
 />
 </div>
           {selectedQuestionData &&

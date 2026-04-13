@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useFilterStore } from "@/stores/filter-store";
 import { Button } from "../../components/atoms/button";
 import { Download, Loader2, Filter } from "lucide-react";
 import { CommonFilterFields } from "@/components/CommonFilterFields";
@@ -19,21 +20,12 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
   const questionService = new QuestionService();
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  // useGetAllCrops moved into CommonFilterFields
-  
-  const [filters, setFilters] = useState({
-    state: "all",
-    normalised_crop: "all",
-    season: "all",
-    domain: "all",
-    status: "all",
-    hiddenQuestions: false,
-    duplicateQuestions: false,
-  });
+  const { downloadReport, setDownloadFilter, resetDownloadFilter } =
+    useFilterStore();
 
   const handleDownloadReport = async () => {
     // Check if at least one filter is selected
-    const hasFilter = Object.entries(filters).some(([, value]) =>
+    const hasFilter = Object.entries(downloadReport).some(([, value]) =>
       typeof value === "boolean" ? value : value !== "all",
     );
     
@@ -47,17 +39,17 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
       toast.info("Preparing download...");
 
       // Download filtered report
-      const blob = await questionService.downloadFilteredReport(filters);
+      const blob = await questionService.downloadFilteredReport(downloadReport);
 
-      // Create filename based on filters
+      // Create filename based on downloadReport
       const filterParts = [];
-      if (filters.state !== "all") filterParts.push(filters.state);
-      if (filters.normalised_crop !== "all") filterParts.push(filters.normalised_crop === '__NOT_SET__' ? 'legacy' : filters.normalised_crop);
-      if (filters.season !== "all") filterParts.push(filters.season);
-      if (filters.domain !== "all") filterParts.push(filters.domain);
-      if (filters.status !== "all") filterParts.push(filters.status);
-      if (filters.hiddenQuestions) filterParts.push("hidden");
-      if (filters.duplicateQuestions) filterParts.push("duplicate");
+      if (downloadReport.state !== "all") filterParts.push(downloadReport.state);
+      if (downloadReport.normalised_crop !== "all") filterParts.push(downloadReport.normalised_crop === '__NOT_SET__' ? 'legacy' : downloadReport.normalised_crop);
+      if (downloadReport.season !== "all") filterParts.push(downloadReport.season);
+      if (downloadReport.domain !== "all") filterParts.push(downloadReport.domain);
+      if (downloadReport.status !== "all") filterParts.push(downloadReport.status);
+      if (downloadReport.hiddenQuestions) filterParts.push("hidden");
+      if (downloadReport.duplicateQuestions) filterParts.push("duplicate");
       
       const filename = `questions_${filterParts.join("_") || "filtered"}.xlsx`;
 
@@ -80,27 +72,6 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
     } finally {
       setIsDownloading(false);
     }
-  };
-
-  const handleFilterChange = (key: string, value: any) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
-
-  // handleCheckboxChange is now handled by CommonFilterFields via handleFilterChange
-  // const handleCheckboxChange = (key: "hiddenQuestions" | "duplicateQuestions", value: boolean) => {
-  //   setFilters(prev => ({ ...prev, [key]: value }));
-  // };
-
-  const handleReset = () => {
-    setFilters({
-      state: "all",
-      normalised_crop: "all",
-      season: "all",
-      domain: "all",
-      status: "all",
-      hiddenQuestions: false,
-      duplicateQuestions: false,
-    });
   };
 
   return (
@@ -136,15 +107,15 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
               Select Filters for Report
             </DialogTitle>
             <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-md border">
-              Choose filters to download questions. At least one filter must be selected.
+              Choose downloadReport to download questions. At least one filter must be selected.
             </div>
           </DialogHeader>
           
           <div className="overflow-y-auto flex-1 py-2">
             {/* ── CommonFilterFields replaces the duplicated filter dropdowns below ── */}
             <CommonFilterFields
-              values={filters}
-              onChange={handleFilterChange}
+              values={downloadReport}
+              onChange={(key, value) => setDownloadFilter({ ...downloadReport, [key]: value })}
               visibleFields={
                 [
                   "state",
@@ -165,7 +136,7 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
               {/* State Filter *\/}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">State</Label>
-                <Select value={filters.state} onValueChange={(val) => handleFilterChange("state", val)}>
+                <Select value={downloadReport.state} onValueChange={(val) => handleFilterChange("state", val)}>
                   ...
                 </Select>
               </div>
@@ -196,7 +167,7 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
           </div>
 
           <DialogFooter className="gap-2 pt-3 flex-shrink-0 flex-row justify-end">
-            <Button variant="outline" type="button" onClick={handleReset} className="w-auto">
+            <Button variant="outline" type="button" onClick={resetDownloadFilter} className="w-auto">
               Reset
             </Button>
             <DialogClose asChild>
