@@ -85,13 +85,37 @@ export class QuestionController {
   @Authorized()
   @OpenAPI({summary: 'Get all open status questions'})
   async getAllocatedQuestions(
-    @QueryParams()
-    query: GetDetailedQuestionsQuery,
     @Body() body: AllocatedQuestionsBodyDto,
     @CurrentUser() user: IUser,
   ): Promise<QuestionResponse[]> {
     const userId = user._id.toString();
-    return this.questionService.getAllocatedQuestions(userId, query, body);
+    const { page, limit, filter, filters } = body;
+
+    const query: GetDetailedQuestionsQuery = {
+      page,
+      limit,
+      filter: filter as any,
+      status: filters?.status,
+      source: filters?.source,
+      priority: filters?.priority,
+      domain: filters?.domain,
+      user: filters?.user,
+      review_level: filters?.review_level,
+      answersCountMin: filters?.answersCountMin,
+      answersCountMax: filters?.answersCountMax,
+      dateRange: filters?.dateRange,
+    } as GetDetailedQuestionsQuery;
+
+    if (filters?.autoSelectQuestionId) {
+      (query as any).autoSelectQuestionId = filters.autoSelectQuestionId;
+    }
+
+    const allocatedBody = {
+      states: filters?.states,
+      crops: filters?.crops,
+    };
+
+    return this.questionService.getAllocatedQuestions(userId, query, allocatedBody);
   }
 
   @Get('/allocated/page')
@@ -113,10 +137,42 @@ export class QuestionController {
   @OpenAPI({summary: 'Get detailed questions with advanced filters'})
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async getDetailedQuestions(
-    @QueryParams() query: GetDetailedQuestionsQuery,
     @Body() body: DetailedQuestionsBodyDto,
   ): Promise<{questions: IQuestion[]; totalPages: number}> {
-    return this.questionService.getDetailedQuestions(query, body);
+    const { page, limit, search, sort, filters } = body;
+
+    // Build a GetDetailedQuestionsQuery-compatible object from body
+    const query: GetDetailedQuestionsQuery = {
+      page,
+      limit,
+      search,
+      sort,
+      status: filters?.status,
+      source: filters?.source,
+      crop: filters?.crop ? [filters.crop] : undefined,
+      priority: filters?.priority,
+      domain: filters?.domain,
+      user: filters?.user,
+      review_level: filters?.review_level,
+      consecutiveApprovals: filters?.consecutiveApprovals,
+      autoAllocateFilter: filters?.autoAllocateFilter,
+      answersCountMin: filters?.answersCountMin,
+      answersCountMax: filters?.answersCountMax,
+      hiddenQuestions: filters?.hiddenQuestions,
+      duplicateQuestions: filters?.duplicateQuestions,
+      dateRange: filters?.dateRange,
+      startTime: filters?.startTime,
+      endTime: filters?.endTime,
+      closedAtStart: filters?.closedAtStart,
+      closedAtEnd: filters?.closedAtEnd,
+    };
+
+    const detailedBody = {
+      states: filters?.states,
+      normalisedCrops: filters?.normalisedCrops,
+    };
+
+    return this.questionService.getDetailedQuestions(query, detailedBody);
   }
 
   @Post('/generate')

@@ -701,28 +701,73 @@ class BulkDeleteQuestionDto {
   questionIds: string[];
 }
 
+export class AllocatedQuestionsFiltersDto {
+  @IsOptional() @IsString() status?: string;
+  @IsOptional() @IsString() source?: string;
+  @IsOptional() @IsString() priority?: string;
+  @IsOptional() @IsString() domain?: string;
+  @IsOptional() @IsString() user?: string;
+  @IsOptional() @IsString() review_level?: string;
+  @IsOptional() @IsInt() @Min(0) answersCountMin?: number;
+  @IsOptional() @IsInt() @Max(1000) answersCountMax?: number;
+  @IsOptional() @IsString() dateRange?: string;
+  @IsOptional() @IsString() autoSelectQuestionId?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) states?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) crops?: string[];
+}
+
 export class AllocatedQuestionsBodyDto {
-  @IsOptional()
-  @IsArray()
-  @IsString({each: true})
-  states?: string[];
+  @IsOptional() @IsInt() @Min(1) page?: number;
+  @IsOptional() @IsInt() @Min(1) limit?: number;
+  @IsOptional() @IsString() filter?: string;
 
   @IsOptional()
-  @IsArray()
-  @IsString({each: true})
-  crops?: string[];
+  @ValidateNested()
+  @Type(() => AllocatedQuestionsFiltersDto)
+  filters?: AllocatedQuestionsFiltersDto;
+
+  // Legacy flat fields — kept for backward compatibility
+  @IsOptional() @IsArray() @IsString({ each: true }) states?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) crops?: string[];
+}
+
+export class DetailedQuestionsFiltersDto {
+  @IsOptional() @IsString() status?: string;
+  @IsOptional() @IsString() source?: string;
+  @IsOptional() @IsString() crop?: string;
+  @IsOptional() @IsString() priority?: string;
+  @IsOptional() @IsString() domain?: string;
+  @IsOptional() @IsString() user?: string;
+  @IsOptional() @IsString() review_level?: string;
+  @IsOptional() @IsString() consecutiveApprovals?: string;
+  @IsOptional() @IsString() autoAllocateFilter?: string;
+  @IsOptional() @IsInt() @Min(0) answersCountMin?: number;
+  @IsOptional() @IsInt() @Max(1000) answersCountMax?: number;
+  @IsOptional() @IsString() hiddenQuestions?: string;
+  @IsOptional() @IsString() duplicateQuestions?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) states?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) normalisedCrops?: string[];
+  @IsOptional() @IsString() dateRange?: string;
+  @IsOptional() startTime?: string;
+  @IsOptional() endTime?: string;
+  @IsOptional() closedAtStart?: string;
+  @IsOptional() closedAtEnd?: string;
 }
 
 export class DetailedQuestionsBodyDto {
-  @IsOptional()
-  @IsArray()
-  @IsString({each: true})
-  states?: string[];
+  @IsOptional() @IsInt() @Min(1) page?: number;
+  @IsOptional() @IsInt() @Min(1) limit?: number;
+  @IsOptional() @IsString() search?: string;
+  @IsOptional() @IsString() sort?: string;
 
   @IsOptional()
-  @IsArray()
-  @IsString({each: true})
-  normalisedCrops?: string[];
+  @ValidateNested()
+  @Type(() => DetailedQuestionsFiltersDto)
+  filters?: DetailedQuestionsFiltersDto;
+
+  // Legacy flat fields — kept for backward compatibility
+  @IsOptional() @IsArray() @IsString({ each: true }) states?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) normalisedCrops?: string[];
 }
 
 export const QUESTION_VALIDATORS = [
@@ -741,6 +786,7 @@ export const QUESTION_VALIDATORS = [
   DateRangeRequest,
   AllocatedQuestionsBodyDto,
   DetailedQuestionsBodyDto,
+  DetailedQuestionsFiltersDto,
 ];
 
 export {
