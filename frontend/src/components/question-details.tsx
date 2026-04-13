@@ -110,6 +110,58 @@ export const QuestionDetails = ({
                     </p>
                   )
                 )}
+            {question.aiApprovedSources && question.aiApprovedSources.length > 0 && (
+                <div className="px-4 py-4 bg-info/5 border-t border-info/20">
+                  <span className="text-sm font-semibold text-foreground">Sources</span>
+
+                  <div className="mt-3 space-y-2">
+                    {question.aiApprovedSources.map((src, index) => (
+                      <div
+                        key={index}
+                        className="rounded-md border border-border bg-background p-3 text-sm"
+                      >
+                        {/* Row header */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-foreground">
+                            {index + 1}. {src.sourceName}
+                          </span>
+
+                          {src.sourceType && (
+                            <span className="text-xs text-muted-foreground capitalize">
+                              {src.sourceType}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Link */}
+                        {src.source && (
+                          <div className="mt-1">
+                            {src.source.startsWith("http") ? (
+                              <a
+                                href={src.source}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-500 underline break-all"
+                              >
+                                {src.source}
+                              </a>
+                            ) : (
+                              <span className="text-foreground/80">{src.source}</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Page */}
+                        {src.page !== null && src.page !== undefined && (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Page: {src.page}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
