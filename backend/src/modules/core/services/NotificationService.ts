@@ -209,4 +209,15 @@ export class NotificationService extends BaseService {
     await notifyUser(userId, title, subscription);
     // });
   }
+
+  async deleteExpiredSubscriptionForUser(endpoint:string){
+    return this._withTransaction(async (session: ClientSession) => {
+      return await this.notificationRepository.deleteExpiredSubscriptionForUser( endpoint, session );
+    });
+  }
+  async deleteExpiredSubscriptions(){
+    return this._withTransaction(async (session: ClientSession) => {
+      return await this.notificationRepository.deleteExpiredSubscriptions( session );
+    });
+  }
 }
