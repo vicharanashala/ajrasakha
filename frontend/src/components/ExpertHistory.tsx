@@ -95,7 +95,6 @@ const ViewContextModal = ({
   onClose: () => void;
 }) => {
   if (!item) return null;
-  console.log("the item coming====",item)
 
   const question = item?.question?.question || "No question found";
 
@@ -320,6 +319,7 @@ export default function UserActivityHistory({
     refetch: refechSelectedQuestion,
     isLoading: isLoadingSelectedQuestion,
   } = useGetQuestionFullDataById(selectedQuestionId);
+
   const goBack = () => setSelectedQuestionId("");
   const submissions = data?.data || [];
   const totalPages = data?.totalPages || 1;
