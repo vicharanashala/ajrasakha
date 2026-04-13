@@ -29,6 +29,7 @@ export interface IUser {
   status?: UserStatus;
   special_task_force?:boolean
   special_task_force_moderator?: boolean
+  avatar?: string
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high';

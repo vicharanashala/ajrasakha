@@ -175,6 +175,7 @@ export const QuestionsPage = ({
     refetch: refechSelectedQuestion,
     isLoading: isLoadingSelectedQuestion,
   } = useGetQuestionFullDataById(selectedQuestionId);
+
   const { data: reviewData, isLoading: isReviewLoading } =
     useGetQuestionsAndLevel(
       reviewPage,

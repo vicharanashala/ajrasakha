@@ -31,20 +31,23 @@ export const AnswerTimeline = ({
   rerouteQuestion,
 }: IAnswerTimelineProps) => {
   // map answers to timeline events
-  const events = answers.slice(0, answerVisibleCount).map((ans) => {
-    const submission = question.submission.history.find(
-      (h) => h.answer?._id === ans?._id
-    );
+  const events = answers
+    .slice(0, answerVisibleCount)
+    .map((ans, index) => {
+      const submission = question.submission.history.find(
+        (h) => h.answer?._id === ans?._id
+      );
 
 
-    return {
+      return {
+        index,
       lastAnswerId: answers[0]?._id, // first one will be the last one
-      firstAnswerId: answers[answers?.length - 1]?._id, // last one will be the first one
-      answer: ans,
-      submission,
-      createdAt: new Date(ans.createdAt || "").toLocaleString(),
-    };
-  });
+        firstAnswerId: answers[answers?.length - 1]?._id, // last one will be the first one
+        answer: ans,
+        submission,
+        createdAt: new Date(ans.createdAt || "").toLocaleString(),
+      };
+    });
 
   return (
     <div className="w-full">
@@ -52,27 +55,44 @@ export const AnswerTimeline = ({
         value={events}
         align="alternate"
         opposite={(item) => (
-          <div className="ml-5 flex flex-col gap-1 ">
+          <div className="ml-5 flex flex-col">
             {item.submission?.updatedBy && (
-              <div className="text-xs text-foreground px-2 py-1 rounded-md">
-                {(userRole === "expert")&&<span className="font-medium">By:</span>}{" "}
-                <span>
+              <div
+                className={`text-sm text-foreground rounded-md flex ${item.index % 2 === 0 ? "justify-end" : "justify-start"
+                  }`}
+              >
+                {(userRole === "expert") && <span className="font-medium">By:</span>}{" "}
+                {/* <span>
                   {(userRole === "moderator" || userRole === "admin") && (
                     <AvatarComponent
                       name={item?.submission?.updatedBy?.name}
+                      image={item?.submission?.updatedBy?.avatar}
                     />
                   )}&nbsp;
                   {item?.submission?.updatedBy?.name}
                   {item?.submission?.updatedBy?.email && (
                     <> ({item.submission.updatedBy.email})</>
                   )}
-                </span>
-                {item?.submission?.updatedBy?.email &&
-                  item?.firstAnswerId === item?.submission?.answer?._id && (
-                    <span className="ml-2 px-2 py-0.5 text-[10px] rounded-full bg-blue-100 text-blue-700 font-semibold">
-                      Author
-                    </span>
+                </span> */}
+                <div className="flex gap-1 items-center">
+                  {(userRole === "moderator" || userRole === "admin") && (
+                    <AvatarComponent
+                      name={item?.submission?.updatedBy?.name}
+                      image={item?.submission?.updatedBy?.avatar}
+                    />
                   )}
+                  {item?.submission?.updatedBy?.name}
+                  {item?.submission?.updatedBy?.email && (
+                    <> ({item.submission.updatedBy.email})</>
+                  )}
+                  {item?.submission?.updatedBy?.email &&
+                    item?.firstAnswerId === item?.submission?.answer?._id && (
+                      <span className="ml-2 px-2 py-0.5 text-[10px] rounded-full bg-blue-100 text-blue-700 font-semibold">
+                        Author
+                      </span>
+                    )}
+                </div>
+
               </div>
             )}
 

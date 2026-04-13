@@ -71,6 +71,8 @@ export const ViewMoreContent = ({
       questionStatus !== "re-routed" &&
       questionStatus !== "closed");
 
+
+
   return (
     <div className="space-y-6 p-4">
       <div className="grid gap-4 text-sm">
@@ -107,18 +109,32 @@ export const ViewMoreContent = ({
           <div className="rounded-lg border bg-muted/50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium text-foreground">
-               {userRole === "expert" ? ` Submitted By:${" "}`: null}
-                <span className="text-sm text-muted-foreground">
+                {userRole === "expert" ? ` Submitted By:${" "}` : null}
+                {/* <span className="text-sm text-muted-foreground">
                 {(userRole === "moderator" || userRole === "admin") && (
                     <AvatarComponent
                       name={submissionData.updatedBy?.name}
+                      image={submissionData.updatedBy?.avatar}
                     />
                   )}&nbsp;
                   {submissionData.updatedBy?.name}
                   {submissionData.updatedBy?.email && (
                     <> ({submissionData.updatedBy.email})</>
                   )}
-                </span>
+                </span> */}
+
+                <div className="flex gap-2 items-center">
+                  {(userRole === "moderator" || userRole === "admin") && (
+                    <AvatarComponent
+                      name={submissionData.updatedBy?.name}
+                      image={submissionData.updatedBy?.avatar}
+                    />
+                  )}
+                  {submissionData.updatedBy?.name}
+                  {submissionData.updatedBy?.email && (
+                    <> ({submissionData.updatedBy?.email})</>
+                  )}
+                </div>
               </p>
 
               {answer.threshold > 0 && (

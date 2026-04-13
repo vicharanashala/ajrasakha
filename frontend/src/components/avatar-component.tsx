@@ -17,7 +17,7 @@ const ringStyles: Record<number, string> = {
 type AvatarComponentProps = {
   u?: IUser;
   name?: string;
-  image?: string;
+  image?: string | null;
   rankPosition?: number;
   showRankBadge?: boolean;
 };
