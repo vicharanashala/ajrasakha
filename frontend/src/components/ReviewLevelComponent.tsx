@@ -1,43 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useGetReviewLevel } from "@/hooks/api/user/useGetReviewLevel";
-import { Separator } from "@/components/atoms/separator";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "./atoms/table";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
-import {
-  Loader2,
-  MapPin,
-  Filter,
-  Sprout,
-  Globe,
-  FileText,
-  UserIcon,
-  Info,
-} from "lucide-react";
-import { DateRangeFilter } from "./DateRangeFilter";
-import { STATES, CROPS, DOMAINS, SEASONS, STATUS } from "./MetaData";
-import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
-import { AlertTriangle } from "lucide-react";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/atoms/select";
-import { Label } from "@/components/atoms/label";
+import { Loader2, Filter } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -48,12 +17,8 @@ import {
 } from "./atoms/dialog";
 import { Button } from "@/components/atoms/button";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
-import {
-  Tooltip as UITooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "./atoms/tooltip";
+import { CommonFilterFields } from "./CommonFilterFields";
+import type { CommonFilterValues } from "./CommonFilterFields";
 import {
   Bar,
   BarChart,
@@ -69,13 +34,6 @@ interface DateRange {
   startTime?: Date;
   endTime?: Date;
 }
-type FilterSelectProps = {
-  label: string;
-  value: string;
-  options: string[];
-  onChange: (value: string) => void;
-  Icon?: any;
-};
 type Filters = {
   state: string;
   crop: string;
@@ -86,33 +44,6 @@ type Filters = {
   userId: string;
 };
 
-const FilterSelect = ({
-  label,
-  value,
-  options,
-  onChange,
-  Icon,
-}: FilterSelectProps) => (
-  <div className="space-y-2">
-    <Label className="text-sm font-semibold flex items-center gap-2">
-      {Icon && <Icon className="h-4 w-4 text-primary" />}
-      {label}
-    </Label>
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="hover:bg-accent/50 hover:text-accent-foreground transition-colors">
-        <SelectValue placeholder={`Select ${label}`} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">All {label}</SelectItem>
-        {options.map((opt) => (
-          <SelectItem key={opt} value={opt}>
-            {opt}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  </div>
-);
 const defaultFilters: Filters = {
   state: "all",
   crop: "all",
@@ -123,9 +54,7 @@ const defaultFilters: Filters = {
   userId: "all",
 };
 export const ReviewLevelComponent = () => {
-  const { data: userNameReponse, isLoading } = useGetAllUsers();
-  const { data: cropsData } = useGetAllCrops();
-  const dbCrops = cropsData?.crops ?? [];
+  const { data: userNameReponse } = useGetAllUsers();
   const {key,ref} = useRestartOnView()
   const [openFilter, setOpenFilter] = useState(false);
   const [draftFilters, setDraftFilters] = useState<Filters>(defaultFilters);
@@ -143,33 +72,30 @@ export const ReviewLevelComponent = () => {
       status: filters.status,
       userId: filters.userId,
     });
-  const levels = reviewLevel || [];
-  const totalCompleted = levels.reduce(
-    (sum, item) => sum + (item.count ?? 0),
-    0,
-  );
 
-  const handleDraftDateChange = (key: string, value?: Date) => {
-    setDraftFilters((prev) => ({
-      ...prev,
-      dateRange: {
-        ...prev.dateRange,
-        [key]: value,
-      },
-    }));
+  const draftFilterValues: CommonFilterValues = {
+    state: draftFilters.state,
+    normalised_crop: draftFilters.normalised_crop,
+    domain: draftFilters.domain,
+    status: draftFilters.status,
+    user: draftFilters.userId,
+    startTime: draftFilters.dateRange.startTime ?? null,
+    endTime: draftFilters.dateRange.endTime ?? null,
   };
-  const handleSelectedExpert = (value?: string) => {
-    setDraftFilters((prev) => ({
-      ...prev,
-      userId: value ?? "all",
-    }));
+
+  const handleCommonFilterChange = (key: string, value: any) => {
+    if (key === "user") {
+      setDraftFilters((prev) => ({ ...prev, userId: value }));
+    } else if (key === "startTime" || key === "endTime") {
+      setDraftFilters((prev) => ({
+        ...prev,
+        dateRange: { ...prev.dateRange, [key]: value },
+      }));
+    } else {
+      setDraftFilters((prev) => ({ ...prev, [key]: value }));
+    }
   };
-  const updateDraft = (key: keyof Filters, value: string) => {
-    setDraftFilters((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-  };
+
   const handleApplyFilters = () => {
     setFilters(draftFilters); // apply
     setOpenFilter(false); // close modal
@@ -245,170 +171,12 @@ export const ReviewLevelComponent = () => {
                   <DialogTitle>Filter Options</DialogTitle>
                 </DialogHeader>
 
-                {/* Filter Body */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                  <FilterSelect
-                    label="States / Regions"
-                    value={draftFilters.state}
-                    options={STATES}
-                    onChange={(val) => updateDraft("state", val)}
-                    Icon={MapPin}
-                  />
-
-
-
-                  {/* Crops Filter */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold flex items-center gap-2">
-                      <Sprout className="h-4 w-4 text-primary" />
-                      Crops
-                      <UITooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            className="text-muted-foreground hover:text-primary transition-colors"
-                          >
-                            <Info className="h-4 w-4" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs text-sm">
-                          <p>
-                            The names here are normalized and unique. You can view a crop's alternative names by hovering over the "+" icon next to it.
-                          </p>
-                        </TooltipContent>
-                      </UITooltip>
-                    </Label>
-                    <Select value={draftFilters.normalised_crop} onValueChange={(val) => updateDraft("normalised_crop", val)}>
-                      <SelectTrigger className="hover:bg-accent/50 hover:text-accent-foreground transition-colors">
-                        <SelectValue placeholder="Select Crop" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Crops</SelectItem>
-                        <SelectItem value="__NOT_SET__">
-                          <div className="flex items-center gap-2">
-                            <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                            <span className="text-yellow-700 dark:text-yellow-400 font-medium">Not Set (Legacy)</span>
-                          </div>
-                        </SelectItem>
-                        {dbCrops.length > 0
-                          ? dbCrops.map((crop) => (
-                              <SelectItem key={crop._id || crop.name} value={crop.name}>
-                                {crop.aliases && crop.aliases.length > 0 ? (
-                                  <TooltipProvider delayDuration={200}>
-                                    <UITooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="flex items-center gap-2 cursor-default">
-                                          <span className="capitalize">{crop.name}</span>
-                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
-                                            +{crop.aliases.length}
-                                          </span>
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="right" className="text-xs">
-                                        <p className="font-semibold mb-0.5">Also known as:</p>
-                                        {crop.aliases.map((a: string) => (
-                                          <p key={a} className="capitalize text-muted-foreground">{a}</p>
-                                        ))}
-                                      </TooltipContent>
-                                    </UITooltip>
-                                  </TooltipProvider>
-                                ) : (
-                                  <span className="capitalize">{crop.name}</span>
-                                )}
-                              </SelectItem>
-                            ))
-                          : CROPS.map((opt) => (
-                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                            ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Separator */}
-                  <div className="col-span-2">
-                    <Separator className="my-1" />
-                  </div>
-
-                  <FilterSelect
-                    label="Domains"
-                    value={draftFilters.domain}
-                    options={DOMAINS}
-                    onChange={(val) => updateDraft("domain", val)}
-                    Icon={Globe}
-                  />
-
-                  <FilterSelect
-                    label="Status"
-                    value={draftFilters.status}
-                    options={STATUS}
-                    onChange={(val) => updateDraft("status", val)}
-                    Icon={FileText}
-                  />
-
-                  {/* Separator */}
-                  <div className="col-span-2">
-                    <Separator className="my-1" />
-                  </div>
-
-                  <div className="space-y-2 min-w-0">
-                    <Label className="flex items-center gap-2 text-sm font-semibold">
-                      <UserIcon className="h-4 w-4 text-primary" />
-                      User
-                      <UITooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            className="text-muted-foreground hover:text-primary transition-colors"
-                          >
-                            <Info className="h-4 w-4" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs text-sm">
-                          <p>
-                            This option allows filtering questions that have
-                            been submitted at least once by the selected user.
-                          </p>
-                        </TooltipContent>
-                      </UITooltip>
-                    </Label>
-
-                    <Select
-                      value={draftFilters.userId}
-                      onValueChange={handleSelectedExpert}
-                      disabled={isLoading}
-                    >
-                      <SelectTrigger className="bg-background w-full hover:bg-accent/50 hover:text-accent-foreground transition-colors">
-                        <SelectValue />
-                      </SelectTrigger>
-
-                      <SelectContent>
-                        {isLoading ? (
-                          <div className="flex items-center justify-center p-3">
-                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                            <span className="ml-2 text-sm text-muted-foreground">
-                              Loading users...
-                            </span>
-                          </div>
-                        ) : (
-                          <>
-                            <SelectItem value="all">All Users</SelectItem>
-                            {users?.map((u) => (
-                              <SelectItem key={u._id} value={u._id}>
-                                {u.userName}
-                              </SelectItem>
-                            ))}
-                          </>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2 min-w-0">
-                    <DateRangeFilter
-                      advanceFilter={draftFilters.dateRange}
-                      handleDialogChange={handleDraftDateChange}
-                    />
-                  </div>
-                </div>
+                <CommonFilterFields
+                  values={draftFilterValues}
+                  onChange={handleCommonFilterChange}
+                  visibleFields={["state", "cropType", "domain", "status", "user", "dateRange"]}
+                  cropTypeMode="single"
+                />
 
                 <DialogFooter className="gap-2 mt-4">
                   <Button variant="outline" onClick={handleClearFilters}>
