@@ -59,19 +59,13 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
     : "All time";
 
   return (
-    <div style={{ padding: "0px 20px 20px 20px", flex: 1, overflowY: "auto" }}>
+    <div className="px-5 pb-5 flex-1 overflow-y-auto">
       {/* Header */}
       <div className="mb-5">
-        <h2
-          className="text-base font-semibold text-(--foreground)"
-          style={{ margin: 0 }}
-        >
+        <h2 className="text-base font-semibold text-(--foreground) m-0">
           User Details
         </h2>
-        <p
-          className="text-xs text-(--muted-foreground)"
-          style={{ marginTop: 4 }}
-        >
+        <p className="text-xs text-(--muted-foreground) mt-1">
           {dateLabel} · {totalUsers} users
         </p>
       </div>
@@ -81,7 +75,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
         {/* Column 1 — Total Users + bar graph */}
         <div className="flex flex-col gap-3">
           <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden">
-            <div className="absolute inset-x-0 top-0 h-1" style={{ background: "#3AAA5A" }} />
+            <div className="absolute inset-x-0 top-0 h-1 bg-[#3AAA5A]" />
             <CardContent className="p-4 flex flex-col gap-0.5">
               <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 Total Users
@@ -108,7 +102,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
 
         {/* Column 2 — Active Users (graph placeholder for later) */}
         <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start">
-          <div className="absolute inset-x-0 top-0 h-1" style={{ background: "#3B82F6" }} />
+          <div className="absolute inset-x-0 top-0 h-1 bg-[#3B82F6]" />
           <CardContent className="p-4 flex flex-col gap-0.5">
             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
               Active Users
@@ -121,7 +115,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
 
         {/* Column 3 — Total Questions (graph placeholder for later) */}
         <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start">
-          <div className="absolute inset-x-0 top-0 h-1" style={{ background: "#EF9F27" }} />
+          <div className="absolute inset-x-0 top-0 h-1 bg-[#EF9F27]" />
           <CardContent className="p-4 flex flex-col gap-0.5">
             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
               Total Questions

@@ -11,7 +11,7 @@ export function Sparkline({ points, color }: SparklineProps) {
   const d = points.map((v, i) => `${i === 0 ? "M" : "L"} ${px(i)} ${py(v)}`).join(" ");
   const fill = d + ` L ${W} ${H} L 0 ${H} Z`;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 52 }} preserveAspectRatio="none">
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[52px]" preserveAspectRatio="none">
       <path d={fill} fill={color} fillOpacity={0.08} />
       <path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
