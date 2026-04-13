@@ -4,6 +4,7 @@ import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Spinner } from "@/components/atoms/spinner";
 import { useUserDetails } from "./hooks/useUserDetails";
+import { BarGraph } from "@/components/atoms/BarGrapgh";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { Pagination } from "@/components/pagination";
 import {
@@ -111,6 +112,21 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
           </CardContent>
         </Card>
       </div>
+
+      {/* Questions per user bar graph */}
+      {!isLoading && !error && users.length > 0 && (
+        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] mb-5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Questions per User</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BarGraph
+              data={users.map(u => ({ label: u.name, value: u.totalQuestions }))}
+              height={120}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Users table */}
       <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
