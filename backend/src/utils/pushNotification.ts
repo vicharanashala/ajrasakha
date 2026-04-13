@@ -36,9 +36,12 @@ export const notifyUser = async (userId: string, message: string,subscription:IS
     body: message,
     url: '/notifications'
   };
-  console.log("Notify Uset",userId);
+  const container=getContainer();
+  const notificationService = container.get<NotificationService>(CORE_TYPES.NotificationService)
   // Check if the subscription is expired before attempting to send
   if (subscription.expirytime && subscription.expirytime < new Date()) {
+    // delete the expired subscribtions
+    await notificationService.deleteExpiredSubscriptionForUser(subscription.subscription.endpoint);
     console.warn(`[Push Notification] Subscription for user ${userId} has expired. Skipping.`);
     return;
   }
