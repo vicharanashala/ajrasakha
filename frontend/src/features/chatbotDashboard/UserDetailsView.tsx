@@ -59,7 +59,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
     : "All time";
 
   return (
-    <div className="px-5 pb-5 flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto px-5 pb-5 min-w-0">
       {/* Header */}
       <div className="mb-5">
         <h2 className="text-base font-semibold text-(--foreground) m-0">
@@ -72,35 +72,20 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
 
       {/* Summary cards + graphs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-        {/* Column 1 — Total Users + bar graph */}
-        <div className="flex flex-col gap-3">
-          <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden">
-            <div className="absolute inset-x-0 top-0 h-1 bg-[#3AAA5A]" />
-            <CardContent className="p-4 flex flex-col gap-0.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                Total Users
-              </span>
-              <span className="text-2xl font-semibold dark:text-slate-100">
-                {isLoading ? "—" : totalUsers.toLocaleString()}
-              </span>
-            </CardContent>
-          </Card>
-          {!isLoading && !error && users.length > 0 && (
-            <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Questions per User</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <BarGraph
-                  data={users.map(u => ({ label: u.name, value: u.totalQuestions }))}
-                  height={120}
-                />
-              </CardContent>
-            </Card>
-          )}
-        </div>
+        {/* Total Users — col 1 row 1 */}
+        <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start">
+          <div className="absolute inset-x-0 top-0 h-1 bg-[#3AAA5A]" />
+          <CardContent className="p-4 flex flex-col gap-0.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              Total Users
+            </span>
+            <span className="text-2xl font-semibold dark:text-slate-100">
+              {isLoading ? "—" : totalUsers.toLocaleString()}
+            </span>
+          </CardContent>
+        </Card>
 
-        {/* Column 2 — Active Users (graph placeholder for later) */}
+        {/* Active Users — col 2 row 1 */}
         <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start">
           <div className="absolute inset-x-0 top-0 h-1 bg-[#3B82F6]" />
           <CardContent className="p-4 flex flex-col gap-0.5">
@@ -113,7 +98,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
           </CardContent>
         </Card>
 
-        {/* Column 3 — Total Questions (graph placeholder for later) */}
+        {/* Total Questions — col 3 row 1 */}
         <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative overflow-hidden self-start">
           <div className="absolute inset-x-0 top-0 h-1 bg-[#EF9F27]" />
           <CardContent className="p-4 flex flex-col gap-0.5">
@@ -125,15 +110,30 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
             </span>
           </CardContent>
         </Card>
+
+        {/* Bar graph — col 1 row 2 on sm+, after all 3 cards on mobile */}
+        {!isLoading && !error && users.length > 0 && (
+          <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a] sm:col-start-1 sm:row-start-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Questions per User</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BarGraph
+                data={users.map(u => ({ label: u.name, value: u.totalQuestions }))}
+                height={120}
+              />
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Users table */}
       <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
         <CardHeader className="pb-3">
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 min-w-0 w-full">
             <CardTitle className="text-sm font-medium">All Farmers</CardTitle>
-            <div className="flex flex-col sm:flex-row items-stretch gap-2 w-full">
-              <div className="relative w-full sm:flex-1">
+            <div className="flex flex-col sm:flex-row flex-wrap lg:flex-nowrap items-stretch gap-2 w-full min-w-0">
+              <div className="relative w-full sm:flex-1 min-w-0">
                 <svg
                   width={14}
                   height={14}
@@ -152,7 +152,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                   className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
                 />
               </div>
-              <div className="w-full sm:w-auto [&_label]:hidden [&_#date-toggle]:!w-full [&_#date-toggle]:!whitespace-nowrap [&_#date-toggle_span]:!whitespace-nowrap [&_#date-toggle]:!h-9 [&_.absolute]:!left-0 [&_.absolute]:sm:!left-auto [&_.absolute]:sm:!right-0">
+              <div className="w-full sm:w-auto lg:flex-none min-w-0 relative [&_label]:hidden [&_#date-toggle]:!w-full [&_#date-toggle]:!h-9 [&_#date-toggle]:!overflow-hidden [&_.absolute]:!left-0 [&_.absolute]:!right-0 [&_.absolute]:!w-full [&_.absolute]:sm:!w-[320px] [&_.absolute]:sm:!left-auto [&_.absolute]:sm:!right-0">
                 <DateRangeFilter
                   customName=""
                   advanceFilter={{ startTime, endTime }}
