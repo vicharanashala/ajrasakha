@@ -8,6 +8,6 @@ export class AnnamDatabase extends MongoDatabase {
     @inject(GLOBAL_TYPES.annamanalyticsUri) uri: string,
     @inject(GLOBAL_TYPES.annamanalyticsDbName) dbName: string,
   ) {
-    super(uri, dbName);
+    super(uri, dbName, 'annam');
   }
 }
