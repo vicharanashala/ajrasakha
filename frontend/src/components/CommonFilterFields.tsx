@@ -15,22 +15,12 @@ import {
   MapPin,
   Flag,
   Globe,
+  Layers,
   Loader2,
   Info,
   AlertTriangle,
-  Circle,
-  Clock,
-  CheckCircle2,
   Eye,
-  Bot,
-  UserRound,
-  ArrowUp,
-  ArrowDown,
-  ListFilter,
-  Layers,
-  Send,
   BadgeCheck,
-  Hand,
   Users,
   Sprout,
   UserIcon,
@@ -41,7 +31,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./atoms/tooltip";
-import { CROPS, STATES, DOMAINS, Review_Level, SEASONS } from "@/components/MetaData";
+import {
+  CROPS, STATES, DOMAINS, Review_Level, SEASONS,
+  STATUS_OPTIONS, SOURCE_OPTIONS, PRIORITY_OPTIONS,
+  AUTO_ALLOCATE_OPTIONS, CONSECUTIVE_APPROVAL_OPTIONS,
+} from "@/components/MetaData";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { StateMultiSelect, CropMultiSelect } from "./advanced-question-filter";
@@ -150,42 +144,14 @@ export const CommonFilterFields: React.FC<CommonFilterFieldsProps> = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">
-                      <div className="flex items-center gap-2">
-                        <Eye className="w-4 h-4 text-primary" />
-                        <span>All Statuses</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="open">
-                      <div className="flex items-center gap-2">
-                        <Circle className="w-4 h-4 text-green-500 fill-green-500/20" />
-                        <span>Open</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="in-review">
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-blue-500" />
-                        <span>In Review</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="delayed">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                        <span>Delayed</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="re-routed">
-                      <div className="flex items-center gap-2">
-                        <Send className="w-4 h-4 text-green-500" />
-                        <span>Re Routed</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="closed">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-red-500" />
-                        <span>Closed</span>
-                      </div>
-                    </SelectItem>
+                    {STATUS_OPTIONS.map(({ value, label, icon: Icon, iconClass }) => (
+                      <SelectItem key={value} value={value}>
+                        <div className="flex items-center gap-2">
+                          <Icon className={`w-4 h-4 ${iconClass}`} />
+                          <span>{label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -208,24 +174,14 @@ export const CommonFilterFields: React.FC<CommonFilterFieldsProps> = ({
                     <SelectValue placeholder="Select Source" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">
-                      <div className="flex items-center gap-2">
-                        <Globe className="w-4 h-4 text-primary" />
-                        <span>All Sources</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="AJRASAKHA">
-                      <div className="flex items-center gap-2">
-                        <Bot className="w-4 h-4 text-primary" />
-                        <span>Ajrasakha</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="AGRI_EXPERT">
-                      <div className="flex items-center gap-2">
-                        <UserRound className="w-4 h-4 text-primary" />
-                        <span>Agri Expert</span>
-                      </div>
-                    </SelectItem>
+                    {SOURCE_OPTIONS.map(({ value, label, icon: Icon, iconClass }) => (
+                      <SelectItem key={value} value={value}>
+                        <div className="flex items-center gap-2">
+                          <Icon className={`w-4 h-4 ${iconClass}`} />
+                          <span>{label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -472,30 +428,14 @@ export const CommonFilterFields: React.FC<CommonFilterFieldsProps> = ({
                     <SelectValue placeholder="Select Priority" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">
-                      <div className="flex items-center gap-2">
-                        <ListFilter className="w-4 h-4 text-gray-500" />
-                        <span>All</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="low">
-                      <div className="flex items-center gap-2">
-                        <ArrowDown className="w-4 h-4 text-green-500" />
-                        <span>Low</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="medium">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                        <span>Medium</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="high">
-                      <div className="flex items-center gap-2">
-                        <ArrowUp className="w-4 h-4 text-red-500" />
-                        <span>High</span>
-                      </div>
-                    </SelectItem>
+                    {PRIORITY_OPTIONS.map(({ value, label, icon: Icon, iconClass }) => (
+                      <SelectItem key={value} value={value}>
+                        <div className="flex items-center gap-2">
+                          <Icon className={`w-4 h-4 ${iconClass}`} />
+                          <span>{label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -551,30 +491,14 @@ export const CommonFilterFields: React.FC<CommonFilterFieldsProps> = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">
-                      <div className="flex items-center gap-2">
-                        <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
-                        <span>All</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="1">
-                      <div className="flex items-center gap-2">
-                        <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
-                        <span>1</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="2">
-                      <div className="flex items-center gap-2">
-                        <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
-                        <span>2</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="3">
-                      <div className="flex items-center gap-2">
-                        <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
-                        <span>3</span>
-                      </div>
-                    </SelectItem>
+                    {CONSECUTIVE_APPROVAL_OPTIONS.map((val) => (
+                      <SelectItem key={val} value={val}>
+                        <div className="flex items-center gap-2">
+                          <BadgeCheck className="w-4 h-4 text-green-500 fill-green-500/20" />
+                          <span>{val === "all" ? "All" : val}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -594,24 +518,14 @@ export const CommonFilterFields: React.FC<CommonFilterFieldsProps> = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">
-                      <div className="flex items-center gap-2">
-                        <Layers className="w-4 h-4 text-green-500 fill-green-500/20" />
-                        <span>All</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="on">
-                      <div className="flex items-center gap-2">
-                        <Bot className="w-4 h-4 text-green-500 fill-green-500/20" />
-                        <span>ON</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="off">
-                      <div className="flex items-center gap-2">
-                        <Hand className="w-4 h-4 text-red-500 fill-green-500/20" />
-                        <span>OFF</span>
-                      </div>
-                    </SelectItem>
+                    {AUTO_ALLOCATE_OPTIONS.map(({ value, label, icon: Icon, iconClass }) => (
+                      <SelectItem key={value} value={value}>
+                        <div className="flex items-center gap-2">
+                          <Icon className={`w-4 h-4 ${iconClass}`} />
+                          <span>{label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
