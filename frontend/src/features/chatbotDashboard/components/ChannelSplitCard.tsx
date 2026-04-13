@@ -13,10 +13,10 @@ interface Props {
 export function ChannelSplitCard({ channelSplit, voiceAccuracy }: Props) {
   return (
     <Card title="Channel split" subtitle="How farmers access ACE">
-      <div style={{ maxHeight: 260, overflowY: "auto", paddingRight: 4 }}>
+      <div className="max-h-[260px] overflow-y-auto pr-1">
         <DonutChart segments={channelSplit} />
-        <div style={{ marginTop: 14, paddingTop: 10, borderTop: "0.5px solid var(--border)" }}>
-          <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 8, fontWeight: 500 }}>
+        <div className="mt-[14px] pt-[10px] border-t border-[var(--border)]">
+          <div className="text-[11px] text-[var(--muted-foreground)] mb-2 font-medium">
             Voice accuracy by language
           </div>
           {voiceAccuracy.map(v => (
