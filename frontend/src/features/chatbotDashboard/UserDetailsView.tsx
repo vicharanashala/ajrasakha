@@ -130,10 +130,10 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
       {/* Users table */}
       <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
         <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-col gap-3">
             <CardTitle className="text-sm font-medium">All Farmers</CardTitle>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-56">
+            <div className="flex flex-col sm:flex-row items-stretch gap-2 w-full">
+              <div className="relative w-full sm:flex-1">
                 <svg
                   width={14}
                   height={14}
@@ -152,15 +152,15 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                   className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
                 />
               </div>
-              <div className="w-full sm:w-auto [&_label]:hidden [&_#date-toggle]:!whitespace-nowrap [&_#date-toggle_span]:!whitespace-nowrap [&_#date-toggle]:!h-9 [&_.absolute]:!left-0 [&_.absolute]:md:!left-auto [&_.absolute]:md:!right-0">
+              <div className="w-full sm:w-auto [&_label]:hidden [&_#date-toggle]:!w-full [&_#date-toggle]:!whitespace-nowrap [&_#date-toggle_span]:!whitespace-nowrap [&_#date-toggle]:!h-9 [&_.absolute]:!left-0 [&_.absolute]:sm:!left-auto [&_.absolute]:sm:!right-0">
                 <DateRangeFilter
                   customName=""
                   advanceFilter={{ startTime, endTime }}
                   handleDialogChange={handleDateChange}
                   className={
                     startTime
-                      ? "!h-9 !text-sm !border-green-500 dark:!border-green-500 !bg-green-50 dark:!bg-[#1a1a1a] !text-green-700 dark:!text-green-400 !font-medium hover:!bg-green-100 dark:hover:!bg-[#2a2a2a]"
-                      : "!h-9 !text-sm !border-gray-200 dark:!border-gray-700 !bg-white dark:!bg-[#1a1a1a] !text-gray-700 dark:!text-gray-200 !font-normal hover:!bg-gray-50 dark:hover:!bg-[#2a2a2a]"
+                      ? "!h-9 !text-sm !w-full !border-green-500 dark:!border-green-500 !bg-green-50 dark:!bg-[#1a1a1a] !text-green-700 dark:!text-green-400 !font-medium hover:!bg-green-100 dark:hover:!bg-[#2a2a2a]"
+                      : "!h-9 !text-sm !w-full !border-gray-200 dark:!border-gray-700 !bg-white dark:!bg-[#1a1a1a] !text-gray-700 dark:!text-gray-200 !font-normal hover:!bg-gray-50 dark:hover:!bg-[#2a2a2a]"
                   }
                 />
               </div>
@@ -168,6 +168,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-9 w-full sm:w-auto"
                   onClick={() => {
                     setSearchQuery("");
                     setStartTime(undefined);
