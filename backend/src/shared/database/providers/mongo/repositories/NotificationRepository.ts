@@ -150,11 +150,20 @@ async markAllAsRead(userId:string,session?:ClientSession): Promise<{modifiedCoun
 async saveSubscription(userId: string, subscription: any,session?:ClientSession) {
     try {
       await this.init()
-      const expirytime = subscription.expirationTime || null;
+      const expiryTime = subscription.expirationTime
+        ? new Date(subscription.expirationTime)
+        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       return await this.subscriptionCollection.findOneAndUpdate(
-        { userId: new ObjectId(userId) },
-        { $set:{userId: new ObjectId(userId),subscription:subscription, expirytime: expirytime } },{upsert: true}
-      );
+        { 
+          userId: new ObjectId(userId)
+        },
+        { 
+          $set:{
+            userId: new ObjectId(userId),
+            subscription:subscription,
+            expirytime:expiryTime
+          } 
+      },{upsert: true} );
     } catch (error) {
       throw new InternalServerError(
         `Error while saving subscription, More/ ${error}`,
@@ -162,7 +171,7 @@ async saveSubscription(userId: string, subscription: any,session?:ClientSession)
     }
   }
 
-  async getSubscriptionByUserId(userId: string) {
+  async getSubscriptionByUserId(userId: string): Promise<ISubscription | null> {
     await this.init()
     return this.subscriptionCollection.findOne({ userId: new ObjectId(userId) })
   }
@@ -200,5 +209,22 @@ async saveSubscription(userId: string, subscription: any,session?:ClientSession)
         "Error In Cleanup"
       )
     }
+  }
+
+  async deleteExpiredSubscriptionForUser(endpoint:string,session?:ClientSession){
+    await this.init()
+    return this.subscriptionCollection.deleteOne(
+      { "subscription.endpoint":endpoint }, { session }
+    )
+  }
+
+  async deleteExpiredSubscriptions(session?:ClientSession){
+    await this.init();
+    return this.subscriptionCollection.deleteMany({
+      $or: [
+        { expirytime: { $lt: new Date() } },
+        { expirytime: null }
+      ]
+    });
   }
 }
