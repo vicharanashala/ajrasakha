@@ -4,6 +4,7 @@ import {
   LoginBody,
   GoogleSignUpBody,
   ResendVerificationBody,
+  ForgotPasswordBody,
 } from '#auth/classes/validators/AuthValidators.js';
 import {
   IAuthService,
@@ -100,6 +101,16 @@ export class AuthController {
   async resendVerification(@Body() body: ResendVerificationBody) {
     await this.authService.sendVerificationEmail(body.email);
     return { success: true, message: 'Verification email sent successfully' };
+  }
+
+  @OpenAPI({
+    summary: 'Send password reset email',
+    description: 'Sends a password reset link to the provided email address. Always returns success to prevent email enumeration.',
+  })
+  @Post('/forgot-password')
+  async forgotPassword(@Body() body: ForgotPasswordBody) {
+    await this.authService.sendPasswordResetEmail(body.email);
+    return { success: true, message: 'If this email is registered, a password reset link has been sent.' };
   }
 
   @Post('/login')
