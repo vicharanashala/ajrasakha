@@ -10,7 +10,7 @@ import { Button } from "../../components/atoms/button";
 import { Review_Level_QAI, STATES, CROPS } from "@/components/MetaData";
 import {Select,SelectTrigger, SelectValue,SelectContent,SelectItem,} from "@/components/atoms/select";
 import {RefreshCw,Info,ChevronLeft} from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { AdvanceFilterDialog, type AdvanceFilterValues } from "@/components/advanced-question-filter";
 import type { CommonFilterKey } from "@/components/CommonFilterFields";
 // import type { HistoryItem, IQuestion, IReviewParmeters, SourceItem, QuestionRerouteRepo } from "@/types"; // unused
@@ -198,30 +198,12 @@ export const QaHeader=({ questions,
   setQuestionRef,
   onToggleCollapse,
 }:QaHeaderProps)=>{
-  // ── Adapter state for AdvanceFilterDialog (preserves QaPreferencesDialog's apply-on-click behaviour) ──
-  const qaFilterDefaults: AdvanceFilterValues = {
-    status: "all", source: "all" as any, state: "all", states: [],
+  const appliedQaFilter: AdvanceFilterValues = {
+    status: "all", source: source as any, state: "all", states,
     answersCount: [0, 100], dateRange: "all", crop: "all",
-    normalised_crop: "all", normalisedCrops: [], priority: "all",
-    domain: "all", user: "all",
+    normalised_crop: "all", normalisedCrops: crops, priority: "all",
+    domain: "all", user: "all", review_level: reviewLevel as any,
   };
-  const [pendingQaFilters, setPendingQaFilters] = useState<AdvanceFilterValues>({
-    ...qaFilterDefaults,
-    source: source as any,
-    states,
-    normalisedCrops: crops,
-    review_level: reviewLevel as any,
-  });
-
-  useEffect(() => {
-    setPendingQaFilters((prev) => ({
-      ...prev,
-      source: source as any,
-      states,
-      normalisedCrops: crops,
-      review_level: reviewLevel as any,
-    }));
-  }, [source, states, crops, reviewLevel]);
 
   const qaActiveFiltersCount = useMemo(() => {
     let count = 0;
@@ -270,26 +252,19 @@ export const QaHeader=({ questions,
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 {/* QaPreferencesDialog replaced by AdvanceFilterDialog with visibleFields */}
                 <AdvanceFilterDialog
-                  advanceFilter={pendingQaFilters}
-                  setAdvanceFilterValues={setPendingQaFilters}
-                  handleDialogChange={(key, val) =>
-                    setPendingQaFilters((prev) => ({ ...prev, [key]: val }))
-                  }
-                  handleApplyFilters={() => {
-                    onFilterChange("review_level", pendingQaFilters.review_level ?? "all");
-                    onFilterChange("source", pendingQaFilters.source ?? "all");
-                    onFilterChange("states", pendingQaFilters.states ?? []);
-                    onFilterChange("crops", pendingQaFilters.normalisedCrops ?? []);
+                  appliedFilter={appliedQaFilter}
+                  onApply={(values) => {
+                    onFilterChange("review_level", values.review_level ?? "all");
+                    onFilterChange("source", values.source ?? "all");
+                    onFilterChange("states", values.states ?? []);
+                    onFilterChange("crops", values.normalisedCrops ?? []);
                   }}
-                  onReset={() =>
-                    setPendingQaFilters((prev) => ({
-                      ...prev,
-                      source: "all",
-                      states: [],
-                      normalisedCrops: [],
-                      review_level: "all",
-                    }))
-                  }
+                  onReset={() => {
+                    onFilterChange("review_level", "all");
+                    onFilterChange("source", "all");
+                    onFilterChange("states", []);
+                    onFilterChange("crops", []);
+                  }}
                   visibleFields={
                     ["source", "reviewLevel", "states", "cropType"] as CommonFilterKey[]
                   }

@@ -28,7 +28,6 @@ import {
 } from "../../components/advanced-question-filter";
 import type {
   IDetailedQuestion,
-  IMyPreference,
   QuestionSource,
   QuestionStatus,
   UserRole,
@@ -143,8 +142,6 @@ export const QuestionsFilters = ({
     ...commonColumns,
     ...(viewMode === "all" ? allModeColumns : reviewModeColumns),
   ];
-  const [advanceFilter, setAdvanceFilterValues] =
-    useState<AdvanceFilterValues>(appliedFilters);
   const [addOpen, setAddOpen] = useState(false);
   const [addQuestionErrors, setAddQuestionErrors] =
     useState<AddQuestionValidationErrors>({});
@@ -297,19 +294,6 @@ export const QuestionsFilters = ({
     }
   };
 
-  const handleDialogChange = (key: string, value: any) => {
-    setAdvanceFilterValues((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleAnswerModeChange = (nextAnswerMode: AnswerMode) => {
-    const source = answerModeToSource(nextAnswerMode);
-    const nextFilters = { ...advanceFilter, source };
-
-    setAnswerMode(nextAnswerMode);
-    setAdvanceFilterValues(nextFilters);
-    onChange(nextFilters);
-  };
-
   const clearAddQuestionError = (field: keyof AddQuestionValidationErrors) => {
     setAddQuestionErrors((prev) => {
       if (!prev[field]) return prev;
@@ -324,46 +308,8 @@ export const QuestionsFilters = ({
     }
   }, [addOpen]);
 
-  useEffect(() => {
-    setAdvanceFilterValues(appliedFilters);
-    setAnswerMode(sourceToAnswerMode(appliedFilters.source));
-  }, [appliedFilters]);
-
-  const handleApplyFilters = (myPreference?: IMyPreference) => {
-    onChange({
-      status: advanceFilter.status,
-      source: advanceFilter.source,
-      state: myPreference?.state || advanceFilter.state,
-      states: advanceFilter.states || [],
-      crop: myPreference?.crop || advanceFilter.crop,
-      normalised_crop: advanceFilter.normalised_crop,
-      normalisedCrops: advanceFilter.normalisedCrops || [],
-      answersCount: advanceFilter.answersCount,
-      dateRange: advanceFilter.dateRange,
-      priority: advanceFilter.priority,
-      domain: myPreference?.domain || advanceFilter.domain,
-      user: advanceFilter.user,
-      endTime: advanceFilter.endTime,
-      startTime: advanceFilter.startTime,
-      review_level: advanceFilter?.review_level,
-      closedAtStart: advanceFilter?.closedAtStart,
-      closedAtEnd: advanceFilter?.closedAtEnd,
-      consecutiveApprovals: advanceFilter?.consecutiveApprovals,
-      autoAllocateFilter: advanceFilter?.autoAllocateFilter,
-      hiddenQuestions: advanceFilter?.hiddenQuestions,
-      duplicateQuestions: advanceFilter?.duplicateQuestions,
-        isOnHold: advanceFilter?.isOnHold,
-    });
-  };
-
-  /*const activeFiltersCount = Object.values(advanceFilter).filter(
-    (v) =>
-      v !== undefined &&
-      v !== "all" &&
-      !(Array.isArray(v) && v[0] === 0 && v[1] === 100)
-  ).length;*/
   const activeFiltersCount =
-    Object.entries(advanceFilter).filter(([key, value]) => {
+    Object.entries(appliedFilters).filter(([key, value]) => {
       if (
         key === "startTime" ||
         key === "endTime" ||
@@ -385,9 +331,9 @@ export const QuestionsFilters = ({
       return true;
     }).length +
     // ✅ Created date range counts as ONE
-    (advanceFilter.startTime || advanceFilter.endTime ? 1 : 0) +
+    (appliedFilters.startTime || appliedFilters.endTime ? 1 : 0) +
     // ✅ ClosedAt date range counts as ONE
-    (advanceFilter.closedAtStart || advanceFilter.closedAtEnd ? 1 : 0);
+    (appliedFilters.closedAtStart || appliedFilters.closedAtEnd ? 1 : 0);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   // Optimized Draggable Logic
@@ -480,7 +426,8 @@ export const QuestionsFilters = ({
         <div className="flex items-center rounded-lg border border-border bg-muted/40 p-1">
           <button
             onClick={() => {
-              handleAnswerModeChange("ajraskha");
+              setAnswerMode("ajraskha");
+              onChange({ ...appliedFilters, source: "AJRASAKHA" });
             }}
             className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
               answerMode === "ajraskha"
@@ -493,7 +440,8 @@ export const QuestionsFilters = ({
 
           <button
             onClick={() => {
-              handleAnswerModeChange("manual");
+              setAnswerMode("manual");
+              onChange({ ...appliedFilters, source: "AGRI_EXPERT" });
             }}
             className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
               answerMode === "manual"
@@ -505,7 +453,8 @@ export const QuestionsFilters = ({
           </button>
           <button
             onClick={() => {
-              handleAnswerModeChange("whatsapp");
+              setAnswerMode("whatsapp");
+              onChange({ ...appliedFilters, source: "WHATSAPP" });
             }}
             className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "whatsapp"
               ? "bg-primary text-primary-foreground shadow-sm"
@@ -814,10 +763,8 @@ export const QuestionsFilters = ({
               )}
               {/* preferences */}
               <AdvanceFilterDialog
-                advanceFilter={advanceFilter}
-                setAdvanceFilterValues={setAdvanceFilterValues}
-                handleDialogChange={handleDialogChange}
-                handleApplyFilters={handleApplyFilters}
+                appliedFilter={appliedFilters}
+                onApply={onChange}
                 normalizedStates={states}
                 crops={crops}
                 activeFiltersCount={activeFiltersCount}

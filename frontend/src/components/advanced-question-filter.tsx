@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { CommonFilterFields } from "./CommonFilterFields";
 import type { CommonFilterKey } from "./CommonFilterFields";
 import {
@@ -26,7 +26,6 @@ import {
   XCircle,
   Settings,
 } from "lucide-react";
-import type { IMyPreference } from "@/types";
 import { CROPS, STATES, DOMAINS } from "@/components/MetaData";
 export { STATES, CROPS, DOMAINS };
 
@@ -461,14 +460,14 @@ export const CropMultiSelect = ({
 };
 
 interface AdvanceFilterDialogProps {
-  advanceFilter: AdvanceFilterValues;
-  setAdvanceFilterValues: (values: any) => void;
-  handleDialogChange: (key: string, value: any) => void;
-  handleApplyFilters: (myPreference?: IMyPreference) => void;
+  /** Committed (applied) filter values — seeds draft state when dialog opens. */
+  appliedFilter: AdvanceFilterValues;
+  /** Called when the user clicks Apply. Receives the full updated values. */
+  onApply: (values: AdvanceFilterValues) => void;
+  onReset: () => void;
   normalizedStates: string[];
   crops: string[];
   activeFiltersCount: number;
-  onReset: () => void;
   isForQA: boolean;
   setIsSidebarOpen?: (value: boolean) => void;
   /** Subset of filter fields to render (default: all fields). */
@@ -481,11 +480,33 @@ interface AdvanceFilterDialogProps {
   triggerVariant?: "card" | "compact";
 }
 
+const DEFAULT_FILTER_VALUES: AdvanceFilterValues = {
+  status: "all",
+  source: "all",
+  state: "all",
+  states: [],
+  answersCount: [0, 100],
+  dateRange: "all",
+  crop: "all",
+  normalised_crop: "all",
+  normalisedCrops: [],
+  priority: "all",
+  user: "all",
+  domain: "all",
+  review_level: "all",
+  endTime: undefined,
+  startTime: undefined,
+  closedAtStart: undefined,
+  closedAtEnd: undefined,
+  consecutiveApprovals: "all",
+  autoAllocateFilter: "all",
+  hiddenQuestions: false,
+  duplicateQuestions: false,
+};
+
 export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
-  advanceFilter,
-  setAdvanceFilterValues,
-  handleDialogChange,
-  handleApplyFilters,
+  appliedFilter,
+  onApply,
   normalizedStates,
   crops,
   activeFiltersCount,
@@ -498,6 +519,16 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   triggerVariant = "card",
 }) => {
   const [open, setOpen] = useState(false);
+  const [draftFilter, setDraftFilter] = useState<AdvanceFilterValues>(appliedFilter);
+
+  // Re-seed draft from committed values each time the dialog opens.
+  useEffect(() => {
+    if (open) setDraftFilter(appliedFilter);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleFieldChange = (key: string, value: any) => {
+    setDraftFilter((prev) => ({ ...prev, [key]: value }));
+  };
   // useGetAllUsers and useGetAllCrops moved into CommonFilterFields
   return (
     <Dialog
@@ -578,8 +609,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
           <div className="space-y-6 py-4">
             {/* ── CommonFilterFields replaces the duplicated filter dropdowns below ── */}
             <CommonFilterFields
-              values={advanceFilter}
-              onChange={handleDialogChange}
+              values={draftFilter}
+              onChange={handleFieldChange}
               visibleFields={
                 visibleFields ??
                 ((isForQA
@@ -628,15 +659,15 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   Number of Answers
                 </Label>
                 <Badge variant="secondary" className="text-xs">
-                  {advanceFilter.answersCount[0]} -{" "}
-                  {advanceFilter.answersCount[1]}
+                  {draftFilter.answersCount[0]} -{" "}
+                  {draftFilter.answersCount[1]}
                 </Badge>
               </div>
               <div className="px-2">
                 <Slider
-                  value={advanceFilter.answersCount}
+                  value={draftFilter.answersCount}
                   onValueChange={(value) =>
-                    handleDialogChange("answersCount", value)
+                    handleFieldChange("answersCount", value)
                   }
                   max={100}
                   min={0}
@@ -665,7 +696,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {Object.entries(advanceFilter).map(([key, value]) => {
+                    {Object.entries(draftFilter).map(([key, value]) => {
                       if (
                         key == "startTime" ||
                         key == "endTime" ||
@@ -716,7 +747,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                           <XCircle
                             className="h-3 w-3 ml-1 cursor-pointer"
                             onClick={() =>
-                              handleDialogChange(
+                              handleFieldChange(
                                 key,
                                 key === "states" || key === "normalisedCrops"
                                   ? []
@@ -742,30 +773,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
             <Button
               variant="outline"
               onClick={() => {
-                setAdvanceFilterValues({
-                  status: "all",
-                  source: "all",
-                  state: "all",
-                  states: [],
-                  answersCount: [0, 100],
-                  dateRange: "all",
-                  crop: "all",
-                  normalised_crop: "all",
-                  normalisedCrops: [],
-                  priority: "all",
-                  user: "all",
-                  domain: "all",
-                  review_level: "all",
-
-                  endTime: undefined,
-                  startTime: undefined,
-                  closedAtStart: undefined,
-                  closedAtEnd: undefined,
-                  consecutiveApprovals: "all",
-                  autoAllocateFilter: "all",
-                  hiddenQuestions: false,
-                  duplicateQuestions: false,
-                });
+                setDraftFilter(DEFAULT_FILTER_VALUES);
                 onReset();
               }}
               className="w-full sm:w-auto"
@@ -783,7 +791,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
               <DialogClose asChild>
                 <Button
-                  onClick={() => handleApplyFilters()}
+                  onClick={() => onApply(draftFilter)}
                   className="flex-1 sm:flex-none"
                 >
                   Apply Preferences
