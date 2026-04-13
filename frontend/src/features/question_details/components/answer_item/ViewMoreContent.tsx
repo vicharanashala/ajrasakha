@@ -1,5 +1,5 @@
 // components/ViewMoreContent.tsx
-import type { IAnswer, ISubmissionHistory, QuestionStatus, SourceItem } from "@/types";
+import type { IAnswer, ISubmissionHistory, QuestionStatus, SourceItem, UserRole } from "@/types";
 
 const sourceTypeOrder: Record<string, number> = {
   hyper_local: 0, state: 1, central: 2, other: 3,
@@ -30,6 +30,7 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { ReviewTimeline } from "./ReviewTimeline";
+import AvatarComponent from "@/components/avatar-component";
 
 interface ViewMoreContentProps {
   answer: IAnswer;
@@ -40,6 +41,7 @@ interface ViewMoreContentProps {
   reviews: any[];
   firstTrueIndex?: number;
   firstFalseOrMissingIndex?: number;
+  userRole: UserRole
 }
 
 export const ViewMoreContent = ({
@@ -51,6 +53,7 @@ export const ViewMoreContent = ({
   reviews,
   firstTrueIndex,
   firstFalseOrMissingIndex,
+  userRole
 }: ViewMoreContentProps) => {
   const showRejectedBadge =
     submissionData?.rejectedAnswer ||
@@ -104,8 +107,13 @@ export const ViewMoreContent = ({
           <div className="rounded-lg border bg-muted/50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium text-foreground">
-                Submitted By:{" "}
+               {userRole === "expert" ? ` Submitted By:${" "}`: null}
                 <span className="text-sm text-muted-foreground">
+                {(userRole === "moderator" || userRole === "admin") && (
+                    <AvatarComponent
+                      name={submissionData.updatedBy?.name}
+                    />
+                  )}&nbsp;
                   {submissionData.updatedBy?.name}
                   {submissionData.updatedBy?.email && (
                     <> ({submissionData.updatedBy.email})</>

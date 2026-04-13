@@ -8,6 +8,7 @@ import type {
 } from "@/types";
 import { Badge } from "@/components/atoms/badge";
 import { Timeline } from "primereact/timeline";
+import AvatarComponent from "@/components/avatar-component";
 
 interface IAnswerTimelineProps {
   answers: IAnswer[];
@@ -34,7 +35,9 @@ export const AnswerTimeline = ({
     const submission = question.submission.history.find(
       (h) => h.answer?._id === ans?._id
     );
-  
+
+    console.log("UserRole ->, ", userRole)
+
     return {
       lastAnswerId: answers[0]?._id, // first one will be the last one
       firstAnswerId: answers[answers?.length - 1]?._id, // last one will be the first one
@@ -53,11 +56,18 @@ export const AnswerTimeline = ({
           <div className="ml-5 flex flex-col gap-1 ">
             {item.submission?.updatedBy && (
               <div className="text-xs text-foreground px-2 py-1 rounded-md">
-                <span className="font-medium">By:</span>{" "}
-                {item?.submission?.updatedBy?.name}
-                {item?.submission?.updatedBy?.email && (
-                  <> ({item.submission.updatedBy.email})</>
-                )}
+                {(userRole === "expert")&&<span className="font-medium">By:</span>}{" "}
+                <span>
+                  {(userRole === "moderator" || userRole === "admin") && (
+                    <AvatarComponent
+                      name={item?.submission?.updatedBy?.name}
+                    />
+                  )}&nbsp;
+                  {item?.submission?.updatedBy?.name}
+                  {item?.submission?.updatedBy?.email && (
+                    <> ({item.submission.updatedBy.email})</>
+                  )}
+                </span>
                 {item?.submission?.updatedBy?.email &&
                   item?.firstAnswerId === item?.submission?.answer?._id && (
                     <span className="ml-2 px-2 py-0.5 text-[10px] rounded-full bg-blue-100 text-blue-700 font-semibold">
@@ -96,7 +106,7 @@ export const AnswerTimeline = ({
               userRole={userRole}
               queue={queue}
               rerouteQuestion={rerouteQuestion}
-              lastAnswerApprovalCount= {answers[0].approvalCount}
+              lastAnswerApprovalCount={answers[0].approvalCount}
             />
           </div>
         )}

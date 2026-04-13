@@ -48,10 +48,14 @@ export const QuestionDetails = ({
   // console.log("reroutedetail====",rerouteQuestion)
   const ANSWER_VISIBLE_COUNT = 5;
 
+  console.log("Question details are currentUser-> ", currentUser, )
+  console.log("Question details are currentUserId-> ", currentUserId,)
+  console.log("Question-> ", question)
   const answers = useMemo(
     () => flattenAnswers(question?.submission),
     [question.submission]
   );
+  console.log("Answers -> ", answers)
   const [answerVisibleCount, setAnswerVisibleCount] =
     useState(ANSWER_VISIBLE_COUNT);
   const [isLoadingMore, setIsLoadingMore] = useState(false);

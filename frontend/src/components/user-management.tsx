@@ -106,7 +106,11 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const tableItems = isAdmin
     ? adminUsers?.users ?? []
     : expertDetails?.experts ?? [];
-    
+
+
+    console.log("Admin users ->", adminUsers?.users);
+    console.log("Expert details ->", expertDetails?.experts); 
+    console.log("Table items ->", tableItems);
 
   const isLoading = isAdmin ? adminLoading : expertLoading;
 
