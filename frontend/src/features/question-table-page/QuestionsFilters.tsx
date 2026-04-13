@@ -471,7 +471,7 @@ export const QuestionsFilters = ({
           >
             Manual
           </button>
-          {/* <button
+          <button
             onClick={() => {
               setAnswerMode("whatsapp")
               onChange({ ...advanceFilter, source: "WHATSAPP" });
@@ -482,7 +482,7 @@ export const QuestionsFilters = ({
               }`}
           >
             Whatsapp
-          </button> */}
+          </button>
          
         </div>
       </div>
