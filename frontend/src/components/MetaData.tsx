@@ -1,3 +1,48 @@
+import type { ComponentType } from "react";
+import {
+  Eye, Circle, Clock, AlertTriangle, Send, CheckCircle2,
+  Globe, Bot, UserRound,
+  ListFilter, ArrowDown, ArrowUp,
+  Layers, Hand,
+} from "lucide-react";
+
+export type SelectOption = {
+  value: string;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  iconClass: string;
+};
+
+export const STATUS_OPTIONS: SelectOption[] = [
+  { value: "all",       label: "All Statuses", icon: Eye,          iconClass: "text-primary" },
+  { value: "open",      label: "Open",         icon: Circle,       iconClass: "text-green-500 fill-green-500/20" },
+  { value: "in-review", label: "In Review",    icon: Clock,        iconClass: "text-blue-500" },
+  { value: "delayed",   label: "Delayed",      icon: AlertTriangle,iconClass: "text-yellow-500" },
+  { value: "re-routed", label: "Re Routed",    icon: Send,         iconClass: "text-green-500" },
+  { value: "closed",    label: "Closed",       icon: CheckCircle2, iconClass: "text-red-500" },
+];
+
+export const SOURCE_OPTIONS: SelectOption[] = [
+  { value: "all",         label: "All Sources", icon: Globe,     iconClass: "text-primary" },
+  { value: "AJRASAKHA",   label: "Ajrasakha",   icon: Bot,       iconClass: "text-primary" },
+  { value: "AGRI_EXPERT", label: "Agri Expert", icon: UserRound, iconClass: "text-primary" },
+];
+
+export const PRIORITY_OPTIONS: SelectOption[] = [
+  { value: "all",    label: "All",    icon: ListFilter,   iconClass: "text-gray-500" },
+  { value: "low",    label: "Low",    icon: ArrowDown,    iconClass: "text-green-500" },
+  { value: "medium", label: "Medium", icon: AlertTriangle,iconClass: "text-yellow-500" },
+  { value: "high",   label: "High",   icon: ArrowUp,      iconClass: "text-red-500" },
+];
+
+export const AUTO_ALLOCATE_OPTIONS: SelectOption[] = [
+  { value: "all", label: "All", icon: Layers, iconClass: "text-green-500 fill-green-500/20" },
+  { value: "on",  label: "ON",  icon: Bot,    iconClass: "text-green-500 fill-green-500/20" },
+  { value: "off", label: "OFF", icon: Hand,   iconClass: "text-red-500 fill-green-500/20" },
+];
+
+export const CONSECUTIVE_APPROVAL_OPTIONS = ["all", "1", "2", "3"];
+
 // export const CROPS = ["Paddy", "Wheat"];
 export const CROPS = 
 [
