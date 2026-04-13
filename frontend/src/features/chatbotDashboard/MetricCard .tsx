@@ -73,36 +73,21 @@ function Sparkline({ points, color, labels }: { points: number[]; color: string;
 	return (
 		<div>
 			{hovered !== null && tooltipPos && createPortal(
-				<div style={{
-					position: "fixed",
-					left: tooltipPos.x,
-					top: tooltipPos.y,
-					transform: "translateX(-50%) translateY(calc(-100% - 8px))",
-					pointerEvents: "none",
-					whiteSpace: "nowrap",
-					zIndex: 9999,
-					display: "flex",
-					flexDirection: "column",
-					alignItems: "center",
-				}}>
-					<div style={{
-						background: color,
-						color: "#fff",
-						fontSize: 10,
-						fontWeight: 600,
-						padding: "5px 9px",
-						borderRadius: 8,
-						boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-						textAlign: "center",
-						minWidth: 70,
-					}}>
-						<div style={{ fontWeight: 700, fontSize: 11 }}>
+				<div
+					className="fixed -translate-x-1/2 -translate-y-[calc(100%+8px)] pointer-events-none whitespace-nowrap z-[9999] flex flex-col items-center"
+					style={{ left: tooltipPos.x, top: tooltipPos.y }}
+				>
+					<div
+						className="text-white text-[10px] font-semibold px-[9px] py-[5px] rounded-lg shadow-[0_2px_8px_rgba(0,0,0,0.2)] text-center min-w-[70px]"
+						style={{ background: color }}
+					>
+						<div className="font-bold text-[11px]">
 							{points[hovered].toLocaleString()}
 						</div>
 						{labels?.[hovered] && (
 							<>
-								<div style={{ height: 1, background: "rgba(255,255,255,0.35)", margin: "4px 0" }} />
-								<div style={{ fontWeight: 400, fontSize: 9, opacity: 0.88 }}>
+								<div className="h-px bg-white/35 my-1" />
+								<div className="font-normal text-[9px] opacity-[0.88]">
 									{labels[hovered]}
 								</div>
 							</>
@@ -134,7 +119,7 @@ function Sparkline({ points, color, labels }: { points: number[]; color: string;
 						fill="transparent"
 						onMouseEnter={() => handleEnter(i)}
 						onMouseLeave={() => { setHovered(null); setTooltipPos(null); }}
-						style={{ cursor: "crosshair" }}
+						className="cursor-crosshair"
 					/>
 				))}
 			</svg>

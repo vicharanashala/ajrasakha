@@ -5,7 +5,7 @@ interface HealthPillar { label: string; score: number; color: string; }
 export function HealthScoreCard({ pillars }: { pillars: HealthPillar[] }) {
   return (
     <Card title="Platform health score" subtitle="Six-pillar composite · weekly">
-      <div style={{ maxHeight: 280, overflowY: "auto", paddingRight: 4 }}>
+      <div className="max-h-[280px] overflow-y-auto pr-1">
         <div className="flex justify-end mb-3">
           <div className="text-right">
             <div className="text-2xl font-medium text-green-700 leading-none">70</div>
