@@ -15,6 +15,8 @@ import type {
   WeeklySessionDurationEntry,
   DailyQueryCountEntry,
   WeeklyQueryCountEntry,
+  UserDetailEntry,
+  PaginatedUserDetails,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -45,10 +47,10 @@ export class ChatbotRepository implements IChatbotRepository {
   private messagesCollection!: Collection<any>;
 
   constructor(
-    @inject(GLOBAL_TYPES.analyticsDatabase)
+    @inject(GLOBAL_TYPES.analyticsDatabase) //vicharansahsa
     private analyticsDb: AnalyticsMongoDatabase,
 
-    @inject(GLOBAL_TYPES.annamanalyticsDatabase)
+    @inject(GLOBAL_TYPES.annamanalyticsDatabase) //annamalytics
     private annamDb: AnnamDatabase,
 
     @inject(GLOBAL_TYPES.Database)
@@ -60,12 +62,11 @@ export class ChatbotRepository implements IChatbotRepository {
     private analyticsDb: AnnamDatabase,
   ) {}*/
 
-  private async init() {
-    this.users = await this.analyticsDb.getCollection<IUser>('users');
-    this.conversations =
-      await this.analyticsDb.getCollection<IConversation>('conversations');
-    this.messagesCollection =
-      await this.analyticsDb.getCollection<any>('messages');
+  private async init(source = 'vicharanashala') {
+    const db = source === 'annam' ? this.annamDb : this.analyticsDb;
+    this.users = await db.getCollection<IUser>('users');
+    this.conversations = await db.getCollection<IConversation>('conversations');
+    this.messagesCollection = await db.getCollection<any>('messages');
   }
   private annamMessagesCollection!: Collection<any>;
 
@@ -74,9 +75,9 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.annamDb.getCollection<any>('messages');
   }
 
-  async getKpiSummary(session?: ClientSession): Promise<KpiSummary> {
+  async getKpiSummary(source = 'vicharanashala', session?: ClientSession): Promise<KpiSummary> {
     try {
-      await this.init();
+      await this.init(source);
 
       // Use MongoDB $dateToString with IST timezone (+05:30) to correctly bucket months
       const now = new Date();
@@ -125,7 +126,7 @@ export class ChatbotRepository implements IChatbotRepository {
             .toArray(),
 
           // Today's query count from messages
-          this.getTodayQueryCount(session),
+          this.getTodayQueryCount(source, session),
         ]);
 
       const monthMap = Object.fromEntries(
@@ -159,27 +160,34 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getDailyActiveUsers(
-    days = 13,
-    session?: ClientSession,
-  ): Promise<DailyActiveUsersEntry[]> {
+  async getDailyActiveUsers(days = 13, source = 'vicharanashala', session?: ClientSession): Promise<DailyActiveUsersEntry[]> {
     try {
-      await this.init();
+      await this.init(source);
 
-      // Group active users by month using IST timezone (matches KPI logic)
-      const result = await this.users
+      // Count distinct users who sent messages per month (true monthly active users)
+      const since = new Date();
+      since.setMonth(since.getMonth() - days); // `days` param used as number of months to look back
+      since.setDate(1);
+      since.setHours(0, 0, 0, 0);
+
+      const result = await this.messagesCollection
         .aggregate(
           [
+            { $match: { createdAt: { $gte: since }, isCreatedByUser: true } },
+            // Deduplicate: one entry per (month, user) pair
             {
               $group: {
                 _id: {
-                  $dateToString: {
-                    format: '%Y-%m',
-                    date: '$updatedAt',
-                    timezone: '+05:30',
-                  },
+                  month: { $dateToString: { format: '%Y-%m', date: '$createdAt', timezone: '+05:30' } },
+                  user: '$user',
                 },
-                count: {$sum: 1},
+              },
+            },
+            // Count distinct users per month
+            {
+              $group: {
+                _id: '$_id.month',
+                count: { $sum: 1 },
               },
             },
             {$project: {day: '$_id', count: 1, _id: 0}},
@@ -197,34 +205,25 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getChannelSplit(
-    _session?: ClientSession,
-  ): Promise<ChannelSplitEntry[]> {
+  async getChannelSplit(_source = 'vicharanashala', _session?: ClientSession): Promise<ChannelSplitEntry[]> {
     return [];
   }
 
-  async getVoiceAccuracyByLanguage(
-    _session?: ClientSession,
-  ): Promise<VoiceAccuracyEntry[]> {
+  async getVoiceAccuracyByLanguage(_source = 'vicharanashala', _session?: ClientSession): Promise<VoiceAccuracyEntry[]> {
     return [];
   }
 
-  async getGeoDistribution(_session?: ClientSession): Promise<GeoStateEntry[]> {
+  async getGeoDistribution(_source = 'vicharanashala', _session?: ClientSession): Promise<GeoStateEntry[]> {
     return [];
   }
 
-  async getQueryCategories(
-    _session?: ClientSession,
-  ): Promise<QueryCategoryEntry[]> {
+  async getQueryCategories(_source = 'vicharanashala', _session?: ClientSession): Promise<QueryCategoryEntry[]> {
     return [];
   }
 
-  async getWeeklyAvgSessionDuration(
-    weeks = 52,
-    session?: ClientSession,
-  ): Promise<WeeklySessionDurationEntry[]> {
+  async getWeeklyAvgSessionDuration(weeks = 52, source = 'vicharanashala', session?: ClientSession): Promise<WeeklySessionDurationEntry[]> {
     try {
-      await this.init();
+      await this.init(source);
 
       const since = new Date();
       since.setDate(since.getDate() - weeks * 7);
@@ -269,12 +268,9 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getDailyQueryCounts(
-    days = 30,
-    session?: ClientSession,
-  ): Promise<DailyQueryCountEntry[]> {
+  async getDailyQueryCounts(days = 30, source = 'vicharanashala', session?: ClientSession): Promise<DailyQueryCountEntry[]> {
     try {
-      await this.init();
+      await this.init(source);
 
       const since = new Date();
       since.setDate(since.getDate() - days);
@@ -304,12 +300,9 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getDailyUserTrend(
-    days = 30,
-    session?: ClientSession,
-  ): Promise<DailyActiveUsersEntry[]> {
+  async getDailyUserTrend(days = 30, source = 'vicharanashala', session?: ClientSession): Promise<DailyActiveUsersEntry[]> {
     try {
-      await this.init();
+      await this.init(source);
 
       const since = new Date();
       since.setDate(since.getDate() - days);
@@ -355,11 +348,9 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getWeeklyQueryCounts(
-    session?: ClientSession,
-  ): Promise<WeeklyQueryCountEntry[]> {
+  async getWeeklyQueryCounts(source = 'vicharanashala', session?: ClientSession): Promise<WeeklyQueryCountEntry[]> {
     try {
-      await this.init();
+      await this.init(source);
 
       const result = await this.messagesCollection
         .aggregate(
@@ -392,9 +383,9 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getTodayQueryCount(session?: ClientSession): Promise<number> {
+  async getTodayQueryCount(source = 'vicharanashala', session?: ClientSession): Promise<number> {
     try {
-      await this.init();
+      await this.init(source);
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -682,5 +673,94 @@ export class ChatbotRepository implements IChatbotRepository {
       .toArray();
 
     return result[0];
+  }
+
+  async getUserDetails(
+    startDate?: Date,
+    endDate?: Date,
+    page = 1,
+    limit = 10,
+    search = '',
+    source = 'vicharanashala',
+    session?: ClientSession,
+  ): Promise<PaginatedUserDetails> {
+    try {
+      await this.init(source);
+
+      // Build date match for messages (optional)
+      const dateMatch: Record<string, any> = { isCreatedByUser: true };
+      if (startDate || endDate) {
+        dateMatch.createdAt = {};
+        if (startDate) dateMatch.createdAt.$gte = startDate;
+        if (endDate) dateMatch.createdAt.$lte = endDate;
+      }
+
+      // Get question counts per user from messages
+      const messageCounts = await this.messagesCollection
+        .aggregate(
+          [
+            { $match: dateMatch },
+            {
+              $group: {
+                _id: '$user',
+                totalQuestions: { $sum: 1 },
+              },
+            },
+          ],
+          { session },
+        )
+        .toArray();
+
+      // Build a map: userId string → count
+      const countMap = new Map<string, number>();
+      for (const entry of messageCounts) {
+        countMap.set(String(entry._id), entry.totalQuestions);
+      }
+
+      // Get users — optionally filtered by search
+      const userFilter: Record<string, any> = {};
+      if (search && search.trim()) {
+        const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = { $regex: escaped, $options: 'i' };
+        userFilter.$or = [
+          { name: regex },
+          { username: regex },
+          { email: regex },
+        ];
+      }
+
+      const allUsers = await this.users.find(userFilter, { session }).toArray();
+
+      // Merge
+      const merged: UserDetailEntry[] = allUsers.map((u) => ({
+        userId: String(u._id),
+        name: u.name || u.username || 'Unknown',
+        email: u.email || '',
+        totalQuestions: countMap.get(String(u._id)) ?? 0,
+      }));
+
+      // Sort by totalQuestions desc
+      merged.sort((a, b) => b.totalQuestions - a.totalQuestions);
+
+      // Compute summary stats over the full filtered set
+      const totalUsers = merged.length;
+      const activeUsers = merged.filter((u) => u.totalQuestions > 0).length;
+      const totalQuestions = merged.reduce((sum, u) => sum + u.totalQuestions, 0);
+      const totalPages = Math.max(1, Math.ceil(totalUsers / limit));
+
+      // Paginate
+      const startIdx = (page - 1) * limit;
+      const users = merged.slice(startIdx, startIdx + limit);
+
+      return {
+        users,
+        totalUsers,
+        totalPages,
+        activeUsers,
+        totalQuestions,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get user details: ${error}`);
+    }
   }
 }

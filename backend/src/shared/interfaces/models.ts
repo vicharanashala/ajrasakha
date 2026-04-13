@@ -241,7 +241,7 @@ export interface INotification {
 export interface ISubscription {
   _id?: string | ObjectId;
   userId: string | ObjectId;
-  expirytime?: number | null;
+  expirytime?: Date | null;
   subscription: {
     endpoint: string;
     keys: {

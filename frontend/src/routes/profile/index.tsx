@@ -64,6 +64,7 @@ export default function ProfilePage() {
       }
     } catch (error) {
       console.error(error);
+      throw error;
     }
   };
 
@@ -175,6 +176,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
     );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isRemovingAvatar, setIsRemovingAvatar] = useState(false);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -183,8 +185,8 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
       toast.error("Please select a valid image file");
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Image size must be less than 2MB");
+    if (file.size > 70 * 1024) {
+      toast.error("Image size must be less than 70KB");
       return;
     }
     const reader = new FileReader();
@@ -199,12 +201,31 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
         toast.success("Profile picture updated!");
       } catch (error) {
         toast.error("Failed to update profile picture");
+        setAvatarPreview(userFromStore?.avatar || "");
+        if (fileInputRef.current) fileInputRef.current.value = "";
       } finally {
         setIsUploadingAvatar(false);
       }
     };
     reader.readAsDataURL(file);
   };
+
+ const handleRemoveAvatar = async () => {
+   try {
+     setIsRemovingAvatar(true);
+     const updatedData = { ...formData, avatar: "" };
+     setAvatarPreview("");
+     setFormData(updatedData);
+     await onSubmit?.(updatedData, false);
+     useAuthStore.getState().updateUser({ avatar: "" });
+     if (fileInputRef.current) fileInputRef.current.value = "";
+     toast.success("Profile picture removed!");
+   } catch (error) {
+     toast.error("Failed to remove profile picture");
+   } finally {
+     setIsRemovingAvatar(false);
+   }
+ };
 
   const handleChange = useCallback((key: keyof IUser | string, value: any) => {
     if (key.startsWith("preference.")) {
@@ -432,8 +453,12 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 w-full md:w-auto">
           {/* Avatar */}
           <div
-              className={`relative group ${isUploadingAvatar ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
-              onClick={() => !isUploadingAvatar && fileInputRef.current?.click()}
+            className={`relative group ${isUploadingAvatar || isRemovingAvatar ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+            onClick={() =>
+              !isUploadingAvatar &&
+              !isRemovingAvatar &&
+              fileInputRef.current?.click()
+            }
           >
             <Avatar className={`h-24 w-24 flex-shrink-0 ${avatarBg}`}>
               <AvatarImage src={avatarPreview || ""} alt={fullName} />
@@ -489,6 +514,16 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
             <p className="text-xs text-muted-foreground text-center sm:text-left">
               Click on the profile picture to update it
             </p>
+            {avatarPreview && (
+              <button
+                type="button"
+                onClick={handleRemoveAvatar}
+                disabled={isUploadingAvatar}
+                className="text-xs text-red-500 hover:text-red-600 underline text-center sm:text-left w-fit disabled:opacity-50"
+              >
+                Remove Avatar
+              </button>
+            )}
           </div>
         </div>
 
