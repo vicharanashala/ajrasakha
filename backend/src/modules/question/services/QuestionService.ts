@@ -3443,7 +3443,24 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (!user || user.role == 'expert') {
           throw new ForbiddenError('Only moderators or Admins can unhold questions');
         }
-        await this.questionRepo.updateQuestion(questionId, { isOnHold: false }, session)
+        if (!question.isOnHold) {
+          throw new BadRequestError('Question is not on hold');
+        }
+        const prevAccum = question.accumulatedHoldMs ?? 0;
+        let segmentMs = 0;
+        if (question.holdAt) {
+          segmentMs = Math.max(0, Date.now() - new Date(question.holdAt).getTime());
+        }
+        await this.questionRepo.updateQuestion(
+          questionId,
+          {
+            isOnHold: false,
+            status: 'open',
+            accumulatedHoldMs: prevAccum + segmentMs,
+            holdAt: null,
+          },
+          session,
+        );
         return { id: questionId }
       }
       const user = await this.userRepo.findById(userId, session);
@@ -3459,7 +3476,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         throw new NotFoundError('Question submission not found');
       }
       await this._handleSubmissionOnHold(submission, session);
-      await this.questionRepo.updateQuestion(questionId, { isOnHold: true, isAutoAllocate: false }, session)
+      await this.questionRepo.updateQuestion(questionId, { isOnHold: true, isAutoAllocate: false, status: 'hold', holdAt: new Date() }, session)
       return { id: questionId }
     })
   }
