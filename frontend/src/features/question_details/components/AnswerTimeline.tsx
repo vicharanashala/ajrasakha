@@ -36,7 +36,6 @@ export const AnswerTimeline = ({
       (h) => h.answer?._id === ans?._id
     );
 
-    console.log("UserRole ->, ", userRole)
 
     return {
       lastAnswerId: answers[0]?._id, // first one will be the last one
