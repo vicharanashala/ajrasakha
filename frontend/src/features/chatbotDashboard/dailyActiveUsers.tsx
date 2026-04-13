@@ -1,4 +1,3 @@
-import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Spinner } from "@/components/atoms/spinner";
 import { BarGraph } from "./components/shared/BarGrapgh";
@@ -50,7 +49,6 @@ const DailyActiveUsers = ({ data: propData, isLoading = false, error = null }: P
     // Bar colors based on value ranges (increasing saturation)
     const getBarColor = (value: number, index: number, _total: number): string => {
         if (index === data.length - 1) return "#EF9F27"; // Last bar - highlight
-
         if (value < 50) return "#86efac"; // Light green
         if (value < 75) return "#4ade80"; // Medium green
         if (value < 85) return "#22c55e"; // Dark green
@@ -69,17 +67,7 @@ const DailyActiveUsers = ({ data: propData, isLoading = false, error = null }: P
                             </CardTitle>
                             <CardDescription>Farmers + KCC agents + agri experts</CardDescription>
                         </div>
-                        <div style={{
-                            background: "#22c55e22",
-                            border: "1px solid #22c55e55",
-                            borderRadius: 6,
-                            padding: "2px 6px",
-                            fontSize: 10,
-                            fontWeight: 600,
-                            color: "#16a34a",
-                            whiteSpace: "nowrap",
-                            flexShrink: 0,
-                        }}>
+                        <div className="bg-[#22c55e22] border border-[#22c55e55] rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-[#16a34a] whitespace-nowrap shrink-0">
                             {getDateRangeLabel(30)}
                         </div>
                     </div>
@@ -95,16 +83,7 @@ const DailyActiveUsers = ({ data: propData, isLoading = false, error = null }: P
                             Could not load live data — showing last known values.
                         </p>
                     )}
-                    <div
-                        style={{
-                            display: "flex",
-                            gap: 16,
-                            marginTop: 12,
-                            paddingTop: 10,
-                            borderTop: "0.5px solid #f0f0f0",
-                            flexWrap: "wrap",
-                        }}
-                    >
+                    <div className="flex flex-wrap gap-4 mt-3 pt-2.5 border-t border-[#f0f0f0] dark:border-[#2a2a2a]">
                         <div className="text-[11px] text-[#888] dark:text-gray-400">
                             Peak: <span className="font-medium text-[#1a1a1a] dark:text-slate-100">Day {peakDay} · {peakValue.toLocaleString()}</span>
                         </div>
