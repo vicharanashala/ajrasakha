@@ -56,6 +56,7 @@ export const QuestionDetails = ({
     useState(ANSWER_VISIBLE_COUNT);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [aiAnswerExpanded, setAiAnswerExpanded] = useState(false);
 
   const commentRef = useRef<any>(null);
   const {
@@ -76,7 +77,44 @@ export const QuestionDetails = ({
       <QuestionHeader question={question} goBack={goBack} currentUser={currentUser} isQuestionAllocatedToExpert={submissionExists}/>
 
       <QuestionDetailsCard question={question} currentUser={currentUser} />
-      
+
+      {(question.aiInitialAnswer || question.aiApprovedAnswer) && question.aiApprovedSources && (
+
+        <div className="rounded-lg border-2 border-info/30 bg-card overflow-hidden">
+
+          {/* Header */}
+          <div 
+            className="flex items-center justify-between px-4 py-3 bg-info/5 border-b border-info/20 cursor-pointer"
+            onClick={() => setAiAnswerExpanded(prev => !prev)}
+          >
+            <span className="text-sm font-semibold text-foreground">
+              AI Generated Answer
+            </span>
+
+            <span className="text-xs text-muted-foreground">
+              {aiAnswerExpanded ? "Collapse" : "Expand"}
+            </span>
+          </div>
+
+          {/* Body */}
+          {aiAnswerExpanded && (
+            <div className="px-4 py-4 text-sm text-foreground/90 space-y-4 max-h-60 overflow-y-auto">
+              {(question.aiApprovedAnswer || question.aiInitialAnswer)
+                ?.split("\n")
+                .map((line, i) =>
+                  line.trim() === "" ? (
+                    <br key={i} />
+                  ) : (
+                    <p key={i} className="leading-relaxed">
+                      {line}
+                    </p>
+                  )
+                )}
+            </div>
+          )}
+
+        </div>
+      )}
 
       {question && currentUser && question?.source == "AJRASAKHA" && currentUser.role != "expert" &&
         <MessageDetail question={question} isQuestionAllocatedToExpert={submissionExists} navigateToQuestionPage={navigateToQuestionPage}/>
