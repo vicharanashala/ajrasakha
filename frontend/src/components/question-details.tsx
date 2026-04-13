@@ -20,6 +20,12 @@ import { flattenAnswers } from "@/features/question_details/utils/flattenAnswers
 import { QuestionHeader } from "@/features/question_details/components/QuestionHeader";
 import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
 import MessageDetail from "./MessageDetail";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 
 const questionService = new QuestionService();
 
@@ -88,7 +94,22 @@ export const QuestionDetails = ({
             onClick={() => setAiAnswerExpanded(prev => !prev)}
           >
             <span className="text-sm font-semibold text-foreground">
+                <span className="mr-2">
               AI Generated Answer
+            </span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-pointer text-xs text-muted-foreground border border-border rounded-full px-2 py-0.5">
+                      i
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-xs leading-relaxed">
+                    This response has been approved by a moderator from LLM-generated answers 
+                    and is provided as a reference for the author to create the initial answer.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </span>
 
             <span className="text-xs text-muted-foreground">
