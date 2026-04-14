@@ -336,7 +336,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                                 style={{ width: healthBarWidth, background: healthScoreColor }}
                             />
                         </div>
-                        <div className="text-[10px] mt-1.5" style={{ color: "#BA7517" }}>
+                        <div className="text-[10px] mt-1.5 text-[#BA7517]">
                             {healthLabel}
                         </div>
                     </div>
@@ -412,20 +412,14 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
 
                 {/* Overlay: backdrop + drawer */}
                 {!collapsed && (
-                    <div
-                        className="fixed inset-0 z-50 flex"
-                        style={{ animation: "fadeIn 0.15s ease-out" }}
-                    >
+                    <div className="fixed inset-0 z-50 flex animate-[fadeIn_0.15s_ease-out]">
                         {/* Backdrop */}
                         <div
                             className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
                             onClick={() => setCollapsed(true)}
                         />
                         {/* Drawer */}
-                        <div
-                            className="relative z-10 h-full"
-                            style={{ animation: "slideInLeft 0.28s cubic-bezier(0.4,0,0.2,1)" }}
-                        >
+                        <div className="relative z-10 h-full animate-[slideInLeft_0.28s_cubic-bezier(0.4,0,0.2,1)]">
                             {sidebarContent}
                         </div>
                     </div>
@@ -500,8 +494,7 @@ const NavItemRow: React.FC<NavItemRowProps> = ({
                 )}
                 {expandable && (
                     <svg width={12} height={12} viewBox="0 0 12 12" fill="none"
-                        style={{ transition: "transform 0.2s ease" }}
-                        className={`shrink-0 ${expanded ? "rotate-180" : "rotate-0"}`}
+                        className={`shrink-0 transition-transform duration-200 ease-in-out ${expanded ? "rotate-180" : "rotate-0"}`}
                     >
                         <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
