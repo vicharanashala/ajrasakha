@@ -1480,24 +1480,19 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
 
       const lastSubmission = questionSubmission.history.at(-1);
-      if (filteredExperts.length === 0) {
-        await this.questionRepo.updateQuestion(
-          questionId,
-          { status: 'in-review' },
-          session,
-        );
-        const payload: Partial<IAnswer> = {
-          status: 'pending-with-moderator',
-        };
-        const answer = lastSubmission.answer || lastSubmission.approvedAnswer;
-        await this.answerRepo.updateAnswerStatus(
-          answer.toString(),
-          payload,
-          session,
-        );
-      }
 
-      const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);
+      // When no fresh experts are available, fall back to already-reviewed experts
+      // who are not currently in the queue, so the question stays open.
+      const fallbackExperts =
+        filteredExperts.length === 0
+          ? Array.from(answeredExperts).filter(
+              id => !existingQueueIds.includes(id),
+            )
+          : [];
+
+      const expertsToAdd = (
+        filteredExperts.length > 0 ? filteredExperts : fallbackExperts
+      ).slice(0, FINAL_BATCH_SIZE);
 
       // Add entry for first expert in the queue as status in-review (only after intial 3 allocation)
       // if (
