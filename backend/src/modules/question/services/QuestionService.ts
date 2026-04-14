@@ -1443,6 +1443,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
 
       allUsers
+      .filter(user => user.role === 'expert' && user.isBlocked !== true)
         .forEach(user =>
           expertIdsSet.add(user._id.toString()),
         );
