@@ -1480,7 +1480,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
 
       const lastSubmission = questionSubmission.history.at(-1);
-      if (filteredExperts.length === 0) {
+    /*  if (filteredExperts.length === 0) {
         await this.questionRepo.updateQuestion(
           questionId,
           { status: 'in-review' },
@@ -1495,10 +1495,19 @@ export class QuestionService extends BaseService implements IQuestionService {
           payload,
           session,
         );
-      }
+      }*/
+     // const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);
 
-      const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);
+      const fallbackExperts =
+        filteredExperts.length === 0
+          ? allExpertIds
+          : [];
 
+      const expertsToAdd = (
+        filteredExperts.length > 0 ? filteredExperts : fallbackExperts
+      ).slice(0, FINAL_BATCH_SIZE);
+
+     
       // Add entry for first expert in the queue as status in-review (only after intial 3 allocation)
       // if (
       //   questionSubmission.history.length >= 0 &&
