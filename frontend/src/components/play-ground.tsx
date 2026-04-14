@@ -444,7 +444,7 @@ export const PlaygroundPage = () => {
 
               <UserProfileActions />
 
-              <MobileSidebar user={user!} setTab={setActiveTab} />
+              <MobileSidebar user={user!} setTab={setActiveTab} setChatbotSource={setChatbotSource}/>
             </div>
           </div>
         </header>
