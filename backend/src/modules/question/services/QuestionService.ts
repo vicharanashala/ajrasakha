@@ -1403,7 +1403,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       return false;
     }
 
-    const [users, preferredExperts] = await Promise.all([
+    const [allUsers, preferredExperts] = await Promise.all([
       this.userRepo.findAll(),
       this.userRepo.findExpertsByPreference(details, session),
     ]);
@@ -1418,16 +1418,23 @@ export class QuestionService extends BaseService implements IQuestionService {
     let allExpertIds: string[] = [];
     const isAjrasakha = question.source == "AJRASAKHA" ? true : false
     if (isAjrasakha) {
-      // ✅ AJRASAKHA FLOW
-      const users = await this.userRepo.getSpecialTaskForceExperts(session);
-
-      allExpertIds = users.map(user => user._id.toString());
+      const taskForceUsers = await this.userRepo.getSpecialTaskForceExperts(session);
+      
+      if (taskForceUsers.length > 0) {
+        allExpertIds = taskForceUsers.map(user => user._id.toString());
+      } else {
+        // Fallback to normal flow if no task force experts exist
+        console.log('No special task force experts found, falling back to normal flow for Ajrasakha question:', questionId);
+        const expertIdsSet = new Set<string>();
+        preferredExperts.forEach(user => expertIdsSet.add(user._id.toString()));
+        allUsers
+          .filter(user => user.role === 'expert' && user.isBlocked !== true)
+          .forEach(user => expertIdsSet.add(user._id.toString()));
+        allExpertIds = Array.from(expertIdsSet);
+      }
     } else {
       // ✅ NORMAL FLOW
-      const [users, preferredExperts] = await Promise.all([
-        this.userRepo.findAll(),
-        this.userRepo.findExpertsByPreference(details, session),
-      ]);
+      
 
       const expertIdsSet = new Set<string>();
 
@@ -1435,8 +1442,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         expertIdsSet.add(user._id.toString()),
       );
 
-      users
-        .filter(user => user.role === 'expert' && user.isBlocked !== true)
+      allUsers
         .forEach(user =>
           expertIdsSet.add(user._id.toString()),
         );
