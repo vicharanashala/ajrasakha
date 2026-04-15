@@ -1000,7 +1000,7 @@ export class QuestionService extends BaseService implements IQuestionService {
               agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
               referenceSource: "golden",
               score: item.score * 100,
-              id: new ObjectId().toString()
+              id: item.id ? item.id : new ObjectId().toString()
             })),
 
 
