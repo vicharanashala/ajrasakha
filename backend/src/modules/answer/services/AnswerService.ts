@@ -1716,18 +1716,18 @@ answer: ${updates.answer}`;
           }
         }
 
-        const { insertedId: answerId } = await this.answerRepo.addAnswer(
-          updates.questionId,
-          firstExpertId,
-          updates.answer,
-          updates.sources ?? [],
-          answerEmbedding,
-          false,       // isFinalAnswer
-          1,           // updatedAnswerCount
-          session,
-          'pending',   // status
-          'AI Generated Answer', // remarks
-        );
+        // const { insertedId: answerId } = await this.answerRepo.addAnswer(
+        //   updates.questionId,
+        //   firstExpertId,
+        //   updates.answer,
+        //   updates.sources ?? [],
+        //   answerEmbedding,
+        //   false,       // isFinalAnswer
+        //   1,           // updatedAnswerCount
+        //   session,
+        //   'pending',   // status
+        //   'AI Generated Answer', // remarks
+        // );
 
         // Update question totalAnswersCount
         await this.questionRepo.updateQuestion(
