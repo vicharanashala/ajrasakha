@@ -92,6 +92,24 @@ type QuestionsFiltersProps = {
   setView: (v: "grid" | "table") => void;
 };
 
+type AnswerMode = "ajraskha" | "manual" | "whatsapp";
+
+const sourceToAnswerMode = (
+  source: AdvanceFilterValues["source"],
+): AnswerMode => {
+  if (source === "AGRI_EXPERT") return "manual";
+  if (source === "WHATSAPP") return "whatsapp";
+  return "ajraskha";
+};
+
+const answerModeToSource = (
+  answerMode: AnswerMode,
+): AdvanceFilterValues["source"] => {
+  if (answerMode === "manual") return "AGRI_EXPERT";
+  if (answerMode === "whatsapp") return "WHATSAPP";
+  return "AJRASAKHA";
+};
+
 export const QuestionsFilters = ({
   search,
   setSearch,
@@ -133,7 +151,9 @@ export const QuestionsFilters = ({
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
     null,
   );
-  const [answerMode, setAnswerMode] = useState<"ajraskha" | "manual" | "whatsapp">("ajraskha");
+  const [answerMode, setAnswerMode] = useState<AnswerMode>(() =>
+    sourceToAnswerMode(appliedFilters.source),
+  );
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion((count, isBulkUpload) => {
@@ -281,6 +301,15 @@ export const QuestionsFilters = ({
     setAdvanceFilterValues((prev) => ({ ...prev, [key]: value }));
   };
 
+  const handleAnswerModeChange = (nextAnswerMode: AnswerMode) => {
+    const source = answerModeToSource(nextAnswerMode);
+    const nextFilters = { ...advanceFilter, source };
+
+    setAnswerMode(nextAnswerMode);
+    setAdvanceFilterValues(nextFilters);
+    onChange(nextFilters);
+  };
+
   const clearAddQuestionError = (field: keyof AddQuestionValidationErrors) => {
     setAddQuestionErrors((prev) => {
       if (!prev[field]) return prev;
@@ -294,6 +323,11 @@ export const QuestionsFilters = ({
       setAddQuestionErrors({});
     }
   }, [addOpen]);
+
+  useEffect(() => {
+    setAdvanceFilterValues(appliedFilters);
+    setAnswerMode(sourceToAnswerMode(appliedFilters.source));
+  }, [appliedFilters]);
 
   const handleApplyFilters = (myPreference?: IMyPreference) => {
     onChange({
@@ -446,8 +480,7 @@ export const QuestionsFilters = ({
         <div className="flex items-center rounded-lg border border-border bg-muted/40 p-1">
           <button
             onClick={() => {
-              setAnswerMode("ajraskha");
-              onChange({ ...advanceFilter, source: "AJRASAKHA" });
+              handleAnswerModeChange("ajraskha");
             }}
             className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
               answerMode === "ajraskha"
@@ -460,8 +493,7 @@ export const QuestionsFilters = ({
 
           <button
             onClick={() => {
-              setAnswerMode("manual");
-              onChange({ ...advanceFilter, source: "AGRI_EXPERT" });
+              handleAnswerModeChange("manual");
             }}
             className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
               answerMode === "manual"
@@ -473,8 +505,7 @@ export const QuestionsFilters = ({
           </button>
           <button
             onClick={() => {
-              setAnswerMode("whatsapp")
-              onChange({ ...advanceFilter, source: "WHATSAPP" });
+              handleAnswerModeChange("whatsapp");
             }}
             className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "whatsapp"
               ? "bg-primary text-primary-foreground shadow-sm"
