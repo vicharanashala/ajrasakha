@@ -17,6 +17,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { UserService } from "@/hooks/services/userService";
 import { AuthService } from "@/hooks/services/authService";
 import { isDevelopment } from "@/shared/app";
+import { env } from "@/config/env";
 const authService = new AuthService();
 
 
@@ -32,6 +33,18 @@ export const loginWithEmail = async (email: string, password: string) => {
       throw new Error("User Is Blocked Please Contact Moderator")
     }
     if (!user?.isBlocked || user === null) {
+      // Check if email exists before attempting sign-in for better error messages
+      const checkRes = await fetch(`${env.apiBaseUrl()}/auth/check-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      }).catch(() => null);
+
+      if (checkRes && checkRes.status === 404) {
+        const err = await checkRes.json().catch(() => ({}));
+        throw new Error(err?.message || 'No account found with this email address.');
+      }
+
       const result = await signInWithEmailAndPassword(auth, email, password);
 
       // Enforce email verification

@@ -162,7 +162,9 @@ export const useAuthForm = (
         code === "auth/wrong-password" ||
         code === "INVALID_LOGIN_CREDENTIALS"
       ) {
-        toast.error("Invalid Credentials");
+        toast.error("Incorrect password. Please try again.");
+      } else if (authError.message?.includes("No account found with this email")) {
+        toast.error("No account found with this email address.");
       } else {
         // toast.error("Something went wrong. Please try again.");
         let message =
