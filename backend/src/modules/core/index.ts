@@ -26,8 +26,6 @@ export const coreModuleControllers: Function[] = [
   AnswerController,
   CommentController,
   RequestController,
-  UserController,
-  NotificationController,
   PerformanceController
 ];
 
@@ -50,9 +48,7 @@ export const coreModuleValidators: Function[] = [
   ...ANSWER_VALIDATORS,
   ...CONTEXT_VALIDATORS,
   ...COMMENT_VALIDATORS,
-  ...USER_VALIDATORS,
   ...REQUEST_VALIDATORS,
-  ...NOTIFICATION_VALIDATORS,
 ];
 
 // Export all the main components for external use
