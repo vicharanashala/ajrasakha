@@ -420,7 +420,7 @@ const UserRow: React.FC<UserRowProps> = ({
 
       <TableCell className="align-middle w-36" title={u.firstName}>
         <div className="flex items-center gap-2">
-          <AvatarComponent u={u} showRankBadge/>
+          <AvatarComponent u={u} showRankBadge={!isAdmin}/>
 
           <div className="flex items-center gap-1 min-w-0">
             <span
