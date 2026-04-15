@@ -113,6 +113,19 @@ export class AuthController {
     return { success: true, message: 'If this email is registered, a password reset link has been sent.' };
   }
 
+  @Post('/check-email')
+  async checkEmail(@Body() body: { email: string }) {
+    try {
+      await admin.auth().getUserByEmail(body.email);
+      return { exists: true };
+    } catch (e: any) {
+      if (e.code === 'auth/user-not-found') {
+        throw new HttpError(404, 'No account found with this email address.');
+      }
+      throw new HttpError(500, 'Internal server error');
+    }
+  }
+
   @Post('/login')
   async login(@Body() body: LoginBody) {
     try {
