@@ -50,7 +50,6 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
     setConfirmDialog({ open: false, type: "hold" });
     doHold();
   };
-  console.log("Question hold status:", question);
   const isQuestionOnHold = question.isOnHold;
   return (
     <>
@@ -60,7 +59,7 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
           <h1 className="text-xl sm:text-2xl font-semibold text-pretty break-words flex-1">
             {translatedText || question.question}
           </h1>
-          {currentUser.role !='expert' && isQuestionAllocatedToExpert &&<Button size="sm" variant="outline" onClick={handleHold} className="whitespace-nowrap">{isQuestionOnHold ? "Release Hold" : "Hold the question"}</Button>}
+          {currentUser.role !='expert' && isQuestionAllocatedToExpert && question.status!== 'closed' &&<Button size="sm" variant="outline" onClick={handleHold} className="whitespace-nowrap">{isQuestionOnHold ? "Release Hold" : "Hold the question"}</Button>}
           <SarvamTranslateDropdown query={question.question} onTranslate={(result) => setTranslatedText(result)} />
 
           <div className="flex sm:flex-row flex-col sm:items-center items-end gap-3 sm:gap-6">
