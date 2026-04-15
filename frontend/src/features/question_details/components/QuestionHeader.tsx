@@ -50,7 +50,6 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
     setConfirmDialog({ open: false, type: "hold" });
     doHold();
   };
-  console.log("Question hold status:", question);
   const isQuestionOnHold = question.isOnHold;
   return (
     <>
