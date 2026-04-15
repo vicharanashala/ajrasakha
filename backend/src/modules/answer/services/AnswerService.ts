@@ -29,12 +29,12 @@ import {notifyUser} from '#root/utils/pushNotification.js';
 import {IReviewRepository} from '#root/shared/database/interfaces/IReviewRepository.js';
 import {appConfig} from '#root/config/app.js';
 import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
-import { AiService } from '#root/modules/core/services/AiService.js';
+import { AiService } from '#root/modules/ai/services/AiService.js';
 import { CORE_TYPES, NotificationService} from '#root/modules/core/index.js';
 import { ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { QuestionService } from '#root/modules/question/services/QuestionService.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
-import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
+import {PreferenceDto} from '#root/modules/user/validators/UserValidators.js';
 
 @injectable()
 export class AnswerService extends BaseService implements IAnswerService{

@@ -4,7 +4,7 @@ import {
   Analytics,
   AnswerStatusOverview,
   ModeratorApprovalRate,
-} from '#root/modules/core/classes/validators/DashboardValidators.js';
+} from '#root/modules/dashboard/validators/DashboardValidators.js';
 import {ClientSession, ObjectId} from 'mongodb';
 import { SubmissionResponse } from '#root/modules/answer/classes/validators/AnswerValidator.js';
 

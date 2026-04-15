@@ -2,8 +2,8 @@ import {
   ExpertPerformance,
   ModeratorApprovalRate,
   UserRoleOverview,
-} from '#root/modules/core/classes/validators/DashboardValidators.js';
-import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
+} from '#root/modules/dashboard/validators/DashboardValidators.js';
+import {PreferenceDto} from '#root/modules/user/validators/UserValidators.js';
 import {IUser, NotificationRetentionType} from '#shared/interfaces/models.js';
 import {MongoClient, ClientSession, ObjectId} from 'mongodb';
 

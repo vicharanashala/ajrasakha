@@ -3,10 +3,10 @@ import {Container, ContainerModule} from 'inversify';
 import {InversifyAdapter} from '#root/inversify-adapter.js';
 import {useContainer} from 'class-validator';
 import {coreContainerModule} from './container.js';
-import {UserController} from './controllers/UserController.js';
-import {USER_VALIDATORS} from './classes/validators/UserValidators.js';
-import { NotificationController } from './controllers/NotificationController.js';
-import { NOTIFICATION_VALIDATORS } from './classes/validators/NotificationValidators.js';
+import {UserController} from '../user/controllers/UserController.js';
+import {USER_VALIDATORS} from '../user/validators/UserValidators.js';
+import { NotificationController } from '../notification/controllers/NotificationController.js';
+import { NOTIFICATION_VALIDATORS } from '../notification/validators/NotificationValidators.js';
 import { AnswerController } from '../answer/controllers/AnswerController.js';
 import { ANSWER_VALIDATORS } from '../answer/classes/validators/AnswerValidator.js';
 import { QuestionController } from '../question/controllers/QuestionController.js';
@@ -60,14 +60,14 @@ export * from '../../modules/question/controllers/QuestionController.js';
 export * from '../../modules/answer/controllers/AnswerController.js'
 export * from '../../modules/context/controllers/ContextController.js';
 export * from '../../modules/comment/controllers/CommentController.js';
-export * from './controllers/NotificationController.js'
+export * from '../notification/controllers/NotificationController.js'
 export * from '../../modules/performance/controllers/PerformanceController.js'
 
 export * from '../../modules/question/services/QuestionService.js';
 export * from '../../modules/answer/services/AnswerService.js'
 export * from '../../modules/context/services/ContextService.js';
 export * from '../../modules/comment/services/CommentService.js';
-export * from './services/NotificationService.js'
+export * from '../notification/services/NotificationService.js'
 export * from '../../modules/performance/services/PerformanceService.js'
 
 export * from '../core/types.js';

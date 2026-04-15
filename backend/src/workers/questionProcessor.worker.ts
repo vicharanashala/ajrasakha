@@ -5,7 +5,7 @@ import {Container} from 'inversify';
 import {IQuestionSubmission, MongoDatabase} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {ObjectId} from 'mongodb';
-import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
+import {PreferenceDto} from '#root/modules/user/validators/UserValidators.js';
 import {getBackgroundJobs} from './workerManager.js';
 import {appConfig} from '#root/config/app.js';
 
@@ -55,9 +55,9 @@ const {NotificationRepository} = await import(
   '#root/shared/database/providers/mongo/repositories/NotificationRepository.js'
 );
 const {NotificationService} = await import(
-  '#root/modules/core/services/NotificationService.js'
+  '#root/modules/notification/services/NotificationService.js'
 );
-const {AiService} = await import('#root/modules/core/services/AiService.js');
+const {AiService} = await import('#root/modules/ai/services/AiService.js');
 const contextRepo = new ContextRepository(database);
 await (contextRepo as any).init();
 const userRepo = new UserRepository(database);
