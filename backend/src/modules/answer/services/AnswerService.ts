@@ -1702,19 +1702,19 @@ answer: ${updates.answer}`;
 
         // Create an answer document so the expert can see the moderator-approved
         // answer text from the answers collection (not the raw AI blob)
-        const firstExpertId = initialUsersToAllocate[0]
-          ? initialUsersToAllocate[0]._id.toString()
-          : userId;
+        // const firstExpertId = initialUsersToAllocate[0]
+        //   ? initialUsersToAllocate[0]._id.toString()
+        //   : userId;
 
-        let answerEmbedding: number[] = [];
-        if (ENABLE_AI_SERVER) {
-          try {
-            const { embedding } = await this.aiService.getEmbedding(updates.answer);
-            answerEmbedding = embedding;
-          } catch {
-            answerEmbedding = [];
-          }
-        }
+        // let answerEmbedding: number[] = [];
+        // if (ENABLE_AI_SERVER) {
+        //   try {
+        //     const { embedding } = await this.aiService.getEmbedding(updates.answer);
+        //     answerEmbedding = embedding;
+        //   } catch {
+        //     answerEmbedding = [];
+        //   }
+        // }
 
         // const { insertedId: answerId } = await this.answerRepo.addAnswer(
         //   updates.questionId,
