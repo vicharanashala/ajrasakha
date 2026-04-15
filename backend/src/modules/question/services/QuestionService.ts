@@ -990,7 +990,8 @@ export class QuestionService extends BaseService implements IQuestionService {
               answer: item.answer,
               agri_specialist: item.source || "AGRI_EXPERT",
               referenceSource: "reviewer",
-              score: item.score * 100
+              score: item.score * 100,
+              id: item.id  // preserve the real reviewer question _id
             })),
 
             ...(questions.golden || []).map((item: any) => ({
@@ -998,7 +999,8 @@ export class QuestionService extends BaseService implements IQuestionService {
               answer: item.answer,
               agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
               referenceSource: "golden",
-              score: item.score * 100
+              score: item.score * 100,
+              id: item.id ? item.id : new ObjectId().toString()
             })),
 
 
@@ -1007,7 +1009,6 @@ export class QuestionService extends BaseService implements IQuestionService {
             new Map(merged.map(q => [q.question, q])).values(),
           ).map(q => ({
             ...q,
-            id: new ObjectId().toString()
           }));
 
 
@@ -1019,7 +1020,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
           // convert to topMatches
           topSimilar = bestFive.map(q => ({
-            questionId: new ObjectId().toString(),
+            questionId: q.id,
             question: q.question,
             similarityScore: q.score,
             referenceSource: q.referenceSource
