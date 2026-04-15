@@ -1087,6 +1087,30 @@ async findAllUsers(
       throw new InternalServerError('Failed to get experts');
     }
   }
+  
+  async countActiveExperts(session?: ClientSession): Promise<number> {
+    await this.init();
+
+    return this.usersCollection.countDocuments(
+      {
+        role: "expert",
+        status: "active",
+      },
+      { session }
+    );
+  }
+
+  async countNonBlockedExperts(session?:ClientSession): Promise<number> {
+    await this.init();
+
+    return this.usersCollection.countDocuments(
+      {
+        role: "expert",
+        isBlocked: { $ne: true },
+      },
+      { session }
+    );
+  }
 
   async updateIsBlocked(
     userId: string,

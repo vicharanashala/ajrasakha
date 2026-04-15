@@ -25,8 +25,8 @@ export const useUpdateActivity = () => {
       await queryClient.invalidateQueries({ queryKey: ["experts"] }); 
       toast.success("Activity status updated successfully");
     },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to update activity status");
+    onError: (error) => {
+      toast.error(error?.message || "Failed to update activity status");
     },
   });
 };
