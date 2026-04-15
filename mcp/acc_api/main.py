@@ -268,14 +268,9 @@ def parse_answer(text: str | None) -> str | None:
     if not text:
         return None
     lower = text.lower()
-    marker = "\n\nanswer:"
-    idx = lower.find(marker)
+    idx = lower.find("answer:")
     if idx != -1:
-        return text[idx + len(marker) :].strip()
-    marker2 = "\nanswer:"
-    idx2 = lower.find(marker2)
-    if idx2 != -1:
-        return text[idx2 + len(marker2) :].strip()
+        return text[idx + len("answer:"):].strip()
     return None
 
 
