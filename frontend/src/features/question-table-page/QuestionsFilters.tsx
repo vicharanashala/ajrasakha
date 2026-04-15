@@ -143,7 +143,7 @@ export const QuestionsFilters = ({
     null,
   );
   const [answerMode, setAnswerMode] = useState<AnswerMode>(() =>
-    sourceToAnswerMode(appliedFilters.source),
+    sourceToAnswerMode(questionTable.source),
   );
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
@@ -448,7 +448,7 @@ export const QuestionsFilters = ({
           <button
             onClick={() => {
               setAnswerMode("whatsapp");
-              onChange({ ...appliedFilters, source: "WHATSAPP" });
+              setQuestionTableFilter({ ...questionTable, source: "WHATSAPP" });
             }}
             className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "whatsapp"
               ? "bg-primary text-primary-foreground shadow-sm"

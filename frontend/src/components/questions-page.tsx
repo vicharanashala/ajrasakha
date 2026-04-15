@@ -2,7 +2,7 @@ import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetail
 //import { QuestionsFilters, QuestionsTable } from "./questions-table";
 import { QuestionsTable } from "../features/question-table-page/questions-table";
 import { QuestionsFilters } from "../features/question-table-page/QuestionsFilters";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { QuestionDetails } from "./question-details";
 import type { IUser } from "@/types";
