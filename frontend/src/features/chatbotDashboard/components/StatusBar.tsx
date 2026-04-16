@@ -1,16 +1,18 @@
 interface Props { lastSync: string; datasetVersion: string; llmVersion: string; p0Bugs: number; }
 
-function Sep() { return <span style={{ width: 1, height: 12, background: "var(--border)", display: "inline-block" }} />; }
+function Sep() {
+  return <span className="w-px h-3 bg-[var(--border)] inline-block" />;
+}
 
 export function StatusBar({ lastSync, datasetVersion, llmVersion, p0Bugs }: Props) {
   return (
-    <div style={{ background: "var(--card)", borderTop: "0.5px solid var(--border)", display: "flex", alignItems: "center", gap: 16, padding: "8px 20px", fontSize: 11, color: "var(--muted-foreground)", flexShrink: 0, flexWrap: "wrap" }}>
-      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3AAA5A", display: "inline-block" }} />
+    <div className="bg-[var(--card)] border-t border-[var(--border)] flex items-center gap-4 px-5 py-2 text-[11px] text-[var(--muted-foreground)] shrink-0 flex-wrap">
+      <span className="w-1.5 h-1.5 rounded-full bg-[#3AAA5A] inline-block" />
       <span>All systems operational</span>
       <Sep /><span>Last sync: {lastSync}</span>
       <Sep /><span>Dataset: {datasetVersion}</span>
       <Sep /><span>Agri-LLM: {llmVersion}</span>
-      <Sep /><span style={{ color: "#A32D2D", fontWeight: 500 }}>{p0Bugs} P0 bugs open · action required</span>
+      <Sep /><span className="text-[#A32D2D] font-medium">{p0Bugs} P0 bugs open · action required</span>
     </div>
   );
 }

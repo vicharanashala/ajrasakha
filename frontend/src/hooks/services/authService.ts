@@ -119,4 +119,29 @@ export class AuthService {
       throw error;
     }
   }
+
+  async forgotPassword(email: string) {
+    try {
+      const backendUrl = `${this._baseUrl}/forgot-password`;
+      const res = await fetch(backendUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(
+          `Failed to send reset email: ${res.status} ${res.statusText} - ${errorText}`
+        );
+      }
+
+      return res.json();
+    } catch (error) {
+      console.error("Forgot password failed!", error);
+      throw error;
+    }
+  }
 }

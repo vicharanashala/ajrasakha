@@ -1,5 +1,3 @@
-import React from 'react';
-
 import type { Segment } from "./types";
 
 interface Props {
@@ -47,7 +45,7 @@ export function DashboardFarmerSegments({ segments, activeSegment, onSegmentClic
         )}
       </div>
       
-      <div className="flex-1 overflow-y-auto w-full -mx-1 sm:mx-0 px-1 sm:px-0 pr-1" style={{ maxHeight: 260 }}>
+      <div className="flex-1 overflow-y-auto w-full -mx-1 sm:mx-0 px-1 sm:px-0 pr-1 max-h-[260px]">
         <table className="w-full border-collapse text-[11px] sm:text-[12px] min-w-[280px]">
           <thead>
             <tr className="bg-gray-50 dark:bg-black/20">

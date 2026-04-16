@@ -29,7 +29,6 @@ import {
   MessageSquareText,
   MoreVertical,
   MousePointer,
-  PaperclipIcon,
   PencilLine,
   Plus,
   PlusCircle,
@@ -61,6 +60,8 @@ import { Separator } from "../../components/atoms/separator";
 import { Input } from "../../components/atoms/input";
 import { STATES, CROPS, DOMAINS, SEASONS, DISTRICTS } from "../../components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
+
+
 
 
 
@@ -208,6 +209,8 @@ export const AddOrEditQuestionDialog = ({
   const [flagReason, setFlagReason] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploadMode, setUploadMode] = useState<"single" | "bulk">("single");
+  const [isDragging, setIsDragging] = useState(false);
   const invalidFieldClass =
     "border-red-500 dark:border-red-400 focus-visible:ring-red-500/60";
   useEffect(() => {
@@ -227,12 +230,15 @@ export const AddOrEditQuestionDialog = ({
           domain: "",
         },
       } as IDetailedQuestion);
+      // Reset upload mode and file when dialog opens in add mode
+      setUploadMode("single");
+      setFile(null);
     }
-  }, [question, mode]);
+  }, [question, mode, open]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-2xl h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {mode === "add" ? (
@@ -263,14 +269,200 @@ export const AddOrEditQuestionDialog = ({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="h-[420px] ">
-          {file ? (
-            // File preview: center content
-            <div className="flex items-center justify-center h-full p-4">
-              <div className="relative w-full max-w-md">
-                <div className="absolute -top-3 -right-3 w-10 h-10 rounded-full border-4 border-background flex items-center justify-center bg-green-600 z-10">
-                  <Check className="h-5 w-5 text-white" />
+        <div className="flex flex-col h-[450px]">
+          {mode === "add" && (
+            <div className="px-2 pt-2 flex-shrink-0">
+              <div className="flex bg-muted rounded-lg p-1 gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUploadMode("single");
+                    setFile(null);
+                  }}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                    uploadMode === "single"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Plus className="h-4 w-4" />
+                  Single Question
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUploadMode("bulk");
+                    setUpdatedData((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            question: "",
+                            context: "",
+                            aiInitialAnswer: "",
+                            details: {
+                              state: "",
+                              district: "",
+                              crop: "",
+                              season: "",
+                              domain: "",
+                            },
+                          }
+                        : prev
+                    );
+                  }}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                    uploadMode === "bulk"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Upload className="h-4 w-4" />
+                  Bulk Upload
+                </button>
+              </div>
+            </div>
+          )}
+
+          {uploadMode === "bulk" && mode === "add" ? (
+            // Bulk Upload Mode
+            <div className="flex-1 overflow-y-auto p-4">
+              {!file ? (
+                <div className="flex flex-col items-center justify-center min-h-full space-y-4">
+                  {/* Drag & Drop Upload Zone */}
+                  <div className="w-full">
+                    <input
+                      type="file"
+                      id="bulk-upload"
+                      accept=".json,.csv,.xls,.xlsx,application/json,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                      className="hidden"
+                      onChange={(e) => {
+                        const selected = e.target.files?.[0];
+                        if (!selected) return;
+
+                        setError(null);
+                        const allowedTypes = [
+                          "application/json",
+                          "text/csv",
+                          "application/vnd.ms-excel",
+                          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        ];
+                        const allowedExtensions = [".json", ".csv", ".xls", ".xlsx"];
+                        const hasAllowedExtension = allowedExtensions.some(ext =>
+                          selected.name.toLowerCase().endsWith(ext)
+                        );
+
+                        if (!allowedTypes.includes(selected.type) && !hasAllowedExtension) {
+                          setError("Only JSON, CSV, and Excel files are allowed.");
+                          setFile(null);
+                          setTimeout(() => setError(null), 3000);
+                          return;
+                        }
+
+                        const maxSize = 5 * 1024 * 1024;
+                        if (selected.size > maxSize) {
+                          setError("File size must be less than 5MB.");
+                          setFile(null);
+                          setTimeout(() => setError(null), 3000);
+                          return;
+                        }
+
+                        setFile(selected);
+                      }}
+                    />
+                    <div
+                      className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                        isDragging
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragging(false);
+                        const droppedFile = e.dataTransfer.files?.[0];
+                        if (!droppedFile) return;
+
+                        setError(null);
+                        const allowedTypes = [
+                          "application/json",
+                          "text/csv",
+                          "application/vnd.ms-excel",
+                          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        ];
+                        const allowedExtensions = [".json", ".csv", ".xls", ".xlsx"];
+                        const hasAllowedExtension = allowedExtensions.some(ext =>
+                          droppedFile.name.toLowerCase().endsWith(ext)
+                        );
+
+                        if (!allowedTypes.includes(droppedFile.type) && !hasAllowedExtension) {
+                          setError("Only JSON, CSV, and Excel files are allowed.");
+                          setTimeout(() => setError(null), 3000);
+                          return;
+                        }
+
+                        const maxSize = 5 * 1024 * 1024;
+                        if (droppedFile.size > maxSize) {
+                          setError("File size must be less than 5MB.");
+                          setTimeout(() => setError(null), 3000);
+                          return;
+                        }
+
+                        setFile(droppedFile);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDragging(true);
+                      }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onClick={() => document.getElementById("bulk-upload")?.click()}
+                    >
+                      <div className="space-y-3">
+                        <Upload className="mx-auto h-10 w-10 text-muted-foreground" />
+                        <p className="text-sm text-foreground font-medium">
+                          Click to upload <span className="text-muted-foreground font-normal">or drag and drop</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          JSON, CSV, or Excel file (max 5MB)
+                        </p>
+                      </div>
+                    </div>
+                    {error && (
+                      <p className="text-red-500 text-sm text-center mt-2">{error}</p>
+                    )}
+                  </div>
+
+{/* Download Sample Button */}
+<Button
+variant="secondary"
+onClick={() => {
+const link = document.createElement("a");
+link.href = "/templates/sample_bulk_question_file.json.xlsx";
+link.download = "sample_bulk_question_file.xlsx";
+document.body.appendChild(link);
+link.click();
+document.body.removeChild(link);
+}}
+className="w-full"
+>
+<File className="mr-2 h-4 w-4" />
+Download Sample Excel Template
+</Button>
+
+{/* Format Instructions */}
+<div className="w-full space-y-2">
+<p className="text-xs font-medium text-muted-foreground">File Format:</p>
+                    <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                      <li>First row should contain column headers</li>
+                      <li>Required columns: question, priority, state, district, crop, season, domain, aiInitialAnswer</li>
+                      <li>Duplicate questions will be automatically skipped</li>
+                    </ul>
+                  </div>
                 </div>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="relative w-full max-w-md">
+                    <div className="absolute -top-3 -right-3 w-10 h-10 rounded-full border-4 border-background flex items-center justify-center bg-green-600 z-10">
+                      <Check className="h-5 w-5 text-white" />
+                    </div>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -290,8 +482,55 @@ export const AddOrEditQuestionDialog = ({
                   </Tooltip>
                 </TooltipProvider>
                 <div className="relative overflow-hidden rounded-xl border-2 border-border bg-card shadow-lg transition-all hover:shadow-xl">
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 opacity-50" />
 
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 opacity-50" />
+                      <div className="relative p-8 space-y-6">
+                        <div className="flex justify-center">
+                          <div className="relative">
+                            <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl" />
+                            <div className="relative w-20 h-20 rounded-full border-2 border-border bg-background flex items-center justify-center">
+                              <File className="h-10 w-10 text-primary" />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-center space-y-2">
+                          <p className="text-lg font-semibold text-foreground truncate px-4">
+                            {file.name}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {(file.size / 1024).toFixed(2)} KB
+                          </p>
+                        </div>
+                        <div className="flex justify-center">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border border-border bg-background">
+                            {file.name.split(".").pop()?.toUpperCase() || "FILE"}
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setFile(null)}
+                          className="w-full border-destructive/30 text-destructive hover:bg-destructive/10"
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Remove File
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : file && uploadMode === "single" ? (
+            // File preview for single mode (rare case)
+            <div className="flex-1 overflow-y-auto flex items-center justify-center p-4">
+              <div className="relative w-full max-w-md">
+                <div className="absolute -top-3 -right-3 w-10 h-10 rounded-full border-4 border-background flex items-center justify-center bg-green-600 z-10">
+                  <Check className="h-5 w-5 text-white" />
+                </div>
+                <div className="relative overflow-hidden rounded-xl border-2 border-border bg-card shadow-lg">
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 opacity-50" />
                   <div className="relative p-8 space-y-6">
                     <div className="flex justify-center">
                       <div className="relative">
@@ -301,42 +540,31 @@ export const AddOrEditQuestionDialog = ({
                         </div>
                       </div>
                     </div>
-
                     <div className="text-center space-y-2">
                       <p className="text-lg font-semibold text-foreground truncate px-4">
                         {file.name}
                       </p>
-                      {file.size && (
-                        <p className="text-sm text-muted-foreground">
-                          {(file.size / 1024).toFixed(2)} KB
-                        </p>
-                      )}
+                      <p className="text-sm text-muted-foreground">
+                        {(file.size / 1024).toFixed(2)} KB
+                      </p>
                     </div>
-
-                    <div className="flex justify-center">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border border-border bg-background">
-                        {file.name.split(".").pop()?.toUpperCase() || "FILE"}
-                      </span>
-                    </div>
-
-                    <div className="flex gap-3 pt-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setFile(null)}
-                        className="flex-1 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive dark:text-red-800"
-                      >
-                        <X className="h-4 w-4 mr-2" />
-                        Remove
-                      </Button>
-                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setFile(null)}
+                      className="w-full border-destructive/30 text-destructive hover:bg-destructive/10"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Remove
+                    </Button>
                   </div>
                 </div>
               </div>
             </div>
           ) : (
-            <ScrollArea className="h-full pr-4">
-              <div className="grid gap-4 p-2">
+            // Single Question Form
+            <ScrollArea className="flex-1 pr-4">
+              <div className="grid gap-4 p-2 pb-4">
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <MessageSquareText className="h-4 w-4" aria-hidden="true" />
@@ -350,8 +578,7 @@ export const AddOrEditQuestionDialog = ({
                       setUpdatedData((prev) =>
                         prev ? { ...prev, question: e.target.value } : prev
                       );
-                    }
-                    }
+                    }}
                     className={
                       mode === "add" && validationErrors?.question
                         ? invalidFieldClass
@@ -367,11 +594,21 @@ export const AddOrEditQuestionDialog = ({
 
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <Info className="h-4 w-4" aria-hidden="true" />
-                    <label>Context</label>
+                    <label>Context   (optional)</label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-amber-500 cursor-pointer" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-xs">
+                          <p>Adding clear context improves question quality and helps experts respond faster.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
 
                   <Textarea
-                    placeholder="Mention the context for this question...."
+                    placeholder="Mention the context for this question..."
                     value={updatedData?.context || ""}
                     onChange={(e) =>
                       setUpdatedData((prev) =>
@@ -380,9 +617,32 @@ export const AddOrEditQuestionDialog = ({
                     }
                     className="h-32 resize-none overflow-y-auto"
                   />
-                  <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
-                    Suggestion: Adding clear context improves question quality and helps experts respond faster.
-                  </p>
+
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Info className="h-4 w-4" aria-hidden="true" />
+                    <label>AI Initial Answer   (optional)</label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-amber-500 cursor-pointer" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-xs">
+                          <p>Adding AI-generated response helps experts understand the question better.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+
+                  <Textarea
+                    placeholder="Mention the AI-generated response alongside the question for better context..."
+                    value={updatedData?.aiInitialAnswer || ""}
+                    onChange={(e) =>
+                      setUpdatedData((prev) =>
+                        prev ? { ...prev, aiInitialAnswer: e.target.value } : prev
+                      )
+                    }
+                    className="h-32 resize-none overflow-y-auto"
+                  />
 
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <FlagTriangleRight className="h-4 w-4" aria-hidden="true" />
@@ -776,110 +1036,39 @@ export const AddOrEditQuestionDialog = ({
         </div>
 
         <DialogFooter className="flex justify-end gap-2">
-          {/* <X className="mr-2 h-4 w-4" aria-hidden="true" />  */}
           {mode === "add" ? (
             <>
-              <input
-                type="file"
-                id="upload-json"
-                accept=".json,.xls, .xlsx, application/json, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                className="hidden"
-                onChange={(e) => {
-                  let input = e.target;
-                  const selected = e.target.files?.[0];
-                  if (selected) setFile(selected);
-                  setError(null);
-                  const allowedTypes = [
-                    "application/json",
-                    "application/vnd.ms-excel",
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                  ];
-
-                  if (!selected || !allowedTypes.includes(selected.type)) {
-                    setError("Only JSON And EXCEL files are allowed.");
-                    setFile(null);
-                    setTimeout(() => {
-                      setError(null);
-                    }, 2000);
-                    input.value = "";
-                    return;
-                  }
-                  const maxSize = 5 * 1024 * 1024;
-                  if (selected.size > maxSize) {
-                    setError("File size must be less than 5MB.");
-                    setFile(null);
-                    setTimeout(() => {
-                      setError(null);
-                    }, 2000);
-                    input.value = "";
-                    return;
-                  }
-                  setFile(selected);
-                  input.value = "";
-                }}
-              />
-
-              <label htmlFor="upload-json">
-                <Button
-                  asChild
-                  variant="default"
-                  className="bg-dark hover:bg-dark  cursor-pointer flex items-center gap-2"
-                >
-                  <span className="flex items-center gap-2">
-                    {file ? (
-                      <>
-                        {/* <Attachment className="h-4 w-4" /> Show attachment icon */}
-                        <PaperclipIcon className="h-4 w-4" />
-                        <span
-                          className="truncate text-sm text-muted-foreground"
-                          title={file.name}
-                        >
-                          {truncate(file.name, 20)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            setFile(null); // Remove file
-                          }}
-                          className="ml-2 text-dark "
-                        >
-                          <X className="h-4 w-4 text-dark dark:text-white" />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4" /> Upload FILE
-                      </>
-                    )}
-                  </span>
-                </Button>
-              </label>
-
-              {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
-
               <Button variant="outline" onClick={() => setOpen(false)}>
                 <X className="mr-2 h-4 w-4" aria-hidden="true" />
                 Cancel
               </Button>
 
-              <Button
-                variant="default"
-                onClick={() => {
-                  if (file) {
-                    const formData = new FormData();
-                    formData.append("file", file);
-                    onSave?.("add", undefined, undefined, undefined, formData);
-                    setFile(null);
-                  } else {
-                    onSave?.("add");
-                  }
-                }}
-              >
-                <Save className="mr-2 h-4 w-4" aria-hidden="true" />
-                {isLoadingAction ? "Adding..." : "Add Question"}
-              </Button>
+              {uploadMode === "bulk" ? (
+
+                <Button
+                  variant="default"
+                  disabled={!file}
+                  onClick={() => {
+                    if (file) {
+                      const formData = new FormData();
+                      formData.append("file", file);
+                      onSave?.("add", undefined, undefined, undefined, formData);
+                      setFile(null);
+                    }
+                  }}
+                >
+                  <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
+                  {isLoadingAction ? "Uploading..." : "Upload Questions"}
+                </Button>
+              ) : (
+                <Button
+                  variant="default"
+                  onClick={() => onSave?.("add")}
+                >
+                  <Save className="mr-2 h-4 w-4" aria-hidden="true" />
+                  {isLoadingAction ? "Adding..." : "Add Question"}
+                </Button>
+              )}
             </>
           ) : userRole === "expert" ? (
             <Button

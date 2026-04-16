@@ -433,9 +433,14 @@ export interface IQuestionFullData {
   updatedAt: string;
   submission: ISubmission;
   isAlreadySubmitted: boolean;
+  passingRemark?: string;
+  isHidden?: boolean;
   isOnHold?: boolean;
   holdAt?: string;
   accumulatedHoldMs?: number;
+  aiInitialAnswer?: string;
+  aiApprovedAnswer?: string;
+  aiApprovedSources?: SourceItem[];
 }
 
 export interface QuestionFullDataResponse {
@@ -481,6 +486,7 @@ export interface IDetailedQuestion {
   userId: string;
   question: string;
   context: string;
+  aiInitialAnswer: string;
   status: QuestionStatus;
   totalAnswersCount: number;
   priority: QuestionPriority;

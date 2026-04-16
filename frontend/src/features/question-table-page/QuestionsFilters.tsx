@@ -92,6 +92,24 @@ type QuestionsFiltersProps = {
   setView: (v: "grid" | "table") => void;
 };
 
+type AnswerMode = "ajraskha" | "manual" | "whatsapp";
+
+const sourceToAnswerMode = (
+  source: AdvanceFilterValues["source"],
+): AnswerMode => {
+  if (source === "AGRI_EXPERT") return "manual";
+  if (source === "WHATSAPP") return "whatsapp";
+  return "ajraskha";
+};
+
+const answerModeToSource = (
+  answerMode: AnswerMode,
+): AdvanceFilterValues["source"] => {
+  if (answerMode === "manual") return "AGRI_EXPERT";
+  if (answerMode === "whatsapp") return "WHATSAPP";
+  return "AJRASAKHA";
+};
+
 export const QuestionsFilters = ({
   search,
   setSearch,
@@ -133,7 +151,9 @@ export const QuestionsFilters = ({
   const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(
     null,
   );
-  const [answerMode, setAnswerMode] = useState<"ajraskha" | "manual" | "whatsapp">("ajraskha");
+  const [answerMode, setAnswerMode] = useState<AnswerMode>(() =>
+    sourceToAnswerMode(appliedFilters.source),
+  );
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion((count, isBulkUpload) => {
@@ -211,6 +231,7 @@ export const QuestionsFilters = ({
         source: "AGRI_EXPERT" as QuestionSource,
         details: updatedData.details,
         context: updatedData.context || "",
+        aiInitialAnswer: updatedData.aiInitialAnswer || "",
       };
 
       const validationErrors: AddQuestionValidationErrors = {};
@@ -280,6 +301,15 @@ export const QuestionsFilters = ({
     setAdvanceFilterValues((prev) => ({ ...prev, [key]: value }));
   };
 
+  const handleAnswerModeChange = (nextAnswerMode: AnswerMode) => {
+    const source = answerModeToSource(nextAnswerMode);
+    const nextFilters = { ...advanceFilter, source };
+
+    setAnswerMode(nextAnswerMode);
+    setAdvanceFilterValues(nextFilters);
+    onChange(nextFilters);
+  };
+
   const clearAddQuestionError = (field: keyof AddQuestionValidationErrors) => {
     setAddQuestionErrors((prev) => {
       if (!prev[field]) return prev;
@@ -293,6 +323,11 @@ export const QuestionsFilters = ({
       setAddQuestionErrors({});
     }
   }, [addOpen]);
+
+  useEffect(() => {
+    setAdvanceFilterValues(appliedFilters);
+    setAnswerMode(sourceToAnswerMode(appliedFilters.source));
+  }, [appliedFilters]);
 
   const handleApplyFilters = (myPreference?: IMyPreference) => {
     onChange({
@@ -445,8 +480,7 @@ export const QuestionsFilters = ({
         <div className="flex items-center rounded-lg border border-border bg-muted/40 p-1">
           <button
             onClick={() => {
-              setAnswerMode("ajraskha");
-              onChange({ ...advanceFilter, source: "AJRASAKHA" });
+              handleAnswerModeChange("ajraskha");
             }}
             className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
               answerMode === "ajraskha"
@@ -459,8 +493,7 @@ export const QuestionsFilters = ({
 
           <button
             onClick={() => {
-              setAnswerMode("manual");
-              onChange({ ...advanceFilter, source: "AGRI_EXPERT" });
+              handleAnswerModeChange("manual");
             }}
             className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
               answerMode === "manual"
@@ -470,10 +503,9 @@ export const QuestionsFilters = ({
           >
             Manual
           </button>
-          {/* <button
+          <button
             onClick={() => {
-              setAnswerMode("whatsapp")
-              onChange({ ...advanceFilter, source: "WHATSAPP" });
+              handleAnswerModeChange("whatsapp");
             }}
             className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "whatsapp"
               ? "bg-primary text-primary-foreground shadow-sm"
@@ -481,7 +513,7 @@ export const QuestionsFilters = ({
               }`}
           >
             Whatsapp
-          </button> */}
+          </button>
          
         </div>
       </div>
@@ -489,34 +521,40 @@ export const QuestionsFilters = ({
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
         <div className="relative hidden md:flex items-center gap-2">
           <ViewDropdown view={view} setView={setView} />
-          <TopRightBadge label="New" />
         </div>
 
         {/* tools and filters */}
-        <button
-          onClick={() => setIsSidebarOpen(true)}
-          className="relative flex-1 sm:flex-none flex items-center justify-center sm:justify-start gap-2 px-3 sm:px-4 py-2 sm:py-1.5 cursor-pointer bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-md hover:border-gray-300 dark:hover:border-gray-600 transition-all shadow-sm dark:shadow-none text-xs sm:text-sm"
-        >
-          <Filter className="h-4 w-4 flex-shrink-0" />
-          <span className="sm:inline font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">
-            Tools & Filters
-          </span>
-          <TopRightBadge label="New" />
-        </button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => setIsSidebarOpen(true)}
+                  className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 dark:bg-[#1a1a1a] dark:border-gray-800"
+                >
+                  <Filter className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Tools & Filters</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
         {userRole !== "expert" && (
-          <Button
-            variant="default"
-            size="sm"
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 text-xs sm:text-sm py-2 sm:py-1.5 whitespace-nowrap cursor-pointer"
-            onClick={() => {
-              setAddQuestionErrors({});
-              setAddOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4 flex-shrink-0" />
-            <span className="xs:inline">New Question</span>
-          </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                  className="flex items-center justify-center px-3 py-1.5 text-sm font-medium"
+                    onClick={() => {
+                      setAddQuestionErrors({});
+                      setAddOpen(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Add Question</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
         )}
 
         {isSelectionModeOn && (

@@ -30,7 +30,7 @@ export function GeoCard({ states }: { states: GeoState[] }) {
 
   return (
     <Card title="Geographic concentration" subtitle="Active users by state · color gradient from white (low) to green (high)" action="Full geo view ↗">
-      <div style={{ maxHeight: 180, overflowY: "auto", paddingRight: 4 }}>
+      <div className="max-h-[180px] overflow-y-auto pr-1">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
           {parsedStates.map(s => {
             const color = getColor(s.numeric, min, max);
@@ -48,8 +48,8 @@ export function GeoCard({ states }: { states: GeoState[] }) {
         </div>
         <div className="flex gap-3 mt-3 pt-2.5 border-t border-border text-xs text-muted-foreground flex-wrap">
           <span>Top district: <strong className="text-card-foreground">Vidisha, MP</strong></span>
-          <span>Fastest growing: <strong style={{ color: "#1E7A3C" }}>MP +62% MoM</strong></span>
-          <span>Gap states: <strong style={{ color: "#A32D2D" }}>NE States &lt;200</strong></span>
+          <span>Fastest growing: <strong className="text-[#1E7A3C]">MP +62% MoM</strong></span>
+          <span>Gap states: <strong className="text-[#A32D2D]">NE States &lt;200</strong></span>
         </div>
       </div>
     </Card>

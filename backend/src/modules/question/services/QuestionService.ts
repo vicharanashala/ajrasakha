@@ -834,6 +834,8 @@ export class QuestionService extends BaseService implements IQuestionService {
   ): Promise<AddQuestionResult> {
     const logData: Record<string, any> = {};
     try {
+      // Extract aiInitialAnswer before normalizing keys to lowercase
+      const aiInitialAnswer = body.aiInitialAnswer || '';
       body = normalizeKeysToLower(body);
 
       let {
@@ -949,7 +951,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           isAutoAllocate: !(source === "AJRASAKHA" || source === "WHATSAPP"),
           embedding: textEmbedding,
           metrics: null,
-          aiInitialAnswer: body.aiInitialAnswer || '',
+          aiInitialAnswer,
           text,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -988,7 +990,8 @@ export class QuestionService extends BaseService implements IQuestionService {
               answer: item.answer,
               agri_specialist: item.source || "AGRI_EXPERT",
               referenceSource: "reviewer",
-              score: item.score * 100
+              score: item.score * 100,
+              id: item.id  // preserve the real reviewer question _id
             })),
 
             ...(questions.golden || []).map((item: any) => ({
@@ -996,7 +999,8 @@ export class QuestionService extends BaseService implements IQuestionService {
               answer: item.answer,
               agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
               referenceSource: "golden",
-              score: item.score * 100
+              score: item.score * 100,
+              id: item.id ? item.id : new ObjectId().toString()
             })),
 
 
@@ -1005,7 +1009,6 @@ export class QuestionService extends BaseService implements IQuestionService {
             new Map(merged.map(q => [q.question, q])).values(),
           ).map(q => ({
             ...q,
-            id: new ObjectId().toString()
           }));
 
 
@@ -1017,7 +1020,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
           // convert to topMatches
           topSimilar = bestFive.map(q => ({
-            questionId: new ObjectId().toString(),
+            questionId: q.id,
             question: q.question,
             similarityScore: q.score,
             referenceSource: q.referenceSource
@@ -3467,9 +3470,14 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (user.role == 'expert') {
         throw new ForbiddenError('Only moderators can hold questions');
       }
+
       const question = await this.questionRepo.getById(questionId, session);
       if (!question) {
         throw new NotFoundError('Question not found');
+      }
+
+      if(question.status === 'closed'){
+        throw new BadRequestError('Question is already closed');
       }
       const submission = await this.questionSubmissionRepo.getByQuestionId(questionId, session);
       if (!submission) {

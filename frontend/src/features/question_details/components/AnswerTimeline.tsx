@@ -8,6 +8,7 @@ import type {
 } from "@/types";
 import { Badge } from "@/components/atoms/badge";
 import { Timeline } from "primereact/timeline";
+import AvatarComponent from "@/components/avatar-component";
 
 interface IAnswerTimelineProps {
   answers: IAnswer[];
@@ -30,19 +31,23 @@ export const AnswerTimeline = ({
   rerouteQuestion,
 }: IAnswerTimelineProps) => {
   // map answers to timeline events
-  const events = answers.slice(0, answerVisibleCount).map((ans) => {
-    const submission = question.submission.history.find(
-      (h) => h.answer?._id === ans?._id
-    );
-  
-    return {
+  const events = answers
+    .slice(0, answerVisibleCount)
+    .map((ans, index) => {
+      const submission = question.submission.history.find(
+        (h) => h.answer?._id === ans?._id
+      );
+
+
+      return {
+        index,
       lastAnswerId: answers[0]?._id, // first one will be the last one
-      firstAnswerId: answers[answers?.length - 1]?._id, // last one will be the first one
-      answer: ans,
-      submission,
-      createdAt: new Date(ans.createdAt || "").toLocaleString(),
-    };
-  });
+        firstAnswerId: answers[answers?.length - 1]?._id, // last one will be the first one
+        answer: ans,
+        submission,
+        createdAt: new Date(ans.createdAt || "").toLocaleString(),
+      };
+    });
 
   return (
     <div className="w-full">
@@ -50,20 +55,44 @@ export const AnswerTimeline = ({
         value={events}
         align="alternate"
         opposite={(item) => (
-          <div className="ml-5 flex flex-col gap-1 ">
+          <div className="ml-5 flex flex-col">
             {item.submission?.updatedBy && (
-              <div className="text-xs text-foreground px-2 py-1 rounded-md">
-                <span className="font-medium">By:</span>{" "}
-                {item?.submission?.updatedBy?.name}
-                {item?.submission?.updatedBy?.email && (
-                  <> ({item.submission.updatedBy.email})</>
-                )}
-                {item?.submission?.updatedBy?.email &&
-                  item?.firstAnswerId === item?.submission?.answer?._id && (
-                    <span className="ml-2 px-2 py-0.5 text-[10px] rounded-full bg-blue-100 text-blue-700 font-semibold">
-                      Author
-                    </span>
+              <div
+                className={`text-sm text-foreground rounded-md flex ${item.index % 2 === 0 ? "justify-end" : "justify-start"
+                  }`}
+              >
+                {(userRole === "expert") && <span className="font-medium">By:</span>}{" "}
+                {/* <span>
+                  {(userRole === "moderator" || userRole === "admin") && (
+                    <AvatarComponent
+                      name={item?.submission?.updatedBy?.name}
+                      image={item?.submission?.updatedBy?.avatar}
+                    />
+                  )}&nbsp;
+                  {item?.submission?.updatedBy?.name}
+                  {item?.submission?.updatedBy?.email && (
+                    <> ({item.submission.updatedBy.email})</>
                   )}
+                </span> */}
+                <div className="flex gap-1 items-center">
+                  {(userRole === "moderator" || userRole === "admin") && (
+                    <AvatarComponent
+                      name={item?.submission?.updatedBy?.name}
+                      image={item?.submission?.updatedBy?.avatar}
+                    />
+                  )}
+                  {item?.submission?.updatedBy?.name}
+                  {item?.submission?.updatedBy?.email && (
+                    <> ({item.submission.updatedBy.email})</>
+                  )}
+                  {item?.submission?.updatedBy?.email &&
+                    item?.firstAnswerId === item?.submission?.answer?._id && (
+                      <span className="ml-2 px-2 py-0.5 text-[10px] rounded-full bg-blue-100 text-blue-700 font-semibold">
+                        Author
+                      </span>
+                    )}
+                </div>
+
               </div>
             )}
 
@@ -96,7 +125,7 @@ export const AnswerTimeline = ({
               userRole={userRole}
               queue={queue}
               rerouteQuestion={rerouteQuestion}
-              lastAnswerApprovalCount= {answers[0].approvalCount}
+              lastAnswerApprovalCount={answers[0].approvalCount}
             />
           </div>
         )}

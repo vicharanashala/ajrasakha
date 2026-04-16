@@ -326,7 +326,6 @@ useEffect(() => {
                       )}
 
                       <div className="relative group">
-                      <TopRightBadge label="New" />
 
                   <button
                 disabled={isCheckedInToday || isPending}

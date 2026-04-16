@@ -9,10 +9,34 @@ import {
 } from 'class-validator';
 import { routingControllersToSpec } from 'routing-controllers-openapi';
 
+
+import fs from 'fs';
+
 import { appConfig } from '../../config/app.js'; // adjust path as needed
 import { metadata } from 'reflect-metadata/no-conflict';
 import { ValidationMetadata } from 'class-validator/types/metadata/ValidationMetadata.js';
-import { defaultMetadataStorage } from 'class-transformer'
+import classTransformer from 'class-transformer';
+
+const defaultMetadataStorageTyped: MetadataStorage =
+  (classTransformer as any).defaultMetadataStorage;
+
+function removeInvalidRefs(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(removeInvalidRefs);
+  } else if (typeof obj === 'object' && obj !== null) {
+    const newObj: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      // Skip key-value if it matches invalid ref conditions
+      if (key === '$ref' && (value === '#/components/schemas/Object' || value === '#/components/schemas/Array')) {
+        continue;
+      }
+      // Recursively process children
+      newObj[key] = removeInvalidRefs(value);
+    }
+    return newObj;
+  }
+  return obj;
+}
 
 const getOpenApiServers = () => {
   const servers = [];
@@ -21,7 +45,7 @@ const getOpenApiServers = () => {
   const isStaging = appConfig.isStaging;
   const isProd = appConfig.isProduction;
 
-  const appUrl = appConfig.url || 'https://vibe.vicharanashala.ai';
+  const appUrl = appConfig.url || 'https://desk.vicharanashala.ai/';
   const parsedUrl = new URL(appUrl);
 
   if (isDev) {
@@ -129,12 +153,22 @@ export function generateOpenAPISpec(
     filterMetadataByModulePrefix(appConfig.module);
   }
 
+  // Fix query params with undefined target/types to prevent routing-controllers-openapi crash
+  if (storage.params) {
+    storage.params = storage.params.map((param: any) => {
+      if (param.type === undefined || param.target === undefined) {
+        return { ...param, type: String, target: param.target || Object };
+      }
+      return param;
+    });
+  }
+
   let schemas: Record<string, any> = {};
   if (validators.length === 0 || appConfig.module === 'all') {
     // If no specific validators are provided, use all class-validator schemas
     schemas = validationMetadatasToSchemas({
       refPointerPrefix: '#/components/schemas/',
-      classTransformerMetadataStorage: defaultMetadataStorage
+      classTransformerMetadataStorage: defaultMetadataStorageTyped as any
     });
   } else {
     // If specific validators are provided, filter schemas based on them
@@ -145,12 +179,12 @@ export function generateOpenAPISpec(
   const spec = routingControllersToSpec(storage, routingControllersOptions, {
     openapi: '3.0.3',
     info: {
-      title: 'ViBe API Documentation',
+      title: 'Ajrasakha API Documentation',
       version: '1.0.0',
-      description: 'API documentation for the ViBe platform',
+      description: 'API documentation for the Ajrasakha platform',
       contact: {
-        name: 'ViBe Team',
-        email: 'support@vibe.com',
+        name: 'Ajrasakha Team',
+        email: 'support@ajrasakha.com',
       },
     },
 
@@ -228,12 +262,52 @@ export function generateOpenAPISpec(
     //   // Use Scalar's preferred grouping approach
     tags: [
       {
-        name: 'Courses',
-        description: 'Operations related to courses management',
+        name: 'Authentication',
+        description: 'Authentication and authorization operations',
       },
       {
-        name: 'Anomalies',
-        description: 'Operations for managing anomaly detection and monitoring',
+        name: 'users',
+        description: 'Operations for managing users',
+      },
+      {
+        name: 'questions',
+        description: 'Operations for managing questions',
+      },
+      {
+        name: 'Answers',
+        description: 'Answer management operations',
+      },
+      {
+        name: 'analytics',
+        description: 'Chatbot analytics endpoints',
+      },
+      {
+        name: 'Comments',
+        description: 'Comment management operations',
+      },
+      {
+        name: 'contexts',
+        description: 'Operations for managing contexts',
+      },
+      {
+        name: 'crops',
+        description: 'Operations for managing the crop master list',
+      },
+      {
+        name: 'performance',
+        description: 'Operations related to Performance Dashboard',
+      },
+      {
+        name: 'requests',
+        description: 'Operations for managing requests',
+      },
+      {
+        name: 'reroute',
+        description: 'Reroute operations for questions',
+      },
+      {
+        name: 'Notifications',
+        description: 'Operations for managing notifications',
       }
     ],
     'x-tagGroups': [
@@ -242,44 +316,40 @@ export function generateOpenAPISpec(
         tags: ['Authentication'],
       },
       {
-        name: 'Course Management',
-        tags: [
-          'Courses',
-          'Course Versions',
-          'Course Modules',
-          'Course Sections',
-          'Course Items',
-        ],
+        name: 'Users',
+        tags: ['users'],
       },
       {
-        name: 'Quizzes',
-        tags: ['Quiz', 'Questions', 'Quiz Attempts', 'Question Banks'],
+        name: 'Q&A System',
+        tags: ['questions', 'Answers'],
       },
       {
-        name: 'GenAI',
-        tags: ['GenAI', 'Webhook'],
+        name: 'Analytics',
+        tags: ['analytics'],
+      },
+      {
+        name: 'Content',
+        tags: ['Comments', 'contexts'],
+      },
+      {
+        name: 'Agriculture',
+        tags: ['crops'],
+      },
+      {
+        name: 'Performance',
+        tags: ['performance'],
+      },
+      {
+        name: 'Requests',
+        tags: ['requests'],
+      },
+      {
+        name: 'Reroute',
+        tags: ['reroute'],
       },
       {
         name: 'Notifications',
-        tags: ['Invites'],
-      },
-      {
-        name: 'Users',
-        tags: ['Enrollments', 'Progress', 'Users']
-      },
-
-      {
-        name: 'Monitoring & Metrics',
-        tags: ['Anomalies', 'Reports'],
-      },
-
-      {
-        name: 'Settings',
-        tags: ['Course Settings', 'User Settings', 'Course Setting'],
-      },
-      {
-        name: 'Data Models',
-        tags: ['Models'],
+        tags: ['Notifications'],
       },
     ],
     components: {
@@ -302,5 +372,11 @@ export function generateOpenAPISpec(
     ],
   });
 
-  return spec;
+  const cleanedSpec = removeInvalidRefs(spec);
+  //   const specLog = JSON.stringify(cleanedSpec, null, 2);
+  // const logFile = fs.createWriteStream('openapi-spec.json');
+  // logFile.write(specLog);
+  // logFile.end();
+
+  return cleanedSpec;
 }
