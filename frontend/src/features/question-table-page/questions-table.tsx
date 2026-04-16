@@ -321,7 +321,7 @@ export const QuestionsTable = ({
                       </button>
                     </TableHead>
                   )}
-                  {visibleColumns.priority && (
+                  {/* {visibleColumns.priority && (
                     <TableHead className="text-center">
                       <button
                         onClick={() => onSort?.("priority")}
@@ -336,7 +336,7 @@ export const QuestionsTable = ({
                         )}
                       </button>
                     </TableHead>
-                  )}
+                  )} */}
                   {visibleColumns.state && (
                     <TableHead className="text-center">
                       <button

@@ -1,4 +1,5 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { TopRightBadge } from "@/components/NewBadge";
 import { MessageCircle, Pencil, Radio, Sparkles, UserRound } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
@@ -65,6 +66,10 @@ export function AnswerModeSwitcher({
                                 }`}
                         >
                             <Icon className="h-4 w-4" />
+                            {id === "outreach" && (
+                                <TopRightBadge label="new" right={0} />
+                            )}
+
                             {label}
                         </button>
                     </TooltipTrigger>

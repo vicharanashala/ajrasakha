@@ -63,6 +63,7 @@ import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { Label } from "@/components/atoms/label";
 import { Switch } from "@/components/atoms/switch";
 import { toast } from "sonner";
+import { TopLeftBadge, TopRightBadge } from "@/components/NewBadge";
 
 
 
@@ -317,12 +318,14 @@ export const AddOrEditQuestionDialog = ({
                         : prev
                     );
                   }}
-                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${uploadMode === "bulk"
+                  className={`relative flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${uploadMode === "bulk"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                     }`}
                 >
                   <Upload className="h-4 w-4" />
+                  <TopLeftBadge label="new" left={5} />
+
                   Bulk Upload
                 </button>
               </div>
@@ -474,8 +477,9 @@ export const AddOrEditQuestionDialog = ({
                     </TooltipProvider>
 
                     <TooltipProvider>
-                      <div className="w-full space-y-4 border rounded-lg p-4 bg-muted/30">
+                      <div className="w-full space-y-4 border rounded-lg p-4 bg-muted/30 relative">
                         <p className="text-sm font-medium text-foreground">Upload Options</p>
+                        <TopRightBadge label="new" right={0} />
 
                         {/* AI Initial Answer */}
                         <div className="flex items-center justify-between">
@@ -536,7 +540,7 @@ export const AddOrEditQuestionDialog = ({
 
                               if (value) {
                                 setIsRequiredAiInitialAnswer(true);
-                              } 
+                              }
                             }}
                           />
                         </div>
