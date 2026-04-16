@@ -71,6 +71,7 @@ export const QuestionsPage = ({
   const [isOnHold, setIsOnHold] = useState(false);
   const [duplicateQuestions, setDuplicateQuestions] = useState(false);
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
+  const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
   // const observerRef = useRef<IntersectionObserver | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -150,6 +151,7 @@ export const QuestionsPage = ({
       closedAtEnd,
       consecutiveApprovals,
       autoAllocateFilter,
+      closedInTwoHrs,
       hiddenQuestions,
       duplicateQuestions,
       isOnHold,
@@ -174,6 +176,7 @@ export const QuestionsPage = ({
       closedAtStart,
       consecutiveApprovals,
       autoAllocateFilter,
+      closedInTwoHrs,
       hiddenQuestions,
       duplicateQuestions,
       isOnHold,
@@ -249,6 +252,7 @@ export const QuestionsPage = ({
     closedAtStart?: Date | undefined;
     consecutiveApprovals?: string;
     autoAllocateFilter?: string;
+    closedInTwoHrs?: boolean;
     hiddenQuestions?: boolean;
     duplicateQuestions?: boolean;
     isOnHold?: boolean;
@@ -273,7 +277,9 @@ export const QuestionsPage = ({
     if (next.consecutiveApprovals !== undefined)
       setConsecutiveApprovals(next.consecutiveApprovals);
     if (next.autoAllocateFilter !== undefined)
-      setAutoAllocateFilter(next.autoAllocateFilter);      
+      setAutoAllocateFilter(next.autoAllocateFilter);
+    if (next.closedInTwoHrs !== undefined)
+      setClosedInTwoHrs(next.closedInTwoHrs);    
     if (next.hiddenQuestions !== undefined)
         setHiddenQuestions(next.hiddenQuestions);
       if (next.duplicateQuestions !== undefined)
@@ -313,6 +319,7 @@ export const QuestionsPage = ({
     setClosedAtStart(undefined);
     setConsecutiveApprovals("all");
     setAutoAllocateFilter("all");
+    setClosedInTwoHrs(false);
     setHiddenQuestions(false);
     setDuplicateQuestions(false);
     setIsOnHold(false);

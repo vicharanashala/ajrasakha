@@ -330,11 +330,11 @@ export class QuestionRepository implements IQuestionRepository {
         consecutiveApprovals,
         autoAllocateFilter,
         sort,
+        closedInTwoHrs,
         hiddenQuestions,
         duplicateQuestions,
         isOnHold,
       } = query;
-
     //  const filter: any = {};
     const filter: any = {
       isHidden: { $ne: true }, // default to exclude hidden questions
@@ -546,6 +546,17 @@ export class QuestionRepository implements IQuestionRepository {
         }
 
         filter.closedAt = filterDate;
+      } 
+
+      if (closedInTwoHrs) {
+        // Filter for questions closed within 2 hours of creation
+        filter.status = 'closed';
+        filter.$expr = {
+          $lte: [
+            {$subtract: ['$closedAt', '$createdAt']},
+            2 * 60 * 60 * 1000, // 2 hours in milliseconds
+          ],
+        };
       }
 
       let questionIdsByUser: string[] | null = null;
