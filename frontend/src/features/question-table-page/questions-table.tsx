@@ -272,7 +272,7 @@ export const QuestionsTable = ({
       />
 
       <div
-        className={`rounded-lg bg-card min-h-[55vh] ${view === "table" && "border"}`}
+        className={`rounded-lg bg-card min-h-[90vh] ${view === "table" && "border"}`}
       >
         <div className="hidden md:block overflow-x-auto">
           {view === "table" ? (

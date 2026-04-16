@@ -41,7 +41,7 @@ export interface IQuestionMetrics {
   collusion_score: number;
 }
 
-export type QuestionSource = 'AJRASAKHA' | "AGRI_EXPERT" | "WHATSAPP";
+export type QuestionSource = 'AJRASAKHA' | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
 export interface IQuestion {
   _id?: string | ObjectId;
   userId?: ObjectId | string;

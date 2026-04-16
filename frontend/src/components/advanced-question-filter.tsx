@@ -54,6 +54,7 @@ import {
   Hand,
   Users,
   Settings,
+  Radio,
 } from "lucide-react";
 import { Plus } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
@@ -83,7 +84,7 @@ export type QuestionDateRangeFilter =
   | "quarter"
   | "year";
 
-export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP";
+export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
 // New Type
 export type QuestionPriorityFilter = "all" | "high" | "low" | "medium";
 export type QuestionTimeRange = {
@@ -262,8 +263,8 @@ export const StateMultiSelect = ({
           {selected.length === 0
             ? "All States"
             : selected.length === 1
-            ? selected[0]
-            : `${selected.length} states selected`}
+              ? selected[0]
+              : `${selected.length} states selected`}
         </span>
         {open ? (
           <ChevronUp className="h-4 w-4 opacity-50 flex-shrink-0 ml-2" />
@@ -315,9 +316,8 @@ export const StateMultiSelect = ({
                   className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
                 >
                   <div
-                    className={`h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
-                      isSelected ? "bg-primary border-primary" : "border-gray-400"
-                    }`}
+                    className={`h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${isSelected ? "bg-primary border-primary" : "border-gray-400"
+                      }`}
                   >
                     {isSelected && (
                       <svg
@@ -407,8 +407,8 @@ export const CropMultiSelect = ({
           {selected.length === 0
             ? "All Crops"
             : selected.length === 1
-            ? getLabel(selected[0])
-            : `${selected.length} crops selected`}
+              ? getLabel(selected[0])
+              : `${selected.length} crops selected`}
         </span>
         {open ? (
           <ChevronUp className="h-4 w-4 opacity-50 flex-shrink-0 ml-2" />
@@ -451,9 +451,8 @@ export const CropMultiSelect = ({
               className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
             >
               <div
-                className={`h-4 w-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                  selected.includes("__NOT_SET__") ? "bg-primary border-primary" : "border-gray-400 bg-white"
-                }`}
+                className={`h-4 w-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${selected.includes("__NOT_SET__") ? "bg-primary border-primary" : "border-gray-400 bg-white"
+                  }`}
               >
                 {selected.includes("__NOT_SET__") && (
                   <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -475,9 +474,8 @@ export const CropMultiSelect = ({
                   className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
                 >
                   <div
-                    className={`h-4 w-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                      isSelected ? "bg-primary border-primary" : "border-gray-400 bg-white"
-                    }`}
+                    className={`h-4 w-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${isSelected ? "bg-primary border-primary" : "border-gray-400 bg-white"
+                      }`}
                   >
                     {isSelected && (
                       <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -703,6 +701,13 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                       <div className="flex items-center gap-2">
                         <UserRound className="w-4 h-4 text-primary" />
                         <span>Whatsapp</span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="OUTREACH">
+                      <div className="flex items-center gap-2">
+                        <Radio className="w-4 h-4 text-primary" />
+                        <span>Outreach</span>
                       </div>
                     </SelectItem>
                   </SelectContent>
@@ -1175,12 +1180,12 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                           : key === "duplicateQuestions"
                             ? "Show duplicate questions"
                             : key === "isOnHold"
-                            ? "Show holded questions"
-                            : key === "states"
-                              ? "state"
-                              : key === "normalisedCrops"
-                                ? "crop"
-                                : key;
+                              ? "Show holded questions"
+                              : key === "states"
+                                ? "state"
+                                : key === "normalisedCrops"
+                                  ? "crop"
+                                  : key;
 
                       const displayValue =
                         (key === "states" || key === "normalisedCrops") && Array.isArray(value)
@@ -1208,7 +1213,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                                   : Array.isArray(value)
                                     ? [0, 100]
                                     : key === "hiddenQuestions" ||
-                                        key === "duplicateQuestions"
+                                      key === "duplicateQuestions"
                                       ? false
                                       : "all",
                               )

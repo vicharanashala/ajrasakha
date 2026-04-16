@@ -13,12 +13,12 @@ import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '../classes/validators/QuestionVaidators.js';
-import {QuestionLevelResponse} from '#root/modules/core/classes/transformers/QuestionLevel.js';
-import {ClientSession} from 'mongodb';
+import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
+import { ClientSession } from 'mongodb';
 
 export interface IQuestionService {
   /** Bulk insert questions (CSV / upload / AI generated) */
-  createBulkQuestions(userId: string, questions: any[]): Promise<string[]>;
+  createBulkQuestions(userId: string, questions: any[], isOutreachQuestion?: boolean): Promise<string[]>;
 
   /** Add dummy questions linked to a context */
   addDummyQuestions(
@@ -62,7 +62,7 @@ export interface IQuestionService {
   updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
-  ): Promise<{modifiedCount: number}>;
+  ): Promise<{ modifiedCount: number }>;
 
   /** Auto allocate experts */
   autoAllocateExperts(
@@ -72,7 +72,7 @@ export interface IQuestionService {
   ): Promise<boolean>;
 
   /** Toggle auto allocation on/off */
-  toggleAutoAllocate(questionId: string): Promise<{message: string}>;
+  toggleAutoAllocate(questionId: string): Promise<{ message: string }>;
 
   /** Manually allocate experts */
   allocateExperts(
@@ -92,10 +92,10 @@ export interface IQuestionService {
   deleteQuestion(
     questionId: string,
     session?: any,
-  ): Promise<{deletedCount: number}>;
+  ): Promise<{ deletedCount: number }>;
 
   /** Bulk delete (max 50) */
-  bulkDeleteQuestions(questionIds: string[]): Promise<{deletedCount: number}>;
+  bulkDeleteQuestions(questionIds: string[]): Promise<{ deletedCount: number }>;
 
   /** Fetch question with answers, history & permissions */
   getQuestionFullData(
@@ -134,7 +134,7 @@ export interface IQuestionService {
     startDate: string,
     endDate: string,
     emails: string | string[],
-  ): Promise<{success: boolean; message: string}>;
+  ): Promise<{ success: boolean; message: string }>;
   generateQuestionReport(
     consecutiveApprovals?: number,
     startDate?: Date,
@@ -163,6 +163,6 @@ export interface IQuestionService {
 
   checkStatus(questionIds)
 
-  holdQuestion(questionId:string,userId:string,action:"hold" | "unhold"):Promise<{id:string}>
+  holdQuestion(questionId: string, userId: string, action: "hold" | "unhold"): Promise<{ id: string }>
   checkSubmissionExists(questionId: string): Promise<boolean>;
 }
