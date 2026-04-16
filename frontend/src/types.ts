@@ -504,6 +504,9 @@ export interface IDetailedQuestion {
   closedAt?: string;
   isHidden?: boolean;
   paassingRemark?: string;
+  referenceQuestionId?: string;
+  referenceQuestion?: string;
+  similarityScore?: number;
 }
 
 export interface IDetailedQuestionResponse {
