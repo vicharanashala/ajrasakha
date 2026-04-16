@@ -128,6 +128,12 @@ export const QuestionsPage = ({
     const url = new URL(window.location.href);
     url.searchParams.set("source", source);
     window.history.replaceState({}, "", url.toString());
+
+    return () => {
+      const cleanupUrl = new URL(window.location.href);
+      cleanupUrl.searchParams.delete("source");
+      window.history.replaceState({}, "", cleanupUrl.toString());
+    };
   }, [source]);
 
   const filter = useMemo(
