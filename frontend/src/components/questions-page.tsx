@@ -315,6 +315,7 @@ export const QuestionsPage = ({
     setAutoAllocateFilter("all");
     setHiddenQuestions(false);
     setDuplicateQuestions(false);
+    setIsOnHold(false);
   };
 
   const handleViewMore = (questoinId: string) => {
