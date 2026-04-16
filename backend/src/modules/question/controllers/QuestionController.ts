@@ -191,7 +191,10 @@ export class QuestionController {
         );
         setImmediate(() => startBackgroundProcessing(insertedIds, isRequiredAiInitialAnswer));
         return {
-          message: `✅ ${insertedIds.length} questions have been uploaded successfully. The expert allocation process has been initiated.`,
+          message: `✅ Successfully uploaded ${insertedIds.length} question(s). The expert allocation process has been initiated.${isRequiredAiInitialAnswer
+              ? " AI-generated initial answers will be included for each question."
+              : ""
+            } Please allow some time for processing and allocation.`,
           insertedIds,
           isBulkUpload: !!file,
         };
@@ -375,10 +378,10 @@ export class QuestionController {
 
   @Get('/:questionId')
   @HttpCode(200)
-  @Authorized() 
+  @Authorized()
   @ResponseSchema(QuestionResponse)
   @OpenAPI({ summary: 'Get selected question by ID' })
-  async getQuestionById( 
+  async getQuestionById(
     @Params() params: QuestionIdParam,
     @Body() updates: Partial<QuestionResponse>,
   ): Promise<QuestionResponse> {
