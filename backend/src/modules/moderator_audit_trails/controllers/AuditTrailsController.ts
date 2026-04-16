@@ -1,0 +1,6 @@
+class AuditTrailsController {
+
+}
+
+
+export {AuditTrailsController}

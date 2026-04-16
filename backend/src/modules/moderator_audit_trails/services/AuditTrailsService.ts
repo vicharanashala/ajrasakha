@@ -1,0 +1,5 @@
+class AuditTrailsService {
+
+}
+
+export {AuditTrailsService}

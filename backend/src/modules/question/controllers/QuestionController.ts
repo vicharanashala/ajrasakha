@@ -56,6 +56,9 @@ import { UploadFileOptions } from '#root/modules/core/classes/validators/fileUpl
 import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
 import { InternalApiAuth } from '#root/shared/functions/internalApiAuth.js';
+import { logAudit } from '#root/workers/audit.logger.js';
+import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/moderator_audit_trails/interfaces/IAuditTrails.js';
+import { ObjectId } from 'mongodb';
 
 @OpenAPI({
   tags: ['questions'],
@@ -206,6 +209,30 @@ export class QuestionController {
           data,
         };
       }
+
+      logAudit({
+        category: AuditCategory.QUESTION,
+        action: AuditAction.QUESTION_ADD,
+        actor: {
+          id: ObjectId.createFromHexString(user._id.toString()),
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: user.role,
+        },
+        context: {
+          questionId: new ObjectId(data._id),
+        },
+        changes: {
+          after: {
+            question: data.question,
+            details: data.details,
+            contenxt: new Object(data.contextId)
+          },
+        },
+        outcome: {
+          status: OutComeStatus.SUCCESS,
+        },
+      })
       
       return {
         success: true,
