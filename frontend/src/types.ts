@@ -433,6 +433,8 @@ export interface IQuestionFullData {
   updatedAt: string;
   submission: ISubmission;
   isAlreadySubmitted: boolean;
+  passingRemark?: string;
+  isHidden?: boolean;
   isOnHold?: boolean;
   aiInitialAnswer?: string;
   aiApprovedAnswer?: string;

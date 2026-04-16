@@ -9,7 +9,7 @@ import { QuestionService } from "@/hooks/services/questionService";
 
 import { Button } from "./atoms/button";
 
-import { AlertTriangle, FileText, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, FileText, Loader2, RefreshCw } from "lucide-react";
 
 import { useGetReRoutedQuestionFullData } from "@/hooks/api/question/useGetReRoutedQuestionFullData";
 
@@ -64,6 +64,9 @@ export const QuestionDetails = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [aiAnswerExpanded, setAiAnswerExpanded] = useState(false);
 
+  //state for showing passing remark
+  const [remarkExpanded, setRemarkExpanded] = useState(false);
+
   const commentRef = useRef<any>(null);
   const {
     data: reroutequestionDetails,
@@ -83,6 +86,36 @@ export const QuestionDetails = ({
       <QuestionHeader question={question} goBack={goBack} currentUser={currentUser} isQuestionAllocatedToExpert={submissionExists}/>
 
       <QuestionDetailsCard question={question} currentUser={currentUser} />
+      
+      {question.passingRemark && currentUser && question?.source == "AJRASAKHA" && currentUser.role != "expert" && (
+        <div className="relative w-full rounded-xl p-[1px] overflow-hidden">
+          <div className="absolute inset-0 rounded-xl bg-primary animate-pulse opacity-80 h-19" />
+          <div className="absolute inset-0 rounded-xl bg-primary/20 blur-md h-19" />
+          <button
+            onClick={() => setRemarkExpanded(!remarkExpanded)}
+            className="relative z-10 w-full flex items-center gap-3 px-5 py-4 rounded-xl bg-card border border-transparent hover:shadow-md transition-all duration-300 group"
+          >
+            {remarkExpanded ? (
+              <ChevronDown className="h-5 w-5 text-primary shrink-0 transition-transform" />
+            ) : (
+              <ChevronRight className="h-5 w-5 text-primary shrink-0 transition-transform" />
+            )}
+            <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
+              <span className="text-sm font-semibold text-foreground">Passing Reason</span>
+              <span className="text-xs text-muted-foreground">
+                {remarkExpanded ? "Click to collapse" : "Click to expand & view reason"}
+              </span>
+            </div>
+          </button>
+          {remarkExpanded && (
+            <div className="mt-2 rounded-xl border border-border bg-card overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="p-5">
+                <p className="text-sm text-foreground/90">{question.passingRemark}</p>
+              </div>
+            </div>
+          )}
+          </div>
+      )}
 
       {(question.aiInitialAnswer || question.aiApprovedAnswer) && question.aiApprovedSources && (
 
