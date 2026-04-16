@@ -937,9 +937,35 @@ export class QuestionService extends BaseService implements IQuestionService {
           const { insertedId } = await this.contextRepo.addContext(context, session);
           contextId = new ObjectId(insertedId);
         }
+
+        let questionId = new ObjectId();
+        let tempCreatedAt = new Date();
+        let messageId;
+
+        if (source === 'AJRASAKHA') {
+          const [analyticsMessages, annamMessages] = await Promise.all([
+            this.chatbotRepository.findMatchingMessages({
+              question,
+              details,
+              createdAt: tempCreatedAt,
+              questionId: questionId.toString(),
+            }),
+            this.chatbotRepository.findFromSecondDb({
+              question,
+              details,
+              createdAt: tempCreatedAt,
+              questionId: questionId.toString(),
+            }),
+          ]);
+
+          const allMessages = [...analyticsMessages, ...annamMessages];
+          messageId = allMessages?.[0]?.messageId;
+        }
+
         // source="AJRASAKHA"
         // 🔹 Create Base Question Object
         const baseQuestion: IQuestion = {
+          _id: questionId,
           userId: userId?.trim() !== '' ? new ObjectId(userId) : null,
           question,
           priority,
@@ -953,8 +979,9 @@ export class QuestionService extends BaseService implements IQuestionService {
           metrics: null,
           aiInitialAnswer,
           text,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          messageId,
+          createdAt: tempCreatedAt,
+          updatedAt: tempCreatedAt,
         };
 
 
@@ -3377,29 +3404,37 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new Error('Question not found');
     }
 
-  const { question, details, createdAt} = questionData;
+    const { question, details, createdAt, messageId } = questionData;
 
-  const [analyticsMessages, annamMessages] = await Promise.all([
-    this.chatbotRepository.findMatchingMessages({
-      question,
-      details,
-      createdAt,
-      questionId: questionId.toString(),
-    }),
-     this.chatbotRepository.findFromSecondDb({
-      question,
-      details,
-      createdAt,
-      questionId: questionId.toString(),
-    }),
-  ]);
+    let message;
+    if (messageId) {
+      const [analyticsMessage, annamMessage] = await Promise.all([
+        this.chatbotRepository.findByMessageId(messageId),
+        this.chatbotRepository.findBySecondDbMessageId(messageId),
+      ]);
+      message = analyticsMessage || annamMessage;
+    }
 
+    if (!message) {
+      const [analyticsMessages, annamMessages] = await Promise.all([
+        this.chatbotRepository.findMatchingMessages({
+          question,
+          details,
+          createdAt,
+          questionId: questionId.toString(),
+        }),
+        this.chatbotRepository.findFromSecondDb({
+          question,
+          details,
+          createdAt,
+          questionId: questionId.toString(),
+        }),
+      ]);
 
-
-    // Take first matched message (assuming 1 expected)
-    const allMessages = [...analyticsMessages, ...annamMessages];
-
-    const message = allMessages?.[0];
+      // Take first matched message (assuming 1 expected)
+      const allMessages = [...analyticsMessages, ...annamMessages];
+      message = allMessages?.[0];
+    }
 
     if (!message) {
       throw new Error('No matching message found');
