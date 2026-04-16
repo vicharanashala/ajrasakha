@@ -352,6 +352,7 @@ export const QuestionsFilters = ({
       review_level: advanceFilter?.review_level,
       closedAtStart: advanceFilter?.closedAtStart,
       closedAtEnd: advanceFilter?.closedAtEnd,
+      closedInTwoHrs: advanceFilter?.closedInTwoHrs,
       consecutiveApprovals: advanceFilter?.consecutiveApprovals,
       autoAllocateFilter: advanceFilter?.autoAllocateFilter,
       hiddenQuestions: advanceFilter?.hiddenQuestions,
@@ -379,6 +380,9 @@ export const QuestionsFilters = ({
         return false;
       }
 
+      // ignore defaults
+      if (value === undefined || value === "all") return false;
+      if (key === "closedInTwoHrs" && value === false) return false;
       // array filters: count as active only if non-empty
       if (key === "states" || key === "normalisedCrops") return Array.isArray(value) && value.length > 0;
 

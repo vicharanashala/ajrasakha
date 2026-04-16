@@ -378,7 +378,7 @@ export class QuestionController {
   @Authorized()
   @ResponseSchema(QuestionResponse)
   @OpenAPI({ summary: 'Get selected question by ID' })
-  async getQuestionById(
+  async getQuestionById( 
     @Params() params: QuestionIdParam,
     @Body() updates: Partial<QuestionResponse>,
   ): Promise<QuestionResponse> {

@@ -7,7 +7,7 @@ import type {
   IRerouteHistoryResponse,
   ReroutedQuestionItem,
   WorkloadBalanceResponse,
-  QuestionMessageDetailsResponse
+  QuestionMessageDetailsResponse,
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { QuestionFilter } from "@/features/qa-interface-page/QA-interface";
@@ -29,7 +29,7 @@ export class QuestionService {
     limit: number,
     filter: AdvanceFilterValues,
     search: string,
-    sort?: string
+    sort?: string,
   ): Promise<IDetailedQuestionResponse | null> {
     const params = new URLSearchParams();
 
@@ -43,6 +43,8 @@ export class QuestionService {
     if (filter.status) params.append("status", filter.status);
     if (filter.source) params.append("source", filter.source);
     if (filter.crop) params.append("crop", filter.crop);
+    if (filter.normalised_crop)
+      params.append("normalised_crop", filter.normalised_crop);
     if (filter.priority) params.append("priority", filter.priority);
     if (filter.domain) params.append("domain", filter.domain);
     if (filter.user) params.append("user", filter.user);
@@ -58,6 +60,9 @@ export class QuestionService {
     }
     if (filter.closedAtStart) {
       params.append("closedAtStart", formatDateLocal(filter.closedAtStart));
+    }
+    if (filter.closedInTwoHrs !== undefined) {
+      params.append("closedInTwoHrs", String(filter.closedInTwoHrs));
     }
     if (filter.consecutiveApprovals) {
       params.append("consecutiveApprovals", filter.consecutiveApprovals);
@@ -101,7 +106,7 @@ export class QuestionService {
     preferences: AdvanceFilterValues,
     actionType: string,
     autoSelectQuestionId?: string | null,
-    reviewLevel?: string
+    reviewLevel?: string,
   ): Promise<IQuestion[] | ReroutedQuestionItem[] | null> {
     const params = new URLSearchParams({
       page: pageParam.toString(),
@@ -154,59 +159,54 @@ export class QuestionService {
         { method: "POST", body: JSON.stringify(requestBody) }
       );
     }
-
-
   }
 
-  async getQuestionById(id: string, actionType: string): Promise<IQuestion | null> {
+  async getQuestionById(
+    id: string,
+    actionType: string,
+  ): Promise<IQuestion | null> {
     if (actionType == "allocated") {
       return apiFetch<IQuestion | null>(`${this._baseUrl}/${id}`);
-    }
-    else {
+    } else {
       return apiFetch<IQuestion | null>(`${this._reRouteUrl}/${id}`);
     }
-
-
   }
   async rejectRerouteRequest(payload: RejectReRoutePayload) {
     const { rerouteId, questionId, ...body } = payload;
 
     return apiFetch<void>(`${this._reRouteUrl}/${rerouteId}/${questionId}`, {
       body: JSON.stringify(body),
-      method: "PATCH"
-    })
-
+      method: "PATCH",
+    });
   }
 
   async getQuestionFullDataById(
-    id: string
+    id: string,
   ): Promise<QuestionFullDataResponse | null> {
     return apiFetch<QuestionFullDataResponse | null>(
-      `${this._baseUrl}/${id}/full`
+      `${this._baseUrl}/${id}/full`,
     );
   }
-  
+
   async getQuestionMessageDetailsByQuestionId(
-    questionId: string
+    questionId: string,
   ): Promise<QuestionMessageDetailsResponse | null> {
     const response = await apiFetch<QuestionMessageDetailsResponse | null>(
-      `${this._baseUrl}/${questionId}/chatbot`
+      `${this._baseUrl}/${questionId}/chatbot`,
     );
 
     return response;
   }
 
   async getReRoutedQuestionFullDataById(
-    answerId: string
+    answerId: string,
   ): Promise<IRerouteHistoryResponse[] | null> {
     return apiFetch<IRerouteHistoryResponse[] | null>(
-      `${this._reRouteUrl}/${answerId}/history`
+      `${this._reRouteUrl}/${answerId}/history`,
     );
   }
 
-  async generateQuestions(
-    query: string
-  ): Promise<GeneratedQuestion[] | null> {
+  async generateQuestions(query: string): Promise<GeneratedQuestion[] | null> {
     return apiFetch<GeneratedQuestion[] | null>(`${this._baseUrl}/generate`, {
       method: "POST",
       body: JSON.stringify({ query }),
@@ -215,7 +215,7 @@ export class QuestionService {
 
   async addQuestion(
     newQuestionData: Partial<IDetailedQuestion> | FormData,
-    isFormData = false
+    isFormData = false,
   ): Promise<void | null> {
     const body: BodyInit | null = isFormData
       ? (newQuestionData as FormData)
@@ -237,7 +237,7 @@ export class QuestionService {
 
   async updateQuestion(
     questionId: string,
-    updatedData: Partial<IDetailedQuestion>
+    updatedData: Partial<IDetailedQuestion>,
   ): Promise<IDetailedQuestion | null> {
     return apiFetch<IDetailedQuestion>(`${this._baseUrl}/${questionId}`, {
       method: "PUT",
@@ -247,7 +247,7 @@ export class QuestionService {
 
   async removeAllocation(
     questionId: string,
-    index: number
+    index: number,
   ): Promise<void | null> {
     return apiFetch<void>(`${this._baseUrl}/${questionId}/allocation`, {
       method: "DELETE",
@@ -262,26 +262,26 @@ export class QuestionService {
   }
 
   async toggleAutoAllocate(
-    questionId: string
+    questionId: string,
   ): Promise<IDetailedQuestion | null> {
     return apiFetch<IDetailedQuestion>(
       `${this._baseUrl}/${questionId}/toggle-auto-allocate`,
       {
         method: "PATCH",
-      }
+      },
     );
   }
 
   async allocateExperts(
     questionId: string,
-    experts: string[]
+    experts: string[],
   ): Promise<IDetailedQuestion | null> {
     return apiFetch<IDetailedQuestion>(
       `${this._baseUrl}/${questionId}/allocate-experts`,
       {
         method: "POST",
         body: JSON.stringify({ experts }),
-      }
+      },
     );
   }
   async allocateReRouteExperts(
@@ -290,8 +290,7 @@ export class QuestionService {
     moderatorId?: string,
     answerId?: string,
     comment?: string,
-    status?: string
-
+    status?: string,
   ): Promise<IDetailedQuestion | null> {
     return apiFetch<IDetailedQuestion>(
       `${this._reRouteUrl}/${questionId}/allocate-reroute-experts`,
@@ -302,15 +301,15 @@ export class QuestionService {
           moderatorId,
           answerId,
           comment,
-          status
+          status,
         }),
-      }
+      },
     );
   }
 
   async getAllocatedQuestionPage(questionId: string) {
     return apiFetch<number>(
-      `${this._baseUrl}/allocated/page?questionId=${questionId}`
+      `${this._baseUrl}/allocated/page?questionId=${questionId}`,
     );
   }
 
@@ -321,16 +320,15 @@ export class QuestionService {
     });
   }
 
-
   async GetQuestionsAndLevels(
     pageParam: number,
     limit: number,
     search: string,
     filter: AdvanceFilterValues,
-    sort: string
+    sort: string,
   ): Promise<ReviewLevelsApiResponse | null> {
     const params = new URLSearchParams();
-    if (sort) params.append('sort', sort)
+    if (sort) params.append("sort", sort);
     if (search) params.append("search", search);
     params.append("page", pageParam.toString());
     params.append("limit", limit.toString());
@@ -378,15 +376,20 @@ export class QuestionService {
 
     if (filter.dateRange && filter.dateRange !== "all")
       params.append("dateRange", filter.dateRange);
-    return apiFetch(
-      `${this._baseUrl}?${params.toString()}`
-    );
+    return apiFetch(`${this._baseUrl}?${params.toString()}`);
   }
   async reAllocateLessWorkload(): Promise<WorkloadBalanceResponse | null> {
-    return apiFetch<WorkloadBalanceResponse | null>(`${this._baseUrl}/reAllocateLessWorkload`, { method: "POST", });
+    return apiFetch<WorkloadBalanceResponse | null>(
+      `${this._baseUrl}/reAllocateLessWorkload`,
+      { method: "POST" },
+    );
   }
 
-  async downloadQuestionReport(consecutiveApprovals?: string, startDate?: string, endDate?: string): Promise<Blob> {
+  async downloadQuestionReport(
+    consecutiveApprovals?: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<Blob> {
     const params = new URLSearchParams();
     if (consecutiveApprovals && consecutiveApprovals !== "all") {
       params.append("consecutiveApprovals", consecutiveApprovals);
@@ -413,7 +416,7 @@ export class QuestionService {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -425,7 +428,9 @@ export class QuestionService {
     if (contentType && contentType.includes("application/json")) {
       const jsonResponse = await response.json();
       if (!jsonResponse.success) {
-        throw new Error(jsonResponse.message || "No data found for the selected filters");
+        throw new Error(
+          jsonResponse.message || "No data found for the selected filters",
+        );
       }
     }
 
@@ -440,7 +445,7 @@ export class QuestionService {
   async sendOutreachReport(
     startDate: Date,
     endDate: Date,
-    emails: string[]
+    emails: string[],
   ): Promise<{ success: boolean; message: string } | null> {
     return apiFetch<{ success: boolean; message: string } | null>(
       `${this._baseUrl}/data/out-reach/date`,
@@ -451,11 +456,14 @@ export class QuestionService {
           endDate: formatDateLocal(endDate),
           emails,
         }),
-      }
+      },
     );
   }
 
-  async downloadOverallReport(startDate?: string, endDate?: string): Promise<Blob> {
+  async downloadOverallReport(
+    startDate?: string,
+    endDate?: string,
+  ): Promise<Blob> {
     const params = new URLSearchParams();
     if (startDate) {
       params.append("startDate", startDate);
@@ -479,7 +487,7 @@ export class QuestionService {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -491,14 +499,19 @@ export class QuestionService {
     if (contentType && contentType.includes("application/json")) {
       const jsonResponse = await response.json();
       if (!jsonResponse.success) {
-        throw new Error(jsonResponse.message || "No data found for the selected date range");
+        throw new Error(
+          jsonResponse.message || "No data found for the selected date range",
+        );
       }
     }
 
     return await response.blob();
   }
 
-  async downloadDuplicateQuestionsReport(startDate?: string, endDate?: string): Promise<Blob> {
+  async downloadDuplicateQuestionsReport(
+    startDate?: string,
+    endDate?: string,
+  ): Promise<Blob> {
     const params = new URLSearchParams();
     if (startDate) {
       params.append("startDate", startDate);
@@ -522,7 +535,7 @@ export class QuestionService {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -534,7 +547,10 @@ export class QuestionService {
     if (contentType && contentType.includes("application/json")) {
       const jsonResponse = await response.json();
       if (!jsonResponse.success) {
-        throw new Error(jsonResponse.message || "No similar questions found for the selected date range");
+        throw new Error(
+          jsonResponse.message ||
+            "No similar questions found for the selected date range",
+        );
       }
     }
 
@@ -552,22 +568,22 @@ export class QuestionService {
     duplicateQuestions?: boolean;
   }): Promise<Blob> {
     const params = new URLSearchParams();
-    if (filters.state && filters.state !== 'all') {
+    if (filters.state && filters.state !== "all") {
       params.append("state", filters.state);
     }
-    if (filters.crop && filters.crop !== 'all') {
+    if (filters.crop && filters.crop !== "all") {
       params.append("crop", filters.crop);
     }
-    if (filters.normalised_crop && filters.normalised_crop !== 'all') {
+    if (filters.normalised_crop && filters.normalised_crop !== "all") {
       params.append("normalised_crop", filters.normalised_crop);
     }
-    if (filters.season && filters.season !== 'all') {
+    if (filters.season && filters.season !== "all") {
       params.append("season", filters.season);
     }
-    if (filters.domain && filters.domain !== 'all') {
+    if (filters.domain && filters.domain !== "all") {
       params.append("domain", filters.domain);
     }
-    if (filters.status && filters.status !== 'all') {
+    if (filters.status && filters.status !== "all") {
       params.append("status", filters.status);
     }
     if (filters.hiddenQuestions) {
@@ -592,7 +608,7 @@ export class QuestionService {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -604,7 +620,9 @@ export class QuestionService {
     if (contentType && contentType.includes("application/json")) {
       const jsonResponse = await response.json();
       if (!jsonResponse.success) {
-        throw new Error(jsonResponse.message || "No questions found for the selected filters");
+        throw new Error(
+          jsonResponse.message || "No questions found for the selected filters",
+        );
       }
     }
 
