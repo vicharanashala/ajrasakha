@@ -375,7 +375,7 @@ export class QuestionController {
 
   @Get('/:questionId')
   @HttpCode(200)
-  @Authorized()
+  @Authorized() 
   @ResponseSchema(QuestionResponse)
   @OpenAPI({ summary: 'Get selected question by ID' })
   async getQuestionById( 

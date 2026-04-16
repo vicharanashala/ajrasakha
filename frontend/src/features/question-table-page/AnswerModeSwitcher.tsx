@@ -1,3 +1,4 @@
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { MessageCircle, Pencil, Radio, Sparkles, UserRound } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
@@ -7,6 +8,17 @@ const MODES = [
     { id: "outreach", label: "Outreach", icon: Radio },
     { id: "whatsapp", label: "WhatsApp", icon: MessageCircle },
 ] as const
+
+const MODE_DESCRIPTIONS: Record<string, string> = {
+    ajraskha:
+        "Questions coming from Ajraskha chatbot (Source: AJRASAKHA)",
+    manual:
+        "Questions added by moderators (Source: AGRI_EXPERT)",
+    whatsapp:
+        "Questions coming from WhatsApp chatbot (Source: WHATSAPP)",
+    outreach:
+        "Questions collected via outreach programs (Source: OUTREACH)",
+};
 
 type Mode = typeof MODES[number]["id"];
 
@@ -42,18 +54,25 @@ export function AnswerModeSwitcher({
             />
 
             {MODES.map(({ id, label, icon: Icon }) => (
-                <button
-                    key={id}
-                    data-mode={id}
-                    onClick={() => handleAnswerModeChange(id)}
-                    className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${answerMode === id
-                        ? "text-primary-foreground scale-[1.02]"
-                        : "text-muted-foreground hover:text-foreground"
-                        }`}
-                >
-                    <Icon className="h-4 w-4" />
-                    {label}
-                </button>
+                <Tooltip key={id} delayDuration={1200}>
+                    <TooltipTrigger asChild >
+                        <button
+                            data-mode={id}
+                            onClick={() => handleAnswerModeChange(id)}
+                            className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${answerMode === id
+                                ? "text-primary-foreground scale-[1.02]"
+                                : "text-muted-foreground hover:text-foreground"
+                                }`}
+                        >
+                            <Icon className="h-4 w-4" />
+                            {label}
+                        </button>
+                    </TooltipTrigger>
+
+                    <TooltipContent side="top" className="max-w-xs text-sm">
+                        {MODE_DESCRIPTIONS[id]}
+                    </TooltipContent>
+                </Tooltip>
             ))}
         </div>
     );
