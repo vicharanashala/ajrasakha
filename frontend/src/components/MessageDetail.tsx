@@ -326,29 +326,58 @@ const parseChatbotText = (text: string): ParsedChatbotText => {
     let workingText = text;
     const noticeIdx = workingText.indexOf('\u26A0\uFE0F');
     if (noticeIdx !== -1) workingText = workingText.substring(0, noticeIdx).trim();
+    // Strip trailing horizontal rule left after removing the notice section
+    workingText = workingText.replace(/\n---\s*$/, '').trim();
 
     let answerBody = workingText;
     let sourcesSection = '';
+
+    // --- Step 1: Try splitting on \n---\n separator ---
     const parts = workingText.split(/\n---\n/);
     if (parts.length > 1) {
         const lastPart = parts[parts.length - 1].trim();
-        const looksLikeSources = /\|\s*(?:Agri Specialist Name|Source\/PDF Link)/i.test(lastPart);
+        // Detect sources section: English headers, Punjabi/Hindi headers, or any table row containing markdown links
+        const looksLikeSources = /\|\s*(?:Agri Specialist|Source\/PDF|Source Link)/i.test(lastPart)
+            || /\|\s*(?:ਖੇਤੀ\s*ਮਾਹਿਰ|ਸਰੋਤ[\s/]|कृषि\s*विशेषज्ञ|स्रोत[\s/])/i.test(lastPart)
+            || /\|[^|]*\[[^\]]*\]\(https?:\/\/[^)]*\)[^|]*\|/.test(lastPart);
         if (looksLikeSources) {
             answerBody = parts[0].trim();
             sourcesSection = parts.slice(1).join('\n---\n').trim();
         }
     }
+
+    // --- Step 2: Try multilingual source attribution markers ---
     if (!sourcesSection) {
-        const sourceMarker = workingText.match(/\*?\*?The answer I provided[^*\n]*/i);
+        const sourceMarker = workingText.match(
+            /\*?\*?(?:The answer I provided|ਮੈਂ ਜੋ ਜਵਾਬ ਦਿੱਤਾ|ਜਵਾਬ ਇਨ੍ਹਾਂ|मैंने जो उत्तर दिया|मैंने जो जवाब दिया|జవాబు ఈ|నేను ఇచ్చిన సమాధానం|நான் அளித்த பதில்)[^*\n]*/i
+        );
         if (sourceMarker && sourceMarker.index !== undefined) {
             answerBody = workingText.substring(0, sourceMarker.index).trim();
             sourcesSection = workingText.substring(sourceMarker.index).trim();
         }
     }
+
+    // --- Step 3: Generic fallback — bold text immediately followed by a markdown table containing links ---
+    if (!sourcesSection) {
+        const genericSourceMarker = workingText.match(
+            /\*\*[^*\n]+\*\*[:\s]*\n+\s*\|[^\n]*\[[^\]]*\]\(https?:\/\/[^\n]*\)/
+        );
+        if (genericSourceMarker && genericSourceMarker.index !== undefined) {
+            answerBody = workingText.substring(0, genericSourceMarker.index).trim();
+            sourcesSection = workingText.substring(genericSourceMarker.index).trim();
+        }
+    }
     answerBody = answerBody.replace(/\n---\s*$/, '').trim();
 
+    // --- Extract Agri Specialists from source tables ---
     const agriSpecialists: AgriSpecialist[] = [];
-    const agriRows = sourcesSection.match(/\|\s*Agri Specialist Name\s*\|\s*Source Link\s*\|[^\n]*\n\|[^\n]*\n([\s\S]*?)(?=\n\s*\n|\n\s*\|[^|]*Source\/PDF|$)/i);
+
+    // Flexible header matching: use partial keywords so variants like
+    // "ਖੇਤੀ ਮਾਹਿਰ ਦਾ ਨਾਮ", "ਖੇਤੀ ਮਾਹਿਰ ਨਾਮ", "Agri Specialist Name" all match.
+    // Column 2 is matched loosely (Source Link / ਸਰੋਤ ਲਿੰਕ / etc.)
+    const agriRows = sourcesSection.match(
+        /\|\s*(?:Agri Specialist[^\n|]*|ਖੇਤੀ\s*ਮਾਹਿਰ[^\n|]*|कृषि\s*विशेषज्ञ[^\n|]*)\s*\|\s*(?:Source[^\n|]*|ਸਰੋਤ[^\n|]*|स्रोत[^\n|]*)\s*\|[^\n]*\n\|[^\n]*\n([\s\S]*?)(?=\n\s*\n|\n\s*\|[^|]*(?:Source\/|ਸਰੋਤ\/|स्रोत\/)|$)/i
+    );
     if (agriRows) {
         for (const row of agriRows[1].trim().split('\n').filter((r: string) => r.startsWith('|'))) {
             const cells = row.split('|').filter((c: string) => c.trim() !== '');
@@ -370,8 +399,35 @@ const parseChatbotText = (text: string): ParsedChatbotText => {
         }
     }
 
+    // --- Fallback: if no agri specialists found via header matching, scan sourcesSection ---
+    // for any 2+ column table rows where column 2 contains markdown links
+    if (agriSpecialists.length === 0 && sourcesSection) {
+        const tableLines = sourcesSection.split('\n').filter((l: string) => l.startsWith('|'));
+        for (const line of tableLines) {
+            const cells = line.split('|').filter((c: string) => c.trim() !== '');
+            if (cells.length < 2) continue;
+            // Skip separator rows (|---|---|)
+            if (/^[\s-:]+$/.test(cells[0])) continue;
+            // Skip header rows (no links in column 2)
+            const raw = cells[1].trim();
+            const links = [...raw.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)];
+            if (links.length === 0) continue;
+            const name = cells[0].trim();
+            for (const link of links) {
+                if (!agriSpecialists.some(s => s.sourceLink === link[2])) {
+                    agriSpecialists.push({ name, sourceType: 'other', sourceLink: link[2] });
+                }
+            }
+        }
+    }
+
+    // --- Extract PDF / Reference Sources ---
     const pdfSources: PdfSource[] = [];
-    const pdfRows = sourcesSection.match(/\|\s*Source\/PDF Link\s*\|\s*Page Number\s*\|[^\n]*\n\|[^\n]*\n([\s\S]*?)(?=\n\s*\n|\n---|\n\u26A0|$)/i);
+
+    // Flexible header matching for PDF source tables
+    const pdfRows = sourcesSection.match(
+        /\|\s*(?:Source\/(?:PDF|Pdf)[^\n|]*|ਸਰੋਤ\/(?:PDF|Pdf)[^\n|]*|स्रोत\/(?:PDF|Pdf)[^\n|]*)\s*\|\s*(?:Page[^\n|]*|ਪੇਜ[^\n|]*|पेज[^\n|]*)\s*\|[^\n]*\n\|[^\n]*\n([\s\S]*?)(?=\n\s*\n|\n---|\n\u26A0|$)/i
+    );
     if (pdfRows) {
         for (const row of pdfRows[1].trim().split('\n').filter((r: string) => r.startsWith('|'))) {
             const cells = row.split('|').filter((c: string) => c.trim() !== '');

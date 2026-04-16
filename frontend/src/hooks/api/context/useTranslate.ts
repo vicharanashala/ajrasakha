@@ -15,8 +15,10 @@ export function useTranslate() {
       try {
         const translatedText = await translateService(text, targetLang);
         return translatedText;
-      } catch (err) {
-        setError("Failed to translate. Please try again.");
+      } catch (err: any) {
+        const msg = err?.message || String(err);
+        console.error("Translation error:", err);
+        setError(`Failed to translate: ${msg}`);
         return null;
       } finally {
         setLoading(false);
