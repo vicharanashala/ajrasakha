@@ -144,7 +144,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
 
     return (
       <span
-        className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${cfg.className}`}
+        className={`inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${cfg.className}`}
       >
         {cfg.label}
       </span>
