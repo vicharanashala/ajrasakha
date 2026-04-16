@@ -62,6 +62,7 @@ import { STATES, CROPS, DOMAINS, SEASONS, DISTRICTS } from "../../components/Met
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { Label } from "@/components/atoms/label";
 import { Switch } from "@/components/atoms/switch";
+import { toast } from "sonner";
 
 
 
@@ -495,7 +496,14 @@ export const AddOrEditQuestionDialog = ({
 
                           <Switch
                             checked={isRequiredAiInitialAnswer}
-                            onCheckedChange={setIsRequiredAiInitialAnswer}
+                            onCheckedChange={(value) => {
+                              if (isOutreachQuestion && !value) {
+                                toast.warning("AI Initial Answer is required for Outreach questions");
+                                return;
+                              }
+
+                              setIsRequiredAiInitialAnswer(value);
+                            }}
                           />
                         </div>
 
@@ -516,9 +524,20 @@ export const AddOrEditQuestionDialog = ({
                             </TooltipContent>
                           </Tooltip>
 
-                          <Switch
+                          {/* <Switch
                             checked={isOutreachQuestion}
                             onCheckedChange={setIsOutreachQuestion}
+                          /> */}
+
+                          <Switch
+                            checked={isOutreachQuestion}
+                            onCheckedChange={(value) => {
+                              setIsOutreachQuestion(value);
+
+                              if (value) {
+                                setIsRequiredAiInitialAnswer(true);
+                              } 
+                            }}
                           />
                         </div>
                       </div>

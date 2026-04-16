@@ -102,7 +102,7 @@ const aiService = new AiService();
       // }
       let textEmbedding = [];
       let aiInitialAnswer = question.aiInitialAnswer;
-      
+
       const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
 
       if (ENABLE_AI_SERVER) {
@@ -110,8 +110,23 @@ const aiService = new AiService();
         textEmbedding = embedding;
 
         if (isRequiredAiInitialAnswer && !aiInitialAnswer) {
-          const { answer } = await aiService.getAnswerByQuestionDetails(question)
-          aiInitialAnswer = answer;
+          try {
+            const result = await aiService.getAnswerByQuestionDetails(question);
+
+            const answer = result?.answer?.trim();
+
+            if (!answer) {
+              aiInitialAnswer =
+                "AI could not generate an initial answer at this time.";
+            } else {
+              aiInitialAnswer = answer;
+            }
+          } catch (error) {
+            console.error("AI initial answer generation failed:", error);
+
+            aiInitialAnswer =
+              "AI service is currently unavailable. Please try again later.";
+          }
         }
       }
 

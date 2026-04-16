@@ -150,8 +150,11 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
       <ContextMenuTrigger asChild>
         <TableRow
           key={q._id}
-          className={`text-center transition-colors ${isSelected ? "bg-primary/10" : "hover:bg-muted/50"
-            }`}
+
+          className={`text-center transition-all duration-300 ease-out
+              ${isSelected ? "bg-primary/10" : "hover:bg-muted/50"}
+              hover:shadow-sm hover:scale-[1.01] hover:brightness-[1.02]
+            `}
           onClick={() => {
             if (!q._id || !hasSelectedQuestions) return;
             handleQuestionsSelection?.(q._id);
@@ -186,10 +189,10 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                     <TooltipTrigger asChild>
                       <span
                         className={`cursor-pointer ${isClickable
-                            ? hasSelectedQuestions
-                              ? ""
-                              : "hover:underline"
-                            : "opacity-50 cursor-not-allowed"
+                          ? hasSelectedQuestions
+                            ? ""
+                            : "hover:underline"
+                          : "opacity-50 cursor-not-allowed"
                           }`}
                         onClick={() => {
                           if (!isClickable || hasSelectedQuestions) return;

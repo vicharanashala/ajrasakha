@@ -2,7 +2,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tool
 import { MessageCircle, Pencil, Radio, Sparkles, UserRound } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
-const MODES = [
+export const MODES = [
     { id: "ajraskha", label: "AJRASKHA", icon: Sparkles },
     { id: "manual", label: "Manual", icon: UserRound },
     { id: "outreach", label: "Outreach", icon: Radio },
