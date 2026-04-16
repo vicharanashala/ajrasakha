@@ -1,0 +1,130 @@
+// src/reporter.ts
+// Generates a human-readable HTML report from test results
+
+import * as fs from "fs";
+import * as path from "path";
+import { TestResult } from "./agent/runner";
+
+export function generateReport(results: TestResult[]): string {
+  const reportDir = path.join(__dirname, "../reports");
+  fs.mkdirSync(reportDir, { recursive: true });
+
+  const passed = results.filter((r) => r.status === "pass").length;
+  const failed = results.filter((r) => r.status === "fail").length;
+  const errored = results.filter((r) => r.status === "error").length;
+  const totalDuration = results.reduce((s, r) => s + r.durationMs, 0);
+
+  const statusIcon = (s: string) =>
+    s === "pass" ? "✅" : s === "fail" ? "❌" : "💥";
+  const statusColor = (s: string) =>
+    s === "pass" ? "#22c55e" : s === "fail" ? "#ef4444" : "#f97316";
+
+  const scenarioRows = results
+    .map(
+      (r) => `
+    <div class="scenario ${r.status}">
+      <div class="scenario-header">
+        <span class="status-icon">${statusIcon(r.status)}</span>
+        <h3>${r.scenario}</h3>
+        <span class="duration">${(r.durationMs / 1000).toFixed(1)}s</span>
+        <span class="badge" style="background:${statusColor(r.status)}">${r.status.toUpperCase()}</span>
+      </div>
+      <p class="message">${r.message}</p>
+      ${
+        r.screenshots.length > 0
+          ? `<div class="screenshots">
+          ${r.screenshots
+            .map(
+              (s) =>
+                `<div class="screenshot-thumb">
+              <img src="screenshots/${s}" onerror="this.style.display='none'" />
+              <span>${s}</span>
+            </div>`
+            )
+            .join("")}
+        </div>`
+          : ""
+      }
+      <details>
+        <summary>Steps taken (${r.steps.length})</summary>
+        <ol class="steps">
+          ${r.steps.map((s) => `<li><code>${s}</code></li>`).join("")}
+        </ol>
+      </details>
+    </div>`
+    )
+    .join("");
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ajrasakha — Agentic AI Test Report</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 2rem; }
+    h1 { font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, #22c55e, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; }
+    .subtitle { color: #94a3b8; margin-bottom: 2rem; font-size: 0.9rem; }
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat { background: #1e293b; border-radius: 12px; padding: 1.2rem; text-align: center; border: 1px solid #334155; }
+    .stat-value { font-size: 2.5rem; font-weight: 800; }
+    .stat-label { font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.25rem; }
+    .pass .stat-value { color: #22c55e; }
+    .fail .stat-value { color: #ef4444; }
+    .error .stat-value { color: #f97316; }
+    .total .stat-value { color: #e2e8f0; }
+    .scenario { background: #1e293b; border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; border: 1px solid #334155; }
+    .scenario.pass { border-left: 4px solid #22c55e; }
+    .scenario.fail { border-left: 4px solid #ef4444; }
+    .scenario.error { border-left: 4px solid #f97316; }
+    .scenario-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+    .scenario-header h3 { flex: 1; font-size: 1rem; font-weight: 600; }
+    .status-icon { font-size: 1.2rem; }
+    .duration { color: #64748b; font-size: 0.8rem; }
+    .badge { padding: 0.2rem 0.6rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; color: white; letter-spacing: 0.05em; }
+    .message { color: #94a3b8; font-size: 0.875rem; margin-bottom: 1rem; line-height: 1.5; }
+    .screenshots { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .screenshot-thumb { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
+    .screenshot-thumb img { width: 160px; border-radius: 8px; border: 1px solid #334155; }
+    .screenshot-thumb span { font-size: 0.7rem; color: #64748b; }
+    details { margin-top: 0.5rem; }
+    summary { color: #64748b; font-size: 0.8rem; cursor: pointer; user-select: none; }
+    summary:hover { color: #94a3b8; }
+    .steps { margin-top: 0.75rem; list-style: decimal; padding-left: 1.5rem; }
+    .steps li { margin-bottom: 0.35rem; }
+    .steps code { font-size: 0.75rem; background: #0f172a; padding: 0.15rem 0.4rem; border-radius: 4px; color: #93c5fd; word-break: break-all; }
+    .timestamp { color: #475569; font-size: 0.75rem; margin-top: 2rem; text-align: right; }
+  </style>
+</head>
+<body>
+  <h1>🌾 Ajrasakha — AI Test Report</h1>
+  <p class="subtitle">Generated by Agentic AI Testing Agent • ${new Date().toLocaleString()}</p>
+
+  <div class="summary">
+    <div class="stat total"><div class="stat-value">${results.length}</div><div class="stat-label">Total</div></div>
+    <div class="stat pass"><div class="stat-value">${passed}</div><div class="stat-label">Passed</div></div>
+    <div class="stat fail"><div class="stat-value">${failed}</div><div class="stat-label">Failed</div></div>
+    <div class="stat error"><div class="stat-value">${errored}</div><div class="stat-label">Errors</div></div>
+    <div class="stat total"><div class="stat-value">${(totalDuration / 1000).toFixed(0)}s</div><div class="stat-label">Total Time</div></div>
+  </div>
+
+  <div class="scenarios">
+    ${scenarioRows}
+  </div>
+
+  <p class="timestamp">Run completed at ${new Date().toISOString()}</p>
+</body>
+</html>`;
+
+  const reportPath = path.join(reportDir, "report.html");
+  fs.writeFileSync(reportPath, html, "utf-8");
+
+  // Also write JSON for programmatic use
+  fs.writeFileSync(
+    path.join(reportDir, "report.json"),
+    JSON.stringify({ timestamp: new Date().toISOString(), summary: { passed, failed, errored, total: results.length }, results }, null, 2),
+    "utf-8"
+  );
+
+  return reportPath;
+}

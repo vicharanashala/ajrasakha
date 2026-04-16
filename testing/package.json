@@ -1,0 +1,24 @@
+{
+  "name": "ajrasakha-agentic-testing",
+  "version": "1.0.0",
+  "description": "Agentic AI Testing agent for Ajrasakha",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "ts-node -r dotenv/config src/index.ts",
+    "test:scenario": "ts-node -r dotenv/config src/index.ts --scenario",
+    "install:browsers": "npx playwright install chromium",
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^25.6.0",
+    "dotenv": "^17.4.2",
+    "playwright": "^1.59.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.2"
+  }
+}
