@@ -27,6 +27,7 @@ import type {
 } from "@/types";
 import { Label } from "../../components/atoms/label";
 import { formatDate } from "@/utils/formatDate";
+import { buildHoldCountdownOptions } from "@/hooks/ui/useCountdown";
 import { useQuestionTimer } from "@/hooks/ui/useQuestionTimer";
 import { TimerDisplay } from "../../components/timer-display";
 
@@ -258,7 +259,15 @@ const QaQuestionItem = ({
   onQuestionSelect: (id: string) => void;
   setQuestionRef: (id: string, el: HTMLDivElement | null) => void;
 }) => {
-  const { timer } = useQuestionTimer(question?.source, question?.createdAt);
+  const { timer } = useQuestionTimer(
+    question?.source,
+    question?.createdAt,
+    buildHoldCountdownOptions({
+      status: question?.status,
+      holdAt: question?.holdAt,
+      accumulatedHoldMs: question?.accumulatedHoldMs,
+    })
+  );
 
   return (
     <div
@@ -292,7 +301,12 @@ const QaQuestionItem = ({
           </div>
         </div>
         <div className="mt-2 ml-7">
-          <TimerDisplay timer={timer} status={question?.status} source={question?.source} size="sm" />
+          <TimerDisplay
+            timer={timer}
+            status={question?.status}
+            source={question?.source}
+            size="sm"
+          />
         </div>
         <div className="mt-1 ml-7 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
           <div className="items-center gap-1.5 flex">

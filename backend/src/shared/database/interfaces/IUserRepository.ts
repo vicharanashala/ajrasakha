@@ -81,6 +81,12 @@ export interface IUserRepository {
    
     session?: ClientSession,
   ): Promise<IUser[]>;
+
+  getSpecialTaskForceModerators(
+   
+    session?: ClientSession,
+  ): Promise<IUser[]>;
+  
   findActiveLowReputationExpertsToday(
     session?: ClientSession,
     ): Promise<IUser[]>;
@@ -241,4 +247,8 @@ findUnblockedUsers(session?:ClientSession):Promise<IUser[]>
 blockExperts(expertIds:string[],session:ClientSession):Promise<void>
 
 unBlockExperts():Promise<void>
+
+countActiveExperts(session?: ClientSession): Promise<number>
+
+countNonBlockedExperts(session?:ClientSession): Promise<number>
 }

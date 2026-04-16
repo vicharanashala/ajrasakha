@@ -132,7 +132,7 @@ export class QuestionController {
 
   @Post('/')
   @HttpCode(201)
-  @ResponseSchema(Object, {statusCode: 400})
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   @OpenAPI({summary: 'Add a new question (single or bulk upload)'})
   async addQuestion(
     @UploadedFile('file', {options: UploadFileOptions})
@@ -195,6 +195,7 @@ export class QuestionController {
       }
     } else {
       console.log("the body coming=====",body)
+      
       const { isDuplicate, data } = await this.questionService.addQuestion(userId, body);
       console.log("the duplicate coming====",isDuplicate)
       console.log("the data coming=====",data)
@@ -528,11 +529,11 @@ export class QuestionController {
 
 
   @Post('/data/out-reach/date')
-@HttpCode(200)
+  @HttpCode(200)
 // @Authorized()
-@OpenAPI({ summary: 'Send Ajrasakha Questions via Email' })
-@ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
-async outreachQuestions(
+  @OpenAPI({ summary: 'Send Ajrasakha Questions via Email' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  async outreachQuestions(
   @Body() body: DateRangeRequest,
   @CurrentUser() user: IUser,
 ) {
@@ -574,7 +575,7 @@ async outreachQuestions(
     }
 
     return {success: true, data: {
-      messageId: data.messageId,
+        messageId: data.messageId,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
         user: data.user,

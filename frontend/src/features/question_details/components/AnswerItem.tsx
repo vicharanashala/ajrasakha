@@ -262,6 +262,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         submissionData={props.submissionData}
         questionStatus={props.questionStatus}
         lastAnswerId={props.lastAnswerId}
+        userRole={props.userRole}
       />
 
       <AnswerActions

@@ -1,7 +1,6 @@
-import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Spinner } from "@/components/atoms/spinner";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
+import { BarGraph } from "./components/shared/BarGrapgh";
 
 function getDateRangeLabel(days = 30): string {
     const end = new Date();
@@ -24,7 +23,6 @@ interface Props {
 
 const DailyActiveUsers = ({ data: propData, isLoading = false, error = null }: Props) => {
     const data = propData && propData.length > 0 ? propData : FALLBACK_DATA;
-    const maxData = Math.max(...data);
 
     // Computed stats from real data
     const peakValue = Math.max(...data);
@@ -49,9 +47,8 @@ const DailyActiveUsers = ({ data: propData, isLoading = false, error = null }: P
     });
 
     // Bar colors based on value ranges (increasing saturation)
-    const getBarColor = (value: number, index: number): string => {
+    const getBarColor = (value: number, index: number, _total: number): string => {
         if (index === data.length - 1) return "#EF9F27"; // Last bar - highlight
-
         if (value < 50) return "#86efac"; // Light green
         if (value < 75) return "#4ade80"; // Medium green
         if (value < 85) return "#22c55e"; // Dark green
@@ -70,86 +67,23 @@ const DailyActiveUsers = ({ data: propData, isLoading = false, error = null }: P
                             </CardTitle>
                             <CardDescription>Farmers + KCC agents + agri experts</CardDescription>
                         </div>
-                        <div style={{
-                            background: "#22c55e22",
-                            border: "1px solid #22c55e55",
-                            borderRadius: 6,
-                            padding: "2px 6px",
-                            fontSize: 10,
-                            fontWeight: 600,
-                            color: "#16a34a",
-                            whiteSpace: "nowrap",
-                            flexShrink: 0,
-                        }}>
+                        <div className="bg-[#22c55e22] border border-[#22c55e55] rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-[#16a34a] whitespace-nowrap shrink-0">
                             {getDateRangeLabel(30)}
                         </div>
                     </div>
                 </CardHeader>
                 <CardContent>
-                    {/* Scrollable wrapper — prevents bar chart from squishing on small screens */}
-                    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-                        <div style={{ minWidth: 360 }}>
-                            <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 120 }}>
-                                <TooltipProvider>
-                                {data.map((value, index) => {
-                                    const heightPercent = (value / maxData) * 100;
-                                    return (
-                                        <Tooltip key={index}>
-                                            <TooltipTrigger asChild>
-                                                <div
-                                                    style={{
-                                                        flex: 1,
-                                                        height: `${heightPercent}%`,
-                                                        background: getBarColor(value, index),
-                                                        borderRadius: "2px 2px 0 0",
-                                                        outline: index === data.length - 1 ? "1.5px solid #BA7517" : "none",
-                                                        minHeight: 2,
-                                                        cursor: "pointer",
-                                                    }}
-                                                />
-                                            </TooltipTrigger>
-                                            <TooltipContent side="top">
-                                                <div className="text-center">
-                                                    <div className="font-bold text-sm">{value.toLocaleString()}</div>
-                                                    <div className="h-px bg-white/40 my-1.5" />
-                                                    <div className="text-xs opacity-90">{barLabels[index]}</div>
-                                                </div>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    );
-                                })}
-                                </TooltipProvider>
-                            </div>
-                            <div
-                                style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    fontSize: 10,
-                                    color: "#aaa",
-                                    marginTop: 4,
-                                }}
-                            >
-                                {["Day 1", "Day 10", "Day 20", "Today"].map((t, i) => (
-                                    <span key={i}>{t}</span>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
+                    <BarGraph
+                        data={data.map((value, i) => ({ label: barLabels[i], value }))}
+                        getBarColor={getBarColor}
+                        xAxisLabels={["Day 1", "Day 10", "Day 20", "Today"]}
+                    />
                     {error && (
                         <p className="text-[11px] text-red-500 mt-2">
                             Could not load live data — showing last known values.
                         </p>
                     )}
-                    <div
-                        style={{
-                            display: "flex",
-                            gap: 16,
-                            marginTop: 12,
-                            paddingTop: 10,
-                            borderTop: "0.5px solid #f0f0f0",
-                            flexWrap: "wrap",
-                        }}
-                    >
+                    <div className="flex flex-wrap gap-4 mt-3 pt-2.5 border-t border-[#f0f0f0] dark:border-[#2a2a2a]">
                         <div className="text-[11px] text-[#888] dark:text-gray-400">
                             Peak: <span className="font-medium text-[#1a1a1a] dark:text-slate-100">Day {peakDay} · {peakValue.toLocaleString()}</span>
                         </div>

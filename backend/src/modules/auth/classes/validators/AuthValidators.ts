@@ -250,6 +250,18 @@ class LoginBody {
   password: string;
 }
 
+class ForgotPasswordBody {
+  @JSONSchema({
+    title: 'Email Address',
+    description: 'Email address to send the password reset link to',
+    example: 'user@example.com',
+    type: 'string',
+    format: 'email',
+  })
+  @IsEmail()
+  email: string;
+}
+
 export const AUTH_VALIDATORS = [
   SignUpBody,
   GoogleSignUpBody,
@@ -261,6 +273,7 @@ export const AUTH_VALIDATORS = [
   AuthErrorResponse,
   LoginBody,
   ResendVerificationBody,
+  ForgotPasswordBody,
 ];
 
 export {
@@ -274,4 +287,5 @@ export {
   AuthErrorResponse,
   LoginBody,
   ResendVerificationBody,
+  ForgotPasswordBody,
 };

@@ -25,8 +25,8 @@ export const useBlockUser = () => {
       });
       toast.success("User Updated succesfully")
     },
-    onError:() => {
-      toast.error(`Failed to Block or unBlock Expert`)
+    onError:(error) => {
+      toast.error(error?.message || `Failed to Block or unBlock Expert`)
     }
   })
 }

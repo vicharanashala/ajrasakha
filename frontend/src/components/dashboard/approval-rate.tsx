@@ -39,7 +39,7 @@ export const ApprovalRateCard: React.FC<ApprovalRateCardProps> = ({ data }) => {
               <span className="text-2xl font-bold text-primary">
                 <CountUp
                   key={`approvalRate-${key}`}
-                  end={data.approvalRate}
+                  end={Math.floor(data.approvalRate)}
                   duration={2}
                   suffix="%"
                   preserveValue
@@ -51,7 +51,7 @@ export const ApprovalRateCard: React.FC<ApprovalRateCardProps> = ({ data }) => {
               className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full"
               key={`approvalRate-${key}`}
               initial={{ width: 0 }}
-              animate={{ width: `${data.approvalRate}%` }}
+              animate={{ width: `${Math.floor(data.approvalRate)}%` }}
               transition={{ duration: 1.2, ease: "easeInOut" }}
             />
             </div>

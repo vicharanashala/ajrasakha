@@ -43,6 +43,9 @@ export interface IUser {
   penaltyPercentage?: number;
   rankPosition?: number;
   status?: 'active' | 'in-active';
+  avatar?: string;
+  special_task_force?: boolean;
+  special_task_force_moderator?: boolean
 }
 export interface ReviewLevelCount {
   Review_level: 'Author' | 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4' | 'Level 5' | 'Level 6' | 'Level 7' | 'Level 8' | 'Level 9';
@@ -253,7 +256,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold";
 export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;
@@ -430,7 +433,14 @@ export interface IQuestionFullData {
   updatedAt: string;
   submission: ISubmission;
   isAlreadySubmitted: boolean;
+  passingRemark?: string;
+  isHidden?: boolean;
   isOnHold?: boolean;
+  holdAt?: string;
+  accumulatedHoldMs?: number;
+  aiInitialAnswer?: string;
+  aiApprovedAnswer?: string;
+  aiApprovedSources?: SourceItem[];
 }
 
 export interface QuestionFullDataResponse {
@@ -476,6 +486,7 @@ export interface IDetailedQuestion {
   userId: string;
   question: string;
   context: string;
+  aiInitialAnswer: string;
   status: QuestionStatus;
   totalAnswersCount: number;
   priority: QuestionPriority;
@@ -493,6 +504,9 @@ export interface IDetailedQuestion {
   updatedAt?: string;
   review_level_number?: number;
   closedAt?: string;
+  holdAt?: string;
+  isOnHold?: boolean;
+  accumulatedHoldMs?: number;
   isHidden?: boolean;
   paassingRemark?: string;
 }

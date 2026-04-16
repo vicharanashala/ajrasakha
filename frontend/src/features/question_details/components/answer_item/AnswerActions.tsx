@@ -166,6 +166,7 @@ export const AnswerActions = ({
         reviews={reviews}
         firstTrueIndex={firstTrueIndex}
         firstFalseOrMissingIndex={firstFalseOrMissingIndex}
+        userRole={userRole}
       />
     </div>
   );

@@ -53,10 +53,10 @@ export function DashboardFilters({ filters, onFilterChange }: DashboardFiltersPr
       {/* Page header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-5">
         <div>
-          <h1 className="text-[#1a1a1a] dark:text-white" style={{ fontSize: 16, fontWeight: 500, margin: 0 }}>
+          <h1 className="text-[#1a1a1a] dark:text-white text-base font-medium m-0">
             National overview
           </h1>
-          <p className="text-[#888] dark:text-gray-400" style={{ fontSize: 12, marginTop: 4, margin: 0 }}>
+          <p className="text-[#888] dark:text-gray-400 text-[12px] mt-1 m-0">
             {getSubtitle()}
           </p>
         </div>

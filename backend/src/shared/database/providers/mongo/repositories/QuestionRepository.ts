@@ -1451,6 +1451,7 @@ export class QuestionRepository implements IQuestionRepository {
                 : usersMap.get(h.updatedBy?.toString())?.firstName,
               email:
                 !isExpert && usersMap.get(h.updatedBy?.toString())?.email,
+              avatar: !isExpert && usersMap.get(h.updatedBy?.toString())?.avatar || null,
             }
             : [],
           answer: h.answer
@@ -1567,24 +1568,27 @@ export class QuestionRepository implements IQuestionRepository {
       await this.init();
       await this.ensureIndexes();
 
-      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      const now = new Date();
+      const twoHoursMs = 2 * 60 * 60 * 1000;
 
       // const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
 
       const result = await this.QuestionCollection.updateMany(
         {
-          status: { $nin: ['closed', 'in-review', 're-routed'] },
-          // createdAt: { $lte: fourHoursAgo },
-          $or: [
-            {
-              source: "AJRASAKHA",
-              createdAt: { $lte: twoHoursAgo },
-            },
-            {
-              source: { $ne: "AJRASAKHA" },
-              createdAt: { $lte: twoHoursAgo },
-            },
-          ],
+          status: { $nin: ['hold', 'delayed', 'in-review', 'closed', 're-routed'] },
+          isOnHold: { $ne: true },
+          $expr: {
+            $lte: [
+              {
+                $add: [
+                  '$createdAt',
+                  twoHoursMs,
+                  { $ifNull: ['$accumulatedHoldMs', 0] },
+                ],
+              },
+              now,
+            ],
+          },
         },
         { $set: { status: 'delayed' } },
       );

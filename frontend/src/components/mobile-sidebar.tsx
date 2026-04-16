@@ -53,40 +53,80 @@ const SidebarButton = ({
 export const MobileSidebar = ({
   user,
   setTab,
+  setChatbotSource,
 }: {
   user: IUser;
   setTab: (value: string) => void;
+  setChatbotSource: (value: "vicharanashala" | "annam") => void;
 }) => {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(
     user?.role !== "expert" ? "performance" : "questions"
   );
   const handleClick = (value: string) => {
-    setTab(value);
-    setActiveTab(value);
+    if (value.startsWith("chatbotanalytics")) {
+      const source = value.split("_")[1] as "vicharanashala" | "annam";
+
+      setChatbotSource(source);
+      setTab("chatbotanalytics");
+      setActiveTab(value);
+    } else {
+      setTab(value);
+      setActiveTab(value);
+    }
 
     setOpen(false);
   };
 
   const menuItems = [
-    ...(user && user.role === "admin"
-      ? [{ id: "user_management", label: "User Management", icon: Users }]
-      : user && user.role !== "expert"
-      ? [{ id: "performance", label: "Performance", icon: BarChart3 }]
+    ...(user && user.role !== "expert"
+      ? [{ id: "performance", label: "Dashboard", icon: BarChart3 }]
       : []),
+
+    ...(user && user.role === "expert"
+      ? [{ id: "expertPerformance", label: "Dashboard", icon: BarChart3 }]
+      : []),
+
     ...(user && user.role === "expert"
       ? [{ id: "questions", label: "Questions", icon: MessageSquare }]
       : []),
+
     { id: "all_questions", label: "All Questions", icon: List },
-    ...(user && user.role !== "expert" && user.role !== "admin"
+
+    ...(user && user.role !== "expert"
       ? [
-          { id: "request_queue", label: "Request Queue", icon: Clock },
+          {
+            id: "user_management",
+            label:
+              user.role === "admin"
+                ? "User Management"
+                : "Expert Management",
+            icon: Users,
+          },
         ]
       : []),
+
+    ...(user && user.role !== "expert"
+      ? [{ id: "request_queue", label: "Request Queue", icon: Clock }]
+      : []),
+
     { id: "upload", label: "Agents Interface", icon: Upload },
-   // ...(user && user.role !== "expert" && user.role !== "admin"
-    //  ? [{ id: "chatbotanalytics", label: "ChatBot Analytics", icon: Bot }]
-     // : []),
+
+    ...(user && user.role !== "expert"
+      ? [
+          {
+            id: "chatbotanalytics_vicharanashala",
+            label: "Chatbot - Vicharanashala",
+            icon: Bot,
+          },
+          {
+            id: "chatbotanalytics_annam",
+            label: "Chatbot - Annam",
+            icon: Bot,
+          },
+        ]
+      : []),
+
     ...(user ? [{ id: "history", label: "History", icon: History }] : []),
   ];
 
@@ -131,7 +171,7 @@ export const MobileSidebar = ({
               label={item.label}
               icon={item.icon}
               onClick={() => handleClick(item.id)}
-              isActive={activeTab === item.id}
+              isActive={ item.id === activeTab }
             />
           ))}
         </nav>

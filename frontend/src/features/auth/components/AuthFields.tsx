@@ -4,7 +4,7 @@ import { Input } from "@/components/atoms/input";
 import { Eye, EyeOff } from "lucide-react";
 
 type AuthFieldsProps = {
-  mode: "login" | "signup";
+  mode: "login" | "signup" | "forgot";
   formData: AuthFormData;
   errors: Partial<Record<keyof AuthFormData, string>>;
   signupFields: AuthField[];

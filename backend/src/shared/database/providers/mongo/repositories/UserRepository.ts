@@ -557,6 +557,21 @@ async findAllUsers(
   
     return allUsersRaw;
   }
+  async getSpecialTaskForceModerators(session: ClientSession): Promise<IUser[]> {
+    await this.init();
+    const allUsersRaw = await this.usersCollection
+      .find(
+        {
+          // role: 'expert',
+          isBlocked: false,
+          special_task_force_moderator: true,
+        },
+        { session },
+      )
+      .toArray();
+  
+    return allUsersRaw;
+  }
   async findExpertsByReputationScore(
     details: PreferenceDto,
     session?: ClientSession,
@@ -1071,6 +1086,30 @@ async findAllUsers(
     } catch (error) {
       throw new InternalServerError('Failed to get experts');
     }
+  }
+  
+  async countActiveExperts(session?: ClientSession): Promise<number> {
+    await this.init();
+
+    return this.usersCollection.countDocuments(
+      {
+        role: "expert",
+        status: "active",
+      },
+      { session }
+    );
+  }
+
+  async countNonBlockedExperts(session?:ClientSession): Promise<number> {
+    await this.init();
+
+    return this.usersCollection.countDocuments(
+      {
+        role: "expert",
+        isBlocked: { $ne: true },
+      },
+      { session }
+    );
   }
 
   async updateIsBlocked(

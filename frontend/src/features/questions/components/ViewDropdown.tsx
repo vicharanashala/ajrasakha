@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { List, LayoutGrid, ChevronDown } from "lucide-react";
+import { Button } from "@/components/atoms/button";
 
 type ViewType = "grid" | "table";
 
@@ -35,7 +36,7 @@ const ViewDropdown: React.FC<ViewDropdownProps> = ({ view, setView }) => {
   return (
     <div ref={dropdownRef} className="relative hidden md:inline-block">
       {/* Trigger Button */}
-      <button
+      <Button
         onClick={() => setOpen((prev) => !prev)}
         className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium 
                    rounded-md border border-gray-200
@@ -45,10 +46,9 @@ const ViewDropdown: React.FC<ViewDropdownProps> = ({ view, setView }) => {
                    dark:bg-[#1a1a1a] dark:border-gray-800 dark:hover:border-gray-600 dark:shadow-none 
                    "
       >
-        {view === "grid" ? <LayoutGrid size={14} /> : <List size={14} />}
-        <span>{view === "grid" ? "Grid View" : "List View"}</span>
+        {view === "grid" ? <LayoutGrid size={16} /> : <List size={14} />}
         <ChevronDown size={14} className="text-gray-400" />
-      </button>
+      </Button>
 
       {/* Dropdown Menu */}
       {open && (
@@ -60,7 +60,7 @@ const ViewDropdown: React.FC<ViewDropdownProps> = ({ view, setView }) => {
                      dark:bg-[#1a1a1a] dark:border-gray-800 dark:shadow-none 
                      "
         >
-          <button
+          <Button
             onClick={() => handleSelect("table")}
             className={`w-full flex items-center gap-2 px-3 py-2 text-sm 
               hover:bg-gray-100  transition-colors dark:bg-[#1a1a1a] dark:border-gray-800 dark:hover:bg-gray-600 dark:shadow-none 
@@ -71,9 +71,9 @@ const ViewDropdown: React.FC<ViewDropdownProps> = ({ view, setView }) => {
           >
             <List size={14} />
             List View
-          </button>
+          </Button>
 
-          <button
+          <Button
             onClick={() => handleSelect("grid")}
             className={`w-full flex items-center gap-2 px-3 py-2 text-sm 
               hover:bg-gray-100 transition-colors
@@ -85,7 +85,7 @@ const ViewDropdown: React.FC<ViewDropdownProps> = ({ view, setView }) => {
           >
             <LayoutGrid size={14} />
             Grid View
-          </button>
+          </Button>
         </div>
       )}
     </div>

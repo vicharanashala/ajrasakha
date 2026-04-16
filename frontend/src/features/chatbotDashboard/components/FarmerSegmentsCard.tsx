@@ -12,21 +12,36 @@ interface Props {
 
 export function FarmerSegmentsCard({ segments, activeSegment, onSegmentClick, onClear, segmentsRef, segmentRowRefs }: Props) {
   return (
-    <div ref={segmentsRef} style={{ background: "var(--card)", border: "0.5px solid var(--border)", borderRadius: 12, padding: 16, transition: "box-shadow 0.3s" }} className={activeSegment ? "seg-pulse" : ""}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
+    <div
+      ref={segmentsRef}
+      className={`bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 transition-shadow duration-300 ${activeSegment ? "seg-pulse" : ""}`}
+    >
+      <div className="flex items-start justify-between mb-[14px]">
         <div>
-          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--card-foreground)" }}>Farmer segments</div>
-          <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2 }}>
-            {activeSegment ? <span style={{ color: "#1E7A3C" }}>Viewing: {activeSegment.label}</span> : "Click a row to inspect segment"}
+          <div className="text-[13px] font-medium text-[var(--card-foreground)]">Farmer segments</div>
+          <div className="text-[11px] text-[var(--muted-foreground)] mt-0.5">
+            {activeSegment ? <span className="text-[#1E7A3C]">Viewing: {activeSegment.label}</span> : "Click a row to inspect segment"}
           </div>
         </div>
-        {activeSegment && <button onClick={onClear} style={{ fontSize: 11, color: "var(--muted-foreground)", background: "none", border: "0.5px solid var(--border)", borderRadius: 6, padding: "3px 8px", cursor: "pointer" }}>Clear</button>}
+        {activeSegment && (
+          <button
+            onClick={onClear}
+            className="text-[11px] text-[var(--muted-foreground)] bg-transparent border border-[var(--border)] rounded-md px-2 py-[3px] cursor-pointer"
+          >
+            Clear
+          </button>
+        )}
       </div>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+      <table className="w-full border-collapse text-[12px]">
         <thead>
-          <tr style={{ background: "var(--muted)" }}>
+          <tr className="bg-[var(--muted)]">
             {["Segment", "Users", "Status"].map(h => (
-              <th key={h} style={{ textAlign: "left", fontSize: 10, fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.4px", padding: "6px 10px", borderBottom: "0.5px solid var(--border)" }}>{h}</th>
+              <th
+                key={h}
+                className="text-left text-[10px] font-medium text-[var(--muted-foreground)] uppercase tracking-[0.4px] px-[10px] py-[6px] border-b border-[var(--border)]"
+              >
+                {h}
+              </th>
             ))}
           </tr>
         </thead>
@@ -34,15 +49,20 @@ export function FarmerSegmentsCard({ segments, activeSegment, onSegmentClick, on
           {segments.map(seg => {
             const isActive = activeSegment?.id === seg.id;
             return (
-              <tr key={seg.id} ref={el => { segmentRowRefs.current[seg.id] = el; }} onClick={() => onSegmentClick(seg)} style={{ cursor: "pointer", background: isActive ? "rgba(58,170,90,0.1)" : "transparent", transition: "background 0.2s" }}>
-                <td style={{ padding: "9px 10px", color: "var(--card-foreground)", borderBottom: "0.5px solid var(--border)", fontWeight: isActive ? 500 : 400 }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {isActive && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3AAA5A", flexShrink: 0, display: "inline-block" }} />}
+              <tr
+                key={seg.id}
+                ref={el => { segmentRowRefs.current[seg.id] = el; }}
+                onClick={() => onSegmentClick(seg)}
+                className={`cursor-pointer transition-colors duration-200 ${isActive ? "bg-[rgba(58,170,90,0.1)]" : "bg-transparent"}`}
+              >
+                <td className={`px-[10px] py-[9px] text-[var(--card-foreground)] border-b border-[var(--border)] ${isActive ? "font-medium" : "font-normal"}`}>
+                  <span className="flex items-center gap-1.5">
+                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[#3AAA5A] shrink-0 inline-block" />}
                     {seg.label}
                   </span>
                 </td>
-                <td style={{ padding: "9px 10px", color: "var(--card-foreground)", borderBottom: "0.5px solid var(--border)" }}>{seg.users}</td>
-                <td style={{ padding: "9px 10px", borderBottom: "0.5px solid var(--border)" }}><Badge label={seg.status} variant={seg.statusVariant} /></td>
+                <td className="px-[10px] py-[9px] text-[var(--card-foreground)] border-b border-[var(--border)]">{seg.users}</td>
+                <td className="px-[10px] py-[9px] border-b border-[var(--border)]"><Badge label={seg.status} variant={seg.statusVariant} /></td>
               </tr>
             );
           })}

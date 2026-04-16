@@ -1,7 +1,7 @@
 import {ObjectId} from 'mongodb';
 
 export type UserRole = 'admin' | 'moderator' | 'expert';
-export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold';
 export interface IPreference {
   state: string;
   crop: string;
@@ -28,6 +28,8 @@ export interface IUser {
   updatedAt?: Date;
   status?: UserStatus;
   special_task_force?:boolean
+  special_task_force_moderator?: boolean
+  avatar?: string
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high';
@@ -70,6 +72,11 @@ export interface IQuestion {
   isHidden?:false;
   passingRemark?:string;
   isOnHold?:boolean;
+  messageId?:string;
+  /** Wall-clock moment the current hold segment started (SLA timer freezes until unhold). */
+  holdAt?:Date | null;
+  /** Sum of prior completed hold durations (ms); extended SLA = createdAt + window + this. */
+  accumulatedHoldMs?: number;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
@@ -221,6 +228,8 @@ export type INotificationType =
   | 're-routed-rejected-expert'
   |'re-routed-rejected-moderator'
   |'re-routed-answer-created'
+  | 'question_from_whatsapp'
+  | 'question_from_ajrasakha'
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;
@@ -237,7 +246,7 @@ export interface INotification {
 export interface ISubscription {
   _id?: string | ObjectId;
   userId: string | ObjectId;
-  expirytime?: number | null;
+  expirytime?: Date | null;
   subscription: {
     endpoint: string;
     keys: {

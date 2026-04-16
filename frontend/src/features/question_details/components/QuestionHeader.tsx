@@ -3,6 +3,7 @@ import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
 import { TimerDisplay } from "@/components/timer-display";
 import { formatDate } from "@/utils/formatDate";
+import { buildHoldCountdownOptions } from "@/hooks/ui/useCountdown";
 import { useQuestionTimer } from "@/hooks/ui/useQuestionTimer";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { useState } from "react";
@@ -20,7 +21,11 @@ interface QuestionHeaderProps {
 export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocatedToExpert }: QuestionHeaderProps) => {
   //translation state
   const [translatedText, setTranslatedText] = useState<string>("");
-  const { timer } = useQuestionTimer(question.source, question.createdAt!);
+  const { timer } = useQuestionTimer(
+    question.source,
+    question.createdAt!,
+    buildHoldCountdownOptions(question)
+  );
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     type: "hold" | "unhold";
@@ -50,7 +55,6 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
     setConfirmDialog({ open: false, type: "hold" });
     doHold();
   };
-  console.log("Question hold status:", question);
   const isQuestionOnHold = question.isOnHold;
   return (
     <>
@@ -60,7 +64,7 @@ export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocat
           <h1 className="text-xl sm:text-2xl font-semibold text-pretty break-words flex-1">
             {translatedText || question.question}
           </h1>
-          {currentUser.role !='expert' && isQuestionAllocatedToExpert &&<Button size="sm" variant="outline" onClick={handleHold} className="whitespace-nowrap">{isQuestionOnHold ? "Release Hold" : "Hold the question"}</Button>}
+          {currentUser.role !='expert' && isQuestionAllocatedToExpert && question.status!== 'closed' &&<Button size="sm" variant="outline" onClick={handleHold} className="whitespace-nowrap">{isQuestionOnHold ? "Release Hold" : "Hold the question"}</Button>}
           <SarvamTranslateDropdown query={question.question} onTranslate={(result) => setTranslatedText(result)} />
 
           <div className="flex sm:flex-row flex-col sm:items-center items-end gap-3 sm:gap-6">

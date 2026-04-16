@@ -12,9 +12,12 @@ const alertStyles = {
 function AlertItem({ level, title, desc }: Omit<Alert, "id">) {
   const s = alertStyles[level];
   return (
-    <div style={{ background: s.bg, borderLeft: `3px solid ${s.border}`, borderRadius: 8, padding: "10px 12px", marginBottom: 7 }}>
-      <div style={{ fontSize: 12, fontWeight: 500, color: "var(--card-foreground)" }}>{title}</div>
-      <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2, lineHeight: 1.4 }}>{desc}</div>
+    <div
+      className="rounded-lg px-3 py-2.5 mb-[7px]"
+      style={{ background: s.bg, borderLeft: `3px solid ${s.border}` }}
+    >
+      <div className="text-[12px] font-medium text-[var(--card-foreground)]">{title}</div>
+      <div className="text-[11px] text-[var(--muted-foreground)] mt-0.5 leading-[1.4]">{desc}</div>
     </div>
   );
 }

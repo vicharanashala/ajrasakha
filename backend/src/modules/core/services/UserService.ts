@@ -6,7 +6,7 @@ import {
   UserRole,
 } from '#root/shared/interfaces/models.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
-import {BadRequestError, InternalServerError, NotFoundError} from 'routing-controllers';
+import {BadRequestError, ForbiddenError, InternalServerError, NotFoundError} from 'routing-controllers';
 import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {ClientSession} from 'mongodb';
 import {
@@ -88,7 +88,7 @@ export class UserService extends BaseService {
     try {
       if (!userId) throw new NotFoundError('User ID is required');
 
-      if(!data.firstName.trim()) throw new BadRequestError("Firstname cannot be empty or blank space");
+      if(data.firstName !== undefined && !data.firstName.trim()) throw new BadRequestError("Firstname cannot be empty or blank space");
 
       const authService = getFromContainer(FirebaseAuthService);
 
@@ -202,7 +202,8 @@ async getAllUsersforManualSelect(
           penaltyPercentage: u.penalty ?? 0,
           createdAt: u.createdAt ?? null,
           isBlocked:u.isBlocked,
-          special_task_force:u.special_task_force
+          special_task_force: u.special_task_force,
+          special_task_force_moderator: u.special_task_force_moderator
         })),
         totalUsers: users.length,
         totalPages: 5,
@@ -259,12 +260,29 @@ async getAllUsersforManualSelect(
 
   async blockUnblockExperts(userId: string, action: string) {
     return await this._withTransaction(async (session: ClientSession) => {
+      if (action === "block") {
+        const nonBlockedExpertsCount = await this.userRepo.countNonBlockedExperts(session);
+
+        if (nonBlockedExpertsCount <= 10) {
+          throw new BadRequestError(
+            "Minimum 10 active experts required. Cannot block more experts."
+          );
+        }
+      }
       return await this.userRepo.updateIsBlocked(userId, action, session);
     });
   }
 
   async updateActivityStatus(userId: string, status: 'active' | 'in-active') {
     return await this._withTransaction(async (session: ClientSession) => {
+      if (status === "in-active") {
+        const activeExpertsCount = await this.userRepo.countActiveExperts(session);
+        if (activeExpertsCount <= 10) {
+          throw new BadRequestError(
+            "Minimum 10 active experts required. Cannot mark more experts inactive."
+          );
+        }
+      }
       return await this.userRepo.updateActivityStatus(userId, status, session);
     });
   }

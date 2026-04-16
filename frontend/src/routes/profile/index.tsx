@@ -17,7 +17,7 @@ import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useAuthStore } from "@/stores/auth-store";
 import type { IUser } from "@/types";
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef } from "react";
 import { toast } from "sonner";
 import {
   Edit2,
@@ -35,6 +35,7 @@ import {
   Check,
   EyeOff,
   Eye,
+  Camera,
 } from "lucide-react";
 import {
   Dialog,
@@ -55,12 +56,15 @@ export default function ProfilePage() {
   const { data: user, isLoading } = useGetCurrentUser({});
   const { mutateAsync: updateUser, isPending: isUpdating } = useEditUser();
 
-  const handleSubmit = async (data: IUser) => {
+  const handleSubmit = async (data: IUser, showToast: boolean = true) => {
     try {
       await updateUser(data);
-      toast.success("Profile updated!");
+      if (showToast) {
+        toast.success("Profile updated!");
+      }
     } catch (error) {
       console.error(error);
+      throw error;
     }
   };
 
@@ -131,7 +135,7 @@ export default function ProfilePage() {
 
 type ProfileFormProps = {
   user: IUser;
-  onSubmit?: (data: IUser) => Promise<void> | void;
+  onSubmit?: (data: IUser, showToast?: boolean) => Promise<void> | void;
   isUpdating: boolean;
 };
 
@@ -167,6 +171,61 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
 
   const [isEditMode, setIsEditMode] = useState(false);
   const { user: userFromStore } = useAuthStore();
+  const [avatarPreview, setAvatarPreview] = useState<string>(
+      userFromStore?.avatar || "",
+    );
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isRemovingAvatar, setIsRemovingAvatar] = useState(false);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file");
+      return;
+    }
+    if (file.size > 70 * 1024) {
+      toast.error("Image size must be less than 70KB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64 = reader.result as string;
+      setAvatarPreview(base64);
+      handleChange("avatar", base64);
+      setIsUploadingAvatar(true);
+      try {
+        await onSubmit?.({ ...formData, avatar: base64 }, false);
+        useAuthStore.getState().updateUser({ avatar: base64 });
+        toast.success("Profile picture updated!");
+      } catch (error) {
+        toast.error("Failed to update profile picture");
+        setAvatarPreview(userFromStore?.avatar || "");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      } finally {
+        setIsUploadingAvatar(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+ const handleRemoveAvatar = async () => {
+   try {
+     setIsRemovingAvatar(true);
+     const updatedData = { ...formData, avatar: "" };
+     setAvatarPreview("");
+     setFormData(updatedData);
+     await onSubmit?.(updatedData, false);
+     useAuthStore.getState().updateUser({ avatar: "" });
+     if (fileInputRef.current) fileInputRef.current.value = "";
+     toast.success("Profile picture removed!");
+   } catch (error) {
+     toast.error("Failed to remove profile picture");
+   } finally {
+     setIsRemovingAvatar(false);
+   }
+ };
 
   const handleChange = useCallback((key: keyof IUser | string, value: any) => {
     if (key.startsWith("preference.")) {
@@ -192,6 +251,9 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
         formData.preference.domain = "all";
       }
       await onSubmit?.(formData);
+      if (formData.avatar) {
+        useAuthStore.getState().updateUser({ avatar: formData.avatar });
+      }
       setIsEditMode(false);
     } catch (error) {
       console.error("Error while saving form data:", error);
@@ -390,12 +452,31 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
         {/* Avatar + Info */}
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 w-full md:w-auto">
           {/* Avatar */}
-          <Avatar className={`h-24 w-24 flex-shrink-0 ${avatarBg}`}>
-            <AvatarImage src={userFromStore?.avatar || ""} alt={fullName} />
-            <AvatarFallback className="text-2xl font-semibold">
-              {getInitials()}
-            </AvatarFallback>
-          </Avatar>
+          <div
+            className={`relative group ${isUploadingAvatar || isRemovingAvatar ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+            onClick={() =>
+              !isUploadingAvatar &&
+              !isRemovingAvatar &&
+              fileInputRef.current?.click()
+            }
+          >
+            <Avatar className={`h-24 w-24 flex-shrink-0 ${avatarBg}`}>
+              <AvatarImage src={avatarPreview || ""} alt={fullName} />
+              <AvatarFallback className="text-2xl font-semibold">
+                {getInitials()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <Camera className="h-6 w-6 text-white" />
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+          </div>
 
           {/* User Details */}
           <div className="space-y-2 text-center sm:text-left w-full">
@@ -413,10 +494,10 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                 user.role === "expert"
                   ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
                   : user.role === "moderator"
-                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-                  : user.role === "admin"
-                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
-                  : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                    : user.role === "admin"
+                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                      : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
               }
             `}
                 >
@@ -431,8 +512,18 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
             </p>
 
             <p className="text-xs text-muted-foreground text-center sm:text-left">
-              Profile image is managed by your account provider
+              Click on the profile picture to update it
             </p>
+            {avatarPreview && (
+              <button
+                type="button"
+                onClick={handleRemoveAvatar}
+                disabled={isUploadingAvatar}
+                className="text-xs text-red-500 hover:text-red-600 underline text-center sm:text-left w-fit disabled:opacity-50"
+              >
+                Remove Avatar
+              </button>
+            )}
           </div>
         </div>
 
@@ -890,7 +981,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                         onChange={(e) =>
                           handlePasswordChange(
                             "currentPassword",
-                            e.target.value
+                            e.target.value,
                           )
                         }
                         className="pr-10"
@@ -963,7 +1054,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                         onChange={(e) =>
                           handlePasswordChange(
                             "confirmPassword",
-                            e.target.value
+                            e.target.value,
                           )
                         }
                         className="pr-10"
@@ -1037,7 +1128,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                           },
                           {
                             check: /[!@#$%^&*(),.?":{}|<>]/.test(
-                              passwordForm.newPassword
+                              passwordForm.newPassword,
                             ),
                             label: "Special chars",
                           },
@@ -1195,14 +1286,13 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                   type="button"
                   disabled={isUpdating}
                   className="flex items-center gap-2 w-full sm:w-auto"
-                  onClick={(e)=>{
-                      if(!formData.firstName.trim()){
-                        e.preventDefault();
-                        toast.error("First name cannot be blank space");
-                        return;
-                      }
+                  onClick={(e) => {
+                    if (!formData.firstName.trim()) {
+                      e.preventDefault();
+                      toast.error("First name cannot be blank space");
+                      return;
                     }
-                  }
+                  }}
                 >
                   <Save className="h-4 w-4" />
                   {isUpdating ? "Saving..." : "Save Changes"}
