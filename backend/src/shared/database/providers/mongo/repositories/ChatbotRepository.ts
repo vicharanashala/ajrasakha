@@ -115,20 +115,96 @@ export class ChatbotRepository implements IChatbotRepository {
             )
             .toArray(),
 
-          // Avg session duration from conversations
-          this.conversations
+          // ── CHANGED: Avg session duration (v2 — inactivity-gap approach) ────────
+          // ORIGINAL LOGIC (v0 — unreliable, conversations.updatedAt is a metadata
+          // timestamp touched by system events, not real user activity):
+          //
+          //   this.conversations.aggregate([
+          //     { $project: { durationMs: { $subtract: ['$updatedAt', '$createdAt'] } } },
+          //     { $group: { _id: null, avg: { $avg: '$durationMs' } } },
+          //   ], { session }).toArray()
+          //
+          // INTERMEDIATE ATTEMPT (v1 — also wrong: max - min of messages still
+          // counts idle time, e.g. user asks at 9 AM, comes back 5 hrs later in
+          // the same conversation → reported as a 5-hour session):
+          //
+          //   this.messagesCollection.aggregate([
+          //     { $group: { _id: '$conversationId', firstMsg: { $min: '$createdAt' },
+          //                 lastMsg: { $max: '$createdAt' }, msgCount: { $sum: 1 } } },
+          //     { $match: { msgCount: { $gt: 1 } } },
+          //     { $addFields: { durationMs: { $max: [0, { $subtract: ['$lastMsg', '$firstMsg'] }] } } },
+          //     { $group: { _id: null, avg: { $avg: '$durationMs' } } },
+          //   ], { session }).toArray()
+          //
+          // CURRENT LOGIC (v2 — inactivity-gap detection, requires MongoDB 5.0+):
+          // Sort messages per conversation by time, compute the gap between each
+          // consecutive pair. If gap > 30 min (INACTIVITY_THRESHOLD_MS) the user
+          // was away — skip that gap. Sum only the "active" gaps per conversation,
+          // then average across all conversations. This gives true engagement time.
+          this.messagesCollection
             .aggregate(
               [
+                // Step 1: sort messages within each conversation by time
+                // ($setWindowFields requires a sort; we also need $sort before it
+                //  so that $shift looks at the chronologically previous message)
+                {$sort: {conversationId: 1, createdAt: 1}},
+                // Step 2: for each message, pull in the previous message's createdAt
+                // within the same conversation (lag by 1 position)
                 {
-                  $project: {
-                    durationMs: {$subtract: ['$updatedAt', '$createdAt']},
+                  $setWindowFields: {
+                    partitionBy: '$conversationId',
+                    sortBy: {createdAt: 1},
+                    output: {
+                      prevCreatedAt: {
+                        $shift: {output: '$createdAt', by: -1},
+                      },
+                    },
                   },
                 },
-                {$group: {_id: null, avg: {$avg: '$durationMs'}}},
+                // Step 3: compute the gap from the previous message.
+                // First message in each conversation has no prev → gap = 0.
+                // INACTIVITY_THRESHOLD_MS = 30 minutes = 1,800,000 ms
+                {
+                  $addFields: {
+                    gapMs: {
+                      $cond: [
+                        {$ifNull: ['$prevCreatedAt', false]},
+                        {$subtract: ['$createdAt', '$prevCreatedAt']},
+                        0,
+                      ],
+                    },
+                  },
+                },
+                // Step 4: only keep gaps within the inactivity threshold.
+                // Gaps > 30 min mean the user walked away — don't count them.
+                {
+                  $addFields: {
+                    activeGapMs: {
+                      $cond: [
+                        {$lte: ['$gapMs', 1800000]},
+                        '$gapMs',
+                        0,
+                      ],
+                    },
+                  },
+                },
+                // Step 5: sum active gaps per conversation + count messages
+                {
+                  $group: {
+                    _id: '$conversationId',
+                    activeSessionMs: {$sum: '$activeGapMs'},
+                    msgCount: {$sum: 1},
+                  },
+                },
+                // Step 6: skip single-message conversations (no gaps at all)
+                {$match: {msgCount: {$gt: 1}}},
+                // Step 7: average real session time across all conversations
+                {$group: {_id: null, avg: {$avg: '$activeSessionMs'}}},
               ],
               {session},
             )
             .toArray(),
+          // ── END CHANGED ───────────────────────────────────────────────────────
 
           // Today's query count from messages
           this.getTodayQueryCount(source, session),
@@ -233,21 +309,99 @@ export class ChatbotRepository implements IChatbotRepository {
       const since = new Date();
       since.setDate(since.getDate() - weeks * 7);
 
-      const result = await this.conversations
+      // ── CHANGED: Weekly avg session duration (v2 — inactivity-gap approach) ──
+      // ORIGINAL LOGIC (v0 — used conversations.updatedAt - createdAt, skewed
+      // by system-level metadata updates):
+      //
+      //   const result = await this.conversations.aggregate([
+      //     { $match: { createdAt: { $gte: since } } },
+      //     { $addFields: { durationMs: { $max: [0, { $subtract: ['$updatedAt', '$createdAt'] }] } } },
+      //     { $group: { _id: { $dateToString: { format: '%G-W%V', date: '$createdAt' } }, avgDurationMs: { $avg: '$durationMs' } } },
+      //     { $project: { week: '$_id', avgSessionDurationMin: { $round: [{ $divide: ['$avgDurationMs', 60000] }, 1] }, _id: 0 } },
+      //     { $sort: { week: 1 } },
+      //   ], { session }).toArray();
+      //
+      // INTERMEDIATE ATTEMPT (v1 — max - min of messages per conversation,
+      // still wrong because idle time within a conversation inflates duration):
+      //
+      //   messages → group by conversationId → max(createdAt) - min(createdAt) → avg per week
+      //
+      // CURRENT LOGIC (v2 — inactivity-gap detection, requires MongoDB 5.0+):
+      // Same gap-detection logic as getKpiSummary, but after computing each
+      // conversation's real active duration we bucket it into its ISO week
+      // (based on the first message of that conversation) and average per week.
+      const result = await this.messagesCollection
         .aggregate(
           [
+            // Only look at messages within the requested window
             {$match: {createdAt: {$gte: since}}},
+            // Step 1: sort messages within each conversation by time
+            {$sort: {conversationId: 1, createdAt: 1}},
+            // Step 2: pull in the previous message's createdAt (lag) per conversation
             {
-              $addFields: {
-                durationMs: {
-                  $max: [0, {$subtract: ['$updatedAt', '$createdAt']}],
+              $setWindowFields: {
+                partitionBy: '$conversationId',
+                sortBy: {createdAt: 1},
+                output: {
+                  prevCreatedAt: {
+                    $shift: {output: '$createdAt', by: -1},
+                  },
+                  // also carry forward the first message time for week bucketing
+                  firstMsgInConv: {
+                    $first: '$createdAt',
+                    window: {documents: ['unbounded', 'current']},
+                  },
                 },
               },
             },
+            // Step 3: compute gap; cap at 0 for the first message (no prev)
+            {
+              $addFields: {
+                gapMs: {
+                  $cond: [
+                    {$ifNull: ['$prevCreatedAt', false]},
+                    {$subtract: ['$createdAt', '$prevCreatedAt']},
+                    0,
+                  ],
+                },
+              },
+            },
+            // Step 4: discard gaps > 30 min (user was idle/away)
+            {
+              $addFields: {
+                activeGapMs: {
+                  $cond: [{$lte: ['$gapMs', 1800000]}, '$gapMs', 0],
+                },
+              },
+            },
+            // Step 5: sum active gaps per conversation; keep firstMsgInConv for week
             {
               $group: {
-                _id: {$dateToString: {format: '%G-W%V', date: '$createdAt'}},
-                avgDurationMs: {$avg: '$durationMs'},
+                _id: '$conversationId',
+                activeSessionMs: {$sum: '$activeGapMs'},
+                firstMsg: {$min: '$firstMsgInConv'},
+                msgCount: {$sum: 1},
+              },
+            },
+            // Step 6: skip single-message conversations
+            {$match: {msgCount: {$gt: 1}}},
+            // Step 7: assign each conversation to its ISO week (IST timezone)
+            {
+              $addFields: {
+                week: {
+                  $dateToString: {
+                    format: '%G-W%V',
+                    date: '$firstMsg',
+                    timezone: '+05:30',
+                  },
+                },
+              },
+            },
+            // Step 8: average real session time per week
+            {
+              $group: {
+                _id: '$week',
+                avgDurationMs: {$avg: '$activeSessionMs'},
               },
             },
             {
@@ -264,6 +418,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {session},
         )
         .toArray();
+      // ── END CHANGED ───────────────────────────────────────────────────────────
 
       return result as WeeklySessionDurationEntry[];
     } catch (error) {
