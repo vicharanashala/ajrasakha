@@ -653,6 +653,14 @@ class GetDetailedQuestionsQuery {
   autoAllocateFilter?: string;
 
   @JSONSchema({
+    description: 'Filter for questions closed within the last 2 hours',
+    example: 'true',
+    type: 'boolean',
+  })
+  
+  @IsOptional()
+  closedInTwoHrs?: boolean;
+  @JSONSchema({
     description: 'to filter hidden questions',
     example: 'true',
     type: 'string',

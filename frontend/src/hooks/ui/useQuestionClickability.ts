@@ -1,5 +1,6 @@
 import type { UserRole } from "@/types";
 import { useRef } from "react";
+import type { CountdownHoldOptions } from "./useCountdown";
 import { useQuestionTimer } from "./useQuestionTimer";
 
 export function useQuestionClickability(
@@ -7,10 +8,15 @@ export function useQuestionClickability(
   createdAt: string | undefined | null,
   uploadedQuestionsCount: number,
   userRole: UserRole,
-  isBulkUpload: boolean
+  isBulkUpload: boolean,
+  holdOptions?: CountdownHoldOptions
 ) {
   const uploadedCountRef = useRef(uploadedQuestionsCount);
-  const { timer, DURATION_HOURS } = useQuestionTimer(source, createdAt);
+  const { timer, DURATION_HOURS } = useQuestionTimer(
+    source,
+    createdAt,
+    holdOptions
+  );
 
   const totalSeconds = DURATION_HOURS * 3600;
   const [h, m, s] = timer.split(":").map(Number);

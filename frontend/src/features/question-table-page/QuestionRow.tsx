@@ -1,5 +1,6 @@
 import type { IDetailedQuestion, QuestionStatus, UserRole } from "@/types";
 import { useMemo } from "react";
+import { buildHoldCountdownOptions } from "@/hooks/ui/useCountdown";
 import { useQuestionClickability } from "@/hooks/ui/useQuestionClickability";
 import { Badge } from "../../components/atoms/badge";
 import {
@@ -86,7 +87,12 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   // To track cont
 
   const { timer, isClickable, delayMinutes } = useQuestionClickability(
-    q.source, q.createdAt, uploadedQuestionsCount, userRole, isBulkUpload
+    q.source,
+    q.createdAt,
+    uploadedQuestionsCount,
+    userRole,
+    isBulkUpload,
+    buildHoldCountdownOptions(q)
   );
 
   const priorityBadge = useMemo(() => {
@@ -212,7 +218,11 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                 </TooltipProvider>
                 {q.status !== "delayed" && (
                   // <TimerDisplay timer={timer} status={q.status} />
-                  <TimerDisplay timer={timer} status={q.status} source={q.source} />
+                  <TimerDisplay
+                    timer={timer}
+                    status={q.status}
+                    source={q.source}
+                  />
                 )}
               </div>
             </TableCell>

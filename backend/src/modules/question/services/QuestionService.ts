@@ -990,7 +990,10 @@ export class QuestionService extends BaseService implements IQuestionService {
               answer: item.answer,
               agri_specialist: item.source || "AGRI_EXPERT",
               referenceSource: "reviewer",
-              score: item.score * 100
+              score: item.score * 100,
+              id: item.id
+              ? new ObjectId(String(item.id))
+              : new ObjectId()  // preserve the real reviewer question _id
             })),
 
             ...(questions.golden || []).map((item: any) => ({
@@ -998,7 +1001,10 @@ export class QuestionService extends BaseService implements IQuestionService {
               answer: item.answer,
               agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
               referenceSource: "golden",
-              score: item.score * 100
+              score: item.score * 100,
+              id: item.id
+              ? new ObjectId(String(item.id))
+              : new ObjectId()
             })),
 
 
@@ -1007,7 +1013,6 @@ export class QuestionService extends BaseService implements IQuestionService {
             new Map(merged.map(q => [q.question, q])).values(),
           ).map(q => ({
             ...q,
-            id: new ObjectId().toString()
           }));
 
 
@@ -1019,7 +1024,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
           // convert to topMatches
           topSimilar = bestFive.map(q => ({
-            questionId: new ObjectId().toString(),
+            questionId: q.id,
             question: q.question,
             similarityScore: q.score,
             referenceSource: q.referenceSource
@@ -3436,30 +3441,54 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   async holdQuestion(questionId: string, userId: string, action: "hold" | "unhold"): Promise<{ id: string }> {
     return await this._withTransaction(async session => {
+      if (action === "unhold") {
+        const question = await this.questionRepo.getById(questionId, session);
+        if (!question) {
+          throw new NotFoundError('Question not found');
+        }
+        const user = await this.userRepo.findById(userId, session);
+        if (!user || user.role == 'expert') {
+          throw new ForbiddenError('Only moderators or Admins can unhold questions');
+        }
+        if (!question.isOnHold) {
+          throw new BadRequestError('Question is not on hold');
+        }
+        const prevAccum = question.accumulatedHoldMs ?? 0;
+        let segmentMs = 0;
+        if (question.holdAt) {
+          segmentMs = Math.max(0, Date.now() - new Date(question.holdAt).getTime());
+        }
+        await this.questionRepo.updateQuestion(
+          questionId,
+          {
+            isOnHold: false,
+            status: 'open',
+            accumulatedHoldMs: prevAccum + segmentMs,
+            holdAt: null,
+          },
+          session,
+        );
+        return { id: questionId }
+      }
+      const user = await this.userRepo.findById(userId, session);
+      if (user.role == 'expert') {
+        throw new ForbiddenError('Only moderators can hold questions');
+      }
 
       const question = await this.questionRepo.getById(questionId, session);
       if (!question) {
         throw new NotFoundError('Question not found');
       }
-      const user = await this.userRepo.findById(userId, session);
-      if (!user || user.role == 'expert') {
-        throw new ForbiddenError('Only moderators or Admins can unhold questions');
-      }
 
       if(question.status === 'closed'){
         throw new BadRequestError('Question is already closed');
       }
-      if (action === "unhold") {
-        await this.questionRepo.updateQuestion(questionId, { isOnHold: false }, session)
-        return { id: questionId }
-      }
-      
       const submission = await this.questionSubmissionRepo.getByQuestionId(questionId, session);
       if (!submission) {
         throw new NotFoundError('Question submission not found');
       }
       await this._handleSubmissionOnHold(submission, session);
-      await this.questionRepo.updateQuestion(questionId, { isOnHold: true, isAutoAllocate: false }, session)
+      await this.questionRepo.updateQuestion(questionId, { isOnHold: true, isAutoAllocate: false, status: 'hold', holdAt: new Date() }, session)
       return { id: questionId }
     })
   }

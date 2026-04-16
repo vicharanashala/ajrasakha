@@ -31,6 +31,7 @@ import {appConfig} from '#root/config/app.js';
 
 @OpenAPI({
   tags: ['Authentication'],
+  description:'Authentication and authorization operations'
 })
 @JsonController('/auth')
 @injectable()

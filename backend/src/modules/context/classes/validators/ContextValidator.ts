@@ -26,6 +26,7 @@ class ContextResponse {
     example: '64adf92e9e7c3b1234567890',
     type: 'string',
   })
+  @IsString()
   insertedId: string;
 }
 
