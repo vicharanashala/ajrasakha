@@ -258,11 +258,11 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           )}
 
           {/* Source */}
-          {visibleColumns.source && (
+          {/* {visibleColumns.source && (
             <TableCell className="align-middle">
               <Badge variant="outline">{q.source}</Badge>
             </TableCell>
-          )}
+          )} */}
           {/* Status */}
           {visibleColumns.status && (
             <TableCell className="align-middle">{statusBadge}</TableCell>

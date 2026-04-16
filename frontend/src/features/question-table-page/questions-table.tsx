@@ -385,9 +385,9 @@ export const QuestionsTable = ({
                       </button>
                     </TableHead>
                   )}
-                  {visibleColumns.source && (
+                  {/* {visibleColumns.source && (
                     <TableHead className="text-center">Source</TableHead>
-                  )}
+                  )} */}
                   {visibleColumns.status && (
                     <TableHead className="text-center">Status</TableHead>
                   )}
