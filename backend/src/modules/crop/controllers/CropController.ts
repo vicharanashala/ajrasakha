@@ -25,6 +25,12 @@ import {
   GetAllCropsQuery,
 } from '../classes/validators/CropValidators.js';
 import {ICropService} from '../interfaces/ICropService.js';
+import {
+  CropErrorResponse,
+  PaginatedCropsResponse,
+  CropSingleResponse,
+  CropSuccessResponse,
+} from '../classes/validators/CropResponseValidators.js';
 
 // ── Allowed roles for write operations ──
 const WRITE_ROLES = ['admin', 'moderator'];
@@ -43,11 +49,29 @@ export class CropController {
 
   // ─── GET ALL CROPS ───────────────────────────────────────────────────────
 
+  @OpenAPI({
+    summary: 'Get all crops (supports search, filter, sort, pagination)',
+    description: 'Retrieves paginated list of crops with optional search, filtering, and sorting.',
+  })
+  @ResponseSchema(PaginatedCropsResponse, {
+    statusCode: 200,
+    description: 'Crops retrieved successfully with pagination',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid query parameters',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to fetch crops',
+  })
   @Get('/')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get all crops (supports search, filter, sort, pagination)'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async getAllCrops(
     @QueryParams() query: GetAllCropsQuery,
   ): Promise<{crops: ICrop[]; totalCount: number; totalPages: number}> {
@@ -56,11 +80,29 @@ export class CropController {
 
   // ─── GET CROP BY ID ──────────────────────────────────────────────────────
 
+  @OpenAPI({
+    summary: 'Get a crop by ID',
+    description: 'Retrieves a specific crop by its MongoDB ObjectId.',
+  })
+  @ResponseSchema(CropSingleResponse, {
+    statusCode: 200,
+    description: 'Crop retrieved successfully',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid crop ID format',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - Crop with specified ID not found',
+  })
   @Get('/:cropId')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get a crop by ID'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async getCropById(
     @Params() params: CropIdParam,
   ): Promise<{success: boolean; data: ICrop}> {
@@ -76,11 +118,33 @@ export class CropController {
 
   // ─── CREATE CROP ─────────────────────────────────────────────────────────
 
+  @OpenAPI({
+    summary: 'Add a new crop (admin/moderator only)',
+    description: 'Creates a new crop with name and optional aliases. Only admins and moderators can perform this operation.',
+  })
+  @ResponseSchema(CropSuccessResponse, {
+    statusCode: 201,
+    description: 'Crop created successfully - Returns the created crop data',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid crop data or crop already exists',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 403,
+    description: 'Forbidden - Only admins and moderators can add crops',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to create crop',
+  })
   @Post('/')
   @HttpCode(201)
   @Authorized()
-  @OpenAPI({summary: 'Add a new crop (admin/moderator only)'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async createCrop(
     @Body() body: CreateCropDto,
     @CurrentUser() user: IUser,
@@ -104,11 +168,29 @@ export class CropController {
 
   // ─── UPDATE CROP ─────────────────────────────────────────────────────────
 
+  @OpenAPI({
+    summary: 'Update a crop (admin/moderator only)',
+    description: 'Updates an existing crop\'s aliases. Only admins and moderators can perform this operation.',
+  })
+  @ResponseSchema(CropSuccessResponse, {
+    statusCode: 200,
+    description: 'Crop updated successfully - Returns the updated crop data',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid crop data, crop already exists, or cannot add alias',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(CropErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to update crop',
+  })
   @Put('/:cropId')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Update a crop (admin/moderator only)'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async updateCrop(
     @Params() params: CropIdParam,
     @Body() body: UpdateCropDto,
