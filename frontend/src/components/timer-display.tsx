@@ -20,8 +20,6 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
   className = "",
   size = "md",
 }) => {
-  if (status === "delayed" || status !== "open") return null;
-  if (!timer) return null;
 
   const [hours, minutes] = timer.split(":").map(Number);
   if (timer === "00:00:00") return null;
@@ -36,6 +34,21 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
   let textColor = "text-primary";
   let iconColor = "text-muted-foreground";
   let icon = <Clock className={`${iconSize} ${iconColor}`} />;
+
+  if (status === "hold") {
+    return (
+      <div className={`flex items-center gap-1.5 ${className}`}>
+        <Clock className={`${iconSize} text-orange-500`} />
+        <span className={`${textSize} font-mono text-orange-600 font-medium`}>
+          Hold: {timer}
+        </span>
+      </div>
+    );
+  }
+
+  if (status === "delayed" || status !== "open") return null;
+  if (!timer) return null;
+
 
   // if (hours === 0 && minutes < criticalThreshold) {
   if (source === "AJRASAKHA") {

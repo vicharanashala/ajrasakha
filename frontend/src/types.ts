@@ -256,7 +256,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold";
 export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;
@@ -433,7 +433,11 @@ export interface IQuestionFullData {
   updatedAt: string;
   submission: ISubmission;
   isAlreadySubmitted: boolean;
+  passingRemark?: string;
+  isHidden?: boolean;
   isOnHold?: boolean;
+  holdAt?: string;
+  accumulatedHoldMs?: number;
   aiInitialAnswer?: string;
   aiApprovedAnswer?: string;
   aiApprovedSources?: SourceItem[];
@@ -500,6 +504,9 @@ export interface IDetailedQuestion {
   updatedAt?: string;
   review_level_number?: number;
   closedAt?: string;
+  holdAt?: string;
+  isOnHold?: boolean;
+  accumulatedHoldMs?: number;
   isHidden?: boolean;
   paassingRemark?: string;
 }
