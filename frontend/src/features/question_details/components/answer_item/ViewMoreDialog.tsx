@@ -8,7 +8,7 @@ import {
   DialogTrigger,
 } from "@/components/atoms/dialog";
 import { ScrollArea } from "@/components/atoms/scroll-area";
-import type { IAnswer, ISubmissionHistory, QuestionStatus } from "@/types";
+import type { IAnswer, ISubmissionHistory, QuestionStatus, UserRole } from "@/types";
 import { Eye } from "lucide-react";
 import { ViewMoreContent } from "./ViewMoreContent";
 
@@ -21,6 +21,7 @@ interface ViewMoreDialogProps {
   reviews: any[];
   firstTrueIndex?: number;
   firstFalseOrMissingIndex?: number;
+  userRole: UserRole
 }
 
 export const ViewMoreDialog = ({
@@ -32,6 +33,7 @@ export const ViewMoreDialog = ({
   reviews,
   firstTrueIndex,
   firstFalseOrMissingIndex,
+  userRole
 }: ViewMoreDialogProps) => {
   return (
     <Dialog>
@@ -64,6 +66,7 @@ export const ViewMoreDialog = ({
             reviews={reviews}
             firstTrueIndex={firstTrueIndex}
             firstFalseOrMissingIndex={firstFalseOrMissingIndex}
+            userRole={userRole}
           />
         </ScrollArea>
       </DialogContent>

@@ -29,6 +29,7 @@ export interface IUser {
   status?: UserStatus;
   special_task_force?:boolean
   special_task_force_moderator?: boolean
+  avatar?: string
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high';
@@ -241,7 +242,7 @@ export interface INotification {
 export interface ISubscription {
   _id?: string | ObjectId;
   userId: string | ObjectId;
-  expirytime?: number | null;
+  expirytime?: Date | null;
   subscription: {
     endpoint: string;
     keys: {

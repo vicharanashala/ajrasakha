@@ -698,6 +698,13 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                         <span>Agri Expert</span>
                       </div>
                     </SelectItem>
+
+                    <SelectItem value="WHATSAPP">
+                      <div className="flex items-center gap-2">
+                        <UserRound className="w-4 h-4 text-primary" />
+                        <span>Whatsapp</span>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>

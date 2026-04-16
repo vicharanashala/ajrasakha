@@ -1,4 +1,4 @@
-import type { IAnswer, ISubmissionHistory, QuestionStatus } from "@/types";
+import type { IAnswer, ISubmissionHistory, QuestionStatus, UserRole } from "@/types";
 import { Badge } from "@/components/atoms/badge";
 import { XCircle, Clock, UserCheck } from "lucide-react";
 
@@ -9,6 +9,7 @@ interface AnswerItemHeaderProps {
   submissionData?: ISubmissionHistory;
   questionStatus: QuestionStatus;
   lastAnswerId: string;
+  userRole:  UserRole;
 }
 
 export const AnswerItemHeader = ({

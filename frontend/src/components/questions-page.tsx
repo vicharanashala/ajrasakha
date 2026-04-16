@@ -31,11 +31,26 @@ export const QuestionsPage = ({
   autoOpenQuestionId?: string | null;
 }) => {
 
+  const getInitialSource = (): QuestionSourceFilter => {
+    const sourceFromUrl = new URLSearchParams(window.location.search).get(
+      "source",
+    );
+    if (
+      sourceFromUrl === "all" ||
+      sourceFromUrl === "AJRASAKHA" ||
+      sourceFromUrl === "AGRI_EXPERT" ||
+      sourceFromUrl === "WHATSAPP"
+    ) {
+      return sourceFromUrl;
+    }
+    return "AJRASAKHA";
+  };
+
   //grid or table
   const [view, setView] = useState<"table" | "grid">("table");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
-  const [source, setSource] = useState<QuestionSourceFilter>("AJRASAKHA");
+  const [source, setSource] = useState<QuestionSourceFilter>(getInitialSource);
   const [priority, setPriority] = useState<QuestionPriorityFilter>("all");
   const [state, setState] = useState("all");
   const [states, setStates] = useState<string[]>([]);
@@ -107,6 +122,13 @@ export const QuestionsPage = ({
     useBulkDeleteQuestions();
 
   const LIMIT = 12;
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("source", source);
+    window.history.replaceState({}, "", url.toString());
+  }, [source]);
+
   const filter = useMemo(
     () => ({
       status,
@@ -175,6 +197,7 @@ export const QuestionsPage = ({
     refetch: refechSelectedQuestion,
     isLoading: isLoadingSelectedQuestion,
   } = useGetQuestionFullDataById(selectedQuestionId);
+
   const { data: reviewData, isLoading: isReviewLoading } =
     useGetQuestionsAndLevel(
       reviewPage,

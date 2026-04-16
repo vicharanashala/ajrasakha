@@ -1440,6 +1440,7 @@ export class QuestionRepository implements IQuestionRepository {
                 : usersMap.get(h.updatedBy?.toString())?.firstName,
               email:
                 !isExpert && usersMap.get(h.updatedBy?.toString())?.email,
+              avatar: !isExpert && usersMap.get(h.updatedBy?.toString())?.avatar || null,
             }
             : [],
           answer: h.answer

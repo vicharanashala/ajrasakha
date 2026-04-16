@@ -28,17 +28,19 @@ export class MongoDatabase implements IDatabase<Db> {
     private readonly uri: string,
     @inject(GLOBAL_TYPES.dbName)
     private readonly dbName: string,
-  ) {
-    // Skip database connection if environment variable is set
+    protected readonly dbIdentifier: string = 'vicharanshala',
+) {
     if (process.env.SKIP_DB_CONNECTION === 'true') {
       this.client = null;
       this.database = null;
       console.log(
-        'Database connection skipped due to SKIP_DB_CONNECTION environment variable',
+        `[${this.dbIdentifier}] Database connection skipped due to SKIP_DB_CONNECTION environment variable`,
       );
       return;
     }
 
+    console.log(`[${this.dbIdentifier}] Initializing database connection...`);
+    
     this.client = new MongoClient(uri, {
       ssl: true,
       tls: true,
@@ -55,10 +57,12 @@ export class MongoDatabase implements IDatabase<Db> {
    * @returns {Promise<Db>} The connected database instance.
    */
   private async connect(): Promise<Db> {
+    console.log(`[${this.dbIdentifier}] Connecting to database: ${this.dbName}`);
     await this.client?.connect();
     this.database = this.client?.db(this.dbName) || null;
+    console.log(`[${this.dbIdentifier}] Connected to database: ${this.dbName}`);
     return this.database;
-  }
+}
 
   /**
    * Disconnects from the MongoDB database.

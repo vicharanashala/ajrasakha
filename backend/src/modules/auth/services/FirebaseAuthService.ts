@@ -264,4 +264,25 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       throw new BadRequestError(`Failed to send verification email: ${err.message || 'Unknown error'}`);
     }
   }
+
+  async sendPasswordResetEmail(email: string): Promise<void> {
+    try {
+      if (appConfig.isDevelopment) return;
+      const link = await this.auth.generatePasswordResetLink(email);
+
+      await sendEmailNotification(
+        email,
+        'Reset your password',
+        `Reset your password by clicking on the link below: ${link}`,
+        `<p>We received a request to reset your password.</p>
+         <p>Click the link below to set a new password. This link will expire shortly.</p>
+         <p><a href="${link}">Reset Password</a></p>
+         <p>If you didn't request this, you can safely ignore this email.</p>`,
+      );
+      console.log(`Password reset email sent successfully to ${email}`);
+    } catch (err: any) {
+      // Silently fail — don't reveal whether the email exists
+      console.error(`Failed to send password reset email to ${email}:`, err);
+    }
+  }
 }

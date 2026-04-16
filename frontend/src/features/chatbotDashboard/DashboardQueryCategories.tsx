@@ -1,4 +1,4 @@
-import React from "react";
+import type React from "react";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -97,7 +97,7 @@ export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
             </div>
 
             {/* Progress bars — scrollable */}
-            <div className="flex-1 overflow-y-auto pr-1" style={{ maxHeight: 260 }}>
+            <div className="flex-1 overflow-y-auto pr-1 max-h-[260px]">
                 {categories.map((q) => (
                     <ProgressBar
                         key={q.label}

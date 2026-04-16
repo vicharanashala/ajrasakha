@@ -44,15 +44,15 @@ export function AlertCard({ alerts = [] }: { alerts?: Alert[] }) {
   const criticalCount = sortedAlerts.filter((a) => a.level === "critical").length;
 
   return (
-    <div className="h-full flex flex-col" style={{ background: "var(--card)", border: "0.5px solid var(--border)", borderRadius: 12, padding: 16 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
-        <div style={{ minWidth: 0, flex: 1, marginRight: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--card-foreground)" }}>Active alerts</div>
-          <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2 }}>Requires leadership action</div>
+    <div className="h-full flex flex-col bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
+      <div className="flex items-start justify-between mb-3.5">
+        <div className="min-w-0 flex-1 mr-2">
+          <div className="text-[13px] font-medium text-[var(--card-foreground)]">Active alerts</div>
+          <div className="text-[11px] text-[var(--muted-foreground)] mt-0.5">Requires leadership action</div>
         </div>
         <Badge label={`${criticalCount} critical`} variant="red" />
       </div>
-      <div className="flex-1 overflow-y-auto pr-1" style={{ maxHeight: 260 }}>
+      <div className="flex-1 overflow-y-auto pr-1 max-h-[260px]">
         {sortedAlerts.map((a) => (
           <AlertItem
             key={a.id}

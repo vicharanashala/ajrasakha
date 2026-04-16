@@ -20,6 +20,12 @@ import { flattenAnswers } from "@/features/question_details/utils/flattenAnswers
 import { QuestionHeader } from "@/features/question_details/components/QuestionHeader";
 import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
 import MessageDetail from "./MessageDetail";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 
 const questionService = new QuestionService();
 
@@ -56,6 +62,7 @@ export const QuestionDetails = ({
     useState(ANSWER_VISIBLE_COUNT);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [aiAnswerExpanded, setAiAnswerExpanded] = useState(false);
 
   //state for showing passing remark
   const [remarkExpanded, setRemarkExpanded] = useState(false);
@@ -107,6 +114,111 @@ export const QuestionDetails = ({
               </div>
             </div>
           )}
+          </div>
+      )}
+
+      {(question.aiInitialAnswer || question.aiApprovedAnswer) && question.aiApprovedSources && (
+
+        <div className="rounded-lg border-2 border-info/30 bg-card overflow-hidden">
+
+          {/* Header */}
+          <div 
+            className="flex items-center justify-between px-4 py-3 bg-info/5 border-b border-info/20 cursor-pointer"
+            onClick={() => setAiAnswerExpanded(prev => !prev)}
+          >
+            <span className="text-sm font-semibold text-foreground">
+                <span className="mr-2">
+              AI Generated Answer
+            </span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-pointer text-xs text-muted-foreground border border-border rounded-full px-2 py-0.5">
+                      i
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-xs leading-relaxed">
+                    This response has been approved by a moderator from LLM-generated answers 
+                    and is provided as a reference for the author to create the initial answer.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </span>
+
+            <span className="text-xs text-muted-foreground">
+              {aiAnswerExpanded ? "Collapse" : "Expand"}
+            </span>
+          </div>
+
+          {/* Body */}
+          {aiAnswerExpanded && (
+            <div className="px-4 py-4 text-sm text-foreground/90 space-y-4 max-h-60 overflow-y-auto">
+              {(question.aiApprovedAnswer || question.aiInitialAnswer)
+                ?.split("\n")
+                .map((line, i) =>
+                  line.trim() === "" ? (
+                    <br key={i} />
+                  ) : (
+                    <p key={i} className="leading-relaxed">
+                      {line}
+                    </p>
+                  )
+                )}
+            {question.aiApprovedSources && question.aiApprovedSources.length > 0 && (
+                <div className="px-4 py-4 bg-info/5 border-t border-info/20">
+                  <span className="text-sm font-semibold text-foreground">Sources</span>
+
+                  <div className="mt-3 space-y-2">
+                    {question.aiApprovedSources.map((src, index) => (
+                      <div
+                        key={index}
+                        className="rounded-md border border-border bg-background p-3 text-sm"
+                      >
+                        {/* Row header */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-foreground">
+                            {index + 1}. {src.sourceName}
+                          </span>
+
+                          {src.sourceType && (
+                            <span className="text-xs text-muted-foreground capitalize">
+                              {src.sourceType}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Link */}
+                        {src.source && (
+                          <div className="mt-1">
+                            {src.source.startsWith("http") ? (
+                              <a
+                                href={src.source}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-500 underline break-all"
+                              >
+                                {src.source}
+                              </a>
+                            ) : (
+                              <span className="text-foreground/80">{src.source}</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Page */}
+                        {src.page !== null && src.page !== undefined && (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Page: {src.page}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       )}
 

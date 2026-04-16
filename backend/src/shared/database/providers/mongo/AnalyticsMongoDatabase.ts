@@ -8,6 +8,6 @@ export class AnalyticsMongoDatabase extends MongoDatabase {
     @inject(GLOBAL_TYPES.analyticsUri) uri: string,
     @inject(GLOBAL_TYPES.analyticsDbName) dbName: string,
   ) {
-    super(uri, dbName);
+    super(uri, dbName, 'analytics');
   }
 }

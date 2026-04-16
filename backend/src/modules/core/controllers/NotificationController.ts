@@ -22,7 +22,7 @@ import { NotificationService } from '../services/NotificationService.js';
 
 @OpenAPI({
   tags: ['Notifications'],
-  description: 'Operations related to answers',
+  description: 'Operations for managing notifications',
 })
 @JsonController('/notifications')
 export class NotificationController {
