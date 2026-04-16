@@ -991,7 +991,9 @@ export class QuestionService extends BaseService implements IQuestionService {
               agri_specialist: item.source || "AGRI_EXPERT",
               referenceSource: "reviewer",
               score: item.score * 100,
-              id: item.id  // preserve the real reviewer question _id
+              id: item.id
+              ? new ObjectId(String(item.id))
+              : new ObjectId()  // preserve the real reviewer question _id
             })),
 
             ...(questions.golden || []).map((item: any) => ({
@@ -1000,7 +1002,9 @@ export class QuestionService extends BaseService implements IQuestionService {
               agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
               referenceSource: "golden",
               score: item.score * 100,
-              id: item.id ? item.id : new ObjectId().toString()
+              id: item.id
+              ? new ObjectId(String(item.id))
+              : new ObjectId()
             })),
 
 
