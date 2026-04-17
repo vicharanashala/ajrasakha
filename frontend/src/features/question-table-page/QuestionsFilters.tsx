@@ -402,17 +402,37 @@ export const QuestionsFilters = ({
     (advanceFilter.closedAtStart || advanceFilter.closedAtEnd ? 1 : 0);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // Track window size for boundaries
+  const [windowSize, setWindowSize] = useState({
+    width: typeof window !== "undefined" ? window.innerWidth : 1200,
+    height: typeof window !== "undefined" ? window.innerHeight : 800,
+  });
+
+  useEffect(() => {
+    const handleResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // Optimized Draggable Logic
   const [position, setPosition] = useState({
     x: 10,
-    y: window.innerHeight - 70,
-  }); // Initial screen position
+    y: typeof window !== "undefined" ? window.innerHeight - 70 : 800,
+  });
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef(null);
   const offset = useRef({ x: 0, y: 0 });
   const [isBadgeExpanded, setIsBadgeExpanded] = useState(false);
   const hasDragged = useRef(false);
   const { data: statusSummary, isLoading: isStatusLoading } = useGetQuestionStatusSummary(advanceFilter, search, isBadgeExpanded);
+
+  // Dynamically clamp the badge position based on its estimated sizes to prevent it from ever clipping off the screen
+  const estimatedBadgeHeight = isBadgeExpanded ? 240 : 50;
+  const estimatedBadgeWidth = isBadgeExpanded ? 220 : 120;
+  
+  const safeX = Math.max(10, Math.min(position.x, windowSize.width - estimatedBadgeWidth - 20));
+  const safeY = Math.max(10, Math.min(position.y, windowSize.height - estimatedBadgeHeight - 20));
 
   const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
     open: { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", dot: "bg-emerald-500" },
@@ -940,62 +960,72 @@ export const QuestionsFilters = ({
             setIsBadgeExpanded((prev) => !prev);
           }
         }}
-        className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 shadow-xl backdrop-blur-md select-none transition-all duration-300 ${
+        className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 shadow-xl backdrop-blur-md select-none transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
           isBadgeExpanded
-            ? "rounded-2xl px-4 py-3 min-w-[220px]"
-            : "rounded-full px-4 py-2"
+            ? "rounded-[16px] px-4 py-3 min-w-[220px]"
+            : "rounded-[24px] px-4 py-2.5 min-w-[120px]"
         } ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
         style={{
-          left: `${position.x}px`,
-          top: `${position.y}px`,
+          left: `${safeX}px`,
+          top: `${safeY}px`,
           touchAction: "none",
         }}
       >
         {/* Header row */}
         <div className="flex items-center gap-3">
-          <Activity size={14} className="text-green-600 dark:text-green-500" />
-          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+          <Activity size={14} className="text-green-600 dark:text-green-500 shrink-0" />
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest whitespace-nowrap">
             Total:{" "}
-            <span className="text-gray-900 dark:text-white">
+            <span className="text-gray-900 dark:text-white transition-opacity duration-300">
               {statusSummary?.totalQuestions ?? totalQuestions}
             </span>
           </span>
-          <span className="ml-auto text-gray-400 dark:text-gray-500">
-            {isBadgeExpanded ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          <span 
+            className={`ml-auto text-gray-400 dark:text-gray-500 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+              isBadgeExpanded ? "rotate-180" : "rotate-0"
+            }`}
+          >
+            <ChevronDown size={14} />
           </span>
         </div>
 
         {/* Expanded status breakdown */}
-        {isBadgeExpanded && (
-          <div className="mt-3 space-y-1.5 border-t border-gray-100 dark:border-gray-700 pt-3">
-            {isStatusLoading ? (
-              <div className="flex items-center justify-center py-2">
-                <Loader2 size={16} className="animate-spin text-gray-400" />
-                <span className="ml-2 text-xs text-gray-400">Loading...</span>
-              </div>
-            ) : (
-              statusSummary?.statuses?.map((s) => {
-                const color = STATUS_COLORS[s.status] || defaultColor;
-                return (
-                  <div
-                    key={s.status}
-                    className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${color.bg} transition-colors`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${color.dot}`} />
-                      <span className={`text-xs font-semibold capitalize ${color.text}`}>
-                        {s.status}
+        <div
+          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+            isBadgeExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="mt-3 space-y-1.5 border-t border-gray-100 dark:border-gray-700 pt-3">
+              {isStatusLoading ? (
+                <div className="flex items-center justify-center py-2 h-[120px]">
+                  <Loader2 size={16} className="animate-spin text-gray-400" />
+                  <span className="ml-2 text-xs text-gray-400">Loading...</span>
+                </div>
+              ) : (
+                statusSummary?.statuses?.map((s) => {
+                  const color = STATUS_COLORS[s.status] || defaultColor;
+                  return (
+                    <div
+                      key={s.status}
+                      className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${color.bg} transition-colors`}
+                    >
+                      <div className="flex items-center gap-2">
+                         <span className={`w-2 h-2 rounded-full ${color.dot} shrink-0`} />
+                         <span className={`text-xs font-semibold capitalize ${color.text} whitespace-nowrap`}>
+                          {s.status}
+                        </span>
+                      </div>
+                      <span className={`text-xs font-bold tabular-nums ${color.text}`}>
+                        {s.count}
                       </span>
                     </div>
-                    <span className={`text-xs font-bold tabular-nums ${color.text}`}>
-                      {s.count}
-                    </span>
-                  </div>
-                );
-              })
-            )}
+                  );
+                })
+              )}
+            </div>
           </div>
-        )}
+        </div>
       </div>
       <ConfirmationModal
         title="ReAllocate work load?"
