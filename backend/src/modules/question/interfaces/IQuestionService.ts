@@ -165,4 +165,7 @@ export interface IQuestionService {
 
   holdQuestion(questionId: string, userId: string, action: "hold" | "unhold"): Promise<{ id: string }>
   checkSubmissionExists(questionId: string): Promise<boolean>;
+
+  /** Returns total question count and per-status breakdown with filters applied */
+  getQuestionStatusSummary(query: GetDetailedQuestionsQuery, body: DetailedQuestionsBodyDto): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }>;
 }
