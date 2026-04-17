@@ -69,6 +69,18 @@ export class QuestionController {
     private readonly questionService: IQuestionService,
   ) { }
 
+  @Post('/status-summary')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Get total questions count and breakdown by status' })
+  async getQuestionStatusSummary(
+    @QueryParams() query: GetDetailedQuestionsQuery,
+    @Body() body: DetailedQuestionsBodyDto,
+  ) {
+    const data = await this.questionService.getQuestionStatusSummary(query, body);
+    return { success: true, data };
+  }
+
   @Get('/context/:contextId')
   @HttpCode(200)
   @Authorized()

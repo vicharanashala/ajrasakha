@@ -21,7 +21,11 @@ import {
   EyeOff,
   Eye,
   Wheat,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
 } from "lucide-react";
+import { useGetQuestionStatusSummary } from "@/hooks/api/question/useGetQuestionStatusSummary";
 import {
   AdvanceFilterDialog,
   type AdvanceFilterValues,
@@ -398,17 +402,49 @@ export const QuestionsFilters = ({
     (advanceFilter.closedAtStart || advanceFilter.closedAtEnd ? 1 : 0);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // Track window size for boundaries
+  const [windowSize, setWindowSize] = useState({
+    width: typeof window !== "undefined" ? window.innerWidth : 1200,
+    height: typeof window !== "undefined" ? window.innerHeight : 800,
+  });
+
+  useEffect(() => {
+    const handleResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // Optimized Draggable Logic
   const [position, setPosition] = useState({
     x: 10,
-    y: window.innerHeight - 70,
-  }); // Initial screen position
+    y: typeof window !== "undefined" ? window.innerHeight - 70 : 800,
+  });
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef(null);
   const offset = useRef({ x: 0, y: 0 });
+  const [isBadgeExpanded, setIsBadgeExpanded] = useState(false);
+  const hasDragged = useRef(false);
+  const { data: statusSummary, isLoading: isStatusLoading } = useGetQuestionStatusSummary(advanceFilter, search, isBadgeExpanded);
+
+  // Dynamically clamp the badge position based on its estimated sizes to prevent it from ever clipping off the screen
+  const estimatedBadgeHeight = isBadgeExpanded ? 240 : 50;
+  const estimatedBadgeWidth = isBadgeExpanded ? 220 : 120;
+  
+  const safeX = Math.max(10, Math.min(position.x, windowSize.width - estimatedBadgeWidth - 20));
+  const safeY = Math.max(10, Math.min(position.y, windowSize.height - estimatedBadgeHeight - 20));
+
+  const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+    open: { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", dot: "bg-emerald-500" },
+    delayed: { bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
+    "in-review": { bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400", dot: "bg-blue-500" },
+    closed: { bg: "bg-gray-500/10", text: "text-gray-600 dark:text-gray-400", dot: "bg-gray-500" },
+  };
+  const defaultColor = { bg: "bg-purple-500/10", text: "text-purple-600 dark:text-purple-400", dot: "bg-purple-500" };
 
   const handleMouseDown = (e: any) => {
     setIsDragging(true);
+    hasDragged.current = false;
     const rect = e.currentTarget.getBoundingClientRect();
     offset.current = {
       x: e.clientX - rect.left,
@@ -419,6 +455,7 @@ export const QuestionsFilters = ({
   useEffect(() => {
     const handleMouseMove = (e: any) => {
       if (!isDragging) return;
+      hasDragged.current = true;
 
       // Calculate new position based on viewport
       setPosition({
@@ -918,20 +955,77 @@ export const QuestionsFilters = ({
       <div
         ref={dragRef}
         onMouseDown={handleMouseDown}
-        className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 px-4 py-2 rounded-full flex items-center gap-3 shadow-xl backdrop-blur-md select-none transition-shadow ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
+        onClick={() => {
+          if (!hasDragged.current) {
+            setIsBadgeExpanded((prev) => !prev);
+          }
+        }}
+        className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 shadow-xl backdrop-blur-md select-none transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+          isBadgeExpanded
+            ? "rounded-[16px] px-4 py-3 min-w-[220px]"
+            : "rounded-[24px] px-4 py-2.5 min-w-[120px]"
+        } ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
         style={{
-          left: `${position.x}px`,
-          top: `${position.y}px`,
+          left: `${safeX}px`,
+          top: `${safeY}px`,
           touchAction: "none",
         }}
       >
-        <Activity size={14} className="text-green-600 dark:text-green-500" />
-        <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
-          Total:{" "}
-          <span className="text-gray-900 dark:text-white">
-            {totalQuestions}
+        {/* Header row */}
+        <div className="flex items-center gap-3">
+          <Activity size={14} className="text-green-600 dark:text-green-500 shrink-0" />
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest whitespace-nowrap">
+            Total:{" "}
+            <span className="text-gray-900 dark:text-white transition-opacity duration-300">
+              {statusSummary?.totalQuestions ?? totalQuestions}
+            </span>
           </span>
-        </span>
+          <span 
+            className={`ml-auto text-gray-400 dark:text-gray-500 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+              isBadgeExpanded ? "rotate-180" : "rotate-0"
+            }`}
+          >
+            <ChevronDown size={14} />
+          </span>
+        </div>
+
+        {/* Expanded status breakdown */}
+        <div
+          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+            isBadgeExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="mt-3 space-y-1.5 border-t border-gray-100 dark:border-gray-700 pt-3">
+              {isStatusLoading ? (
+                <div className="flex items-center justify-center py-2 h-[120px]">
+                  <Loader2 size={16} className="animate-spin text-gray-400" />
+                  <span className="ml-2 text-xs text-gray-400">Loading...</span>
+                </div>
+              ) : (
+                statusSummary?.statuses?.map((s) => {
+                  const color = STATUS_COLORS[s.status] || defaultColor;
+                  return (
+                    <div
+                      key={s.status}
+                      className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${color.bg} transition-colors`}
+                    >
+                      <div className="flex items-center gap-2">
+                         <span className={`w-2 h-2 rounded-full ${color.dot} shrink-0`} />
+                         <span className={`text-xs font-semibold capitalize ${color.text} whitespace-nowrap`}>
+                          {s.status}
+                        </span>
+                      </div>
+                      <span className={`text-xs font-bold tabular-nums ${color.text}`}>
+                        {s.count}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
       </div>
       <ConfirmationModal
         title="ReAllocate work load?"
