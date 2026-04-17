@@ -349,13 +349,12 @@ export class QuestionRepository implements IQuestionRepository {
     // --- on Hold question filter ---
     if(isOnHold === 'true')filter.isOnHold = { $eq: true }; // filter by on hold questions
 
-    //for duplicate questions.
-    // duplicateQuestions === 'true'
-    //       ? this.DuplicateQuestionCollection
-    //       :
-
     // --- setting the collection with respect to the duplicate questions filter ---
-      const questionsCollection = this.QuestionCollection as Collection<IQuestion>;
+      const questionsCollection = (
+        duplicateQuestions === 'true'
+          ? this.DuplicateQuestionCollection
+          : this.QuestionCollection
+      ) as Collection<IQuestion>;
 
       // --- Auto Allocate Filter ---
       if (autoAllocateFilter && autoAllocateFilter !== 'all') {
@@ -734,6 +733,7 @@ export class QuestionRepository implements IQuestionRepository {
         const formattedQuestions: IQuestion[] = result.map((q: any) => ({
           ...q,
           _id: q._id.toString(),
+          referenceQuestionId: q.referenceQuestionId ? q.referenceQuestionId.toString() : undefined,
           details: { ...q.details },
         }));
 
@@ -916,6 +916,7 @@ export class QuestionRepository implements IQuestionRepository {
       const formattedQuestions: IQuestion[] = result.map((q: any) => ({
         ...q,
         _id: q._id.toString(),
+        referenceQuestionId: q.referenceQuestionId ? q.referenceQuestionId.toString() : undefined,
         details: { ...q.details },
       }));
 

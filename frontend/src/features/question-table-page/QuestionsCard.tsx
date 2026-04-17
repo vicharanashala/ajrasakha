@@ -163,7 +163,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
           return;
         }
         if (!isClickable) return;
-        onViewMore(q._id?.toString() ?? "");
+        onViewMore(q.referenceQuestionId?.toString() ?? q._id?.toString() ?? "");
       }}
       className={`
         group relative w-full rounded-2xl border transition-all duration-300 ease-in-out cursor-pointer overflow-hidden
@@ -301,7 +301,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onViewMore(q._id!);
+                onViewMore(q.referenceQuestionId?.toString() ?? q._id!);
               }}
               className="p-1.5 rounded-full hover:bg-red-50 text-gray-400 hover:text-green-600 transition-colors"
               title="View Question"

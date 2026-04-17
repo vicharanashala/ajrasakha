@@ -253,7 +253,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                           }`}
                         onClick={() => {
                           if (!isClickable || hasSelectedQuestions) return;
-                          onViewMore(q._id?.toString() || "");
+                          onViewMore(q.referenceQuestionId?.toString() || q._id?.toString() || "");
                         }}
                       >
                         {truncate(q.question, 50)}
@@ -415,7 +415,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           </>
         )}
         {/* Actions */}
-        <ContextMenuItem onClick={() => onViewMore(q._id?.toString() || "")}>
+        <ContextMenuItem onClick={() => onViewMore(q.referenceQuestionId?.toString() || q._id?.toString() || "")}>
           <Eye className="w-4 h-4 mr-2 text-primary" />
           View
         </ContextMenuItem>

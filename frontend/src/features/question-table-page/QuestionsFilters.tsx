@@ -306,8 +306,12 @@ export const QuestionsFilters = ({
 
   const handleAnswerModeChange = (nextAnswerMode: AnswerMode) => {
     const source = answerModeToSource(nextAnswerMode);
-
-    const nextFilters = { ...advanceFilter, source };
+    // reset duplicateQuestions when leaving AJRASAKHA mode
+    const nextFilters = {
+      ...advanceFilter,
+      source,
+      duplicateQuestions: nextAnswerMode === "ajraskha" ? advanceFilter.duplicateQuestions : false,
+    };
 
     setAnswerMode(nextAnswerMode);
     setAdvanceFilterValues(nextFilters);
@@ -531,11 +535,42 @@ export const QuestionsFilters = ({
           >
             Whatsapp
           </button>
-
         </div>
-      </div> */}
 
-      <AnswerModeSwitcher answerMode={answerMode} handleAnswerModeChange={handleAnswerModeChange} />
+        {/* Unique / Duplicate sub-toggle — only visible for AJRASAKHA */}
+        {answerMode === "ajraskha" && (
+          <div className="flex items-center rounded-lg border border-border bg-muted/40 p-1">
+            <button
+              onClick={() => {
+                const nextFilters = { ...advanceFilter, duplicateQuestions: false };
+                setAdvanceFilterValues(nextFilters);
+                onChange(nextFilters);
+              }}
+              className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
+                !advanceFilter.duplicateQuestions
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Unique
+            </button>
+            <button
+              onClick={() => {
+                const nextFilters = { ...advanceFilter, duplicateQuestions: true };
+                setAdvanceFilterValues(nextFilters);
+                onChange(nextFilters);
+              }}
+              className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
+                advanceFilter.duplicateQuestions
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Duplicate
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
         <div className="relative hidden md:flex items-center gap-2">

@@ -168,7 +168,7 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
       <p
         className={`mt-1 font-medium break-words ${isClickable ? "hover:underline cursor-pointer" : "opacity-50"
           }`}
-        onClick={() => isClickable && onViewMore(q._id!)}
+        onClick={() => isClickable && onViewMore(q.referenceQuestionId?.toString() ?? q._id!)}
       >
         {truncate(q.question, 80)}
       </p>
@@ -234,7 +234,7 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
           </DropdownMenuTrigger>
 
           <DropdownMenuContent align="end" className="w-40 text-sm">
-            <DropdownMenuItem onClick={() => onViewMore(q._id!)}>
+            <DropdownMenuItem onClick={() => onViewMore(q.referenceQuestionId?.toString() ?? q._id!)}>
               <Eye className="w-4 h-4 mr-2" />
               View
             </DropdownMenuItem>

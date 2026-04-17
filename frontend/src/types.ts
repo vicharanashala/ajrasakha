@@ -509,6 +509,9 @@ export interface IDetailedQuestion {
   accumulatedHoldMs?: number;
   isHidden?: boolean;
   paassingRemark?: string;
+  referenceQuestionId?: string;
+  referenceQuestion?: string;
+  similarityScore?: number;
 }
 
 export interface IDetailedQuestionResponse {
