@@ -412,7 +412,7 @@ export const QuestionsFilters = ({
   const offset = useRef({ x: 0, y: 0 });
   const [isBadgeExpanded, setIsBadgeExpanded] = useState(false);
   const hasDragged = useRef(false);
-  const { data: statusSummary, isLoading: isStatusLoading } = useGetQuestionStatusSummary(isBadgeExpanded);
+  const { data: statusSummary, isLoading: isStatusLoading } = useGetQuestionStatusSummary(advanceFilter, search, isBadgeExpanded);
 
   const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
     open: { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", dot: "bg-emerald-500" },

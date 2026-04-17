@@ -3633,12 +3633,52 @@ async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusR
 }
 
   async getQuestionStatusSummary(
+    query: GetDetailedQuestionsQuery,
+    body: DetailedQuestionsBodyDto,
     session?: ClientSession,
   ): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }> {
     await this.init();
 
+    const { filter } = await buildQuestionFilter(
+      { ...query, searchEmbedding: null },
+      this.QuestionSubmissionCollection,
+      this.AnswersCollection
+    );
+
+    // Apply states/normalisedCrops from body if provided (matching findDetailedQuestions logic)
+    if (body?.states && body.states.length > 0) {
+      filter['details.state'] = { $in: body.states };
+    }
+    if (body?.normalisedCrops && body.normalisedCrops.length > 0) {
+      const hasNotSet = body.normalisedCrops.includes('__NOT_SET__');
+      const realCrops = body.normalisedCrops.filter((c) => c !== '__NOT_SET__');
+      if (!hasNotSet) {
+        filter['details.normalised_crop'] = { $in: realCrops };
+      } else {
+        const orConditions: any[] = [
+          { 'details.normalised_crop': { $exists: false } },
+          { 'details.normalised_crop': null },
+          { 'details.normalised_crop': '' },
+        ];
+        if (realCrops.length > 0) {
+          orConditions.push({ 'details.normalised_crop': { $in: realCrops } });
+        }
+        if (!filter.$and) filter.$and = [];
+        filter.$and.push({ $or: orConditions });
+      }
+    }
+
+    // Default exclusions
+    if (filter.isHidden === undefined && query.hiddenQuestions !== 'true') {
+      filter.isHidden = { $ne: true };
+    }
+    if (filter.isOnHold === undefined && query.isOnHold !== 'true') {
+      filter.isOnHold = { $ne: true };
+    }
+
     const results = await this.QuestionCollection.aggregate(
       [
+        { $match: filter },
         {
           $group: {
             _id: '$status',

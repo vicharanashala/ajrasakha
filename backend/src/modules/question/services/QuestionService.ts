@@ -3547,8 +3547,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     );
   }
 
-  async getQuestionStatusSummary(): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }> {
-    return this.questionRepo.getQuestionStatusSummary();
+  async getQuestionStatusSummary(query: GetDetailedQuestionsQuery, body: DetailedQuestionsBodyDto): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }> {
+    return this.questionRepo.getQuestionStatusSummary(query, body);
   }
 
 }

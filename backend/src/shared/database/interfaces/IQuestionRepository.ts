@@ -384,6 +384,8 @@ export interface IQuestionRepository {
    * @param session - Optional MongoDB client session for transactions.
    */
   getQuestionStatusSummary(
+    query: GetDetailedQuestionsQuery,
+    body: DetailedQuestionsBodyDto,
     session?: ClientSession,
   ): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }>
 }

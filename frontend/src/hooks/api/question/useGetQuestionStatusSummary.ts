@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { QuestionService } from "../../services/questionService";
+import type { AdvanceFilterValues } from "../../components/advanced-question-filter";
 
 const questionService = new QuestionService();
 
@@ -8,10 +9,14 @@ export type QuestionStatusSummary = {
   statuses: { status: string; count: number }[];
 };
 
-export const useGetQuestionStatusSummary = (enabled: boolean) => {
+export const useGetQuestionStatusSummary = (
+  filter: AdvanceFilterValues,
+  search: string,
+  enabled: boolean,
+) => {
   return useQuery<QuestionStatusSummary | null, Error>({
-    queryKey: ["question-status-summary"],
-    queryFn: () => questionService.getQuestionStatusSummary(),
+    queryKey: ["question-status-summary", filter, search],
+    queryFn: () => questionService.getQuestionStatusSummary(filter, search),
     enabled,
   });
 };
