@@ -1663,7 +1663,8 @@ answer: ${updates.answer}`;
             text,
             embedding: questionEmbedding,
             aiApprovedSources: updates.sources ?? [],
-            aiApprovedAnswer: updates.answer ?? '',
+            aiInitialAnswer: updates.answer ?? '',
+            // aiApprovedAnswer: updates.answer ?? '',
             // question stays 'open' so experts can call reviewAnswer()
           },
           session,

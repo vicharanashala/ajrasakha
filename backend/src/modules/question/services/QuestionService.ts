@@ -969,151 +969,151 @@ export class QuestionService extends BaseService implements IQuestionService {
 
         const llmCandidates: typeof topMatches = []
         let dummysource = false
-        if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
-          console.log("the source is coming====", source)
-          /* const topSimilar = await this.questionRepo.findTopSimilarQuestions(
-           textEmbedding, 25,
-           { state: details.state,district: details.district, crop: details.crop, domain: details.domain, season: details.season }, )*/
-          const questions = await this.aiService.getQuestionByContextAndMetaData(
-            question,
-            details.state,
-            details.district,
-            typeof details.crop === 'string' ? details.crop : details.crop.name,
-            //details.season,
-            // details.domain
-          );
-          console.log("the questions coming=====", questions)
-          // merge reviewer + golden
-          let merged = [
-            ...(questions.reviewer || []).map((item: any) => ({
-              question: item.question,
-              answer: item.answer,
-              agri_specialist: item.source || "AGRI_EXPERT",
-              referenceSource: "reviewer",
-              score: item.score * 100,
-              id: item.id  // preserve the real reviewer question _id
-            })),
+        // if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
+        //   console.log("the source is coming====", source)
+        //   /* const topSimilar = await this.questionRepo.findTopSimilarQuestions(
+        //    textEmbedding, 25,
+        //    { state: details.state,district: details.district, crop: details.crop, domain: details.domain, season: details.season }, )*/
+        //   const questions = await this.aiService.getQuestionByContextAndMetaData(
+        //     question,
+        //     details.state,
+        //     details.district,
+        //     typeof details.crop === 'string' ? details.crop : details.crop.name,
+        //     //details.season,
+        //     // details.domain
+        //   );
+        //   console.log("the questions coming=====", questions)
+        //   // merge reviewer + golden
+        //   let merged = [
+        //     ...(questions.reviewer || []).map((item: any) => ({
+        //       question: item.question,
+        //       answer: item.answer,
+        //       agri_specialist: item.source || "AGRI_EXPERT",
+        //       referenceSource: "reviewer",
+        //       score: item.score * 100,
+        //       id: item.id  // preserve the real reviewer question _id
+        //     })),
 
-            ...(questions.golden || []).map((item: any) => ({
-              question: item.question,
-              answer: item.answer,
-              agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
-              referenceSource: "golden",
-              score: item.score * 100,
-              id: item.id ? item.id : new ObjectId().toString()
-            })),
-
-
-          ];
-          merged = Array.from(
-            new Map(merged.map(q => [q.question, q])).values(),
-          ).map(q => ({
-            ...q,
-          }));
+        //     ...(questions.golden || []).map((item: any) => ({
+        //       question: item.question,
+        //       answer: item.answer,
+        //       agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
+        //       referenceSource: "golden",
+        //       score: item.score * 100,
+        //       id: item.id ? item.id : new ObjectId().toString()
+        //     })),
 
 
-          merged.sort((a, b) => b.score - a.score);
+        //   ];
+        //   merged = Array.from(
+        //     new Map(merged.map(q => [q.question, q])).values(),
+        //   ).map(q => ({
+        //     ...q,
+        //   }));
 
 
-          // get top 5
-          const bestFive = merged.slice(0, 5);
-
-          // convert to topMatches
-          topSimilar = bestFive.map(q => ({
-            questionId: q.id,
-            question: q.question,
-            similarityScore: q.score,
-            referenceSource: q.referenceSource
-          }));
-
-          logData.totalMatches = topSimilar.length
-
-          logData.matches = topSimilar.map((q) => ({ questionId: q.questionId, question: q.question, similarityScore: q.similarityScore }))
-          logData.topMatches = topSimilar
-          logData.threshold = 85
-          for (const match of topSimilar) {
+        //   merged.sort((a, b) => b.score - a.score);
 
 
-            const highestScore = match.similarityScore
+        //   // get top 5
+        //   const bestFive = merged.slice(0, 5);
 
-            // Rule 1: immediate duplicate
-            if (highestScore >= 95) {
-              isDuplicate = true
-              matchedQuestion = match.question
-              matchedQuestionId = match.questionId
-              matchedScore = highestScore
-              referenceSourcefrom = match.referenceSource
-              break
-            }
+        //   // convert to topMatches
+        //   topSimilar = bestFive.map(q => ({
+        //     questionId: q.id,
+        //     question: q.question,
+        //     similarityScore: q.score,
+        //     referenceSource: q.referenceSource
+        //   }));
 
-            // Rule 2: collect candidates for LLM
-            if (highestScore >= 85 && highestScore < 95) {
-              llmCandidates.push(match)
-            }
-          }
+        //   logData.totalMatches = topSimilar.length
 
-          // Rule 3: call LLM once
-          if (!isDuplicate && llmCandidates.length > 0) {
-            const candidateQuestions = llmCandidates.map(q => q.question)
+        //   logData.matches = topSimilar.map((q) => ({ questionId: q.questionId, question: q.question, similarityScore: q.similarityScore }))
+        //   logData.topMatches = topSimilar
+        //   logData.threshold = 85
+        //   for (const match of topSimilar) {
 
-            const matchedQuestionfromllm = await checkConceptDuplicate(
-              baseQuestion.question,
-              candidateQuestions
-            )
 
-            if (matchedQuestionfromllm) {
+        //     const highestScore = match.similarityScore
 
-              let filtermatchinQuestion = topSimilar.filter(ele => ele.question == matchedQuestionfromllm)
+        //     // Rule 1: immediate duplicate
+        //     if (highestScore >= 95) {
+        //       isDuplicate = true
+        //       matchedQuestion = match.question
+        //       matchedQuestionId = match.questionId
+        //       matchedScore = highestScore
+        //       referenceSourcefrom = match.referenceSource
+        //       break
+        //     }
 
-              matchedQuestion = filtermatchinQuestion[0].question
-              matchedQuestionId = filtermatchinQuestion[0].questionId
-              matchedScore = filtermatchinQuestion[0].similarityScore
-              referenceSourcefrom = filtermatchinQuestion[0].referenceSource
+        //     // Rule 2: collect candidates for LLM
+        //     if (highestScore >= 85 && highestScore < 95) {
+        //       llmCandidates.push(match)
+        //     }
+        //   }
 
-              const duplicateQuestion = {
-                ...baseQuestion,
-                similarityScore: Number(matchedScore.toFixed(2)),
-                referenceQuestionId: matchedQuestionId,
-                referenceQuestion: matchedQuestion,
-                referenceSource: referenceSourcefrom
-              }
+        //   // Rule 3: call LLM once
+        //   if (!isDuplicate && llmCandidates.length > 0) {
+        //     const candidateQuestions = llmCandidates.map(q => q.question)
 
-              await this.duplicateQuestionRepository.addDuplicate(
-                duplicateQuestion,
-                session
-              )
-              logData.outcome = 'DUPLICATE_DETECTED'
-              logData.matchedQuestion = matchedQuestion
-              logData.similarityScore = matchedScore.toFixed(2)
+        //     const matchedQuestionfromllm = await checkConceptDuplicate(
+        //       baseQuestion.question,
+        //       candidateQuestions
+        //     )
 
-              chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData)
-              return { isDuplicate: true, data: duplicateQuestion }
-            }
-          }
+        //     if (matchedQuestionfromllm) {
 
-          if (isDuplicate && matchedQuestionId && matchedQuestion) {
-            const duplicateQuestion = {
-              ...baseQuestion,
-              similarityScore: Number(matchedScore.toFixed(2)),
-              referenceQuestionId: matchedQuestionId,
-              referenceQuestion: matchedQuestion,
-              referenceSource: referenceSourcefrom
-            }
+        //       let filtermatchinQuestion = topSimilar.filter(ele => ele.question == matchedQuestionfromllm)
 
-            await this.duplicateQuestionRepository.addDuplicate(
-              duplicateQuestion,
-              session
-            )
+        //       matchedQuestion = filtermatchinQuestion[0].question
+        //       matchedQuestionId = filtermatchinQuestion[0].questionId
+        //       matchedScore = filtermatchinQuestion[0].similarityScore
+        //       referenceSourcefrom = filtermatchinQuestion[0].referenceSource
 
-            logData.outcome = 'DUPLICATE_DETECTED'
-            logData.matchedQuestion = matchedQuestion
-            logData.similarityScore = matchedScore.toFixed(2)
+        //       const duplicateQuestion = {
+        //         ...baseQuestion,
+        //         similarityScore: Number(matchedScore.toFixed(2)),
+        //         referenceQuestionId: matchedQuestionId,
+        //         referenceQuestion: matchedQuestion,
+        //         referenceSource: referenceSourcefrom
+        //       }
 
-            chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData)
+        //       await this.duplicateQuestionRepository.addDuplicate(
+        //         duplicateQuestion,
+        //         session
+        //       )
+        //       logData.outcome = 'DUPLICATE_DETECTED'
+        //       logData.matchedQuestion = matchedQuestion
+        //       logData.similarityScore = matchedScore.toFixed(2)
 
-            return { isDuplicate: true, data: duplicateQuestion }
-          }
-        }
+        //       chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData)
+        //       return { isDuplicate: true, data: duplicateQuestion }
+        //     }
+        //   }
+
+        //   if (isDuplicate && matchedQuestionId && matchedQuestion) {
+        //     const duplicateQuestion = {
+        //       ...baseQuestion,
+        //       similarityScore: Number(matchedScore.toFixed(2)),
+        //       referenceQuestionId: matchedQuestionId,
+        //       referenceQuestion: matchedQuestion,
+        //       referenceSource: referenceSourcefrom
+        //     }
+
+        //     await this.duplicateQuestionRepository.addDuplicate(
+        //       duplicateQuestion,
+        //       session
+        //     )
+
+        //     logData.outcome = 'DUPLICATE_DETECTED'
+        //     logData.matchedQuestion = matchedQuestion
+        //     logData.similarityScore = matchedScore.toFixed(2)
+
+        //     chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData)
+
+        //     return { isDuplicate: true, data: duplicateQuestion }
+        //   }
+        // }
 
         // =====================================================
         // 🔥 IF NOT SIMILAR → NORMAL FLOW
@@ -1266,17 +1266,21 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (answers && answers.length == 0)
           aiInitialAnswer = currentQuestion.aiInitialAnswer;
 
-        // For AJRASAKHA: if aiApprovedAnswer is not set (old data), fall back
-        // to the first answer from the answers collection
-        let aiApprovedAnswer = currentQuestion.aiApprovedAnswer;
         let aiApprovedSources = currentQuestion.aiApprovedSources;
+
+        // Backward compatibility: old DB still has aiApprovedAnswer
+        if (!aiInitialAnswer && currentQuestion.aiApprovedAnswer) {
+          aiInitialAnswer = currentQuestion.aiApprovedAnswer;
+        }
+
+        // Existing fallback (keep this)
         if (
           currentQuestion.source === 'AJRASAKHA' &&
-          !aiApprovedAnswer &&
+          !aiInitialAnswer &&
           answers &&
           answers.length > 0
         ) {
-          aiApprovedAnswer = answers[0].answer;
+          aiInitialAnswer = answers[0].answer;
           aiApprovedSources = answers[0].sources;
         }
 
@@ -1288,7 +1292,6 @@ export class QuestionService extends BaseService implements IQuestionService {
           status: currentQuestion.status,
           priority: currentQuestion.priority,
           aiInitialAnswer,
-          aiApprovedAnswer,
           aiApprovedSources,
           isAutoAllocate: currentQuestion.isAutoAllocate,
           createdAt: new Date(currentQuestion.createdAt).toLocaleString(),

@@ -1530,9 +1530,12 @@ export class QuestionRepository implements IQuestionRepository {
       }
 
       // 9 Final assembled question
+      const { aiApprovedAnswer, aiInitialAnswer, ...rest } = question;
+      
       const result = {
         ...{
-          ...question,
+          ...rest,
+          aiInitialAnswer:aiInitialAnswer && aiInitialAnswer.trim() ? aiInitialAnswer : aiApprovedAnswer,
           contextId: question.contextId?.toString(),
           isAutoAllocate: question.isAutoAllocate ?? true,
         },
@@ -1596,6 +1599,10 @@ export class QuestionRepository implements IQuestionRepository {
       await this.init();
       const autoAllocateValue =
         typeof isAutoAllocate === 'boolean' ? !isAutoAllocate : false;
+        console.log("*******************88")
+        console.log("*******************88")
+        console.log("*******************88")
+        
       return await this.QuestionCollection.findOneAndUpdate(
         { _id: new ObjectId(questionId) },
         { $set: { isAutoAllocate: autoAllocateValue } },

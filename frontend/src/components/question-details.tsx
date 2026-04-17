@@ -26,6 +26,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
+import { ScrollArea } from "./atoms/scroll-area";
 
 const questionService = new QuestionService();
 
@@ -81,6 +82,10 @@ export const QuestionDetails = ({
   });
   const submissionExists = submissionCheck?.exists ?? false;
 
+  const aiAnswer = question.aiInitialAnswer || question.aiApprovedAnswer;
+  const aiSources = question.aiApprovedSources;
+
+
   return (
     <main className="mx-auto p-6 pt-0 grid gap-6">
       <QuestionHeader question={question} goBack={goBack} currentUser={currentUser} isQuestionAllocatedToExpert={submissionExists}/>
@@ -117,7 +122,7 @@ export const QuestionDetails = ({
           </div>
       )}
 
-      {(question.aiInitialAnswer || question.aiApprovedAnswer) && question.aiApprovedSources && (
+      {(aiAnswer && aiSources) && (
 
         <div className="rounded-lg border-2 border-info/30 bg-card overflow-hidden">
 
@@ -152,71 +157,73 @@ export const QuestionDetails = ({
 
           {/* Body */}
           {aiAnswerExpanded && (
-            <div className="px-4 py-4 text-sm text-foreground/90 space-y-4 max-h-60 overflow-y-auto">
-              {(question.aiApprovedAnswer || question.aiInitialAnswer)
-                ?.split("\n")
-                .map((line, i) =>
-                  line.trim() === "" ? (
-                    <br key={i} />
-                  ) : (
-                    <p key={i} className="leading-relaxed">
-                      {line}
-                    </p>
-                  )
-                )}
-            {question.aiApprovedSources && question.aiApprovedSources.length > 0 && (
-                <div className="px-4 py-4 bg-info/5 border-t border-info/20">
-                  <span className="text-sm font-semibold text-foreground">Sources</span>
+            <ScrollArea className="max-h-[50vh] md:max-h-[60vh] pr-2">
+              <div className="px-4 py-4 text-sm text-foreground/90 space-y-4 max-h-60">
+                {aiAnswer
+                  ?.split("\n")
+                  .map((line, i) =>
+                    line.trim() === "" ? (
+                      <br key={i} />
+                    ) : (
+                      <p key={i} className="leading-relaxed">
+                        {line}
+                      </p>
+                    )
+                  )}
+              {aiSources && aiSources.length > 0 && (
+                  <div className="px-4 py-4 bg-info/5 border-t border-info/20">
+                    <span className="text-sm font-semibold text-foreground">Sources</span>
 
-                  <div className="mt-3 space-y-2">
-                    {question.aiApprovedSources.map((src, index) => (
-                      <div
-                        key={index}
-                        className="rounded-md border border-border bg-background p-3 text-sm"
-                      >
-                        {/* Row header */}
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium text-foreground">
-                            {index + 1}. {src.sourceName}
-                          </span>
-
-                          {src.sourceType && (
-                            <span className="text-xs text-muted-foreground capitalize">
-                              {src.sourceType}
+                    <div className="mt-3 space-y-2">
+                      {aiSources.map((src, index) => (
+                        <div
+                          key={index}
+                          className="rounded-md border border-border bg-background p-3 text-sm"
+                        >
+                          {/* Row header */}
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium text-foreground">
+                              {index + 1}. {src.sourceName}
                             </span>
-                          )}
-                        </div>
 
-                        {/* Link */}
-                        {src.source && (
-                          <div className="mt-1">
-                            {src.source.startsWith("http") ? (
-                              <a
-                                href={src.source}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-500 underline break-all"
-                              >
-                                {src.source}
-                              </a>
-                            ) : (
-                              <span className="text-foreground/80">{src.source}</span>
+                            {src.sourceType && (
+                              <span className="text-xs text-muted-foreground capitalize">
+                                {src.sourceType}
+                              </span>
                             )}
                           </div>
-                        )}
 
-                        {/* Page */}
-                        {src.page !== null && src.page !== undefined && (
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            Page: {src.page}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          {/* Link */}
+                          {src.source && (
+                            <div className="mt-1">
+                              {src.source.startsWith("http") ? (
+                                <a
+                                  href={src.source}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-500 underline break-all"
+                                >
+                                  {src.source}
+                                </a>
+                              ) : (
+                                <span className="text-foreground/80">{src.source}</span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Page */}
+                          {src.page !== null && src.page !== undefined && (
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              Page: {src.page}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            </ScrollArea>
           )}
 
         </div>
