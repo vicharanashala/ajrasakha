@@ -65,7 +65,6 @@ import {
 } from "@/stores/all-questions";
 import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
-import { TopRightBadge } from "@/components/NewBadge";
 import { CropManagementModal } from "./CropManagementModal";
 import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
 
@@ -716,7 +715,6 @@ export const QuestionsFilters = ({
             <section className="hidden md:block">
               <h3 className=" relative text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
                 Hide Columns
-                <TopRightBadge label="new" right={0} />
               </h3>
 
               <div className="grid grid-cols-2 gap-2 p-1 rounded-lg">
@@ -781,7 +779,6 @@ export const QuestionsFilters = ({
                         <div className="flex items-center gap-2">
                           <p className="relative text-sm font-semibold text-gray-900 dark:text-white">
                             Turnaround Time
-                            <TopRightBadge label="New" right={4} />
                           </p>
                         </div>
 
@@ -828,7 +825,6 @@ export const QuestionsFilters = ({
                       <div className="flex items-center gap-2">
                         <p className="relative text-sm font-bold text-gray-900 dark:text-white">
                           Update Crops
-                          <TopRightBadge label="New" right={4} />
                         </p>
                       </div>
                       <p className="text-[11px] text-gray-500">
@@ -856,7 +852,6 @@ export const QuestionsFilters = ({
                       <div className="flex items-center gap-2">
                         <p className="relative text-sm font-bold text-gray-900 dark:text-white">
                           ReAllocate Questions
-                          <TopRightBadge label="New" right={4} />
                         </p>
                       </div>
                       <p className="text-[11px] text-gray-500">
