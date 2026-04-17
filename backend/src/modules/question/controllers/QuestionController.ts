@@ -56,9 +56,7 @@ import { UploadFileOptions } from '#root/modules/question/classes/validators/fil
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
 import { InternalApiAuth } from '#root/shared/functions/internalApiAuth.js';
-import { logAudit } from '#root/workers/audit.logger.js';
 import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
-import { ObjectId } from 'mongodb';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 
@@ -75,7 +73,6 @@ export class QuestionController {
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
-  ) {}
   ) { }
 
   @Get('/context/:contextId')
