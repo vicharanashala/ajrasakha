@@ -3631,6 +3631,40 @@ async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusR
     };
   });
 }
+
+  async getQuestionStatusSummary(
+    session?: ClientSession,
+  ): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }> {
+    await this.init();
+
+    const results = await this.QuestionCollection.aggregate(
+      [
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            status: '$_id',
+            count: 1,
+          },
+        },
+      ],
+      { session },
+    ).toArray();
+
+    const statuses = results.map(r => ({
+      status: r.status as string,
+      count: r.count as number,
+    }));
+
+    const totalQuestions = statuses.reduce((sum, s) => sum + s.count, 0);
+
+    return { totalQuestions, statuses };
+  }
 }
 
 

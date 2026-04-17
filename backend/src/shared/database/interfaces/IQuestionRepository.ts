@@ -378,4 +378,12 @@ export interface IQuestionRepository {
     questionIds?:string[],
     session?: ClientSession,
   ):Promise<ICheckStatusResponse[]>
+
+  /**
+   * Returns total question count and count grouped by status.
+   * @param session - Optional MongoDB client session for transactions.
+   */
+  getQuestionStatusSummary(
+    session?: ClientSession,
+  ): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }>
 }
