@@ -362,6 +362,14 @@ class GetDetailedQuestionsQuery {
   @IsOptional()
   @IsString()
   review_level?: string;
+  
+  @JSONSchema({
+    description: 'Filter for questions closed within the last 2 hours',
+    example: 'true',
+    type: 'boolean',
+  })
+  @IsOptional()
+  closedInTwoHrs?: boolean;
 }
 export class AllocatedQuestionsBodyDto {
   @IsOptional()

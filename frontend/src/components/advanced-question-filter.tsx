@@ -54,6 +54,7 @@ import {
   Hand,
   Users,
   Settings,
+  Radio,
 } from "lucide-react";
 import { Plus } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
@@ -83,7 +84,7 @@ export type QuestionDateRangeFilter =
   | "quarter"
   | "year";
 
-export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP";
+export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
 // New Type
 export type QuestionPriorityFilter = "all" | "high" | "low" | "medium";
 export type QuestionTimeRange = {
@@ -123,6 +124,7 @@ export type AdvanceFilterValues = {
   closedAtStart?: Date | undefined | null;
   consecutiveApprovals?: string;
   autoAllocateFilter?: string;
+  closedInTwoHrs?: boolean;
   hiddenQuestions?: boolean;
   duplicateQuestions?: boolean;
   isOnHold?: boolean;
@@ -262,8 +264,8 @@ export const StateMultiSelect = ({
           {selected.length === 0
             ? "All States"
             : selected.length === 1
-            ? selected[0]
-            : `${selected.length} states selected`}
+              ? selected[0]
+              : `${selected.length} states selected`}
         </span>
         {open ? (
           <ChevronUp className="h-4 w-4 opacity-50 flex-shrink-0 ml-2" />
@@ -315,9 +317,8 @@ export const StateMultiSelect = ({
                   className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
                 >
                   <div
-                    className={`h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
-                      isSelected ? "bg-primary border-primary" : "border-gray-400"
-                    }`}
+                    className={`h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${isSelected ? "bg-primary border-primary" : "border-gray-400"
+                      }`}
                   >
                     {isSelected && (
                       <svg
@@ -407,8 +408,8 @@ export const CropMultiSelect = ({
           {selected.length === 0
             ? "All Crops"
             : selected.length === 1
-            ? getLabel(selected[0])
-            : `${selected.length} crops selected`}
+              ? getLabel(selected[0])
+              : `${selected.length} crops selected`}
         </span>
         {open ? (
           <ChevronUp className="h-4 w-4 opacity-50 flex-shrink-0 ml-2" />
@@ -451,9 +452,8 @@ export const CropMultiSelect = ({
               className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
             >
               <div
-                className={`h-4 w-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                  selected.includes("__NOT_SET__") ? "bg-primary border-primary" : "border-gray-400 bg-white"
-                }`}
+                className={`h-4 w-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${selected.includes("__NOT_SET__") ? "bg-primary border-primary" : "border-gray-400 bg-white"
+                  }`}
               >
                 {selected.includes("__NOT_SET__") && (
                   <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -475,9 +475,8 @@ export const CropMultiSelect = ({
                   className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
                 >
                   <div
-                    className={`h-4 w-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                      isSelected ? "bg-primary border-primary" : "border-gray-400 bg-white"
-                    }`}
+                    className={`h-4 w-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${isSelected ? "bg-primary border-primary" : "border-gray-400 bg-white"
+                      }`}
                   >
                     {isSelected && (
                       <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -705,6 +704,13 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                         <span>Whatsapp</span>
                       </div>
                     </SelectItem>
+
+                    <SelectItem value="OUTREACH">
+                      <div className="flex items-center gap-2">
+                        <Radio className="w-4 h-4 text-primary" />
+                        <span>Outreach</span>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -746,7 +752,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     <SelectItem value="all">All Levels</SelectItem>
                     {Review_Level.map((d) => (
                       <SelectItem key={d} value={d}>
-                        {d}
+                         {d === "Level 0" ? "Author" : d}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -781,6 +787,74 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     </TooltipContent>
                   </Tooltip>
                 </Label>
+                <Select
+                  value={advanceFilter.normalised_crop}
+                  onValueChange={(v) =>
+                    handleDialogChange("normalised_crop", v)
+                  }
+                >
+                  <SelectTrigger className="bg-background w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Crops</SelectItem>
+                    <SelectItem value="__NOT_SET__">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                        <span className="text-yellow-700 dark:text-yellow-400 font-medium">
+                          Not Set (Legacy)
+                        </span>
+                      </div>
+                    </SelectItem>
+                    {dbCrops.length > 0
+                      ? dbCrops.map((crop) => (
+                        <SelectItem
+                          key={crop._id || crop.name}
+                          value={crop.name}
+                        >
+                          {crop.aliases && crop.aliases.length > 0 ? (
+                            <TooltipProvider delayDuration={200}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="flex items-center gap-2 cursor-default">
+                                    <span className="capitalize">
+                                      {crop.name}
+                                    </span>
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                                      +{crop.aliases.length}
+                                    </span>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="right"
+                                  className="text-xs"
+                                >
+                                  <p className="font-semibold mb-0.5">
+                                    Also known as:
+                                  </p>
+                                  {crop.aliases.map((a) => (
+                                    <p
+                                      key={a}
+                                      className="capitalize text-muted-foreground"
+                                    >
+                                      {a}
+                                    </p>
+                                  ))}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : (
+                            <span className="capitalize">{crop.name}</span>
+                          )}
+                        </SelectItem>
+                      ))
+                      : crops.map((crop) => (
+                        <SelectItem key={crop} value={crop}>
+                          {crop}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
                 <CropMultiSelect
                   dbCrops={dbCrops}
                   crops={crops}
@@ -937,7 +1011,25 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
             </div>
 
             <Separator />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2 mb-4">
+              <Label className="flex items-center gap-2 text-sm font-semibold">
+                <Clock className="h-4 w-4 text-primary" />
+                Closed within 2 Hours
+              </Label>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  className="w-3.5 h-3.5 border-primary"
+                  checked={advanceFilter.closedInTwoHrs ?? false}
+                  onCheckedChange={(checked) =>
+                    handleDialogChange("closedInTwoHrs", checked === true)
+                  }
+                />
+                <span className="text-sm text-muted-foreground">
+                  Show questions closed within 2 hours
+                </span>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
               <div className="space-y-2 min-w-0">
                 <DateRangeFilter
                   customName={"CreatedAt Date Range"}
@@ -1156,6 +1248,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                         key == "endTime" ||
                         key === "closedAtStart" ||
                         key === "closedAtEnd" ||
+                        (key === "closedInTwoHrs" && value === false) ||
                         key === "state" || // replaced by states
                         key === "normalised_crop" || // replaced by normalisedCrops
                         value === "all" ||
@@ -1175,12 +1268,14 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                           : key === "duplicateQuestions"
                             ? "Show duplicate questions"
                             : key === "isOnHold"
-                            ? "Show holded questions"
-                            : key === "states"
-                              ? "state"
-                              : key === "normalisedCrops"
-                                ? "crop"
-                                : key;
+                              ? "Show holded questions"
+                              : key === "states"
+                                ? "state"
+                                : key === "normalisedCrops"
+                                  ? "crop"
+                                  : key === "closedInTwoHrs"
+                                    ? "Question closed in 2 hrs"
+                                    : key;
 
                       const displayValue =
                         (key === "states" || key === "normalisedCrops") && Array.isArray(value)
@@ -1208,7 +1303,9 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                                   : Array.isArray(value)
                                     ? [0, 100]
                                     : key === "hiddenQuestions" ||
-                                        key === "duplicateQuestions"
+                                      key === "duplicateQuestions" ||
+                                      key === "closedInTwoHrs" ||
+                                      key === "isOnHold"
                                       ? false
                                       : "all",
                               )
@@ -1241,6 +1338,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   user: "all",
                   domain: "all",
                   review_level: "all",
+                  closedInTwoHrs: false,
 
                   endTime: undefined,
                   startTime: undefined,

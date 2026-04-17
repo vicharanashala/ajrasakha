@@ -1,42 +1,107 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+export type CountdownHoldOptions = {
+  accumulatedHoldMs?: number;
+  holdAt?: string | null;
+};
+
+/** SLA pause: while status is hold, countdown freezes; accumulatedHoldMs shifts the deadline after each unhold. */
+export function buildHoldCountdownOptions(q: {
+  status?: string | null;
+  holdAt?: string | null;
+  accumulatedHoldMs?: number | null;
+}): CountdownHoldOptions {
+  return {
+    accumulatedHoldMs: q.accumulatedHoldMs ?? 0,
+    holdAt: q.status === "hold" ? q.holdAt ?? undefined : undefined,
+  };
+}
+
+function computeRemainingMs(
+  createdAt: string,
+  durationHours: number,
+  accumulatedHoldMs: number,
+  holdAt: string | null | undefined
+): number {
+  const c = new Date(createdAt).getTime();
+  if (isNaN(c)) return 0;
+  const target = c + durationHours * 60 * 60 * 1000 + accumulatedHoldMs;
+  const freezeMs =
+    holdAt && !isNaN(new Date(holdAt).getTime())
+      ? new Date(holdAt).getTime()
+      : null;
+  if (freezeMs != null) {
+    return Math.max(target - freezeMs, 0);
+  }
+  return Math.max(target - Date.now(), 0);
+}
 
 export const useCountdown = (
   createdAt: string | undefined | null,
   durationHours: number,
-  onExpire: () => void
+  onExpire: () => void,
+  holdOptions?: CountdownHoldOptions
 ) => {
+  const accumulatedHoldMs = holdOptions?.accumulatedHoldMs ?? 0;
+  const holdAt = holdOptions?.holdAt;
+
+  const onExpireRef = useRef(onExpire);
+  onExpireRef.current = onExpire;
+
   if (!createdAt || isNaN(new Date(createdAt).getTime())) {
     return "00:00:00";
   }
 
-  const targetTime =
-    new Date(createdAt).getTime() + durationHours * 60 * 60 * 1000;
   const [remaining, setRemaining] = useState(() =>
-    Math.max(targetTime - Date.now(), 0)
+    computeRemainingMs(createdAt, durationHours, accumulatedHoldMs, holdAt)
   );
 
   useEffect(() => {
-    if (!createdAt || isNaN(targetTime)) return;
+    if (!createdAt || isNaN(new Date(createdAt).getTime())) return;
 
-    if (remaining <= 0) {
-      onExpire();
+    const freezeMs =
+      holdAt && !isNaN(new Date(holdAt).getTime())
+        ? new Date(holdAt).getTime()
+        : null;
+
+    const nextRemaining = computeRemainingMs(
+      createdAt,
+      durationHours,
+      accumulatedHoldMs,
+      holdAt
+    );
+    setRemaining(nextRemaining);
+
+    if (freezeMs == null && nextRemaining <= 0) {
+      onExpireRef.current();
       return;
     }
 
+    if (freezeMs != null) {
+      return;
+    }
+
+    if (nextRemaining <= 0) {
+      return;
+    }
+
+    const c = new Date(createdAt).getTime();
+    const target = c + durationHours * 60 * 60 * 1000 + accumulatedHoldMs;
+
     const interval = setInterval(() => {
-      const diff = targetTime - Date.now();
+      const diff = target - Date.now();
       if (diff <= 0) {
         clearInterval(interval);
-        onExpire();
+        setRemaining(0);
+        onExpireRef.current();
       } else {
         setRemaining(diff);
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [targetTime, onExpire]);
+  }, [createdAt, durationHours, accumulatedHoldMs, holdAt]);
 
-  // Convert milliseconds to HH:MM:SS
   const hours = Math.floor((remaining / (1000 * 60 * 60)) % 24);
   const minutes = Math.floor((remaining / (1000 * 60)) % 60);
   const seconds = Math.floor((remaining / 1000) % 60);

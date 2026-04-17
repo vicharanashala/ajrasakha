@@ -127,6 +127,16 @@ export interface IChatbotRepository {
   findMatchingMessages(data: {question: string; details: any; createdAt: Date; questionId: string});
   findFromSecondDb(data: {question: string; details: any; createdAt: Date; questionId: string});
 
+  /** Inactivity-gap based avg session duration in minutes (KPI number). Requires MongoDB 5.0+. */
+  getAvgSessionDurationV2(source?: string, session?: ClientSession): Promise<number>;
+
+  /** Inactivity-gap based weekly avg session duration for sparkline/delta. Requires MongoDB 5.0+. */
+  getWeeklyAvgSessionDurationV2(
+    weeks?: number,
+    source?: string,
+    session?: ClientSession,
+  ): Promise<WeeklySessionDurationEntry[]>;
+
   /** Get all users with their question counts, optionally filtered by date range, with server-side pagination. */
   getUserDetails(
     startDate?: Date,

@@ -4,6 +4,7 @@ import type {
   UserRole,
 } from "@/types";
 import { useMemo } from "react";
+import { buildHoldCountdownOptions } from "@/hooks/ui/useCountdown";
 import { useQuestionClickability } from "@/hooks/ui/useQuestionClickability";
 import { Badge } from "../../components/atoms/badge";
 import { Button } from "../../components/atoms/button";
@@ -98,7 +99,12 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
   onViewMore,
 }) => {
   const { timer, isClickable } = useQuestionClickability(
-    q.source, q.createdAt, uploadedQuestionsCount, userRole, isBulkUpload
+    q.source,
+    q.createdAt,
+    uploadedQuestionsCount,
+    userRole,
+    isBulkUpload,
+    buildHoldCountdownOptions(q)
   );
 
   const statusBadge = useMemo(() => {
@@ -170,7 +176,11 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
       {/* Timer */}
       <div className="mt-1 text-xs text-muted-foreground">
         {/* <TimerDisplay timer={timer} status={q.status} /> */}
-        <TimerDisplay timer={timer} status={q.status} source={q.source} />
+        <TimerDisplay
+          timer={timer}
+          status={q.status}
+          source={q.source}
+        />
       </div>
 
       {/* Grid of details */}

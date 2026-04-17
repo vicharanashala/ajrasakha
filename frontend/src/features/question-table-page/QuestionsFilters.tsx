@@ -63,6 +63,7 @@ import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { TopRightBadge } from "@/components/NewBadge";
 import { CropManagementModal } from "./CropManagementModal";
+import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -92,13 +93,14 @@ type QuestionsFiltersProps = {
   setView: (v: "grid" | "table") => void;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach";
 
 const sourceToAnswerMode = (
   source: AdvanceFilterValues["source"],
 ): AnswerMode => {
   if (source === "AGRI_EXPERT") return "manual";
   if (source === "WHATSAPP") return "whatsapp";
+  if (source === "OUTREACH") return "outreach";
   return "ajraskha";
 };
 
@@ -107,6 +109,7 @@ const answerModeToSource = (
 ): AdvanceFilterValues["source"] => {
   if (answerMode === "manual") return "AGRI_EXPERT";
   if (answerMode === "whatsapp") return "WHATSAPP";
+  if (answerMode === "outreach") return "OUTREACH";
   return "AJRASAKHA";
 };
 
@@ -353,11 +356,12 @@ export const QuestionsFilters = ({
       review_level: advanceFilter?.review_level,
       closedAtStart: advanceFilter?.closedAtStart,
       closedAtEnd: advanceFilter?.closedAtEnd,
+      closedInTwoHrs: advanceFilter?.closedInTwoHrs,
       consecutiveApprovals: advanceFilter?.consecutiveApprovals,
       autoAllocateFilter: advanceFilter?.autoAllocateFilter,
       hiddenQuestions: advanceFilter?.hiddenQuestions,
       duplicateQuestions: advanceFilter?.duplicateQuestions,
-        isOnHold: advanceFilter?.isOnHold,
+      isOnHold: advanceFilter?.isOnHold,
     });
   };
 
@@ -380,6 +384,9 @@ export const QuestionsFilters = ({
         return false;
       }
 
+      // ignore defaults
+      if (value === undefined || value === "all") return false;
+      if (key === "closedInTwoHrs" && value === false) return false;
       // array filters: count as active only if non-empty
       if (key === "states" || key === "normalisedCrops") return Array.isArray(value) && value.length > 0;
 
@@ -481,17 +488,16 @@ export const QuestionsFilters = ({
         </div>
       </div>
 
-      <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
+      {/* <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
         <div className="flex items-center rounded-lg border border-border bg-muted/40 p-1">
           <button
             onClick={() => {
               handleAnswerModeChange("ajraskha");
             }}
-            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
-              answerMode === "ajraskha"
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "ajraskha"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+              }`}
           >
             AJRASKHA
           </button>
@@ -500,14 +506,24 @@ export const QuestionsFilters = ({
             onClick={() => {
               handleAnswerModeChange("manual");
             }}
-            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
-              answerMode === "manual"
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "manual"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+              }`}
           >
             Manual
           </button>
+
+          <button
+            onClick={() => handleAnswerModeChange("outreach")}
+            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "outreach"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+              }`}
+          >
+            Outreach
+          </button>
+
           <button
             onClick={() => {
               handleAnswerModeChange("whatsapp");
@@ -562,37 +578,37 @@ export const QuestionsFilters = ({
         </div>
 
         {/* tools and filters */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={() => setIsSidebarOpen(true)}
+                className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 dark:bg-[#1a1a1a] dark:border-gray-800"
+              >
+                <Filter className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Tools & Filters</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        {userRole !== "expert" && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  onClick={() => setIsSidebarOpen(true)}
-                  className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 dark:bg-[#1a1a1a] dark:border-gray-800"
+                  className="flex items-center justify-center px-3 py-1.5 text-sm font-medium"
+                  onClick={() => {
+                    setAddQuestionErrors({});
+                    setAddOpen(true);
+                  }}
                 >
-                  <Filter className="h-4 w-4" />
+                  <Plus className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Tools & Filters</TooltipContent>
+              <TooltipContent>Add Question</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-
-        {userRole !== "expert" && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                  className="flex items-center justify-center px-3 py-1.5 text-sm font-medium"
-                    onClick={() => {
-                      setAddQuestionErrors({});
-                      setAddOpen(true);
-                    }}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Add Question</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
         )}
 
         {isSelectionModeOn && (
@@ -600,11 +616,9 @@ export const QuestionsFilters = ({
             {/* Bulk delete with count */}
             <ConfirmationModal
               title="Delete Selected Questions?"
-              description={`Are you sure you want to delete ${
-                selectedQuestionIds.length
-              } selected question${
-                selectedQuestionIds.length > 1 ? "s" : ""
-              }? This action is irreversible.`}
+              description={`Are you sure you want to delete ${selectedQuestionIds.length
+                } selected question${selectedQuestionIds.length > 1 ? "s" : ""
+                }? This action is irreversible.`}
               confirmText="Delete"
               cancelText="Cancel"
               isLoading={bulkDeletingQuestions}
@@ -717,11 +731,10 @@ export const QuestionsFilters = ({
                         key={key}
                         onClick={() => toggleColumn(key)}
                         className={`flex items-center justify-between px-5 py-2 rounded-lg border transition-all duration-300 hover:border-emerald-500/60
-              ${
-                isVisible
-                  ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
-                  : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
-              }
+              ${isVisible
+                            ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
+                            : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
+                          }
             `}
                       >
                         <span className="text-xs font-semibold tracking-wider capitalize">
