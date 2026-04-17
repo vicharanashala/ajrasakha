@@ -724,7 +724,14 @@ export class QuestionRepository implements IQuestionRepository {
               score: { $meta: 'vectorSearchScore' },
             },
           },
-          { $sort: { score: -1 } },
+          {
+            $addFields: {
+              statusOrder: {
+                $cond: { if: { $eq: [{ $toLower: '$status' }, 'closed'] }, then: 1, else: 0 }
+              }
+            }
+          },
+          { $sort: { statusOrder: 1, score: -1 } },
           { $skip: (page - 1) * limit },
           { $limit: limit },
         ];
@@ -763,7 +770,7 @@ export class QuestionRepository implements IQuestionRepository {
       const totalPages = Math.ceil(totalCount / limit);
 
       // Determine sort order
-      let sortStage: any = { createdAt: -1, _id: -1 };
+      let sortStage: any = { statusOrder: 1, createdAt: -1, _id: -1 };
       let needsPriorityMapping = false;
 
       if (sort) {
@@ -771,16 +778,16 @@ export class QuestionRepository implements IQuestionRepository {
         const sortOrder = order === 'asc' ? 1 : -1;
 
         if (field === 'question') {
-          sortStage = { question: sortOrder, _id: -1 };
+          sortStage = { statusOrder: 1, question: sortOrder, _id: -1 };
         } else if (field === 'state') {
-          sortStage = { 'details.state': sortOrder, _id: -1 };
+          sortStage = { statusOrder: 1, 'details.state': sortOrder, _id: -1 };
         } else if (field === 'crop') {
-          sortStage = { 'details.crop': sortOrder, _id: -1 };
+          sortStage = { statusOrder: 1, 'details.crop': sortOrder, _id: -1 };
         } else if (field === 'domain') {
-          sortStage = { 'details.domain': sortOrder, _id: -1 };
+          sortStage = { statusOrder: 1, 'details.domain': sortOrder, _id: -1 };
         } else if (field === 'priority') {
           needsPriorityMapping = true;
-          sortStage = { priorityOrder: sortOrder, _id: -1 };
+          sortStage = { statusOrder: 1, priorityOrder: sortOrder, _id: -1 };
         }
       }
 
@@ -799,6 +806,13 @@ export class QuestionRepository implements IQuestionRepository {
 
       const aggregationPipeline: any[] = [
         { $match: filter },
+        { 
+          $addFields: { 
+            statusOrder: { 
+              $cond: { if: { $eq: [{ $toLower: '$status' }, 'closed'] }, then: 1, else: 0 } 
+            } 
+          } 
+        }
       ];
 
       // Add priority mapping if needed
