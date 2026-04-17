@@ -39,4 +39,6 @@ export const appConfig = {
   GCP_BACKUP_BUCKET: env('GCP_BACKUP_BUCKET') || null,
   ENABLE_DB_BACKUP: env('ENABLE_DB_BACKUP') == 'true' || false,
   ENABLE_AI_SERVER: env('ENABLE_AI_SERVER') == 'true' || false,
+  WA_WEBHOOK_API_KEY:env('WA_WEBHOOK_API_KEY')||"annam_conversation_api_key_1810",
+  WA_WEBHOOK_API_URL:env("WA_WEBHOOK_API_URL")||null
 };

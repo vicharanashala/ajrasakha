@@ -3,7 +3,7 @@ import {
   DashboardResponse,
   GetDashboardQuery,
   GetHeatMapQuery,
-} from '#root/modules/core/classes/validators/DashboardValidators.js';
+} from '#root/modules/dashboard/validators/DashboardValidators.js';
 
 export interface IPerformanceService {
   /**
