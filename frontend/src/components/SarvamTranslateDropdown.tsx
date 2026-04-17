@@ -10,6 +10,7 @@ type Language = {
 type Props = {
   query: string;
   onTranslate: (translatedText: string) => void;
+  sourceLang?: string;
 };
 
 const LANGUAGES: Language[] = [
@@ -38,7 +39,7 @@ const LANGUAGES: Language[] = [
   { code: "ur-IN", name: "Urdu (اردو)" },
 ];
 
-export default function SarvamTranslateDropdown({ query, onTranslate }: Props) {
+export default function SarvamTranslateDropdown({ query, onTranslate, sourceLang }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedLang, setSelectedLang] = useState<Language | null>(null);
   const {translate, loading, error} = useTranslate();
@@ -71,7 +72,7 @@ export default function SarvamTranslateDropdown({ query, onTranslate }: Props) {
     setIsOpen(false);
     setSelectedLang(lang);
 
-    const result = await translate(query, lang.code);
+    const result = await translate(query, lang.code, sourceLang);
     if (result) {
       onTranslate(result);
     }
