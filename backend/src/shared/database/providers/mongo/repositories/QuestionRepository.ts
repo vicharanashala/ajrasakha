@@ -37,13 +37,13 @@ import {
   GoldenDataViewType,
   ModeratorApprovalRate,
   QuestionStatusOverview,
-} from '#root/modules/core/classes/validators/DashboardValidators.js';
+} from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { promises } from 'dns';
 import { getReviewerQueuePosition } from '#root/utils/getReviewerQueuePosition.js';
 import {
   QuestionLevelResponse,
   ReviewLevelTimeValue,
-} from '#root/modules/core/classes/transformers/QuestionLevel.js';
+} from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { buildQuestionFilter } from '#root/utils/buildQuestionFilter.js';
 import {
   AllocatedQuestionsBodyDto,
@@ -330,11 +330,11 @@ export class QuestionRepository implements IQuestionRepository {
         consecutiveApprovals,
         autoAllocateFilter,
         sort,
+        closedInTwoHrs,
         hiddenQuestions,
         duplicateQuestions,
         isOnHold,
       } = query;
-
     //  const filter: any = {};
     const filter: any = {
       isHidden: { $ne: true }, // default to exclude hidden questions
@@ -546,6 +546,17 @@ export class QuestionRepository implements IQuestionRepository {
         }
 
         filter.closedAt = filterDate;
+      } 
+
+      if (closedInTwoHrs) {
+        // Filter for questions closed within 2 hours of creation
+        filter.status = 'closed';
+        filter.$expr = {
+          $lte: [
+            {$subtract: ['$closedAt', '$createdAt']},
+            2 * 60 * 60 * 1000, // 2 hours in milliseconds
+          ],
+        };
       }
 
       let questionIdsByUser: string[] | null = null;
@@ -575,9 +586,9 @@ export class QuestionRepository implements IQuestionRepository {
           let requiredSize = numericLevel + 1;
 
           // Special rule: Level 1 → history.length = 0
-          /*  if (numericLevel === 1) {
+            if (numericLevel === 0) {
       requiredSize = 0;
-    }*/
+    }
 
           const submissions = await this.QuestionSubmissionCollection.find({
             history: { $size: requiredSize },
@@ -1560,24 +1571,27 @@ export class QuestionRepository implements IQuestionRepository {
       await this.init();
       await this.ensureIndexes();
 
-      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      const now = new Date();
+      const twoHoursMs = 2 * 60 * 60 * 1000;
 
       // const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
 
       const result = await this.QuestionCollection.updateMany(
         {
-          status: { $nin: ['closed', 'in-review', 're-routed'] },
-          // createdAt: { $lte: fourHoursAgo },
-          $or: [
-            {
-              source: "AJRASAKHA",
-              createdAt: { $lte: twoHoursAgo },
-            },
-            {
-              source: { $ne: "AJRASAKHA" },
-              createdAt: { $lte: twoHoursAgo },
-            },
-          ],
+          status: { $nin: ['hold', 'delayed', 'in-review', 'closed', 're-routed'] },
+          isOnHold: { $ne: true },
+          $expr: {
+            $lte: [
+              {
+                $add: [
+                  '$createdAt',
+                  twoHoursMs,
+                  { $ifNull: ['$accumulatedHoldMs', 0] },
+                ],
+              },
+              now,
+            ],
+          },
         },
         { $set: { status: 'delayed' } },
       );

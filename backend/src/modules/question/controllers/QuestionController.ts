@@ -20,16 +20,16 @@ import {
   Res,
   UseBefore,
 } from 'routing-controllers';
-import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
-import {inject, injectable} from 'inversify';
-import {GLOBAL_TYPES} from '#root/types.js';
+import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
+import { inject, injectable } from 'inversify';
+import { GLOBAL_TYPES } from '#root/types.js';
 import {
   IQuestion,
   IQuestionSubmission,
   IUser,
   IcheckStatusResponseDto
 } from '#root/shared/interfaces/models.js';
-import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
+import { BadRequestErrorResponse } from '#shared/middleware/errorHandler.js';
 import {
   AddQuestionBodyDto,
   AllocatedQuestionsBodyDto,
@@ -52,8 +52,8 @@ import {
 } from '#root/workers/workerManager.js';
 import { ContextIdParam } from '#root/modules/context/classes/validators/ContextValidator.js';
 import { QuestionService } from '../services/QuestionService.js';
-import { UploadFileOptions } from '#root/modules/core/classes/validators/fileUploadOptions.js';
-import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
+import { UploadFileOptions } from '#root/modules/question/classes/validators/fileUploadOptions.js';
+import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
 import { InternalApiAuth } from '#root/shared/functions/internalApiAuth.js';
 
@@ -67,23 +67,23 @@ export class QuestionController {
   constructor(
     @inject(GLOBAL_TYPES.QuestionService)
     private readonly questionService: IQuestionService,
-  ) {}
+  ) { }
 
   @Get('/context/:contextId')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get questions by context ID'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  @OpenAPI({ summary: 'Get questions by context ID' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async getByContextId(@Params() params: ContextIdParam): Promise<IQuestion[]> {
-    const {contextId} = params;
+    const { contextId } = params;
     return this.questionService.getByContextId(contextId);
   }
 
   @Post('/allocated')
   @HttpCode(200)
-  @ResponseSchema(QuestionResponse, {isArray: true})
+  @ResponseSchema(QuestionResponse, { isArray: true })
   @Authorized()
-  @OpenAPI({summary: 'Get all open status questions'})
+  @OpenAPI({ summary: 'Get all open status questions' })
   async getAllocatedQuestions(
     @QueryParams()
     query: GetDetailedQuestionsQuery,
@@ -96,9 +96,9 @@ export class QuestionController {
 
   @Get('/allocated/page')
   @Authorized()
-  @OpenAPI({summary: 'Get particular question'})
+  @OpenAPI({ summary: 'Get particular question' })
   async getAllocatedQuestionPage(
-    @QueryParams() query: {questionId: string},
+    @QueryParams() query: { questionId: string },
     @CurrentUser() user: IUser,
   ) {
     return this.questionService.getAllocatedQuestionPage(
@@ -110,20 +110,20 @@ export class QuestionController {
   @Post('/detailed')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get detailed questions with advanced filters'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  @OpenAPI({ summary: 'Get detailed questions with advanced filters' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async getDetailedQuestions(
     @QueryParams() query: GetDetailedQuestionsQuery,
     @Body() body: DetailedQuestionsBodyDto,
-  ): Promise<{questions: IQuestion[]; totalPages: number}> {
+  ): Promise<{ questions: IQuestion[]; totalPages: number }> {
     return this.questionService.getDetailedQuestions(query, body);
   }
 
   @Post('/generate')
   @HttpCode(200)
-  @ResponseSchema(GeneratedQuestionResponse, {isArray: true})
+  @ResponseSchema(GeneratedQuestionResponse, { isArray: true })
   @Authorized()
-  @OpenAPI({summary: 'Generate questions from raw transcript'})
+  @OpenAPI({ summary: 'Generate questions from raw transcript' })
   async getQuestionFromRawContext(
     @Body() body: GenerateQuestionsBody,
   ): Promise<GeneratedQuestionResponse[]> {
@@ -132,18 +132,24 @@ export class QuestionController {
 
   @Post('/')
   @HttpCode(201)
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  @OpenAPI({summary: 'Add a new question (single or bulk upload)'})
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  @OpenAPI({ summary: 'Add a new question (single or bulk upload)' })
   async addQuestion(
-    @UploadedFile('file', {options: UploadFileOptions})
+    @UploadedFile('file', { options: UploadFileOptions })
     file: Express.Multer.File,
     @Body() body: AddQuestionBodyDto,
     @CurrentUser() user: IUser,
-  ): Promise<Partial<any> | {message: string}> {
+  ): Promise<Partial<any> | { message: string }> {
     const userId = user?._id?.toString();
 
     if (file) {
       let payload: any[] = [];
+      const isRequiredAiInitialAnswer =
+        body.isRequiredAiInitialAnswer === 'true';
+
+      const isOutreachQuestion =
+        body.isOutreachQuestion === 'true';
+
       try {
         const mimetype = file.mimetype;
         const filename = file.originalname.toLowerCase();
@@ -156,12 +162,12 @@ export class QuestionController {
           payload = JSON.parse(fileContent);
         } else if (
           mimetype ===
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
           mimetype === 'application/vnd.ms-excel' ||
           filename.endsWith('.xls') ||
           filename.endsWith('.xlsx')
         ) {
-          const workbook = XLSX.read(file.buffer, {type: 'buffer'});
+          const workbook = XLSX.read(file.buffer, { type: 'buffer' });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
           payload = XLSX.utils.sheet_to_json(worksheet);
@@ -181,10 +187,14 @@ export class QuestionController {
         const insertedIds = await this.questionService.createBulkQuestions(
           userId,
           payload,
+          isOutreachQuestion
         );
-        setImmediate(() => startBackgroundProcessing(insertedIds));
+        setImmediate(() => startBackgroundProcessing(insertedIds, isRequiredAiInitialAnswer));
         return {
-          message: `✅ ${insertedIds.length} questions have been uploaded successfully. The expert allocation process has been initiated.`,
+          message: `✅ Successfully uploaded ${insertedIds.length} question(s). The expert allocation process has been initiated.${isRequiredAiInitialAnswer
+              ? " AI-generated initial answers will be included for each question."
+              : ""
+            } Please allow some time for processing and allocation.`,
           insertedIds,
           isBulkUpload: !!file,
         };
@@ -194,11 +204,11 @@ export class QuestionController {
         );
       }
     } else {
-      console.log("the body coming=====",body)
-      
+      console.log("the body coming=====", body)
+
       const { isDuplicate, data } = await this.questionService.addQuestion(userId, body);
-      console.log("the duplicate coming====",isDuplicate)
-      console.log("the data coming=====",data)
+      console.log("the duplicate coming====", isDuplicate)
+      console.log("the data coming=====", data)
       if (isDuplicate) {
         return {
           success: true,
@@ -206,58 +216,58 @@ export class QuestionController {
           data,
         };
       }
-      
+
       return {
         success: true,
         message: 'Question submitted successfully.',
-        question_id:data._id
+        question_id: data._id
       };
     }
   }
   @Post('/reAllocateLessWorkload')
   @HttpCode(200)
- // @ResponseSchema(Object, {statusCode: 400})
-  @OpenAPI({summary: 'ReAllocating questions which are delayed to those who has less workload'})
+  // @ResponseSchema(Object, {statusCode: 400})
+  @OpenAPI({ summary: 'ReAllocating questions which are delayed to those who has less workload' })
   async reAllocateLessWorkload() {
-   try{
-   return await this.questionService.balanceWorkload()
+    try {
+      return await this.questionService.balanceWorkload()
 
-   }
-   catch (err: any) {
-    throw new BadRequestError(
-      err?.message || 'Failed to process uploaded file',
-    );
-    
-  }
+    }
+    catch (err: any) {
+      throw new BadRequestError(
+        err?.message || 'Failed to process uploaded file',
+      );
 
-    
-     
-   
+    }
+
+
+
+
   }
 
   @Get("/download-question-report")
   @Authorized()
   @ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-  @OpenAPI({summary: 'Download question report as Excel'})
+  @OpenAPI({ summary: 'Download question report as Excel' })
   async downloadQuestionReport(
     @QueryParams() query: { consecutiveApprovals?: string; startDate?: string; endDate?: string },
     @CurrentUser() user: IUser,
     @Res() response: any,
   ) {
     const userId = user._id.toString();
-    const consecutiveApprovals = query.consecutiveApprovals 
-      ? parseInt(query.consecutiveApprovals, 10) 
+    const consecutiveApprovals = query.consecutiveApprovals
+      ? parseInt(query.consecutiveApprovals, 10)
       : undefined;
-    
+
     const startDate = query.startDate ? new Date(query.startDate) : undefined;
     const endDate = query.endDate ? new Date(query.endDate) : undefined;
-    
+
     const data = await this.questionService.generateQuestionReport(consecutiveApprovals, startDate, endDate);
 
     if (!data) {
-      response.status(200).json({ 
-        success: false, 
-        message: "No data found for the selected filters" 
+      response.status(200).json({
+        success: false,
+        message: "No data found for the selected filters"
       });
       return;
     }
@@ -268,7 +278,7 @@ export class QuestionController {
   @Get("/download-overall-report")
   @Authorized()
   @ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-  @OpenAPI({summary: 'Download overall questions report by month as Excel'})
+  @OpenAPI({ summary: 'Download overall questions report by month as Excel' })
   async downloadOverallReport(
     @QueryParams() query: { startDate?: string; endDate?: string },
     @CurrentUser() user: IUser,
@@ -276,13 +286,13 @@ export class QuestionController {
   ) {
     const startDate = query.startDate ? new Date(query.startDate) : undefined;
     const endDate = query.endDate ? new Date(query.endDate) : undefined;
-    
+
     const data = await this.questionService.generateOverallQuestionReport(startDate, endDate);
 
     if (!data) {
-      response.status(200).json({ 
-        success: false, 
-        message: "No data found for the selected date range" 
+      response.status(200).json({
+        success: false,
+        message: "No data found for the selected date range"
       });
       return;
     }
@@ -293,15 +303,15 @@ export class QuestionController {
   @Get("/download-filtered-report")
   @Authorized()
   @ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-  @OpenAPI({summary: 'Download filtered questions report as Excel'})
+  @OpenAPI({ summary: 'Download filtered questions report as Excel' })
   async downloadFilteredReport(
-    @QueryParams() query: { 
-      state?: string; 
-      crop?: string; 
+    @QueryParams() query: {
+      state?: string;
+      crop?: string;
       normalised_crop?: string;
-      season?: string; 
-      domain?: string; 
-      status?: string; 
+      season?: string;
+      domain?: string;
+      status?: string;
       hiddenQuestions?: string;
       duplicateQuestions?: string;
     },
@@ -358,37 +368,37 @@ export class QuestionController {
   @Get('/:questionId/submission-exists')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Check if a submission exists for this question'})
+  @OpenAPI({ summary: 'Check if a submission exists for this question' })
   async checkSubmissionExists(
     @Params() params: QuestionIdParam,
-  ): Promise<{exists: boolean}> {
+  ): Promise<{ exists: boolean }> {
     const exists = await this.questionService.checkSubmissionExists(params.questionId);
-    return {exists};
+    return { exists };
   }
 
   @Get('/:questionId')
   @HttpCode(200)
   @Authorized()
   @ResponseSchema(QuestionResponse)
-  @OpenAPI({summary: 'Get selected question by ID'})
+  @OpenAPI({ summary: 'Get selected question by ID' })
   async getQuestionById(
     @Params() params: QuestionIdParam,
     @Body() updates: Partial<QuestionResponse>,
   ): Promise<QuestionResponse> {
-    const {questionId} = params;
+    const { questionId } = params;
     return this.questionService.getQuestionById(questionId);
   }
 
   @Get('/:questionId/full')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get full details of selected question by ID'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  @OpenAPI({ summary: 'Get full details of selected question by ID' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async getQuestionFull(
     @Params() params: QuestionIdParam,
     @CurrentUser() user: IUser,
   ) {
-    const {questionId} = params;
+    const { questionId } = params;
     const userId = user._id.toString();
     const question = await this.questionService.getQuestionFullData(
       questionId,
@@ -399,33 +409,33 @@ export class QuestionController {
       throw new NotFoundError(`Question with id ${questionId} not found`);
     }
 
-    return {success: true, data: question};
+    return { success: true, data: question };
   }
 
   @Patch('/:questionId/toggle-auto-allocate')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Toggle auto-allocate option for the selected question'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async toggleAutoAllocate(@Params() params: QuestionIdParam,@CurrentUser() user: IUser,) {
-    console.log("the current user===",user)
-    const {questionId} = params;
+  @OpenAPI({ summary: 'Toggle auto-allocate option for the selected question' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  async toggleAutoAllocate(@Params() params: QuestionIdParam, @CurrentUser() user: IUser,) {
+    console.log("the current user===", user)
+    const { questionId } = params;
     return await this.questionService.toggleAutoAllocate(questionId);
   }
 
   @Post('/:questionId/allocate-experts')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Manually allocate experts to a selected question'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  @OpenAPI({ summary: 'Manually allocate experts to a selected question' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async allocateExperts(
     @Params() params: QuestionIdParam,
     @Body() body: AllocateExpertsRequest,
     @CurrentUser() user: IUser,
   ) {
-    const {_id: userId} = user;
-    const {questionId} = params;
-    const {experts} = body;
+    const { _id: userId } = user;
+    const { questionId } = params;
+    const { experts } = body;
     return await this.questionService.allocateExperts(
       userId.toString(),
       questionId,
@@ -436,28 +446,28 @@ export class QuestionController {
   @Put('/:questionId')
   @HttpCode(200)
   @Authorized()
-  @ResponseSchema(QuestionResponse, {isArray: true})
-  @OpenAPI({summary: 'Update a question by ID'})
+  @ResponseSchema(QuestionResponse, { isArray: true })
+  @OpenAPI({ summary: 'Update a question by ID' })
   async updateQuestion(
     @Params() params: QuestionIdParam,
     @Body() updates: Partial<IQuestion>,
-  ): Promise<{modifiedCount: number}> {
-    const {questionId} = params;
+  ): Promise<{ modifiedCount: number }> {
+    const { questionId } = params;
     return this.questionService.updateQuestion(questionId, updates);
   }
 
   @Delete('/:questionId/allocation')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Remove an allocation from a question by ID'})
+  @OpenAPI({ summary: 'Remove an allocation from a question by ID' })
   async removeAllocation(
     @Params() params: QuestionIdParam,
     @Body() body: RemoveAllocateBody,
     @CurrentUser() user: IUser,
   ): Promise<IQuestionSubmission> {
-    const {_id: userId} = user;
-    const {questionId} = params;
-    const {index} = body;
+    const { _id: userId } = user;
+    const { questionId } = params;
+    const { index } = body;
     return this.questionService.removeExpertFromQueue(
       userId.toString(),
       questionId,
@@ -468,22 +478,22 @@ export class QuestionController {
   @Delete('/bulk')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Bulk delete questions'})
+  @OpenAPI({ summary: 'Bulk delete questions' })
   async bulkDeleteQuestions(
     @Body() body: BulkDeleteQuestionDto,
-  ): Promise<{deletedCount: number}> {
-    const {questionIds} = body;
+  ): Promise<{ deletedCount: number }> {
+    const { questionIds } = body;
     return this.questionService.bulkDeleteQuestions(questionIds);
   }
 
   @Delete('/:questionId')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Delete a question by ID'})
+  @OpenAPI({ summary: 'Delete a question by ID' })
   async deleteQuestion(
     @Params() params: QuestionIdParam,
-  ): Promise<{deletedCount: number}> {
-    const {questionId} = params;
+  ): Promise<{ deletedCount: number }> {
+    const { questionId } = params;
     return this.questionService.deleteQuestion(questionId);
   }
 
@@ -491,9 +501,9 @@ export class QuestionController {
   @HttpCode(200)
   @Authorized()
   @ResponseSchema(QuestionResponse)
-  @OpenAPI({summary: 'Get all questions and review levels'})
+  @OpenAPI({ summary: 'Get all questions and review levels' })
   async getQuestionsAndReviewlevel(
-     @QueryParams() query: GetDetailedQuestionsQuery
+    @QueryParams() query: GetDetailedQuestionsQuery
   ): Promise<QuestionLevelResponse> {
     return this.questionService.getQuestionAndReviewLevel(query);
   }
@@ -506,7 +516,7 @@ export class QuestionController {
   @Get('/:id')
   getJob(@Param('id') id: string) {
     const job = getJobById(id);
-    if (!job) return {message: 'Job not found'};
+    if (!job) return { message: 'Job not found' };
     return job;
   }
 
@@ -530,40 +540,40 @@ export class QuestionController {
 
   @Post('/data/out-reach/date')
   @HttpCode(200)
-// @Authorized()
+  // @Authorized()
   @OpenAPI({ summary: 'Send Ajrasakha Questions via Email' })
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async outreachQuestions(
-  @Body() body: DateRangeRequest,
-  @CurrentUser() user: IUser,
-) {
-  try {
-    const { startDate, endDate, emails } = body;
+    @Body() body: DateRangeRequest,
+    @CurrentUser() user: IUser,
+  ) {
+    try {
+      const { startDate, endDate, emails } = body;
 
 
-    const result = await this.questionService.sendOutReachQuestionsMail(
-      startDate,
-      endDate,
-      emails,
-    );
+      const result = await this.questionService.sendOutReachQuestionsMail(
+        startDate,
+        endDate,
+        emails,
+      );
 
-    return result;
-  } catch (error) {
-    console.error('Error in outreachQuestions controller:', error);
-    throw error;
+      return result;
+    } catch (error) {
+      console.error('Error in outreachQuestions controller:', error);
+      throw error;
+    }
   }
-}
 
-@Get('/:questionId/chatbot')
+  @Get('/:questionId/chatbot')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get full chatbot details of selected question by ID'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  @OpenAPI({ summary: 'Get full chatbot details of selected question by ID' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async getChatbotDetails(
     @Params() params: QuestionIdParam,
     @CurrentUser() user: IUser,
   ) {
-    const {questionId} = params;
+    const { questionId } = params;
     const userId = user._id.toString();
     const data = await this.questionService.getMatchedQuestion(
       questionId,
@@ -574,46 +584,48 @@ export class QuestionController {
       throw new NotFoundError(`Question with id ${questionId} not found`);
     }
 
-    return {success: true, data: {
+    return {
+      success: true, data: {
         messageId: data.messageId,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
         user: data.user,
         content: data.content,
-    }};
+      }
+    };
   }
 
-    @Post('/check-status')
-    @HttpCode(200)
-    @UseBefore(InternalApiAuth)
-    @OpenAPI({ summary: 'Check status of multiple questions' })
-    @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
-    async checkStatus(
-      @Body() body: { question_ids: string[] },
-    ) :Promise<IcheckStatusResponseDto>{
-      const { question_ids } = body;
+  @Post('/check-status')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Check status of multiple questions' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  async checkStatus(
+    @Body() body: { question_ids: string[] },
+  ): Promise<IcheckStatusResponseDto> {
+    const { question_ids } = body;
 
-      if (!question_ids || !Array.isArray(question_ids)) {
-        throw new BadRequestError('question_ids must be an array');
-      }
-      const results = await this.questionService.checkStatus(
-        question_ids
-      );
-      return {
-        success: true,
-        data: results,
-      };
+    if (!question_ids || !Array.isArray(question_ids)) {
+      throw new BadRequestError('question_ids must be an array');
     }
+    const results = await this.questionService.checkStatus(
+      question_ids
+    );
+    return {
+      success: true,
+      data: results,
+    };
+  }
 
   @Patch('/:questionId/hold')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'To hold the question for some time'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async holdQuestion(@Params() params: QuestionIdParam,@CurrentUser() user: IUser, @Body() body: { action: "hold" | "unhold" }) {
-    const {questionId} = params;
-    const {action} = body
-    return await this.questionService.holdQuestion(questionId,user._id.toString(),action);
+  @OpenAPI({ summary: 'To hold the question for some time' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  async holdQuestion(@Params() params: QuestionIdParam, @CurrentUser() user: IUser, @Body() body: { action: "hold" | "unhold" }) {
+    const { questionId } = params;
+    const { action } = body
+    return await this.questionService.holdQuestion(questionId, user._id.toString(), action);
   }
 
 }

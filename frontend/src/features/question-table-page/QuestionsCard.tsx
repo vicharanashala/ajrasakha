@@ -1,5 +1,6 @@
 import type { IDetailedQuestion, QuestionStatus, UserRole } from "@/types";
 import React, { useMemo, useState } from "react";
+import { buildHoldCountdownOptions } from "@/hooks/ui/useCountdown";
 import { useQuestionClickability } from "@/hooks/ui/useQuestionClickability";
 import { Badge } from "../../components/atoms/badge";
 import { TimerDisplay } from "../../components/timer-display";
@@ -79,7 +80,12 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   const { timer, isClickable } = useQuestionClickability(
-    q.source, q.createdAt, uploadedQuestionsCount, userRole, isBulkUpload
+    q.source,
+    q.createdAt,
+    uploadedQuestionsCount,
+    userRole,
+    isBulkUpload,
+    buildHoldCountdownOptions(q)
   );
 
   const statusBadge = useMemo(() => {
@@ -202,7 +208,11 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
           </h3>
           <div className="mt-1 h-5 flex items-center">
             {/* <TimerDisplay timer={timer} status={q.status} /> */}
-            <TimerDisplay timer={timer} status={q.status} source={q.source} />
+            <TimerDisplay
+              timer={timer}
+              status={q.status}
+              source={q.source}
+            />
           </div>
         </div>
 

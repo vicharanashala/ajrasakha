@@ -19,7 +19,7 @@ import {
   AnalyticsItem,
   AnswerStatusOverview,
   ModeratorApprovalRate,
-} from '#root/modules/core/classes/validators/DashboardValidators.js';
+} from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { SubmissionResponse } from '#root/modules/answer/classes/validators/AnswerValidator.js';
 
 export class AnswerRepository implements IAnswerRepository {

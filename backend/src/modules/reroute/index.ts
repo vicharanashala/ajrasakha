@@ -9,11 +9,11 @@ import {ANSWER_VALIDATORS} from './classes/validators/AnswerValidators.js';
 import {CONTEXT_VALIDATORS} from './classes/validators/ContextValidators.js';
 import {COMMENT_VALIDATORS} from './classes/validators/CommentValidators.js';
 
-import {USER_VALIDATORS} from './classes/validators/UserValidators.js';
+import {USER_VALIDATORS} from '../user/validators/UserValidators.js';
 
 import { REQUEST_VALIDATORS } from './classes/validators/RequestValidators.js';
 
-import { NOTIFICATION_VALIDATORS } from './classes/validators/NotificationValidators.js';
+import { NOTIFICATION_VALIDATORS } from '../notification/validators/NotificationValidators.js';
 
 import {ReRouteController} from './controllers/ReRouteController.js'
 

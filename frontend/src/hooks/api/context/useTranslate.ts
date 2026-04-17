@@ -6,14 +6,14 @@ export function useTranslate() {
   const [error, setError] = useState<string | null>(null);
 
   const translate = useCallback(
-    async (text: string, targetLang: string) => {
+    async (text: string, targetLang: string, sourceLang?: string) => {
       if (!text.trim()) return null;
 
       setLoading(true);
       setError(null);
 
       try {
-        const translatedText = await translateService(text, targetLang);
+        const translatedText = await translateService(text, targetLang, sourceLang);
         return translatedText;
       } catch (err) {
         setError("Failed to translate. Please try again.");

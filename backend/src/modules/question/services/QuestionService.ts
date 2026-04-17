@@ -31,7 +31,7 @@ import { INotificationRepository } from '#root/shared/database/interfaces/INotif
 import { notifyUser } from '#root/utils/pushNotification.js';
 import { normalizeKeysToLower } from '#root/utils/normalizeKeysToLower.js';
 import { appConfig } from '#root/config/app.js';
-import { AiService } from '#root/modules/core/services/AiService.js';
+import { AiService } from '#root/modules/ai/services/AiService.js';
 import {
   AddQuestionBodyDto,
   AllocatedQuestionsBodyDto,
@@ -40,9 +40,9 @@ import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '../classes/validators/QuestionVaidators.js';
-import { PreferenceDto } from '#root/modules/core/classes/validators/UserValidators.js';
-import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
-import { NotificationService } from '#root/modules/core/services/NotificationService.js';
+import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
+import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
+import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
 import { isToday } from '#root/utils/date.utils.js';
@@ -109,6 +109,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async createBulkQuestions(
     userId: string,
     questions: any[],
+    isOutreachQuestion?: boolean
   ): Promise<string[]> {
     if (!Array.isArray(questions) || questions.length === 0) {
       throw new BadRequestError('No questions provided for bulk insert');
@@ -174,7 +175,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
         question: questionText,
         priority,
-        source: (low.source || 'AGRI_EXPERT') as IQuestion['source'],
+        source: isOutreachQuestion ? "OUTREACH" : (low.source || 'AGRI_EXPERT') as IQuestion['source'],
         status: 'open',
         totalAnswersCount: 0,
         contextId: null,
@@ -991,7 +992,9 @@ export class QuestionService extends BaseService implements IQuestionService {
               agri_specialist: item.source || "AGRI_EXPERT",
               referenceSource: "reviewer",
               score: item.score * 100,
-              id: item.id  // preserve the real reviewer question _id
+              id: item.id
+              ? new ObjectId(String(item.id))
+              : new ObjectId()  // preserve the real reviewer question _id
             })),
 
             ...(questions.golden || []).map((item: any) => ({
@@ -1000,7 +1003,9 @@ export class QuestionService extends BaseService implements IQuestionService {
               agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
               referenceSource: "golden",
               score: item.score * 100,
-              id: item.id ? item.id : new ObjectId().toString()
+              id: item.id
+              ? new ObjectId(String(item.id))
+              : new ObjectId()
             })),
 
 
@@ -2292,6 +2297,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
       await this.requestRepository.deleteByEntityId(questionId, activeSession);
 
+      // Delete duplicate question records referencing this question
+      await this.duplicateQuestionRepository.deleteByReferenceQuestionId(questionId, activeSession);
+
       // Finally, delete the question itself
       return this.questionRepo.deleteQuestion(questionId, activeSession);
     };
@@ -3380,22 +3388,22 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new Error('Question not found');
     }
 
-  const { question, details, createdAt} = questionData;
+    const { question, details, createdAt } = questionData;
 
-  const [analyticsMessages, annamMessages] = await Promise.all([
-    this.chatbotRepository.findMatchingMessages({
-      question,
-      details,
-      createdAt,
-      questionId: questionId.toString(),
-    }),
-     this.chatbotRepository.findFromSecondDb({
-      question,
-      details,
-      createdAt,
-      questionId: questionId.toString(),
-    }),
-  ]);
+    const [analyticsMessages, annamMessages] = await Promise.all([
+      this.chatbotRepository.findMatchingMessages({
+        question,
+        details,
+        createdAt,
+        questionId: questionId.toString(),
+      }),
+      this.chatbotRepository.findFromSecondDb({
+        question,
+        details,
+        createdAt,
+        questionId: questionId.toString(),
+      }),
+    ]);
 
 
 
@@ -3440,30 +3448,54 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   async holdQuestion(questionId: string, userId: string, action: "hold" | "unhold"): Promise<{ id: string }> {
     return await this._withTransaction(async session => {
+      if (action === "unhold") {
+        const question = await this.questionRepo.getById(questionId, session);
+        if (!question) {
+          throw new NotFoundError('Question not found');
+        }
+        const user = await this.userRepo.findById(userId, session);
+        if (!user || user.role == 'expert') {
+          throw new ForbiddenError('Only moderators or Admins can unhold questions');
+        }
+        if (!question.isOnHold) {
+          throw new BadRequestError('Question is not on hold');
+        }
+        const prevAccum = question.accumulatedHoldMs ?? 0;
+        let segmentMs = 0;
+        if (question.holdAt) {
+          segmentMs = Math.max(0, Date.now() - new Date(question.holdAt).getTime());
+        }
+        await this.questionRepo.updateQuestion(
+          questionId,
+          {
+            isOnHold: false,
+            status: 'open',
+            accumulatedHoldMs: prevAccum + segmentMs,
+            holdAt: null,
+          },
+          session,
+        );
+        return { id: questionId }
+      }
+      const user = await this.userRepo.findById(userId, session);
+      if (user.role == 'expert') {
+        throw new ForbiddenError('Only moderators can hold questions');
+      }
 
       const question = await this.questionRepo.getById(questionId, session);
       if (!question) {
         throw new NotFoundError('Question not found');
       }
-      const user = await this.userRepo.findById(userId, session);
-      if (!user || user.role == 'expert') {
-        throw new ForbiddenError('Only moderators or Admins can unhold questions');
-      }
 
-      if(question.status === 'closed'){
+      if (question.status === 'closed') {
         throw new BadRequestError('Question is already closed');
       }
-      if (action === "unhold") {
-        await this.questionRepo.updateQuestion(questionId, { isOnHold: false }, session)
-        return { id: questionId }
-      }
-      
       const submission = await this.questionSubmissionRepo.getByQuestionId(questionId, session);
       if (!submission) {
         throw new NotFoundError('Question submission not found');
       }
       await this._handleSubmissionOnHold(submission, session);
-      await this.questionRepo.updateQuestion(questionId, { isOnHold: true, isAutoAllocate: false }, session)
+      await this.questionRepo.updateQuestion(questionId, { isOnHold: true, isAutoAllocate: false, status: 'hold', holdAt: new Date() }, session)
       return { id: questionId }
     })
   }
