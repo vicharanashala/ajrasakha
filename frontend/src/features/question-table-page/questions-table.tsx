@@ -389,16 +389,68 @@ export const QuestionsTable = ({
                     <TableHead className="text-center">Source</TableHead>
                   )} */}
                   {visibleColumns.status && (
-                    <TableHead className="text-center">Status</TableHead>
+                    <TableHead className="text-center">
+                      <button
+                        onClick={() => onSort?.("status")}
+                        className="flex items-center gap-1 mx-auto select-none"
+                      >
+                        Status
+                        {sort === "status_asc" && (
+                          <span className="text-sm font-medium">↑</span>
+                        )}
+                        {sort === "status_desc" && (
+                          <span className="text-sm font-medium">↓</span>
+                        )}
+                      </button>
+                    </TableHead>
                   )}
                   {visibleColumns.answers && (
-                    <TableHead className="text-center">Answers</TableHead>
+                    <TableHead className="text-center">
+                      <button
+                        onClick={() => onSort?.("answers")}
+                        className="flex items-center gap-1 mx-auto select-none"
+                      >
+                        Answers
+                        {sort === "answers_asc" && (
+                          <span className="text-sm font-medium">↑</span>
+                        )}
+                        {sort === "answers_desc" && (
+                          <span className="text-sm font-medium">↓</span>
+                        )}
+                      </button>
+                    </TableHead>
                   )}
                   {visibleColumns.review_level && (
-                    <TableHead className="text-center">Review Level</TableHead>
+                    <TableHead className="text-center">
+                      <button
+                        onClick={() => onSort?.("review_level")}
+                        className="flex items-center gap-1 mx-auto select-none"
+                      >
+                        Review Level
+                        {sort === "review_level_asc" && (
+                          <span className="text-sm font-medium">↑</span>
+                        )}
+                        {sort === "review_level_desc" && (
+                          <span className="text-sm font-medium">↓</span>
+                        )}
+                      </button>
+                    </TableHead>
                   )}
                   {!showClosedAt && visibleColumns.created ? (
-                    <TableHead className="text-center">Created</TableHead>
+                    <TableHead className="text-center">
+                      <button
+                        onClick={() => onSort?.("created")}
+                        className="flex items-center gap-1 mx-auto select-none"
+                      >
+                        Created
+                        {sort === "created_asc" && (
+                          <span className="text-sm font-medium">↑</span>
+                        )}
+                        {sort === "created_desc" && (
+                          <span className="text-sm font-medium">↓</span>
+                        )}
+                      </button>
+                    </TableHead>
                   ) : null}
                   {showClosedAt && visibleColumns.closed ? (
                     <TableHead className="text-center">Closed</TableHead>

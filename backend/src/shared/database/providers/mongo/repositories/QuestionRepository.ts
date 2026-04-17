@@ -772,9 +772,12 @@ export class QuestionRepository implements IQuestionRepository {
       // Determine sort order
       let sortStage: any = { statusOrder: 1, createdAt: -1, _id: -1 };
       let needsPriorityMapping = false;
+      let needsReviewLevelSort = false;
 
       if (sort) {
-        const [field, order] = sort.split('_');
+        const lastUnderscore = sort.lastIndexOf('_');
+        const field = lastUnderscore === -1 ? sort : sort.slice(0, lastUnderscore);
+        const order = lastUnderscore === -1 ? 'desc' : sort.slice(lastUnderscore + 1);
         const sortOrder = order === 'asc' ? 1 : -1;
 
         if (field === 'question') {
@@ -788,6 +791,15 @@ export class QuestionRepository implements IQuestionRepository {
         } else if (field === 'priority') {
           needsPriorityMapping = true;
           sortStage = { statusOrder: 1, priorityOrder: sortOrder, _id: -1 };
+        } else if (field === 'status') {
+          sortStage = { statusOrder: sortOrder, _id: -1 };
+        } else if (field === 'answers') {
+          sortStage = { statusOrder: 1, totalAnswersCount: sortOrder, _id: -1 };
+        } else if (field === 'created') {
+          sortStage = { statusOrder: 1, createdAt: sortOrder, _id: -1 };
+        } else if (field === 'review_level') {
+          needsReviewLevelSort = true;
+          sortStage = { statusOrder: 1, review_level_sort_value: sortOrder, _id: -1 };
         }
       }
 
@@ -806,13 +818,22 @@ export class QuestionRepository implements IQuestionRepository {
 
       const aggregationPipeline: any[] = [
         { $match: filter },
-        { 
-          $addFields: { 
-            statusOrder: { 
-              $cond: { if: { $eq: [{ $toLower: '$status' }, 'closed'] }, then: 1, else: 0 } 
-            } 
-          } 
-        }
+        {
+          $addFields: {
+            statusOrder: {
+              $switch: {
+                branches: [
+                  { case: { $eq: [{ $toLower: '$status' }, 'open'] }, then: 1 },
+                  { case: { $eq: [{ $toLower: '$status' }, 'delayed'] }, then: 2 },
+                  { case: { $eq: [{ $toLower: '$status' }, 're-routed'] }, then: 3 },
+                  { case: { $eq: [{ $toLower: '$status' }, 'in-review'] }, then: 4 },
+                  { case: { $eq: [{ $toLower: '$status' }, 'closed'] }, then: 5 },
+                ],
+                default: 6,
+              },
+            },
+          },
+        },
       ];
 
       // Add priority mapping if needed
@@ -831,6 +852,45 @@ export class QuestionRepository implements IQuestionRepository {
             },
           },
         });
+      }
+
+      if (needsReviewLevelSort) {
+        aggregationPipeline.push(
+          {
+            $lookup: {
+              from: 'question_submissions',
+              localField: '_id',
+              foreignField: 'questionId',
+              as: 'submissionData',
+            },
+          },
+          {
+            $addFields: {
+              review_level_sort_value: {
+                $let: {
+                  vars: {
+                    len: {
+                      $cond: {
+                        if: { $gt: [{ $size: '$submissionData' }, 0] },
+                        then: {
+                          $size: { $arrayElemAt: ['$submissionData.history', 0] },
+                        },
+                        else: 0,
+                      },
+                    },
+                  },
+                  in: {
+                    $cond: {
+                      if: { $lte: ['$$len', 1] },
+                      then: 0,
+                      else: { $subtract: ['$$len', 1] },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        );
       }
 
       aggregationPipeline.push(
@@ -904,6 +964,7 @@ export class QuestionRepository implements IQuestionRepository {
             embedding: 0,
             contextDoc: 0,
             priorityOrder: 0,
+            review_level_sort_value: 0,
           },
         },
       ]).toArray();
