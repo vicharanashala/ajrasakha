@@ -3,6 +3,7 @@ import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
 import { TimerDisplay } from "@/components/timer-display";
 import { formatDate } from "@/utils/formatDate";
+import { buildHoldCountdownOptions } from "@/hooks/ui/useCountdown";
 import { useQuestionTimer } from "@/hooks/ui/useQuestionTimer";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { useState } from "react";
@@ -20,7 +21,11 @@ interface QuestionHeaderProps {
 export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocatedToExpert }: QuestionHeaderProps) => {
   //translation state
   const [translatedText, setTranslatedText] = useState<string>("");
-  const { timer } = useQuestionTimer(question.source, question.createdAt!);
+  const { timer } = useQuestionTimer(
+    question.source,
+    question.createdAt!,
+    buildHoldCountdownOptions(question)
+  );
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     type: "hold" | "unhold";

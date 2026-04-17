@@ -115,7 +115,7 @@ export class ChatbotRepository implements IChatbotRepository {
             )
             .toArray(),
 
-          // Avg session duration from conversations
+          // Avg session duration from conversations (original logic — untouched)
           this.conversations
             .aggregate(
               [
@@ -233,6 +233,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const since = new Date();
       since.setDate(since.getDate() - weeks * 7);
 
+      // Original logic — untouched
       const result = await this.conversations
         .aggregate(
           [
@@ -690,6 +691,165 @@ export class ChatbotRepository implements IChatbotRepository {
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get user details: ${error}`);
+    }
+  }
+
+  // ── NEW: Inactivity-gap based avg session duration (KPI number) ──────────────
+  // Uses the messages collection instead of conversations.
+  // For each conversation: sums only the gaps between consecutive messages that
+  // are ≤ 30 minutes. Gaps > 30 min are treated as the user being away and are
+  // excluded. Single-message conversations are also excluded.
+  // Requires MongoDB 5.0+ ($setWindowFields).
+  async getAvgSessionDurationV2(source = 'vicharanashala', session?: ClientSession): Promise<number> {
+    try {
+      await this.init(source);
+
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            {$sort: {conversationId: 1, createdAt: 1}},
+            {
+              $setWindowFields: {
+                partitionBy: '$conversationId',
+                sortBy: {createdAt: 1},
+                output: {
+                  prevCreatedAt: {$shift: {output: '$createdAt', by: -1}},
+                },
+              },
+            },
+            {
+              $addFields: {
+                gapMs: {
+                  $cond: [
+                    {$ifNull: ['$prevCreatedAt', false]},
+                    {$subtract: ['$createdAt', '$prevCreatedAt']},
+                    0,
+                  ],
+                },
+              },
+            },
+            // Discard gaps > 30 minutes (1,800,000 ms) — user was idle/away
+            {
+              $addFields: {
+                activeGapMs: {
+                  $cond: [{$lte: ['$gapMs', 1800000]}, '$gapMs', 0],
+                },
+              },
+            },
+            {
+              $group: {
+                _id: '$conversationId',
+                activeSessionMs: {$sum: '$activeGapMs'},
+                msgCount: {$sum: 1},
+              },
+            },
+            // Skip conversations with only 1 message — no gaps, nothing to measure
+            {$match: {msgCount: {$gt: 1}}},
+            {$group: {_id: null, avg: {$avg: '$activeSessionMs'}}},
+          ],
+          {session},
+        )
+        .toArray();
+
+      const avgMs = result[0]?.avg ?? 0;
+      return Math.round((avgMs / 60000) * 10) / 10;
+    } catch (error) {
+      throw new InternalServerError(`Failed to get avg session duration v2: ${error}`);
+    }
+  }
+
+  // ── NEW: Inactivity-gap based weekly avg session duration (sparkline/delta) ──
+  // Same gap-detection logic as getAvgSessionDurationV2, but groups results by
+  // ISO week (based on the first message of each conversation) so the frontend
+  // can render the sparkline and week-over-week % delta.
+  async getWeeklyAvgSessionDurationV2(weeks = 52, source = 'vicharanashala', session?: ClientSession): Promise<WeeklySessionDurationEntry[]> {
+    try {
+      await this.init(source);
+
+      const since = new Date();
+      since.setDate(since.getDate() - weeks * 7);
+
+      const result = await this.messagesCollection
+        .aggregate(
+          [
+            {$match: {createdAt: {$gte: since}}},
+            {$sort: {conversationId: 1, createdAt: 1}},
+            {
+              $setWindowFields: {
+                partitionBy: '$conversationId',
+                sortBy: {createdAt: 1},
+                output: {
+                  prevCreatedAt: {$shift: {output: '$createdAt', by: -1}},
+                  firstMsgInConv: {
+                    $first: '$createdAt',
+                    window: {documents: ['unbounded', 'current']},
+                  },
+                },
+              },
+            },
+            {
+              $addFields: {
+                gapMs: {
+                  $cond: [
+                    {$ifNull: ['$prevCreatedAt', false]},
+                    {$subtract: ['$createdAt', '$prevCreatedAt']},
+                    0,
+                  ],
+                },
+              },
+            },
+            // Discard gaps > 30 minutes (1,800,000 ms) — user was idle/away
+            {
+              $addFields: {
+                activeGapMs: {
+                  $cond: [{$lte: ['$gapMs', 1800000]}, '$gapMs', 0],
+                },
+              },
+            },
+            {
+              $group: {
+                _id: '$conversationId',
+                activeSessionMs: {$sum: '$activeGapMs'},
+                firstMsg: {$min: '$firstMsgInConv'},
+                msgCount: {$sum: 1},
+              },
+            },
+            {$match: {msgCount: {$gt: 1}}},
+            {
+              $addFields: {
+                week: {
+                  $dateToString: {
+                    format: '%G-W%V',
+                    date: '$firstMsg',
+                    timezone: '+05:30',
+                  },
+                },
+              },
+            },
+            {
+              $group: {
+                _id: '$week',
+                avgDurationMs: {$avg: '$activeSessionMs'},
+              },
+            },
+            {
+              $project: {
+                week: '$_id',
+                avgSessionDurationMin: {
+                  $round: [{$divide: ['$avgDurationMs', 60000]}, 1],
+                },
+                _id: 0,
+              },
+            },
+            {$sort: {week: 1}},
+          ],
+          {session},
+        )
+        .toArray();
+
+      return result as WeeklySessionDurationEntry[];
+    } catch (error) {
+      throw new InternalServerError(`Failed to get weekly avg session duration v2: ${error}`);
     }
   }
 }

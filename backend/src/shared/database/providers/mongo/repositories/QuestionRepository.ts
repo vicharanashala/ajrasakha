@@ -37,13 +37,13 @@ import {
   GoldenDataViewType,
   ModeratorApprovalRate,
   QuestionStatusOverview,
-} from '#root/modules/core/classes/validators/DashboardValidators.js';
+} from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { promises } from 'dns';
 import { getReviewerQueuePosition } from '#root/utils/getReviewerQueuePosition.js';
 import {
   QuestionLevelResponse,
   ReviewLevelTimeValue,
-} from '#root/modules/core/classes/transformers/QuestionLevel.js';
+} from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { buildQuestionFilter } from '#root/utils/buildQuestionFilter.js';
 import {
   AllocatedQuestionsBodyDto,
@@ -330,11 +330,11 @@ export class QuestionRepository implements IQuestionRepository {
         consecutiveApprovals,
         autoAllocateFilter,
         sort,
+        closedInTwoHrs,
         hiddenQuestions,
         duplicateQuestions,
         isOnHold,
       } = query;
-
     //  const filter: any = {};
     const filter: any = {
       isHidden: { $ne: true }, // default to exclude hidden questions
@@ -546,6 +546,17 @@ export class QuestionRepository implements IQuestionRepository {
         }
 
         filter.closedAt = filterDate;
+      } 
+
+      if (closedInTwoHrs) {
+        // Filter for questions closed within 2 hours of creation
+        filter.status = 'closed';
+        filter.$expr = {
+          $lte: [
+            {$subtract: ['$closedAt', '$createdAt']},
+            2 * 60 * 60 * 1000, // 2 hours in milliseconds
+          ],
+        };
       }
 
       let questionIdsByUser: string[] | null = null;
@@ -575,9 +586,9 @@ export class QuestionRepository implements IQuestionRepository {
           let requiredSize = numericLevel + 1;
 
           // Special rule: Level 1 → history.length = 0
-          /*  if (numericLevel === 1) {
+            if (numericLevel === 0) {
       requiredSize = 0;
-    }*/
+    }
 
           const submissions = await this.QuestionSubmissionCollection.find({
             history: { $size: requiredSize },
@@ -713,7 +724,14 @@ export class QuestionRepository implements IQuestionRepository {
               score: { $meta: 'vectorSearchScore' },
             },
           },
-          { $sort: { score: -1 } },
+          {
+            $addFields: {
+              statusOrder: {
+                $cond: { if: { $eq: [{ $toLower: '$status' }, 'closed'] }, then: 1, else: 0 }
+              }
+            }
+          },
+          { $sort: { statusOrder: 1, score: -1 } },
           { $skip: (page - 1) * limit },
           { $limit: limit },
         ];
@@ -752,7 +770,7 @@ export class QuestionRepository implements IQuestionRepository {
       const totalPages = Math.ceil(totalCount / limit);
 
       // Determine sort order
-      let sortStage: any = { createdAt: -1, _id: -1 };
+      let sortStage: any = { statusOrder: 1, createdAt: -1, _id: -1 };
       let needsPriorityMapping = false;
 
       if (sort) {
@@ -760,16 +778,16 @@ export class QuestionRepository implements IQuestionRepository {
         const sortOrder = order === 'asc' ? 1 : -1;
 
         if (field === 'question') {
-          sortStage = { question: sortOrder, _id: -1 };
+          sortStage = { statusOrder: 1, question: sortOrder, _id: -1 };
         } else if (field === 'state') {
-          sortStage = { 'details.state': sortOrder, _id: -1 };
+          sortStage = { statusOrder: 1, 'details.state': sortOrder, _id: -1 };
         } else if (field === 'crop') {
-          sortStage = { 'details.crop': sortOrder, _id: -1 };
+          sortStage = { statusOrder: 1, 'details.crop': sortOrder, _id: -1 };
         } else if (field === 'domain') {
-          sortStage = { 'details.domain': sortOrder, _id: -1 };
+          sortStage = { statusOrder: 1, 'details.domain': sortOrder, _id: -1 };
         } else if (field === 'priority') {
           needsPriorityMapping = true;
-          sortStage = { priorityOrder: sortOrder, _id: -1 };
+          sortStage = { statusOrder: 1, priorityOrder: sortOrder, _id: -1 };
         }
       }
 
@@ -788,6 +806,13 @@ export class QuestionRepository implements IQuestionRepository {
 
       const aggregationPipeline: any[] = [
         { $match: filter },
+        { 
+          $addFields: { 
+            statusOrder: { 
+              $cond: { if: { $eq: [{ $toLower: '$status' }, 'closed'] }, then: 1, else: 0 } 
+            } 
+          } 
+        }
       ];
 
       // Add priority mapping if needed
@@ -1530,9 +1555,12 @@ export class QuestionRepository implements IQuestionRepository {
       }
 
       // 9 Final assembled question
+      const { aiApprovedAnswer, aiInitialAnswer, ...rest } = question;
+      
       const result = {
         ...{
-          ...question,
+          ...rest,
+          aiInitialAnswer:aiInitialAnswer && aiInitialAnswer.trim() ? aiInitialAnswer : aiApprovedAnswer,
           contextId: question.contextId?.toString(),
           isAutoAllocate: question.isAutoAllocate ?? true,
         },
@@ -1557,24 +1585,27 @@ export class QuestionRepository implements IQuestionRepository {
       await this.init();
       await this.ensureIndexes();
 
-      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      const now = new Date();
+      const twoHoursMs = 2 * 60 * 60 * 1000;
 
       // const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000);
 
       const result = await this.QuestionCollection.updateMany(
         {
-          status: { $nin: ['closed', 'in-review', 're-routed'] },
-          // createdAt: { $lte: fourHoursAgo },
-          $or: [
-            {
-              source: "AJRASAKHA",
-              createdAt: { $lte: twoHoursAgo },
-            },
-            {
-              source: { $ne: "AJRASAKHA" },
-              createdAt: { $lte: twoHoursAgo },
-            },
-          ],
+          status: { $nin: ['hold', 'delayed', 'in-review', 'closed', 're-routed'] },
+          isOnHold: { $ne: true },
+          $expr: {
+            $lte: [
+              {
+                $add: [
+                  '$createdAt',
+                  twoHoursMs,
+                  { $ifNull: ['$accumulatedHoldMs', 0] },
+                ],
+              },
+              now,
+            ],
+          },
         },
         { $set: { status: 'delayed' } },
       );
@@ -1596,6 +1627,7 @@ export class QuestionRepository implements IQuestionRepository {
       await this.init();
       const autoAllocateValue =
         typeof isAutoAllocate === 'boolean' ? !isAutoAllocate : false;
+        
       return await this.QuestionCollection.findOneAndUpdate(
         { _id: new ObjectId(questionId) },
         { $set: { isAutoAllocate: autoAllocateValue } },
@@ -3617,6 +3649,80 @@ async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusR
     };
   });
 }
+
+  async getQuestionStatusSummary(
+    query: GetDetailedQuestionsQuery,
+    body: DetailedQuestionsBodyDto,
+    session?: ClientSession,
+  ): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }> {
+    await this.init();
+
+    const { filter } = await buildQuestionFilter(
+      { ...query, searchEmbedding: null },
+      this.QuestionSubmissionCollection,
+      this.AnswersCollection
+    );
+
+    // Apply states/normalisedCrops from body if provided (matching findDetailedQuestions logic)
+    if (body?.states && body.states.length > 0) {
+      filter['details.state'] = { $in: body.states };
+    }
+    if (body?.normalisedCrops && body.normalisedCrops.length > 0) {
+      const hasNotSet = body.normalisedCrops.includes('__NOT_SET__');
+      const realCrops = body.normalisedCrops.filter((c) => c !== '__NOT_SET__');
+      if (!hasNotSet) {
+        filter['details.normalised_crop'] = { $in: realCrops };
+      } else {
+        const orConditions: any[] = [
+          { 'details.normalised_crop': { $exists: false } },
+          { 'details.normalised_crop': null },
+          { 'details.normalised_crop': '' },
+        ];
+        if (realCrops.length > 0) {
+          orConditions.push({ 'details.normalised_crop': { $in: realCrops } });
+        }
+        if (!filter.$and) filter.$and = [];
+        filter.$and.push({ $or: orConditions });
+      }
+    }
+
+    // Default exclusions
+    if (filter.isHidden === undefined && query.hiddenQuestions !== 'true') {
+      filter.isHidden = { $ne: true };
+    }
+    if (filter.isOnHold === undefined && query.isOnHold !== 'true') {
+      filter.isOnHold = { $ne: true };
+    }
+
+    const results = await this.QuestionCollection.aggregate(
+      [
+        { $match: filter },
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            status: '$_id',
+            count: 1,
+          },
+        },
+      ],
+      { session },
+    ).toArray();
+
+    const statuses = results.map(r => ({
+      status: r.status as string,
+      count: r.count as number,
+    }));
+
+    const totalQuestions = statuses.reduce((sum, s) => sum + s.count, 0);
+
+    return { totalQuestions, statuses };
+  }
 }
 
 

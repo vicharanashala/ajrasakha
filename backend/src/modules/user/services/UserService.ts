@@ -6,14 +6,14 @@ import {
   UserRole,
 } from '#root/shared/interfaces/models.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
-import {BadRequestError, InternalServerError, NotFoundError} from 'routing-controllers';
+import {BadRequestError, ForbiddenError, InternalServerError, NotFoundError} from 'routing-controllers';
 import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {ClientSession} from 'mongodb';
 import {
   PreferenceDto,
   UsersNameResponseDto,
   ExpertReviewLevelDto,
-} from '../classes/validators/UserValidators.js';
+} from '#root/modules/user/validators/UserValidators.js';
 import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
 import { getFromContainer } from 'class-validator';
@@ -260,12 +260,29 @@ async getAllUsersforManualSelect(
 
   async blockUnblockExperts(userId: string, action: string) {
     return await this._withTransaction(async (session: ClientSession) => {
+      if (action === "block") {
+        const nonBlockedExpertsCount = await this.userRepo.countNonBlockedExperts(session);
+
+        if (nonBlockedExpertsCount <= 10) {
+          throw new BadRequestError(
+            "Minimum 10 active experts required. Cannot block more experts."
+          );
+        }
+      }
       return await this.userRepo.updateIsBlocked(userId, action, session);
     });
   }
 
   async updateActivityStatus(userId: string, status: 'active' | 'in-active') {
     return await this._withTransaction(async (session: ClientSession) => {
+      if (status === "in-active") {
+        const activeExpertsCount = await this.userRepo.countActiveExperts(session);
+        if (activeExpertsCount <= 10) {
+          throw new BadRequestError(
+            "Minimum 10 active experts required. Cannot mark more experts inactive."
+          );
+        }
+      }
       return await this.userRepo.updateActivityStatus(userId, status, session);
     });
   }

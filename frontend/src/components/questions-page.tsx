@@ -30,11 +30,27 @@ export const QuestionsPage = ({
   autoOpenQuestionId?: string | null;
 }) => {
 
+  const getInitialSource = (): QuestionSourceFilter => {
+    const sourceFromUrl = new URLSearchParams(window.location.search).get(
+      "source",
+    );
+    if (
+      sourceFromUrl === "all" ||
+      sourceFromUrl === "AJRASAKHA" ||
+      sourceFromUrl === "AGRI_EXPERT" ||
+      sourceFromUrl === "OUTREACH" ||
+      sourceFromUrl === "WHATSAPP"
+    ) {
+      return sourceFromUrl;
+    }
+    return "AJRASAKHA";
+  };
+
   //grid or table
   const [view, setView] = useState<"table" | "grid">("table");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
-  const [source, setSource] = useState<QuestionSourceFilter>("AJRASAKHA");
+  const [source, setSource] = useState<QuestionSourceFilter>(getInitialSource);
   const [priority, setPriority] = useState<QuestionPriorityFilter>("all");
   const [state, setState] = useState("all");
   const [states, setStates] = useState<string[]>([]);
@@ -55,6 +71,7 @@ export const QuestionsPage = ({
   const [isOnHold, setIsOnHold] = useState(false);
   const [duplicateQuestions, setDuplicateQuestions] = useState(false);
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
+  const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -104,6 +121,19 @@ export const QuestionsPage = ({
     useBulkDeleteQuestions();
 
   const LIMIT = 12;
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("source", source);
+    window.history.replaceState({}, "", url.toString());
+
+    return () => {
+      const cleanupUrl = new URL(window.location.href);
+      cleanupUrl.searchParams.delete("source");
+      window.history.replaceState({}, "", cleanupUrl.toString());
+    };
+  }, [source]);
+
   const filter = useMemo(
     () => ({
       status,
@@ -125,6 +155,7 @@ export const QuestionsPage = ({
       closedAtEnd,
       consecutiveApprovals,
       autoAllocateFilter,
+      closedInTwoHrs,
       hiddenQuestions,
       duplicateQuestions,
       isOnHold,
@@ -149,6 +180,7 @@ export const QuestionsPage = ({
       closedAtStart,
       consecutiveApprovals,
       autoAllocateFilter,
+      closedInTwoHrs,
       hiddenQuestions,
       duplicateQuestions,
       isOnHold,
@@ -224,6 +256,7 @@ export const QuestionsPage = ({
     closedAtStart?: Date | undefined;
     consecutiveApprovals?: string;
     autoAllocateFilter?: string;
+    closedInTwoHrs?: boolean;
     hiddenQuestions?: boolean;
     duplicateQuestions?: boolean;
     isOnHold?: boolean;
@@ -248,13 +281,15 @@ export const QuestionsPage = ({
     if (next.consecutiveApprovals !== undefined)
       setConsecutiveApprovals(next.consecutiveApprovals);
     if (next.autoAllocateFilter !== undefined)
-      setAutoAllocateFilter(next.autoAllocateFilter);      
+      setAutoAllocateFilter(next.autoAllocateFilter);
+    if (next.closedInTwoHrs !== undefined)
+      setClosedInTwoHrs(next.closedInTwoHrs);    
     if (next.hiddenQuestions !== undefined)
-        setHiddenQuestions(next.hiddenQuestions);
-      if (next.duplicateQuestions !== undefined)
-        setDuplicateQuestions(next.duplicateQuestions);
-      if (next.isOnHold !== undefined)
-        setIsOnHold(next.isOnHold);    
+      setHiddenQuestions(next.hiddenQuestions);
+    if (next.duplicateQuestions !== undefined)
+      setDuplicateQuestions(next.duplicateQuestions);
+    if (next.isOnHold !== undefined)
+      setIsOnHold(next.isOnHold);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);
@@ -288,8 +323,10 @@ export const QuestionsPage = ({
     setClosedAtStart(undefined);
     setConsecutiveApprovals("all");
     setAutoAllocateFilter("all");
+    setClosedInTwoHrs(false);
     setHiddenQuestions(false);
     setDuplicateQuestions(false);
+    setIsOnHold(false);
   };
 
   const handleViewMore = (questoinId: string) => {

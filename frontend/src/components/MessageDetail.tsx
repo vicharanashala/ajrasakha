@@ -478,7 +478,9 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">On approval, this answer will be finalized, the question will be marked as closed, and the result will be pushed to the Golden dataset. Please review carefully before approving.</p>
                     <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
                         <Button type="button" variant="outline" size="sm" onClick={handleEdit} className="gap-2 rounded-xl px-4"><Pencil className="h-4 w-4" /> Edit Answer</Button>
-                        <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>{updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}{updatingQuestion ? "Passing..." : "Pass"}</Button>
+                        {
+                            question?.isHidden !== true &&<Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>{updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}{updatingQuestion ? "Passing..." : "Pass"}</Button>
+                        }
                         <Button type="button" onClick={handleApprove} size="sm" disabled={isUpdating} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">{isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}{isUpdating ? "Approving..." : "Approve"}</Button>
                     </div>
                 </div>

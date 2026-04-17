@@ -103,13 +103,16 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
     return "bg-green-900 dark:bg-green-200"; // for 12+ bucket
   };
 
+  const truncate = (str: string, max = 18) =>
+  str.length > max ? str.slice(0, max) + "…" : str;
+
   return (
     <div className="  min-w-[80vw] border rounded-lg overflow-auto text-gray-900 dark:text-white">
       {/* This inner div must NOT be flex centered. It must be inline-block. */}
       <div className="min-w-[80vw] min-h-[450px] hidden md:block text-black dark:text-white">
         <ResponsiveHeatMap
           data={data}
-          margin={{ top: 60, right: 80, bottom: 60, left: 190 }}
+          margin={{ top: 60, right: 80, bottom: 60, left: 220 }}
           colors={{ type: "sequential", scheme: "greens" }}
           emptyColor="#f5f5f5"
           enableLabels={true}
@@ -173,7 +176,8 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
             tickRotation: 0,
             legend: "Experts",
             legendPosition: "middle",
-            legendOffset: -150,
+            legendOffset: -190,
+            format: (value) => truncate(value),
           }}
           legends={[
             {

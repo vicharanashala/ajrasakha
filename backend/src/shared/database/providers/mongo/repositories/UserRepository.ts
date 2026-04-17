@@ -11,12 +11,12 @@ import {MongoDatabase} from '../MongoDatabase.js';
 import {InternalServerError, NotFoundError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {User} from '#auth/classes/transformers/User.js';
-import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
+import {PreferenceDto} from '#root/modules/user/validators/UserValidators.js';
 import {
   ExpertPerformance,
   ModeratorApprovalRate,
   UserRoleOverview,
-} from '#root/modules/core/classes/validators/DashboardValidators.js';
+} from '#root/modules/dashboard/validators/DashboardValidators.js';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
 
 @injectable()
@@ -1086,6 +1086,30 @@ async findAllUsers(
     } catch (error) {
       throw new InternalServerError('Failed to get experts');
     }
+  }
+  
+  async countActiveExperts(session?: ClientSession): Promise<number> {
+    await this.init();
+
+    return this.usersCollection.countDocuments(
+      {
+        role: "expert",
+        status: "active",
+      },
+      { session }
+    );
+  }
+
+  async countNonBlockedExperts(session?:ClientSession): Promise<number> {
+    await this.init();
+
+    return this.usersCollection.countDocuments(
+      {
+        role: "expert",
+        isBlocked: { $ne: true },
+      },
+      { session }
+    );
   }
 
   async updateIsBlocked(

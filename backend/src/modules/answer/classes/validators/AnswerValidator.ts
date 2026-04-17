@@ -62,7 +62,7 @@ class AddAnswerBody {
       {source: 'https://docs.example.com', page: 5},
     ],
     type: 'array',
-    items: {$ref: '#/definitions/SourceItem'},
+    items: {$ref: '#/components/schemas/SourceItem'},
   })
   @IsArray()
   @ValidateNested({each: true})
@@ -166,7 +166,7 @@ class ReviewAnswerBody {
       {source: 'https://docs.example.com', page: 5},
     ],
     type: 'array',
-    items: {$ref: '#/definitions/SourceItem'},
+    items: {$ref: '#/components/schemas/SourceItem'},
   })
   @IsArray()
   @ValidateNested({each: true})
@@ -499,7 +499,7 @@ class UpdateAnswerBody {
       {source: 'https://docs.example.com', page: 5},
     ],
     type: 'array',
-    items: {$ref: '#/definitions/SourceItem'},
+    items: {$ref: '#/components/schemas/SourceItem'},
   })
   @IsOptional()
   @IsArray()

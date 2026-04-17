@@ -32,7 +32,6 @@ const upload = multer({
   description: 'Operations for managing contexts',
 })
 @injectable()
-@ResponseSchema(ContextResponse, {isArray: true, statusCode: 200})
 @JsonController('/context')
 export class ContextController {
   constructor(
@@ -44,6 +43,7 @@ export class ContextController {
   @HttpCode(201)
   @OpenAPI({summary: 'Add a new context'})
   @Authorized()
+  @ResponseSchema(ContextResponse, {isArray: true, statusCode: 200})
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async addContext(
     @Body() body: {transcript: string},

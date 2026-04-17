@@ -17,12 +17,12 @@ import {inject} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {IUser} from '#root/shared/interfaces/models.js';
-import { AddNotificationBody, AddPushSubscriptionBody, DeleteNotificationParams, MessageBody, NotificationResponse } from '../classes/validators/NotificationValidators.js';
-import { NotificationService } from '../services/NotificationService.js';
+import { AddNotificationBody, AddPushSubscriptionBody, DeleteNotificationParams, MessageBody, NotificationResponse } from '#root/modules/notification/validators/NotificationValidators.js';
+import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 
 @OpenAPI({
   tags: ['Notifications'],
-  description: 'Operations related to answers',
+  description: 'Operations for managing notifications',
 })
 @JsonController('/notifications')
 export class NotificationController {

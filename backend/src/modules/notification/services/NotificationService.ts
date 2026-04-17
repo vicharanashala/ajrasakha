@@ -1,22 +1,22 @@
-import {BaseService, INotification, MongoDatabase} from '#root/shared/index.js';
-import {GLOBAL_TYPES} from '#root/types.js';
-import {inject, injectable} from 'inversify';
-import {ClientSession, ObjectId} from 'mongodb';
-import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
+import { BaseService, INotification, MongoDatabase } from '#root/shared/index.js';
+import { GLOBAL_TYPES } from '#root/types.js';
+import { inject, injectable } from 'inversify';
+import { ClientSession, ObjectId } from 'mongodb';
+import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
 import {
   AddPushSubscriptionBody,
   NotificationResponse,
-} from '../classes/validators/NotificationValidators.js';
-import {NotFoundError} from 'routing-controllers';
+} from '#root/modules/notification/validators/NotificationValidators.js';
+import { NotFoundError } from 'routing-controllers';
 import {
   notifyUser,
   sendPushNotification,
 } from '#root/utils/pushNotification.js';
-import {buildEmailTemplate} from '#root/utils/buildEmailTemplate.js';
-import {sendEmailNotification} from '#root/utils/mailer.js';
-import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
-import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
-import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
+import { buildEmailTemplate } from '#root/utils/buildEmailTemplate.js';
+import { sendEmailNotification } from '#root/utils/mailer.js';
+import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
+import { IQuestionSubmissionRepository } from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
+import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
 
 @injectable()
 export class NotificationService extends BaseService {
@@ -43,7 +43,7 @@ export class NotificationService extends BaseService {
     type: string,
     message: string,
     title: string,
-  ): Promise<{insertedId: string}> {
+  ): Promise<{ insertedId: string }> {
     return this._withTransaction(async (session: ClientSession) => {
       return await this.notificationRepository.addNotification(
         userId,
@@ -78,7 +78,7 @@ export class NotificationService extends BaseService {
 
   async deleteNotifictaion(
     notificationId: string,
-  ): Promise<{deletedCount: number}> {
+  ): Promise<{ deletedCount: number }> {
     return this._withTransaction(async (session: ClientSession) => {
       return await this.notificationRepository.deleteNotification(
         notificationId,
@@ -87,13 +87,13 @@ export class NotificationService extends BaseService {
     });
   }
 
-  async markAsRead(id: string): Promise<{modifiedCount: number}> {
+  async markAsRead(id: string): Promise<{ modifiedCount: number }> {
     return this._withTransaction(async (session: ClientSession) => {
       return await this.notificationRepository.markAsRead(id, session);
     });
   }
 
-  async markAllAsRead(userId: string): Promise<{modifiedCount: number}> {
+  async markAllAsRead(userId: string): Promise<{ modifiedCount: number }> {
     return this._withTransaction(async (session: ClientSession) => {
       return await this.notificationRepository.markAllAsRead(userId, session);
     });
@@ -127,7 +127,9 @@ export class NotificationService extends BaseService {
       url: '/notifications',
     };
 
-    await sendPushNotification(subscription.subscription, payload);
+    await sendPushNotification(subscription.subscription, payload, async (endpoint: string) => {
+      await this.deleteExpiredSubscriptionForUser(endpoint);
+    });
     // });
   }
 
@@ -206,18 +208,20 @@ export class NotificationService extends BaseService {
     const subscription =
       await this.notificationRepository.getSubscriptionByUserId(userId);
     // await sendEmailNotification(user.email.toString(), title, message, html);
-    await notifyUser(userId, title, subscription);
+    await notifyUser(userId, title, subscription, async (endpoint: string) => {
+      await this.deleteExpiredSubscriptionForUser(endpoint)
+    });
     // });
   }
 
-  async deleteExpiredSubscriptionForUser(endpoint:string){
+  async deleteExpiredSubscriptionForUser(endpoint: string) {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.notificationRepository.deleteExpiredSubscriptionForUser( endpoint, session );
+      return await this.notificationRepository.deleteExpiredSubscriptionForUser(endpoint, session);
     });
   }
-  async deleteExpiredSubscriptions(){
+  async deleteExpiredSubscriptions() {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.notificationRepository.deleteExpiredSubscriptions( session );
+      return await this.notificationRepository.deleteExpiredSubscriptions(session);
     });
   }
 }

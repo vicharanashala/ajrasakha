@@ -29,12 +29,12 @@ import {notifyUser} from '#root/utils/pushNotification.js';
 import {IReviewRepository} from '#root/shared/database/interfaces/IReviewRepository.js';
 import {appConfig} from '#root/config/app.js';
 import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
-import { AiService } from '#root/modules/core/services/AiService.js';
+import { AiService } from '#root/modules/ai/services/AiService.js';
 import { CORE_TYPES, NotificationService} from '#root/modules/core/index.js';
 import { ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { QuestionService } from '#root/modules/question/services/QuestionService.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
-import {PreferenceDto} from '#root/modules/core/classes/validators/UserValidators.js';
+import {PreferenceDto} from '#root/modules/user/validators/UserValidators.js';
 
 @injectable()
 export class AnswerService extends BaseService implements IAnswerService{
@@ -1663,7 +1663,8 @@ answer: ${updates.answer}`;
             text,
             embedding: questionEmbedding,
             aiApprovedSources: updates.sources ?? [],
-            aiApprovedAnswer: updates.answer ?? '',
+            aiInitialAnswer: updates.answer ?? '',
+            // aiApprovedAnswer: updates.answer ?? '',
             // question stays 'open' so experts can call reviewAnswer()
           },
           session,
@@ -1813,7 +1814,6 @@ answer: ${updates.answer}`;
       // );
       // const questionEmbedding = [];
       const authorId = answer.authorId.toString();
-  
       await this.userRepo.updatePenaltyAndIncentive(
         authorId,
         'incentive',
@@ -1848,7 +1848,30 @@ answer: ${updates.answer}`;
         status: 'approved',
       };
   
-      return this.answerRepo.updateAnswer(answerId, payload, session);
+      let result= this.answerRepo.updateAnswer(answerId, payload, session);
+      const author = await this.userRepo.findById(authorId, session);
+      try {
+        const webhookResponse=  await fetch(appConfig.WA_WEBHOOK_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-internal-api-key': appConfig.WA_WEBHOOK_API_KEY,
+          },
+          body: JSON.stringify({
+            question_id: questionId,
+            status: 'closed',
+            answer: updates.answer ?? '',
+            author: `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() || 'Expert',  // ✅ author name from userRepo
+            sources: updates.sources ?? [],
+          }),
+        });
+        const webhookData = await webhookResponse.text();
+        console.log('[WhatsApp webhook] Response status:', webhookResponse.status);
+        console.log('[WhatsApp webhook] Response body:', webhookData);
+      } catch (err) {
+        console.error('[WhatsApp webhook] Failed to notify:', err);
+      }
+      return result
     });
   }
 

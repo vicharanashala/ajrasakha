@@ -6,6 +6,7 @@ import {
   IQuestion,
   IQuestionMetrics,
   IQuestionPriority,
+  QuestionSource,
   QuestionStatus,
 } from '#shared/interfaces/models.js';
 import {Expose, Transform} from 'class-transformer';
@@ -58,7 +59,7 @@ class Question implements IQuestion {
   };
 
   @Expose()
-  source: 'AJRASAKHA' | 'AGRI_EXPERT';
+  source: QuestionSource;
 
   @Expose()
   isAutoAllocate: boolean;

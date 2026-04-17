@@ -277,7 +277,6 @@ export const Dashboard = () => {
             className="px-4 py-2 rounded-md bg-green-500 text-white text-sm hover:bg-green-600 shadow-md transition-all relative"
           >
             Send Report
-            <TopRightBadge label="New" />
           </button>
         </div>
       )}
