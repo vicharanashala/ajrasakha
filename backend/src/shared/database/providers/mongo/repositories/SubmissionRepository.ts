@@ -19,10 +19,10 @@ import {
   InternalServerError,
   NotFoundError,
 } from 'routing-controllers';
-import {USER_VALIDATORS} from '#root/modules/core/classes/validators/UserValidators.js';
-import {GetHeatMapQuery} from '#root/modules/core/classes/validators/DashboardValidators.js';
+import {USER_VALIDATORS} from '#root/modules/user/validators/UserValidators.js';
+import {GetHeatMapQuery} from '#root/modules/dashboard/validators/DashboardValidators.js';
 import {getReviewerQueuePosition} from '#root/utils/getReviewerQueuePosition.js';
-import {ExpertReviewLevelDto} from '#root/modules/core/classes/validators/UserValidators.js';
+import {ExpertReviewLevelDto} from '#root/modules/user/validators/UserValidators.js';
 import {IReviewWiseStats} from '#root/utils/getDailyStats.js';
 import {HistoryItem} from '#root/modules/question/classes/validators/QuestionVaidators.js';
 

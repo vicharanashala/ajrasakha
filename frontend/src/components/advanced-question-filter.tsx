@@ -752,7 +752,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     <SelectItem value="all">All Levels</SelectItem>
                     {Review_Level.map((d) => (
                       <SelectItem key={d} value={d}>
-                        {d}
+                         {d === "Level 0" ? "Author" : d}
                       </SelectItem>
                     ))}
                   </SelectContent>
