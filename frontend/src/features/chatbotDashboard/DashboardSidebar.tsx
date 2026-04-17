@@ -5,6 +5,8 @@ import { Button } from "@/components/atoms/button";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Download, Loader2, CalendarIcon } from "lucide-react";
+import { toast } from "sonner";
+import { ChatbotService } from "@/hooks/services/chatbotService";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +45,7 @@ interface DashboardSidebarProps {
     onViewChange: (view: DashboardView) => void;
     healthScore?: number;
     healthLabel?: string;
+    source?: string;
 }
 
 // ─── ICONS ────────────────────────────────────────────────────────────────────
@@ -155,6 +158,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     onViewChange,
     healthScore = 70,
     healthLabel = "Moderate · needs improvement",
+    source = "vicharanashala",
 }) => {
     const [segmentsExpanded, setSegmentsExpanded] = useState<boolean>(false);
     const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
@@ -162,6 +166,41 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     const [isMobile, setIsMobile] = useState<boolean>(() => window.innerWidth <= MOBILE_BREAKPOINT);
     const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
     const [downloadDateRange, setDownloadDateRange] = useState<DateRange | undefined>(undefined);
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handleDownload = async () => {
+        if (!downloadDateRange?.from || !downloadDateRange?.to) return;
+
+        const oneMonthMs = 31 * 24 * 60 * 60 * 1000;
+        if (downloadDateRange.to.getTime() - downloadDateRange.from.getTime() > oneMonthMs) {
+            toast.error("Date range cannot exceed 1 month. Please select a shorter range.");
+            return;
+        }
+
+        setIsDownloading(true);
+        try {
+            toast.info("Preparing download...");
+            const svc = new ChatbotService();
+            const from = format(downloadDateRange.from, "yyyy-MM-dd");
+            const to = format(downloadDateRange.to, "yyyy-MM-dd");
+            const blob = await svc.downloadChatbotReport(from, to, source);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `chatbot-report-${from}-to-${to}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast.success("Report downloaded successfully!");
+            setIsDownloadDialogOpen(false);
+            setDownloadDateRange(undefined);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Download failed");
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     // Track mobile/desktop and auto-collapse on mobile
     useEffect(() => {
@@ -299,14 +338,21 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                             </Button>
                         </DialogClose>
                         <Button
-                            disabled={!downloadDateRange?.from || !downloadDateRange?.to}
+                            disabled={!downloadDateRange?.from || !downloadDateRange?.to || isDownloading}
                             className="w-full sm:w-auto"
-                            onClick={() => {
-                                // Download logic will be wired up later
-                            }}
+                            onClick={handleDownload}
                         >
-                            <Download className="h-4 w-4 mr-2" />
-                            Download Excel
+                            {isDownloading ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    Downloading...
+                                </>
+                            ) : (
+                                <>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Excel
+                                </>
+                            )}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
