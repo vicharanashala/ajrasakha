@@ -82,9 +82,6 @@ export const QuestionDetails = ({
   });
   const submissionExists = submissionCheck?.exists ?? false;
 
-  const aiAnswer = question.aiInitialAnswer || question.aiApprovedAnswer;
-  const aiSources = question.aiApprovedSources;
-
 
   return (
     <main className="mx-auto p-6 pt-0 grid gap-6">
