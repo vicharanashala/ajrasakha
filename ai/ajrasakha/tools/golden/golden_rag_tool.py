@@ -1,3 +1,4 @@
+import asyncio
 import os
 from typing import List, Optional
 from mcp.server.fastmcp import FastMCP
@@ -32,10 +33,9 @@ users_collection = database["users"]
 
 mcp = FastMCP(
     "ajrasakha-golden-mcp",
-    transport_security=TransportSecuritySettings(
-        enable_dns_rebinding_protection=False
-    )
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
+
 
 class QuestionAnswerPair(BaseModel):
     question_id: str
@@ -48,9 +48,7 @@ class QuestionAnswerPair(BaseModel):
 
 async def _get_answer_text_sources_and_author_name(question_id: str):
     answer_document = await answers_collection.find_one(
-        {
-            "questionId": ObjectId(question_id)
-        },
+        {"questionId": ObjectId(question_id)},
         {
             "sources": 1,
             "authorId": 1,
@@ -58,26 +56,25 @@ async def _get_answer_text_sources_and_author_name(question_id: str):
         },
     )
     user_document = await users_collection.find_one(
-        {
-            "_id": ObjectId(answer_document["authorId"])
-        }
+        {"_id": ObjectId(answer_document["authorId"])}
     )
-    author_name = user_document['firstName']
+    author_name = user_document["firstName"]
     sources = answer_document["sources"]
     answer = answer_document["answer"]
 
     return answer, sources, author_name
 
 
+@tool
 @mcp.tool()
 async def golden_retriever_tool(
-        query: str,
-        crop: str | None = None,
-        season: str | None = None,
-        state: str | None = None,
-        domain: str | None = None,
-):
-    '''Retrieve relevant documents from the Golden dataset based on the query and optional filters.'''
+    query: str,
+    crop: str | None = None,
+    season: str | None = None,
+    state: str | None = None,
+    domain: str | None = None,
+)-> List[QuestionAnswerPair]:
+    """Retrieve relevant documents from the Golden dataset based on the query and optional filters."""
     filters = {"status": "closed"}
 
     if crop:
@@ -89,16 +86,18 @@ async def golden_retriever_tool(
     if domain:
         filters["details.domain"] = domain
 
-    docs = vector_store.similarity_search_with_score(query, k=5, pre_filter=filters)
+    docs = await asyncio.to_thread(
+        vector_store.similarity_search_with_score, query, k=5, pre_filter=filters
+    )
     result = []
     for doc in docs:
         document, score = doc
         answer, sources, author_name = await _get_answer_text_sources_and_author_name(
-            document.metadata['_id']
+            document.metadata["_id"]
         )
         question_answer_pair = QuestionAnswerPair(
-            question_id=document.metadata['_id'],
-            question_text=document.metadata['question'],
+            question_id=document.metadata["_id"],
+            question_text=document.metadata["question"],
             answer_text=answer,
             author=author_name,
             sources=sources,
@@ -108,6 +107,7 @@ async def golden_retriever_tool(
     return result
 
 
+@tool
 @mcp.tool()
 async def get_available_states() -> dict:
     """Get all unique states available in the Golden dataset."""
@@ -116,6 +116,7 @@ async def get_available_states() -> dict:
     return {"success": True, "states": sorted([s for s in states if s])}
 
 
+@tool
 @mcp.tool()
 async def get_available_crops(state: str | None = None) -> dict:
     """
@@ -130,8 +131,11 @@ async def get_available_crops(state: str | None = None) -> dict:
     return {"success": True, "crops": sorted([c for c in crops if c])}
 
 
+@tool
 @mcp.tool()
-async def get_available_domains(state: str | None = None, crop: str | None = None) -> dict:
+async def get_available_domains(
+    state: str | None = None, crop: str | None = None
+) -> dict:
     """
     Get all unique domains (e.g. pest management, irrigation, soil health) in the Golden dataset.
     Optionally filter by state and/or crop.
@@ -146,8 +150,11 @@ async def get_available_domains(state: str | None = None, crop: str | None = Non
     return {"success": True, "domains": sorted([d for d in domains if d])}
 
 
+@tool
 @mcp.tool()
-async def get_available_seasons(state: str | None = None, crop: str | None = None) -> dict:
+async def get_available_seasons(
+    state: str | None = None, crop: str | None = None
+) -> dict:
     """
     Get all unique seasons (e.g. Kharif, Rabi, Zaid) in the Golden dataset.
     Optionally filter by state and/or crop.
@@ -160,6 +167,7 @@ async def get_available_seasons(state: str | None = None, crop: str | None = Non
         filters["details.crop"] = crop
     seasons = await questions_collection.distinct("details.season", filters)
     return {"success": True, "seasons": sorted([s for s in seasons if s])}
+
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http")

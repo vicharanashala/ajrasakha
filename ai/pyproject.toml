@@ -5,23 +5,28 @@ description = "AI agent system for agricultural domain applications"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "fastapi>=0.115.0",
-    "uvicorn>=0.32.0",
     "langchain>=0.3.0",
     "langchain-core>=0.3.0",
+    "langchain-anthropic>=0.3.0",
     "langchain-huggingface>=0.1.0",
     "langchain-mongodb>=0.2.0",
-    "langchain-qwq>=0.1.0",
     "langgraph>=0.2.0",
     "pydantic>=2.0.0",
     "aiohttp>=3.10.0",
+    "httpx>=0.25.0",
     "python-dotenv>=1.0.0",
     "pymongo>=4.10.0",
+    "fastmcp>=3.1.1",
+    "sentence-transformers>=2.6.0",
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "langgraph-cli[inmem]>=0.4.21",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
-    "fastmcp>=3.1.1",
     "ipykernel>=7.2.0",
-    "sentence-transformers>=2.6.0",
 ]
 
 [build-system]

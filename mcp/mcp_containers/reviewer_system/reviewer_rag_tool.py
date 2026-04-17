@@ -1,3 +1,4 @@
+import asyncio
 import os
 from typing import List, Optional
 
@@ -40,9 +41,7 @@ class QuestionAnswerPair(BaseModel):
 
 async def _get_answer_text_sources_and_author_name(question_id: str):
     answer_document = await answers_collection.find_one(
-        {
-            "questionId": ObjectId(question_id)
-        },
+        {"questionId": ObjectId(question_id)},
         {
             "sources": 1,
             "authorId": 1,
@@ -50,11 +49,9 @@ async def _get_answer_text_sources_and_author_name(question_id: str):
         },
     )
     user_document = await users_collection.find_one(
-        {
-            "_id": ObjectId(answer_document["authorId"])
-        }
+        {"_id": ObjectId(answer_document["authorId"])}
     )
-    author_name = user_document['firstName']
+    author_name = user_document["firstName"]
     sources = answer_document["sources"]
     answer = answer_document["answer"]
 
@@ -63,13 +60,13 @@ async def _get_answer_text_sources_and_author_name(question_id: str):
 
 @tool
 async def reviewer_retriever_tool(
-        query: str,
-        crop: str | None = None,
-        season: str | None = None,
-        state: str | None = None,
-        domain: str | None = None,
+    query: str,
+    crop: str | None = None,
+    season: str | None = None,
+    state: str | None = None,
+    domain: str | None = None,
 ):
-    '''Retrieve relevant documents from the reviewer dataset based on the query and optional filters.'''
+    """Retrieve relevant documents from the reviewer dataset based on the query and optional filters."""
     filters = {"status": "closed"}
 
     if crop:
@@ -81,16 +78,18 @@ async def reviewer_retriever_tool(
     if domain:
         filters["details.domain"] = domain
 
-    docs = vector_store.similarity_search_with_score(query, k=5, pre_filter=filters)
+    docs = await asyncio.to_thread(
+        vector_store.similarity_search_with_score, query, k=5, pre_filter=filters
+    )
     result = []
     for doc in docs:
         document, score = doc
         answer, sources, author_name = await _get_answer_text_sources_and_author_name(
-            document.metadata['_id']
+            document.metadata["_id"]
         )
         question_answer_pair = QuestionAnswerPair(
-            question_id=document.metadata['_id'],
-            question_text=document.metadata['question'],
+            question_id=document.metadata["_id"],
+            question_text=document.metadata["question"],
             answer_text=answer,
             author=author_name,
             sources=sources,

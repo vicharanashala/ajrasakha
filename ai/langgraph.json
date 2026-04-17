@@ -1,0 +1,7 @@
+{
+  "dependencies": ["./ajrasakha"],
+  "graphs": {
+    "ajrasakha": "./ajrasakha/graph/graph.py:graph"
+  },
+  "env": ".env"
+}

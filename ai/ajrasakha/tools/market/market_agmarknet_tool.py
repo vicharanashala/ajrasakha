@@ -7,12 +7,15 @@ from typing import Any
 
 import httpx
 from dotenv import load_dotenv
+from langchain.tools import tool
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
 load_dotenv()
 
-BASE_URL = os.getenv("AGMARKNET_BASE_URL", "https://api.agmarknet.gov.in/v1").rstrip("/")
+BASE_URL = os.getenv("AGMARKNET_BASE_URL", "https://api.agmarknet.gov.in/v1").rstrip(
+    "/"
+)
 TIMEOUT = float(os.getenv("AGMARKNET_TIMEOUT_SECONDS", "30"))
 RETRIES = int(os.getenv("AGMARKNET_MAX_RETRIES", "3"))
 
@@ -25,9 +28,7 @@ HEADERS = {
 
 mcp = FastMCP(
     "ajrasakha-agmarknet-mcp",
-    transport_security=TransportSecuritySettings(
-        enable_dns_rebinding_protection=False
-    )
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
 
 _filters_cache: dict[str, Any] = {}
@@ -70,9 +71,9 @@ async def _get_filters(dashboard: str = "marketwise_price_arrival") -> dict[str,
     return _filters_cache[dashboard]
 
 
-
+@tool
 @mcp.tool()
-async def get_states(dashboard: str = "marketwise_price_arrival") -> dict[str, Any]:
+async def get_states_agmarknet(dashboard: str = "marketwise_price_arrival") -> dict[str, Any]:
     """
     Get all available states. Always call this first to resolve a state name to its ID.
     Returns list of {id, name}.
@@ -91,8 +92,11 @@ async def get_states(dashboard: str = "marketwise_price_arrival") -> dict[str, A
         return {"success": False, "error": str(e)}
 
 
+@tool
 @mcp.tool()
-async def get_districts(state_id: int, dashboard: str = "marketwise_price_arrival") -> dict[str, Any]:
+async def get_districts_agmarknet(
+    state_id: int, dashboard: str = "marketwise_price_arrival"
+) -> dict[str, Any]:
     """
     Get districts for a given state_id. Call after get_states.
     Returns list of {id, name}.
@@ -111,8 +115,9 @@ async def get_districts(state_id: int, dashboard: str = "marketwise_price_arriva
         return {"success": False, "error": str(e)}
 
 
+@tool
 @mcp.tool()
-async def get_markets(
+async def get_markets_agmarknet(
     state_id: int,
     district_id: int | None = None,
     dashboard: str = "marketwise_price_arrival",
@@ -136,8 +141,11 @@ async def get_markets(
         return {"success": False, "error": str(e)}
 
 
+@tool
 @mcp.tool()
-async def get_commodities(dashboard: str = "marketwise_price_arrival") -> dict[str, Any]:
+async def get_commodities_agmarknet(
+    dashboard: str = "marketwise_price_arrival",
+) -> dict[str, Any]:
     """
     Get all available commodities. Can be called in parallel with get_states.
     Returns list of {id, name}.
@@ -156,9 +164,9 @@ async def get_commodities(dashboard: str = "marketwise_price_arrival") -> dict[s
         return {"success": False, "error": str(e)}
 
 
-
+@tool
 @mcp.tool()
-async def get_price_arrivals(
+async def get_price_arrivals_agmarknet(
     dashboard: str = "marketwise_price_arrival",
     date: str | None = None,
     state: int = 100006,

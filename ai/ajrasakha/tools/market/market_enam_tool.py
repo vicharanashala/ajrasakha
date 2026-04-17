@@ -3,12 +3,14 @@ from __future__ import annotations
 import asyncio
 import os
 from datetime import datetime
-from typing import Any
+from typing import Any, List
 
 import httpx
 from dotenv import load_dotenv
+from langchain.tools import tool
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
+from pydantic import BaseModel
 
 load_dotenv()
 
@@ -18,10 +20,9 @@ RETRIES = int(os.getenv("ENAM_MAX_RETRIES", "3"))
 
 mcp = FastMCP(
     "ajrasakha-enam-mcp",
-    transport_security=TransportSecuritySettings(
-        enable_dns_rebinding_protection=False
-    )
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
+
 
 async def _post(path: str, data: dict[str, str] | None = None) -> dict[str, Any]:
     url = f"{ENAM_BASE}/{path.lstrip('/')}"
@@ -40,6 +41,8 @@ async def _post(path: str, data: dict[str, str] | None = None) -> dict[str, Any]
                 return {"success": False, "error": str(e)}
             await asyncio.sleep(0.5 * (2**i))
 
+
+@tool
 @mcp.tool()
 def get_today_date_for_enam() -> str:
     """
@@ -49,6 +52,7 @@ def get_today_date_for_enam() -> str:
     return datetime.now().strftime("%d-%m-%Y")
 
 
+@tool
 @mcp.tool()
 async def get_state_list_from_enam() -> dict[str, Any]:
     """
@@ -59,6 +63,7 @@ async def get_state_list_from_enam() -> dict[str, Any]:
     return await _post("states_name")
 
 
+@tool
 @mcp.tool()
 async def get_apmc_list_from_enam(state_id: str) -> dict[str, Any]:
     """
@@ -69,6 +74,7 @@ async def get_apmc_list_from_enam(state_id: str) -> dict[str, Any]:
     return await _post("apmc_list", {"state_id": state_id})
 
 
+@tool
 @mcp.tool()
 async def get_commodity_list_from_enam(
     state_name: str,
@@ -82,15 +88,19 @@ async def get_commodity_list_from_enam(
     Call after get_apmc_list_from_enam to get valid apmc_name.
     Use get_today_date_for_enam to get today's date if needed.
     """
-    return await _post("commodity_list", {
-        "language": "en",
-        "stateName": state_name,
-        "apmcName": apmc_name,
-        "fromDate": from_date,
-        "toDate": to_date,
-    })
+    return await _post(
+        "commodity_list",
+        {
+            "language": "en",
+            "stateName": state_name,
+            "apmcName": apmc_name,
+            "fromDate": from_date,
+            "toDate": to_date,
+        },
+    )
 
 
+@tool
 @mcp.tool()
 async def get_trade_data_from_enam(
     state_name: str,
@@ -110,14 +120,18 @@ async def get_trade_data_from_enam(
         3. get_commodity_list_from_enam(...) → resolve commodity name
         4. get_trade_data_from_enam(...) → get actual trade data
     """
-    return await _post("trade_data_list", {
-        "language": "en",
-        "stateName": state_name,
-        "apmcName": apmc_name,
-        "commodityName": commodity_name,
-        "fromDate": from_date,
-        "toDate": to_date,
-    })
+    return await _post(
+        "trade_data_list",
+        {
+            "language": "en",
+            "stateName": state_name,
+            "apmcName": apmc_name,
+            "commodityName": commodity_name,
+            "fromDate": from_date,
+            "toDate": to_date,
+        },
+    )
+
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http")

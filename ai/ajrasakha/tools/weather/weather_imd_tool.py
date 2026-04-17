@@ -6,6 +6,7 @@ from typing import Any
 
 import httpx
 from dotenv import load_dotenv
+from langchain.tools import tool
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
@@ -18,17 +19,26 @@ RETRIES = int(os.getenv("IMD_MAX_RETRIES", "3"))
 
 mcp = FastMCP(
     "ajrasakha-imd-mcp",
-    transport_security=TransportSecuritySettings(
-        enable_dns_rebinding_protection=False
-    )
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
 
 WARNING_CODES = {
-    "1": "No Warning", "2": "Heavy Rain", "3": "Heavy Snow",
-    "4": "Thunderstorm & Lightning", "5": "Hailstorm", "6": "Dust Storm",
-    "7": "Dust Raising Winds", "8": "Strong Surface Winds", "9": "Heat Wave",
-    "10": "Hot Day", "11": "Warm Night", "12": "Cold Wave", "13": "Cold Day",
-    "14": "Ground Frost", "15": "Fog", "16": "Very Heavy Rain",
+    "1": "No Warning",
+    "2": "Heavy Rain",
+    "3": "Heavy Snow",
+    "4": "Thunderstorm & Lightning",
+    "5": "Hailstorm",
+    "6": "Dust Storm",
+    "7": "Dust Raising Winds",
+    "8": "Strong Surface Winds",
+    "9": "Heat Wave",
+    "10": "Hot Day",
+    "11": "Warm Night",
+    "12": "Cold Wave",
+    "13": "Cold Day",
+    "14": "Ground Frost",
+    "15": "Fog",
+    "16": "Very Heavy Rain",
     "17": "Extremely Heavy Rain",
 }
 
@@ -47,7 +57,10 @@ RAINFALL_CATEGORIES = {
 
 # --- Core request helper ---
 
-async def _get(base: str, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+
+async def _get(
+    base: str, path: str, params: dict[str, Any] | None = None
+) -> dict[str, Any]:
     url = f"{base}/{path.lstrip('/')}"
     for i in range(RETRIES):
         try:
@@ -63,6 +76,8 @@ async def _get(base: str, path: str, params: dict[str, Any] | None = None) -> di
 
 # --- Tools ---
 
+
+@tool
 @mcp.tool()
 async def get_weather_forecast(latitude: float, longitude: float) -> dict[str, Any]:
     """
@@ -70,13 +85,18 @@ async def get_weather_forecast(latitude: float, longitude: float) -> dict[str, A
     Returns today's observed weather + 7-day forecast with max/min temps and conditions.
     This is the primary tool for farmer weather queries — call this first.
     """
-    result = await _get(CITY_BASE, "cityweather_loc.php", {"lat": latitude, "lon": longitude})
+    result = await _get(
+        CITY_BASE, "cityweather_loc.php", {"lat": latitude, "lon": longitude}
+    )
     if not result["success"]:
         return result
 
     data = result["data"]
     if not data:
-        return {"success": False, "error": "No weather station found near this location"}
+        return {
+            "success": False,
+            "error": "No weather station found near this location",
+        }
 
     station = data[0] if isinstance(data, list) else data
 
@@ -99,16 +119,19 @@ async def get_weather_forecast(latitude: float, longitude: float) -> dict[str, A
 
     forecast = []
     for day in range(2, 8):
-        forecast.append({
-            "day": f"Day {day}",
-            "max_temp": station.get(f"Day_{day}_Max_Temp"),
-            "min_temp": station.get(f"Day_{day}_Min_temp"),
-            "forecast": station.get(f"Day_{day}_Forecast"),
-        })
+        forecast.append(
+            {
+                "day": f"Day {day}",
+                "max_temp": station.get(f"Day_{day}_Max_Temp"),
+                "min_temp": station.get(f"Day_{day}_Min_temp"),
+                "forecast": station.get(f"Day_{day}_Forecast"),
+            }
+        )
 
     return {"success": True, "today": today, "forecast": forecast}
 
 
+@tool
 @mcp.tool()
 async def get_current_weather(station_id: int) -> dict[str, Any]:
     """
@@ -144,6 +167,7 @@ async def get_current_weather(station_id: int) -> dict[str, Any]:
     }
 
 
+@tool
 @mcp.tool()
 async def get_district_warnings(district_obj_id: int) -> dict[str, Any]:
     """
@@ -152,28 +176,40 @@ async def get_district_warnings(district_obj_id: int) -> dict[str, Any]:
     Color: Red=severe, Orange=moderate, Yellow=watch, Green=no warning.
     Call get_weather_forecast first to identify the area, then use this for alerts.
     """
-    result = await _get(MAUSAM_BASE, "warnings_district_api.php", {"id": district_obj_id})
+    result = await _get(
+        MAUSAM_BASE, "warnings_district_api.php", {"id": district_obj_id}
+    )
     if not result["success"]:
         return result
 
     data = result["data"]
     if not data:
-        return {"success": False, "error": f"No warnings data for district obj_id={district_obj_id}"}
+        return {
+            "success": False,
+            "error": f"No warnings data for district obj_id={district_obj_id}",
+        }
 
     record = data[0] if isinstance(data, list) else data
 
     def decode_warnings(codes_str: str | None) -> list[str]:
         if not codes_str:
             return []
-        return [WARNING_CODES.get(c.strip(), f"Code {c.strip()}") for c in codes_str.split(",")]
+        return [
+            WARNING_CODES.get(c.strip(), f"Code {c.strip()}")
+            for c in codes_str.split(",")
+        ]
 
     warnings = []
     for day in range(1, 6):
-        warnings.append({
-            "day": f"Day {day}",
-            "warnings": decode_warnings(record.get(f"Day_{day}")),
-            "severity": COLOR_CODES.get(str(record.get(f"Day{day}_Color", "")), "Unknown"),
-        })
+        warnings.append(
+            {
+                "day": f"Day {day}",
+                "warnings": decode_warnings(record.get(f"Day_{day}")),
+                "severity": COLOR_CODES.get(
+                    str(record.get(f"Day{day}_Color", "")), "Unknown"
+                ),
+            }
+        )
 
     return {
         "success": True,
@@ -183,6 +219,7 @@ async def get_district_warnings(district_obj_id: int) -> dict[str, Any]:
     }
 
 
+@tool
 @mcp.tool()
 async def get_district_rainfall(district_obj_id: int) -> dict[str, Any]:
     """
@@ -190,7 +227,9 @@ async def get_district_rainfall(district_obj_id: int) -> dict[str, Any]:
     Includes actual vs normal comparison and departure category (Excess/Deficient/Normal etc).
     Useful for understanding drought or flood conditions for a farming region.
     """
-    result = await _get(MAUSAM_BASE, "districtwise_rainfall_api.php", {"id": district_obj_id})
+    result = await _get(
+        MAUSAM_BASE, "districtwise_rainfall_api.php", {"id": district_obj_id}
+    )
     if not result["success"]:
         return result
 
@@ -239,6 +278,7 @@ async def get_district_rainfall(district_obj_id: int) -> dict[str, Any]:
     }
 
 
+@tool
 @mcp.tool()
 async def get_realtime_weather_by_state(state_id: int) -> dict[str, Any]:
     """
@@ -254,7 +294,10 @@ async def get_realtime_weather_by_state(state_id: int) -> dict[str, Any]:
 
     data = result["data"]
     if not data:
-        return {"success": False, "error": f"No AWS stations found for state_id={state_id}"}
+        return {
+            "success": False,
+            "error": f"No AWS stations found for state_id={state_id}",
+        }
 
     stations = data if isinstance(data, list) else [data]
 
@@ -282,6 +325,7 @@ async def get_realtime_weather_by_state(state_id: int) -> dict[str, Any]:
     }
 
 
+@tool
 @mcp.tool()
 async def get_subdivision_warnings() -> dict[str, Any]:
     """
@@ -317,6 +361,7 @@ async def get_subdivision_warnings() -> dict[str, Any]:
     }
 
 
+@tool
 @mcp.tool()
 async def get_subdivision_rainfall_forecast() -> dict[str, Any]:
     """
@@ -351,6 +396,7 @@ async def get_subdivision_rainfall_forecast() -> dict[str, Any]:
             for s in subdivisions
         ],
     }
+
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http")
