@@ -646,10 +646,14 @@ export class QuestionService {
     totalQuestions: number;
     statuses: { status: string; count: number }[];
   } | null> {
-    return apiFetch<{
-      totalQuestions: number;
-      statuses: { status: string; count: number }[];
+    const res = await apiFetch<{
+      success: boolean;
+      data: {
+        totalQuestions: number;
+        statuses: { status: string; count: number }[];
+      };
     }>(`${this._baseUrl}/status-summary`);
+    return res?.data ?? null;
   }
 
 }
