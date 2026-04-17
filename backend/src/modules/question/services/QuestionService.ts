@@ -1271,17 +1271,21 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (answers && answers.length == 0)
           aiInitialAnswer = currentQuestion.aiInitialAnswer;
 
-        // For AJRASAKHA: if aiApprovedAnswer is not set (old data), fall back
-        // to the first answer from the answers collection
-        let aiApprovedAnswer = currentQuestion.aiApprovedAnswer;
         let aiApprovedSources = currentQuestion.aiApprovedSources;
+
+        // Backward compatibility: old DB still has aiApprovedAnswer
+        if (!aiInitialAnswer && currentQuestion.aiApprovedAnswer) {
+          aiInitialAnswer = currentQuestion.aiApprovedAnswer;
+        }
+
+        // Existing fallback (keep this)
         if (
           currentQuestion.source === 'AJRASAKHA' &&
-          !aiApprovedAnswer &&
+          !aiInitialAnswer &&
           answers &&
           answers.length > 0
         ) {
-          aiApprovedAnswer = answers[0].answer;
+          aiInitialAnswer = answers[0].answer;
           aiApprovedSources = answers[0].sources;
         }
 
@@ -1293,7 +1297,6 @@ export class QuestionService extends BaseService implements IQuestionService {
           status: currentQuestion.status,
           priority: currentQuestion.priority,
           aiInitialAnswer,
-          aiApprovedAnswer,
           aiApprovedSources,
           isAutoAllocate: currentQuestion.isAutoAllocate,
           createdAt: new Date(currentQuestion.createdAt).toLocaleString(),

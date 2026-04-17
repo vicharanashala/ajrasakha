@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { PerformaneService } from "@/hooks/services/performanceService";
 import { formatMonthYear } from "@/utils/formateMonthYear";
-import { TopRightBadge } from "@/components/NewBadge";
 import { Button } from "../../components/atoms/button";
 import { Download, Loader2, CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/atoms/calendar";
@@ -93,7 +92,6 @@ const DownloadLevelWiseReportButton = ({
             <div className="text-left">
               <p className="text-sm relative font-bold text-gray-900 dark:text-white">
                 {isDownloading ? "Downloading..." : "LevelWise Report"}
-                <TopRightBadge label="new" right={0} />
               </p>
               <p className="text-[11px] text-gray-500">
                 Submission Report by Level
