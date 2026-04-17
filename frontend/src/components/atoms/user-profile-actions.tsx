@@ -95,7 +95,7 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+        <Button id="user-profile-menu" variant="ghost" className="relative h-9 w-9 rounded-full">
           <Avatar className="h-9 w-9">
             <AvatarImage
               src={user.avatar || "/placeholder.svg"}
@@ -142,6 +142,7 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
         </DropdownMenuItem>
 
         <DropdownMenuItem
+          id="logout-button"
           onClick={handleLogout}
           className="text-red-600 focus:text-red-600 cursor-pointer"
         >

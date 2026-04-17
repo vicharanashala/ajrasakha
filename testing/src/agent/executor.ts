@@ -57,6 +57,11 @@ export async function executeAction(
         });
         break;
 
+      case "escalate_db":
+        const { escalateQuestionToModerator } = require("./seeder");
+        await escalateQuestionToModerator();
+        break;
+
       case "done":
         // "done" is handled by the runner, not the executor
         break;

@@ -160,6 +160,7 @@ export const SourceUrlManager = ({
               />
               <button
                 type="button"
+                id="add-source-button"
                 onClick={addSource}
                 className="px-3 py-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
               >

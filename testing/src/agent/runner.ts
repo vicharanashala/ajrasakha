@@ -41,6 +41,15 @@ export async function runScenario(scenario: TestScenario): Promise<TestResult> {
     page = await browser.newPage();
     await page.setViewportSize({ width: 1280, height: 800 });
 
+    if (scenario.name === "Full Q&A Lifecycle: Expert answers, Moderator approves") {
+      try {
+        const { seedQuestion } = await import("./seeder");
+        await seedQuestion(process.env.EXPERT_EMAIL ?? "ashifmohd.offl@gmail.com");
+      } catch (err: any) {
+        console.warn(`\n[Warning] Could not seed question automatically: ${err.message}`);
+      }
+    }
+
     let lastError: string | undefined;
     let stepCount = 0;
 
@@ -58,8 +67,9 @@ export async function runScenario(scenario: TestScenario): Promise<TestResult> {
         error: lastError,
       };
 
-      console.log(`\nStep ${stepCount}: Waiting 4s for rate limits, then asking brain...`);
-      await new Promise(r => setTimeout(r, 4000));
+      // Wait to respect rate limits (Gemini free tier allows 15 RPM) -> Reduced to 1s per user request for faster execution
+      console.log(`\nStep ${stepCount}: Asking AI brain for next move...`);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       const action = await getNextAction(input);
       console.log(`  → Action: ${JSON.stringify(action)}`);
 
