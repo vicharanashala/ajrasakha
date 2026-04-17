@@ -40,5 +40,6 @@ export interface IChatbotService {
   getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string): Promise<PaginatedUserDetails>;
   getAvgSessionDurationV2(source?: string): Promise<number>;
   getWeeklyAvgSessionDurationV2(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
+  generateChatbotExcelReport(startDate: Date, endDate: Date, source?: string): Promise<ArrayBuffer | null>;
 }
 
