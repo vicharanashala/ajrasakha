@@ -22,7 +22,7 @@ import {
   GoldenDataset,
   QuestionStatusOverview,
   StatusOverview
-} from '#root/modules/core/classes/validators/DashboardValidators.js';
+} from '#root/modules/dashboard/validators/DashboardValidators.js';
 import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
 import { IPerformanceService } from '../interfaces/IPerformanceService.js';
 import { sendStatsEmail } from '#root/utils/backupEmailService.js';

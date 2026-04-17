@@ -52,8 +52,8 @@ import {
 } from '#root/workers/workerManager.js';
 import { ContextIdParam } from '#root/modules/context/classes/validators/ContextValidator.js';
 import { QuestionService } from '../services/QuestionService.js';
-import { UploadFileOptions } from '#root/modules/core/classes/validators/fileUploadOptions.js';
-import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
+import { UploadFileOptions } from '#root/modules/question/classes/validators/fileUploadOptions.js';
+import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
 import { InternalApiAuth } from '#root/shared/functions/internalApiAuth.js';
 

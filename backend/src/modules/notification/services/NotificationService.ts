@@ -6,7 +6,7 @@ import { INotificationRepository } from '#root/shared/database/interfaces/INotif
 import {
   AddPushSubscriptionBody,
   NotificationResponse,
-} from '../classes/validators/NotificationValidators.js';
+} from '#root/modules/notification/validators/NotificationValidators.js';
 import { NotFoundError } from 'routing-controllers';
 import {
   notifyUser,
