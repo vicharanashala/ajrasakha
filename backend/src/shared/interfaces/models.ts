@@ -1,7 +1,7 @@
 import {ObjectId} from 'mongodb';
 
 export type UserRole = 'admin' | 'moderator' | 'expert';
-export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold';
 export interface IPreference {
   state: string;
   crop: string;
@@ -41,7 +41,7 @@ export interface IQuestionMetrics {
   collusion_score: number;
 }
 
-export type QuestionSource = 'AJRASAKHA' | "AGRI_EXPERT" | "WHATSAPP";
+export type QuestionSource = 'AJRASAKHA' | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
 export interface IQuestion {
   _id?: string | ObjectId;
   userId?: ObjectId | string;
@@ -73,6 +73,10 @@ export interface IQuestion {
   passingRemark?:string;
   isOnHold?:boolean;
   messageId?:string;
+  /** Wall-clock moment the current hold segment started (SLA timer freezes until unhold). */
+  holdAt?:Date | null;
+  /** Sum of prior completed hold durations (ms); extended SLA = createdAt + window + this. */
+  accumulatedHoldMs?: number;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';

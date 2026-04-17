@@ -21,7 +21,11 @@ import {
   EyeOff,
   Eye,
   Wheat,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
 } from "lucide-react";
+import { useGetQuestionStatusSummary } from "@/hooks/api/question/useGetQuestionStatusSummary";
 import {
   AdvanceFilterDialog,
   type AdvanceFilterValues,
@@ -61,8 +65,8 @@ import {
 } from "@/stores/all-questions";
 import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
-import { TopRightBadge } from "@/components/NewBadge";
 import { CropManagementModal } from "./CropManagementModal";
+import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -92,13 +96,14 @@ type QuestionsFiltersProps = {
   setView: (v: "grid" | "table") => void;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach";
 
 const sourceToAnswerMode = (
   source: AdvanceFilterValues["source"],
 ): AnswerMode => {
   if (source === "AGRI_EXPERT") return "manual";
   if (source === "WHATSAPP") return "whatsapp";
+  if (source === "OUTREACH") return "outreach";
   return "ajraskha";
 };
 
@@ -107,6 +112,7 @@ const answerModeToSource = (
 ): AdvanceFilterValues["source"] => {
   if (answerMode === "manual") return "AGRI_EXPERT";
   if (answerMode === "whatsapp") return "WHATSAPP";
+  if (answerMode === "outreach") return "OUTREACH";
   return "AJRASAKHA";
 };
 
@@ -303,6 +309,7 @@ export const QuestionsFilters = ({
 
   const handleAnswerModeChange = (nextAnswerMode: AnswerMode) => {
     const source = answerModeToSource(nextAnswerMode);
+
     const nextFilters = { ...advanceFilter, source };
 
     setAnswerMode(nextAnswerMode);
@@ -348,11 +355,12 @@ export const QuestionsFilters = ({
       review_level: advanceFilter?.review_level,
       closedAtStart: advanceFilter?.closedAtStart,
       closedAtEnd: advanceFilter?.closedAtEnd,
+      closedInTwoHrs: advanceFilter?.closedInTwoHrs,
       consecutiveApprovals: advanceFilter?.consecutiveApprovals,
       autoAllocateFilter: advanceFilter?.autoAllocateFilter,
       hiddenQuestions: advanceFilter?.hiddenQuestions,
       duplicateQuestions: advanceFilter?.duplicateQuestions,
-        isOnHold: advanceFilter?.isOnHold,
+      isOnHold: advanceFilter?.isOnHold,
     });
   };
 
@@ -375,6 +383,9 @@ export const QuestionsFilters = ({
         return false;
       }
 
+      // ignore defaults
+      if (value === undefined || value === "all") return false;
+      if (key === "closedInTwoHrs" && value === false) return false;
       // array filters: count as active only if non-empty
       if (key === "states" || key === "normalisedCrops") return Array.isArray(value) && value.length > 0;
 
@@ -390,17 +401,49 @@ export const QuestionsFilters = ({
     (advanceFilter.closedAtStart || advanceFilter.closedAtEnd ? 1 : 0);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // Track window size for boundaries
+  const [windowSize, setWindowSize] = useState({
+    width: typeof window !== "undefined" ? window.innerWidth : 1200,
+    height: typeof window !== "undefined" ? window.innerHeight : 800,
+  });
+
+  useEffect(() => {
+    const handleResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // Optimized Draggable Logic
   const [position, setPosition] = useState({
     x: 10,
-    y: window.innerHeight - 70,
-  }); // Initial screen position
+    y: typeof window !== "undefined" ? window.innerHeight - 70 : 800,
+  });
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef(null);
   const offset = useRef({ x: 0, y: 0 });
+  const [isBadgeExpanded, setIsBadgeExpanded] = useState(false);
+  const hasDragged = useRef(false);
+  const { data: statusSummary, isLoading: isStatusLoading } = useGetQuestionStatusSummary(advanceFilter, search, isBadgeExpanded);
+
+  // Dynamically clamp the badge position based on its estimated sizes to prevent it from ever clipping off the screen
+  const estimatedBadgeHeight = isBadgeExpanded ? 240 : 50;
+  const estimatedBadgeWidth = isBadgeExpanded ? 220 : 120;
+  
+  const safeX = Math.max(10, Math.min(position.x, windowSize.width - estimatedBadgeWidth - 20));
+  const safeY = Math.max(10, Math.min(position.y, windowSize.height - estimatedBadgeHeight - 20));
+
+  const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+    open: { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", dot: "bg-emerald-500" },
+    delayed: { bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
+    "in-review": { bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400", dot: "bg-blue-500" },
+    closed: { bg: "bg-gray-500/10", text: "text-gray-600 dark:text-gray-400", dot: "bg-gray-500" },
+  };
+  const defaultColor = { bg: "bg-purple-500/10", text: "text-purple-600 dark:text-purple-400", dot: "bg-purple-500" };
 
   const handleMouseDown = (e: any) => {
     setIsDragging(true);
+    hasDragged.current = false;
     const rect = e.currentTarget.getBoundingClientRect();
     offset.current = {
       x: e.clientX - rect.left,
@@ -411,6 +454,7 @@ export const QuestionsFilters = ({
   useEffect(() => {
     const handleMouseMove = (e: any) => {
       if (!isDragging) return;
+      hasDragged.current = true;
 
       // Calculate new position based on viewport
       setPosition({
@@ -476,17 +520,16 @@ export const QuestionsFilters = ({
         </div>
       </div>
 
-      <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
+      {/* <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
         <div className="flex items-center rounded-lg border border-border bg-muted/40 p-1">
           <button
             onClick={() => {
               handleAnswerModeChange("ajraskha");
             }}
-            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
-              answerMode === "ajraskha"
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "ajraskha"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+              }`}
           >
             AJRASKHA
           </button>
@@ -495,14 +538,24 @@ export const QuestionsFilters = ({
             onClick={() => {
               handleAnswerModeChange("manual");
             }}
-            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
-              answerMode === "manual"
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "manual"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+              }`}
           >
             Manual
           </button>
+
+          <button
+            onClick={() => handleAnswerModeChange("outreach")}
+            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "outreach"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+              }`}
+          >
+            Outreach
+          </button>
+
           <button
             onClick={() => {
               handleAnswerModeChange("whatsapp");
@@ -514,9 +567,11 @@ export const QuestionsFilters = ({
           >
             Whatsapp
           </button>
-         
+
         </div>
-      </div>
+      </div> */}
+
+      <AnswerModeSwitcher answerMode={answerMode} handleAnswerModeChange={handleAnswerModeChange} />
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
         <div className="relative hidden md:flex items-center gap-2">
@@ -524,37 +579,37 @@ export const QuestionsFilters = ({
         </div>
 
         {/* tools and filters */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={() => setIsSidebarOpen(true)}
+                className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 dark:bg-[#1a1a1a] dark:border-gray-800"
+              >
+                <Filter className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Tools & Filters</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        {userRole !== "expert" && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  onClick={() => setIsSidebarOpen(true)}
-                  className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 dark:bg-[#1a1a1a] dark:border-gray-800"
+                  className="flex items-center justify-center px-3 py-1.5 text-sm font-medium"
+                  onClick={() => {
+                    setAddQuestionErrors({});
+                    setAddOpen(true);
+                  }}
                 >
-                  <Filter className="h-4 w-4" />
+                  <Plus className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Tools & Filters</TooltipContent>
+              <TooltipContent>Add Question</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-
-        {userRole !== "expert" && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                  className="flex items-center justify-center px-3 py-1.5 text-sm font-medium"
-                    onClick={() => {
-                      setAddQuestionErrors({});
-                      setAddOpen(true);
-                    }}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Add Question</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
         )}
 
         {isSelectionModeOn && (
@@ -562,11 +617,9 @@ export const QuestionsFilters = ({
             {/* Bulk delete with count */}
             <ConfirmationModal
               title="Delete Selected Questions?"
-              description={`Are you sure you want to delete ${
-                selectedQuestionIds.length
-              } selected question${
-                selectedQuestionIds.length > 1 ? "s" : ""
-              }? This action is irreversible.`}
+              description={`Are you sure you want to delete ${selectedQuestionIds.length
+                } selected question${selectedQuestionIds.length > 1 ? "s" : ""
+                }? This action is irreversible.`}
               confirmText="Delete"
               cancelText="Cancel"
               isLoading={bulkDeletingQuestions}
@@ -662,7 +715,6 @@ export const QuestionsFilters = ({
             <section className="hidden md:block">
               <h3 className=" relative text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
                 Hide Columns
-                <TopRightBadge label="new" right={0} />
               </h3>
 
               <div className="grid grid-cols-2 gap-2 p-1 rounded-lg">
@@ -679,11 +731,10 @@ export const QuestionsFilters = ({
                         key={key}
                         onClick={() => toggleColumn(key)}
                         className={`flex items-center justify-between px-5 py-2 rounded-lg border transition-all duration-300 hover:border-emerald-500/60
-              ${
-                isVisible
-                  ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
-                  : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
-              }
+              ${isVisible
+                            ? "bg-emerald-500/5 border-emerald-500/30 dark:text-white text-gray-600"
+                            : "bg-transparent border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-600"
+                          }
             `}
                       >
                         <span className="text-xs font-semibold tracking-wider capitalize">
@@ -728,7 +779,6 @@ export const QuestionsFilters = ({
                         <div className="flex items-center gap-2">
                           <p className="relative text-sm font-semibold text-gray-900 dark:text-white">
                             Turnaround Time
-                            <TopRightBadge label="New" right={4} />
                           </p>
                         </div>
 
@@ -775,7 +825,6 @@ export const QuestionsFilters = ({
                       <div className="flex items-center gap-2">
                         <p className="relative text-sm font-bold text-gray-900 dark:text-white">
                           Update Crops
-                          <TopRightBadge label="New" right={4} />
                         </p>
                       </div>
                       <p className="text-[11px] text-gray-500">
@@ -803,7 +852,6 @@ export const QuestionsFilters = ({
                       <div className="flex items-center gap-2">
                         <p className="relative text-sm font-bold text-gray-900 dark:text-white">
                           ReAllocate Questions
-                          <TopRightBadge label="New" right={4} />
                         </p>
                       </div>
                       <p className="text-[11px] text-gray-500">
@@ -902,20 +950,77 @@ export const QuestionsFilters = ({
       <div
         ref={dragRef}
         onMouseDown={handleMouseDown}
-        className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 px-4 py-2 rounded-full flex items-center gap-3 shadow-xl backdrop-blur-md select-none transition-shadow ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
+        onClick={() => {
+          if (!hasDragged.current) {
+            setIsBadgeExpanded((prev) => !prev);
+          }
+        }}
+        className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 shadow-xl backdrop-blur-md select-none transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+          isBadgeExpanded
+            ? "rounded-[16px] px-4 py-3 min-w-[220px]"
+            : "rounded-[24px] px-4 py-2.5 min-w-[120px]"
+        } ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
         style={{
-          left: `${position.x}px`,
-          top: `${position.y}px`,
+          left: `${safeX}px`,
+          top: `${safeY}px`,
           touchAction: "none",
         }}
       >
-        <Activity size={14} className="text-green-600 dark:text-green-500" />
-        <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
-          Total:{" "}
-          <span className="text-gray-900 dark:text-white">
-            {totalQuestions}
+        {/* Header row */}
+        <div className="flex items-center gap-3">
+          <Activity size={14} className="text-green-600 dark:text-green-500 shrink-0" />
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest whitespace-nowrap">
+            Total:{" "}
+            <span className="text-gray-900 dark:text-white transition-opacity duration-300">
+              {statusSummary?.totalQuestions ?? totalQuestions}
+            </span>
           </span>
-        </span>
+          <span 
+            className={`ml-auto text-gray-400 dark:text-gray-500 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+              isBadgeExpanded ? "rotate-180" : "rotate-0"
+            }`}
+          >
+            <ChevronDown size={14} />
+          </span>
+        </div>
+
+        {/* Expanded status breakdown */}
+        <div
+          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+            isBadgeExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="mt-3 space-y-1.5 border-t border-gray-100 dark:border-gray-700 pt-3">
+              {isStatusLoading ? (
+                <div className="flex items-center justify-center py-2 h-[120px]">
+                  <Loader2 size={16} className="animate-spin text-gray-400" />
+                  <span className="ml-2 text-xs text-gray-400">Loading...</span>
+                </div>
+              ) : (
+                statusSummary?.statuses?.map((s) => {
+                  const color = STATUS_COLORS[s.status] || defaultColor;
+                  return (
+                    <div
+                      key={s.status}
+                      className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${color.bg} transition-colors`}
+                    >
+                      <div className="flex items-center gap-2">
+                         <span className={`w-2 h-2 rounded-full ${color.dot} shrink-0`} />
+                         <span className={`text-xs font-semibold capitalize ${color.text} whitespace-nowrap`}>
+                          {s.status}
+                        </span>
+                      </div>
+                      <span className={`text-xs font-bold tabular-nums ${color.text}`}>
+                        {s.count}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
       </div>
       <ConfirmationModal
         title="ReAllocate work load?"

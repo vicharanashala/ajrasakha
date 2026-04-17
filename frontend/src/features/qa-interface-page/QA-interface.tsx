@@ -433,8 +433,8 @@ export const QAInterface = ({
     // For AJRASAKHA: the answer comes from aiApprovedAnswer (answers collection)
     // For others: the answer comes from aiInitialAnswer (questions collection)
     const hasPrefilledAnswer =
-      selectedQuestionData.aiApprovedAnswer ||
-      selectedQuestionData.aiInitialAnswer;
+      selectedQuestionData.aiInitialAnswer ||
+      selectedQuestionData.aiApprovedAnswer;
 
     if (!hasPrefilledAnswer) return;
 
@@ -446,10 +446,10 @@ export const QAInterface = ({
 
       if (selectedQuestionData.source === 'AJRASAKHA') {
         // Prefer the clean answer from answers collection (set by moderator approval)
-        if (selectedQuestionData.aiApprovedAnswer) {
-          prefillAnswer = selectedQuestionData.aiApprovedAnswer;
-        } else if (selectedQuestionData.aiInitialAnswer) {
+        if (selectedQuestionData.aiInitialAnswer) {
           prefillAnswer = selectedQuestionData.aiInitialAnswer;
+        } else if (selectedQuestionData.aiApprovedAnswer) {
+          prefillAnswer = selectedQuestionData.aiApprovedAnswer;
         }
       } else {
         prefillAnswer = selectedQuestionData.aiInitialAnswer || '';
@@ -469,7 +469,7 @@ export const QAInterface = ({
       setSources(selectedQuestionData.aiApprovedSources);
     }
 
-    const aiAnswer = selectedQuestionData.aiApprovedAnswer || selectedQuestionData.aiInitialAnswer || '';
+    const aiAnswer = selectedQuestionData.aiInitialAnswer || selectedQuestionData.aiApprovedAnswer || '';
     const isAiAnswer = aiAnswer && newAnswer.trim() === aiAnswer.trim();
 
     if (!draft?.remarks) setRemarks(isAiAnswer ? "AI Generated Answer" : "");

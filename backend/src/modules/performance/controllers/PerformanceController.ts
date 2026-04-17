@@ -26,7 +26,7 @@ import {
   IReviewerHeatmapResponse,
 } from '#root/shared/interfaces/models.js';
 import { PerformanceService } from '../services/PerformanceService.js';
-import { DashboardResponse, GetDashboardQuery, GetHeatMapQuery } from '#root/modules/core/classes/validators/DashboardValidators.js';
+import { DashboardResponse, GetDashboardQuery, GetHeatMapQuery } from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { IPerformanceService } from '../interfaces/IPerformanceService.js';
 import {
   PerformanceErrorResponse,

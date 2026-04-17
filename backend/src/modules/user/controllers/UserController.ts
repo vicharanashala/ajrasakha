@@ -21,7 +21,7 @@ import {
   NotificationRetentionType,
 } from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
-import {UserService} from '../services/UserService.js';
+import {UserService} from '#root/modules/user/services/UserService.js';
 import {
   BlockUnblockBody,
   NotificationDeletePreferenceDTO,
@@ -29,14 +29,14 @@ import {
   UsersNameResponseDto,
   ExpertReviewLevelDto,
   UpdateUserDto
-} from '../classes/validators/UserValidators.js';
+} from '../validators/UserValidators.js';
 import {
   UserErrorResponse,
   UserSuccessMessageResponse,
   PaginatedUsersResponse,
   ToggleUserRoleResponse,
   UserEntryResponse,
-} from '../classes/validators/UserResponseValidators.js';
+} from '../../core/classes/validators/UserResponseValidators.js';
 
 @OpenAPI({
   tags: ['users'],

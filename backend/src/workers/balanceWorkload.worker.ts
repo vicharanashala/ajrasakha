@@ -34,7 +34,7 @@ await database.init();
 const { UserRepository } = await import('#root/shared/database/providers/mongo/repositories/UserRepository.js');
 const { QuestionSubmissionRepository } = await import('#root/shared/database/providers/mongo/repositories/SubmissionRepository.js');
 const { NotificationRepository } = await import('#root/shared/database/providers/mongo/repositories/NotificationRepository.js');
-const { NotificationService } = await import('#root/modules/core/services/NotificationService.js');
+const { NotificationService } = await import('#root/modules/notification/services/NotificationService.js');
 
 const userRepo = new UserRepository(database);
 await (userRepo as any).init();
