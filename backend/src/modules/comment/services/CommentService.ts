@@ -5,7 +5,7 @@ import {inject} from 'inversify';
 import {ClientSession} from 'mongodb';
 import {InternalServerError, NotFoundError} from 'routing-controllers';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
-import { NotificationService } from '#root/modules/core/services/NotificationService.js';
+import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
 import { ICommentService } from '../interfaces/ICommentService.js';
 

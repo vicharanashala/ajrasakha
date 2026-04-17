@@ -37,13 +37,13 @@ import {
   GoldenDataViewType,
   ModeratorApprovalRate,
   QuestionStatusOverview,
-} from '#root/modules/core/classes/validators/DashboardValidators.js';
+} from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { promises } from 'dns';
 import { getReviewerQueuePosition } from '#root/utils/getReviewerQueuePosition.js';
 import {
   QuestionLevelResponse,
   ReviewLevelTimeValue,
-} from '#root/modules/core/classes/transformers/QuestionLevel.js';
+} from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { buildQuestionFilter } from '#root/utils/buildQuestionFilter.js';
 import {
   AllocatedQuestionsBodyDto,

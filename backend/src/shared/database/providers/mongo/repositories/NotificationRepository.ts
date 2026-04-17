@@ -6,7 +6,7 @@ import {MongoDatabase} from '../MongoDatabase.js';
 import {isValidObjectId} from '#root/utils/isValidObjectId.js';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
-import { NotificationResponse } from '#root/modules/core/classes/validators/NotificationValidators.js';
+import { NotificationResponse } from '#root/modules/notification/validators/NotificationValidators.js';
 
 export class NotificationRepository implements INotificationRepository {
   private notificationCollection: Collection<INotification>;

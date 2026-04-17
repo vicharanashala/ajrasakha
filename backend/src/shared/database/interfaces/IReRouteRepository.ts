@@ -5,7 +5,7 @@ import {
   GoldenDataViewType,
   ModeratorApprovalRate,
   QuestionStatusOverview,
-} from '#root/modules/core/classes/validators/DashboardValidators.js';
+} from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { AllocatedQuestionsBodyDto, GetDetailedQuestionsQuery } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 import {
   IQuestion,

@@ -13,7 +13,7 @@ import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '../classes/validators/QuestionVaidators.js';
-import {QuestionLevelResponse} from '#root/modules/core/classes/transformers/QuestionLevel.js';
+import {QuestionLevelResponse} from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import {ClientSession} from 'mongodb';
 
 export interface IQuestionService {
