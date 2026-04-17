@@ -10,13 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./atoms/select";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
-// interface HeatMapRow {
-//   reviewerId: string;
-//   reviewerName: string;
-//   counts: Record<string, number>;
-// }
 
 export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
 
@@ -87,7 +81,7 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
 
 
-  const data = paginatedData.map((r, idx) => ({
+  const data = paginatedData.map((r) => ({
     id: r.reviewerName,
     reviewerName: r.reviewerName,
     data: allBuckets.map((bucket) => ({
@@ -95,16 +89,6 @@ export default function HeatMap({ heatMapDate }: { heatMapDate: DateRange }) {
       y: r.counts?.[bucket] ?? 0,
     })),
   }));
-  // const timeBuckets = [
-  //   "0_1",
-  //   "1_2",
-  //   "2_3",
-  //   "3_4",
-  //   "4_5",
-  //   "5_6",
-  //   "6_12",
-  //   "12_plus",
-  // ];
   const getBackground = (value: number) => {
     if (value === 0) return "bg-gray-200 dark:bg-gray-900";
 

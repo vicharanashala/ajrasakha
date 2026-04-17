@@ -19,24 +19,15 @@ import {
   AlertCircle,
   Check,
   CheckCircle,
-  Edit,
-  Eye,
   File,
   Flag,
   FlagTriangleRight,
   Info,
-  Loader2,
   MessageSquareText,
-  MoreVertical,
-  MousePointer,
   PencilLine,
   Plus,
   PlusCircle,
-  RefreshCcw,
   Save,
-  Search,
-  Square,
-  Trash,
   Upload,
   X,
 } from "lucide-react";
@@ -107,10 +98,6 @@ const OPTIONS: Partial<Record<DetailField, string[]>> = {
   crop: CROPS,
   season: SEASONS,
   domain: DOMAINS,
-};
-const truncate = (s: string, n = 80) => {
-  if (!s) return "";
-  return s.length > n ? s.slice(0, n - 1) + "…" : s;
 };
 
 // ── Crop Select with DB data — shows crop names + aliases as selectable items ──
@@ -708,26 +695,6 @@ Download Sample Excel Template
                         </Select>
                       </>
                     )}
-                  {/* <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <Globe className="h-4 w-4" aria-hidden="true" />
-                  <label>Source*</label>
-                </div> */}
-                  {/* <Select
-                  value={updatedData?.source || "AJRASAKHA"}
-                  onValueChange={(v) =>
-                    setUpdatedData((prev) =>
-                      prev ? { ...prev, source: v as QuestionSource } : prev
-                    )
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select source" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="AJRASAKHA">AJRASAKHA</SelectItem>
-                    <SelectItem value="AGRI_EXPERT">AGRI_EXPERT</SelectItem>
-                  </SelectContent>
-                </Select> */}
 
                   {(
                     [
@@ -910,23 +877,6 @@ Download Sample Excel Template
                             {field.charAt(0).toUpperCase() + field.slice(1)}*
                           </label>
                         </div>
-                        {/* <Input
-                        type="text"
-                        value={updatedData?.details?.[field] || ""}
-                        onChange={(e) =>
-                          setUpdatedData((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  details: {
-                                    ...prev.details,
-                                    [field]: e.target.value,
-                                  },
-                                }
-                              : prev
-                          )
-                        }
-                      />*/}
                         {fieldOptions ? (
                           <Select
                             value={

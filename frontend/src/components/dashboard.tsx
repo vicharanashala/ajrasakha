@@ -21,9 +21,6 @@ import {
 import { DashboardClock } from "./dashboard/dashboard-clock";
 import { Spinner } from "./atoms/spinner";
 import { DateRangeFilter } from "./DateRangeFilter";
-import { useTheme } from "next-themes";
-import { Switch } from "./atoms/switch";
-import { Label } from "./atoms/label";
 import { ReviewLevelComponent } from "./ReviewLevelComponent";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { PerformaneService } from "@/hooks/services/performanceService";
@@ -33,21 +30,6 @@ import { TopRightBadge } from "./NewBadge";
 export type ViewType = "year" | "month" | "week" | "day";
 
 export const Dashboard = () => {
-  /////////////////////////////////////////////////////////////////////////
-  // const { theme } = useTheme();
-
-  // const ANIMATIONS_KEY = "animationsEnabled";
-
-  // const [animationsEnabled, setAnimationsEnabled] = useState<boolean>(() => {
-  //   if (typeof window === "undefined") return true; // SSR safety
-  //   const stored = localStorage.getItem(ANIMATIONS_KEY);
-  //   return stored ? JSON.parse(stored) : true; // default ON
-  // });
-
-  // useEffect(() => {
-  //   localStorage.setItem(ANIMATIONS_KEY, JSON.stringify(animationsEnabled));
-  // }, [animationsEnabled]);
-  ///////////////////////////////////////////////////////////////////////////
 
   localStorage.removeItem("animationsEnabled");
 
@@ -84,7 +66,7 @@ export const Dashboard = () => {
 
   const [activeFilter, setActiveFilter] = useState<"all" | "golden" | "sources" | "analytics">("all");
 
-  const { data: user, isLoading: isUserLoading } = useGetCurrentUser();
+  const { data: user} = useGetCurrentUser();
 
 
   // Fetch dashboard data
@@ -162,7 +144,6 @@ export const Dashboard = () => {
 
   const dataToShow = dashboardState ?? emptyDashboard;
 
-  // if (initialLoading) return <Spinner text="Fetching dashboard data" />;
   if (error && !dashboardState && !initialLoading) {
     return <p className="p-6 text-red-500">Error loading dashboard data</p>;
   }
@@ -185,47 +166,19 @@ export const Dashboard = () => {
 
   return (
     <main className="min-h-screen bg-background">
-      {/* {theme == "dark" && animationsEnabled && <Snowfall />} */}
-      {/* <HolidayBanner /> */}
       <div className="mx-auto p-6">
         <div className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
               {user?.role === "admin" ? "Admin Dashboard" : "Moderator Dashboard"}
             </h1>
-            {/* <div className="relative inline-block">
-              <ChristmasCap className="absolute -top-13 -left-4 w-20 h-18 -rotate-6 z-10" />
-              <h1 className="text-3xl font-bold text-foreground pt-2 pl-6">
-                Moderator Dashboard
-              </h1>
-            </div> */}
             <p className="text-muted-foreground mt-1">
               Monitor content moderation and expert performance
             </p>
           </div>
 
-          {/* <DashboardClock /> */}
           <div className="flex items-center gap-4">
-            {/* ANIMATION SWITCH */}
-            {/* {theme == "dark" && (
-              <div className="flex items-center gap-2">
-                <Label
-                  htmlFor="animations-toggle"
-                  className="text-sm text-muted-foreground cursor-pointer select-none"
-                >
-                  {animationsEnabled ? "Animations On" : "Animations Off"}
-                </Label>
 
-                <Switch
-                  id="animations-toggle"
-                  checked={animationsEnabled}
-                  onCheckedChange={setAnimationsEnabled}
-                  className="scale-100 data-[state=checked]:bg-primary"
-                />
-              </div>
-            )} */}
-
-            {/* CLOCK */}
             <DashboardClock />
           </div>
         </div>
@@ -425,45 +378,6 @@ export const ChristmasCap = ({ className = "" }: { className?: string }) => {
     </svg>
   );
 };
-// export const ChristmasCap = ({ className = "" }: { className?: string }) => {
-//   return (
-//     <svg
-//       viewBox="0 0 120 100"
-//       className={className}
-//       fill="none"
-//       xmlns="http://www.w3.org/2000/svg"
-//     >
-//       {/* Hat body - main triangular shape */}
-//       <path
-//         d="M20 85 Q30 50 50 40 Q70 30 90 35 Q105 40 105 55 L105 85 Z"
-//         fill="#DC2626"
-//         stroke="#B91C1C"
-//         strokeWidth="2"
-//       />
-//       {/* Drooping tail/tip */}
-//       <path
-//         d="M50 40 Q35 35 25 45 Q15 55 10 70 Q8 80 15 85"
-//         fill="#DC2626"
-//         stroke="#B91C1C"
-//         strokeWidth="2"
-//       />
-//       {/* White fur trim at bottom */}
-//       <ellipse cx="62" cy="85" rx="50" ry="12" fill="#F5F5F4" />
-//       <ellipse cx="62" cy="85" rx="47" ry="9" fill="#FAFAF9" />
-//       {/* Pompom at the end of tail */}
-//       <circle cx="15" cy="82" r="14" fill="#FAFAF9" />
-//       <circle cx="13" cy="80" r="11" fill="white" />
-//       {/* Highlight on hat */}
-//       <path
-//         d="M55 50 Q70 42 85 48"
-//         stroke="#EF4444"
-//         strokeWidth="4"
-//         strokeLinecap="round"
-//         opacity="0.5"
-//       />
-//     </svg>
-//   );
-// };
 
 export const HolidayBanner = () => {
   return (
