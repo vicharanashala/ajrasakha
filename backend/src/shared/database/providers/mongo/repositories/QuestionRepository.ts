@@ -1599,9 +1599,6 @@ export class QuestionRepository implements IQuestionRepository {
       await this.init();
       const autoAllocateValue =
         typeof isAutoAllocate === 'boolean' ? !isAutoAllocate : false;
-        console.log("*******************88")
-        console.log("*******************88")
-        console.log("*******************88")
         
       return await this.QuestionCollection.findOneAndUpdate(
         { _id: new ObjectId(questionId) },
