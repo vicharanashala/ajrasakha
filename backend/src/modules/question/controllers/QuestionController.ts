@@ -27,8 +27,7 @@ import {
   IQuestion,
   IQuestionSubmission,
   IUser,
-  IcheckStatusResponseDto,
-  ISimilarQuestion
+  IcheckStatusResponseDto
 } from '#root/shared/interfaces/models.js';
 import { BadRequestErrorResponse } from '#shared/middleware/errorHandler.js';
 import {
@@ -214,7 +213,7 @@ export class QuestionController {
         return {
           success: true,
           message: 'Your question is similar to an existing question.',
-          question_id: (data as ISimilarQuestion).referenceQuestionId,
+          question_id: data._id?.toString(),
         };
       }
 
