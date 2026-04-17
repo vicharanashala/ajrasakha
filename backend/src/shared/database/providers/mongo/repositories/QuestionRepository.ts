@@ -792,7 +792,7 @@ export class QuestionRepository implements IQuestionRepository {
           needsPriorityMapping = true;
           sortStage = { statusOrder: 1, priorityOrder: sortOrder, _id: -1 };
         } else if (field === 'status') {
-          sortStage = { statusOrder: 1, status: sortOrder, _id: -1 };
+          sortStage = { statusOrder: sortOrder, _id: -1 };
         } else if (field === 'answers') {
           sortStage = { statusOrder: 1, totalAnswersCount: sortOrder, _id: -1 };
         } else if (field === 'created') {
@@ -818,13 +818,22 @@ export class QuestionRepository implements IQuestionRepository {
 
       const aggregationPipeline: any[] = [
         { $match: filter },
-        { 
-          $addFields: { 
-            statusOrder: { 
-              $cond: { if: { $eq: [{ $toLower: '$status' }, 'closed'] }, then: 1, else: 0 } 
-            } 
-          } 
-        }
+        {
+          $addFields: {
+            statusOrder: {
+              $switch: {
+                branches: [
+                  { case: { $eq: [{ $toLower: '$status' }, 'open'] }, then: 1 },
+                  { case: { $eq: [{ $toLower: '$status' }, 'delayed'] }, then: 2 },
+                  { case: { $eq: [{ $toLower: '$status' }, 're-routed'] }, then: 3 },
+                  { case: { $eq: [{ $toLower: '$status' }, 'in-review'] }, then: 4 },
+                  { case: { $eq: [{ $toLower: '$status' }, 'closed'] }, then: 5 },
+                ],
+                default: 6,
+              },
+            },
+          },
+        },
       ];
 
       // Add priority mapping if needed
