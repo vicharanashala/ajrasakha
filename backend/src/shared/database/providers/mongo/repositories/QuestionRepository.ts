@@ -586,9 +586,9 @@ export class QuestionRepository implements IQuestionRepository {
           let requiredSize = numericLevel + 1;
 
           // Special rule: Level 1 → history.length = 0
-          /*  if (numericLevel === 1) {
+            if (numericLevel === 0) {
       requiredSize = 0;
-    }*/
+    }
 
           const submissions = await this.QuestionSubmissionCollection.find({
             history: { $size: requiredSize },
