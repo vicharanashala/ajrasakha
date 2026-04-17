@@ -642,4 +642,14 @@ export class QuestionService {
   );
 }
 
+  async getQuestionStatusSummary(): Promise<{
+    totalQuestions: number;
+    statuses: { status: string; count: number }[];
+  } | null> {
+    return apiFetch<{
+      totalQuestions: number;
+      statuses: { status: string; count: number }[];
+    }>(`${this._baseUrl}/status-summary`);
+  }
+
 }
