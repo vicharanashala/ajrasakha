@@ -327,7 +327,7 @@ export interface ISimilarQuestion extends IQuestion {
 }
 export interface AddQuestionResult {
   isDuplicate: boolean;
-  data: Partial<IQuestion>;
+  data: Partial<IQuestion> | ISimilarQuestion;
 }
 
 // ─── Chatbot Analytics ───────────────────────────────────────────────────────
