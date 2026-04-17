@@ -146,7 +146,7 @@ export interface HistoryItem {
 }
 
 export type QuestionPriority = "low" | "medium" | "high";
-export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT";
+export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
 
 export interface IQuestion {
   id: string;
@@ -499,7 +499,7 @@ export interface IDetailedQuestion {
     season: string;
     domain: string;
   };
-  source: "AJRASAKHA" | "AGRI_EXPERT";
+  source: "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
   createdAt?: string;
   updatedAt?: string;
   review_level_number?: number;

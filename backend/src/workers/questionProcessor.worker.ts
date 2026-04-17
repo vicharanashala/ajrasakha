@@ -1,4 +1,4 @@
-import {parentPort, workerData} from 'worker_threads';
+import { parentPort, workerData } from 'worker_threads';
 import 'reflect-metadata';
 import path from 'path';
 import {Container} from 'inversify';
@@ -13,12 +13,15 @@ interface WorkerData {
   ids: string[];
   mongoUri: string;
   dbName: string;
+  isRequiredAiInitialAnswer?: boolean;
 }
 
 const data = workerData as WorkerData;
 const ids = Array.isArray(data?.ids) ? data.ids : [];
 const mongoUri = data.mongoUri;
 const dbName = data.dbName;
+const isRequiredAiInitialAnswer = data.isRequiredAiInitialAnswer ?? false;
+
 if (!parentPort) {
   console.error(
     '❌ parentPort not found – worker must run in a worker thread.',
@@ -26,7 +29,7 @@ if (!parentPort) {
   process.exit(1);
 }
 
-const container = new Container({defaultScope: 'Singleton'});
+const container = new Container({ defaultScope: 'Singleton' });
 
 container.bind<string>(GLOBAL_TYPES.uri).toConstantValue(mongoUri);
 container.bind<string>(GLOBAL_TYPES.dbName).toConstantValue(dbName);
@@ -37,21 +40,21 @@ container
 
 const database = container.get<MongoDatabase>(GLOBAL_TYPES.Database);
 await database.init();
-const {QuestionRepository} = await import(
+const { QuestionRepository } = await import(
   '#root/shared/database/providers/mongo/repositories/QuestionRepository.js'
 );
 const questionRepo = new QuestionRepository(database);
 await (questionRepo as any).init();
-const {ContextRepository} = await import(
+const { ContextRepository } = await import(
   '#root/shared/database/providers/mongo/repositories/ContextRepository.js'
 );
-const {UserRepository} = await import(
+const { UserRepository } = await import(
   '#root/shared/database/providers/mongo/repositories/UserRepository.js'
 );
-const {QuestionSubmissionRepository} = await import(
+const { QuestionSubmissionRepository } = await import(
   '#root/shared/database/providers/mongo/repositories/SubmissionRepository.js'
 );
-const {NotificationRepository} = await import(
+const { NotificationRepository } = await import(
   '#root/shared/database/providers/mongo/repositories/NotificationRepository.js'
 );
 const {NotificationService} = await import(
@@ -71,7 +74,7 @@ const aiService = new AiService();
 
 (async () => {
   if (ids.length === 0) {
-    parentPort?.postMessage({success: true, processed: 0});
+    parentPort?.postMessage({ success: true, processed: 0 });
     process.exit(0);
   }
 
@@ -98,19 +101,40 @@ const aiService = new AiService();
       //   continue;
       // }
       let textEmbedding = [];
+      let aiInitialAnswer = question.aiInitialAnswer;
 
       const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
 
       if (ENABLE_AI_SERVER) {
-        const {embedding} = await aiService.getEmbedding(textToEmbed);
+        const { embedding } = await aiService.getEmbedding(textToEmbed);
         textEmbedding = embedding;
+
+        if (isRequiredAiInitialAnswer && !aiInitialAnswer) {
+          try {
+            const result = await aiService.getAnswerByQuestionDetails(question);
+
+            const answer = result?.answer?.trim();
+
+            if (!answer) {
+              aiInitialAnswer =
+                "AI could not generate an initial answer at this time.";
+            } else {
+              aiInitialAnswer = answer;
+            }
+          } catch (error) {
+            console.error("AI initial answer generation failed:", error);
+
+            aiInitialAnswer =
+              "AI service is currently unavailable. Please try again later.";
+          }
+        }
       }
 
       await questionRepo['QuestionCollection'].updateOne(
-        {_id: new (await import('mongodb')).ObjectId(qId)},
-        {$set: {embedding: textEmbedding, updatedAt: new Date()}},
+        { _id: new (await import('mongodb')).ObjectId(qId) },
+        { $set: { embedding: textEmbedding, aiInitialAnswer, updatedAt: new Date() } },
       );
- 
+
       // allocation stage - 2
 
       const users = await userRepo.findExpertsByReputationScore(
@@ -176,6 +200,6 @@ const aiService = new AiService();
   console.log(
     `🏁 Worker finished. Total processed: ${processed}/${ids.length}`,
   );
-  parentPort?.postMessage({success: true, processed});
+  parentPort?.postMessage({ success: true, processed });
   process.exit(0);
 })();

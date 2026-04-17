@@ -39,6 +39,7 @@ export const QuestionsPage = ({
       sourceFromUrl === "all" ||
       sourceFromUrl === "AJRASAKHA" ||
       sourceFromUrl === "AGRI_EXPERT" ||
+      sourceFromUrl === "OUTREACH" ||
       sourceFromUrl === "WHATSAPP"
     ) {
       return sourceFromUrl;
@@ -287,11 +288,11 @@ export const QuestionsPage = ({
     if (next.closedInTwoHrs !== undefined)
       setClosedInTwoHrs(next.closedInTwoHrs);    
     if (next.hiddenQuestions !== undefined)
-        setHiddenQuestions(next.hiddenQuestions);
-      if (next.duplicateQuestions !== undefined)
-        setDuplicateQuestions(next.duplicateQuestions);
-      if (next.isOnHold !== undefined)
-        setIsOnHold(next.isOnHold);    
+      setHiddenQuestions(next.hiddenQuestions);
+    if (next.duplicateQuestions !== undefined)
+      setDuplicateQuestions(next.duplicateQuestions);
+    if (next.isOnHold !== undefined)
+      setIsOnHold(next.isOnHold);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);

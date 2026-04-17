@@ -109,6 +109,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async createBulkQuestions(
     userId: string,
     questions: any[],
+    isOutreachQuestion?: boolean
   ): Promise<string[]> {
     if (!Array.isArray(questions) || questions.length === 0) {
       throw new BadRequestError('No questions provided for bulk insert');
@@ -174,7 +175,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
         question: questionText,
         priority,
-        source: (low.source || 'AGRI_EXPERT') as IQuestion['source'],
+        source: isOutreachQuestion ? "OUTREACH" : (low.source || 'AGRI_EXPERT') as IQuestion['source'],
         status: 'open',
         totalAnswersCount: 0,
         contextId: null,
@@ -3381,22 +3382,22 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new Error('Question not found');
     }
 
-  const { question, details, createdAt} = questionData;
+    const { question, details, createdAt } = questionData;
 
-  const [analyticsMessages, annamMessages] = await Promise.all([
-    this.chatbotRepository.findMatchingMessages({
-      question,
-      details,
-      createdAt,
-      questionId: questionId.toString(),
-    }),
-     this.chatbotRepository.findFromSecondDb({
-      question,
-      details,
-      createdAt,
-      questionId: questionId.toString(),
-    }),
-  ]);
+    const [analyticsMessages, annamMessages] = await Promise.all([
+      this.chatbotRepository.findMatchingMessages({
+        question,
+        details,
+        createdAt,
+        questionId: questionId.toString(),
+      }),
+      this.chatbotRepository.findFromSecondDb({
+        question,
+        details,
+        createdAt,
+        questionId: questionId.toString(),
+      }),
+    ]);
 
 
 
@@ -3480,7 +3481,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         throw new NotFoundError('Question not found');
       }
 
-      if(question.status === 'closed'){
+      if (question.status === 'closed') {
         throw new BadRequestError('Question is already closed');
       }
       const submission = await this.questionSubmissionRepo.getByQuestionId(questionId, session);
