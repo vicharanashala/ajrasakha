@@ -31,7 +31,7 @@ import { INotificationRepository } from '#root/shared/database/interfaces/INotif
 import { notifyUser } from '#root/utils/pushNotification.js';
 import { normalizeKeysToLower } from '#root/utils/normalizeKeysToLower.js';
 import { appConfig } from '#root/config/app.js';
-import { AiService } from '#root/modules/core/services/AiService.js';
+import { AiService } from '#root/modules/ai/services/AiService.js';
 import {
   AddQuestionBodyDto,
   AllocatedQuestionsBodyDto,
@@ -40,9 +40,9 @@ import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '../classes/validators/QuestionVaidators.js';
-import { PreferenceDto } from '#root/modules/core/classes/validators/UserValidators.js';
-import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
-import { NotificationService } from '#root/modules/core/services/NotificationService.js';
+import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
+import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
+import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
 import { isToday } from '#root/utils/date.utils.js';
@@ -2293,6 +2293,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         activeSession,
       );
       await this.requestRepository.deleteByEntityId(questionId, activeSession);
+
+      // Delete duplicate question records referencing this question
+      await this.duplicateQuestionRepository.deleteByReferenceQuestionId(questionId, activeSession);
 
       // Finally, delete the question itself
       return this.questionRepo.deleteQuestion(questionId, activeSession);
