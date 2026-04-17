@@ -250,11 +250,23 @@ export const PlaygroundPage = () => {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
-                      <DropdownMenuItem onClick={() => { setChatbotSource('vicharanashala'); handleTabChange('chatbotanalytics'); }}>
+                      <DropdownMenuItem
+                        onClick={() => { setChatbotSource('vicharanashala'); handleTabChange('chatbotanalytics'); }}
+                        className={activeTab === 'chatbotanalytics' && chatbotSource === 'vicharanashala' ? 'bg-primary/10 text-primary font-medium' : ''}
+                      >
                         Vicharanashala
+                        {activeTab === 'chatbotanalytics' && chatbotSource === 'vicharanashala' && (
+                          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                        )}
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setChatbotSource('annam'); handleTabChange('chatbotanalytics'); }}>
+                      <DropdownMenuItem
+                        onClick={() => { setChatbotSource('annam'); handleTabChange('chatbotanalytics'); }}
+                        className={activeTab === 'chatbotanalytics' && chatbotSource === 'annam' ? 'bg-primary/10 text-primary font-medium' : ''}
+                      >
                         Annam
+                        {activeTab === 'chatbotanalytics' && chatbotSource === 'annam' && (
+                          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                        )}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
