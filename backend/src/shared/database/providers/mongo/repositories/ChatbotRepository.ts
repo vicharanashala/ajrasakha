@@ -17,6 +17,7 @@ import type {
   WeeklyQueryCountEntry,
   UserDetailEntry,
   PaginatedUserDetails,
+  ChatbotConversationData,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -850,6 +851,82 @@ export class ChatbotRepository implements IChatbotRepository {
       return result as WeeklySessionDurationEntry[];
     } catch (error) {
       throw new InternalServerError(`Failed to get weekly avg session duration v2: ${error}`);
+    }
+  }
+
+  async generateChatbotExcelReport(
+    startDate: Date,
+    endDate: Date,
+    source = 'vicharanashala',
+    session?: ClientSession,
+  ): Promise<ChatbotConversationData[]> {
+    try {
+      await this.init(source);
+      return this.messagesCollection
+        .aggregate<ChatbotConversationData>(
+          [
+            {
+              $match: {
+                createdAt: {$gte: startDate, $lte: endDate},
+              },
+            },
+            {
+              $group: {
+                _id: '$conversationId',
+                farmerQuestions: {
+                  $push: {
+                    $cond: {
+                      if: {$eq: ['$isCreatedByUser', true]},
+                      then: '$text',
+                      else: null,
+                    },
+                  },
+                },
+                mcpToolCalls: {
+                  $push: {
+                    $cond: {
+                      if: {$eq: ['$isCreatedByUser', false]},
+                      then: '$content',
+                      else: null,
+                    },
+                  },
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                conversationId: '$_id',
+                farmerQuestions: {
+                  $filter: {
+                    input: '$farmerQuestions',
+                    as: 'q',
+                    cond: {
+                      $and: [{$ne: ['$$q', null]}, {$ne: ['$$q', '']}],
+                    },
+                  },
+                },
+                mcpToolCalls: {
+                  $filter: {
+                    input: '$mcpToolCalls',
+                    as: 'c',
+                    cond: {
+                      $and: [
+                        {$ne: ['$$c', null]},
+                        {$gt: [{$size: {$ifNull: ['$$c', []]}}, 0]},
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+            {$match: {'farmerQuestions.0': {$exists: true}}},
+          ],
+          {maxTimeMS: 60000, allowDiskUse: true, session},
+        )
+        .toArray();
+    } catch (error) {
+      throw new InternalServerError(`Failed to generate chatbot Excel report: ${error}`);
     }
   }
 }
