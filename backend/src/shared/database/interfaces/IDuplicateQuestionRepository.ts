@@ -38,4 +38,9 @@ export interface IDuplicateQuestionRepository {
     source: 'AJRASAKHA' | 'AGRI_EXPERT',
     session?: ClientSession,
   ): Promise<ISimilarQuestion[]>;
+
+  deleteByReferenceQuestionId(
+ referenceQuestionId: string,
+session?: ClientSession,
+ ): Promise<{deletedCount: number}>;
 }
