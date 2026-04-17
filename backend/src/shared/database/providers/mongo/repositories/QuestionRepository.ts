@@ -765,9 +765,12 @@ export class QuestionRepository implements IQuestionRepository {
       // Determine sort order
       let sortStage: any = { createdAt: -1, _id: -1 };
       let needsPriorityMapping = false;
+      let needsReviewLevelSort = false;
 
       if (sort) {
-        const [field, order] = sort.split('_');
+        const lastUnderscore = sort.lastIndexOf('_');
+        const field = lastUnderscore === -1 ? sort : sort.slice(0, lastUnderscore);
+        const order = lastUnderscore === -1 ? 'desc' : sort.slice(lastUnderscore + 1);
         const sortOrder = order === 'asc' ? 1 : -1;
 
         if (field === 'question') {
@@ -781,6 +784,15 @@ export class QuestionRepository implements IQuestionRepository {
         } else if (field === 'priority') {
           needsPriorityMapping = true;
           sortStage = { priorityOrder: sortOrder, _id: -1 };
+        } else if (field === 'status') {
+          sortStage = { status: sortOrder, _id: -1 };
+        } else if (field === 'answers') {
+          sortStage = { totalAnswersCount: sortOrder, _id: -1 };
+        } else if (field === 'created') {
+          sortStage = { createdAt: sortOrder, _id: -1 };
+        } else if (field === 'review_level') {
+          needsReviewLevelSort = true;
+          sortStage = { review_level_sort_value: sortOrder, _id: -1 };
         }
       }
 
@@ -817,6 +829,45 @@ export class QuestionRepository implements IQuestionRepository {
             },
           },
         });
+      }
+
+      if (needsReviewLevelSort) {
+        aggregationPipeline.push(
+          {
+            $lookup: {
+              from: 'question_submissions',
+              localField: '_id',
+              foreignField: 'questionId',
+              as: 'submissionData',
+            },
+          },
+          {
+            $addFields: {
+              review_level_sort_value: {
+                $let: {
+                  vars: {
+                    len: {
+                      $cond: {
+                        if: { $gt: [{ $size: '$submissionData' }, 0] },
+                        then: {
+                          $size: { $arrayElemAt: ['$submissionData.history', 0] },
+                        },
+                        else: 0,
+                      },
+                    },
+                  },
+                  in: {
+                    $cond: {
+                      if: { $lte: ['$$len', 1] },
+                      then: 0,
+                      else: { $subtract: ['$$len', 1] },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        );
       }
 
       aggregationPipeline.push(
@@ -890,6 +941,7 @@ export class QuestionRepository implements IQuestionRepository {
             embedding: 0,
             contextDoc: 0,
             priorityOrder: 0,
+            review_level_sort_value: 0,
           },
         },
       ]).toArray();
