@@ -1,5 +1,0 @@
-class AuditTrailsService {
-
-}
-
-export {AuditTrailsService}
