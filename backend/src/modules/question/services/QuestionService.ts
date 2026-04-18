@@ -1411,6 +1411,15 @@ export class QuestionService extends BaseService implements IQuestionService {
         //   );
         // }
 
+        if(existingQuestion.source === "AJRASAKHA"){
+          if(!existingQuestion.messageId){
+            let data = await this.getMatchedQuestion(questionId);
+            if(data && data.messageId){
+              updatable_fields.messageId = data.messageId;
+            }
+          }
+        }
+
         return this.questionRepo.updateQuestion(questionId, updatable_fields, session);
       });
     } catch (error) {
