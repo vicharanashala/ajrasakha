@@ -1320,7 +1320,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     'details.district',
     'details.crop',
     'details.season',
-    'details.domain'
+    'details.domain',
+    'details.normalised_crop'
   ];
 
   async updateQuestion(
@@ -1360,7 +1361,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       let updatable_fields: any = {};
 
       for (let key in updates) {
-        if (this.EDITABLE_FIELDS.includes(key)) {
+        if (key !== 'details' && this.EDITABLE_FIELDS.includes(key)) {
           updatable_fields[key] = updates[key];
         }
 
