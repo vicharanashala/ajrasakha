@@ -954,6 +954,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           metrics: null,
           aiInitialAnswer,
           text,
+          originalQuestion: (source === 'AJRASAKHA' || source === 'WHATSAPP') ? question : undefined,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
