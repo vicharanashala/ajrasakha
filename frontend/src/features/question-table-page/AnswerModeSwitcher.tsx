@@ -38,19 +38,20 @@ export function AnswerModeSwitcher({
             `[data-mode="${answerMode}"]`
         );
         if (activeBtn && groupRef.current) {
-            const { left: gLeft } = groupRef.current.getBoundingClientRect();
-            const { left, width } = activeBtn.getBoundingClientRect();
-            setGlider({ left: left - gLeft, width });
+            setGlider({ 
+                left: activeBtn.offsetLeft, 
+                width: activeBtn.offsetWidth 
+            });
         }
     }, [answerMode]);
 
     return (
         <div
             ref={groupRef}
-            className="relative inline-flex items-center gap-0.5 rounded-xl border border-border bg-muted/50 p-1"
+            className="relative flex w-full sm:w-auto items-center gap-0.5 rounded-xl border border-border bg-muted/50 py-3 px-1 overflow-x-auto scrollbar-hiding flex-nowrap"
         >
             <span
-                className="absolute top-1 h-[calc(100%-8px)] rounded-lg border border-border/60 bg-background shadow-sm transition-all duration-200"
+                className="absolute inset-y-1.5 rounded-lg border border-border/60 bg-background shadow-sm transition-all duration-200"
                 style={{ left: glider.left, width: glider.width }}
             />
 
@@ -60,7 +61,7 @@ export function AnswerModeSwitcher({
                         <button
                             data-mode={id}
                             onClick={() => handleAnswerModeChange(id)}
-                            className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${answerMode === id
+                            className={`relative z-10 flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${answerMode === id
                                 ? "text-primary-foreground scale-[1.02]"
                                 : "text-muted-foreground hover:text-foreground"
                                 }`}
