@@ -12,6 +12,7 @@ import {
   GeneratedQuestionResponse,
   GetDetailedQuestionsQuery,
   QuestionResponse,
+  UpdateQuestionBodyDto
 } from '../classes/validators/QuestionVaidators.js';
 import {QuestionLevelResponse} from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import {ClientSession} from 'mongodb';
@@ -61,7 +62,7 @@ export interface IQuestionService {
   /** Update question fields */
   updateQuestion(
     questionId: string,
-    updates: Partial<IQuestion>,
+    updates: UpdateQuestionBodyDto,
   ): Promise<{ modifiedCount: number }>;
 
   /** Auto allocate experts */

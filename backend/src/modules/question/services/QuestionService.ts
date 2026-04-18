@@ -39,6 +39,7 @@ import {
   GeneratedQuestionResponse,
   GetDetailedQuestionsQuery,
   QuestionResponse,
+  UpdateQuestionBodyDto
 } from '../classes/validators/QuestionVaidators.js';
 import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
@@ -993,8 +994,8 @@ export class QuestionService extends BaseService implements IQuestionService {
               referenceSource: "reviewer",
               score: item.score * 100,
               id: item.id
-              ? new ObjectId(String(item.id))
-              : new ObjectId()  // preserve the real reviewer question _id
+                ? new ObjectId(String(item.id))
+                : new ObjectId()  // preserve the real reviewer question _id
             })),
 
             ...(questions.golden || []).map((item: any) => ({
@@ -1004,8 +1005,8 @@ export class QuestionService extends BaseService implements IQuestionService {
               referenceSource: "golden",
               score: item.score * 100,
               id: item.id
-              ? new ObjectId(String(item.id))
-              : new ObjectId()
+                ? new ObjectId(String(item.id))
+                : new ObjectId()
             })),
 
 
@@ -1312,14 +1313,25 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
   }
 
+  private readonly EDITABLE_FIELDS = [
+    'question',
+    'aiInitialAnswer',
+    'details.state',
+    'details.district',
+    'details.crop',
+    'details.season',
+    'details.domain'
+  ];
+
   async updateQuestion(
     questionId: string,
-    updates: Partial<IQuestion>,
+    updates: UpdateQuestionBodyDto,
   ): Promise<{ modifiedCount: number }> {
     try {
       // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
       // Lifted OUTSIDE the transaction: cropRepository calls don't use the session,
       // so they shouldn't inflate the transaction scope.
+
       if (updates.details?.crop) {
         const rawCropName = typeof updates.details.crop === 'string'
           ? updates.details.crop
@@ -1343,6 +1355,30 @@ export class QuestionService extends BaseService implements IQuestionService {
         updates.details.crop = rawCropName.trim();
         updates.details.normalised_crop = normalised_crop;
       }
+
+      
+      let updatable_fields: any = {};
+
+      for (let key in updates) {
+        if (this.EDITABLE_FIELDS.includes(key)) {
+          updatable_fields[key] = updates[key];
+        }
+
+        if (key === 'details' && updates.details) {
+          for (let subKey in updates.details) {
+            const fullKey = `details.${subKey}`;
+
+            if (this.EDITABLE_FIELDS.includes(fullKey)) {
+              if (!updatable_fields.details) {
+                updatable_fields.details = {};
+              }
+
+              updatable_fields.details[subKey] = updates.details[subKey];
+            }
+          }
+        }
+      }
+
 
       return this._withTransaction(async (session: ClientSession) => {
         const existingQuestion = await this.questionRepo.getById(
@@ -1372,7 +1408,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
         }
 
-        return this.questionRepo.updateQuestion(questionId, updates, session);
+        return this.questionRepo.updateQuestion(questionId, updatable_fields, session);
       });
     } catch (error) {
       throw new InternalServerError(`Failed to update question: ${error}`);

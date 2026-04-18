@@ -742,6 +742,50 @@ export class DetailedQuestionsBodyDto {
   normalisedCrops?: string[];
 }
 
+export class EditableQuestionDetailsDto {
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @IsOptional()
+  @IsString()
+  district?: string;
+
+  @IsOptional()
+  crop?: string | ICropRef;
+
+  @IsOptional()
+  @IsString()
+  season?: string;
+
+  @IsOptional()
+  @IsString()
+  domain?: string;
+
+  @IsOptional()
+  @IsString()
+  normalised_crop?: string;
+}
+
+export class UpdateQuestionBodyDto {
+  @IsOptional()
+  @IsString()
+  question?: string;
+
+  @IsOptional()
+  @IsString()
+  aiInitialAnswer?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => EditableQuestionDetailsDto)
+  details?: EditableQuestionDetailsDto;
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,
