@@ -56,7 +56,6 @@ export const AuthForm = ({
 
   const { setUser } = useAuthStore();
 
-  // const { mutateAsync: saveGoogleUser } = useLoginWithGoogle();
 
   const { mutateAsync: signupMutation } = useSignup();
 
@@ -113,33 +112,6 @@ export const AuthForm = ({
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
-  // const handleGoogleAuth = async () => {
-  //   try {
-  //     setIsLoading(true);
-  //     const result = await loginWithGoogle();
-  //     if (!result) {
-  //       toast.error("No response from firebase! try again.");
-  //       return;
-  //     }
-  //     // Check if the user is new
-  //     if (result?._tokenResponse?.isNewUser) {
-  //       await saveGoogleUser(result);
-  //     }
-
-  //     setUser({
-  //       uid: result.user.uid,
-  //       email: result.user.email || "",
-  //       name: result.user.displayName || "",
-  //       avatar: result.user.photoURL || "",
-  //     });
-  //     navigate({ to: "/home" });
-  //   } catch (error) {
-  //     console.error("Google Login Failed", error);
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
 
   const handleEmailAuth = async (e: FormEvent) => {
     e.preventDefault();
@@ -278,59 +250,6 @@ export const AuthForm = ({
           ) : (
             <form onSubmit={handleEmailAuth}>
               <div className="grid gap-6">
-                {mode == "login" && (
-                  <>
-                    <div className="flex flex-col gap-4">
-                      {/* {
-                    {<Button
-                      variant="outline"
-                      className="w-full h-12 border-2 border-green-100 hover:border-green-200  transition-all duration-300 group hover:bg-green/100  text-gray-700 dark:text-gray-300 hover:bg-none"
-                      type="button"
-                      onClick={handleGoogleAuth}
-                      disabled={isLoading}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 48 48"
-                        className="mr-3 h-6 w-6 transition-transform duration-300 group-hover:scale-110"
-                      >
-                        <path
-                          fill="#4285F4"
-                          d="M24 9.5c3.94 0 7.48 1.52 10.2 3.99l6-6C35.5 3.54 30.06 1 24 1 14.07 1 5.64 6.79 2 15l7.29 5.64C11.42 14.14 17.23 9.5 24 9.5z"
-                        />
-                        <path
-                          fill="#34A853"
-                          d="M46 24c0-1.64-.15-3.22-.43-4.75H24v9h12.55c-.57 2.9-2.22 5.37-4.55 7.05l7.13 5.55C43.98 37.23 46 30.92 46 24z"
-                        />
-                        <path
-                          fill="#FBBC05"
-                          d="M9.29 28.64A13.98 13.98 0 0 1 8 24c0-1.6.28-3.14.8-4.64L2 14c-1.23 2.57-2 5.44-2 8.5s.77 5.93 2 8.5l7.29-2.36z"
-                        />
-                        <path
-                          fill="#EA4335"
-                          d="M24 46c6.48 0 11.9-2.13 15.87-5.82l-7.13-5.55c-2.05 1.39-4.67 2.37-8.74 2.37-6.77 0-12.58-4.64-14.71-11.14L2 31c3.64 8.21 12.07 15 22 15z"
-                        />
-                      </svg>
-
-                      <span className="text-gray-700 dark:text-gray-300 font-medium">
-                        {isLoading
-                          ? "Please wait..."
-                          : `${
-                              mode === "login" ? "Continue" : "Sign up"
-                            } with Google`}
-                      </span>
-                    </Button>}
-
-              } */}
-                    </div>
-
-                    {/* <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-green-200 dark:after:border-green-800">
-                    <span className="relative z-10 bg-white dark:bg-gray-900 px-4 text-muted-foreground font-medium">
-                      Or continue with email
-                    </span>
-                  </div> */}
-                  </>
-                )}
                 <div
                   className={`grid ${mode == "signup" ? "gap-2" : "gap-5"
                     } animate-in fade-in-0 slide-in-from-right-2 duration-500 delay-200`}
@@ -390,14 +309,6 @@ export const AuthForm = ({
                       >
                         Password
                       </Label>
-                      {/* {mode === "login" && (
-                      <a
-                        href="#"
-                        className="text-sm text-green-600 hover:text-green-700 underline-offset-4 hover:underline transition-colors duration-300"
-                      >
-                        Forgot password?
-                      </a>
-                    )} */}
                     </div>
                     <div className="relative">
                       <Input

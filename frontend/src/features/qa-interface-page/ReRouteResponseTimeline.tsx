@@ -1,24 +1,17 @@
 import type {
-  HistoryItem,
   IQuestion,
   IReviewParmeters,
-  SourceItem,
-  QuestionRerouteRepo
+  SourceItem
 } from "@/types";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
-  
   MessageCircle,
-  
- 
   XCircle,
-  User,
   Pencil,
- 
   History,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/atoms/card";
+import { Card, CardContent, CardHeader } from "../../components/atoms/card";
 import { Label } from "../../components/atoms/label";
 import { ScrollArea } from "../../components/atoms/scroll-area";
 import { QuestionDetailsDialog } from "./QuestionDetailsDialog";
@@ -63,7 +56,6 @@ export const ReRouteResponseTimeline = ({
   handleReset,
   remarks,
   setRemarks,
-  questions,
   setSelectedQuestion,
   refetchQuestions
 }: // SourceUrlManager,
@@ -73,11 +65,7 @@ ReRouteResponseTimelineProps) => {
   const [isRejectionSubmitted, setIsRejectionSubmitted] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [isModifyDialogOpen, setIsModifyDialogOpen] = useState(false);
-  // const [urlOpen, setUrlOpen] = useState(false);
-  // const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
-  // const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [isRejecConfirmationOpen, setIsRejecConfirmationOpen] = useState(false);
-  // const [isAccepConfirmationOpen, setIsAccepConfirmationOpen] = useState(false);
 
   const [checklist, setChecklist] = useState<IReviewParmeters>({
     contextRelevance: false,
@@ -115,38 +103,6 @@ ReRouteResponseTimelineProps) => {
       setSources(currentReviewingAnswer.sources);
     }
   }, [currentReviewingAnswer]);
-
-  // const handleCopy = async (url: string, index: number) => {
-  //   try {
-  //     await navigator.clipboard.writeText(url);
-  //     setCopiedIndex(index);
-  //     setTimeout(() => setCopiedIndex(null), 1500);
-  //   } catch (err) {
-  //     console.error("Failed to copy: ", err);
-  //   }
-  // };
-
-  // const handleRejectOrModify = (type: "reject" | "modify") => {
-  //   if (rejectionReason.trim() === "") {
-  //     toast.error("No reason provided for rejection");
-  //     return;
-  //   }
-  //   if (rejectionReason.length < 8) {
-  //     toast.error("Rejection reason must be atleast 8 letters");
-  //     return;
-  //   }
-
-  //   if (!currentReviewingAnswer) {
-  //     toast.error(
-  //       "Unable to locate the current review answer. Please refresh and try again."
-  //     );
-  //     return;
-  //   }
-
-  //   const reviewAnswerId = currentReviewingAnswer._id?.toString();
-
-  //   handleSubmit("rejected", reviewAnswerId, rejectionReason);
-  // };
 
   const handleRejectOrModify = (type: "reject" | "modify") => {
     const actionLabel = type === "reject" ? "rejection" : "modification";
@@ -195,10 +151,6 @@ ReRouteResponseTimelineProps) => {
     handleSubmit("accepted", checklist, reviewAnswerId);
   };
 
-  // const handleOpenUrl = (url: string) => {
-  //   setSelectedUrl(url);
-  //   setUrlOpen(true);
-  // };
 
   if (isSelectedQuestionLoading) {
     return (
@@ -249,9 +201,6 @@ ReRouteResponseTimelineProps) => {
                           <Label className="text-sm font-medium text-muted-foreground">
                             Re Routed By:
                           </Label>
-                          {/* <QuestionDetailsDialog
-                            question={selectedQuestionData}
-                          /> */}
                         </div>
 
                         <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words mb-3">
@@ -263,9 +212,6 @@ ReRouteResponseTimelineProps) => {
                           <Label className="text-sm font-medium text-muted-foreground">
                             Comments From Moderator:
                           </Label>
-                          {/* <QuestionDetailsDialog
-                            question={selectedQuestionData}
-                          /> */}
                         </div>
 
                         <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words mb-3">

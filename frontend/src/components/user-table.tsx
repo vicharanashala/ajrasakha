@@ -36,10 +36,7 @@ import { formatDate } from "@/utils/formatDate";
 import { useState } from "react";
 import { useBlockUser } from "@/hooks/api/user/useBlockUser";
 import { useToggleRole } from "@/hooks/api/user/useToggleRole";
-
-import { useNavigateToExpertDashboard } from "@/hooks/api/question/useNavigateToQuestion";
 import { useUpdateActivity } from "@/hooks/api/user/useUpdateActivity";
-import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
 import AvatarComponent from "./avatar-component";
 
 const truncate = (s: string, n = 80) => {
@@ -95,8 +92,6 @@ export const UsersTable = ({
         <Table className="min-w-[800px]">
           <TableHeader className="bg-card sticky top-0 z-10">
             <TableRow>
-              {/* <TableHead className="text-center w-12" onClick={() => onSort("rank")}>{isAdmin ? "S.No" : "Rank"}</TableHead> */}
-              {/* <TableHead className="flex justify-center items-center w-36"></TableHead> */}
               <TableHead className="flex justify-start items-center w-52">
                 <p className="ml-5">User</p>
               </TableHead>
@@ -150,7 +145,6 @@ export const UsersTable = ({
                 </button>
               </TableHead>
               <TableHead className="text-center w-24">Total Answered</TableHead>
-              {/* <TableHead className="text-center w-24">Rank</TableHead> */}
               <TableHead className="text-center w-24">
                 <button
                   onClick={() => onSort("joined")}
@@ -240,9 +234,6 @@ interface UserRowProps {
 
 const UserRow: React.FC<UserRowProps> = ({
   u,
-  idx,
-  currentPage,
-  limit,
   handleBlock,
   handleToggleRole,
   setUserIdToBlock,
@@ -262,14 +253,10 @@ const UserRow: React.FC<UserRowProps> = ({
   const [actionRole, setActionRole] = useState<string>("");
   const [isOpen, setIsOpen] = useState(false);
   const isAdmin = userRole === "admin";
-  const { goToExpertDashboard } = useNavigateToExpertDashboard();
   const handleExpertClick = async (userdetails: any) => {
     if (userdetails) {
       setSelectExpertId?.(userdetails._id);
       setRankPosition?.(userdetails.rankPosition); // ✅ safe call
-      return;
-
-      // goToExpertDashboard(userId); // enitity_id is questionId
       return;
     }
   };
@@ -281,142 +268,6 @@ const UserRow: React.FC<UserRowProps> = ({
   };
   return (
     <TableRow key={String(u._id)} className="text-center">
-      {/* Serial Number */}
-      {/* <TableCell className="align-middle w-12" title={idx.toString()}>
-            {(currentPage - 1) * limit + idx + 1}
-          </TableCell> */}
-
-      {/* <TableCell className="align-middle w-12" title={idx.toString()}>
-            {u.rankPosition && u.rankPosition <= 3 ? (
-              <span
-                className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-semibold text-sm border-2 ${
-                  u.rankPosition === 1
-                    ? `
-        relative overflow-hidden
-        bg-yellow-50 dark:bg-yellow-950
-        border-yellow-400 dark:border-yellow-600
-        text-yellow-900 dark:text-yellow-100
-
-        shadow-[0_0_12px_rgba(250,204,21,0.35)]
-
-        before:absolute before:inset-0 before:rounded-full
-        before:bg-gradient-to-t
-        before:from-white/10
-        before:via-white/30
-        before:to-transparent
-        before:pointer-events-none
-        `
-                    : u.rankPosition === 2
-                    ? "bg-slate-50 dark:bg-slate-900 border-slate-400 dark:border-slate-500 text-slate-900 dark:text-slate-100"
-                    : "bg-orange-50 dark:bg-amber-900/40 border-orange-400 dark:border-amber-500 text-orange-900 dark:text-amber-200"
-                }`}
-              >
-                {u.rankPosition}
-              </span>
-            ) : (
-              <span className="inline-flex items-center justify-center w-8 h-8 text-sm text-muted-foreground">
-                #{u.rankPosition || "—"}
-              </span>
-            )}
-          </TableCell> */}
-      {/* <TableCell className="align-middle w-12" title={idx.toString()}>
-        {userRole === "admin" ? (
-          <span className="inline-flex items-center justify-center w-8 h-8 text-sm font-medium">
-            {(currentPage - 1) * limit + idx + 1}
-          </span>
-        ) : (
-          u.rankPosition && u.rankPosition <= 3 ? (
-            <span
-              className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-semibold text-sm border-2 ${u.rankPosition === 1
-                ? `
-      relative overflow-hidden
-      bg-yellow-50 dark:bg-yellow-950
-      border-yellow-400 dark:border-yellow-600
-      text-yellow-900 dark:text-yellow-100
-      shadow-[0_0_12px_rgba(250,204,21,0.35)]
-      before:absolute before:inset-0 before:rounded-full
-      before:bg-gradient-to-t
-      before:from-white/10
-      before:via-white/30
-      before:to-transparent
-      before:pointer-events-none
-      `
-                : u.rankPosition === 2
-                  ? "bg-slate-50 dark:bg-slate-900 border-slate-400 dark:border-slate-500 text-slate-900 dark:text-slate-100"
-                  : "bg-orange-50 dark:bg-amber-900/40 border-orange-400 dark:border-amber-500 text-orange-900 dark:text-amber-200"
-                }`}
-            >
-              {u.rankPosition}
-            </span>
-          ) : (
-            <span className="inline-flex items-center justify-center w-8 h-8 text-sm text-muted-foreground">
-              #{u.rankPosition ?? "—"}
-            </span>
-          )
-        )}
-      </TableCell> */}
-      {/* 
-      <TableCell className="flex justify-center items-center w-36">
-        <Avatar>
-          <AvatarImage src={u.avatar} />
-          <AvatarFallback>
-            {`${u.firstName?.[0]?.toUpperCase() || ""}${u.lastName?.trim() ? `${u.lastName[0].toUpperCase()}` : ""
-              }`}
-          </AvatarFallback>
-        </Avatar>
-      </TableCell> */}
-
-      {/* User name */}
-      {/* <TableCell className="align-middle w-52" title={u.firstName}>
-        <div className="flex items-center justify-center gap-1">
-          <Avatar className="h-8 w-8 flex-shrink-0">
-            <AvatarImage src={u.avatar} alt={`${u.firstName?.[0]?.toUpperCase() || ""}${u.lastName?.trim() ? ` ${u.lastName[0].toUpperCase()}` : ""
-              }`} />
-            <AvatarFallback>{`${u.firstName?.[0]?.toUpperCase() || ""}${u.lastName?.trim() ? `${u.lastName[0].toUpperCase()}` : ""
-              }`}</AvatarFallback>
-          </Avatar>
-          <span
-            className={"hover:underline hover:cursor-pointer"}
-            onClick={() => {
-              handleExpertClick(u);
-            }}
-          >
-            {truncate(u.firstName + " " + u.lastName, 60)}
-          </span>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {u?.special_task_force && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge
-                    variant="outline"
-                    className="bg-indigo-50/50 hover:bg-indigo-50 text-indigo-700 border-indigo-200 text-[9px] h-5 px-1.5 rounded-full flex items-center gap-1 transition-colors whitespace-nowrap"
-                  >
-                    <Zap className="w-2.5 h-2.5 fill-indigo-500" />
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Special Task Force
-                </TooltipContent>
-              </Tooltip>
-            )}
-            {u?.special_task_force_moderator && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge
-                    variant="outline"
-                    className="bg-purple-50/50 hover:bg-purple-50 text-purple-700 border-purple-200 text-[9px] h-5 px-1.5 rounded-full flex items-center gap-1 transition-colors whitespace-nowrap"
-                  >
-                    <ShieldCheck className="w-2.5 h-2.5 fill-purple-500" />
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Special Task Force Moderator
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-        </div>
-      </TableCell> */}
 
       <TableCell className="align-middle w-36" title={u.firstName}>
         <div className="flex items-center gap-2">
@@ -500,20 +351,13 @@ const UserRow: React.FC<UserRowProps> = ({
 
       {/* Penalty */}
       <TableCell className="align-middle w-32">
-        {/* {u.penalty || 0}} */}
         <Badge variant="outline">{u.penaltyPercentage?.toFixed(0) || 0}%</Badge>
       </TableCell>
 
       {/* total_answers_creted */}
       <TableCell className="align-middle w-32">
-        {/* {u.totalAnswers_Created || 0} */}
         <Badge variant="outline">{u.totalAnswers_Created || 0}</Badge>
       </TableCell>
-      {/* Rank */}
-      {/* <TableCell className="align-middle w-32"> */}
-      {/* {u.totalAnswers_Created || 0} */}
-      {/* <Badge variant="outline">{u.rankPosition || 0}</Badge> */}
-      {/* </TableCell> */}
 
       {/* Created At */}
       <TableCell className="align-middle w-32">
@@ -553,13 +397,6 @@ const UserRow: React.FC<UserRowProps> = ({
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-44">
-              {/* <DropdownMenuItem
-                    onClick={() => onViewMore(u._id?.toString() || "")}
-                    className="hover:bg-primary/10"
-                  >
-                    <Eye className="w-4 h-4 mr-2 text-primary" />
-                    View
-                  </DropdownMenuItem> */}
 
               {isAdmin && (
                 <DropdownMenuItem
@@ -574,8 +411,6 @@ const UserRow: React.FC<UserRowProps> = ({
                   </div>
                 </DropdownMenuItem>
               )}
-
-              {/* <DropdownMenuSeparator /> */}
 
               <DropdownMenuItem
                 disabled={u.status === 'in-active' && isBlocked}
