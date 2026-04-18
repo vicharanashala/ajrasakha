@@ -707,31 +707,35 @@ export const AddOrEditQuestionDialog = ({
                     </p>
                   )}
 
-                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <Info className="h-4 w-4" aria-hidden="true" />
-                    <label>Context   (optional)</label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-4 w-4 text-amber-500 cursor-pointer" />
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="max-w-xs">
-                          <p>Adding clear context improves question quality and helps experts respond faster.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
+                  {mode === "add" && (
+                    <>
+                      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                        <Info className="h-4 w-4" aria-hidden="true" />
+                        <label>Context   (optional)</label>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 text-amber-500 cursor-pointer" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-xs">
+                              <p>Adding clear context improves question quality and helps experts respond faster.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
 
-                  <Textarea
-                    placeholder="Mention the context for this question..."
-                    value={updatedData?.context || ""}
-                    onChange={(e) =>
-                      setUpdatedData((prev) =>
-                        prev ? { ...prev, context: e.target.value } : prev
-                      )
-                    }
-                    className="h-32 resize-none overflow-y-auto"
-                  />
+                      <Textarea
+                        placeholder="Mention the context for this question..."
+                        value={updatedData?.context || ""}
+                        onChange={(e) =>
+                          setUpdatedData((prev) =>
+                            prev ? { ...prev, context: e.target.value } : prev
+                          )
+                        }
+                        className="h-32 resize-none overflow-y-auto"
+                      />
+                    </>
+                  )}
 
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <Info className="h-4 w-4" aria-hidden="true" />
@@ -759,41 +763,46 @@ export const AddOrEditQuestionDialog = ({
                     className="h-32 resize-none overflow-y-auto"
                   />
 
-                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <FlagTriangleRight className="h-4 w-4" aria-hidden="true" />
-                    <label>Priority*</label>
-                  </div>
-                  <Select
-                    value={updatedData?.priority || "medium"}
-                    onValueChange={(v) => {
-                      onFieldValidatedChange?.("priority");
-                      setUpdatedData((prev) =>
-                        prev
-                          ? { ...prev, priority: v as QuestionPriority }
-                          : prev
-                      );
-                    }}
-                  >
-                    <SelectTrigger
-                      className={`w-full ${mode === "add" && validationErrors?.priority
-                        ? invalidFieldClass
-                        : ""
-                        }`}
-                    >
-                      <SelectValue placeholder="Select priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {mode === "add" && validationErrors?.priority && (
-                    <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
-                      {validationErrors.priority}
-                    </p>
+                  {mode === "add" && (
+                    <>
+                      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                        <FlagTriangleRight className="h-4 w-4" aria-hidden="true" />
+                        <label>Priority*</label>
+                      </div>
+                      <Select
+                        value={updatedData?.priority || "medium"}
+                        onValueChange={(v) => {
+                          onFieldValidatedChange?.("priority");
+                          setUpdatedData((prev) =>
+                            prev
+                              ? { ...prev, priority: v as QuestionPriority }
+                              : prev
+                          );
+                        }}
+                      >
+                        <SelectTrigger
+                          className={`w-full ${mode === "add" && validationErrors?.priority
+                            ? invalidFieldClass
+                            : ""
+                            }`}
+                        >
+                          <SelectValue placeholder="Select priority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {validationErrors?.priority && (
+                        <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
+                          {validationErrors.priority}
+                        </p>
+                      )}
+                    </>
                   )}
-                  {userRole !== "expert" &&
+                  {/* Status update is restricted here (only fields in EDITABLE_FIELDS can be edited) */}
+                  {/* {userRole !== "expert" &&
                     mode == "edit" &&
                     question?.status !== "closed" && (
                       <>
@@ -822,7 +831,7 @@ export const AddOrEditQuestionDialog = ({
                           </SelectContent>
                         </Select>
                       </>
-                    )}
+                    )} */}
                   {/* <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                   <Globe className="h-4 w-4" aria-hidden="true" />
                   <label>Source*</label>
