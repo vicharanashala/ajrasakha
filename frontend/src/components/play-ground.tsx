@@ -26,6 +26,7 @@ import { ExpertDashboard } from "./ExpertDashboard";
 import { NotificationModal } from "./NotificationModal";
 import { AnnamDashboard_dev as AnnamDashboard } from '../features/chatbotDashboard/AnnamDashboard_dev'
 import { cn } from "@/lib/utils";
+import AuditPage from "./AuditPage";
 
 export const PlaygroundPage = () => {
   const { data: user, isLoading } = useGetCurrentUser({});
@@ -282,6 +283,8 @@ export const PlaygroundPage = () => {
                     </HoverCard>
                   </TabsTrigger>
                 )}
+
+                {user && user.role !== "expert" && (<TabsTrigger value="audit" className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0">View Audit</TabsTrigger>) }
               </TabsList>
             </div>
 
@@ -443,6 +446,22 @@ export const PlaygroundPage = () => {
                     currentUser={user!}
                     selectedHistoryId={selectedHistoryId}
                   />
+                </TabsContent>
+                
+              )}
+
+              {user && user.role !== "expert" && (
+                <TabsContent
+                  value="audit"
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out"
+                  )}                >
+                  <AuditPage />
                 </TabsContent>
               )}
             </div>

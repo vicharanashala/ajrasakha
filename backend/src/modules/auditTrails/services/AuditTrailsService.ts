@@ -23,12 +23,13 @@ export class AuditTrailsService
   }
   async createAuditTrail(paload: ModeratorAuditTrail): Promise<string> {
     // Implement the logic to create an audit trail
-    return await this.auditTrailsRepository.createAuditTrail(this.normalizeAudit(paload));
+    return await this.auditTrailsRepository.createAuditTrail(this.normalizeAuditToObjectId(paload));
   }
 
-  async getAuditTrails(): Promise<ModeratorAuditTrail[]> {
+  async getAuditTrails(page: number, limit: number, startDate?: string, endDate?: string): Promise<ModeratorAuditTrail[]> {
     // Implement the logic to get all audit trails
-    return this.auditTrailsRepository.getAuditTrails();
+    const auditTrails = await this.auditTrailsRepository.getAuditTrails(page, limit, startDate, endDate);
+    return auditTrails.map((audit) => this.normalizeAudit(audit));
   }
 
   async getAuditTrailById(id: string): Promise<ModeratorAuditTrail | null> {
@@ -36,7 +37,7 @@ export class AuditTrailsService
     return this.auditTrailsRepository.getAuditTrailById(id);
   }
 
-  private normalizeAudit(audit: any) {
+  private normalizeAuditToObjectId(audit: any) {
     return {
       ...audit,
       actor: {
@@ -98,4 +99,72 @@ export class AuditTrailsService
     }
     return ObjectId.isValid(value) ? [new ObjectId(String(value))] : undefined;
   }
+
+  private normalizeAudit(audit: any) {
+  return {
+    ...audit,
+    actor: {
+      ...audit.actor,
+      id: audit.actor?.id
+        ? String(audit.actor.id)
+        : audit.actor?.id,
+    },
+    context: {
+      ...audit.context,
+
+      ...(audit.context?.questionId && {
+        questionId: this.toStringIdArray(audit.context.questionId),
+      }),
+
+      ...(audit.context?.answerId && {
+        answerId: String(audit.context.answerId),
+      }),
+
+      ...(audit.context?.userId && {
+        userId: String(audit.context.userId),
+      }),
+
+      ...(audit.context?.requestId && {
+        requestId: String(audit.context.requestId),
+      }),
+
+      ...(audit.context?.cropId && {
+        cropId: String(audit.context.cropId),
+      }),
+    },
+
+    createdAt: audit.createdAt || new Date(),
+
+    changes: {
+      before: {
+        ...audit.changes?.before,
+
+        ...(audit?.changes?.before?.experts && {
+          experts: this.toStringIdArray(audit.changes.before.experts),
+        }),
+      },
+
+      after: {
+        ...audit.changes?.after,
+
+        ...(audit?.changes?.after?.experts && {
+          experts: this.toStringIdArray(audit.changes.after.experts),
+        }),
+      },
+    },
+  };
 }
+
+private toStringIdArray(value: any) {
+  if (!value) return undefined;
+
+  if (Array.isArray(value)) {
+    return value.map((v) => String(v));
+  }
+
+  return [String(value)];
+}
+
+}
+
+

@@ -224,6 +224,12 @@ export class QuestionController {
           context: {
             questionId: Array.from(insertedIds, (id) => id.toString()),
           },
+          changes: {
+            after: {
+              message: "Question created via bulk upload",
+            }
+          },
+          
           outcome: {
             status: OutComeStatus.SUCCESS,
           },
@@ -278,6 +284,13 @@ export class QuestionController {
         context: {
           questionId: Array(data._id.toString()),
         },
+        changes:{
+          after: {
+            question: data.question,
+            details: data.details
+          }
+        },
+
         outcome: {
           status: OutComeStatus.SUCCESS,
         },

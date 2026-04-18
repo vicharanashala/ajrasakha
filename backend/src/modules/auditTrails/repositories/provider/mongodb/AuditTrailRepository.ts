@@ -21,9 +21,22 @@ export class AuditTrailsRepository implements IAuditTrailsRepository {
     return result.insertedId.toString();
   }
 
-  async getAuditTrails(session?: ClientSession): Promise<ModeratorAuditTrail[]> {
+  async getAuditTrails(page: number, limit: number, startDate?: string, endDate?: string, session?: ClientSession): Promise<ModeratorAuditTrail[]> {
     await this.init();
-    return this.auditTrailsCollection.find({}, { session }).toArray();
+    const skip = (page - 1) * limit;
+    const query: any = {};
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query.createdAt.$lte = new Date(endDate);
+      }
+    }
+
+    return this.auditTrailsCollection.find(query, { session }).skip(skip).limit(limit).toArray();
   }
 
   async getAuditTrailById(id: string, session?: ClientSession): Promise<ModeratorAuditTrail | null> {
