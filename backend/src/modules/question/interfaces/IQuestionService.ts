@@ -168,4 +168,6 @@ export interface IQuestionService {
 
   /** Returns total question count and per-status breakdown with filters applied */
   getQuestionStatusSummary(query: GetDetailedQuestionsQuery, body: DetailedQuestionsBodyDto): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }>;
+
+  getExprtIdByIndex(questionId: string, index: number): Promise<string | null>;
 }

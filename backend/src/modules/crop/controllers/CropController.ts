@@ -25,6 +25,9 @@ import {
   GetAllCropsQuery,
 } from '../classes/validators/CropValidators.js';
 import {ICropService} from '../interfaces/ICropService.js';
+import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
+import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 
 // ── Allowed roles for write operations ──
 const WRITE_ROLES = ['admin', 'moderator'];
@@ -39,6 +42,9 @@ export class CropController {
   constructor(
     @inject(GLOBAL_TYPES.CropService)
     private readonly cropService: ICropService,
+
+    @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
+    private readonly auditTrailsService: IAuditTrailsService,
   ) {}
 
   // ─── GET ALL CROPS ───────────────────────────────────────────────────────
@@ -94,7 +100,29 @@ export class CropController {
 
     const userId = user._id.toString();
     const crop = await this.cropService.createCrop(body, userId);
-
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.CROP_MANAGEMENT,
+      action: AuditAction.ADD_CROP,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+      },
+      context: {
+        cropId: crop._id.toString(),
+        cropName: crop.name,
+      },
+      changes: {
+        after: {
+          name: crop.name,
+        },
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+    this.auditTrailsService.createAuditTrail(auditPayload);
     return {
       success: true,
       message: `Crop "${crop.name}" added successfully.`,
@@ -123,6 +151,28 @@ export class CropController {
 
     const {cropId} = params;
     const userId = user._id.toString();
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.CROP_MANAGEMENT,
+      action: AuditAction.UPDATE_CROP,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+      },
+      context: {
+        cropId,
+      },
+      changes: {
+        after: {
+          ...body,
+        },
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+    this.auditTrailsService.createAuditTrail(auditPayload);
 
     const updated = await this.cropService.updateCrop(cropId, body, userId);
 

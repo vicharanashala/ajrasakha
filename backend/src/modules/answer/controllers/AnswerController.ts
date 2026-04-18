@@ -22,6 +22,9 @@ import {IAnswer, IUser} from '#root/shared/interfaces/models.js';
 import { AnswerService } from '../services/AnswerService.js';
 import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
+import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
+import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 
 @OpenAPI({
   tags: ['Answers'],
@@ -32,6 +35,9 @@ export class AnswerController {
   constructor(
     @inject(GLOBAL_TYPES.AnswerService)
     private readonly answerService: IAnswerService,
+
+    @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
+    private readonly auditTrailsService: IAuditTrailsService,
   ) {}
 
   @OpenAPI({summary: 'Add a new answer to a question'})
@@ -129,11 +135,45 @@ export class AnswerController {
     @CurrentUser() user: IUser,
   ) {
     const {_id: userId} = user;
-
-    return this.answerService.approveAnswer(
+    const prevAnswer = await this.answerService.getAnswerById(body.answerId);
+    let auditPayload = {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.APPROVE_ANSWER,
+      actor: {
+        id: userId,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        },
+      context: {
+        questionId: prevAnswer?.questionId.toString() || body.questionId,
+        answerId: body.answerId,
+      },
+      changes:{
+        before: {
+          answer: prevAnswer?.answer || ''
+        },
+        after:{}
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+    const result = await this.answerService.approveAnswer(
       userId.toString(),
       body,
     );
+    auditPayload = {
+      ...auditPayload,
+      changes: {
+          ...auditPayload.changes,
+          after: {
+            answer: body.answer          
+          },
+      }
+    }
+    this.auditTrailsService.createAuditTrail(auditPayload);
+    return result;
   }
 
 

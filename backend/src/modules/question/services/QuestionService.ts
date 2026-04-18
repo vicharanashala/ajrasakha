@@ -3578,4 +3578,11 @@ export class QuestionService extends BaseService implements IQuestionService {
     return this.questionRepo.getQuestionStatusSummary(query, body);
   }
 
+  async getExprtIdByIndex(questionId: string, index: number): Promise<string | null> {
+    const submission = await this.questionSubmissionRepo.getByQuestionId(questionId);
+    if (!submission || !submission.queue || submission.queue.length <= index) {
+      return null;
+    }
+    return submission.queue[index].toString();
+  }
 }

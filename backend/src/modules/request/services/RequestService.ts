@@ -269,4 +269,10 @@ export class RequestService extends BaseService implements IRequestService{
     });
   }
 
+  async getRequestStatusById(
+    requestId: string,
+  ): Promise<RequestStatus | null> {
+    return this.requestRepository.getRequestStatusById(requestId);
+  }
+
 }

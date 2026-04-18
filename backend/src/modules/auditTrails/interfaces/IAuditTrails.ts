@@ -38,7 +38,7 @@ export enum AuditAction {
   DELETE_REQUEST = 'DELETE_REQUEST',
 
   //ANALYTICS
-  ANALYTICS_EXPORT_PDF = 'ANALYTICS_EXPORT_PDF',
+  ANALYTICS_EXPORT_PDF = 'ANALYTICS_EXPORT_PDF', // button not functional yet, pending
 
   //CROP_MANAGEMENT
   ADD_CROP = 'ADD_CROP',
@@ -53,6 +53,7 @@ export enum AuditAction {
   //ANSWER
   APPROVE_ANSWER = 'APPROVE_ANSWER',
   REROUTE_ANSWER = 'REROUTE_ANSWER',
+  REROUTE_REJECTION = 'REROUTE_REJECTION',
 }
 
 export enum OutComeStatus {
@@ -71,23 +72,14 @@ export interface ModeratorAuditTrail {
     role?: string;
   };
 
-  context: {
-    questionId?: string | ObjectId;
-    userId?: string | ObjectId;
-    relatedIds?: Record<string, ObjectId | string>;
-    requestId?: string | ObjectId;
-    cropId?: string | ObjectId;
-    reportType?: string | ObjectId;
-    from_date?: string;
-    to_date?: string;
-  };
+  context?: Record<string, any>;
 
   changes?: {
     before?: Record<string, any>;
     after?: Record<string, any>;
   };
 
-  outcome: {
+  outcome?: {
     status: OutComeStatus;
     errorCode?: string;
     errorMessage?: string;
@@ -95,5 +87,5 @@ export interface ModeratorAuditTrail {
     errorStack?: string; // truncated (top 3–5 lines)
   };
 
-  createdAt: Date;
+  createdAt?: Date;
 }

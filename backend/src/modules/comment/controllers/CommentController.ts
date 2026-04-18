@@ -16,6 +16,9 @@ import {inject} from 'inversify';
 import { CommentService } from '../services/CommentService.js';
 import { AddCommentBody, AddCommentParams, GetCommentsParams, GetCommentsQuery } from '../classes/validators/CommentValidator.js';
 import { ICommentService } from '../interfaces/ICommentService.js';
+import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
+import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 
 @OpenAPI({
   tags: ['Comments'],
@@ -26,6 +29,9 @@ export class CommentController {
   constructor(
     @inject(GLOBAL_TYPES.CommentService)
     private commentService: ICommentService,
+
+    @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
+    private readonly auditTrailsService: IAuditTrailsService,
   ) {}
 
   @OpenAPI({summary: 'Get comments for a specific answer of a question'})
@@ -59,6 +65,31 @@ export class CommentController {
     const {answerId, questionId} = params;
     const {text} = body;
     const userId = user._id.toString();
-    return this.commentService.addComment(questionId, answerId, text, userId);
+
+    const result  = await this.commentService.addComment(questionId, answerId, text, userId);
+    let auditPayload = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: AuditAction.EXPERTS_ADD_COMMENT,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+       },
+      context: {
+        questionId: questionId,
+        answerId: answerId,
+      },
+      changes: {
+        after: {
+          commentText: text,
+        },
+      },
+      outcome: {
+        status: result ? OutComeStatus.SUCCESS : OutComeStatus.FAILED,
+      },
+    };
+    this.auditTrailsService.createAuditTrail(auditPayload);
+    return result;
   }
 }

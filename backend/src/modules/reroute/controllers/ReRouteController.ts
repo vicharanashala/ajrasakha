@@ -47,6 +47,9 @@ import {
 import { ROUTE_TYPES } from '../types.js';
 import { ModeratorRejectParam, RerouteIdParam } from '../classes/validators/RerouteValidator.js';
 import { IReRouteService } from '../interfaces/IRerouteService.js';
+import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
+import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 
 @OpenAPI({
   tags: ['reroute'],
@@ -58,6 +61,9 @@ export class ReRouteController {
   constructor(
     @inject(ROUTE_TYPES.ReRouteService)
     private readonly reRouteService: IReRouteService,
+
+    @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
+    private readonly auditTrailsService: IAuditTrailsService,
   ) {}
 
   // @Get('/allocat')
@@ -84,7 +90,31 @@ export class ReRouteController {
     const {_id: userId} = user;
     const {questionId} = params;
     const {expertId,answerId,moderatorId,comment,status} = body;
+    let auditPayload = {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.REROUTE_ANSWER,
+      actor: {
+        id: userId.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        },
+      context: {
+        questionId: questionId,
+        answerId: answerId,
+        comment: comment,
+        },
+      changes:{
+        after:{
+          experts: Array(expertId),
+        }
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
     await this.reRouteService.addrerouteAnswer(questionId,expertId,answerId,moderatorId,comment,status as RerouteStatus)
+    this.auditTrailsService.createAuditTrail(auditPayload);
     return {message:"Re routed succesfully"}
   }
   @Post('/allocated')
@@ -134,7 +164,31 @@ export class ReRouteController {
    // const expertId = user._id.toString();
     const {rerouteId,questionId} = params;
     const {reason,moderatorId,role,expertId} = body
+    const userId = user._id.toString();
+    let auditPayload = {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.REROUTE_REJECTION,
+      actor: {
+        id: userId.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        },
+      context: {
+        questionId: questionId,
+        comment: reason,
+        },
+      changes:{
+        before:{
+          experts: Array(expertId),
+        }
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      }
+    };
     await this.reRouteService.rejectRerouteRequest(rerouteId,questionId,expertId,moderatorId,reason,role)
+    this.auditTrailsService.createAuditTrail(auditPayload);
     return {message:"Rejected the request succesfully"}
   }
 

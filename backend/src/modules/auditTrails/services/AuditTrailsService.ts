@@ -41,23 +41,61 @@ export class AuditTrailsService
       ...audit,
       actor: {
         ...audit.actor,
-        id: new ObjectId(String(audit.actor.id)),
+        id: ObjectId.isValid(audit.actor?.id)
+          ? new ObjectId(String(audit.actor.id))
+          : audit.actor.id,
       },
       context: {
         ...audit.context,
-        questionId: audit.context?.questionId
-          ? new ObjectId(String(audit.context.questionId))
-          : undefined,
+        ...(audit.context?.questionId && {
+          questionId: this.toObjectIdArray(audit.context.questionId),
+        }),
+        ...(audit.context?.answerId && {
+          answerId: ObjectId.isValid(audit.context.answerId)
+            ? new ObjectId(String(audit.context.answerId))
+            : audit.context.answerId,
+        }),
+        ...(audit.context?.userId && {
+          userId: ObjectId.isValid(audit.context.userId)
+            ? new ObjectId(String(audit.context.userId))
+            : audit.context.userId,
+        }),
+        ...(audit.context?.requestId && {
+          requestId: ObjectId.isValid(audit.context.requestId)
+            ? new ObjectId(String(audit.context.requestId))
+            : audit.context.requestId,
+        }),
+        ...(audit.context?.cropId && {
+          cropId: ObjectId.isValid(audit.context.cropId)
+            ? new ObjectId(String(audit.context.cropId))
+            : audit.context.cropId,
+        }),
       },
+      createdAt: new Date(),
       changes: {
-        ...audit.changes,
+        before: {
+          ...audit.changes?.before,
+          ...(audit?.changes?.before?.experts && {
+            experts: this.toObjectIdArray(audit.changes?.before?.experts),
+          }),
+        },
         after: {
           ...audit.changes?.after,
-          context: ObjectId.isValid(audit.changes?.after?.contextId)
-            ? new ObjectId(String(audit.changes.after.contextId))
-            : audit.changes?.after?.contextId,
+          ...(audit?.changes?.after?.experts && {
+            experts: this.toObjectIdArray(audit.changes?.after?.experts),
+          }),
         },
       },
     };
+  }
+
+  private toObjectIdArray(value: any) {
+    if (!value) return undefined;
+    if (Array.isArray(value)) {
+      return value
+        .map((v) => (ObjectId.isValid(v) ? new ObjectId(String(v)) : null))
+        .filter(Boolean);
+    }
+    return ObjectId.isValid(value) ? [new ObjectId(String(value))] : undefined;
   }
 }

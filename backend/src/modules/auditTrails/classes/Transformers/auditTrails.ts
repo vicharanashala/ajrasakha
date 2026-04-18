@@ -54,22 +54,23 @@ export class AuditTrails implements ModeratorAuditTrail {
     @Expose()
     @JSONSchema({
         title: "Context of the audit trail",
-        description: "Context of the audit trail with relevant identifiers",
+        description: "Context of the audit trail, can include questionId, userId, relatedIds, requestId, cropId, reportType, from_date, to_date etc.",
         example: {
             questionId: "60d5ec49b3f1c8e4a8f8b8c1",
+            userId: "60d5ec49b3f1c8e4a8f8b8c2",
+            relatedIds: {
+                relatedId1: "60d5ec49b3f1c8e4a8f8b8c3",
+                relatedId2: "60d5ec49b3f1c8e4a8f8b8c4"
+            },
+            requestId: "60d5ec49b3f1c8e4a8f8b8c5",
+            cropId: "60d5ec49b3f1c8e4a8f8b8c6",
+            reportType: "type1",
+            from_date: "2023-10-01",
+            to_date: "2023-10-05"
         },
         type: "object",
     })
-    context: {
-        questionId?: string | ObjectId;
-        userId?: string | ObjectId;
-        relatedIds?: Record<string, ObjectId | string>;
-        requestId?: string | ObjectId;
-        cropId?: string | ObjectId;
-        reportType?: string | ObjectId;
-        from_date?: string;
-        to_date?: string;
-    };
+    context?: Record<string, any>;
 
     @Expose()
     @JSONSchema({
@@ -121,7 +122,7 @@ export class AuditTrails implements ModeratorAuditTrail {
         type: "string",
         format: "date-time",
     })
-    createdAt: Date;
+    createdAt?: Date;
     constructor(userId?: string) {
         this.category = AuditCategory.QUESTION;
         this.action = AuditAction.QUESTION_ADD;

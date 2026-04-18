@@ -30,6 +30,9 @@ import {
   ExpertReviewLevelDto,
   UpdateUserDto
 } from '#root/modules/user/validators/UserValidators.js';
+import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
+import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 
 @OpenAPI({
   tags: ['users'],
@@ -41,6 +44,9 @@ export class UserController {
   constructor(
     @inject(GLOBAL_TYPES.UserService)
     private readonly userService: UserService,
+
+    @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
+    private readonly auditTrailsService: IAuditTrailsService,
   ) {}
 
   @Get('/me')
@@ -214,9 +220,35 @@ export class UserController {
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async BlockAndUnblockExpert(
     @Body() body: BlockUnblockBody,
+    @CurrentUser() user: IUser,
   ): Promise<{message: string}> {
     const {action, userId} = body;
+    let auditPayload = {
+      category: AuditCategory.EXPERTS_MANAGEMENT,
+      action: action === 'block' ? AuditAction.BLOCK_EXPERT : AuditAction.UNBLOCK_EXPERT,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+      },
+      context: {
+        userId: userId,
+      },
+      changes:{
+        before:{
+          status: action === 'block' ? 'active' : 'in-active',
+        },
+        after:{
+          status: action === 'block' ? 'in-active' : 'active',
+        }
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
     await this.userService.blockUnblockExperts(userId, action);
+    this.auditTrailsService.createAuditTrail(auditPayload);
     return {message: `${action} Expert successfully`};
   }
 
