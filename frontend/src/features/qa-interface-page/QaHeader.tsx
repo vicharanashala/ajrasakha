@@ -9,7 +9,7 @@ import {
 import { Button } from "../../components/atoms/button";
 import { Review_Level_QAI } from "@/components/MetaData";
 import {Select,SelectTrigger, SelectValue,SelectContent,SelectItem,} from "@/components/atoms/select";
-import {CheckCircle,RefreshCw,RotateCcw,Info,Loader2,Send,FileText,Bot, ChevronLeft, Filter, Settings, MapPin, Layers, Globe, Sprout, UserRound, AlertTriangle} from "lucide-react";
+import { RefreshCw,Info, Bot, ChevronLeft, Filter, MapPin, Layers, Globe, Sprout, UserRound } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "../../components/atoms/dialog";
@@ -17,14 +17,8 @@ import { Badge } from "../../components/atoms/badge";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Separator } from "@/components/atoms/separator";
 import { STATES, CROPS } from "@/components/MetaData";
-import { StateMultiSelect, CropMultiSelect } from "@/components/advanced-question-filter";
-import type {
-  HistoryItem,
-  IQuestion,
-  IReviewParmeters,
-  SourceItem,
-  QuestionRerouteRepo
-} from "@/types";
+import { StateMultiSelect } from "@/components/atoms/StateMultiSelect";
+import { CropMultiSelect } from "@/components/atoms/CropMultiSelect";
 import { Label } from "../../components/atoms/label";
 import { formatDate } from "@/utils/formatDate";
 import { buildHoldCountdownOptions } from "@/hooks/ui/useCountdown";

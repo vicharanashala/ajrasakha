@@ -1,5 +1,4 @@
 import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetailedQuestions";
-//import { QuestionsFilters, QuestionsTable } from "./questions-table";
 import { QuestionsTable } from "../features/question-table-page/questions-table";
 import { QuestionsFilters } from "../features/question-table-page/QuestionsFilters";
 import { useEffect, useMemo, useState } from "react";
@@ -74,9 +73,7 @@ export const QuestionsPage = ({
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
   const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
-  // const observerRef = useRef<IntersectionObserver | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  // const [selectedQuestionId, setSelectedQuestionId] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [domain, setDomain] = useState("all");
   const [user, setUser] = useState("all");

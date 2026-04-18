@@ -25,22 +25,6 @@ import {
 } from "@/components/atoms/select";
 import { useRestartOnView } from "@/hooks/ui/useRestartView";
 export const description = "An interactive area chart";
-// const chartData = [
-//   { date: "2024-04-01", Ajrasakha: 222, Moderator: 150 },
-//   { date: "2024-04-02", Ajrasakha: 97, Moderator: 180 },
-//   { date: "2024-04-03", Ajrasakha: 167, Moderator: 120 },
-//   { date: "2024-04-04", Ajrasakha: 242, Moderator: 260 },
-//   { date: "2024-04-05", Ajrasakha: 373, Moderator: 290 },
-//   { date: "2024-04-06", Ajrasakha: 301, Moderator: 340 },
-//   { date: "2024-04-07", Ajrasakha: 245, Moderator: 180 },
-//   { date: "2024-04-08", Ajrasakha: 409, Moderator: 320 },
-//   { date: "2024-04-09", Ajrasakha: 59, Moderator: 110 },
-//   { date: "2024-04-10", Ajrasakha: 261, Moderator: 190 },
-//   { date: "2024-04-11", Ajrasakha: 327, Moderator: 350 },
-//   { date: "2024-04-12", Ajrasakha: 292, Moderator: 210 },
-//   { date: "2024-04-13", Ajrasakha: 342, Moderator: 380 },
-//   { date: "2024-04-14", Ajrasakha: 137, Moderator: 220 },
-// ];
 const chartConfig = {
   visitors: {
     label: "Visitors",
@@ -75,20 +59,6 @@ export const SourcesChart: React.FC<SourcesChartProps> = ({
 }) => {
   const {ref,key} = useRestartOnView()
 
-  // const filteredData = data.filter((item) => {
-  //   const date = new Date(item.date);
-  //   const referenceDate = new Date("2024-06-30");
-  //   let daysToSubtract = 90;
-  //   if (timeRange === "30d") {
-  //     daysToSubtract = 30;
-  //   } else if (timeRange === "7d") {
-  //     daysToSubtract = 7;
-  //   }
-  //   const startDate = new Date(referenceDate);
-  //   startDate.setDate(startDate.getDate() - daysToSubtract);
-  //   return date >= startDate;
-  // });
-  // console.log("filteredData: ", filteredData)
 
   return (
     <Card ref={ref} className="pt-0">

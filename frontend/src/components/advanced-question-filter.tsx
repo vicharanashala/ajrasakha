@@ -22,6 +22,8 @@ import { Separator } from "@/components/atoms/separator";
 import { Badge } from "@/components/atoms/badge";
 import { Slider } from "@/components/atoms/slider";
 import { Checkbox } from "@/components/atoms/checkbox";
+import { StateMultiSelect } from "./atoms/StateMultiSelect";
+import { CropMultiSelect } from "./atoms/CropMultiSelect";
 import {
   Filter,
   FileText,
@@ -44,9 +46,6 @@ import {
   ArrowUp,
   ArrowDown,
   ListFilter,
-  CalendarIcon,
-  ChevronUp,
-  ChevronDown,
   XCircle,
   Layers,
   Send,
@@ -56,24 +55,18 @@ import {
   Settings,
   Radio,
 } from "lucide-react";
-import { Plus } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
+  TooltipProvider,
 } from "./atoms/tooltip";
 import type { IMyPreference } from "@/types";
 import { CROPS, STATES, DOMAINS, Review_Level } from "@/components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
-import { Popover, PopoverContent, PopoverTrigger } from "./atoms/popover";
-import { format } from "date-fns";
 export { STATES, CROPS, DOMAINS };
-import type { DateRange } from "react-day-picker";
-import { Calendar } from "./atoms/calendar";
 import { DateRangeFilter } from "./DateRangeFilter";
-import { TopRightBadge } from "./NewBadge";
 
 export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed";
 export type QuestionDateRangeFilter =
@@ -130,384 +123,8 @@ export type AdvanceFilterValues = {
   isOnHold?: boolean;
 };
 
-// Define the props for your new component
-interface DateRangeFilterProps {
-  // advanceFilter prop now includes startTime and endTime
-  advanceFilter: Partial<AdvanceFilterValues>;
-  // The handler to update the parent state
-  handleDialogChange: (key: string, value: any) => void;
-  className?: string;
-}
-
-// export const DateRangeFilter = ({
-//   advanceFilter,
-//   handleDialogChange,
-//   className,
-// }: DateRangeFilterProps) => {
-//   const [isCalendarVisible, setIsCalendarVisible] = React.useState(false);
-//   // Convert the flat startTime/endTime into the DateRange object for the Calendar
-//   const dateRange: DateRange = {
-//     from: advanceFilter.startTime,
-//     to: advanceFilter.endTime,
-//   };
-
-//   const handleDateSelect = (range: DateRange | undefined) => {
-//     console.log("Date range: ", range);
-//     handleDialogChange("startTime", range?.from);
-//     handleDialogChange("endTime", range?.to);
-
-//     // Close the calendar once both dates are selected
-//     if (range?.from && range?.to) {
-//       setIsCalendarVisible(false);
-//     }
-//   };
-
-//   const isRangeSelected = dateRange.from && dateRange.to;
-
-//   return (
-//     <div className={`space-y-2 min-w-0 relative${className}`}>
-//       <Label className="flex items-center gap-2 text-sm font-semibold">
-//         <Clock className="h-4 w-4 text-primary" />
-//         Custom Date Range
-//       </Label>
-
-//       {/* This Button now acts as a toggle */}
-//       <Button
-//         id="date-toggle"
-//         variant={"outline"}
-//         className={`w-full justify-start text-left font-normal bg-background pr-3 ${
-//           !dateRange.from && "text-muted-foreground"
-//         }`}
-//         onClick={() => setIsCalendarVisible(!isCalendarVisible)}
-//       >
-//         <CalendarIcon className="mr-2 h-4 w-4" />
-//         {dateRange.from ? (
-//           dateRange.to ? (
-//             <>
-//               {format(dateRange.from, "LLL dd, y")} -{" "}
-//               {format(dateRange.to, "LLL dd, y")}
-//             </>
-//           ) : (
-//             format(dateRange.from, "LLL dd, y")
-//           )
-//         ) : (
-//           <span>Select a start and end date</span>
-//         )}
-
-//         {/* Toggle Icon */}
-//         <span className="ml-auto">
-//           {isCalendarVisible ? (
-//             <ChevronUp className="h-4 w-4 opacity-50" />
-//           ) : (
-//             <ChevronDown className="h-4 w-4 opacity-50" />
-//           )}
-//         </span>
-//       </Button>
-
-//       {/* Conditional Rendering of the Calendar */}
-//       {isCalendarVisible && (
-//         <div className="absolute z-50 mt-2 border rounded-lg p-2 bg-popover text-popover-foreground shadow-lg min-w-full sm:min-w-[300px]">
-//           {" "}
-//           <Calendar
-//             initialFocus
-//             mode="range"
-//             defaultMonth={dateRange.from}
-//             selected={dateRange}
-//             onSelect={handleDateSelect}
-//             numberOfMonths={1} // Use 1 month since space might be limited now
-//             className="w-full"
-//           />
-//         </div>
-//       )}
-//     </div>
-//   );
-// };
 
 // Inline multi-select for State/Region with hover-to-scroll zones
-export const StateMultiSelect = ({
-  states,
-  selected,
-  onChange,
-}: {
-  states: string[];
-  selected: string[];
-  onChange: (next: string[]) => void;
-}) => {
-  const [open, setOpen] = React.useState(false);
-  const scrollRef = React.useRef<HTMLDivElement>(null);
-  const scrollInterval = React.useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const startScroll = (direction: "up" | "down") => {
-    stopScroll();
-    scrollInterval.current = setInterval(() => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollTop += direction === "down" ? 6 : -6;
-      }
-    }, 16);
-  };
-
-  const stopScroll = () => {
-    if (scrollInterval.current) {
-      clearInterval(scrollInterval.current);
-      scrollInterval.current = null;
-    }
-  };
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-      >
-        <span className="truncate text-left">
-          {selected.length === 0
-            ? "All States"
-            : selected.length === 1
-              ? selected[0]
-              : `${selected.length} states selected`}
-        </span>
-        {open ? (
-          <ChevronUp className="h-4 w-4 opacity-50 flex-shrink-0 ml-2" />
-        ) : (
-          <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0 ml-2" />
-        )}
-      </button>
-
-      {open && (
-        <div className="absolute z-50 left-0 right-0 mt-1 rounded-md border border-input bg-popover shadow-md">
-          {/* header */}
-          <div className="flex items-center justify-between px-3 py-2 border-b">
-            <span className="text-xs font-medium text-muted-foreground">
-              {selected.length} selected
-            </span>
-            <button
-              type="button"
-              className="text-xs text-primary hover:underline"
-              onClick={() => onChange([])}
-            >
-              Clear all
-            </button>
-          </div>
-
-          {/* scroll-up zone */}
-          <div
-            className="flex items-center justify-center h-6 cursor-pointer select-none text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
-            onMouseEnter={() => startScroll("up")}
-            onMouseLeave={stopScroll}
-          >
-            <ChevronUp className="h-3.5 w-3.5" />
-          </div>
-
-          {/* list */}
-          <div ref={scrollRef} className="max-h-48 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {states.map((s) => {
-              const isSelected = selected.includes(s);
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() =>
-                    onChange(
-                      isSelected
-                        ? selected.filter((x) => x !== s)
-                        : [...selected, s],
-                    )
-                  }
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
-                >
-                  <div
-                    className={`h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${isSelected ? "bg-primary border-primary" : "border-gray-400"
-                      }`}
-                  >
-                    {isSelected && (
-                      <svg
-                        className="h-3 w-3 text-primary-foreground"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={3}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    )}
-                  </div>
-                  {s}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* scroll-down zone */}
-          <div
-            className="flex items-center justify-center h-6 cursor-pointer select-none text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
-            onMouseEnter={() => startScroll("down")}
-            onMouseLeave={stopScroll}
-          >
-            <ChevronDown className="h-3.5 w-3.5" />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export const CropMultiSelect = ({
-  dbCrops,
-  crops,
-  selected,
-  onChange,
-}: {
-  dbCrops: { _id?: string; name: string; aliases?: string[] }[];
-  crops: string[];
-  selected: string[];
-  onChange: (next: string[]) => void;
-}) => {
-  const [open, setOpen] = React.useState(false);
-  const scrollRef = React.useRef<HTMLDivElement>(null);
-  const scrollInterval = React.useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const startScroll = (direction: "up" | "down") => {
-    stopScroll();
-    scrollInterval.current = setInterval(() => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollTop += direction === "down" ? 6 : -6;
-      }
-    }, 16);
-  };
-
-  const stopScroll = () => {
-    if (scrollInterval.current) {
-      clearInterval(scrollInterval.current);
-      scrollInterval.current = null;
-    }
-  };
-
-  const cropList = dbCrops.length > 0 ? dbCrops : crops.map((c) => ({ name: c }));
-
-  const getLabel = (value: string) => {
-    if (value === "__NOT_SET__") return "Not Set (Legacy)";
-    return value;
-  };
-
-  const toggle = (value: string) =>
-    onChange(selected.includes(value) ? selected.filter((x) => x !== value) : [...selected, value]);
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-      >
-        <span className="truncate text-left">
-          {selected.length === 0
-            ? "All Crops"
-            : selected.length === 1
-              ? getLabel(selected[0])
-              : `${selected.length} crops selected`}
-        </span>
-        {open ? (
-          <ChevronUp className="h-4 w-4 opacity-50 flex-shrink-0 ml-2" />
-        ) : (
-          <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0 ml-2" />
-        )}
-      </button>
-
-      {open && (
-        <div className="absolute z-50 left-0 right-0 mt-1 rounded-md border border-input bg-popover shadow-md">
-          {/* header */}
-          <div className="flex items-center justify-between px-3 py-2 border-b">
-            <span className="text-xs font-medium text-muted-foreground">
-              {selected.length} selected
-            </span>
-            <button
-              type="button"
-              className="text-xs text-primary hover:underline"
-              onClick={() => onChange([])}
-            >
-              Clear all
-            </button>
-          </div>
-
-          {/* scroll-up zone */}
-          <div
-            className="flex items-center justify-center h-6 cursor-pointer select-none text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
-            onMouseEnter={() => startScroll("up")}
-            onMouseLeave={stopScroll}
-          >
-            <ChevronUp className="h-3.5 w-3.5" />
-          </div>
-
-          {/* list */}
-          <div ref={scrollRef} className="max-h-48 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {/* Not Set option */}
-            <button
-              type="button"
-              onClick={() => toggle("__NOT_SET__")}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
-            >
-              <div
-                className={`h-4 w-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${selected.includes("__NOT_SET__") ? "bg-primary border-primary" : "border-gray-400 bg-white"
-                  }`}
-              >
-                {selected.includes("__NOT_SET__") && (
-                  <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </div>
-              <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
-              <span className="text-yellow-700 dark:text-yellow-400 font-medium">Not Set (Legacy)</span>
-            </button>
-
-            {cropList.map((crop) => {
-              const isSelected = selected.includes(crop.name);
-              return (
-                <button
-                  key={crop.name}
-                  type="button"
-                  onClick={() => toggle(crop.name)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
-                >
-                  <div
-                    className={`h-4 w-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${isSelected ? "bg-primary border-primary" : "border-gray-400 bg-white"
-                      }`}
-                  >
-                    {isSelected && (
-                      <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </div>
-                  <span className="capitalize">{crop.name}</span>
-                  {crop.aliases && crop.aliases.length > 0 && (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400">
-                      +{crop.aliases.length}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* scroll-down zone */}
-          <div
-            className="flex items-center justify-center h-6 cursor-pointer select-none text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
-            onMouseEnter={() => startScroll("down")}
-            onMouseLeave={stopScroll}
-          >
-            <ChevronDown className="h-3.5 w-3.5" />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 
 interface AdvanceFilterDialogProps {
   advanceFilter: AdvanceFilterValues;
@@ -921,26 +538,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2 min-w-0">
-                {/* <Label className="flex items-center gap-2 text-sm font-semibold">
-                  <CalendarIcon className="h-4 w-4 text-primary" />
-                  Date Range
-                </Label>
-                <Select
-                  value={advanceFilter.dateRange}
-                  onValueChange={(v) => handleDialogChange("dateRange", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Time</SelectItem>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="week">This Week</SelectItem>
-                    <SelectItem value="month">This Month</SelectItem>
-                    <SelectItem value="quarter">Last 3 Months</SelectItem>
-                    <SelectItem value="year">This Year</SelectItem>
-                  </SelectContent>
-                </Select> */}
 
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <Globe className="h-4 w-4 text-primary" />
@@ -1214,20 +811,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   <span className="text-sm">Show questions on Hold</span>
                 </label>
 
-                {/* <label className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={advanceFilter.duplicateQuestions ?? false}
-                    onChange={(event) =>
-                      handleDialogChange(
-                        "duplicateQuestions",
-                        event.target.checked,
-                      )
-                    }
-                    className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
-                  />
-                  <span className="text-sm">Show duplicate questions</span>
-                </label> */}
               </div>
             </div>
 
