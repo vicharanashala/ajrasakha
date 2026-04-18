@@ -1126,7 +1126,6 @@ export class QuestionService extends BaseService implements IQuestionService {
 
         logData.outcome = 'NEW_QUESTION_ADDED';
         chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
-
         const savedQuestion = await this.questionRepo.addQuestion(
           baseQuestion,
           session,
@@ -1271,17 +1270,21 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (answers && answers.length == 0)
           aiInitialAnswer = currentQuestion.aiInitialAnswer;
 
-        // For AJRASAKHA: if aiApprovedAnswer is not set (old data), fall back
-        // to the first answer from the answers collection
-        let aiApprovedAnswer = currentQuestion.aiApprovedAnswer;
         let aiApprovedSources = currentQuestion.aiApprovedSources;
+
+        // Backward compatibility: old DB still has aiApprovedAnswer
+        if (!aiInitialAnswer && currentQuestion.aiApprovedAnswer) {
+          aiInitialAnswer = currentQuestion.aiApprovedAnswer;
+        }
+
+        // Existing fallback (keep this)
         if (
           currentQuestion.source === 'AJRASAKHA' &&
-          !aiApprovedAnswer &&
+          !aiInitialAnswer &&
           answers &&
           answers.length > 0
         ) {
-          aiApprovedAnswer = answers[0].answer;
+          aiInitialAnswer = answers[0].answer;
           aiApprovedSources = answers[0].sources;
         }
 
@@ -1293,7 +1296,6 @@ export class QuestionService extends BaseService implements IQuestionService {
           status: currentQuestion.status,
           priority: currentQuestion.priority,
           aiInitialAnswer,
-          aiApprovedAnswer,
           aiApprovedSources,
           isAutoAllocate: currentQuestion.isAutoAllocate,
           createdAt: new Date(currentQuestion.createdAt).toLocaleString(),
@@ -1663,13 +1665,35 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
 
         //2. Validate question submission existence
-        const questionSubmission =
+        let questionSubmission =
           await this.questionSubmissionRepo.getByQuestionId(
             questionId,
             session,
           );
+         // let submission
         if (!questionSubmission)
-          throw new NotFoundError('Question submission not found');
+        {
+          if(question.source=="WHATSAPP")
+          {
+            const newSubmission: IQuestionSubmission = {
+              questionId: new ObjectId(questionId),
+              lastRespondedBy: null,
+              history: [],
+              queue: [],
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+            questionSubmission = await this.questionSubmissionRepo.addSubmission(newSubmission, session);
+
+          }
+          else{
+            throw new NotFoundError('Question submission not found');
+          }
+         
+
+        }
+          
+
 
         // 3. Validate if the queue is full
         if (questionSubmission.queue.length >= 10)
@@ -2293,6 +2317,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         activeSession,
       );
       await this.requestRepository.deleteByEntityId(questionId, activeSession);
+
+      // Delete duplicate question records referencing this question
+      await this.duplicateQuestionRepository.deleteByReferenceQuestionId(questionId, activeSession);
 
       // Finally, delete the question itself
       return this.questionRepo.deleteQuestion(questionId, activeSession);
@@ -3545,6 +3572,10 @@ export class QuestionService extends BaseService implements IQuestionService {
       },
       session
     );
+  }
+
+  async getQuestionStatusSummary(query: GetDetailedQuestionsQuery, body: DetailedQuestionsBodyDto): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }> {
+    return this.questionRepo.getQuestionStatusSummary(query, body);
   }
 
 }

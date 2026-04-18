@@ -724,7 +724,14 @@ export class QuestionRepository implements IQuestionRepository {
               score: { $meta: 'vectorSearchScore' },
             },
           },
-          { $sort: { score: -1 } },
+          {
+            $addFields: {
+              statusOrder: {
+                $cond: { if: { $eq: [{ $toLower: '$status' }, 'closed'] }, then: 1, else: 0 }
+              }
+            }
+          },
+          { $sort: { statusOrder: 1, score: -1 } },
           { $skip: (page - 1) * limit },
           { $limit: limit },
         ];
@@ -763,24 +770,36 @@ export class QuestionRepository implements IQuestionRepository {
       const totalPages = Math.ceil(totalCount / limit);
 
       // Determine sort order
-      let sortStage: any = { createdAt: -1, _id: -1 };
+      let sortStage: any = { statusOrder: 1, createdAt: -1, _id: -1 };
       let needsPriorityMapping = false;
+      let needsReviewLevelSort = false;
 
       if (sort) {
-        const [field, order] = sort.split('_');
+        const lastUnderscore = sort.lastIndexOf('_');
+        const field = lastUnderscore === -1 ? sort : sort.slice(0, lastUnderscore);
+        const order = lastUnderscore === -1 ? 'desc' : sort.slice(lastUnderscore + 1);
         const sortOrder = order === 'asc' ? 1 : -1;
 
         if (field === 'question') {
-          sortStage = { question: sortOrder, _id: -1 };
+          sortStage = { statusOrder: 1, question: sortOrder, _id: -1 };
         } else if (field === 'state') {
-          sortStage = { 'details.state': sortOrder, _id: -1 };
+          sortStage = { statusOrder: 1, 'details.state': sortOrder, _id: -1 };
         } else if (field === 'crop') {
-          sortStage = { 'details.crop': sortOrder, _id: -1 };
+          sortStage = { statusOrder: 1, 'details.crop': sortOrder, _id: -1 };
         } else if (field === 'domain') {
-          sortStage = { 'details.domain': sortOrder, _id: -1 };
+          sortStage = { statusOrder: 1, 'details.domain': sortOrder, _id: -1 };
         } else if (field === 'priority') {
           needsPriorityMapping = true;
-          sortStage = { priorityOrder: sortOrder, _id: -1 };
+          sortStage = { statusOrder: 1, priorityOrder: sortOrder, _id: -1 };
+        } else if (field === 'status') {
+          sortStage = { statusOrder: sortOrder, _id: -1 };
+        } else if (field === 'answers') {
+          sortStage = { statusOrder: 1, totalAnswersCount: sortOrder, _id: -1 };
+        } else if (field === 'created') {
+          sortStage = { statusOrder: 1, createdAt: sortOrder, _id: -1 };
+        } else if (field === 'review_level') {
+          needsReviewLevelSort = true;
+          sortStage = { statusOrder: 1, review_level_sort_value: sortOrder, _id: -1 };
         }
       }
 
@@ -799,6 +818,22 @@ export class QuestionRepository implements IQuestionRepository {
 
       const aggregationPipeline: any[] = [
         { $match: filter },
+        {
+          $addFields: {
+            statusOrder: {
+              $switch: {
+                branches: [
+                  { case: { $eq: [{ $toLower: '$status' }, 'open'] }, then: 1 },
+                  { case: { $eq: [{ $toLower: '$status' }, 'delayed'] }, then: 2 },
+                  { case: { $eq: [{ $toLower: '$status' }, 're-routed'] }, then: 3 },
+                  { case: { $eq: [{ $toLower: '$status' }, 'in-review'] }, then: 4 },
+                  { case: { $eq: [{ $toLower: '$status' }, 'closed'] }, then: 5 },
+                ],
+                default: 6,
+              },
+            },
+          },
+        },
       ];
 
       // Add priority mapping if needed
@@ -817,6 +852,45 @@ export class QuestionRepository implements IQuestionRepository {
             },
           },
         });
+      }
+
+      if (needsReviewLevelSort) {
+        aggregationPipeline.push(
+          {
+            $lookup: {
+              from: 'question_submissions',
+              localField: '_id',
+              foreignField: 'questionId',
+              as: 'submissionData',
+            },
+          },
+          {
+            $addFields: {
+              review_level_sort_value: {
+                $let: {
+                  vars: {
+                    len: {
+                      $cond: {
+                        if: { $gt: [{ $size: '$submissionData' }, 0] },
+                        then: {
+                          $size: { $arrayElemAt: ['$submissionData.history', 0] },
+                        },
+                        else: 0,
+                      },
+                    },
+                  },
+                  in: {
+                    $cond: {
+                      if: { $lte: ['$$len', 1] },
+                      then: 0,
+                      else: { $subtract: ['$$len', 1] },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        );
       }
 
       aggregationPipeline.push(
@@ -890,6 +964,7 @@ export class QuestionRepository implements IQuestionRepository {
             embedding: 0,
             contextDoc: 0,
             priorityOrder: 0,
+            review_level_sort_value: 0,
           },
         },
       ]).toArray();
@@ -1541,9 +1616,12 @@ export class QuestionRepository implements IQuestionRepository {
       }
 
       // 9 Final assembled question
+      const { aiApprovedAnswer, aiInitialAnswer, ...rest } = question;
+      
       const result = {
         ...{
-          ...question,
+          ...rest,
+          aiInitialAnswer:aiInitialAnswer && aiInitialAnswer.trim() ? aiInitialAnswer : aiApprovedAnswer,
           contextId: question.contextId?.toString(),
           isAutoAllocate: question.isAutoAllocate ?? true,
         },
@@ -1610,6 +1688,7 @@ export class QuestionRepository implements IQuestionRepository {
       await this.init();
       const autoAllocateValue =
         typeof isAutoAllocate === 'boolean' ? !isAutoAllocate : false;
+        
       return await this.QuestionCollection.findOneAndUpdate(
         { _id: new ObjectId(questionId) },
         { $set: { isAutoAllocate: autoAllocateValue } },
@@ -3631,6 +3710,80 @@ async getQuestionsWithAnswerDetails(questionIds: string[]):Promise<ICheckStatusR
     };
   });
 }
+
+  async getQuestionStatusSummary(
+    query: GetDetailedQuestionsQuery,
+    body: DetailedQuestionsBodyDto,
+    session?: ClientSession,
+  ): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }> {
+    await this.init();
+
+    const { filter } = await buildQuestionFilter(
+      { ...query, searchEmbedding: null },
+      this.QuestionSubmissionCollection,
+      this.AnswersCollection
+    );
+
+    // Apply states/normalisedCrops from body if provided (matching findDetailedQuestions logic)
+    if (body?.states && body.states.length > 0) {
+      filter['details.state'] = { $in: body.states };
+    }
+    if (body?.normalisedCrops && body.normalisedCrops.length > 0) {
+      const hasNotSet = body.normalisedCrops.includes('__NOT_SET__');
+      const realCrops = body.normalisedCrops.filter((c) => c !== '__NOT_SET__');
+      if (!hasNotSet) {
+        filter['details.normalised_crop'] = { $in: realCrops };
+      } else {
+        const orConditions: any[] = [
+          { 'details.normalised_crop': { $exists: false } },
+          { 'details.normalised_crop': null },
+          { 'details.normalised_crop': '' },
+        ];
+        if (realCrops.length > 0) {
+          orConditions.push({ 'details.normalised_crop': { $in: realCrops } });
+        }
+        if (!filter.$and) filter.$and = [];
+        filter.$and.push({ $or: orConditions });
+      }
+    }
+
+    // Default exclusions
+    if (filter.isHidden === undefined && query.hiddenQuestions !== 'true') {
+      filter.isHidden = { $ne: true };
+    }
+    if (filter.isOnHold === undefined && query.isOnHold !== 'true') {
+      filter.isOnHold = { $ne: true };
+    }
+
+    const results = await this.QuestionCollection.aggregate(
+      [
+        { $match: filter },
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            status: '$_id',
+            count: 1,
+          },
+        },
+      ],
+      { session },
+    ).toArray();
+
+    const statuses = results.map(r => ({
+      status: r.status as string,
+      count: r.count as number,
+    }));
+
+    const totalQuestions = statuses.reduce((sum, s) => sum + s.count, 0);
+
+    return { totalQuestions, statuses };
+  }
 }
 
 

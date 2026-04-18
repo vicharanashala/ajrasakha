@@ -12,6 +12,9 @@ export class AiService {
   private _agentServerUrl =
     'http://' + aiConfig.agentServerIP + ':' + aiConfig.agerntServerPort;
 
+  private _openAIServerUrl =
+    'http://' + aiConfig.openAIServerIP + ':' + aiConfig.openAIServerPort;
+
   async getQuestionByContext(
     context: string,
   ): Promise<QuestionSearchResponse> {
@@ -142,7 +145,7 @@ export class AiService {
     questionDoc: IQuestion
   ): Promise<{ question: string; answer: string }> {
     try {
-      const fullUrl = `${this._agentServerUrl}/v1/chat/completions`;
+      const fullUrl = `${this._openAIServerUrl}/v1/chat/completions`;
 
       const systemPrompt = `
         You are an expert agricultural advisor helping farmers.

@@ -25,7 +25,7 @@ export const AiGeneratedAnswerCard = ({
 }: Props) => {
   const [expanded, setExpanded] = useState(false);
 
-  const content = aiApprovedAnswer || aiInitialAnswer;
+  const content = aiInitialAnswer || aiApprovedAnswer;
 
   const hasSources =
     Array.isArray(aiApprovedSources) && aiApprovedSources.length > 0;

@@ -82,6 +82,7 @@ export const QuestionDetails = ({
   });
   const submissionExists = submissionCheck?.exists ?? false;
 
+
   return (
     <main className="mx-auto p-6 pt-0 grid gap-6">
       <QuestionHeader question={question} goBack={goBack} currentUser={currentUser} isQuestionAllocatedToExpert={submissionExists} />
