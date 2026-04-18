@@ -776,9 +776,10 @@ export class UpdateQuestionBodyDto {
   @IsString()
   aiInitialAnswer?: string;
 
-  @IsOptional()
-  @IsString()
-  status?: string;
+  //Because users cannot edit "status"
+  // @IsOptional()
+  // @IsString()
+  // status?: string;
 
   @IsOptional()
   @ValidateNested()

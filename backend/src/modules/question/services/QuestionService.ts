@@ -1396,18 +1396,20 @@ export class QuestionService extends BaseService implements IQuestionService {
         //     'You cannot modify a question that has already been closed.',
         //   );
 
-        const answers = await this.answerRepo.getByQuestionId(
-          questionId,
-          session,
-        );
-        if (
-          updates.status === 'closed' &&
-          answers.every(answer => answer.isFinalAnswer === false)
-        ) {
-          throw new BadRequestError(
-            `Cannot close this question as it has non-final answer`,
-          );
-        }
+        //Because users cannot edit "status", commented the check from this method
+
+        // const answers = await this.answerRepo.getByQuestionId(
+        //   questionId,
+        //   session,
+        // );
+        // if (
+        //   updates.status === 'closed' &&
+        //   answers.every(answer => answer.isFinalAnswer === false)
+        // ) {
+        //   throw new BadRequestError(
+        //     `Cannot close this question as it has non-final answer`,
+        //   );
+        // }
 
         return this.questionRepo.updateQuestion(questionId, updatable_fields, session);
       });
