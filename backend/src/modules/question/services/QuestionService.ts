@@ -845,6 +845,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         source = 'AGRI_EXPERT',
         details,
         context,
+        originalQuestion=''
       } = body;
       console.log("the body coming=====", body)
 
@@ -956,6 +957,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           text,
           createdAt: new Date(),
           updatedAt: new Date(),
+          originalQuestion:originalQuestion
         };
 
 
