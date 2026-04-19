@@ -1,4 +1,5 @@
 import { Pagination } from "@/components/pagination";
+import { ScrollArea, ScrollBar } from "@/components/atoms/scroll-area";
 import { BaseTable } from "../baseTable";
 import { reviewLevelColumns, type ReviewRow } from "./reviewLevel.coloumn";
 import { ReviewLevelMobileCard } from "./ReviewLevelMobile";
@@ -40,12 +41,13 @@ export function ReviewLevelsTable({
   return (
     <div className="ps-4 md:ps-0">
       <div
-        className={`rounded-lg mb-2 bg-card min-h-[55vh] overflow-x-auto ${view === "table" && "border"}`}
+        className={`rounded-lg mb-2 bg-card min-h-[55vh] ${view === "table" && "border"}`}
       >
         {/* Desktop Table */}
-        <div className="hidden md:block overflow-x-auto">
+        <div className="hidden md:block">
           {view === "table" ? (
-            <BaseTable
+            <ScrollArea className="w-full whitespace-nowrap">
+              <BaseTable
               columns={reviewLevelColumns(onViewMore, visibleColumns)}
               data={data}
               isLoading={isLoading}
@@ -53,31 +55,29 @@ export function ReviewLevelsTable({
               sort={sort}
               startIndex={(page - 1) * limit}
             />
+            <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+          ) : isLoading ? (
+            <div className="text-center py-10">
+              <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
+            </div>
+          ) : data?.length === 0 ? (
+            <p className="text-center py-10 text-muted-foreground">
+              No questions found
+            </p>
           ) : (
-            <>
-              {isLoading ? (
-                <div className="text-center py-10">
-                  <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
-                </div>
-              ) : data?.length === 0 ? (
-                <p className="text-center py-10 text-muted-foreground">
-                  No questions found
-                </p>
-              ) : (
-                <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(400px,1fr))] pb-3">
-                  {data.map((row, i) => (
-                    <ReviewLevelsCard
-                      key={i}
-                      row={row}
-                      index={(page - 1) * data.length + i}
-                      onViewMore={onViewMore}
-                      onSort={toggleSort}
-                      sort={sort}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
+            <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(400px,1fr))] pb-3">
+              {data.map((row, i) => (
+                <ReviewLevelsCard
+                  key={i}
+                  row={row}
+                  index={(page - 1) * data.length + i}
+                  onViewMore={onViewMore}
+                  onSort={toggleSort}
+                  sort={sort}
+                />
+              ))}
+            </div>
           )}
         </div>
 
