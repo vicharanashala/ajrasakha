@@ -666,7 +666,7 @@ class GetDetailedQuestionsQuery {
     example: 'true',
     type: 'boolean',
   })
-  
+
   @IsOptional()
   closedInTwoHrs?: boolean;
   @JSONSchema({
@@ -768,6 +768,10 @@ export class EditableQuestionDetailsDto {
 }
 
 export class UpdateQuestionBodyDto {
+  @IsOptional()
+  @IsString()
+  messageId?: string;
+
   @IsOptional()
   @IsString()
   question?: string;

@@ -1329,6 +1329,29 @@ export class QuestionService extends BaseService implements IQuestionService {
     updates: UpdateQuestionBodyDto,
   ): Promise<{ modifiedCount: number }> {
     try {
+      const existingQuestion = await this.questionRepo.getById(questionId);
+      if (!existingQuestion) {
+        throw new BadRequestError(`Question with ID ${questionId} not found`);
+      }
+      if (existingQuestion.source === 'AJRASAKHA' && !existingQuestion.messageId) {
+        let resolvedMessageId = '';
+        try {
+          const matchedData = await this.getMatchedQuestion(questionId);
+          resolvedMessageId = matchedData.messageId;
+        } catch (e) {
+          // No matching message found or error during resolution
+        }
+
+        if (!resolvedMessageId) {
+          throw new BadRequestError(
+            "The question cannot be updated at the moment, as the message details are still unresolved for this question."
+          );
+        }
+
+        // Include the resolved messageId in the update payload
+        updates.messageId = resolvedMessageId;
+      }
+
       // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
       // Lifted OUTSIDE the transaction: cropRepository calls don't use the session,
       // so they shouldn't inflate the transaction scope.
@@ -1357,12 +1380,12 @@ export class QuestionService extends BaseService implements IQuestionService {
         updates.details.normalised_crop = normalised_crop;
       }
 
-      
+
       let updatable_fields: any = {};
 
       for (let key in updates) {
-        if (key !== 'details' && this.EDITABLE_FIELDS.includes(key)) {
-          updatable_fields[key] = updates[key];
+        if (key !== 'details' && (this.EDITABLE_FIELDS.includes(key) || key === 'messageId')) {
+          updatable_fields[key] = (updates as any)[key];
         }
 
         if (key === 'details' && updates.details) {
@@ -1374,20 +1397,15 @@ export class QuestionService extends BaseService implements IQuestionService {
                 updatable_fields.details = {};
               }
 
-              updatable_fields.details[subKey] = updates.details[subKey];
+              updatable_fields.details[subKey] = (updates.details as any)[subKey];
             }
           }
         }
       }
 
-
       return this._withTransaction(async (session: ClientSession) => {
-        const existingQuestion = await this.questionRepo.getById(
-          questionId,
-          session,
-        );
-
-        if (!existingQuestion) {
+        const reFetchedQuestion = await this.questionRepo.getById(questionId, session);
+        if (!reFetchedQuestion) {
           throw new BadRequestError(`Question with ID ${questionId} not found`);
         }
 
@@ -1423,6 +1441,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         return this.questionRepo.updateQuestion(questionId, updatable_fields, session);
       });
     } catch (error) {
+      if (error instanceof BadRequestError) throw error;
       throw new InternalServerError(`Failed to update question: ${error}`);
     }
   }
