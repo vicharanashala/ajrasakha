@@ -20,6 +20,7 @@ import { ICommentService } from '../interfaces/ICommentService.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import { IQuestionService } from '#root/modules/question/interfaces/IQuestionService.js';
 
 @OpenAPI({
   tags: ['Comments'],
@@ -33,6 +34,9 @@ export class CommentController {
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
+
+    @inject(GLOBAL_TYPES.QuestionService)
+    private readonly questionService: IQuestionService,
   ) {}
 
   @OpenAPI({
@@ -114,6 +118,7 @@ export class CommentController {
     const userId = user._id.toString();
 
     const result  = await this.commentService.addComment(questionId, answerId, text, userId);
+    const questionDetails = await this.questionService.getQuestionById(questionId);
     let auditPayload = {
       category: AuditCategory.EXPERTS_CATEGORY,
       action: AuditAction.EXPERTS_ADD_COMMENT,
@@ -125,6 +130,7 @@ export class CommentController {
        },
       context: {
         questionId: questionId,
+        question: questionDetails.text,
         answerId: answerId,
       },
       changes: {

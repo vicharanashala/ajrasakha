@@ -458,7 +458,7 @@ function ContextViewer({ context }: { context: Record<string, unknown> }) {
         <div key={k} className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs text-muted-foreground font-medium min-w-fit">{k}:</span>
           <span className="text-[11px] font-mono bg-muted px-2 py-0.5 rounded border border-border/60">
-            {v}
+            {renderScalar(v)}
           </span>
         </div>
       ))}
@@ -613,7 +613,6 @@ const AuditPage = () => {
     endDate
   );
 
-  console.log("Fetched audit entries:", data);
 
   const entries: AuditEntry[] = data?.data ?? [];
   const total: number = data?.totalDocuments ?? 0;

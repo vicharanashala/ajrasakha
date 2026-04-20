@@ -25,6 +25,7 @@ import { IAnswerService } from '../interfaces/IAnswerService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import { IQuestionService } from '#root/modules/question/interfaces/index.js';
 
 @OpenAPI({
   tags: ['Answers'],
@@ -38,6 +39,9 @@ export class AnswerController {
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
+
+    @inject(GLOBAL_TYPES.QuestionService)
+    private readonly questionService: IQuestionService,
   ) {}
 
   @OpenAPI({summary: 'Add a new answer to a question'})
@@ -136,6 +140,7 @@ export class AnswerController {
   ) {
     const {_id: userId} = user;
     const prevAnswer = await this.answerService.getAnswerById(body.answerId);
+    const questionData = await this.questionService.getQuestionById(prevAnswer.questionId.toString());
     let auditPayload = {
       category: AuditCategory.ANSWER,
       action: AuditAction.APPROVE_ANSWER,
@@ -147,6 +152,7 @@ export class AnswerController {
         },
       context: {
         questionId: prevAnswer?.questionId.toString() || body.questionId,
+        question: questionData.text,
         answerId: body.answerId,
       },
       changes:{

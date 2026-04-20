@@ -593,6 +593,7 @@ export class QuestionController {
   async toggleAutoAllocate(@Params() params: QuestionIdParam, @CurrentUser() user: IUser,) {
     console.log("the current user===", user)
     const { questionId } = params;
+    const questionDetails = await this.questionService.getQuestionById(questionId);
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.EXPERTS_CATEGORY,
       action: AuditAction.EXPERTS_AUTO_ALLOCATE,
@@ -604,10 +605,11 @@ export class QuestionController {
       },
       context: {
         questionId: questionId,
+        question: questionDetails.text,
       },
       changes: {
         before: {
-          autoAllocate: (await this.questionService.getQuestionById(questionId)).isAutoAllocate,
+          autoAllocate: questionDetails.isAutoAllocate,
         },
       },
       outcome: {
@@ -642,6 +644,7 @@ export class QuestionController {
     const { questionId } = params;
     const { experts } = body;
     const expertDetails = await Promise.all(experts.map((id) => this.userService.getUserById(id)));
+    const questionDetails = await this.questionService.getQuestionById(questionId);
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.EXPERTS_CATEGORY,
       action: AuditAction.SELECT_EXPERT,
@@ -653,6 +656,7 @@ export class QuestionController {
       },
       context: {
         questionId: questionId,
+        question: questionDetails.text,
       },
       outcome: {
         status: OutComeStatus.SUCCESS,
@@ -663,7 +667,6 @@ export class QuestionController {
       questionId,
       experts,
     );
-    console.log("the result of expert allocation===", experts)
     auditPayload = {
       ...auditPayload,
       changes: {
@@ -673,6 +676,7 @@ export class QuestionController {
             name: `${ed?.firstName} ${ed?.lastName || ''}`.trim(),
             email: ed?.email,
             role: ed?.role,
+            id: ed?._id.toString(),
           })),
         },
       },
@@ -742,6 +746,7 @@ export class QuestionController {
     const { index } = body;
     const expertId = await this.questionService.getExprtIdByIndex(questionId, index);
     const expertDeatils = await this.userService.getUserById(expertId);
+    const questionDetails = await this.questionService.getQuestionById(questionId);
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.EXPERTS_CATEGORY,
       action: AuditAction.DELETE_EXPERT,
@@ -753,6 +758,7 @@ export class QuestionController {
       },
       context: {
         questionId: questionId,
+        question: questionDetails.text,
       },
       changes: {
         before: {
