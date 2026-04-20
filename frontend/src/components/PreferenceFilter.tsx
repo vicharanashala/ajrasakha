@@ -44,13 +44,6 @@ function DateFilterModal({
   setDate: (value: string) => void;
 }) {
   const today = new Date();
-
-  // type RangeType = {
-  //   startDate: Date | null;
-  //   endDate: Date | null;
-  //   key: string;
-  // };
-
   const [showModal, setShowModal] = useState(false);
   const parseDate = (str: string) => {
     const [s, e] = str.split(":");
@@ -68,11 +61,6 @@ function DateFilterModal({
   const onDateChange = (ranges: any) => {
     setDateRange([ranges.selection]);
   };
-  // const format = (date: Date) => {
-  //   const fixed = new Date(date);
-  //   fixed.setHours(12, 0, 0, 0); // ✅ force midday to avoid timezone shifting
-  //   return fixed.toISOString().split("T")[0];
-  // };
 
   const handleApply = () => {
     const { startDate, endDate } = dateRange[0];
@@ -177,18 +165,6 @@ export default function PreferenceFilter({
     }
   }, [selectedUser, date, status, shouldApply]);
 
-  // const handleReset = () => {
-  //   setSelectedUser("all");
-  //   setDate("all");
-  //   setStatus("all");
-  //   setOpen(false);
-  //   setShouldApply(true);
-  // };
-
-  // const handleApply = () => {
-  //   setShouldApply(true);
-  //   setOpen(false);
-  // };
 
   const activeFiltersCount =
     (selectedUser !== "all" ? 1 : 0) +

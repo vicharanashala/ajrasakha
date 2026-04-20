@@ -151,13 +151,17 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
 import requests
 
 @mcp.tool()
-async def upload_question_to_reviewer_system(question: str, state_name: str, crop: str, details: dict) -> dict:
+async def upload_question_to_reviewer_system(question: str, original_question: str, state_name: str, crop: str, details: dict) -> dict:
     """
     Upload the question to the reviewer system for further review by human experts.
     This function is called when the system is unable to find a satisfactory answer from both the datasets (golden dataset and package of practices dataset) 
     for the particular state and crop.
 
     Parameters:
+    - original_question (str): The exact, unmodified query as provided by the user.
+                               This should include the raw user input before any preprocessing, translation,
+                               normalization, or interpretation by the system. It helps human experts understand
+                               the original context, phrasing, and intent of the user.
     - question (str): The question that needs to be reviewed by human experts. 
                       This should be a string containing the query related to crop protection or any other agricultural query.
     - state_name (str): The name of the state in which the query is relevant. 
@@ -193,6 +197,7 @@ async def upload_question_to_reviewer_system(question: str, state_name: str, cro
     # Construct the payload according to the schema
     payload = {
         "question": question,
+        "originalQuestion": original_question or question,
         "priority": priority,
         "source": source,
         "details": details,

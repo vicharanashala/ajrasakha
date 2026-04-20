@@ -96,9 +96,7 @@ export const VoiceRecorderCard = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
-  // const transcriptRef = useRef("");
   const lastTranscriptRef = useRef("");
-  // const frequencyRef = useRef<number[]>([]);
   const chunkBlobRef = useRef<Blob | null>(null);
   const isRecordingRef = useRef(false);
   const tempChunksRef = useRef<Blob[]>([]); // store chunks for current recording
@@ -308,7 +306,6 @@ export const VoiceRecorderCard = () => {
                   onValueChange={(value) =>
                     setLanguage(value as SupportedLanguage)
                   }
-                  // disabled={isRecording || isListening}
                 >
                   <SelectTrigger className="w-full md:w-[160px] h-9">
                     <Speech className="w-4 h-4" />
