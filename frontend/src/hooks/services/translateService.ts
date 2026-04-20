@@ -7,6 +7,21 @@ const client = new SarvamAIClient({
 
 const MAX_CHARS = 1900; // stay safely under the 2000 char limit
 
+// Detect language from Unicode script ranges — no API call needed
+function detectLangFromScript(text: string): string {
+  const sample = text.slice(0, 200);
+  if (/[\u0A00-\u0A7F]/.test(sample)) return "pa-IN"; // Gurmukhi (Punjabi)
+  if (/[\u0900-\u097F]/.test(sample)) return "hi-IN"; // Devanagari (Hindi/Marathi)
+  if (/[\u0980-\u09FF]/.test(sample)) return "bn-IN"; // Bengali
+  if (/[\u0C80-\u0CFF]/.test(sample)) return "kn-IN"; // Kannada
+  if (/[\u0D00-\u0D7F]/.test(sample)) return "ml-IN"; // Malayalam
+  if (/[\u0B80-\u0BFF]/.test(sample)) return "ta-IN"; // Tamil
+  if (/[\u0C00-\u0C7F]/.test(sample)) return "te-IN"; // Telugu
+  if (/[\u0A80-\u0AFF]/.test(sample)) return "gu-IN"; // Gujarati
+  if (/[\u0B00-\u0B7F]/.test(sample)) return "od-IN"; // Odia
+  return "en-IN"; // default to English
+}
+
 function splitIntoChunks(text: string): string[] {
   if (text.length <= MAX_CHARS) return [text];
 
@@ -29,15 +44,14 @@ function splitIntoChunks(text: string): string[] {
 
 export async function translateService(
   text: string,
-  targetLang: string
+  targetLang: string,
+  sourceLang?: string
 ): Promise<string> {
-  // Detect source language from a sample of the text (max 1000 chars for LID API)
-  const sample = text.slice(0, 1000);
-  const lidResponse = await client.text.identifyLanguage({ input: sample });
-  const sourceLang = lidResponse.language_code ?? "en-IN";
+  // Use provided sourceLang, or detect from Unicode script ranges (no API call)
+  const resolvedSourceLang = sourceLang ?? detectLangFromScript(text);
 
   // If source and target are the same, return as-is
-  if (sourceLang === targetLang) return text;
+  if (resolvedSourceLang === targetLang) return text;
 
   const chunks = splitIntoChunks(text);
 
@@ -45,7 +59,7 @@ export async function translateService(
     chunks.map(async (chunk) => {
       const response = await client.text.translate({
         input: chunk,
-        source_language_code: sourceLang as any,
+        source_language_code: resolvedSourceLang as any,
         target_language_code: targetLang as any,
         model: "sarvam-translate:v1",
       });

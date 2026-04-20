@@ -1,7 +1,7 @@
 import {
   QuestionLevelResponse,
   ReviewLevelTimeValue,
-} from '#root/modules/core/classes/transformers/QuestionLevel.js';
+} from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import {
   Analytics,
   DashboardResponse,
@@ -9,7 +9,7 @@ import {
   GoldenDataViewType,
   ModeratorApprovalRate,
   QuestionStatusOverview,
-} from '#root/modules/core/classes/validators/DashboardValidators.js';
+} from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { AllocatedQuestionsBodyDto, DetailedQuestionsBodyDto, GetDetailedQuestionsQuery, QuestionResponse } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 import {
   IQuestion,
@@ -378,4 +378,14 @@ export interface IQuestionRepository {
     questionIds?:string[],
     session?: ClientSession,
   ):Promise<ICheckStatusResponse[]>
+
+  /**
+   * Returns total question count and count grouped by status.
+   * @param session - Optional MongoDB client session for transactions.
+   */
+  getQuestionStatusSummary(
+    query: GetDetailedQuestionsQuery,
+    body: DetailedQuestionsBodyDto,
+    session?: ClientSession,
+  ): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }>
 }

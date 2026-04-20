@@ -13,7 +13,7 @@ import {
   PreferenceDto,
   UsersNameResponseDto,
   ExpertReviewLevelDto,
-} from '../classes/validators/UserValidators.js';
+} from '#root/modules/user/validators/UserValidators.js';
 import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
 import { getFromContainer } from 'class-validator';

@@ -41,7 +41,7 @@ export interface IQuestionMetrics {
   collusion_score: number;
 }
 
-export type QuestionSource = 'AJRASAKHA' | "AGRI_EXPERT" | "WHATSAPP";
+export type QuestionSource = 'AJRASAKHA' | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
 export interface IQuestion {
   _id?: string | ObjectId;
   userId?: ObjectId | string;
@@ -77,6 +77,7 @@ export interface IQuestion {
   holdAt?:Date | null;
   /** Sum of prior completed hold durations (ms); extended SLA = createdAt + window + this. */
   accumulatedHoldMs?: number;
+  originalQuestion?:string
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';

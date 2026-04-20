@@ -1,5 +1,4 @@
 import { useGetAllDetailedQuestions } from "@/hooks/api/question/useGetAllDetailedQuestions";
-//import { QuestionsFilters, QuestionsTable } from "./questions-table";
 import { QuestionsTable } from "../features/question-table-page/questions-table";
 import { QuestionsFilters } from "../features/question-table-page/QuestionsFilters";
 import { useEffect, useMemo, useState } from "react";
@@ -39,6 +38,7 @@ export const QuestionsPage = ({
       sourceFromUrl === "all" ||
       sourceFromUrl === "AJRASAKHA" ||
       sourceFromUrl === "AGRI_EXPERT" ||
+      sourceFromUrl === "OUTREACH" ||
       sourceFromUrl === "WHATSAPP"
     ) {
       return sourceFromUrl;
@@ -73,9 +73,7 @@ export const QuestionsPage = ({
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
   const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
-  // const observerRef = useRef<IntersectionObserver | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  // const [selectedQuestionId, setSelectedQuestionId] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [domain, setDomain] = useState("all");
   const [user, setUser] = useState("all");
@@ -287,11 +285,11 @@ export const QuestionsPage = ({
     if (next.closedInTwoHrs !== undefined)
       setClosedInTwoHrs(next.closedInTwoHrs);    
     if (next.hiddenQuestions !== undefined)
-        setHiddenQuestions(next.hiddenQuestions);
-      if (next.duplicateQuestions !== undefined)
-        setDuplicateQuestions(next.duplicateQuestions);
-      if (next.isOnHold !== undefined)
-        setIsOnHold(next.isOnHold);    
+      setHiddenQuestions(next.hiddenQuestions);
+    if (next.duplicateQuestions !== undefined)
+      setDuplicateQuestions(next.duplicateQuestions);
+    if (next.isOnHold !== undefined)
+      setIsOnHold(next.isOnHold);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);

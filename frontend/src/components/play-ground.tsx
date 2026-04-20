@@ -21,15 +21,14 @@ import { MobileSidebar } from "./mobile-sidebar";
 import { HoverCard } from "./atoms/hover-card";
 import { UserManagement } from "./user-management";
 import { Dashboard } from "./dashboard";
-import Spinner from "./atoms/spinner";
 import { ExpertDashboard } from "./ExpertDashboard";
 import { NotificationModal } from "./NotificationModal";
-import {AnnamDashboard_dev as AnnamDashboard} from '../features/chatbotDashboard/AnnamDashboard_dev'
+import { AnnamDashboard_dev as AnnamDashboard } from '../features/chatbotDashboard/AnnamDashboard_dev'
+import { cn } from "@/lib/utils";
 
 export const PlaygroundPage = () => {
-  const { data: user, isLoading } = useGetCurrentUser({});
+  const { data: user } = useGetCurrentUser({});
   const userId = user?._id?.toString();
-  // const navigate = useNavigate();
   const {
     selectedQuestionId,
     setSelectedQuestionId,
@@ -42,7 +41,6 @@ export const PlaygroundPage = () => {
     selectedQuestionType,
     setSelectedQuestionType
   } = useSelectedQuestion();
-  //const [activeTab, setActiveTab] = useState<string>("performance");
   // Initialize from localStorage or default
 
   const [activeTab, setActiveTab] = useState<string>("all_questions");
@@ -66,7 +64,6 @@ export const PlaygroundPage = () => {
       setActiveTab(defaultTab);
       localStorage.setItem(storageKey, defaultTab);
     }
-    // setActiveTab(savedTab);
   }, [user]);
   // Only update tab when there's a specific selection that requires navigation
   useEffect(() => {
@@ -110,16 +107,6 @@ export const PlaygroundPage = () => {
 
 
 
-
-
-  // const defaultTab = (() => {
-  //   if (!user) return "performance";
-  //   if (user.role !== "expert") return "performance";
-  //   if (selectedRequestId) return "request_queue"; // ← Auto-open Request Queue
-  //   if (selectedQuestionId) return "questions";
-  //   if (selectedCommentId) return "all_questions";
-  //   return "questions";
-  // })();
   const handleTabChange = (value: string) => {
     if (!user) return;
     const storageKey = getStorageKey(user);
@@ -149,44 +136,6 @@ export const PlaygroundPage = () => {
 
   return (
     <>
-      {/* //{isLoading && (
-        // <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-10">
-        //   <div className="w-full max-w-sm p-6 bg-card rounded-lg shadow-lg flex flex-col items-center justify-center gap-4 ">
-        //     <h3 className="text-lg font-semibold text-center">
-        //       Fetching user details...
-        //     </h3>
-
-        //     <div className="flex items-center justify-center">
-        //       <svg
-        //         className="animate-spin h-10 w-10 text-green-500"
-        //         xmlns="http://www.w3.org/2000/svg"
-        //         fill="none"
-        //         viewBox="0 0 24 24"
-        //       >
-        //         <circle
-        //           className="opacity-25"
-        //           cx="12"
-        //           cy="12"
-        //           r="10"
-        //           stroke="currentColor"
-        //           strokeWidth="4"
-        //         />
-        //         <path
-        //           className="opacity-75"
-        //           fill="currentColor"
-        //           d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-        //         />
-        //       </svg>
-        //     </div>
-
-        //     <p className="text-sm text-muted-foreground text-center">
-        //       Please wait while we fetch your profile, preferences, and
-        //       authorizations.
-        //     </p>
-        //   </div>
-        // </div>
-        <Spinner text="Fetching user details" />
-      )} */}
 
       <Tabs
         key={user?.role}
@@ -194,97 +143,6 @@ export const PlaygroundPage = () => {
         onValueChange={handleTabChange}
         className="h-full w-full"
       >
-        {/* <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className=" mx-auto flex items-center justify-between gap-4 px-4 py-3">
-            <div className="flex items-center gap-3 shrink-0">
-              <img
-                src="/annam-logo.png"
-                alt="Annam Logo"
-                className="h-10 w-auto md:h-14"
-              />
-            </div>
-
-            <div className="flex-1 flex justify-center min-w-0">
-              <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
-                {user && user.role !== "expert" && (
-                  <TabsTrigger
-                    value="performance"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                  >
-                    <HoverCard openDelay={150}>
-                      <span>Performance</span>
-                    </HoverCard>
-                  </TabsTrigger>
-                )}
-
-                {user && user.role == "expert" && (
-                  <TabsTrigger
-                    value="questions"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                  >
-                    <span>Questions</span>
-                  </TabsTrigger>
-                )}
-                <TabsTrigger
-                  value="all_questions"
-                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                >
-                  <span>All Questions</span>
-                </TabsTrigger>
-
-                {user && user.role !== "expert" && (
-                  <TabsTrigger
-                    value="request_queue"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                  >
-                    <span>Request Queue</span>
-                  </TabsTrigger>
-                )}
-                <TabsTrigger
-                  value="upload"
-                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                >
-                  <HoverCard openDelay={150}>
-                    <span>Agents Interface</span>
-                  </HoverCard>
-                </TabsTrigger>
-
-                {user && (
-                  <TabsTrigger
-                    value="history"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                  >
-                    <HoverCard openDelay={150}>
-                      <span>History</span>
-                    </HoverCard>
-                  </TabsTrigger>
-                )}
-              </TabsList>
-            </div>
-
-            <div className="flex items-center gap-4 relative shrink-0">
-              <div className="relative flex items-center justify-center">
-                <button
-                  onClick={() => navigate({ to: "/notifications" })}
-                  className="relative p-1 rounded-md hover:bg-accent transition-colors"
-                >
-                  <BellIcon className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
-                  {user?.notifications !== undefined &&
-                    user.notifications > 0 && (
-                      <span className="absolute -top-[4px] -right-[12px] flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-white shadow-sm leading-none">
-                        {user.notifications > 99 ? "99+" : user.notifications}
-                      </span>
-                    )}
-                </button>
-              </div>
-
-              <ThemeToggleCompact />
-
-              <UserProfileActions />
-            </div>
-          </div>
-        </header> */}
-
         <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="mx-auto flex items-center justify-between gap-4 px-4 py-3">
             {/* Logo */}
@@ -295,28 +153,6 @@ export const PlaygroundPage = () => {
                 className="h-10 w-auto md:h-14"
               />
             </div>
-            {/* <div className="relative flex items-center gap-3 shrink-0">
-              <ChristmasCap
-                className="
-                  hidden 
-                  md:block
-                  absolute
-                  -top-1
-                  -left-4.5
-                  w-10
-                  h-10
-                  rotate-[-30deg]
-                  text-black/30
-                  pointer-events-none
-                  z-10
-                "
-              />
-              <img
-                src="/annam-logo.png"
-                alt="Annam Logo"
-                className="h-10 w-auto md:h-14"
-              />
-            </div> */}
 
             <div className="flex-1 md:flex justify-center min-w-0 hidden ">
               <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
@@ -327,7 +163,6 @@ export const PlaygroundPage = () => {
                   >
                     <HoverCard openDelay={150}>
                       <span>Dashboard</span>
-                      {/* <span>Performance</span> */}
                     </HoverCard>
                   </TabsTrigger>
                 )}
@@ -338,7 +173,6 @@ export const PlaygroundPage = () => {
                   >
                     <HoverCard openDelay={150}>
                       <span>Dashboard</span>
-                      {/* <span>Performance</span> */}
                     </HoverCard>
                   </TabsTrigger>
                 )}
@@ -364,7 +198,7 @@ export const PlaygroundPage = () => {
                     className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
                   >
                     <HoverCard openDelay={150}>
-                     <span>{user.role==='admin' ? 'User' :'Expert' } Management</span>
+                      <span>{user.role === 'admin' ? 'User' : 'Expert'} Management</span>
                     </HoverCard>
                   </TabsTrigger>
                 )}
@@ -390,22 +224,33 @@ export const PlaygroundPage = () => {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
-                        className={`px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0 flex items-center gap-1 ${
-                          activeTab === 'chatbotanalytics'
-                            ? 'bg-accent text-accent-foreground'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
-                        }`}
+                        className={`px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0 flex items-center gap-1 ${activeTab === 'chatbotanalytics'
+                          ? 'bg-accent text-accent-foreground'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                          }`}
                       >
                         ChatBot Analytics
                         <ChevronDownIcon className="w-3.5 h-3.5 opacity-60" />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
-                      <DropdownMenuItem onClick={() => { setChatbotSource('vicharanashala'); handleTabChange('chatbotanalytics'); }}>
+                      <DropdownMenuItem
+                        onClick={() => { setChatbotSource('vicharanashala'); handleTabChange('chatbotanalytics'); }}
+                        className={activeTab === 'chatbotanalytics' && chatbotSource === 'vicharanashala' ? 'bg-primary/10 text-primary font-medium' : ''}
+                      >
                         Vicharanashala
+                        {activeTab === 'chatbotanalytics' && chatbotSource === 'vicharanashala' && (
+                          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                        )}
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setChatbotSource('annam'); handleTabChange('chatbotanalytics'); }}>
+                      <DropdownMenuItem
+                        onClick={() => { setChatbotSource('annam'); handleTabChange('chatbotanalytics'); }}
+                        className={activeTab === 'chatbotanalytics' && chatbotSource === 'annam' ? 'bg-primary/10 text-primary font-medium' : ''}
+                      >
                         Annam
+                        {activeTab === 'chatbotanalytics' && chatbotSource === 'annam' && (
+                          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                        )}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -444,7 +289,7 @@ export const PlaygroundPage = () => {
 
               <UserProfileActions />
 
-              <MobileSidebar user={user!} setTab={setActiveTab} setChatbotSource={setChatbotSource}/>
+              <MobileSidebar user={user!} setTab={setActiveTab} setChatbotSource={setChatbotSource} />
             </div>
           </div>
         </header>
@@ -453,7 +298,14 @@ export const PlaygroundPage = () => {
           <div className="grid h-full items-stretch gap-6 min-w-0">
             <div className="md:order-1 w-full min-w-0">
               {user && user.role !== "expert" && (
-                <TabsContent value="performance" className="mt-0 border-0 p-0 ">
+                <TabsContent value="performance" className={cn(
+                  "mt-0 border-0 md:px-8 outline-none",
+                  "data-[state=active]:animate-in",
+                  "data-[state=active]:fade-in-0",
+                  "data-[state=active]:zoom-in-[0.98]",
+                  "data-[state=active]:slide-in-from-bottom-3",
+                  "duration-500 ease-out"
+                )} >
                   {/* <PerformanceMatrics /> */}
                   <Dashboard />
                 </TabsContent>
@@ -461,14 +313,27 @@ export const PlaygroundPage = () => {
               {user && user.role === "expert" && (
                 <TabsContent
                   value="expertPerformance"
-                  className="mt-0 border-0 p-0 "
-                >
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out"
+                  )}                >
                   {/* <PerformanceMatrics /> */}
                   <ExpertDashboard />
                 </TabsContent>
               )}
               {user && user.role == "expert" && (
-                <TabsContent value="questions" className="mt-0 border-0 p-0 ">
+                <TabsContent value="questions" className={cn(
+                  "mt-0 border-0 md:px-8 outline-none",
+                  "data-[state=active]:animate-in",
+                  "data-[state=active]:fade-in-0",
+                  "data-[state=active]:zoom-in-[0.98]",
+                  "data-[state=active]:slide-in-from-bottom-3",
+                  "duration-500 ease-out"
+                )}>
                   <QAInterface
                     autoSelectQuestionId={selectedQuestionId}
                     onManualSelect={setSelectedQuestionId}
@@ -479,8 +344,14 @@ export const PlaygroundPage = () => {
               )}
               <TabsContent
                 value="all_questions"
-                className="mt-0 border-0 md:px-8 "
-              >
+                className={cn(
+                  "mt-0 border-0 md:px-8 outline-none",
+                  "data-[state=active]:animate-in",
+                  "data-[state=active]:fade-in-0",
+                  "data-[state=active]:zoom-in-[0.98]",
+                  "data-[state=active]:slide-in-from-bottom-3",
+                  "duration-500 ease-out"
+                )}              >
                 <QuestionsPage
                   currentUser={user!}
                   autoOpenQuestionId={selectedCommentId || selectedQuestionId}
@@ -488,28 +359,53 @@ export const PlaygroundPage = () => {
               </TabsContent>
               <TabsContent
                 value="chatbotanalytics"
-                className="-mt-8 border-0 p-0"
-              >
+                className={cn(
+                  "mt-0 border-0 md:px-8 outline-none",
+                  "data-[state=active]:animate-in",
+                  "data-[state=active]:fade-in-0",
+                  "data-[state=active]:zoom-in-[0.98]",
+                  "data-[state=active]:slide-in-from-bottom-3",
+                  "duration-500 ease-out"
+                )}              >
                 <AnnamDashboard source={chatbotSource} />
               </TabsContent>
 
               {user && user.role !== "expert" && (
                 <TabsContent
                   value="user_management"
-                  className="mt-0 border-0 p-0 "
-                >
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out"
+                  )}                >
                   <UserManagement currentUser={user} />
                 </TabsContent>
               )}
               {user && user.role !== "expert" && (
                 <TabsContent
                   value="request_queue"
-                  className="mt-0 border-0 md:px-8 px-2 w-full "
-                >
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out"
+                  )}                >
                   <RequestsPage autoSelectId={selectedRequestId} />
                 </TabsContent>
               )}
-              <TabsContent value="upload" className="mt-0 border-0 p-0 ">
+              <TabsContent value="upload" className={cn(
+                "mt-0 border-0 md:px-8 outline-none",
+                "data-[state=active]:animate-in",
+                "data-[state=active]:fade-in-0",
+                "data-[state=active]:zoom-in-[0.98]",
+                "data-[state=active]:slide-in-from-bottom-3",
+                "duration-500 ease-out"
+              )}>
                 <div className=" overflow-hidden bg-background p-4 ps-0">
                   <div className=" mx-auto py-8 pt-0">
                     <VoiceRecorderCard />
@@ -519,8 +415,14 @@ export const PlaygroundPage = () => {
               {user && (
                 <TabsContent
                   value="history"
-                  className="mt-0 border-0 p-0 max-w-[98%]"
-                >
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out"
+                  )}                >
                   <FullSubmissionHistory
                     currentUser={user!}
                     selectedHistoryId={selectedHistoryId}

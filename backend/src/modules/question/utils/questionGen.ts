@@ -76,7 +76,7 @@ const detailsArray = [
 const priorities: IQuestionPriority[] = ['high', 'low', 'medium'];
 const questionStatus: QuestionStatus[] = ['in-review', 'closed', 'open'];
 
-const sources: QuestionSource[] = ['AJRASAKHA', 'AGRI_EXPERT', 'WHATSAPP'];
+const sources: QuestionSource[] = ['AJRASAKHA', 'AGRI_EXPERT', 'WHATSAPP', 'OUTREACH'];
 
 const dummyQuestions: string[] = [
   'What are the major types of soil found in India?',

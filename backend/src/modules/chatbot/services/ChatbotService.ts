@@ -13,7 +13,7 @@ export class ChatbotService implements IChatbotService {
 
   async getDashboard(days = 30, source = 'vicharanashala'): Promise<DashboardResponse> {
     try {
-      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, weeklySessionDuration, dailyQueries, todayQueryCount, weeklyQueries] =
+      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, avgSessionDurationMin, weeklySessionDuration] =
         await Promise.all([
           this.chatbotRepository.getKpiSummary(source),
           this.chatbotRepository.getDailyActiveUsers(days, source),
@@ -21,14 +21,18 @@ export class ChatbotService implements IChatbotService {
           this.chatbotRepository.getVoiceAccuracyByLanguage(source),
           this.chatbotRepository.getGeoDistribution(source),
           this.chatbotRepository.getQueryCategories(source),
-          this.chatbotRepository.getWeeklyAvgSessionDuration(Math.ceil(days / 7), source),
           this.chatbotRepository.getDailyQueryCounts(days, source),
           this.chatbotRepository.getTodayQueryCount(source),
           this.chatbotRepository.getWeeklyQueryCounts(source),
+          // V2: inactivity-gap based session duration replaces the old value from getKpiSummary
+          this.chatbotRepository.getAvgSessionDurationV2(source),
+          // V2: inactivity-gap based weekly breakdown replaces the old getWeeklyAvgSessionDuration
+          this.chatbotRepository.getWeeklyAvgSessionDurationV2(Math.ceil(days / 7), source),
         ]);
 
       return {
-        kpi: { ...kpi, dailyQueries: todayQueryCount },
+        // Override avgSessionDurationMin in the KPI with the V2 value
+        kpi: { ...kpi, dailyQueries: todayQueryCount, avgSessionDurationMin },
         dau,
         channelSplit,
         voiceAccuracy,
@@ -131,13 +135,29 @@ export class ChatbotService implements IChatbotService {
     }
   }
 
-  async getUserDetails(startDate?: string, endDate?: string, page = 1, limit = 10, search = '', source = 'vicharanashala') {
+  async getUserDetails(startDate?: string, endDate?: string, page = 1, limit = 10, search = '', source = 'vicharanashala', crop = '', village = '') {
     try {
       const start = startDate ? new Date(startDate) : undefined;
       const end = endDate ? new Date(endDate) : undefined;
-      return await this.chatbotRepository.getUserDetails(start, end, page, limit, search, source);
+      return await this.chatbotRepository.getUserDetails(start, end, page, limit, search, source, crop, village);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch user details: ${error}`);
+    }
+  }
+
+  async getAvgSessionDurationV2(source = 'vicharanashala') {
+    try {
+      return await this.chatbotRepository.getAvgSessionDurationV2(source);
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch avg session duration v2: ${error}`);
+    }
+  }
+
+  async getWeeklyAvgSessionDurationV2(weeks = 52, source = 'vicharanashala') {
+    try {
+      return await this.chatbotRepository.getWeeklyAvgSessionDurationV2(weeks, source);
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch weekly avg session duration v2: ${error}`);
     }
   }
 }

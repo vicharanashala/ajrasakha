@@ -642,4 +642,79 @@ export class QuestionService {
   );
 }
 
+  async getQuestionStatusSummary(
+    filter: AdvanceFilterValues,
+    search: string,
+  ): Promise<{
+    totalQuestions: number;
+    statuses: { status: string; count: number }[];
+  } | null> {
+    const params = new URLSearchParams();
+
+    if (search) params.append("search", search);
+    if (filter.status) params.append("status", filter.status);
+    if (filter.source) params.append("source", filter.source);
+    if (filter.crop) params.append("crop", filter.crop);
+    if (filter.normalised_crop)
+      params.append("normalised_crop", filter.normalised_crop);
+    if (filter.priority) params.append("priority", filter.priority);
+    if (filter.domain) params.append("domain", filter.domain);
+    if (filter.user) params.append("user", filter.user);
+    if (filter.review_level) params.append("review_level", filter.review_level);
+    if (filter.startTime) {
+      params.append("startTime", formatDateLocal(filter.startTime));
+    }
+    if (filter.endTime) {
+      params.append("endTime", formatDateLocal(filter.endTime));
+    }
+    if (filter.closedAtEnd) {
+      params.append("closedAtEnd", formatDateLocal(filter.closedAtEnd));
+    }
+    if (filter.closedAtStart) {
+      params.append("closedAtStart", formatDateLocal(filter.closedAtStart));
+    }
+    if (filter.closedInTwoHrs !== undefined) {
+      params.append("closedInTwoHrs", String(filter.closedInTwoHrs));
+    }
+    if (filter.consecutiveApprovals) {
+      params.append("consecutiveApprovals", filter.consecutiveApprovals);
+    }
+    if (filter.autoAllocateFilter) {
+      params.append("autoAllocateFilter", filter.autoAllocateFilter);
+    }
+
+    if (filter.answersCount) {
+      params.append("answersCountMin", filter.answersCount[0].toString());
+      params.append("answersCountMax", filter.answersCount[1].toString());
+    }
+
+    if (filter.dateRange && filter.dateRange !== "all")
+      params.append("dateRange", filter.dateRange);
+
+    params.append("hiddenQuestions", String(filter.hiddenQuestions));
+    params.append("duplicateQuestions", String(filter.duplicateQuestions));
+    params.append("isOnHold", String(filter.isOnHold));
+
+    // states and normalisedCrops sent as JSON arrays in request body
+    const requestBody: { states?: string[]; normalisedCrops?: string[] } = {};
+    if (filter.states && filter.states.length > 0) {
+      requestBody.states = filter.states;
+    }
+    if (filter.normalisedCrops && filter.normalisedCrops.length > 0) {
+      requestBody.normalisedCrops = filter.normalisedCrops;
+    }
+
+    const res = await apiFetch<{
+      success: boolean;
+      data: {
+        totalQuestions: number;
+        statuses: { status: string; count: number }[];
+      };
+    }>(`${this._baseUrl}/status-summary?${params.toString()}`, {
+      method: "POST",
+      body: JSON.stringify(requestBody),
+    });
+    return res?.data ?? null;
+  }
+
 }

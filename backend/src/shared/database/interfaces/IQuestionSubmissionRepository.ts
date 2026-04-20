@@ -1,4 +1,4 @@
-import {GetHeatMapQuery} from '#root/modules/core/classes/validators/DashboardValidators.js';
+import {GetHeatMapQuery} from '#root/modules/dashboard/validators/DashboardValidators.js';
 import {
   IQuestionSubmission,
   IReviewerHeatmapResponse,
@@ -6,7 +6,7 @@ import {
   LevelReportStat,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
-import {ExpertReviewLevelDto} from '#root/modules/core/classes/validators/UserValidators.js';
+import {ExpertReviewLevelDto} from '#root/modules/user/validators/UserValidators.js';
 import {IReviewWiseStats} from '#root/utils/getDailyStats.js';
 import {HistoryItem} from '#root/modules/question/classes/validators/QuestionVaidators.js';
 

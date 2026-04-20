@@ -14,11 +14,12 @@ import {
   ArrayNotEmpty,
   IsEmail,
   IsIn,
+  IsBooleanString,
 } from 'class-validator';
-import {JSONSchema} from 'class-validator-jsonschema';
-import {ObjectId} from 'mongodb';
-import {IQuestionPriority, ICropRef, QuestionStatus, QuestionSource} from '#shared/interfaces/models.js';
-import {Type, Transform} from 'class-transformer';
+import { JSONSchema } from 'class-validator-jsonschema';
+import { ObjectId } from 'mongodb';
+import { IQuestionPriority, ICropRef, QuestionStatus, QuestionSource } from '#shared/interfaces/models.js';
+import { Type, Transform } from 'class-transformer';
 
 class AddQuestionBody {
   @JSONSchema({
@@ -110,95 +111,95 @@ class QuestionDetailsDto {
 * Reviewer Result
 */
 export class ReviewerResponse {
-@IsString()
-id!: string;
+  @IsString()
+  id!: string;
 
-@IsString()
-question!: string;
+  @IsString()
+  question!: string;
 
-@IsString()
-answer!: string;
+  @IsString()
+  answer!: string;
 
-@IsString()
-state!: string;
+  @IsString()
+  state!: string;
 
-@IsString()
-district!: string;
+  @IsString()
+  district!: string;
 
-@IsString()
-crop!: string;
+  @IsString()
+  crop!: string;
 
-@IsString()
-season!: string;
+  @IsString()
+  season!: string;
 
-@IsString()
-domain!: string;
+  @IsString()
+  domain!: string;
 
-@IsNumber()
-score!: number;
+  @IsNumber()
+  score!: number;
 }
 
 /**
 * Golden Dataset Result
 */
 export class GoldenResponse {
-@IsString()
-question!: string;
+  @IsString()
+  question!: string;
 
-@IsString()
-answer!: string;
+  @IsString()
+  answer!: string;
 
-@IsString()
-agri_specialist!: string;
+  @IsString()
+  agri_specialist!: string;
 
-@IsString()
-crop!: string;
+  @IsString()
+  crop!: string;
 
-@IsString()
-district!: string;
+  @IsString()
+  district!: string;
 
-@IsString()
-state!: string;
+  @IsString()
+  state!: string;
 
-@IsString()
-season!: string;
+  @IsString()
+  season!: string;
 
-@IsNumber()
-score!: number;
+  @IsNumber()
+  score!: number;
 }
 
 /**
 * POP (Package of Practices) Result
 */
 export class PopResponse {
-@IsString()
-text!: string;
+  @IsString()
+  text!: string;
 
-@IsNumber()
-page_no!: number;
+  @IsNumber()
+  page_no!: number;
 
-@IsString()
-source!: string;
+  @IsString()
+  source!: string;
 
-@IsArray()
-headings!: string[];
+  @IsArray()
+  headings!: string[];
 
-@IsNumber()
-score!: number;
+  @IsNumber()
+  score!: number;
 }
 
 /**
 * Final API Response Structure
 */
 export class QuestionSearchResponse {
-@IsArray()
-reviewer!: ReviewerResponse[];
+  @IsArray()
+  reviewer!: ReviewerResponse[];
 
-@IsArray()
-golden!: GoldenResponse[];
+  @IsArray()
+  golden!: GoldenResponse[];
 
-@IsArray()
-pop!: PopResponse[];
+  @IsArray()
+  pop!: PopResponse[];
 }
 
 // class QuestionResponse {
@@ -247,7 +248,7 @@ class AnswerDetails {
   approvalCount!: string;
 
   @IsArray()
-  @IsString({each: true})
+  @IsString({ each: true })
   sources!: string[];
 }
 
@@ -312,18 +313,18 @@ class QuestionResponse {
   @IsEnum(['open', 'answered', 'closed'])
   status?: QuestionStatus;
 
-  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', "WHATSAPP"])
+  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', "WHATSAPP", "OUTREACH"])
   source!: QuestionSource;
 
   @IsOptional()
   @IsArray()
-  @ValidateNested({each: true})
+  @ValidateNested({ each: true })
   @Type(() => Object)
-  currentAnswers?: {answer: string; id: string; isFinalAnswer: boolean}[];
+  currentAnswers?: { answer: string; id: string; isFinalAnswer: boolean }[];
 
   @IsOptional()
   @IsArray()
-  @ValidateNested({each: true})
+  @ValidateNested({ each: true })
   @Type(() => HistoryItem)
   history?: HistoryItem[];
 
@@ -352,7 +353,7 @@ class AddQuestionBodyDto {
   priority!: 'low' | 'medium' | 'high';
 
   @IsOptional()
-  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', 'WHATSAPP'])
+  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', 'WHATSAPP', 'OUTREACH'])
   source!: QuestionSource;
 
   @IsOptional()
@@ -368,9 +369,23 @@ class AddQuestionBodyDto {
   @IsOptional()
   aiInitialAnswer?: string;
 
+  @IsOptional()
+  @IsBooleanString()
+  isRequiredAiInitialAnswer?: string;
+
+  @IsOptional()
+  @IsBooleanString()
+  isOutreachQuestion?: string;
+
   @IsString()
   @IsOptional()
   createdAt?: string;
+
+  @IsString()
+  @IsOptional()
+  originalQuestion?: string;
+
+  
 }
 
 class GenerateQuestionsBody {
@@ -407,7 +422,7 @@ class GeneratedQuestionResponse {
   answer!: string;
 
   @IsString()
-  referenceSource!:string
+  referenceSource!: string
 }
 
 class DateRangeRequest {
@@ -439,17 +454,17 @@ class DateRangeRequest {
   })
   @IsArray()
   @ArrayNotEmpty()
-  @IsEmail({}, { each: true })  
-  emails!: string[]; 
+  @IsEmail({}, { each: true })
+  emails!: string[];
 }
 
 class GetDetailedQuestionsQuery {
-  @JSONSchema({description: 'Search term', example: 'wheat', type: 'string'})
+  @JSONSchema({ description: 'Search term', example: 'wheat', type: 'string' })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @JSONSchema({description: 'Level sort', example: 'asc', type: 'string'})
+  @JSONSchema({ description: 'Level sort', example: 'asc', type: 'string' })
   @IsOptional()
   @IsString()
   sort?: string;
@@ -469,7 +484,7 @@ class GetDetailedQuestionsQuery {
     type: 'string',
   })
   @IsOptional()
-  @IsIn(['all',"AGRI_EXPERT","AJRASAKHA","WHATSAPP"])
+  @IsIn(['all', "AGRI_EXPERT", "AJRASAKHA", "WHATSAPP", "OUTREACH"])
   source?: string;
 
   @JSONSchema({
@@ -583,7 +598,7 @@ class GetDetailedQuestionsQuery {
   @Min(1)
   page?: number;
 
-  @JSONSchema({description: 'Items per page', example: 10, type: 'number'})
+  @JSONSchema({ description: 'Items per page', example: 10, type: 'number' })
   @IsOptional()
   @IsInt()
   @Min(1)
@@ -638,7 +653,7 @@ class GetDetailedQuestionsQuery {
     description: 'consecutive approvals',
     example: '1',
     type: 'string',
-    
+
   })
   @IsOptional()
   consecutiveApprovals?: string;
@@ -647,7 +662,7 @@ class GetDetailedQuestionsQuery {
     description: 'to get the questions based on allocation ',
     example: 'on',
     type: 'string',
-    
+
   })
   @IsOptional()
   autoAllocateFilter?: string;
@@ -664,7 +679,7 @@ class GetDetailedQuestionsQuery {
     description: 'to filter hidden questions',
     example: 'true',
     type: 'string',
-    
+
   })
   @IsOptional()
   hiddenQuestions?: string;
@@ -673,7 +688,7 @@ class GetDetailedQuestionsQuery {
     description: 'to filter duplicate questions',
     example: 'true',
     type: 'string',
-    
+
   })
   @IsOptional()
   duplicateQuestions?: string;
@@ -712,24 +727,24 @@ class BulkDeleteQuestionDto {
 export class AllocatedQuestionsBodyDto {
   @IsOptional()
   @IsArray()
-  @IsString({each: true})
+  @IsString({ each: true })
   states?: string[];
 
   @IsOptional()
   @IsArray()
-  @IsString({each: true})
+  @IsString({ each: true })
   crops?: string[];
 }
 
 export class DetailedQuestionsBodyDto {
   @IsOptional()
   @IsArray()
-  @IsString({each: true})
+  @IsString({ each: true })
   states?: string[];
 
   @IsOptional()
   @IsArray()
-  @IsString({each: true})
+  @IsString({ each: true })
   normalisedCrops?: string[];
 }
 

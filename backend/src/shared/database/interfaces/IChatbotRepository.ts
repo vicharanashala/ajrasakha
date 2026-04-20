@@ -52,11 +52,32 @@ export interface WeeklyQueryCountEntry {
   count: number;
 }
 
+export interface FarmerProfile {
+  farmerName?: string;
+  age?: number;
+  gender?: string;
+  villageName?: string;
+  blockName?: string;
+  district?: string;
+  state?: string;
+  phoneNo?: string;
+  languagePreference?: string;
+  yearsOfExperience?: number;
+  cropsCultivated?: string[];
+  primaryCrop?: string;
+  secondaryCrop?: string;
+  awarenessOfKCC?: boolean;
+  usesAgriApps?: boolean;
+  highestEducatedPerson?: string;
+  numberOfSmartphones?: number;
+}
+
 export interface UserDetailEntry {
   userId: string;
   name: string;
   email: string;
   totalQuestions: number;
+  farmerProfile?: FarmerProfile;
 }
 
 export interface PaginatedUserDetails {
@@ -127,6 +148,16 @@ export interface IChatbotRepository {
   findMatchingMessages(data: {question: string; details: any; createdAt: Date; questionId: string});
   findFromSecondDb(data: {question: string; details: any; createdAt: Date; questionId: string});
 
+  /** Inactivity-gap based avg session duration in minutes (KPI number). Requires MongoDB 5.0+. */
+  getAvgSessionDurationV2(source?: string, session?: ClientSession): Promise<number>;
+
+  /** Inactivity-gap based weekly avg session duration for sparkline/delta. Requires MongoDB 5.0+. */
+  getWeeklyAvgSessionDurationV2(
+    weeks?: number,
+    source?: string,
+    session?: ClientSession,
+  ): Promise<WeeklySessionDurationEntry[]>;
+
   /** Get all users with their question counts, optionally filtered by date range, with server-side pagination. */
   getUserDetails(
     startDate?: Date,
@@ -135,6 +166,8 @@ export interface IChatbotRepository {
     limit?: number,
     search?: string,
     source?: string,
+    crop?: string,
+    village?: string,
     session?: ClientSession,
   ): Promise<PaginatedUserDetails>;
 }

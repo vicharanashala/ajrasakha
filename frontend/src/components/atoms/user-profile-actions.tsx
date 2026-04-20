@@ -24,33 +24,7 @@ export const UserProfileActions = () => {
     navigate({ to: "/auth" });
   };
 
-  return (
-    <>
-      {/* <DropdownMenu > */}
-      {/* <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="p-0">
-            <Avatar className="w-9 h-9">
-              <Avatar className="w-9 h-9">
-                {user?.avatar ? (
-                  <AvatarImage
-                    src={user.avatar}
-                    alt={user.name || "User"}
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none"; // hide broken image
-                    }}
-                  />
-                ) : (
-                  <AvatarFallback>{user?.name?.[0] || "U"}</AvatarFallback>
-                )}
-              </Avatar>
-              <AvatarFallback>{user?.name?.[0] || "U"}</AvatarFallback>
-            </Avatar>
-          </Button>
-        </DropdownMenuTrigger> */}
-      <UserDropdown user={user} onLogout={handleLogout} />
-      {/* </DropdownMenu> */}
-    </>
-  );
+  return <UserDropdown user={user} onLogout={handleLogout} />;
 };
 
 interface UserData {

@@ -31,7 +31,7 @@ import { INotificationRepository } from '#root/shared/database/interfaces/INotif
 import { notifyUser } from '#root/utils/pushNotification.js';
 import { normalizeKeysToLower } from '#root/utils/normalizeKeysToLower.js';
 import { appConfig } from '#root/config/app.js';
-import { AiService } from '#root/modules/core/services/AiService.js';
+import { AiService } from '#root/modules/ai/services/AiService.js';
 import {
   AddQuestionBodyDto,
   AllocatedQuestionsBodyDto,
@@ -40,9 +40,9 @@ import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '../classes/validators/QuestionVaidators.js';
-import { PreferenceDto } from '#root/modules/core/classes/validators/UserValidators.js';
-import { QuestionLevelResponse } from '#root/modules/core/classes/transformers/QuestionLevel.js';
-import { NotificationService } from '#root/modules/core/services/NotificationService.js';
+import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
+import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
+import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
 import { isToday } from '#root/utils/date.utils.js';
@@ -109,6 +109,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async createBulkQuestions(
     userId: string,
     questions: any[],
+    isOutreachQuestion?: boolean
   ): Promise<string[]> {
     if (!Array.isArray(questions) || questions.length === 0) {
       throw new BadRequestError('No questions provided for bulk insert');
@@ -174,7 +175,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
         question: questionText,
         priority,
-        source: (low.source || 'AGRI_EXPERT') as IQuestion['source'],
+        source: isOutreachQuestion ? "OUTREACH" : (low.source || 'AGRI_EXPERT') as IQuestion['source'],
         status: 'open',
         totalAnswersCount: 0,
         contextId: null,
@@ -844,6 +845,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         source = 'AGRI_EXPERT',
         details,
         context,
+        originalQuestion=''
       } = body;
       console.log("the body coming=====", body)
 
@@ -955,6 +957,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           text,
           createdAt: new Date(),
           updatedAt: new Date(),
+          originalQuestion:originalQuestion
         };
 
 
@@ -1125,7 +1128,6 @@ export class QuestionService extends BaseService implements IQuestionService {
 
         logData.outcome = 'NEW_QUESTION_ADDED';
         chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
-
         const savedQuestion = await this.questionRepo.addQuestion(
           baseQuestion,
           session,
@@ -1270,17 +1272,21 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (answers && answers.length == 0)
           aiInitialAnswer = currentQuestion.aiInitialAnswer;
 
-        // For AJRASAKHA: if aiApprovedAnswer is not set (old data), fall back
-        // to the first answer from the answers collection
-        let aiApprovedAnswer = currentQuestion.aiApprovedAnswer;
         let aiApprovedSources = currentQuestion.aiApprovedSources;
+
+        // Backward compatibility: old DB still has aiApprovedAnswer
+        if (!aiInitialAnswer && currentQuestion.aiApprovedAnswer) {
+          aiInitialAnswer = currentQuestion.aiApprovedAnswer;
+        }
+
+        // Existing fallback (keep this)
         if (
           currentQuestion.source === 'AJRASAKHA' &&
-          !aiApprovedAnswer &&
+          !aiInitialAnswer &&
           answers &&
           answers.length > 0
         ) {
-          aiApprovedAnswer = answers[0].answer;
+          aiInitialAnswer = answers[0].answer;
           aiApprovedSources = answers[0].sources;
         }
 
@@ -1292,7 +1298,6 @@ export class QuestionService extends BaseService implements IQuestionService {
           status: currentQuestion.status,
           priority: currentQuestion.priority,
           aiInitialAnswer,
-          aiApprovedAnswer,
           aiApprovedSources,
           isAutoAllocate: currentQuestion.isAutoAllocate,
           createdAt: new Date(currentQuestion.createdAt).toLocaleString(),
@@ -1662,13 +1667,35 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
 
         //2. Validate question submission existence
-        const questionSubmission =
+        let questionSubmission =
           await this.questionSubmissionRepo.getByQuestionId(
             questionId,
             session,
           );
+         // let submission
         if (!questionSubmission)
-          throw new NotFoundError('Question submission not found');
+        {
+          if(question.source=="WHATSAPP")
+          {
+            const newSubmission: IQuestionSubmission = {
+              questionId: new ObjectId(questionId),
+              lastRespondedBy: null,
+              history: [],
+              queue: [],
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+            questionSubmission = await this.questionSubmissionRepo.addSubmission(newSubmission, session);
+
+          }
+          else{
+            throw new NotFoundError('Question submission not found');
+          }
+         
+
+        }
+          
+
 
         // 3. Validate if the queue is full
         if (questionSubmission.queue.length >= 10)
@@ -2292,6 +2319,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         activeSession,
       );
       await this.requestRepository.deleteByEntityId(questionId, activeSession);
+
+      // Delete duplicate question records referencing this question
+      await this.duplicateQuestionRepository.deleteByReferenceQuestionId(questionId, activeSession);
 
       // Finally, delete the question itself
       return this.questionRepo.deleteQuestion(questionId, activeSession);
@@ -3381,22 +3411,22 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new Error('Question not found');
     }
 
-  const { question, details, createdAt} = questionData;
+    const { question, details, createdAt } = questionData;
 
-  const [analyticsMessages, annamMessages] = await Promise.all([
-    this.chatbotRepository.findMatchingMessages({
-      question,
-      details,
-      createdAt,
-      questionId: questionId.toString(),
-    }),
-     this.chatbotRepository.findFromSecondDb({
-      question,
-      details,
-      createdAt,
-      questionId: questionId.toString(),
-    }),
-  ]);
+    const [analyticsMessages, annamMessages] = await Promise.all([
+      this.chatbotRepository.findMatchingMessages({
+        question,
+        details,
+        createdAt,
+        questionId: questionId.toString(),
+      }),
+      this.chatbotRepository.findFromSecondDb({
+        question,
+        details,
+        createdAt,
+        questionId: questionId.toString(),
+      }),
+    ]);
 
 
 
@@ -3480,7 +3510,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         throw new NotFoundError('Question not found');
       }
 
-      if(question.status === 'closed'){
+      if (question.status === 'closed') {
         throw new BadRequestError('Question is already closed');
       }
       const submission = await this.questionSubmissionRepo.getByQuestionId(questionId, session);
@@ -3544,6 +3574,10 @@ export class QuestionService extends BaseService implements IQuestionService {
       },
       session
     );
+  }
+
+  async getQuestionStatusSummary(query: GetDetailedQuestionsQuery, body: DetailedQuestionsBodyDto): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }> {
+    return this.questionRepo.getQuestionStatusSummary(query, body);
   }
 
 }

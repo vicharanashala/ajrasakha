@@ -19,24 +19,15 @@ import {
   AlertCircle,
   Check,
   CheckCircle,
-  Edit,
-  Eye,
   File,
   Flag,
   FlagTriangleRight,
   Info,
-  Loader2,
   MessageSquareText,
-  MoreVertical,
-  MousePointer,
   PencilLine,
   Plus,
   PlusCircle,
-  RefreshCcw,
   Save,
-  Search,
-  Square,
-  Trash,
   Upload,
   X,
 } from "lucide-react";
@@ -60,6 +51,10 @@ import { Separator } from "../../components/atoms/separator";
 import { Input } from "../../components/atoms/input";
 import { STATES, CROPS, DOMAINS, SEASONS, DISTRICTS } from "../../components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
+import { Label } from "@/components/atoms/label";
+import { Switch } from "@/components/atoms/switch";
+import { toast } from "sonner";
+import { TopLeftBadge, TopRightBadge } from "@/components/NewBadge";
 
 
 
@@ -107,10 +102,6 @@ const OPTIONS: Partial<Record<DetailField, string[]>> = {
   crop: CROPS,
   season: SEASONS,
   domain: DOMAINS,
-};
-const truncate = (s: string, n = 80) => {
-  if (!s) return "";
-  return s.length > n ? s.slice(0, n - 1) + "…" : s;
 };
 
 // ── Crop Select with DB data — shows crop names + aliases as selectable items ──
@@ -179,10 +170,10 @@ const CropSelect = ({
         )}
         {useDbCrops
           ? selectItems.map((item) => (
-              <SelectItem key={`${item.canonicalName}-${item.value}`} value={item.value}>
-                <span className="capitalize">{item.label}</span>
-              </SelectItem>
-            ))
+            <SelectItem key={`${item.canonicalName}-${item.value}`} value={item.value}>
+              <span className="capitalize">{item.label}</span>
+            </SelectItem>
+          ))
           : CROPS.map((crop) => (
             <SelectItem key={crop} value={crop}>
               {crop}
@@ -211,8 +202,13 @@ export const AddOrEditQuestionDialog = ({
   const [error, setError] = useState<string | null>(null);
   const [uploadMode, setUploadMode] = useState<"single" | "bulk">("single");
   const [isDragging, setIsDragging] = useState(false);
+
+  const [isRequiredAiInitialAnswer, setIsRequiredAiInitialAnswer] = useState(false);
+  const [isOutreachQuestion, setIsOutreachQuestion] = useState(false);
+
   const invalidFieldClass =
     "border-red-500 dark:border-red-400 focus-visible:ring-red-500/60";
+
   useEffect(() => {
     if (mode === "edit" && question) {
       setUpdatedData(question);
@@ -279,11 +275,10 @@ export const AddOrEditQuestionDialog = ({
                     setUploadMode("single");
                     setFile(null);
                   }}
-                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                    uploadMode === "single"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${uploadMode === "single"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   <Plus className="h-4 w-4" />
                   Single Question
@@ -295,28 +290,29 @@ export const AddOrEditQuestionDialog = ({
                     setUpdatedData((prev) =>
                       prev
                         ? {
-                            ...prev,
-                            question: "",
-                            context: "",
-                            aiInitialAnswer: "",
-                            details: {
-                              state: "",
-                              district: "",
-                              crop: "",
-                              season: "",
-                              domain: "",
-                            },
-                          }
+                          ...prev,
+                          question: "",
+                          context: "",
+                          aiInitialAnswer: "",
+                          details: {
+                            state: "",
+                            district: "",
+                            crop: "",
+                            season: "",
+                            domain: "",
+                          },
+                        }
                         : prev
                     );
                   }}
-                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                    uploadMode === "bulk"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`relative flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${uploadMode === "bulk"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   <Upload className="h-4 w-4" />
+                  <TopLeftBadge label="new" left={5} />
+
                   Bulk Upload
                 </button>
               </div>
@@ -326,162 +322,245 @@ export const AddOrEditQuestionDialog = ({
           {uploadMode === "bulk" && mode === "add" ? (
             // Bulk Upload Mode
             <div className="flex-1 overflow-y-auto p-4">
+
               {!file ? (
-                <div className="flex flex-col items-center justify-center min-h-full space-y-4">
-                  {/* Drag & Drop Upload Zone */}
-                  <div className="w-full">
-                    <input
-                      type="file"
-                      id="bulk-upload"
-                      accept=".json,.csv,.xls,.xlsx,application/json,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                      className="hidden"
-                      onChange={(e) => {
-                        const selected = e.target.files?.[0];
-                        if (!selected) return;
+                <ScrollArea className="h-full w-full pr-3">
+                  <div className="flex flex-col items-center justify-center min-h-full space-y-4">
+                    {/* Drag & Drop Upload Zone */}
+                    <div className="w-full">
+                      <input
+                        type="file"
+                        id="bulk-upload"
+                        accept=".json,.csv,.xls,.xlsx,application/json,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        className="hidden"
+                        onChange={(e) => {
+                          const selected = e.target.files?.[0];
+                          if (!selected) return;
 
-                        setError(null);
-                        const allowedTypes = [
-                          "application/json",
-                          "text/csv",
-                          "application/vnd.ms-excel",
-                          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        ];
-                        const allowedExtensions = [".json", ".csv", ".xls", ".xlsx"];
-                        const hasAllowedExtension = allowedExtensions.some(ext =>
-                          selected.name.toLowerCase().endsWith(ext)
-                        );
+                          setError(null);
+                          const allowedTypes = [
+                            "application/json",
+                            "text/csv",
+                            "application/vnd.ms-excel",
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                          ];
+                          const allowedExtensions = [".json", ".csv", ".xls", ".xlsx"];
+                          const hasAllowedExtension = allowedExtensions.some(ext =>
+                            selected.name.toLowerCase().endsWith(ext)
+                          );
 
-                        if (!allowedTypes.includes(selected.type) && !hasAllowedExtension) {
-                          setError("Only JSON, CSV, and Excel files are allowed.");
-                          setFile(null);
-                          setTimeout(() => setError(null), 3000);
-                          return;
-                        }
+                          if (!allowedTypes.includes(selected.type) && !hasAllowedExtension) {
+                            setError("Only JSON, CSV, and Excel files are allowed.");
+                            setFile(null);
+                            setTimeout(() => setError(null), 3000);
+                            return;
+                          }
 
-                        const maxSize = 5 * 1024 * 1024;
-                        if (selected.size > maxSize) {
-                          setError("File size must be less than 5MB.");
-                          setFile(null);
-                          setTimeout(() => setError(null), 3000);
-                          return;
-                        }
+                          const maxSize = 5 * 1024 * 1024;
+                          if (selected.size > maxSize) {
+                            setError("File size must be less than 5MB.");
+                            setFile(null);
+                            setTimeout(() => setError(null), 3000);
+                            return;
+                          }
 
-                        setFile(selected);
-                      }}
-                    />
-                    <div
-                      className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                        isDragging
+                          setFile(selected);
+                        }}
+                      />
+                      <div
+                        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragging
                           ? "border-primary bg-primary/5"
                           : "border-border hover:border-primary/50"
-                      }`}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        setIsDragging(false);
-                        const droppedFile = e.dataTransfer.files?.[0];
-                        if (!droppedFile) return;
+                          }`}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setIsDragging(false);
+                          const droppedFile = e.dataTransfer.files?.[0];
+                          if (!droppedFile) return;
 
-                        setError(null);
-                        const allowedTypes = [
-                          "application/json",
-                          "text/csv",
-                          "application/vnd.ms-excel",
-                          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        ];
-                        const allowedExtensions = [".json", ".csv", ".xls", ".xlsx"];
-                        const hasAllowedExtension = allowedExtensions.some(ext =>
-                          droppedFile.name.toLowerCase().endsWith(ext)
-                        );
+                          setError(null);
+                          const allowedTypes = [
+                            "application/json",
+                            "text/csv",
+                            "application/vnd.ms-excel",
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                          ];
+                          const allowedExtensions = [".json", ".csv", ".xls", ".xlsx"];
+                          const hasAllowedExtension = allowedExtensions.some(ext =>
+                            droppedFile.name.toLowerCase().endsWith(ext)
+                          );
 
-                        if (!allowedTypes.includes(droppedFile.type) && !hasAllowedExtension) {
-                          setError("Only JSON, CSV, and Excel files are allowed.");
-                          setTimeout(() => setError(null), 3000);
-                          return;
-                        }
+                          if (!allowedTypes.includes(droppedFile.type) && !hasAllowedExtension) {
+                            setError("Only JSON, CSV, and Excel files are allowed.");
+                            setTimeout(() => setError(null), 3000);
+                            return;
+                          }
 
-                        const maxSize = 5 * 1024 * 1024;
-                        if (droppedFile.size > maxSize) {
-                          setError("File size must be less than 5MB.");
-                          setTimeout(() => setError(null), 3000);
-                          return;
-                        }
+                          const maxSize = 5 * 1024 * 1024;
+                          if (droppedFile.size > maxSize) {
+                            setError("File size must be less than 5MB.");
+                            setTimeout(() => setError(null), 3000);
+                            return;
+                          }
 
-                        setFile(droppedFile);
-                      }}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        setIsDragging(true);
-                      }}
-                      onDragLeave={() => setIsDragging(false)}
-                      onClick={() => document.getElementById("bulk-upload")?.click()}
-                    >
-                      <div className="space-y-3">
-                        <Upload className="mx-auto h-10 w-10 text-muted-foreground" />
-                        <p className="text-sm text-foreground font-medium">
-                          Click to upload <span className="text-muted-foreground font-normal">or drag and drop</span>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          JSON, CSV, or Excel file (max 5MB)
-                        </p>
+                          setFile(droppedFile);
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          setIsDragging(true);
+                        }}
+                        onDragLeave={() => setIsDragging(false)}
+                        onClick={() => document.getElementById("bulk-upload")?.click()}
+                      >
+                        <div className="space-y-3">
+                          <Upload className="mx-auto h-10 w-10 text-muted-foreground" />
+                          <p className="text-sm text-foreground font-medium">
+                            Click to upload <span className="text-muted-foreground font-normal">or drag and drop</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            JSON, CSV, or Excel file (max 5MB)
+                          </p>
+                        </div>
                       </div>
+                      {error && (
+                        <p className="text-red-500 text-sm text-center mt-2">{error}</p>
+                      )}
                     </div>
-                    {error && (
-                      <p className="text-red-500 text-sm text-center mt-2">{error}</p>
-                    )}
-                  </div>
 
-{/* Download Sample Button */}
-<Button
-variant="secondary"
-onClick={() => {
-const link = document.createElement("a");
-link.href = "/templates/sample_bulk_question_file.json.xlsx";
-link.download = "sample_bulk_question_file.xlsx";
-document.body.appendChild(link);
-link.click();
-document.body.removeChild(link);
-}}
-className="w-full"
->
-<File className="mr-2 h-4 w-4" />
-Download Sample Excel Template
-</Button>
+                    {/* Download Sample Button */}
+                    <TooltipProvider>
+                      <Tooltip delayDuration={700}>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              const link = document.createElement("a");
+                              link.href = "/templates/sample_bulk_question_file.json.xlsx";
+                              link.download = "sample_bulk_question_file.xlsx";
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            }}
+                            className="w-full"
+                          >
+                            <File className="mr-2 h-4 w-4" />
+                            Download Sample Excel Template
+                          </Button>
+                        </TooltipTrigger>
 
-{/* Format Instructions */}
-<div className="w-full space-y-2">
-<p className="text-xs font-medium text-muted-foreground">File Format:</p>
-                    <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
-                      <li>First row should contain column headers</li>
-                      <li>Required columns: question, priority, state, district, crop, season, domain, aiInitialAnswer</li>
-                      <li>Duplicate questions will be automatically skipped</li>
-                    </ul>
+                        <TooltipContent side="top" className="max-w-xs text-sm">
+                          <div className="space-y-2">
+                            <p className="font-medium">File Format:</p>
+                            <ul className="list-disc list-inside space-y-1">
+                              <li>First row should contain column headers</li>
+                              <li>
+                                Required columns: question, priority, state, district, crop, season, domain, aiInitialAnswer
+                              </li>
+                              <li>Duplicate questions will be automatically skipped</li>
+                            </ul>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+
+                    <TooltipProvider>
+                      <div className="w-full space-y-4 border rounded-lg p-4 bg-muted/30 relative">
+                        <p className="text-sm font-medium text-foreground">Upload Options</p>
+                        <TopRightBadge label="new" right={0} />
+
+                        {/* AI Initial Answer */}
+                        <div className="flex items-center justify-between">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="space-y-0.5 cursor-help">
+                                <Label>Require AI Initial Answer</Label>
+                                <p className="text-xs text-muted-foreground">
+                                  Enforce aiInitialAnswer field in upload
+                                </p>
+                              </div>
+                            </TooltipTrigger>
+
+                            <TooltipContent side="top" className="max-w-xs text-sm">
+                              If enabled, an LLM-generated answer will be attached as the initial answer for each question.
+                            </TooltipContent>
+                          </Tooltip>
+
+                          <Switch
+                            checked={isRequiredAiInitialAnswer}
+                            onCheckedChange={(value) => {
+                              if (isOutreachQuestion && !value) {
+                                toast.warning("AI Initial Answer is required for Outreach questions");
+                                return;
+                              }
+
+                              setIsRequiredAiInitialAnswer(value);
+                            }}
+                          />
+                        </div>
+
+                        {/* Outreach Questions */}
+                        <div className="flex items-center justify-between">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="space-y-0.5 cursor-help">
+                                <Label>Outreach Questions</Label>
+                                <p className="text-xs text-muted-foreground">
+                                  Mark uploaded questions as outreach
+                                </p>
+                              </div>
+                            </TooltipTrigger>
+
+                            <TooltipContent side="top" className="max-w-xs text-sm">
+                              If enabled, all uploaded questions will have their status set to "OUTREACH".
+                            </TooltipContent>
+                          </Tooltip>
+
+                          {/* <Switch
+                            checked={isOutreachQuestion}
+                            onCheckedChange={setIsOutreachQuestion}
+                          /> */}
+
+                          <Switch
+                            checked={isOutreachQuestion}
+                            onCheckedChange={(value) => {
+                              setIsOutreachQuestion(value);
+
+                              if (value) {
+                                setIsRequiredAiInitialAnswer(true);
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </TooltipProvider>
                   </div>
-                </div>
+                </ScrollArea>
+
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <div className="relative w-full max-w-md">
                     <div className="absolute -top-3 -right-3 w-10 h-10 rounded-full border-4 border-background flex items-center justify-center bg-green-600 z-10">
                       <Check className="h-5 w-5 text-white" />
                     </div>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="absolute top-0 left-0 w-10 h-10 rounded-full  flex items-center justify-center  z-10 cursor-pointer transition-colors">
-                        <Info className="h-5 w-5 text-white" />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="bottom"
-                      align="start"
-                      className="max-w-xs text-sm"
-                    >
-                      Before submitting the JSON file, ensure all required
-                      fields are present. Any question already existing in the
-                      database will be skipped automatically.
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <div className="relative overflow-hidden rounded-xl border-2 border-border bg-card shadow-lg transition-all hover:shadow-xl">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="absolute top-0 left-0 w-10 h-10 rounded-full  flex items-center justify-center  z-10 cursor-pointer transition-colors">
+                            <Info className="h-5 w-5 text-white" />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="bottom"
+                          align="start"
+                          className="max-w-xs text-sm"
+                        >
+                          Before submitting the JSON file, ensure all required
+                          fields are present. Any question already existing in the
+                          database will be skipped automatically.
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <div className="relative overflow-hidden rounded-xl border-2 border-border bg-card shadow-lg transition-all hover:shadow-xl">
 
                       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 opacity-50" />
                       <div className="relative p-8 space-y-6">
@@ -501,6 +580,26 @@ Download Sample Excel Template
                           <p className="text-sm text-muted-foreground">
                             {(file.size / 1024).toFixed(2)} KB
                           </p>
+
+                          <div className="flex flex-wrap justify-center gap-2">
+                            <span
+                              className={`px-3 py-1 text-xs rounded-full border ${isRequiredAiInitialAnswer
+                                ? "bg-primary/10 text-primary border-primary/20"
+                                : "bg-muted text-muted-foreground border-border"
+                                }`}
+                            >
+                              AI Initial Answer: {isRequiredAiInitialAnswer ? "Required" : "Disabled"}
+                            </span>
+
+                            <span
+                              className={`px-3 py-1 text-xs rounded-full border ${isOutreachQuestion
+                                ? "bg-primary/10 text-primary border-primary/20"
+                                : "bg-muted text-muted-foreground border-border"
+                                }`}
+                            >
+                              Outreach: {isOutreachQuestion ? "Yes" : "No"}
+                            </span>
+                          </div>
                         </div>
                         <div className="flex justify-center">
                           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border border-border bg-background">
@@ -521,6 +620,9 @@ Download Sample Excel Template
                   </div>
                 </div>
               )}
+
+
+
             </div>
           ) : file && uploadMode === "single" ? (
             // File preview for single mode (rare case)
@@ -661,8 +763,8 @@ Download Sample Excel Template
                   >
                     <SelectTrigger
                       className={`w-full ${mode === "add" && validationErrors?.priority
-                          ? invalidFieldClass
-                          : ""
+                        ? invalidFieldClass
+                        : ""
                         }`}
                     >
                       <SelectValue placeholder="Select priority" />
@@ -708,26 +810,6 @@ Download Sample Excel Template
                         </Select>
                       </>
                     )}
-                  {/* <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <Globe className="h-4 w-4" aria-hidden="true" />
-                  <label>Source*</label>
-                </div> */}
-                  {/* <Select
-                  value={updatedData?.source || "AJRASAKHA"}
-                  onValueChange={(v) =>
-                    setUpdatedData((prev) =>
-                      prev ? { ...prev, source: v as QuestionSource } : prev
-                    )
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select source" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="AJRASAKHA">AJRASAKHA</SelectItem>
-                    <SelectItem value="AGRI_EXPERT">AGRI_EXPERT</SelectItem>
-                  </SelectContent>
-                </Select> */}
 
                   {(
                     [
@@ -776,8 +858,8 @@ Download Sample Excel Template
                           >
                             <SelectTrigger
                               className={`w-full ${mode === "add" && validationErrors?.[field as AddQuestionField]
-                                  ? invalidFieldClass
-                                  : ""
+                                ? invalidFieldClass
+                                : ""
                                 }`}
                             >
                               <SelectValue placeholder={`Select ${field}`} />
@@ -857,12 +939,12 @@ Download Sample Excel Template
                         setUpdatedData((prev) =>
                           prev
                             ? {
-                                ...prev,
-                                details: {
-                                  ...prev.details,
-                                  normalised_crop: canonicalName,
-                                },
-                              }
+                              ...prev,
+                              details: {
+                                ...prev.details,
+                                normalised_crop: canonicalName,
+                              },
+                            }
                             : prev
                         );
                       }}
@@ -910,23 +992,6 @@ Download Sample Excel Template
                             {field.charAt(0).toUpperCase() + field.slice(1)}*
                           </label>
                         </div>
-                        {/* <Input
-                        type="text"
-                        value={updatedData?.details?.[field] || ""}
-                        onChange={(e) =>
-                          setUpdatedData((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  details: {
-                                    ...prev.details,
-                                    [field]: e.target.value,
-                                  },
-                                }
-                              : prev
-                          )
-                        }
-                      />*/}
                         {fieldOptions ? (
                           <Select
                             value={
@@ -953,8 +1018,8 @@ Download Sample Excel Template
                           >
                             <SelectTrigger
                               className={`w-full ${mode === "add" && validationErrors?.[field as AddQuestionField]
-                                  ? invalidFieldClass
-                                  : ""
+                                ? invalidFieldClass
+                                : ""
                                 }`}
                             >
                               <SelectValue placeholder={`Select ${field}`} />
@@ -1052,6 +1117,8 @@ Download Sample Excel Template
                     if (file) {
                       const formData = new FormData();
                       formData.append("file", file);
+                      formData.append("isRequiredAiInitialAnswer", String(isRequiredAiInitialAnswer));
+                      formData.append("isOutreachQuestion", String(isOutreachQuestion));
                       onSave?.("add", undefined, undefined, undefined, formData);
                       setFile(null);
                     }
