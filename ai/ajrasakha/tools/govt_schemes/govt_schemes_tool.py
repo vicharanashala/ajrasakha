@@ -62,12 +62,29 @@ async def govt_schemes(
         q_params.append({"identifier": "beneficiaryState", "value": "All"})
         q_params.append({"identifier": "beneficiaryState", "value": state})
 
-    if gender and gender.lower() != "all": q_params.append({"identifier": "gender", "value": gender})
-    if caste and caste.lower() != "all": q_params.append({"identifier": "caste", "value": caste})
-    if residence and residence.lower() not in ["both", "all"]: q_params.append({"identifier": "residence", "value": residence})
-    if employment_status and employment_status.lower() != "all": q_params.append({"identifier": "employmentStatus", "value": employment_status})
-    if occupation and occupation.lower() != "all": q_params.append({"identifier": "occupation", "value": occupation})
-    if benefit_type and benefit_type.lower() != "all": q_params.append({"identifier": "benefitTypes", "value": benefit_type})
+    if gender and gender.lower() != "all": 
+        q_params.append({"identifier": "gender", "value": "All"})
+        q_params.append({"identifier": "gender", "value": gender})
+        
+    if caste and caste.lower() != "all": 
+        q_params.append({"identifier": "caste", "value": "All"})
+        q_params.append({"identifier": "caste", "value": caste})
+        
+    if residence and residence.lower() not in ["both", "all"]: 
+        q_params.append({"identifier": "residence", "value": "Both"})
+        q_params.append({"identifier": "residence", "value": residence})
+        
+    if employment_status and employment_status.lower() != "all": 
+        q_params.append({"identifier": "employmentStatus", "value": "All"})
+        q_params.append({"identifier": "employmentStatus", "value": employment_status})
+        
+    if occupation and occupation.lower() != "all": 
+        q_params.append({"identifier": "occupation", "value": "All"})
+        q_params.append({"identifier": "occupation", "value": occupation})
+        
+    if benefit_type and benefit_type.lower() != "all": 
+        q_params.append({"identifier": "benefitTypes", "value": "All"})
+        q_params.append({"identifier": "benefitTypes", "value": benefit_type})
 
     if age is not None:
         if age <= 0:
