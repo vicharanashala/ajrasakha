@@ -5,7 +5,6 @@ from typing import Optional
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-# AjraSakha standard initialization with DNS rebinding protection disabled
 mcp = FastMCP(
     "ajrasakha-govt-schemes-mcp",
     transport_security=TransportSecuritySettings(
@@ -32,7 +31,9 @@ async def govt_schemes(
     is_dbt_scheme: Optional[bool] = False
 ) -> str:
     """
-    Fetches active agricultural, rural, and environmental government schemes.
+    Fetches a list of active agricultural, rural, and environmental government schemes.
+    IMPORTANT: Use this tool FIRST to search for schemes based on user demographics. 
+    It returns a list of schemes along with their 'slug' (unique ID).
     
     Args:
         state: State name (e.g., 'Jammu and Kashmir', 'Gujarat').
@@ -52,35 +53,20 @@ async def govt_schemes(
         is_dbt_scheme: True if specifically looking for Direct Benefit Transfer schemes.
     """
     
-    q_params = [
-        {"identifier": "schemeCategory", "value": "Agriculture,Rural & Environment"}
-    ]
+    q_params = [{"identifier": "schemeCategory", "value": "Agriculture,Rural & Environment"}]
     
-    # Only State needs the "All" fallback to ensure Central schemes are included
+    # Only State needs the "All" fallback
     if state and state.lower() != "all":
         q_params.append({"identifier": "beneficiaryState", "value": "All"})
         q_params.append({"identifier": "beneficiaryState", "value": state})
 
-    # Exact matches for other parameters (Backend automatically handles generic availability)
-    if gender and gender.lower() != "all":
-        q_params.append({"identifier": "gender", "value": gender})
-        
-    if caste and caste.lower() != "all":
-        q_params.append({"identifier": "caste", "value": caste})
-        
-    if residence and residence.lower() not in ["both", "all"]:
-        q_params.append({"identifier": "residence", "value": residence})
-        
-    if employment_status and employment_status.lower() != "all":
-        q_params.append({"identifier": "employmentStatus", "value": employment_status})
-        
-    if occupation and occupation.lower() != "all":
-        q_params.append({"identifier": "occupation", "value": occupation})
+    if gender and gender.lower() != "all": q_params.append({"identifier": "gender", "value": gender})
+    if caste and caste.lower() != "all": q_params.append({"identifier": "caste", "value": caste})
+    if residence and residence.lower() not in ["both", "all"]: q_params.append({"identifier": "residence", "value": residence})
+    if employment_status and employment_status.lower() != "all": q_params.append({"identifier": "employmentStatus", "value": employment_status})
+    if occupation and occupation.lower() != "all": q_params.append({"identifier": "occupation", "value": occupation})
+    if benefit_type and benefit_type.lower() != "all": q_params.append({"identifier": "benefitTypes", "value": benefit_type})
 
-    if benefit_type and benefit_type.lower() != "all":
-        q_params.append({"identifier": "benefitTypes", "value": benefit_type})
-
-    # Advanced Age Bracket Logic
     if age is not None:
         if age <= 0:
             min_age, max_age = 0, 10
@@ -89,7 +75,6 @@ async def govt_schemes(
             max_age = min_age + 9
         q_params.append({"identifier": "age-general", "min": min_age, "max": max_age})
 
-    # Boolean Custom Facets
     if is_bpl: q_params.append({"identifier": "isBpl", "value": "Yes"})
     if is_differently_abled: q_params.append({"identifier": "disability", "value": "Yes"})
     if is_minority: q_params.append({"identifier": "minority", "value": "Yes"})
@@ -106,7 +91,6 @@ async def govt_schemes(
         "size": 10
     }
 
-    # Anti-Bot Headers
     headers = {
         "accept": "application/json, text/plain, */*",
         "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
@@ -140,8 +124,10 @@ async def govt_schemes(
                 scheme_name = fields.get("schemeName", "Unknown Scheme")
                 description = fields.get("briefDescription", "No description available.")
                 tags = ", ".join(fields.get("tags", []))
+                slug = fields.get("slug", "N/A") # ADDED SLUG HERE
                 
                 formatted_results += f"### {scheme_name}\n"
+                formatted_results += f"**Slug:** {slug}\n"
                 formatted_results += f"**Description:** {description.strip()}\n"
                 formatted_results += f"**Tags:** {tags}\n"
                 formatted_results += "---\n"
@@ -152,6 +138,73 @@ async def govt_schemes(
         return f"API responded with an error (Status {e.response.status_code}). WAF blocked the request."
     except Exception as e:
         return f"An unexpected error occurred: {str(e)}"
+
+
+@mcp.tool()
+async def get_scheme_details(slug: str) -> str:
+    """
+    Fetches the deep-dive details (eligibility, benefits, application process) of a specific scheme.
+    IMPORTANT: Use this tool SECOND. Only call this after using 'govt_schemes' to get the exact 'slug'.
+    
+    Args:
+        slug: The unique identifier (slug) of the scheme (e.g., 'dsmphsfcclomuk').
+    """
+    url = "https://api.myscheme.gov.in/schemes/v6/public/schemes"
+    params = {
+        "slug": slug,
+        "lang": "en"
+    }
+
+    headers = {
+        "accept": "application/json, text/plain, */*",
+        "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
+        "origin": "https://www.myscheme.gov.in",
+        "sec-ch-ua": '"Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-site",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+        "x-api-key": "tYTy5eEhlu9rFjyxuCr7ra7ACp4dv1RH8gWuHTDc"
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, params=params, headers=headers, timeout=15.0)
+            response.raise_for_status()
+            data = response.json()
+            
+            scheme_data = data.get("data", {}).get("en", {})
+            if not scheme_data:
+                return f"Could not find detailed information for the scheme with slug: {slug}"
+            
+            scheme_name = scheme_data.get("basicDetails", {}).get("schemeName", "Unknown Scheme")
+            
+            content = scheme_data.get("schemeContent", {})
+            details_md = content.get("detailedDescription_md", "No detailed description available.")
+            benefits_md = content.get("benefits_md", "No benefits information available.")
+            
+            eligibility = scheme_data.get("eligibilityCriteria", {})
+            eligibility_md = eligibility.get("eligibilityDescription_md", "No eligibility criteria found.")
+            
+            app_process = scheme_data.get("applicationProcess", [])
+            process_md = "No application process details found."
+            if app_process and len(app_process) > 0:
+                process_md = app_process[0].get("process_md", process_md)
+            
+            result = f"# {scheme_name}\n\n"
+            result += f"## Detailed Description\n{details_md}\n\n"
+            result += f"## Eligibility Criteria\n{eligibility_md}\n\n"
+            result += f"## Benefits\n{benefits_md}\n\n"
+            result += f"## Application Process\n{process_md}\n"
+            
+            return result
+
+    except httpx.HTTPStatusError as e:
+        return f"API responded with an error (Status {e.response.status_code}). WAF blocked the request."
+    except Exception as e:
+        return f"An unexpected error occurred while fetching details: {str(e)}"
 
 if __name__ == "__main__":
     mcp.run()
