@@ -27,16 +27,36 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
   const [endTime, setEndTime] = useState<Date | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [cropQuery, setCropQuery] = useState("");
+  const [debouncedCrop, setDebouncedCrop] = useState("");
+  const [villageQuery, setVillageQuery] = useState("");
+  const [debouncedVillage, setDebouncedVillage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
   // Debounce the search input so we don't fire a request on every keystroke
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery);
-      setCurrentPage(1); // reset to page 1 on new search
+      setCurrentPage(1);
     }, 400);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedCrop(cropQuery);
+      setCurrentPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [cropQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedVillage(villageQuery);
+      setCurrentPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [villageQuery]);
 
   const { data, isLoading, error } = useUserDetails(
     startTime,
@@ -45,6 +65,8 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
     PAGE_SIZE,
     debouncedSearch,
     source,
+    debouncedCrop,
+    debouncedVillage,
   );
 
   const { users, totalUsers, totalPages, activeUsers, totalQuestions } = data;
@@ -132,6 +154,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
         <CardHeader className="pb-3">
           <div className="flex flex-col gap-3 min-w-0 w-full">
             <CardTitle className="text-sm font-medium">All Farmers</CardTitle>
+            {/* Row 1: name search + date range */}
             <div className="flex flex-col sm:flex-row flex-wrap lg:flex-nowrap items-stretch gap-2 w-full min-w-0">
               <div className="relative w-full sm:flex-1 min-w-0">
                 <svg
@@ -164,7 +187,48 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                   }
                 />
               </div>
-              {(searchQuery || startTime || endTime) && (
+            </div>
+            {/* Row 2: crop + village + reset */}
+            <div className="flex flex-col sm:flex-row flex-wrap lg:flex-nowrap items-stretch gap-2 w-full min-w-0">
+              <div className="relative w-full sm:flex-1 min-w-0">
+                <svg
+                  width={14}
+                  height={14}
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-(--muted-foreground)"
+                >
+                  <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.3" />
+                  <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Filter by crop..."
+                  value={cropQuery}
+                  onChange={(e) => setCropQuery(e.target.value)}
+                  className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
+                />
+              </div>
+              <div className="relative w-full sm:flex-1 min-w-0">
+                <svg
+                  width={14}
+                  height={14}
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-(--muted-foreground)"
+                >
+                  <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.3" />
+                  <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Filter by village..."
+                  value={villageQuery}
+                  onChange={(e) => setVillageQuery(e.target.value)}
+                  className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
+                />
+              </div>
+              {(searchQuery || startTime || endTime || cropQuery || villageQuery) && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -173,6 +237,8 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                     setSearchQuery("");
                     setStartTime(undefined);
                     setEndTime(undefined);
+                    setCropQuery("");
+                    setVillageQuery("");
                     setCurrentPage(1);
                   }}
                 >

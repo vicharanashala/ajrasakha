@@ -257,6 +257,8 @@ export class ChatbotController {
       query.limit,
       query.search,
       query.source,
+      query.crop,
+      query.village,
     );
   }
 }

@@ -630,6 +630,8 @@ export class ChatbotRepository implements IChatbotRepository {
     limit = 10,
     search = '',
     source = 'vicharanashala',
+    crop = '',
+    village = '',
     session?: ClientSession,
   ): Promise<PaginatedUserDetails> {
     try {
@@ -665,7 +667,7 @@ export class ChatbotRepository implements IChatbotRepository {
         countMap.set(String(entry._id), entry.totalQuestions);
       }
 
-      // Get users — optionally filtered by search
+      // Get users — optionally filtered by search, crop, village
       const userFilter: Record<string, any> = {};
       if (search && search.trim()) {
         const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -674,6 +676,26 @@ export class ChatbotRepository implements IChatbotRepository {
           { name: regex },
           { username: regex },
           { email: regex },
+        ];
+      }
+      if (crop && crop.trim()) {
+        const cropRegex = { $regex: crop.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {
+            $or: [
+              { 'farmerProfile.cropsCultivated': cropRegex },
+              { 'farmerProfile.primaryCrop': cropRegex },
+              { 'farmerProfile.secondaryCrop': cropRegex },
+            ],
+          },
+        ];
+      }
+      if (village && village.trim()) {
+        const villageRegex = { $regex: village.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          { 'farmerProfile.villageName': villageRegex },
         ];
       }
 
