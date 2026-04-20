@@ -29,6 +29,7 @@ interface IUser {
   createdAt: Date;
   updatedAt: Date;
   farmerProfile?: {
+    farmerName?: string;
     age?: number;
     gender?: string;
     villageName?: string;
@@ -708,6 +709,7 @@ export class ChatbotRepository implements IChatbotRepository {
         email: u.email || '',
         totalQuestions: countMap.get(String(u._id)) ?? 0,
         farmerProfile: u.farmerProfile ? {
+          farmerName: u.farmerProfile.farmerName,
           age: u.farmerProfile.age,
           gender: u.farmerProfile.gender,
           villageName: u.farmerProfile.villageName,

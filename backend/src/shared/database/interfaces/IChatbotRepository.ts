@@ -53,6 +53,7 @@ export interface WeeklyQueryCountEntry {
 }
 
 export interface FarmerProfile {
+  farmerName?: string;
   age?: number;
   gender?: string;
   villageName?: string;
