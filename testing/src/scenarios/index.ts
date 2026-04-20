@@ -87,18 +87,22 @@ export const scenarios: TestScenario[] = [
     8. First, find the 'Draft Response' text area (placeholder: "Enter your answer here...") and type a detailed gardening solution.
     9. Next, find the 'Remarks' text area (placeholder: "Enter remarks...") and type "Looks like a standard fungal infection."
     10. Next, navigate to the 'Source References' section. Click the 'Select Source Type' dropdown (use strictly selector: "text=Select Source Type"). Then, from the popup menu, select "Central" (use strictly selector: "text=Central").
-    11. Wait a moment for dynamic input fields to appear. Then fill the 'Source Name' input, the 'Source Link URL' input, and the 'Page' number input with dummy data.
+    11. Wait a moment for dynamic input fields to appear. Then fill the 'Source Name' input (use strictly selector: "input[placeholder='Central Source Name']"), the 'Source Link URL' (use strictly selector: "input[placeholder='Central Source Link URL']"), and the 'Page' number (use strictly selector: "input[placeholder='Page']") with dummy data.
     12. EXTREMELY IMPORTANT: Do NOT skip this step! You MUST explicitly generate a 'click' action for the small green Add icon to save the reference to the list. Use strictly the CSS selector: "#add-source-button"
-    13. Wait 1000ms. Then, click the green Submit button (use strictly selector: ".bg-primary:has-text('Submit'), button[type='submit']") to push the answer.
-    14. A 'Submit Response' confirmation modal will pop up on the screen. Wait 1000ms, then click the green "Submit Response" button inside the modal to finally save it (use strictly selector: "text=Submit Response").
-    15. EXTREMELY IMPORTANT: You MUST now bypass the peer-review requirements for the test database. Issue exactly this action type: {"type":"escalate_db","description":"Bypass peer review in DB"}.
+    13. Wait 1000ms. Then, click the green Submit button to push the answer (use strictly selector: "button:has-text('Submit')").
+    14. A 'Submit Response' confirmation modal will pop up on the screen. Wait 1000ms, then click the green "Submit Response" button inside the modal to finally save it (use strictly selector: "button:has-text('Submit Response')").
+    15. EXTREMELY IMPORTANT: You MUST wait 4000ms for the server to finish saving to the database. ONLY AFTER waiting, issue exactly this action type: {"type":"escalate_db","description":"Bypass peer review in DB"}.
     16. You must now Log out. First, click the top-right profile avatar (use strictly selector: "#user-profile-menu"). Then, click the Logout option (use strictly selector: "#logout-button").
     17. You should now be logged out. Verify you are at or navigate back to http://localhost:5173/auth.
     18. Now log in as the moderator: Fill email with "ashif.mod@gmail.com" and password with "Ashifmod", then click "Sign In".
     19. Wait 6000ms for the dashboard to load.
-    20. Open the review queue, find the answer you just submitted, and click 'Approve'.
-    21. Verify the question status is closed.
-    22. Take a screenshot named "e2e-qa-success.png".
+    20. Click the "All Questions" tab in the navigation bar (use strictly selector: "button[value='all_questions'], text='All Questions'").
+    21. IMPORTANT: In the filters above the table, you MUST click the "Manual" source filter to see our question! (use strictly selector: "button:has-text('Manual')"). Wait 1000ms for it to filter.
+    22. Locate the test question in the table! Click directly on the title text to open it (use strictly selector: "TEST_E2E"). Wait 2000ms for the details view to open.
+    23. Scroll down to the Submission History. Click the green "Approve Answer" button (use strictly selector: "button:has-text('Approve Answer')"). 
+    24. A modal will pop up. Click the green "Save & finalize" button to confirm approval (use strictly selector: "button:has-text('Save & finalize')").
+    25. Verify the question status is closed.
+    26. Take a screenshot named "e2e-qa-success.png".
     If any action fails or a button is missing, return 'fail'.`,
   },
 ];

@@ -50,24 +50,26 @@ Your job is to execute test scenarios step by step. On each step you receive:
 - A snapshot of the current page DOM/text
 - Any errors from the last action
 
-You must respond with EXACTLY ONE JSON action from this list:
-- {"type":"navigate","url":"<full url>"}
-- {"type":"click","selector":"<css selector or text>","description":"<why>"}
-- {"type":"fill","selector":"<css selector>","value":"<text>","description":"<why>"}
-- {"type":"wait","ms":<milliseconds>,"description":"<why>"}
-- {"type":"assert","selector":"<css selector>","expected":"<expected text>","description":"<why>"}
-- {"type":"screenshot","filename":"<name>.png"}
-- {"type":"escalate_db","description":"Bypass peer-review in DB"}
-- {"type":"done","status":"pass"|"fail","message":"<summary>"}
+To be fast and efficient, you must respond with EXACTLY ONE JSON ARRAY containing 1 or more actions to execute in sequence:
+[
+  {"type":"navigate","url":"<full url>"},
+  {"type":"click","selector":"<css selector or text>","description":"<why>"},
+  {"type":"fill","selector":"<css selector>","value":"<text>","description":"<why>"},
+  {"type":"wait","ms":<milliseconds>,"description":"<why>"},
+  {"type":"assert","selector":"<css selector>","expected":"<expected text>","description":"<why>"},
+  {"type":"screenshot","filename":"<name>.png"},
+  {"type":"escalate_db","description":"Bypass peer-review in DB"},
+  {"type":"done","status":"pass"|"fail","message":"<summary>"}
+]
 
 Rules:
-1. Prefer CSS selectors with id or name attributes for inputs (e.g. input[name="email"]).
-2. After filling a form, click the submit/login button.
-3. If you see an error or unexpected page, take a screenshot then mark as fail.
-4. Return "done" when the goal is fully completed or a blocking failure occurs.
-5. Respond with ONLY the JSON object — no markdown, no code fences, no explanation.`;
+1. Batch as many consecutive actions together as you safely can (e.g., fill email, fill password, and click submit all in one array!).
+2. After clicking a button that triggers a network request or navigation, end your array so the DOM can update before you decide the next steps.
+3. If you see an error or unexpected page, take a screenshot then mark as fail in the array.
+4. Return an object with type "done" when the goal is fully completed or a blocking failure occurs.
+5. Respond with ONLY the JSON array — no markdown, no code fences, no explanation.`;
 
-export async function getNextAction(input: BrainInput): Promise<AgentAction> {
+export async function getNextAction(input: BrainInput): Promise<AgentAction[]> {
   const userMessage = `
 GOAL: ${input.goal}
 
@@ -93,5 +95,6 @@ What is the next single action to take?`;
   // Strip any accidental markdown fences just in case
   const cleaned = raw.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
 
-  return JSON.parse(cleaned) as AgentAction;
+  const parsed = JSON.parse(cleaned);
+  return Array.isArray(parsed) ? parsed as AgentAction[] : [parsed] as AgentAction[];
 }

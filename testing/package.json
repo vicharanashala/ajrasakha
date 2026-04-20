@@ -6,6 +6,8 @@
   "scripts": {
     "test": "ts-node -r dotenv/config src/index.ts",
     "test:scenario": "ts-node -r dotenv/config src/index.ts --scenario",
+    "tools:seed": "ts-node -r dotenv/config src/tools.ts seed",
+    "tools:escalate": "ts-node -r dotenv/config src/tools.ts escalate",
     "install:browsers": "npx playwright install chromium",
     "build": "tsc"
   },

@@ -36,17 +36,17 @@ export async function seedQuestion(expertEmail: string) {
     }
 
     // 1.5 PURGE old test questions to prevent duplicate pile-up
-    await db.collection("questions").deleteMany({ source: "TEST_AGENT" });
+    await db.collection("questions").deleteMany({ question: /TEST_E2E:/ });
 
-    // 2. Insert a pending question
+    // 2. Insert a pending question with EXACT schema mapping to real questions
     const questionDoc = {
-      source: "TEST_AGENT",
-      question: "My test tomatoes have spots on the leaves, what pesticide should I use?",
-      questionEmbedding: [], 
-      priority: "medium",
+      userId: user._id,
+      contextId: null,
+      source: "AGRI_EXPERT",
+      question: "TEST_E2E: My test tomatoes have spots on the leaves, what pesticide should I use?",
+      priority: "high",
       status: "open",
-      reviewLevel: 1,
-      duplicateQuestionId: null,
+      totalAnswersCount: 0,
       details: {
         state: "Maharashtra",
         district: "Pune",
@@ -55,16 +55,10 @@ export async function seedQuestion(expertEmail: string) {
         domain: "Pest Management",
         normalised_crop: "tomato"
       },
-      messageId: `test-msg-${Date.now()}`,
-      phoneNumber: "9999999999",
-      channel: "app",
-      chatHistory: [],
-      mediaType: "text",
-      responses: [],
-      createdBy: user._id, 
-      allocatedTo: [user._id], 
-      autoAllocate: false,
-      reRouted: false,
+      isAutoAllocate: true,
+      embedding: [],
+      metrics: null,
+      text: "Question: TEST_E2E: My test tomatoes have spots on the leaves, what pesticide should I use?",
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -102,21 +96,34 @@ export async function escalateQuestionToModerator() {
     const db = client.db(DB_NAME);
 
     // 1. Find the test question
-    const testQuestion = await db.collection("questions").findOne({ source: "TEST_AGENT" });
+    const testQuestion = await db.collection("questions").findOne({ question: /TEST_E2E:/ });
     if (!testQuestion) throw new Error("Test question not found.");
 
-    // 2. Find the answer submitted by the expert to this question
-    const answerResult = await db.collection("answers").findOneAndUpdate(
-      { questionId: testQuestion._id },
-      { $set: { status: "pending-with-moderator", approvalCount: 3 } },
-      { returnDocument: 'after' }
-    );
+    // 2. Continually poll for the answer submitted by the expert to this question
+    let answerResult = null;
+    let attempts = 0;
+    while (!answerResult && attempts < 5) {
+      answerResult = await db.collection("answers").findOneAndUpdate(
+        { questionId: testQuestion._id },
+        { $set: { status: "pending-with-moderator", approvalCount: 3 } },
+        { returnDocument: 'after' }
+      );
+      if (!answerResult) {
+        console.log(`[Database Backdoor] Answer not found yet, polling DB again in 1s...`);
+        await new Promise(r => setTimeout(r, 1000));
+        attempts++;
+      }
+    }
 
     // 3. Ensure we flip the actual question's status conceptually if required, though 'pending-with-moderator' on the answer is the key.
     if (answerResult) {
-      console.log(`[Database Backdoor] ✅ Bypassed peer review! Answer is now 'pending-with-moderator'!`);
+      await db.collection("questions").updateOne(
+        { _id: testQuestion._id },
+        { $set: { status: "in-review" } }
+      );
+      console.log(`[Database Backdoor] ✅ Bypassed peer review! Answer is now 'pending-with-moderator' and Question is 'in-review'!`);
     } else {
-      console.log(`[Database Backdoor] ⚠️ Answer not found yet, ensure it was submitted properly.`);
+      console.error(`[Database Backdoor] ❌ Answer was completely missing from the database after 5 seconds of polling!`);
     }
 
   } catch (err) {

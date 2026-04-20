@@ -67,40 +67,60 @@ export async function runScenario(scenario: TestScenario): Promise<TestResult> {
         error: lastError,
       };
 
-      // Wait to respect rate limits (Gemini free tier allows 15 RPM) -> Reduced to 1s per user request for faster execution
+      // Wait to respect rate limits
       console.log(`\nStep ${stepCount}: Asking AI brain for next move...`);
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      const action = await getNextAction(input);
-      console.log(`  → Action: ${JSON.stringify(action)}`);
-
-      // Handle "done" before executing
-      if (action.type === "done") {
-        console.log(`\n✅ DONE: ${action.message}`);
-        return {
-          scenario: scenario.name,
-          status: action.status,
-          steps,
-          message: action.message,
-          durationMs: Date.now() - startTime,
-          screenshots,
-        };
+      
+      let actions: any[] = [];
+      let retryAttempts = 0;
+      while (retryAttempts < 5) {
+        try {
+          actions = await getNextAction(input);
+          break;
+        } catch (err: any) {
+          if (err.message.includes("503") || err.message.includes("429") || err.message.includes("high demand")) {
+            console.log(`  [Rate Limit / 503 Spike] Google API is busy. Pausing 5 seconds before retry ${retryAttempts + 1}/5...`);
+            await new Promise(r => setTimeout(r, 5000));
+            retryAttempts++;
+          } else {
+            throw err;
+          }
+        }
       }
 
-      // Track screenshots
-      if (action.type === "screenshot") {
-        screenshots.push(action.filename);
-      }
+      console.log(`  → Actions: ${JSON.stringify(actions)}`);
 
-      steps.push(`[Step ${stepCount}] ${JSON.stringify(action)}`);
+      for (const action of actions) {
+        // Handle "done" before executing
+        if (action.type === "done") {
+          console.log(`\n✅ DONE: ${action.message}`);
+          return {
+            scenario: scenario.name,
+            status: action.status,
+            steps,
+            message: action.message,
+            durationMs: Date.now() - startTime,
+            screenshots,
+          };
+        }
 
-      // Execute the action
-      const result = await executeAction(page, action);
+        // Track screenshots
+        if (action.type === "screenshot") {
+          screenshots.push(action.filename);
+        }
 
-      if (!result.success) {
-        lastError = result.error;
-        console.log(`  ⚠ Error: ${result.error}`);
-      } else {
-        lastError = undefined;
+        steps.push(`[Step ${stepCount}] ${JSON.stringify(action)}`);
+
+        // Execute the action
+        const result = await executeAction(page, action);
+
+        if (!result.success) {
+          lastError = result.error;
+          console.log(`  ⚠ Error: ${result.error}`);
+          break; // Stop executing further batched actions if one fails
+        } else {
+          lastError = undefined;
+        }
       }
     }
 
