@@ -48,8 +48,6 @@ export const QuestionDetails = ({
   rerouteQuestion,
   navigateToQuestionPage
 }: QuestionDetailProps) => {
-  //console.log("the question details====",question)
-  // console.log("reroutedetail====",rerouteQuestion)
   const ANSWER_VISIBLE_COUNT = 5;
 
   const answers = useMemo(

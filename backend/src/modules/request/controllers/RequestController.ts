@@ -22,6 +22,13 @@ import {
 } from '../classes/validators/RequestValidators.js';
 import { RequestService } from '../services/RequestService.js';
 import { IRequestService } from '../interfaces/IRequestService.js';
+import {
+  RequestErrorResponse,
+  RequestCreateResponse,
+  PaginatedRequestsResponse,
+  RequestDiffResponse,
+  RequestStatusUpdateResponse,
+} from '../classes/validators/RequestResponseValidators.js';
 
 @OpenAPI({
   tags: ['requests'],
@@ -35,11 +42,29 @@ export class RequestController {
     private readonly requestService: IRequestService,
   ) {}
 
+  @OpenAPI({
+    summary: 'Create a new request',
+    description: 'Creates a new flag request for a question or other entity. Notifications are sent to all moderators.',
+  })
+  @ResponseSchema(RequestCreateResponse, {
+    statusCode: 201,
+    description: 'Request created successfully - Returns the created request',
+  })
+  @ResponseSchema(RequestErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid request data',
+  })
+  @ResponseSchema(RequestErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(RequestErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to create request',
+  })
   @Post('/')
   @HttpCode(201)
   @Authorized()
-  @OpenAPI({summary: 'Create a new request'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async create(
     @Body() body: CreateRequestBodyDto,
     @CurrentUser() user: IUser,
@@ -48,11 +73,29 @@ export class RequestController {
     return this.requestService.createRequest(body, userId);
   }
 
+  @OpenAPI({
+    summary: 'Get all requests',
+    description: 'Retrieves paginated list of all requests with optional filtering by status and request type. Only moderators and admins can access this.',
+  })
+  @ResponseSchema(PaginatedRequestsResponse, {
+    statusCode: 200,
+    description: 'Requests retrieved successfully with pagination',
+  })
+  @ResponseSchema(RequestErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(RequestErrorResponse, {
+    statusCode: 403,
+    description: 'Forbidden - Only moderators and admins can view all requests',
+  })
+  @ResponseSchema(RequestErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to fetch requests',
+  })
   @Get('/')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get all requests'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async getAll(
     @CurrentUser() user: IUser,
     @QueryParams() query: GetAllRequestsQueryDto,
@@ -64,11 +107,25 @@ export class RequestController {
     const userId = user._id.toString();
     return this.requestService.getAllRequests(userId, query);
   }
+  @OpenAPI({
+    summary: 'Get request difference by ID',
+    description: 'Retrieves the diff view showing current document, existing document, and all responses for a specific request.',
+  })
+  @ResponseSchema(RequestDiffResponse, {
+    statusCode: 200,
+    description: 'Request diff retrieved successfully',
+  })
+  @ResponseSchema(RequestErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(RequestErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - Request not found',
+  })
   @Get('/:requestId')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get request difference by ID'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async getRequestDiff(
     @Params() params: RequestParamsDto,
     @CurrentUser() user: IUser,
@@ -82,11 +139,29 @@ export class RequestController {
     return this.requestService.getRequestDiff(userId, requestId);
   }
 
+  @OpenAPI({
+    summary: 'Update request status',
+    description: 'Updates the status of a request (pending, approved, rejected, in-review) and adds a response. If approved, applies the requested changes to the entity.',
+  })
+  @ResponseSchema(RequestStatusUpdateResponse, {
+    statusCode: 200,
+    description: 'Request status updated successfully - Returns the response entry',
+  })
+  @ResponseSchema(RequestErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid status or request already closed',
+  })
+  @ResponseSchema(RequestErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(RequestErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - Request not found',
+  })
   @Put('/:requestId/status')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Update request status'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async updateStatus(
     @Params() params: RequestParamsDto,
     @Body() body: RequestStatusBody,
@@ -99,10 +174,29 @@ export class RequestController {
     return this.requestService.updateStatus(requestId, status, response, userId);
   }
 
+  @OpenAPI({
+    summary: 'Soft delete a request',
+    description: 'Soft deletes a request by marking it as deleted. Only moderators can perform this action.',
+  })
+  @ResponseSchema(undefined, {
+    statusCode: 204,
+    description: 'Request deleted successfully - Returns no content',
+  })
+  @ResponseSchema(RequestErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(RequestErrorResponse, {
+    statusCode: 403,
+    description: 'Forbidden - Only moderators can delete requests',
+  })
+  @ResponseSchema(RequestErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - Request not found',
+  })
   @Put('/:requestId/delete')
   @HttpCode(204)
   @Authorized()
-  @OpenAPI({summary: 'Soft delete a request'})
   async softDelete(
     @Params() params: RequestParamsDto,
     @CurrentUser() user: IUser,

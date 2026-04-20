@@ -27,16 +27,36 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
   const [endTime, setEndTime] = useState<Date | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [cropQuery, setCropQuery] = useState("");
+  const [debouncedCrop, setDebouncedCrop] = useState("");
+  const [villageQuery, setVillageQuery] = useState("");
+  const [debouncedVillage, setDebouncedVillage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
   // Debounce the search input so we don't fire a request on every keystroke
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery);
-      setCurrentPage(1); // reset to page 1 on new search
+      setCurrentPage(1);
     }, 400);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedCrop(cropQuery);
+      setCurrentPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [cropQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedVillage(villageQuery);
+      setCurrentPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [villageQuery]);
 
   const { data, isLoading, error } = useUserDetails(
     startTime,
@@ -45,6 +65,8 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
     PAGE_SIZE,
     debouncedSearch,
     source,
+    debouncedCrop,
+    debouncedVillage,
   );
 
   const { users, totalUsers, totalPages, activeUsers, totalQuestions } = data;
@@ -132,6 +154,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
         <CardHeader className="pb-3">
           <div className="flex flex-col gap-3 min-w-0 w-full">
             <CardTitle className="text-sm font-medium">All Farmers</CardTitle>
+            {/* Row 1: name search + date range */}
             <div className="flex flex-col sm:flex-row flex-wrap lg:flex-nowrap items-stretch gap-2 w-full min-w-0">
               <div className="relative w-full sm:flex-1 min-w-0">
                 <svg
@@ -164,7 +187,48 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                   }
                 />
               </div>
-              {(searchQuery || startTime || endTime) && (
+            </div>
+            {/* Row 2: crop + village + reset */}
+            <div className="flex flex-col sm:flex-row flex-wrap lg:flex-nowrap items-stretch gap-2 w-full min-w-0">
+              <div className="relative w-full sm:flex-1 min-w-0">
+                <svg
+                  width={14}
+                  height={14}
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-(--muted-foreground)"
+                >
+                  <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.3" />
+                  <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Filter by crop..."
+                  value={cropQuery}
+                  onChange={(e) => setCropQuery(e.target.value)}
+                  className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
+                />
+              </div>
+              <div className="relative w-full sm:flex-1 min-w-0">
+                <svg
+                  width={14}
+                  height={14}
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-(--muted-foreground)"
+                >
+                  <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.3" />
+                  <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Filter by village..."
+                  value={villageQuery}
+                  onChange={(e) => setVillageQuery(e.target.value)}
+                  className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
+                />
+              </div>
+              {(searchQuery || startTime || endTime || cropQuery || villageQuery) && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -173,6 +237,8 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                     setSearchQuery("");
                     setStartTime(undefined);
                     setEndTime(undefined);
+                    setCropQuery("");
+                    setVillageQuery("");
                     setCurrentPage(1);
                   }}
                 >
@@ -198,47 +264,84 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
 
           {!isLoading && !error && (
             <div className="rounded-lg border bg-card overflow-x-auto">
-              <Table className="min-w-[600px]">
+              <Table className="min-w-[1600px]">
                 <TableHeader className="bg-card sticky top-0 z-10">
                   <TableRow>
                     <TableHead className="text-center w-12">S.No</TableHead>
+                    <TableHead className="text-center">Questions Asked</TableHead>
                     <TableHead className="text-center">Name</TableHead>
                     <TableHead className="text-center">Email</TableHead>
-                    <TableHead className="text-center">Questions Asked</TableHead>
+                    <TableHead className="text-center">Farmer Name</TableHead>
+                    <TableHead className="text-center">Age</TableHead>
+                    <TableHead className="text-center">Gender</TableHead>
+                    <TableHead className="text-center">Village</TableHead>
+                    <TableHead className="text-center">Block</TableHead>
+                    <TableHead className="text-center">District</TableHead>
+                    <TableHead className="text-center">State</TableHead>
+                    <TableHead className="text-center">Phone</TableHead>
+                    <TableHead className="text-center">Language</TableHead>
+                    <TableHead className="text-center">Exp. (Yrs)</TableHead>
+                    <TableHead className="text-center">Crops</TableHead>
+                    <TableHead className="text-center">Primary Crop</TableHead>
+                    <TableHead className="text-center">Secondary Crop</TableHead>
+                    <TableHead className="text-center">KCC Aware</TableHead>
+                    <TableHead className="text-center">Agri Apps</TableHead>
+                    <TableHead className="text-center">Education</TableHead>
+                    <TableHead className="text-center">Smartphones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
+                      <TableCell colSpan={21} className="text-center py-10 text-muted-foreground">
                         {debouncedSearch ? "No users match your search." : "No users found."}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    users.map((user, idx) => (
-                      <TableRow key={user.userId} className="text-center">
-                        <TableCell className="align-middle">
-                          {(currentPage - 1) * PAGE_SIZE + idx + 1}
-                        </TableCell>
-                        <TableCell className="align-middle font-medium whitespace-nowrap">
-                          {user.name}
-                        </TableCell>
-                        <TableCell className="align-middle whitespace-nowrap">
-                          {user.email}
-                        </TableCell>
-                        <TableCell className="align-middle">
-                          <span
-                            className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold ${
-                              user.totalQuestions > 0
-                                ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
-                                : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                            }`}
-                          >
-                            {user.totalQuestions.toLocaleString()}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    users.map((user, idx) => {
+                      const fp = user.farmerProfile;
+                      return (
+                        <TableRow key={user.userId} className="text-center">
+                          <TableCell className="align-middle">
+                            {(currentPage - 1) * PAGE_SIZE + idx + 1}
+                          </TableCell>
+                          <TableCell className="align-middle">
+                            <span
+                              className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                user.totalQuestions > 0
+                                  ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
+                                  : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                              }`}
+                            >
+                              {user.totalQuestions.toLocaleString()}
+                            </span>
+                          </TableCell>
+                          <TableCell className="align-middle font-medium whitespace-nowrap">
+                            {user.name}
+                          </TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">
+                            {user.email}
+                          </TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.farmerName ?? "—"}</TableCell>
+                          <TableCell className="align-middle">{fp?.age ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.gender ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.villageName ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.blockName ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.district ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.state ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.phoneNo ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.languagePreference ?? "—"}</TableCell>
+                          <TableCell className="align-middle">{fp?.yearsOfExperience ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.cropsCultivated?.join(", ") ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.primaryCrop ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.secondaryCrop ?? "—"}</TableCell>
+                          <TableCell className="align-middle">{fp?.awarenessOfKCC == null ? "—" : fp.awarenessOfKCC ? "Yes" : "No"}</TableCell>
+                          <TableCell className="align-middle">{fp?.usesAgriApps == null ? "—" : fp.usesAgriApps ? "Yes" : "No"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.highestEducatedPerson ?? "—"}</TableCell>
+                          <TableCell className="align-middle">{fp?.numberOfSmartphones ?? "—"}</TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>

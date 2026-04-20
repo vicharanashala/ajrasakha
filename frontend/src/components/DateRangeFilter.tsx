@@ -33,48 +33,6 @@ const endKey = type === "closedDateRange" ? "closedAtEnd" : "endTime";
     from: advanceFilter[startKey],
     to: advanceFilter[endKey],
   };
-
-//   const handleDateSelect = (range: DateRange | undefined) => {
-//     console.log("Date range: ", range);
-//     handleDialogChange("startTime", range?.from);
-//     handleDialogChange("endTime", range?.to);
-
-//     // Close the calendar once both dates are selected
-//     if (range?.from && range?.to) {
-//       setIsCalendarVisible(false);
-//     }
-//   };
-
-/*const handleDateSelect = (range: DateRange | undefined) => {
-  if (!range) return;
-
-  const { from, to } = range;
-  const currentStart = advanceFilter.startTime;
-  const currentEnd = advanceFilter.endTime;
-
-  // ONLY START DATE SELECTED
-  if (from && !to) {
-    // If start < end -> keep end date
-    if (currentEnd && from < currentEnd) {
-      handleDialogChange("startTime", from);
-      return;
-    }
-
-    // If start > end -> reset end
-    handleDialogChange("startTime", from);
-    handleDialogChange("endTime", undefined);
-    return;
-  }
-
-  // START & END SELECTED
-  if (from && to) {
-    handleDialogChange("startTime", from);
-    handleDialogChange("endTime", to);
-
-    setIsCalendarVisible(false);
-  }
-
-};*/
 const handleDateSelect = (range: DateRange | undefined) => {
   if (!range) return;
 

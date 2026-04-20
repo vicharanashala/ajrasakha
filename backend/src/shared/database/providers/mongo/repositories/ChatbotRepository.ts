@@ -28,6 +28,25 @@ interface IUser {
   email?: string;
   createdAt: Date;
   updatedAt: Date;
+  farmerProfile?: {
+    farmerName?: string;
+    age?: number;
+    gender?: string;
+    villageName?: string;
+    blockName?: string;
+    district?: string;
+    state?: string;
+    phoneNo?: string;
+    languagePreference?: string;
+    yearsOfExperience?: number;
+    cropsCultivated?: string[];
+    primaryCrop?: string;
+    secondaryCrop?: string;
+    awarenessOfKCC?: boolean;
+    usesAgriApps?: boolean;
+    highestEducatedPerson?: string;
+    numberOfSmartphones?: number;
+  };
 }
 
 interface IConversation {
@@ -612,6 +631,8 @@ export class ChatbotRepository implements IChatbotRepository {
     limit = 10,
     search = '',
     source = 'vicharanashala',
+    crop = '',
+    village = '',
     session?: ClientSession,
   ): Promise<PaginatedUserDetails> {
     try {
@@ -647,7 +668,7 @@ export class ChatbotRepository implements IChatbotRepository {
         countMap.set(String(entry._id), entry.totalQuestions);
       }
 
-      // Get users — optionally filtered by search
+      // Get users — optionally filtered by search, crop, village
       const userFilter: Record<string, any> = {};
       if (search && search.trim()) {
         const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -656,6 +677,26 @@ export class ChatbotRepository implements IChatbotRepository {
           { name: regex },
           { username: regex },
           { email: regex },
+        ];
+      }
+      if (crop && crop.trim()) {
+        const cropRegex = { $regex: crop.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {
+            $or: [
+              { 'farmerProfile.cropsCultivated': cropRegex },
+              { 'farmerProfile.primaryCrop': cropRegex },
+              { 'farmerProfile.secondaryCrop': cropRegex },
+            ],
+          },
+        ];
+      }
+      if (village && village.trim()) {
+        const villageRegex = { $regex: village.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          { 'farmerProfile.villageName': villageRegex },
         ];
       }
 
@@ -667,6 +708,25 @@ export class ChatbotRepository implements IChatbotRepository {
         name: u.name || u.username || 'Unknown',
         email: u.email || '',
         totalQuestions: countMap.get(String(u._id)) ?? 0,
+        farmerProfile: u.farmerProfile ? {
+          farmerName: u.farmerProfile.farmerName,
+          age: u.farmerProfile.age,
+          gender: u.farmerProfile.gender,
+          villageName: u.farmerProfile.villageName,
+          blockName: u.farmerProfile.blockName,
+          district: u.farmerProfile.district,
+          state: u.farmerProfile.state,
+          phoneNo: u.farmerProfile.phoneNo,
+          languagePreference: u.farmerProfile.languagePreference,
+          yearsOfExperience: u.farmerProfile.yearsOfExperience,
+          cropsCultivated: u.farmerProfile.cropsCultivated,
+          primaryCrop: u.farmerProfile.primaryCrop,
+          secondaryCrop: u.farmerProfile.secondaryCrop,
+          awarenessOfKCC: u.farmerProfile.awarenessOfKCC,
+          usesAgriApps: u.farmerProfile.usesAgriApps,
+          highestEducatedPerson: u.farmerProfile.highestEducatedPerson,
+          numberOfSmartphones: u.farmerProfile.numberOfSmartphones,
+        } : undefined,
       }));
 
       // Sort by totalQuestions desc
