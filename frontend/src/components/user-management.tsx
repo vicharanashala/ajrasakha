@@ -3,18 +3,9 @@ import type { IUser } from "@/types";
 import { STATES } from "./advanced-question-filter";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import {
-  Award,
-  CalendarClock,
   Filter,
-  Gavel,
-  Loader2,
   MapPin,
-  MessageSquare,
   Search,
-  TrendingDown,
-  TrendingUp,
-  Users,
-  Wallet,
   X,
 } from "lucide-react";
 import { Input } from "./atoms/input";

@@ -35,7 +35,10 @@ export function BaseTable<T>({
   startIndex,
 }: BaseTableProps<T>) {
   return (
-    <Table className="min-w-[800px] table-fixed">
+    <Table 
+      containerClassName="overflow-hidden"
+      className="min-w-[800px] table-fixed"
+    >
       <TableHeader className="bg-card sticky top-0 z-10">
         <TableRow>
           {columns.map((col) => (

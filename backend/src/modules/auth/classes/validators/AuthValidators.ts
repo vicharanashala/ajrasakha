@@ -6,6 +6,7 @@ import {
   IsString,
   Matches,
   IsOptional,
+  IsBoolean,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 
@@ -217,6 +218,97 @@ class AuthErrorResponse {
   message: string;
 }
 
+class LoginResponse {
+  @JSONSchema({
+    description: 'Firebase ID token for authentication',
+    example: 'eyJhbGciOiJSUzI1NiIs...',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsString()
+  idToken: string;
+
+  @JSONSchema({
+    description: 'Firebase refresh token for obtaining new ID tokens',
+    example: 'AOvuKvS...',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsString()
+  refreshToken: string;
+
+  @JSONSchema({
+    description: 'Expiration time of the ID token in seconds',
+    example: 3600,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNotEmpty()
+  expiresIn: number;
+
+  @JSONSchema({
+    description: 'Firebase local ID (user unique identifier)',
+    example: 'cKy6H2O04PgTh8O3DpUXjgJYUr53',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsString()
+  localId: string;
+
+  @JSONSchema({
+    description: 'User email address',
+    example: 'user@example.com',
+    type: 'string',
+    format: 'email',
+    readOnly: true,
+  })
+  @IsEmail()
+  email: string;
+
+  @JSONSchema({
+    description: 'Display name of the user',
+    example: 'John Smith',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsOptional()
+  @IsString()
+  displayName?: string;
+
+  @JSONSchema({
+    description: 'Whether the email has been verified',
+    example: true,
+    type: 'boolean',
+    readOnly: true,
+  })
+  @IsBoolean()
+  emailVerified: boolean;
+}
+
+class SyncAccountResponse {
+  @JSONSchema({
+    description: 'Indicates the sync operation was successful',
+    example: true,
+    type: 'boolean',
+    readOnly: true,
+  })
+  @IsNotEmpty()
+  success: boolean;
+
+  @JSONSchema({
+    description: 'User data object',
+    type: 'object',
+    readOnly: true,
+  })
+  @IsNotEmpty()
+  user: {
+    uid: string;
+    email: string;
+    displayName: string;
+    emailVerified: boolean;
+  };
+}
+
 
 class ResendVerificationBody {
   @JSONSchema({
@@ -274,6 +366,8 @@ export const AUTH_VALIDATORS = [
   LoginBody,
   ResendVerificationBody,
   ForgotPasswordBody,
+  LoginResponse,
+  SyncAccountResponse,
 ];
 
 export {
@@ -288,4 +382,6 @@ export {
   LoginBody,
   ResendVerificationBody,
   ForgotPasswordBody,
+  LoginResponse,
+  SyncAccountResponse,
 };

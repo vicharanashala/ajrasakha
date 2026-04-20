@@ -21,7 +21,6 @@ import { MobileSidebar } from "./mobile-sidebar";
 import { HoverCard } from "./atoms/hover-card";
 import { UserManagement } from "./user-management";
 import { Dashboard } from "./dashboard";
-import Spinner from "./atoms/spinner";
 import { ExpertDashboard } from "./ExpertDashboard";
 import { NotificationModal } from "./NotificationModal";
 import { AnnamDashboard_dev as AnnamDashboard } from '../features/chatbotDashboard/AnnamDashboard_dev'
@@ -29,9 +28,8 @@ import { cn } from "@/lib/utils";
 import AuditPage from "./AuditPage";
 
 export const PlaygroundPage = () => {
-  const { data: user, isLoading } = useGetCurrentUser({});
+  const { data: user } = useGetCurrentUser({});
   const userId = user?._id?.toString();
-  // const navigate = useNavigate();
   const {
     selectedQuestionId,
     setSelectedQuestionId,
@@ -44,7 +42,6 @@ export const PlaygroundPage = () => {
     selectedQuestionType,
     setSelectedQuestionType
   } = useSelectedQuestion();
-  //const [activeTab, setActiveTab] = useState<string>("performance");
   // Initialize from localStorage or default
 
   const [activeTab, setActiveTab] = useState<string>("all_questions");
@@ -68,7 +65,6 @@ export const PlaygroundPage = () => {
       setActiveTab(defaultTab);
       localStorage.setItem(storageKey, defaultTab);
     }
-    // setActiveTab(savedTab);
   }, [user]);
   // Only update tab when there's a specific selection that requires navigation
   useEffect(() => {
@@ -112,16 +108,6 @@ export const PlaygroundPage = () => {
 
 
 
-
-
-  // const defaultTab = (() => {
-  //   if (!user) return "performance";
-  //   if (user.role !== "expert") return "performance";
-  //   if (selectedRequestId) return "request_queue"; // ← Auto-open Request Queue
-  //   if (selectedQuestionId) return "questions";
-  //   if (selectedCommentId) return "all_questions";
-  //   return "questions";
-  // })();
   const handleTabChange = (value: string) => {
     if (!user) return;
     const storageKey = getStorageKey(user);
@@ -178,7 +164,6 @@ export const PlaygroundPage = () => {
                   >
                     <HoverCard openDelay={150}>
                       <span>Dashboard</span>
-                      {/* <span>Performance</span> */}
                     </HoverCard>
                   </TabsTrigger>
                 )}
@@ -189,7 +174,6 @@ export const PlaygroundPage = () => {
                   >
                     <HoverCard openDelay={150}>
                       <span>Dashboard</span>
-                      {/* <span>Performance</span> */}
                     </HoverCard>
                   </TabsTrigger>
                 )}

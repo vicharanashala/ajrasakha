@@ -9,12 +9,13 @@ import {
   Post,
   CurrentUser,
 } from 'routing-controllers';
-import {OpenAPI} from 'routing-controllers-openapi';
+import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {IComment, IUser} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
 import { CommentService } from '../services/CommentService.js';
 import { AddCommentBody, AddCommentParams, GetCommentsParams, GetCommentsQuery } from '../classes/validators/CommentValidator.js';
+import { CommentErrorResponse, GetCommentsResponse, AddCommentResponse } from '../classes/validators/CommentResponseValidators.js';
 import { ICommentService } from '../interfaces/ICommentService.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
@@ -34,7 +35,30 @@ export class CommentController {
     private readonly auditTrailsService: IAuditTrailsService,
   ) {}
 
-  @OpenAPI({summary: 'Get comments for a specific answer of a question'})
+  @OpenAPI({
+    summary: 'Get comments for a specific answer of a question',
+    description: 'Retrieves paginated comments for a specific answer. Returns an array of comments with user information and the total count.',
+  })
+  @ResponseSchema(GetCommentsResponse, {
+    statusCode: 200,
+    description: 'Comments retrieved successfully with pagination metadata',
+  })
+  @ResponseSchema(CommentErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid question or answer ID format',
+  })
+  @ResponseSchema(CommentErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(CommentErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - Question or answer not found',
+  })
+  @ResponseSchema(CommentErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to fetch comments',
+  })
   @Get('/question/:questionId/answer/:answerId')
   @HttpCode(200)
   @Authorized()
@@ -53,7 +77,30 @@ export class CommentController {
     );
   }
 
-  @OpenAPI({summary: 'Add a comment to a specific answer of a question'})
+  @OpenAPI({
+    summary: 'Add a comment to a specific answer of a question',
+    description: 'Adds a new comment to a specific answer. Also triggers a notification to the answer author.',
+  })
+  @ResponseSchema(AddCommentResponse, {
+    statusCode: 201,
+    description: 'Comment added successfully',
+  })
+  @ResponseSchema(CommentErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid question ID, answer ID, or missing comment text',
+  })
+  @ResponseSchema(CommentErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(CommentErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - Question or answer not found',
+  })
+  @ResponseSchema(CommentErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to add comment',
+  })
   @Post('/question/:questionId/answer/:answerId')
   @HttpCode(201)
   @Authorized()

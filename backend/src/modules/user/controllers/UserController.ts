@@ -34,6 +34,14 @@ import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAudit
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 
+import {
+  UserErrorResponse,
+  UserSuccessMessageResponse,
+  PaginatedUsersResponse,
+  ToggleUserRoleResponse,
+  UserEntryResponse,
+} from '../../core/classes/validators/UserResponseValidators.js';
+
 @OpenAPI({
   tags: ['users'],
   description: 'Operations for managing users',
@@ -49,11 +57,25 @@ export class UserController {
     private readonly auditTrailsService: IAuditTrailsService,
   ) {}
 
+  @OpenAPI({
+    summary: 'Get current user',
+    description: 'Retrieves the current authenticated user profile including notification count.',
+  })
+  @ResponseSchema(UserEntryResponse, {
+    statusCode: 200,
+    description: 'Current user retrieved successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - User not found',
+  })
   @Get('/me')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get current user'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async getUserById(@CurrentUser() currentUser: IUser): Promise<IUser> {
     const userId = currentUser._id.toString();
     const user = await this.userService.getUserById(userId);
@@ -62,10 +84,24 @@ export class UserController {
     }
     return user;
   }
+
+
+  // TODO: Add OpenAPI documentation 200 type definition
+  @OpenAPI({
+    summary: 'Get current user review level',
+    description: 'Retrieves the review level statistics for the current user or moderator based on query parameters.',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - Unable to find review level for user',
+  })
   @Get('/review-level')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get current user review level'})
   async getUserReviewLevel(
     @QueryParams() query: ExpertReviewLevelDto,
   ): Promise<any> {
@@ -77,11 +113,29 @@ export class UserController {
     return result;
   }
 
+  @OpenAPI({
+    summary: 'Update user information',
+    description: 'Updates the current user profile information including name and role.',
+  })
+  @ResponseSchema(UserEntryResponse, {
+    statusCode: 200,
+    description: 'User updated successfully - Returns updated user data',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid user data or empty first/last name',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - User not found',
+  })
   @Put('/')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Update user information'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async updateUser(
     @Body() body: UpdateUserDto,
     @CurrentUser() currentUser: IUser,
@@ -94,10 +148,25 @@ export class UserController {
     return updatedUser;
   }
 
+  @OpenAPI({
+    summary: 'Get all users with pagination (Admin)',
+    description: 'Retrieves paginated list of all users for admin users with search, sort, and filter capabilities.',
+  })
+  @ResponseSchema(PaginatedUsersResponse, {
+    statusCode: 200,
+    description: 'Users retrieved successfully with pagination',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 403,
+    description: 'Forbidden - Admin access required',
+  })
   @Get('/admin/all')
   @HttpCode(200)
   @Authorized(['admin'])
-  @OpenAPI({summary: 'Get all users with pagination (Admin)'})
   async getAllUsers(
     @CurrentUser() user: IUser,
     @QueryParams()
@@ -125,10 +194,21 @@ export class UserController {
     );
   }
 
+  @OpenAPI({
+    summary: 'Get all user names',
+    description: 'Retrieves paginated list of users with their names and preferences for manual selection.',
+  })
+  @ResponseSchema(PaginatedUsersResponse, {
+    statusCode: 200,
+    description: 'User names retrieved successfully with pagination',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
   @Get('/all')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get all user names'})
   async getAllUsersName(
     @CurrentUser() user: IUser,
     @QueryParams()
@@ -158,11 +238,25 @@ export class UserController {
     );
   }
 
+  @OpenAPI({
+    summary: 'Update notification auto-delete preference',
+    description: 'Updates the notification auto-delete preference for the current user (3d, 1w, 2w, 1m, never).',
+  })
+  @ResponseSchema(UserSuccessMessageResponse, {
+    statusCode: 200,
+    description: 'Notification preference updated successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid preference value',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
   @Patch('/')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Update user information'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async updateAutoDeleteNotificationPreference(
     @Body() body: NotificationDeletePreferenceDTO,
     @CurrentUser() currentUser: IUser,
@@ -176,11 +270,25 @@ export class UserController {
     return {message: 'Notification preference updated successfully'};
   }
 
+  @OpenAPI({
+    summary: 'Update incentive or penalty points',
+    description: 'Updates penalty or incentive points for a specific user.',
+  })
+  @ResponseSchema(UserSuccessMessageResponse, {
+    statusCode: 200,
+    description: 'Points updated successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid type or missing userId',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
   @Patch('/point')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Update user information'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async updateIncentiveAndPenalty(
     @Body() body: UpdatePenaltyAndIncentive,
   ): Promise<{message: string}> {
@@ -189,10 +297,21 @@ export class UserController {
     return {message: `${type} updated successfully`};
   }
 
+  @OpenAPI({
+    summary: 'Get all Experts',
+    description: 'Retrieves paginated list of all expert users with search, sort, and filter capabilities.',
+  })
+  @ResponseSchema(PaginatedUsersResponse, {
+    statusCode: 200,
+    description: 'Experts retrieved successfully with pagination',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
   @Get('/list')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get all Experts'})
   async getAllExperts(
     @QueryParams()
     query: {
@@ -213,11 +332,25 @@ export class UserController {
     );
   }
 
+  @OpenAPI({
+    summary: 'Block or unblock an expert',
+    description: 'Blocks or unblocks an expert user based on the action provided.',
+  })
+  @ResponseSchema(UserSuccessMessageResponse, {
+    statusCode: 200,
+    description: 'Expert blocked/unblocked successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid action or missing userId',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
   @Patch('/expert')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Update user information'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async BlockAndUnblockExpert(
     @Body() body: BlockUnblockBody,
     @CurrentUser() user: IUser,
@@ -252,11 +385,25 @@ export class UserController {
     return {message: `${action} Expert successfully`};
   }
 
+  @OpenAPI({
+    summary: 'Update expert activity status',
+    description: 'Updates the activity status of an expert (active or in-active).',
+  })
+  @ResponseSchema(UserSuccessMessageResponse, {
+    statusCode: 200,
+    description: 'Expert status updated successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid status or missing userId',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
   @Patch('/status')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Update expert activity status'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async updateActivityStatus(
     @Body() body: {userId: string; status: 'active' | 'in-active'},
   ): Promise<{message: string}> {
@@ -265,10 +412,25 @@ export class UserController {
     return {message: `Expert status updated to ${status} successfully`};
   }
 
+  @OpenAPI({
+    summary: 'Toggle user role between expert and moderator',
+    description: 'Toggles the role of a user between expert and moderator. Admin access required.',
+  })
+  @ResponseSchema(ToggleUserRoleResponse, {
+    statusCode: 200,
+    description: 'User role toggled successfully - Returns updated user',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 403,
+    description: 'Forbidden - Admin access required',
+  })
   @Authorized()
   @Patch('/:id/role')
   @HttpCode(200)
-  @OpenAPI({summary: 'Toggle user role between expert and moderator'})
   async toggleUserRole(
     @CurrentUser() currentUser: IUser,
     @Param('id') userId: string,
@@ -280,9 +442,20 @@ export class UserController {
     return {message: `User promoted to moderator`, user: updatedUser};
   }
 
+  @OpenAPI({
+    summary: 'Get user details by email',
+    description: 'Retrieves user details by email address.',
+  })
+  @ResponseSchema(UserEntryResponse, {
+    statusCode: 200,
+    description: 'User details retrieved successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - User with email not found',
+  })
   @Get('/details/:email')
   @HttpCode(200)
-  @OpenAPI({summary: 'Get all user names'})
   async getUserDetails(
     @Params() params: {email: string},
   ): Promise<IUser | null> {
