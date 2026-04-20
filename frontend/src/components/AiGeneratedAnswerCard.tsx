@@ -108,12 +108,12 @@ export const AiGeneratedAnswerCard = ({
 
       <div
         className={cn(
-          "grid transition-all duration-300 ease-in-out",
-          expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          "transition-all duration-300 ease-in-out overflow-hidden",
+          expanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"
         )}
       >
         <div className="overflow-hidden">
-          <ScrollArea className="h-full max-h-[500px]">
+          <ScrollArea className="h-[200px]">
             <div className="px-6 py-5 text-sm leading-7 text-foreground/80 space-y-4">
               {isEligibleSource ? (
                 !hasAIAnswer ? (
@@ -121,14 +121,6 @@ export const AiGeneratedAnswerCard = ({
                     <p className="text-sm text-muted-foreground text-center py-6">
                       No AI answer available
                     </p>
-
-                    {showGenerate && (
-                      <div className="flex justify-center">
-                        <Button onClick={onGenerate} disabled={isGenerating}>
-                          {isGenerating ? "Generating..." : "Generate AI Answer"}
-                        </Button>
-                      </div>
-                    )}
                   </>
                 ) : (
                   <>
@@ -141,30 +133,6 @@ export const AiGeneratedAnswerCard = ({
                           <p key={i}>{line}</p>
                         )
                       )}
-
-                    <div className="flex flex-wrap gap-3 pt-4">
-                      {tempAiAnswer && (
-                        <>
-                          <Button onClick={onApprove} disabled={isApproving}>
-                            {isApproving ? "Approving..." : "Approve"}
-                          </Button>
-
-                          <Button variant="outline" onClick={onCancel}>
-                            Cancel
-                          </Button>
-                        </>
-                      )}
-
-                      {canRegenerate && (
-                        <Button
-                          variant="secondary"
-                          onClick={onGenerate}
-                          disabled={isGenerating}
-                        >
-                          {isGenerating ? "Regenerating..." : "Regenerate"}
-                        </Button>
-                      )}
-                    </div>
                   </>
                 )
               ) : (
@@ -229,6 +197,37 @@ export const AiGeneratedAnswerCard = ({
             )}
           </ScrollArea>
         </div>
+        {isEligibleSource && (
+          <div className="px-6 py-4 border-t border-border flex flex-wrap gap-3">
+            {!hasAIAnswer && showGenerate && (
+              <Button onClick={onGenerate} disabled={isGenerating}>
+                {isGenerating ? "Generating..." : "Generate AI Answer"}
+              </Button>
+            )}
+
+            {tempAiAnswer && (
+              <>
+                <Button onClick={onApprove} disabled={isApproving}>
+                  {isApproving ? "Approving..." : "Approve"}
+                </Button>
+
+                <Button variant="outline" onClick={onCancel}>
+                  Cancel
+                </Button>
+              </>
+            )}
+
+            {canRegenerate && (
+              <Button
+                variant="secondary"
+                onClick={onGenerate}
+                disabled={isGenerating}
+              >
+                {isGenerating ? "Regenerating..." : "Regenerate"}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
