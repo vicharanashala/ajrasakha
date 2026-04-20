@@ -18,6 +18,7 @@ import {
   User,
 } from "lucide-react";
 import { ConfirmationModal } from "../../components/confirmation-modal";
+import { useQuestionTableStore } from "@/stores/all-questions";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -77,6 +78,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
   handleQuestionsSelection,
   selectedQuestionIds,
 }) => {
+  const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   const { timer, isClickable } = useQuestionClickability(
@@ -219,12 +221,14 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
         {/* Grid of details */}
         <div className="grid grid-cols-2 gap-y-4 gap-x-2 pt-2 border-t border-gray-100 dark:border-gray-700">
           {/* Priority */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-gray-400 dark:text-gray-500  uppercase tracking-wider">
-              Priority
-            </span>
-            {priorityBadge}
-          </div>
+          {visibleColumns.priority && (
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-gray-400 dark:text-gray-500  uppercase tracking-wider">
+                Priority
+              </span>
+              {priorityBadge}
+            </div>
+          )}
 
           {/* Review Level */}
           <div className="flex flex-col gap-1">

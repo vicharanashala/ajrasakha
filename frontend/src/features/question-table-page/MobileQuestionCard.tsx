@@ -25,6 +25,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../components/atoms/dropdown-menu";
+import { useQuestionTableStore } from "@/stores/all-questions";
+
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
@@ -79,6 +81,7 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
   handleDelete,
   onViewMore,
 }) => {
+  const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
   const { timer, isClickable } = useQuestionClickability(
     q.source,
     q.createdAt,
@@ -166,10 +169,12 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
 
       {/* Grid of details */}
       <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-3 text-xs">
-        <div className="flex gap-1">
-          <span className="text-muted-foreground">Priority:</span>
-          <span className="flex-shrink-0">{priorityBadge}</span>
-        </div>
+        {visibleColumns.priority && (
+          <div className="flex gap-1">
+            <span className="text-muted-foreground">Priority:</span>
+            <span className="flex-shrink-0">{priorityBadge}</span>
+          </div>
+        )}
         <div className="flex gap-1">
           <span className="text-muted-foreground">Review Level:</span>
           <span className="flex-shrink-0">{q.review_level_number}</span>
