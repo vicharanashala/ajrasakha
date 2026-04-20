@@ -148,6 +148,8 @@ export const QuestionsFilters = ({
   ];
   const [advanceFilter, setAdvanceFilterValues] =
     useState<AdvanceFilterValues>(appliedFilters);
+  const [previousFilter, setPreviousFilter] = 
+    useState<AdvanceFilterValues | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [addQuestionErrors, setAddQuestionErrors] =
     useState<AddQuestionValidationErrors>({});
@@ -1000,7 +1002,21 @@ export const QuestionsFilters = ({
                   return (
                     <div
                       key={s.status}
-                      className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${color.bg} transition-colors`}
+                      onClick={() => {
+                        // If clicking the same status, revert to previous filter
+                        if (advanceFilter.status === s.status && previousFilter) {
+                          setAdvanceFilterValues(previousFilter);
+                          onChange(previousFilter);
+                          setPreviousFilter(null);
+                        } else {
+                          // Save current filter and apply new status filter
+                          setPreviousFilter(advanceFilter);
+                          const nextFilters = { ...advanceFilter, status: s.status as any };
+                          setAdvanceFilterValues(nextFilters);
+                          onChange(nextFilters);
+                        }
+                      }}
+                      className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${color.bg} transition-colors cursor-pointer hover:opacity-80`}
                     >
                       <div className="flex items-center gap-2">
                          <span className={`w-2 h-2 rounded-full ${color.dot} shrink-0`} />
