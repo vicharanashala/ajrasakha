@@ -4,6 +4,9 @@ import os
 from typing import Optional
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
+from dotenv import load_dotenv
+
+load_dotenv()
 
 mcp = FastMCP(
     "ajrasakha-govt-schemes-mcp",
@@ -101,7 +104,7 @@ async def govt_schemes(
         "sec-fetch-mode": "cors",
         "sec-fetch-site": "same-site",
         "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
-        "x-api-key": "tYTy5eEhlu9rFjyxuCr7ra7ACp4dv1RH8gWuHTDc"
+        "x-api-key": os.getenv("MYSCHEME_API_KEY", "")
     }
 
     try:
@@ -165,7 +168,7 @@ async def get_scheme_details(slug: str) -> str:
         "sec-fetch-mode": "cors",
         "sec-fetch-site": "same-site",
         "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
-        "x-api-key": "tYTy5eEhlu9rFjyxuCr7ra7ACp4dv1RH8gWuHTDc"
+        "x-api-key": os.getenv("MYSCHEME_API_KEY", "")
     }
 
     try:

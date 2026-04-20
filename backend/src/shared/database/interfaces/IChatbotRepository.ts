@@ -53,6 +53,7 @@ export interface WeeklyQueryCountEntry {
 }
 
 export interface FarmerProfile {
+  farmerName?: string;
   age?: number;
   gender?: string;
   villageName?: string;
@@ -165,6 +166,8 @@ export interface IChatbotRepository {
     limit?: number,
     search?: string,
     source?: string,
+    crop?: string,
+    village?: string,
     session?: ClientSession,
   ): Promise<PaginatedUserDetails>;
 }
