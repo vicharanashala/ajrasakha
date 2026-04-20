@@ -78,6 +78,21 @@ function fmtDate(iso: string) {
   );
 }
 
+// Checks if a value is an array of objects (not primitives)
+function isArrayOfObjects(v: unknown): v is Record<string, unknown>[] {
+  return Array.isArray(v) && v.length > 0 && typeof v[0] === "object" && v[0] !== null;
+}
+
+// Unwraps MongoDB { _id: "..." } single-key wrappers
+function unwrapMongoId(v: unknown): string | unknown {
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    const entries = Object.entries(v as Record<string, unknown>);
+    if (entries.length === 1 && entries[0][0] === "_id") return String(entries[0][1]);
+  }
+  return v;
+}
+
+
 // ─── Badge ────────────────────────────────────────────────────────────────────
 
 type BadgeVariant = "action" | "category" | "role" | "success" | "danger" | "neutral";
@@ -101,27 +116,244 @@ function Badge({ children, variant = "neutral" }: { children: React.ReactNode; v
 
 // ─── Dynamic value renderer ───────────────────────────────────────────────────
 
+// function renderScalar(val: unknown): string {
+//   if (val === null || val === undefined) return "—";
+//   if (Array.isArray(val)) return val.length ? val.map(renderScalar).join(", ") : "[]";
+//   if (typeof val === "object") return JSON.stringify(val, null, 2);
+//   return String(val);
+// }
+
+// function renderScalar(val: unknown): string {
+//   if (val === null || val === undefined) return "—";
+//   if (typeof val === "object") return JSON.stringify(val); // fallback only
+//   return String(val);
+// }
+
 function renderScalar(val: unknown): string {
   if (val === null || val === undefined) return "—";
-  if (Array.isArray(val)) return val.length ? val.map(renderScalar).join(", ") : "[]";
-  if (typeof val === "object") return JSON.stringify(val, null, 2);
-  return String(val);
+  const unwrapped = unwrapMongoId(val);
+  if (typeof unwrapped === "string") return unwrapped;
+  if (Array.isArray(unwrapped)) return unwrapped.map(renderScalar).join(", ");
+  if (typeof unwrapped === "object") return JSON.stringify(unwrapped);
+  return String(unwrapped);
 }
 
 // Recursively flattens nested object into dot-notation rows: { "details.state": "Uttarakhand" }
-function flattenObject(obj: Record<string, unknown>, prefix = ""): Record<string, string> {
-  return Object.entries(obj).reduce<Record<string, string>>((acc, [k, v]) => {
+// function flattenObject(obj: Record<string, unknown>, prefix = ""): Record<string, string> {
+//   return Object.entries(obj).reduce<Record<string, string>>((acc, [k, v]) => {
+//     const key = prefix ? `${prefix}.${k}` : k;
+//     if (v !== null && typeof v === "object" && !Array.isArray(v)) {
+//       Object.assign(acc, flattenObject(v as Record<string, unknown>, key));
+//     } else {
+//       acc[key] = renderScalar(v);
+//     }
+//     return acc;
+//   }, {});
+// }
+
+// function flattenObject(obj: Record<string, unknown>, prefix = ""): Record<string, string> {
+//   return Object.entries(obj).reduce<Record<string, string>>((acc, [k, v]) => {
+//     const key = prefix ? `${prefix}.${k}` : k;
+
+//     if (v === null || v === undefined) {
+//       acc[key] = "—";
+//     } else if (Array.isArray(v)) {
+//       if (v.length === 0) {
+//         acc[key] = "[]";
+//       } else if (typeof v[0] === "object" && v[0] !== null) {
+//         // Array of objects → expand with index: experts[0]._id, experts[1].name …
+//         v.forEach((item, i) => {
+//           Object.assign(
+//             acc,
+//             flattenObject(item as Record<string, unknown>, `${key}[${i}]`)
+//           );
+//         });
+//       } else {
+//         // Array of primitives → join as comma list
+//         acc[key] = v.map(renderScalar).join(", ");
+//       }
+//     } else if (typeof v === "object") {
+//       // Check if it's a MongoDB _id wrapper like { "_id": "..." }
+//       const entries = Object.entries(v as Record<string, unknown>);
+//       if (entries.length === 1 && entries[0][0] === "_id") {
+//         acc[key] = String(entries[0][1]);
+//       } else {
+//         Object.assign(acc, flattenObject(v as Record<string, unknown>, key));
+//       }
+//     } else {
+//       acc[key] = String(v);
+//     }
+
+//     return acc;
+//   }, {});
+// }
+
+function flattenObject(obj: Record<string, unknown>, prefix = ""): Record<string, unknown> {
+  return Object.entries(obj).reduce<Record<string, unknown>>((acc, [k, v]) => {
     const key = prefix ? `${prefix}.${k}` : k;
-    if (v !== null && typeof v === "object" && !Array.isArray(v)) {
-      Object.assign(acc, flattenObject(v as Record<string, unknown>, key));
+    const unwrapped = unwrapMongoId(v);
+
+    if (unwrapped === null || unwrapped === undefined) {
+      acc[key] = "—";
+    } else if (Array.isArray(unwrapped)) {
+      // Keep arrays as-is — DiffViewer will decide how to render them
+      acc[key] = unwrapped;
+    } else if (typeof unwrapped === "object") {
+      Object.assign(acc, flattenObject(unwrapped as Record<string, unknown>, key));
     } else {
-      acc[key] = renderScalar(v);
+      acc[key] = String(unwrapped);
     }
+
     return acc;
   }, {});
 }
 
+const PRIORITY_KEYS = ["name", "email", "role", "_id", "id"];
+
+function sortKeys(keys: string[]): string[] {
+  return [...keys].sort((a, b) => {
+    const ai = PRIORITY_KEYS.indexOf(a);
+    const bi = PRIORITY_KEYS.indexOf(b);
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
+}
+
+function ObjectCard({ item, index }: { item: Record<string, unknown>; index: number }) {
+  const keys = sortKeys(Object.keys(item).filter((k) => k !== "_id"));
+  const rawId = item["_id"] ? unwrapMongoId(item["_id"]) : null;
+  const id = rawId !== null && rawId !== undefined ? String(rawId) : null;
+
+  return (
+    <div className="rounded-lg border border-border/60 bg-background p-2.5 space-y-1">
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+          #{index + 1}
+        </span>
+        {id && (
+          <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[180px]">
+            Id: {id}
+          </span>
+        )}
+      </div>
+      {keys.map((k) => (
+        <div key={k} className="flex items-start gap-2 text-xs">
+          <span className="text-muted-foreground w-14 shrink-0 capitalize">{k}</span>
+          <span className="font-medium break-all">{renderScalar(item[k])}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Array Diff: side-by-side cards ──────────────────────────────────────────
+
+function ArrayOfObjectsDiff({
+  beforeArr,
+  afterArr,
+}: {
+  beforeArr: Record<string, unknown>[];
+  afterArr: Record<string, unknown>[];
+}) {
+  const maxLen = Math.max(beforeArr.length, afterArr.length);
+
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: maxLen }).map((_, i) => {
+        const b = beforeArr[i];
+        const a = afterArr[i];
+        const onlyAfter = !b && !!a;
+        const onlyBefore = !!b && !a;
+
+        return (
+          <div key={i} className="flex gap-2">
+            {/* Before */}
+            <div className={`flex-1 ${onlyAfter ? "opacity-0 pointer-events-none" : ""}`}>
+              {b ? (
+                <div className={`rounded-lg border p-2.5 space-y-1 ${onlyBefore ? "border-red-300 bg-red-50/40 dark:border-red-800 dark:bg-red-950/20" : "border-border/60 bg-background"}`}>
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase">#{i + 1}</span>
+                  {sortKeys(Object.keys(b).filter(k => k !== "_id")).map(k => (
+                    <div key={k} className="flex items-start gap-2 text-xs">
+                      <span className="text-muted-foreground w-14 shrink-0 capitalize">{k}</span>
+                      <span className="font-medium break-all">{renderScalar(b[k])}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : <div className="flex-1" />}
+            </div>
+
+            {/* After */}
+            <div className={`flex-1 ${onlyBefore ? "opacity-0 pointer-events-none" : ""}`}>
+              {a ? (
+                <div className={`rounded-lg border p-2.5 space-y-1 ${onlyAfter ? "border-green-300 bg-green-50/40 dark:border-green-800 dark:bg-green-950/20" : "border-border/60 bg-background"}`}>
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase">#{i + 1}</span>
+                  {sortKeys(Object.keys(a)).map(k => (
+                    <div key={k} className="flex items-start gap-2 text-xs">
+                      <span className="text-muted-foreground w-14 shrink-0 capitalize">{k}</span>
+                      <span className="font-medium break-all">{renderScalar(a[k])}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : <div className="flex-1" />}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+
 // ─── Diff Viewer ──────────────────────────────────────────────────────────────
+
+// function DiffViewer({
+//   before,
+//   after,
+// }: {
+//   before: Record<string, unknown>;
+//   after: Record<string, unknown>;
+// }) {
+//   const flatBefore = flattenObject(before ?? {});
+//   const flatAfter = flattenObject(after ?? {});
+//   const allKeys = Array.from(new Set([...Object.keys(flatBefore), ...Object.keys(flatAfter)]));
+
+//   if (!allKeys.length)
+//     return <p className="text-xs text-muted-foreground italic">No fields recorded.</p>;
+
+//   return (
+//     <div className="overflow-x-auto">
+//       <table className="w-full text-xs border-collapse">
+//         <thead>
+//           <tr>
+//             <th className="text-left p-1.5 text-muted-foreground font-medium w-1/3">Field</th>
+//             <th className="text-left p-1.5 text-muted-foreground font-medium w-1/3">Before</th>
+//             <th className="text-left p-1.5 text-muted-foreground font-medium w-1/3">After</th>
+//           </tr>
+//         </thead>
+//         <tbody>
+//           {allKeys.map((key) => {
+//             const bv = flatBefore[key] ?? "—";
+//             const av = flatAfter[key] ?? "—";
+//             const changed = bv !== av;
+//             return (
+//               <tr key={key} className="border-t border-border/40">
+//                 <td className="p-1.5 font-mono text-muted-foreground align-top">{key}</td>
+//                 <td className={`p-1.5 align-top rounded-sm ${changed ? "bg-red-50 text-red-800 dark:bg-red-950/60 dark:text-red-300" : "text-foreground"}`}>
+//                   <span className="font-mono">{bv}</span>
+//                 </td>
+//                 <td className={`p-1.5 align-top rounded-sm ${changed ? "bg-green-50 text-green-800 dark:bg-green-950/60 dark:text-green-300" : "text-foreground"}`}>
+//                   <span className="font-mono">{av}</span>
+//                 </td>
+//               </tr>
+//             );
+//           })}
+//         </tbody>
+//       </table>
+//     </div>
+//   );
+// }
 
 function DiffViewer({
   before,
@@ -138,59 +370,98 @@ function DiffViewer({
     return <p className="text-xs text-muted-foreground italic">No fields recorded.</p>;
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs border-collapse">
-        <thead>
-          <tr>
-            <th className="text-left p-1.5 text-muted-foreground font-medium w-1/3">Field</th>
-            <th className="text-left p-1.5 text-muted-foreground font-medium w-1/3">Before</th>
-            <th className="text-left p-1.5 text-muted-foreground font-medium w-1/3">After</th>
-          </tr>
-        </thead>
-        <tbody>
-          {allKeys.map((key) => {
-            const bv = flatBefore[key] ?? "—";
-            const av = flatAfter[key] ?? "—";
-            const changed = bv !== av;
-            return (
-              <tr key={key} className="border-t border-border/40">
-                <td className="p-1.5 font-mono text-muted-foreground align-top">{key}</td>
-                <td className={`p-1.5 align-top rounded-sm ${changed ? "bg-red-50 text-red-800 dark:bg-red-950/60 dark:text-red-300" : "text-foreground"}`}>
-                  <span className="font-mono">{bv}</span>
-                </td>
-                <td className={`p-1.5 align-top rounded-sm ${changed ? "bg-green-50 text-green-800 dark:bg-green-950/60 dark:text-green-300" : "text-foreground"}`}>
-                  <span className="font-mono">{av}</span>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div className="space-y-4">
+      {allKeys.map((key) => {
+        const bv = flatBefore[key];
+        const av = flatAfter[key];
+
+        const bIsArrObj = isArrayOfObjects(bv);
+        const aIsArrObj = isArrayOfObjects(av);
+
+        // ── Array of objects: render as card grid ──
+        if (bIsArrObj || aIsArrObj) {
+          const bArr = bIsArrObj ? (bv as Record<string, unknown>[]) : [];
+          const aArr = aIsArrObj ? (av as Record<string, unknown>[]) : [];
+
+          return (
+            <div key={key}>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                {key}
+              </p>
+              {/* Column headers */}
+              <div className="flex gap-2 mb-1.5">
+                <span className="flex-1 text-[10px] text-muted-foreground font-medium">Before</span>
+                <span className="flex-1 text-[10px] text-muted-foreground font-medium">After</span>
+              </div>
+              <ArrayOfObjectsDiff beforeArr={bArr} afterArr={aArr} />
+            </div>
+          );
+        }
+
+        // ── Array of primitives ──
+        const bStr = Array.isArray(bv) ? bv.map(renderScalar).join(", ") : (bv as string) ?? "—";
+        const aStr = Array.isArray(av) ? av.map(renderScalar).join(", ") : (av as string) ?? "—";
+        const changed = bStr !== aStr;
+
+        // ── Scalar / flat row ──
+        return (
+          <div key={key} className="grid grid-cols-[1fr_1fr_1fr] gap-1 text-xs border-t border-border/30 pt-2">
+            <span className="font-mono text-muted-foreground self-start">{key}</span>
+            <span className={`font-mono px-1.5 py-0.5 rounded ${changed ? "bg-red-50 text-red-800 dark:bg-red-950/60 dark:text-red-300" : "text-foreground"}`}>
+              {bStr || "—"}
+            </span>
+            <span className={`font-mono px-1.5 py-0.5 rounded ${changed ? "bg-green-50 text-green-800 dark:bg-green-950/60 dark:text-green-300" : "text-foreground"}`}>
+              {aStr || "—"}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
 // ─── Context Viewer ───────────────────────────────────────────────────────────
 
+// function ContextViewer({ context }: { context: Record<string, unknown> }) {
+//   if (!context || !Object.keys(context).length)
+//     return <p className="text-xs text-muted-foreground italic">No context.</p>;
+
+//   return (
+//     <div className="space-y-1.5">
+//       {Object.entries(context).map(([k, v]) => {
+//         const vals = Array.isArray(v) ? v : [v];
+//         return (
+//           <div key={k} className="flex flex-wrap items-center gap-1.5">
+//             <span className="text-xs text-muted-foreground font-medium min-w-fit">{k}:</span>
+//             {vals.map((x, i) => (
+//               <span key={i} className="text-[11px] font-mono bg-muted px-2 py-0.5 rounded border border-border/60">
+//                 {renderScalar(x)}
+//               </span>
+//             ))}
+//           </div>
+//         );
+//       })}
+//     </div>
+//   );
+// }
+
 function ContextViewer({ context }: { context: Record<string, unknown> }) {
   if (!context || !Object.keys(context).length)
     return <p className="text-xs text-muted-foreground italic">No context.</p>;
 
+  // Flatten the entire context object so nested/array-of-object values expand naturally
+  const flat = flattenObject(context);
+
   return (
     <div className="space-y-1.5">
-      {Object.entries(context).map(([k, v]) => {
-        const vals = Array.isArray(v) ? v : [v];
-        return (
-          <div key={k} className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-muted-foreground font-medium min-w-fit">{k}:</span>
-            {vals.map((x, i) => (
-              <span key={i} className="text-[11px] font-mono bg-muted px-2 py-0.5 rounded border border-border/60">
-                {renderScalar(x)}
-              </span>
-            ))}
-          </div>
-        );
-      })}
+      {Object.entries(flat).map(([k, v]) => (
+        <div key={k} className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted-foreground font-medium min-w-fit">{k}:</span>
+          <span className="text-[11px] font-mono bg-muted px-2 py-0.5 rounded border border-border/60">
+            {v}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -333,7 +604,7 @@ const AuditPage = () => {
   const [page, setPage] = useState(1);
   const [startDate, setStartDate] = useState<string | undefined>(undefined);
   const [endDate, setEndDate] = useState<string | undefined>(undefined);
-  const limit = 10;
+  const limit = 100;
 
   const { data, isLoading, error, refetch } = useGetAuditTrails(
     page,
@@ -479,7 +750,7 @@ const AuditPage = () => {
 
       {/* ── Pagination ── */}
       {!isLoading && total > limit && (
-        <Pagination page={page} onPageChange={setPage} total={total} limit={limit} />
+        <Pagination currentPage={page} onPageChange={setPage} totalPages={total} />
       )}
     </div>
   );

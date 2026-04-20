@@ -356,6 +356,14 @@ export class UserController {
     @CurrentUser() user: IUser,
   ): Promise<{message: string}> {
     const {action, userId} = body;
+    const expertDetails = await this.userService.getUserById(userId);
+    if (!expertDetails) {
+      throw new NotFoundError('User not found');
+    }
+    if (expertDetails.role !== 'expert') {
+      throw new BadRequestErrorResponse();
+    }
+
     let auditPayload = {
       category: AuditCategory.EXPERTS_MANAGEMENT,
       action: action === 'block' ? AuditAction.BLOCK_EXPERT : AuditAction.UNBLOCK_EXPERT,
@@ -367,6 +375,9 @@ export class UserController {
       },
       context: {
         userId: userId,
+        name: `${expertDetails.firstName} ${expertDetails.lastName}`,
+        email: expertDetails.email,
+        role: expertDetails.role,
       },
       changes:{
         before:{

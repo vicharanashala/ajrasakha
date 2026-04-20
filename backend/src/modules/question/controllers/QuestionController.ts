@@ -59,6 +59,7 @@ import { InternalApiAuth } from '#root/shared/functions/internalApiAuth.js';
 import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+import { UserService } from '#root/modules/user/index.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -70,6 +71,9 @@ export class QuestionController {
   constructor(
     @inject(GLOBAL_TYPES.QuestionService)
     private readonly questionService: IQuestionService,
+
+    @inject(GLOBAL_TYPES.UserService)
+    private readonly userService: UserService,
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
@@ -637,6 +641,7 @@ export class QuestionController {
     const { _id: userId } = user;
     const { questionId } = params;
     const { experts } = body;
+    const expertDetails = await Promise.all(experts.map((id) => this.userService.getUserById(id)));
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.EXPERTS_CATEGORY,
       action: AuditAction.SELECT_EXPERT,
@@ -664,7 +669,11 @@ export class QuestionController {
       changes: {
         ...auditPayload.changes,
         after: {
-          experts: experts,
+          expertsDetails: expertDetails.map(ed => ({
+            name: `${ed?.firstName} ${ed?.lastName || ''}`.trim(),
+            email: ed?.email,
+            role: ed?.role,
+          })),
         },
       },
     };
@@ -732,6 +741,7 @@ export class QuestionController {
     const { questionId } = params;
     const { index } = body;
     const expertId = await this.questionService.getExprtIdByIndex(questionId, index);
+    const expertDeatils = await this.userService.getUserById(expertId);
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.EXPERTS_CATEGORY,
       action: AuditAction.DELETE_EXPERT,
@@ -747,6 +757,9 @@ export class QuestionController {
       changes: {
         before: {
           experts: expertId,
+          expertName: expertDeatils ? `${expertDeatils.firstName} ${expertDeatils.lastName}` : 'Unknown',
+          email: expertDeatils ? expertDeatils.email : 'Unknown',
+          role: expertDeatils ? expertDeatils.role : 'Unknown',
         },
       },
       outcome: {
