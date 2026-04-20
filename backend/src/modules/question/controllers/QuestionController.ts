@@ -60,6 +60,7 @@ import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { UserService } from '#root/modules/user/index.js';
+import { IContextService } from '#root/modules/context/interfaces/index.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -74,6 +75,10 @@ export class QuestionController {
 
     @inject(GLOBAL_TYPES.UserService)
     private readonly userService: UserService,
+
+    @inject(GLOBAL_TYPES.ContextService)
+    private readonly contextService: IContextService,
+
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
@@ -697,6 +702,14 @@ export class QuestionController {
   ): Promise<{ modifiedCount: number }> {
     const { questionId } = params;
     const prevQuestion = await this.questionService.getQuestionById(questionId);
+    const questionDetails = {
+      text: prevQuestion.text,
+      details: prevQuestion.details,
+      status: prevQuestion.status,
+      priority: prevQuestion.priority,
+      aiInitialAnswer: prevQuestion.aiInitialAnswer,
+    }
+
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
       action: AuditAction.QUESTION_UPDATE,
@@ -711,7 +724,7 @@ export class QuestionController {
       },
       changes: {
         before: {
-          question: prevQuestion,
+          question: questionDetails,
         }
       },
       outcome: {
@@ -719,12 +732,20 @@ export class QuestionController {
       },
     };
     const response = await this.questionService.updateQuestion(questionId, updates);
+    const updatedQuestion = {
+      text: updates.question || questionDetails.text,
+      details: updates.details || questionDetails.details,
+      status: updates.status || questionDetails.status,
+      priority: updates.priority || questionDetails.priority,
+      aiInitialAnswer: updates.aiInitialAnswer || questionDetails.aiInitialAnswer,
+    }
+    
     auditPayload = {
       ...auditPayload,
       changes: {
         ...auditPayload.changes,
         after: {
-          question: response,
+          question: updatedQuestion,
         },
       },
     };

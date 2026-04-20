@@ -362,10 +362,16 @@ function DiffViewer({
   before: Record<string, unknown>;
   after: Record<string, unknown>;
 }) {
+  console.log("DiffViewer input", { before, after });
   const flatBefore = flattenObject(before ?? {});
+  console.log("Flat before", flatBefore);
   const flatAfter = flattenObject(after ?? {});
+  console.log("Flat after", flatAfter);
+  // let allKeys = Array.from(new Set([...Object.keys(flatBefore), ...Object.keys(flatAfter)]));
+  // allKeys = allKeys.map((k)=> k.split(".").pop()); // only top-level keys for now
+  // console.log("All keys", allKeys);
   const allKeys = Array.from(new Set([...Object.keys(flatBefore), ...Object.keys(flatAfter)]));
-
+  console.log("All keys", allKeys);
   if (!allKeys.length)
     return <p className="text-xs text-muted-foreground italic">No fields recorded.</p>;
 
@@ -406,11 +412,11 @@ function DiffViewer({
         // ── Scalar / flat row ──
         return (
           <div key={key} className="grid grid-cols-[1fr_1fr_1fr] gap-1 text-xs border-t border-border/30 pt-2">
-            <span className="font-mono text-muted-foreground self-start">{key}</span>
+            <span className="font-mono text-muted-foreground self-start">{key.split(".").pop().toUpperCase()}</span>
             <span className={`font-mono px-1.5 py-0.5 rounded ${changed ? "bg-red-50 text-red-800 dark:bg-red-950/60 dark:text-red-300" : "text-foreground"}`}>
               {bStr || "—"}
             </span>
-            <span className={`font-mono px-1.5 py-0.5 rounded ${changed ? "bg-green-50 text-green-800 dark:bg-green-950/60 dark:text-green-300" : "text-foreground"}`}>
+            <span className={`font-mono px-1.5 py-0.5 rounded ${changed ? "bg-green-50 text-green-800 dark:bg-green-950/60 dark:text-green-300" : "text-foreground"} text-wrap break-all`}>
               {aStr || "—"}
             </span>
           </div>
