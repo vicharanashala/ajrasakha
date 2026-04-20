@@ -1000,7 +1000,12 @@ export const QuestionsFilters = ({
                   return (
                     <div
                       key={s.status}
-                      className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${color.bg} transition-colors`}
+                      onClick={() => {
+                        const nextFilters = { ...advanceFilter, status: s.status as any };
+                        setAdvanceFilterValues(nextFilters);
+                        onChange(nextFilters);
+                      }}
+                      className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${color.bg} transition-colors cursor-pointer hover:opacity-80`}
                     >
                       <div className="flex items-center gap-2">
                          <span className={`w-2 h-2 rounded-full ${color.dot} shrink-0`} />
