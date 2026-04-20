@@ -2,11 +2,31 @@ import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/hooks/api/api-fetch';
 import { env } from '@/config/env';
 
+export interface FarmerProfile {
+  age?: number;
+  gender?: string;
+  villageName?: string;
+  blockName?: string;
+  district?: string;
+  state?: string;
+  phoneNo?: string;
+  languagePreference?: string;
+  yearsOfExperience?: number;
+  cropsCultivated?: string[];
+  primaryCrop?: string;
+  secondaryCrop?: string;
+  awarenessOfKCC?: boolean;
+  usesAgriApps?: boolean;
+  highestEducatedPerson?: string;
+  numberOfSmartphones?: number;
+}
+
 export interface UserDetail {
   userId: string;
   name: string;
   email: string;
   totalQuestions: number;
+  farmerProfile?: FarmerProfile;
 }
 
 export interface PaginatedUserDetailsResponse {
