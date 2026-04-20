@@ -271,6 +271,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                     <TableHead className="text-center">Questions Asked</TableHead>
                     <TableHead className="text-center">Name</TableHead>
                     <TableHead className="text-center">Email</TableHead>
+                    <TableHead className="text-center">Farmer Name</TableHead>
                     <TableHead className="text-center">Age</TableHead>
                     <TableHead className="text-center">Gender</TableHead>
                     <TableHead className="text-center">Village</TableHead>
@@ -292,7 +293,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={20} className="text-center py-10 text-muted-foreground">
+                      <TableCell colSpan={21} className="text-center py-10 text-muted-foreground">
                         {debouncedSearch ? "No users match your search." : "No users found."}
                       </TableCell>
                     </TableRow>
@@ -321,6 +322,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                           <TableCell className="align-middle whitespace-nowrap">
                             {user.email}
                           </TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.farmerName ?? "—"}</TableCell>
                           <TableCell className="align-middle">{fp?.age ?? "—"}</TableCell>
                           <TableCell className="align-middle whitespace-nowrap">{fp?.gender ?? "—"}</TableCell>
                           <TableCell className="align-middle whitespace-nowrap">{fp?.villageName ?? "—"}</TableCell>

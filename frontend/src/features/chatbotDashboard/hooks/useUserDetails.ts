@@ -3,6 +3,7 @@ import { apiFetch } from '@/hooks/api/api-fetch';
 import { env } from '@/config/env';
 
 export interface FarmerProfile {
+  farmerName?: string;
   age?: number;
   gender?: string;
   villageName?: string;
