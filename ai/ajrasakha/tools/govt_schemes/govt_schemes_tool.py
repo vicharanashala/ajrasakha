@@ -55,7 +55,6 @@ async def govt_schemes(
     
     q_params = [{"identifier": "schemeCategory", "value": "Agriculture,Rural & Environment"}]
     
-    # Only State needs the "All" fallback
     if state and state.lower() != "all":
         q_params.append({"identifier": "beneficiaryState", "value": "All"})
         q_params.append({"identifier": "beneficiaryState", "value": state})
@@ -124,7 +123,7 @@ async def govt_schemes(
                 scheme_name = fields.get("schemeName", "Unknown Scheme")
                 description = fields.get("briefDescription", "No description available.")
                 tags = ", ".join(fields.get("tags", []))
-                slug = fields.get("slug", "N/A") # ADDED SLUG HERE
+                slug = fields.get("slug", "N/A")
                 
                 formatted_results += f"### {scheme_name}\n"
                 formatted_results += f"**Slug:** {slug}\n"
