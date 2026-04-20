@@ -9,6 +9,7 @@ import type { SourceItem } from "@/types";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Info, Sparkles } from "lucide-react";
 import { ScrollArea } from "./atoms/scroll-area";
+import { Button } from "./atoms/button";
 
 
 
@@ -16,19 +17,45 @@ type Props = {
   aiApprovedAnswer?: string;
   aiInitialAnswer?: string;
   aiApprovedSources?: SourceItem[];
+  source?: string;
+  hasSubmissions?: boolean;
+  tempAiAnswer?: string;
+  onGenerate?: () => void;
+  onApprove?: () => void;
+  onCancel?: () => void;
+  isGenerating?: boolean;
+  isApproving?: boolean;
 };
 
 export const AiGeneratedAnswerCard = ({
   aiApprovedAnswer,
   aiInitialAnswer,
   aiApprovedSources,
+  source,
+  hasSubmissions,
+  tempAiAnswer,
+  onGenerate,
+  onApprove,
+  onCancel,
+  isGenerating,
+  isApproving
 }: Props) => {
   const [expanded, setExpanded] = useState(false);
 
-  const content = aiInitialAnswer || aiApprovedAnswer;
+  const hasSources = Array.isArray(aiApprovedSources) && aiApprovedSources.length > 0;
 
-  const hasSources =
-    Array.isArray(aiApprovedSources) && aiApprovedSources.length > 0;
+  const isEligibleSource = source === "AGRI_EXPERT" || source === "OUTREACH";
+
+  const hasAIAnswer = !!( tempAiAnswer || aiInitialAnswer || aiApprovedAnswer);
+
+  // source must be AGRI_EXPERT or OUTREACH and should not have any submissions
+  const canShowActions = isEligibleSource && !hasSubmissions;
+
+  //Generate button
+  const showGenerate = canShowActions && !hasAIAnswer;
+
+  // Show regenerate for the questions whose source is eliglibe and should have Ai answer
+  const canRegenerate = canShowActions && hasAIAnswer;
 
   return (
     <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden transition-all duration-300">
@@ -88,12 +115,75 @@ export const AiGeneratedAnswerCard = ({
         <div className="overflow-hidden">
           <ScrollArea className="h-full max-h-[500px]">
             <div className="px-6 py-5 text-sm leading-7 text-foreground/80 space-y-4">
-              {content?.split("\n").map((line, i) =>
-                line.trim() === "" ? (
-                  <div key={i} className="h-2" />
+              {isEligibleSource ? (
+                !hasAIAnswer ? (
+                  <>
+                    <p className="text-sm text-muted-foreground text-center py-6">
+                      No AI answer available
+                    </p>
+
+                    {showGenerate && (
+                      <div className="flex justify-center">
+                        <Button onClick={onGenerate} disabled={isGenerating}>
+                          {isGenerating ? "Generating..." : "Generate AI Answer"}
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 ) : (
-                  <p key={i}>{line}</p>
+                  <>
+                    {(tempAiAnswer || aiInitialAnswer || aiApprovedAnswer)
+                      ?.split("\n")
+                      .map((line, i) =>
+                        line.trim() === "" ? (
+                          <div key={i} className="h-2" />
+                        ) : (
+                          <p key={i}>{line}</p>
+                        )
+                      )}
+
+                    <div className="flex flex-wrap gap-3 pt-4">
+                      {tempAiAnswer && (
+                        <>
+                          <Button onClick={onApprove} disabled={isApproving}>
+                            {isApproving ? "Approving..." : "Approve"}
+                          </Button>
+
+                          <Button variant="outline" onClick={onCancel}>
+                            Cancel
+                          </Button>
+                        </>
+                      )}
+
+                      {canRegenerate && (
+                        <Button
+                          variant="secondary"
+                          onClick={onGenerate}
+                          disabled={isGenerating}
+                        >
+                          {isGenerating ? "Regenerating..." : "Regenerate"}
+                        </Button>
+                      )}
+                    </div>
+                  </>
                 )
+              ) : (
+                hasAIAnswer ? (
+                  <>
+                    {(tempAiAnswer || aiInitialAnswer || aiApprovedAnswer)
+                      ?.split("\n")
+                      .map((line, i) =>
+                        line.trim() === "" ? (
+                          <div key={i} className="h-2" />
+                        ) : (
+                          <p key={i}>{line}</p>
+                        )
+                      )}
+                  </>
+                ):
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  No AI answer available
+                </p>
               )}
             </div>
 
