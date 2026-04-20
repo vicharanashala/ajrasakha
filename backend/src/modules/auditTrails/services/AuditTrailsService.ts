@@ -26,10 +26,13 @@ export class AuditTrailsService
     return await this.auditTrailsRepository.createAuditTrail(this.normalizeAuditToObjectId(paload));
   }
 
-  async getAuditTrails(page: number, limit: number, startDate?: string, endDate?: string): Promise<ModeratorAuditTrail[]> {
+  async getAuditTrails(page: number, limit: number, startDate?: string, endDate?: string): Promise<{data: ModeratorAuditTrail[], totalDocuments: number}> {
     // Implement the logic to get all audit trails
     const auditTrails = await this.auditTrailsRepository.getAuditTrails(page, limit, startDate, endDate);
-    return auditTrails.map((audit) => this.normalizeAudit(audit));
+    return {
+      data: auditTrails.data.map((audit) => this.normalizeAudit(audit)),
+      totalDocuments: auditTrails.totalDocuments
+    };
   }
 
   async getAuditTrailById(id: string): Promise<ModeratorAuditTrail | null> {

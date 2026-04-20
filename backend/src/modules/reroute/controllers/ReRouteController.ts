@@ -58,6 +58,7 @@ import {
   AllocatedQuestionsArrayResponse,
   QuestionByIdResponse,
 } from '../classes/validators/ReRouteResponseValidators.js';
+import { UserService } from '#root/modules/user/index.js';
 
 @OpenAPI({
   tags: ['reroute'],
@@ -69,6 +70,9 @@ export class ReRouteController {
   constructor(
     @inject(ROUTE_TYPES.ReRouteService)
     private readonly reRouteService: IReRouteService,
+
+    @inject(GLOBAL_TYPES.UserService)
+    private readonly userSevice: UserService,
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
@@ -116,6 +120,7 @@ export class ReRouteController {
     const {_id: userId} = user;
     const {questionId} = params;
     const {expertId,answerId,moderatorId,comment,status} = body;
+    const expertDetails = await this.userSevice.getUserById(expertId);
     let auditPayload = {
       category: AuditCategory.ANSWER,
       action: AuditAction.REROUTE_ANSWER,
@@ -132,7 +137,11 @@ export class ReRouteController {
         },
       changes:{
         after:{
-          experts: Array(expertId),
+          expertDetails: {
+            name: `${expertDetails?.firstName} ${expertDetails?.lastName || ''}`.trim(),
+            email: expertDetails?.email,
+            role: expertDetails?.role,
+          }
         }
       },
       outcome: {
@@ -237,6 +246,7 @@ export class ReRouteController {
     const {rerouteId,questionId} = params;
     const {reason,moderatorId,role,expertId} = body
     const userId = user._id.toString();
+    const expertDetails = await this.userSevice.getUserById(expertId);
     let auditPayload = {
       category: AuditCategory.ANSWER,
       action: AuditAction.REROUTE_REJECTION,
@@ -252,7 +262,11 @@ export class ReRouteController {
         },
       changes:{
         before:{
-          experts: Array(expertId),
+          expertDetails: {
+            name: `${expertDetails?.firstName} ${expertDetails?.lastName || ''}`.trim(),
+            email: expertDetails?.email,
+            role: expertDetails?.role,
+          }
         }
       },
       outcome: {

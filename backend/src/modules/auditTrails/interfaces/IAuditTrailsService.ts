@@ -7,7 +7,7 @@ export interface IAuditTrailsService {
     paload: ModeratorAuditTrail,
   ): Promise<string>;
 
-  getAuditTrails(page: number, limit: number, startDate?: string, endDate?: string): Promise<ModeratorAuditTrail[]>;
+  getAuditTrails(page: number, limit: number, startDate?: string, endDate?: string): Promise<{data: ModeratorAuditTrail[], totalDocuments: number}>;
 
   getAuditTrailById(id: string): Promise<ModeratorAuditTrail | null>;
 }

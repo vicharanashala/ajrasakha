@@ -32,13 +32,17 @@ class AuditTrailsController{
         description: "Bad Request",
         statusCode: 400,
     })
-    async getAllAuditTrails(@QueryParam("page") page: number = 1, @QueryParam("limit") limit: number = 10, @QueryParam("startDate") startDate?: string, @QueryParam("endDate") endDate?: string,){
+    async getAllAuditTrails(@QueryParam("page") page: number = 1, @QueryParam("limit") limit: number = 10, @QueryParam("start") startDate?: string, @QueryParam("end") endDate?: string,){
         const auditTrails = await this.auditTrailsService.getAuditTrails(page, limit, startDate, endDate);
         // console.log("Current Data userId ", user._id);
         // console.log("Audit Trails: ", auditTrails);
+        console.log("Start Date: ", startDate, "End Date: ", endDate);
         return {
             message: "Audit trails retrieved successfully",
-            data: auditTrails
+            data: auditTrails.data,
+            totalDocuments: auditTrails.totalDocuments,
+            totalPages: Math.ceil(auditTrails.totalDocuments / limit),
+            currentPage: page,
         }
     }
 

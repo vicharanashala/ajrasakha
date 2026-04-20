@@ -604,7 +604,7 @@ const AuditPage = () => {
   const [page, setPage] = useState(1);
   const [startDate, setStartDate] = useState<string | undefined>(undefined);
   const [endDate, setEndDate] = useState<string | undefined>(undefined);
-  const limit = 100;
+  const limit = 10;
 
   const { data, isLoading, error, refetch } = useGetAuditTrails(
     page,
@@ -613,8 +613,11 @@ const AuditPage = () => {
     endDate
   );
 
+  console.log("Fetched audit entries:", data);
+
   const entries: AuditEntry[] = data?.data ?? [];
-  const total: number = data?.total ?? 0;
+  const total: number = data?.totalDocuments ?? 0;
+  const totalPages = data?.totalPages ?? 1;
 
   return (
     <div className="p-6 space-y-4">
@@ -750,7 +753,7 @@ const AuditPage = () => {
 
       {/* ── Pagination ── */}
       {!isLoading && total > limit && (
-        <Pagination currentPage={page} onPageChange={setPage} totalPages={total} />
+        <Pagination currentPage={page} onPageChange={setPage} totalPages={totalPages} />
       )}
     </div>
   );

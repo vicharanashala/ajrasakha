@@ -7,7 +7,7 @@ export interface IAuditTrailsRepository {
         session?: ClientSession
     ): Promise<string>;
 
-    getAuditTrails(page: number, limit: number, startDate?: string, endDate?: string, session?: ClientSession): Promise<ModeratorAuditTrail[]>;
+    getAuditTrails(page: number, limit: number, startDate?: string, endDate?: string, session?: ClientSession): Promise<{data :ModeratorAuditTrail[], totalDocuments: number}>;
 
     getAuditTrailById(id: string, session?: ClientSession): Promise<ModeratorAuditTrail | null>;
 }
