@@ -52,11 +52,31 @@ export interface WeeklyQueryCountEntry {
   count: number;
 }
 
+export interface FarmerProfile {
+  age?: number;
+  gender?: string;
+  villageName?: string;
+  blockName?: string;
+  district?: string;
+  state?: string;
+  phoneNo?: string;
+  languagePreference?: string;
+  yearsOfExperience?: number;
+  cropsCultivated?: string[];
+  primaryCrop?: string;
+  secondaryCrop?: string;
+  awarenessOfKCC?: boolean;
+  usesAgriApps?: boolean;
+  highestEducatedPerson?: string;
+  numberOfSmartphones?: number;
+}
+
 export interface UserDetailEntry {
   userId: string;
   name: string;
   email: string;
   totalQuestions: number;
+  farmerProfile?: FarmerProfile;
 }
 
 export interface PaginatedUserDetails {

@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState,  } from "react";
-import {CheckCircle,RefreshCw,RotateCcw,Info,Loader2,Send,FileText,Bot, ChevronsRight} from "lucide-react";
+import {CheckCircle,RotateCcw,Loader2,Send,FileText,Bot, ChevronsRight} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/atoms/card";
-import { RadioGroup, RadioGroupItem } from "../../components/atoms/radio-group";
 import { Label } from "../../components/atoms/label";
 import { Textarea } from "../../components/atoms/textarea";
 import { Button } from "../../components/atoms/button";
@@ -12,15 +11,8 @@ import {
 } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
 import { toast } from "sonner";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "../../components/atoms/tooltip";
 import { SourceUrlManager } from "../../components/source-url-manager";
 import {
-  type AdvanceFilterValues,
   type QuestionDateRangeFilter,
   type QuestionFilterStatus,
   type QuestionPriorityFilter,
@@ -28,11 +20,8 @@ import {
 } from "../../components/advanced-question-filter";
 import type {} from "../../components/questions-page";
 import type {
-  HistoryItem,
-  IQuestion,
   IReviewParmeters,
-  SourceItem,
-  QuestionRerouteRepo
+  SourceItem
 } from "@/types";
 
 import { ConfirmationModal } from "../../components/confirmation-modal";
@@ -110,19 +99,6 @@ export const QAInterface = ({
   const[reviewLevel,setReviewLevel]=useState('all')
 
   const [isLoaded, setIsLoaded] = useState(false);
-  // const [advanceFilter, setAdvanceFilterValues] = useState<AdvanceFilterValues>(
-  //   {
-  //     status: "all",
-  //     source: "all",
-  //     state: "all",
-  //     answersCount: [0, 100],
-  //     dateRange: "all",
-  //     crop: "all",
-  //     priority: "all",
-  //     domain: "all",
-  //     user: "all",
-  //   }
-  // );
   const handleDialogChange = (key: string, value: any) => {
     if (key === "source") setSource(value);
     else if (key === "state") setState(value);
@@ -176,10 +152,6 @@ export const QAInterface = ({
   const { data: exactQuestionPage, isLoading: isLoading } =
     useGetAllocatedQuestionPage(autoSelectQuestionId!);
    
-  // const questions = questionPages?.pages.flat() || [];
-  /*const questions = useMemo(() => {
-     return questionPages?.pages.flat() || [];
-     }, [questionPages]);*/
   const questions = useMemo(() => {
     if (!questionPages?.pages) return [];
     return questionPages.pages.flat();
@@ -204,8 +176,6 @@ export const QAInterface = ({
   const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
     useGetQuestionById(selectedQuestion,actionType);
 
-  // const { mutateAsync: submitAnswer, isPending: isSubmittingAnswer } =
-  //   useSubmitAnswer();
   const { mutateAsync: respondQuestion, isPending: isResponding } =
     useReviewAnswer();
 
@@ -215,7 +185,6 @@ export const QAInterface = ({
   const hasInitialized = useRef(false);
   const questionsRef = useRef(questions);
   const questionItemRefs = useRef<Record<string, HTMLDivElement>>({});
-  // const [isLoaded, setIsLoaded] = useState(false);
 
   const [drafts, setDrafts] = useState<
     Record<string, { answer: string; sources: any[]; remarks: string }>
@@ -423,9 +392,6 @@ export const QAInterface = ({
     return () => container.removeEventListener("scroll", handleScroll);
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  // const handleFilterChange = (value: QuestionFilter) => {
-  //   setFilter(value);
-  // };
 
   useEffect(() => {
     if (!selectedQuestion || !selectedQuestionData) return;
@@ -567,9 +533,6 @@ export const QAInterface = ({
     handleReset();
   };
 
-  // if(isLoadingTargetQuestion){
-  //   return <Spinner/>
-  // }
 
 const handleActionChange = (value: string) => {
   setActionType(value as "allocated" | "reroute");
@@ -660,9 +623,6 @@ const handleActionChange = (value: string) => {
                           <Label className="text-sm font-medium text-muted-foreground">
                             Current Query:
                           </Label>
-                          {/* <QuestionDetailsDialog
-                            question={selectedQuestionData}
-                          /> */}
                          {/* Translate language dropdown */}
                           <SarvamTranslateDropdown
                             query={selectedQuestionData.text}
@@ -885,20 +845,3 @@ const handleActionChange = (value: string) => {
     </div>
   );
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

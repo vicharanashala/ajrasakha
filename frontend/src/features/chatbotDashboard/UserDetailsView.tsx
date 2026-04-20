@@ -198,47 +198,82 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
 
           {!isLoading && !error && (
             <div className="rounded-lg border bg-card overflow-x-auto">
-              <Table className="min-w-[600px]">
+              <Table className="min-w-[1600px]">
                 <TableHeader className="bg-card sticky top-0 z-10">
                   <TableRow>
                     <TableHead className="text-center w-12">S.No</TableHead>
+                    <TableHead className="text-center">Questions Asked</TableHead>
                     <TableHead className="text-center">Name</TableHead>
                     <TableHead className="text-center">Email</TableHead>
-                    <TableHead className="text-center">Questions Asked</TableHead>
+                    <TableHead className="text-center">Age</TableHead>
+                    <TableHead className="text-center">Gender</TableHead>
+                    <TableHead className="text-center">Village</TableHead>
+                    <TableHead className="text-center">Block</TableHead>
+                    <TableHead className="text-center">District</TableHead>
+                    <TableHead className="text-center">State</TableHead>
+                    <TableHead className="text-center">Phone</TableHead>
+                    <TableHead className="text-center">Language</TableHead>
+                    <TableHead className="text-center">Exp. (Yrs)</TableHead>
+                    <TableHead className="text-center">Crops</TableHead>
+                    <TableHead className="text-center">Primary Crop</TableHead>
+                    <TableHead className="text-center">Secondary Crop</TableHead>
+                    <TableHead className="text-center">KCC Aware</TableHead>
+                    <TableHead className="text-center">Agri Apps</TableHead>
+                    <TableHead className="text-center">Education</TableHead>
+                    <TableHead className="text-center">Smartphones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
+                      <TableCell colSpan={20} className="text-center py-10 text-muted-foreground">
                         {debouncedSearch ? "No users match your search." : "No users found."}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    users.map((user, idx) => (
-                      <TableRow key={user.userId} className="text-center">
-                        <TableCell className="align-middle">
-                          {(currentPage - 1) * PAGE_SIZE + idx + 1}
-                        </TableCell>
-                        <TableCell className="align-middle font-medium whitespace-nowrap">
-                          {user.name}
-                        </TableCell>
-                        <TableCell className="align-middle whitespace-nowrap">
-                          {user.email}
-                        </TableCell>
-                        <TableCell className="align-middle">
-                          <span
-                            className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold ${
-                              user.totalQuestions > 0
-                                ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
-                                : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                            }`}
-                          >
-                            {user.totalQuestions.toLocaleString()}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    users.map((user, idx) => {
+                      const fp = user.farmerProfile;
+                      return (
+                        <TableRow key={user.userId} className="text-center">
+                          <TableCell className="align-middle">
+                            {(currentPage - 1) * PAGE_SIZE + idx + 1}
+                          </TableCell>
+                          <TableCell className="align-middle">
+                            <span
+                              className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                user.totalQuestions > 0
+                                  ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
+                                  : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                              }`}
+                            >
+                              {user.totalQuestions.toLocaleString()}
+                            </span>
+                          </TableCell>
+                          <TableCell className="align-middle font-medium whitespace-nowrap">
+                            {user.name}
+                          </TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">
+                            {user.email}
+                          </TableCell>
+                          <TableCell className="align-middle">{fp?.age ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.gender ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.villageName ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.blockName ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.district ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.state ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.phoneNo ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.languagePreference ?? "—"}</TableCell>
+                          <TableCell className="align-middle">{fp?.yearsOfExperience ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.cropsCultivated?.join(", ") ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.primaryCrop ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.secondaryCrop ?? "—"}</TableCell>
+                          <TableCell className="align-middle">{fp?.awarenessOfKCC == null ? "—" : fp.awarenessOfKCC ? "Yes" : "No"}</TableCell>
+                          <TableCell className="align-middle">{fp?.usesAgriApps == null ? "—" : fp.usesAgriApps ? "Yes" : "No"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.highestEducatedPerson ?? "—"}</TableCell>
+                          <TableCell className="align-middle">{fp?.numberOfSmartphones ?? "—"}</TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>

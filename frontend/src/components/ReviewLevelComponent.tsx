@@ -1,17 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useGetReviewLevel } from "@/hooks/api/user/useGetReviewLevel";
 import { Separator } from "@/components/atoms/separator";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "./atoms/table";
-import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -143,11 +134,6 @@ export const ReviewLevelComponent = () => {
       status: filters.status,
       userId: filters.userId,
     });
-  const levels = reviewLevel || [];
-  const totalCompleted = levels.reduce(
-    (sum, item) => sum + (item.count ?? 0),
-    0,
-  );
 
   const handleDraftDateChange = (key: string, value?: Date) => {
     setDraftFilters((prev) => ({
@@ -423,55 +409,6 @@ export const ReviewLevelComponent = () => {
         </CardHeader>
 
         <div ref={ref} className="rounded-lg border bg-card overflow-x-auto min-h-[55vh] ml-5 mr-5">
-          {/* <Table className="min-w-[800px]">
-            <TableHeader className="bg-card sticky top-0 z-10">
-              <TableRow>
-                <TableHead className="text-center w-12">Sl.No</TableHead>
-                <TableHead className="w-[35%] text-center w-52">
-                  Review Level
-                </TableHead>
-
-                <TableHead className="text-center w-52">
-                  Completed Tasks
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {isLoadingReviewLevel ? (
-                <TableRow>
-                  <TableCell colSpan={10} className="text-center py-10">
-                    <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
-                  </TableCell>
-                </TableRow>
-              ) : !reviewLevel || reviewLevel.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={10}
-                    rowSpan={10}
-                    className="text-center py-10 text-muted-foreground"
-                  >
-                    No Details found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                reviewLevel.map((level: any, ind: number) => (
-                  <TableRow key={ind} className="text-center">
-                    <TableCell className="align-middle w-36">
-                      {ind + 1}
-                    </TableCell>
-                    <TableCell className="align-middle w-36">
-                      {level.Review_level}
-                    </TableCell>
-
-                    <TableCell className="align-middle w-36">
-                      {level.count}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table> */}
           <ResponsiveContainer width="100%" height={350}>
             {isLoadingReviewLevel ? (
               <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />

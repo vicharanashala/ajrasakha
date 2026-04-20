@@ -380,6 +380,12 @@ class AddQuestionBodyDto {
   @IsString()
   @IsOptional()
   createdAt?: string;
+
+  @IsString()
+  @IsOptional()
+  originalQuestion?: string;
+
+  
 }
 
 class GenerateQuestionsBody {
