@@ -1,6 +1,8 @@
 import json
 import httpx
 import os
+import asyncio
+import copy
 from typing import Optional
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
@@ -37,54 +39,14 @@ async def govt_schemes(
     Fetches a list of active agricultural, rural, and environmental government schemes.
     IMPORTANT: Use this tool FIRST to search for schemes based on user demographics. 
     It returns a list of schemes along with their 'slug' (unique ID).
-    
-    Args:
-        state: State name (e.g., 'Jammu and Kashmir', 'Gujarat').
-        gender: 'Male', 'Female', or 'Transgender'.
-        age: Exact age of the farmer in years.
-        caste: 'General', 'Scheduled Caste (SC)', 'Scheduled Tribe (ST)', 'Other Backward Class (OBC)', 'Particularly Vulnerable Tribal Group (PVTG)'.
-        residence: 'Rural' or 'Urban'.
-        benefit_type: 'Cash', 'In Kind', 'Composite'.
-        employment_status: 'Employed', 'Self-Employed/ Entrepreneur', 'Unemployed'.
-        occupation: e.g., 'Farmer', 'Dairy Farmer', 'Fishermen'.
-        is_minority: True if user belongs to a minority.
-        is_differently_abled: True if user is physically challenged.
-        is_bpl: True if Below Poverty Line.
-        is_economic_distress: True if in economic distress.
-        is_student: True if user is a student.
-        is_govt_employee: True if user is a government employee.
-        is_dbt_scheme: True if specifically looking for Direct Benefit Transfer schemes.
     """
     
-    q_params = [{"identifier": "schemeCategory", "value": "Agriculture,Rural & Environment"}]
+    # 1. BASE QUERY: Only Category, State, and Age (Open to everyone)
+    base_q = [{"identifier": "schemeCategory", "value": "Agriculture,Rural & Environment"}]
     
     if state and state.lower() != "all":
-        q_params.append({"identifier": "beneficiaryState", "value": "All"})
-        q_params.append({"identifier": "beneficiaryState", "value": state})
-
-    if gender and gender.lower() != "all": 
-        q_params.append({"identifier": "gender", "value": "All"})
-        q_params.append({"identifier": "gender", "value": gender})
-        
-    if caste and caste.lower() != "all": 
-        q_params.append({"identifier": "caste", "value": "All"})
-        q_params.append({"identifier": "caste", "value": caste})
-        
-    if residence and residence.lower() not in ["both", "all"]: 
-        q_params.append({"identifier": "residence", "value": "Both"})
-        q_params.append({"identifier": "residence", "value": residence})
-        
-    if employment_status and employment_status.lower() != "all": 
-        q_params.append({"identifier": "employmentStatus", "value": "All"})
-        q_params.append({"identifier": "employmentStatus", "value": employment_status})
-        
-    if occupation and occupation.lower() != "all": 
-        q_params.append({"identifier": "occupation", "value": "All"})
-        q_params.append({"identifier": "occupation", "value": occupation})
-        
-    if benefit_type and benefit_type.lower() != "all": 
-        q_params.append({"identifier": "benefitTypes", "value": "All"})
-        q_params.append({"identifier": "benefitTypes", "value": benefit_type})
+        base_q.append({"identifier": "beneficiaryState", "value": "All"})
+        base_q.append({"identifier": "beneficiaryState", "value": state})
 
     if age is not None:
         if age <= 0:
@@ -92,24 +54,54 @@ async def govt_schemes(
         else:
             min_age = ((age - 1) // 10) * 10 + 1
             max_age = min_age + 9
-        q_params.append({"identifier": "age-general", "min": min_age, "max": max_age})
+        base_q.append({"identifier": "age-general", "min": min_age, "max": max_age})
 
-    if is_bpl: q_params.append({"identifier": "isBpl", "value": "Yes"})
-    if is_differently_abled: q_params.append({"identifier": "disability", "value": "Yes"})
-    if is_minority: q_params.append({"identifier": "minority", "value": "Yes"})
-    if is_student: q_params.append({"identifier": "isStudent", "value": "Yes"})
-    if is_govt_employee: q_params.append({"identifier": "isGovEmployee", "value": "Yes"})
-    if is_economic_distress: q_params.append({"identifier": "isEconomicDistress", "value": "Yes"})
-    if is_dbt_scheme: q_params.append({"identifier": "dbtScheme", "value": "Yes"})
+    # 2. SPECIFIC QUERY: Add strict demographic filters
+    specific_q = copy.deepcopy(base_q)
+    has_specific = False
+
+    if gender and gender.lower() != "all": 
+        specific_q.append({"identifier": "gender", "value": gender})
+        has_specific = True
+    if caste and caste.lower() != "all": 
+        specific_q.append({"identifier": "caste", "value": caste})
+        has_specific = True
+    if residence and residence.lower() not in ["both", "all"]: 
+        specific_q.append({"identifier": "residence", "value": residence})
+        has_specific = True
+    if employment_status and employment_status.lower() != "all": 
+        specific_q.append({"identifier": "employmentStatus", "value": employment_status})
+        has_specific = True
+    if occupation and occupation.lower() != "all": 
+        specific_q.append({"identifier": "occupation", "value": occupation})
+        has_specific = True
+    if benefit_type and benefit_type.lower() != "all": 
+        specific_q.append({"identifier": "benefitTypes", "value": benefit_type})
+        has_specific = True
+
+    if is_bpl: 
+        specific_q.append({"identifier": "isBpl", "value": "Yes"})
+        has_specific = True
+    if is_differently_abled: 
+        specific_q.append({"identifier": "disability", "value": "Yes"})
+        has_specific = True
+    if is_minority: 
+        specific_q.append({"identifier": "minority", "value": "Yes"})
+        has_specific = True
+    if is_student: 
+        specific_q.append({"identifier": "isStudent", "value": "Yes"})
+        has_specific = True
+    if is_govt_employee: 
+        specific_q.append({"identifier": "isGovEmployee", "value": "Yes"})
+        has_specific = True
+    if is_economic_distress: 
+        specific_q.append({"identifier": "isEconomicDistress", "value": "Yes"})
+        has_specific = True
+    if is_dbt_scheme: 
+        specific_q.append({"identifier": "dbtScheme", "value": "Yes"})
+        has_specific = True
 
     url = "https://api.myscheme.gov.in/search/v6/schemes"
-    params = {
-        "lang": "en",
-        "q": json.dumps(q_params), 
-        "from": 0,
-        "size": 10
-    }
-
     headers = {
         "accept": "application/json, text/plain, */*",
         "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
@@ -124,14 +116,43 @@ async def govt_schemes(
         "x-api-key": os.getenv("MYSCHEME_API_KEY", "")
     }
 
+    # Helper function to fire a single request
+    async def fetch_api(client, q_payload):
+        params = {"lang": "en", "q": json.dumps(q_payload), "from": 0, "size": 10}
+        resp = await client.get(url, params=params, headers=headers, timeout=15.0)
+        resp.raise_for_status()
+        return resp.json().get("data", {})
+
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(url, params=params, headers=headers, timeout=15.0)
-            response.raise_for_status()
-            data = response.json()
-            
-            items = data.get("data", {}).get("hits", {}).get("items", [])
-            total_schemes = data.get("data", {}).get("summary", {}).get("total", 0)
+            if has_specific:
+                # Fire BOTH requests simultaneously to save time
+                res_spec, res_gen = await asyncio.gather(
+                    fetch_api(client, specific_q),
+                    fetch_api(client, base_q)
+                )
+                
+                items_spec = res_spec.get("hits", {}).get("items", [])
+                items_gen = res_gen.get("hits", {}).get("items", [])
+                
+                # Combine results, prioritizing specific schemes first, removing duplicates
+                seen_slugs = set()
+                merged_items = []
+                
+                for item in items_spec + items_gen:
+                    slug = item.get("fields", {}).get("slug", "N/A")
+                    if slug not in seen_slugs:
+                        seen_slugs.add(slug)
+                        merged_items.append(item)
+                        
+                items = merged_items[:10] # Return top 10 combined
+                total_schemes = max(res_gen.get("summary", {}).get("total", 0), len(merged_items))
+                
+            else:
+                # If user provided no specific demographics, just run general
+                res_gen = await fetch_api(client, base_q)
+                items = res_gen.get("hits", {}).get("items", [])
+                total_schemes = res_gen.get("summary", {}).get("total", 0)
             
             if not items:
                 return "No agricultural schemes found for the provided criteria."
@@ -158,15 +179,11 @@ async def govt_schemes(
     except Exception as e:
         return f"An unexpected error occurred: {str(e)}"
 
-
 @mcp.tool()
 async def get_scheme_details(slug: str) -> str:
     """
     Fetches the deep-dive details (eligibility, benefits, application process) of a specific scheme.
     IMPORTANT: Use this tool SECOND. Only call this after using 'govt_schemes' to get the exact 'slug'.
-    
-    Args:
-        slug: The unique identifier (slug) of the scheme (e.g., 'dsmphsfcclomuk').
     """
     url = "https://api.myscheme.gov.in/schemes/v6/public/schemes"
     params = {
