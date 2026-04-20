@@ -846,7 +846,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         source = 'AGRI_EXPERT',
         details,
         context,
-        originalQuestion=''
+        originalQuestion = ''
       } = body;
       console.log("the body coming=====", body)
 
@@ -958,7 +958,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           text,
           createdAt: new Date(),
           updatedAt: new Date(),
-          originalQuestion:originalQuestion
+          originalQuestion: originalQuestion
         };
 
 
@@ -1334,6 +1334,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (!existingQuestion) {
         throw new BadRequestError(`Question with ID ${questionId} not found`);
       }
+
+      // If the question source is ajraskha and there is no messageId id field, then don't allow updating the question until we resolve the messageId using the matching algorithm. This is to prevent data inconsistency and ensure we have the necessary linkage to the original message for ajrasakha questions.
       if (existingQuestion.source === 'AJRASAKHA' && !existingQuestion.messageId) {
         let resolvedMessageId = '';
         try {
@@ -1430,10 +1432,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         //   );
         // }
 
-        if(existingQuestion.source === "AJRASAKHA"){
-          if(!existingQuestion.messageId){
+        if (existingQuestion.source === "AJRASAKHA") {
+          if (!existingQuestion.messageId) {
             let data = await this.getMatchedQuestion(questionId);
-            if(data && data.messageId){
+            if (data && data.messageId) {
               updatable_fields.messageId = data.messageId;
             }
           }
@@ -1739,11 +1741,9 @@ export class QuestionService extends BaseService implements IQuestionService {
             questionId,
             session,
           );
-         // let submission
-        if (!questionSubmission)
-        {
-          if(question.source=="WHATSAPP")
-          {
+        // let submission
+        if (!questionSubmission) {
+          if (question.source == "WHATSAPP") {
             const newSubmission: IQuestionSubmission = {
               questionId: new ObjectId(questionId),
               lastRespondedBy: null,
@@ -1755,13 +1755,13 @@ export class QuestionService extends BaseService implements IQuestionService {
             questionSubmission = await this.questionSubmissionRepo.addSubmission(newSubmission, session);
 
           }
-          else{
+          else {
             throw new NotFoundError('Question submission not found');
           }
-         
+
 
         }
-          
+
 
 
         // 3. Validate if the queue is full
