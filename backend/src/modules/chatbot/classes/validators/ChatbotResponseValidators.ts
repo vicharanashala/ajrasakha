@@ -297,6 +297,14 @@ export class UserDetailEntryResponse {
   })
   @IsNumber()
   totalQuestions: number;
+
+  @JSONSchema({
+    description: 'Farmer profile details (present only if the user has filled their profile)',
+    type: 'object',
+    nullable: true,
+    readOnly: true,
+  })
+  farmerProfile?: Record<string, any>;
 }
 
 // ─── Paginated User Details ───────────────────────────────────────────────────
