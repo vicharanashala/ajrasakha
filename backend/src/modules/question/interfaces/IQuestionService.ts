@@ -170,4 +170,7 @@ export interface IQuestionService {
   getQuestionStatusSummary(query: GetDetailedQuestionsQuery, body: DetailedQuestionsBodyDto): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }>;
 
   getExprtIdByIndex(questionId: string, index: number): Promise<string | null>;
+  generateAiInitialAnswer(questionId: string): Promise<{ aiInitialAnswer : string}>;
+
+  approveAiInitialAnswer(questionId: string, answer: string)
 }

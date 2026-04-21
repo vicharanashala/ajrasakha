@@ -20,13 +20,10 @@ import { flattenAnswers } from "@/features/question_details/utils/flattenAnswers
 import { QuestionHeader } from "@/features/question_details/components/QuestionHeader";
 import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
 import MessageDetail from "./MessageDetail";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/atoms/tooltip";
 import { AiGeneratedAnswerCard } from "./AiGeneratedAnswerCard";
+import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
+import { useApproveAIAnswer } from "@/hooks/api/question/useApproveInitialAnswer";
+import { toast } from "sonner";
 
 const questionService = new QuestionService();
 
@@ -73,13 +70,59 @@ export const QuestionDetails = ({
     isLoading: isLoadingrerouteSelectedQuestion,
   } = useGetReRoutedQuestionFullData(question?._id);
 
+  const [tempAiAnswer, setTempAiAnswer] = useState<string>("");
+
+  const {
+    mutate: approveAIAnswer,
+    isPending: isApproving,
+  } = useApproveAIAnswer();
+
   const { data: submissionCheck } = useQuery({
     queryKey: ["question_submission_exists", question?._id],
     queryFn: () => questionService.checkSubmissionExists(question._id),
     enabled: !!question?._id && question?.source === "AJRASAKHA",
   });
+
+  const {
+    mutate: generateAIAnswer,
+    data: newAiGeneratedAnswer,
+    isPending: isGeneratingAI,
+    error,
+  } = useGenerateInitialAnswer();
   const submissionExists = submissionCheck?.exists ?? false;
 
+
+  const handleGenerateAI = () => {
+    if (!question?._id) return;
+
+    generateAIAnswer(question._id, {
+      onSuccess: (data) => {
+        setTempAiAnswer(data.aiInitialAnswer); 
+      },
+      onError: (err) => {
+        console.error(err);
+        toast.error(err.message || "Failed to generate answer")
+      },
+    });
+  };
+
+  const handleApproveAI = () => {
+    if (!question?._id || !tempAiAnswer) return;
+
+    approveAIAnswer(
+      { questionId: question._id, answer: tempAiAnswer },
+      {
+        onSuccess: () => {
+          setTempAiAnswer("");
+          refetchAnswers();
+        },
+        onError: (err) => {
+          console.error(err);
+          toast.error(err.message || "Failed approve answer")
+        },
+      }
+    );
+  };
 
   return (
     <main className="mx-auto p-6 pt-0 grid gap-6">
@@ -116,14 +159,19 @@ export const QuestionDetails = ({
           )}
         </div>
       )}
-
-      {(question.aiInitialAnswer || question.aiApprovedAnswer) && (
-        <AiGeneratedAnswerCard
-          aiApprovedAnswer={question.aiApprovedAnswer}
-          aiInitialAnswer={question.aiInitialAnswer}
-          aiApprovedSources={question.aiApprovedSources}
-        />
-      )}
+      <AiGeneratedAnswerCard
+        aiApprovedAnswer={question.aiApprovedAnswer}
+        aiInitialAnswer={question.aiInitialAnswer}
+        aiApprovedSources={question.aiApprovedSources}
+        source={question.source}
+        hasSubmissions={question.submission.history.length > 0}
+        tempAiAnswer={tempAiAnswer}
+        onGenerate={handleGenerateAI}
+        onApprove={handleApproveAI}
+        onCancel={() => setTempAiAnswer("")}
+        isGenerating={isGeneratingAI}
+        isApproving={isApproving}
+      />
 
       {question && currentUser && question?.source == "AJRASAKHA" && currentUser.role != "expert" &&
         <MessageDetail question={question} isQuestionAllocatedToExpert={submissionExists} navigateToQuestionPage={navigateToQuestionPage} />

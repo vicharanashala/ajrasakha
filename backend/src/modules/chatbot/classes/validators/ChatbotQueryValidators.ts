@@ -67,4 +67,9 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsString()
   village: string = '';
+
+  @JSONSchema({ example: 'yes', description: 'Filter by farmer profile completion: yes, no, or all' })
+  @IsOptional()
+  @IsIn(['yes', 'no', 'all'])
+  profileCompleted: 'yes' | 'no' | 'all' = 'all';
 }

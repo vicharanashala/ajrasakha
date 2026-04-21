@@ -3587,4 +3587,58 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
     return submission.queue[index].toString();
   }
+  async generateAiInitialAnswer(questionId: string): Promise<{aiInitialAnswer:string}> {
+    return this._withTransaction( async( session ) => {
+
+      const question = await this.questionRepo.getById(questionId,session);
+
+      if(!question)
+        throw new NotFoundError("Question not found");
+
+      if(!(question.source === "AGRI_EXPERT" || question.source === "OUTREACH"))
+        throw new ForbiddenError("Source must be agri expert or outreach")
+
+      const submissions = await this.questionSubmissionRepo.getByQuestionId(questionId);
+      
+      if(submissions.history.length > 0)
+        throw new ForbiddenError("Cannot generate AI initial answer. Question already has submitted answers.")
+
+      const res = await this.aiService.getAnswerByQuestionDetails(question);
+
+      if (!res?.answer || !res.answer.trim()) {
+        throw new InternalServerError("AI failed to generate answer");
+      }
+
+      return { aiInitialAnswer: res.answer };
+    })
+  }
+
+  async approveAiInitialAnswer(questionId: string, answer: string) {
+    return this._withTransaction(async (session) => {
+      const question = await this.questionRepo.getById(questionId, session);
+
+      if (!question)
+        throw new NotFoundError("Question not found");
+
+      if (!(question.source === "AGRI_EXPERT" || question.source === "OUTREACH"))
+        throw new ForbiddenError("Source must be agri expert or outreach");
+
+      if (!answer?.trim())
+        throw new BadRequestError("Answer is required");
+
+      const submissions = await this.questionSubmissionRepo.getByQuestionId(questionId);
+
+      if(submissions.history.length > 0)
+        throw new ForbiddenError("Cannot generate AI initial answer. Question already has submitted answers.")
+
+      await this.questionRepo.updateQuestion(
+        questionId,
+        { aiInitialAnswer: answer },
+        session
+      );
+
+      return { success: true };
+    });
+  }
+
 }

@@ -259,6 +259,7 @@ export class ChatbotController {
       query.source,
       query.crop,
       query.village,
+      query.profileCompleted,
     );
   }
 }
