@@ -11,8 +11,9 @@ import {
 import { Button } from "./button";
 import { Avatar, AvatarImage, AvatarFallback } from "./avatar";
 import { useAuthStore } from "@/stores/auth-store";
-import { LogOut, User } from "lucide-react";
+import { CheckCheck, LogOut, User } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 
 export const UserProfileActions = () => {
   const { user, logout, clearUser } = useAuthStore();
@@ -41,6 +42,7 @@ interface UserDropdownProps {
 export function UserDropdown({ user, onLogout }: UserDropdownProps) {
   const [imgError, setImgError] = React.useState(false);
   const navigate = useNavigate();
+  const { data: userWithRole } = useGetCurrentUser({});
   const handleLogout = () => {
     const clearPlaygroundTabs = () => {
       Object.keys(localStorage).forEach((key) => {
@@ -64,6 +66,10 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
 
   const handleViewProfile = () => {
     navigate({ to: "/profile" });
+  };
+
+  const handleViewAudit = () => {
+    navigate({ to: "/audit" });
   };
 
   return (
@@ -114,6 +120,17 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
           <User className="mr-2 h-4 w-4" />
           Profile
         </DropdownMenuItem>
+
+        {userWithRole?.role === "admin" && (
+          <DropdownMenuItem
+            onClick={handleViewAudit}
+            className="text-foreground focus:text-foreground cursor-pointer mb-2"
+          >
+            <CheckCheck  className="mr-2 h-4 w-4" />
+          View Audit
+        </DropdownMenuItem>
+        )}
+        
 
         <DropdownMenuItem
           onClick={handleLogout}

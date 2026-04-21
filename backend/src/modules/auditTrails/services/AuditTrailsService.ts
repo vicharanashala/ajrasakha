@@ -5,7 +5,7 @@ import {IAuditTrailsService} from '../interfaces/IAuditTrailsService.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {AUDIT_TRAILS_TYPES} from '../types.js';
 import {IAuditTrailsRepository} from '../interfaces/IAuditTrailsRepository.js';
-import { ObjectId } from 'mongodb';
+import {ObjectId} from 'mongodb';
 
 @injectable()
 export class AuditTrailsService
@@ -23,15 +23,35 @@ export class AuditTrailsService
   }
   async createAuditTrail(paload: ModeratorAuditTrail): Promise<string> {
     // Implement the logic to create an audit trail
-    return await this.auditTrailsRepository.createAuditTrail(this.normalizeAuditToObjectId(paload));
+    return await this.auditTrailsRepository.createAuditTrail(
+      this.normalizeAuditToObjectId(paload),
+    );
   }
 
-  async getAuditTrails(page: number, limit: number, startDate?: string, endDate?: string): Promise<{data: ModeratorAuditTrail[], totalDocuments: number}> {
+  async getAuditTrails(
+    page: number,
+    limit: number,
+    startDate?: string,
+    endDate?: string,
+    category?: string | null,
+    action?: string | null,
+    order?: "asc" | "desc",
+    outComeStatus?: string,
+  ): Promise<{data: ModeratorAuditTrail[]; totalDocuments: number}> {
     // Implement the logic to get all audit trails
-    const auditTrails = await this.auditTrailsRepository.getAuditTrails(page, limit, startDate, endDate);
+    const auditTrails = await this.auditTrailsRepository.getAuditTrails(
+      page,
+      limit,
+      startDate,
+      endDate,
+      category,
+      action,
+      order,
+      outComeStatus,
+    );
     return {
-      data: auditTrails.data.map((audit) => this.normalizeAudit(audit)),
-      totalDocuments: auditTrails.totalDocuments
+      data: auditTrails.data.map(audit => this.normalizeAudit(audit)),
+      totalDocuments: auditTrails.totalDocuments,
     };
   }
 
@@ -97,77 +117,102 @@ export class AuditTrailsService
     if (!value) return undefined;
     if (Array.isArray(value)) {
       return value
-        .map((v) => (ObjectId.isValid(v) ? new ObjectId(String(v)) : null))
+        .map(v => (ObjectId.isValid(v) ? new ObjectId(String(v)) : null))
         .filter(Boolean);
     }
     return ObjectId.isValid(value) ? [new ObjectId(String(value))] : undefined;
   }
 
   private normalizeAudit(audit: any) {
-  return {
-    ...audit,
-    actor: {
-      ...audit.actor,
-      id: audit.actor?.id
-        ? String(audit.actor.id)
-        : audit.actor?.id,
-    },
-    context: {
-      ...audit.context,
+    return {
+      ...audit,
+      actor: {
+        ...audit.actor,
+        id: audit.actor?.id ? String(audit.actor.id) : audit.actor?.id,
+      },
+      context: {
+        ...audit.context,
 
-      ...(audit.context?.questionId && {
-        questionId: this.toStringIdArray(audit.context.questionId),
-      }),
+        ...(audit.context?.questionId && {
+          questionId: this.toStringIdArray(audit.context.questionId),
+        }),
 
-      ...(audit.context?.answerId && {
-        answerId: String(audit.context.answerId),
-      }),
+        ...(audit.context?.answerId && {
+          answerId: String(audit.context.answerId),
+        }),
 
-      ...(audit.context?.userId && {
-        userId: String(audit.context.userId),
-      }),
+        ...(audit.context?.userId && {
+          userId: String(audit.context.userId),
+        }),
 
-      ...(audit.context?.requestId && {
-        requestId: String(audit.context.requestId),
-      }),
+        ...(audit.context?.requestId && {
+          requestId: String(audit.context.requestId),
+        }),
 
-      ...(audit.context?.cropId && {
-        cropId: String(audit.context.cropId),
-      }),
-    },
-
-    createdAt: audit.createdAt || new Date(),
-
-    changes: {
-      before: {
-        ...audit.changes?.before,
-
-        ...(audit?.changes?.before?.experts && {
-          experts: this.toStringIdArray(audit.changes.before.experts),
+        ...(audit.context?.cropId && {
+          cropId: String(audit.context.cropId),
         }),
       },
 
-      after: {
-        ...audit.changes?.after,
+      createdAt: audit.createdAt || new Date(),
 
-        ...(audit?.changes?.after?.experts && {
-          experts: this.toStringIdArray(audit.changes.after.experts),
-        }),
+      changes: {
+        before: {
+          ...audit.changes?.before,
+
+          ...(audit?.changes?.before?.experts && {
+            experts: this.toStringIdArray(audit.changes.before.experts),
+          }),
+        },
+
+        after: {
+          ...audit.changes?.after,
+
+          ...(audit?.changes?.after?.experts && {
+            experts: this.toStringIdArray(audit.changes.after.experts),
+          }),
+        },
       },
-    },
-  };
-}
-
-private toStringIdArray(value: any) {
-  if (!value) return undefined;
-
-  if (Array.isArray(value)) {
-    return value.map((v) => String(v));
+    };
   }
 
-  return [String(value)];
+  private toStringIdArray(value: any) {
+    if (!value) return undefined;
+
+    if (Array.isArray(value)) {
+      return value.map(v => String(v));
+    }
+
+    return [String(value)];
+  }
+
+  async getAuditTrailsByModeratorId(
+    moderatorId: string,
+    page: number,
+    limit: number,
+    startDate?: string,
+    endDate?: string,
+    category?: string | null,
+    action?: string | null,
+    order?: "asc" | "desc",
+    outComeStatus?: string,
+  ): Promise<{data: ModeratorAuditTrail[]; totalDocuments: number}> {
+    // Implement the logic to get audit trails by moderator ID
+    const auditTrails =
+      await this.auditTrailsRepository.getAuditTrailsByModeratorId(
+        moderatorId,
+        page,
+        limit,
+        startDate,
+        endDate,
+        category,
+        action,
+        order,
+        outComeStatus,
+      );
+    return {
+      data: auditTrails.data.map(audit => this.normalizeAudit(audit)),
+      totalDocuments: auditTrails.totalDocuments,
+    };
+  }
 }
-
-}
-
-

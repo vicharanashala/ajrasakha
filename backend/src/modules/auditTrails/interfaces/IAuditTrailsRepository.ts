@@ -1,13 +1,39 @@
-import { ClientSession } from "mongodb";
-import { ModeratorAuditTrail } from "./IAuditTrails.js";
+import {ClientSession} from 'mongodb';
+import {AuditFilters, ModeratorAuditTrail} from './IAuditTrails.js';
 
 export interface IAuditTrailsRepository {
-    createAuditTrail(
-        data: ModeratorAuditTrail,
-        session?: ClientSession
-    ): Promise<string>;
+  createAuditTrail(
+    data: ModeratorAuditTrail,
+    session?: ClientSession,
+  ): Promise<string>;
 
-    getAuditTrails(page: number, limit: number, startDate?: string, endDate?: string, session?: ClientSession): Promise<{data :ModeratorAuditTrail[], totalDocuments: number}>;
+  getAuditTrails(
+    page: number,
+    limit: number,
+    startDate?: string,
+    endDate?: string,
+    category?: string | null,
+    action?: string | null,
+    order?: "asc" | "desc",
+    outComeStatus?: string,
+    session?: ClientSession,
+  ): Promise<{data: ModeratorAuditTrail[]; totalDocuments: number}>;
 
-    getAuditTrailById(id: string, session?: ClientSession): Promise<ModeratorAuditTrail | null>;
+  getAuditTrailById(
+    id: string,
+    session?: ClientSession,
+  ): Promise<ModeratorAuditTrail | null>;
+
+  getAuditTrailsByModeratorId(
+    moderatorId: string,
+    page: number,
+    limit: number,
+    startDate?: string,
+    endDate?: string,
+    category?: string | null,
+    action?: string | null,
+    order?: "asc" | "desc",
+    outComeStatus?: string,
+    session?: ClientSession,
+  ): Promise<{data: ModeratorAuditTrail[]; totalDocuments: number}>;
 }

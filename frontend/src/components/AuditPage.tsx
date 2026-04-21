@@ -18,9 +18,15 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "./atoms/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
-import { useGetAuditTrails } from "@/hooks/api/auditTrails/useGetAuditTrails";
+import {
+  useGetAuditTrails,
+  type AuditFilters,
+} from "@/hooks/api/auditTrails/useGetAuditTrails";
 import { Button } from "./atoms/button";
 import {
   ArrowBigDownDashIcon,
@@ -30,9 +36,12 @@ import {
   ChevronUp,
   Loader2,
   RefreshCw,
+  ArrowLeft,
+  CheckCheck,
 } from "lucide-react";
 import { Pagination } from "./pagination";
 import AvatarComponent from "./avatar-component";
+import { Input } from "./atoms/input";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -260,40 +269,40 @@ function sortKeys(keys: string[]): string[] {
   });
 }
 
-function ObjectCard({
-  item,
-  index,
-}: {
-  item: Record<string, unknown>;
-  index: number;
-}) {
-  const keys = sortKeys(Object.keys(item).filter((k) => k !== "_id"));
-  const rawId = item["_id"] ? unwrapMongoId(item["_id"]) : null;
-  const id = rawId !== null && rawId !== undefined ? String(rawId) : null;
+// function ObjectCard({
+//   item,
+//   index,
+// }: {
+//   item: Record<string, unknown>;
+//   index: number;
+// }) {
+//   const keys = sortKeys(Object.keys(item).filter((k) => k !== "_id"));
+//   const rawId = item["_id"] ? unwrapMongoId(item["_id"]) : null;
+//   const id = rawId !== null && rawId !== undefined ? String(rawId) : null;
 
-  return (
-    <div className="rounded-lg border border-border/60 bg-background p-2.5 space-y-1">
-      <div className="flex items-center gap-2 mb-1.5">
-        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-          #{index + 1}
-        </span>
-        {id && (
-          <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[180px]">
-            Id: {id}
-          </span>
-        )}
-      </div>
-      {keys.map((k) => (
-        <div key={k} className="flex items-start gap-2 text-xs">
-          <span className="text-muted-foreground w-14 shrink-0 capitalize">
-            {k}
-          </span>
-          <span className="font-medium break-all">{renderScalar(item[k])}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
+//   return (
+//     <div className="rounded-lg border border-border/60 bg-background p-2.5 space-y-1">
+//       <div className="flex items-center gap-2 mb-1.5">
+//         <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+//           #{index + 1}
+//         </span>
+//         {id && (
+//           <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[180px]">
+//             Id: {id}
+//           </span>
+//         )}
+//       </div>
+//       {keys.map((k) => (
+//         <div key={k} className="flex items-start gap-2 text-xs">
+//           <span className="text-muted-foreground w-14 shrink-0 capitalize">
+//             {k}
+//           </span>
+//           <span className="font-medium break-all">{renderScalar(item[k])}</span>
+//         </div>
+//       ))}
+//     </div>
+//   );
+// }
 
 // ─── Array Diff: side-by-side cards ──────────────────────────────────────────
 
@@ -502,7 +511,7 @@ function DiffViewer({
             className="grid grid-cols-[1fr_1fr_1fr] gap-1 text-xs border-t border-border/30 pt-2"
           >
             <span className="font-mono text-muted-foreground self-start">
-              {key.split(".").pop().toUpperCase()}
+              {key?.split(".")?.pop()?.toUpperCase()}
             </span>
             <span
               className={`font-mono px-1.5 py-0.5 rounded ${changed ? "bg-red-50 text-red-800 dark:bg-red-950/60 dark:text-red-300" : "text-foreground"} text-wrap`}
@@ -578,7 +587,10 @@ function CompactCard({ entry }: { entry: AuditEntry }) {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           {/* Avatar + name */}
           <div className="flex items-center gap-3 min-w-0">
-            <AvatarComponent name={entry.actor.name} image={entry.actor.avatar}/>
+            <AvatarComponent
+              name={entry.actor.name}
+              image={entry.actor.avatar}
+            />
             <div className="min-w-0">
               <p className="text-sm font-medium leading-tight truncate">
                 {entry.actor.name}
@@ -647,7 +659,10 @@ function DetailRow({ entry }: { entry: AuditEntry }) {
         {/* Actor */}
         <TableCell>
           <div className="flex items-center gap-2">
-            <AvatarComponent name={entry.actor.name} image={entry.actor.avatar}/>
+            <AvatarComponent
+              name={entry.actor.name}
+              image={entry.actor.avatar}
+            />
             <div>
               <p className="text-xs font-medium leading-tight">
                 {entry.actor.name}
@@ -760,67 +775,339 @@ function DetailRow({ entry }: { entry: AuditEntry }) {
 const AuditPage = () => {
   const [view, setView] = useState<"compact" | "detail">("compact");
   const [page, setPage] = useState(1);
-  const [startDate, setStartDate] = useState<string | undefined>(undefined);
-  const [endDate, setEndDate] = useState<string | undefined>(undefined);
+  const [startDateTime, setStartDateTime] = useState<string | undefined>();
+  const [endDateTime, setEndDateTime] = useState<string | undefined>();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [category, setCategory] = useState<string | null>(null);
+  const [action, setAction] = useState<string | null>(null);
+  const [order, setOrder] = useState<"asc" | "desc">("desc");
+  const [outComeStatus, setOutComeStatus] = useState<string>("");
   const limit = 10;
+
+  enum AuditCategory {
+    QUESTION = "Question",
+    EXPERTS_CATEGORY = "Experts Category",
+    EXPERTS_MANAGEMENT = "Experts Management",
+    REQUEST_QUEUE = "Request Queue",
+    ANALYTICS = "Analytics",
+    CROP_MANAGEMENT = "Crop Management",
+    OUTREACH_REPORT = "Outreach Report",
+    AGENTS_INTERFACE = "Agents Interface",
+    DOWNLOAD_REPORTS = "Download Reports",
+    ANSWER = "Answer",
+  }
+
+  enum AuditAction {
+    ALL = "All",
+    QUESTION_ADD = "Question Add",
+    QUESTION_UPDATE = "Question Update",
+    QUESTION_DELETE = "Question Delete",
+    QUESTION_BULK_CREATE = "Question Bulk Create",
+    QUESTION_BULK_UPDATE = "Question Bulk Update",
+    QUESTION_BULK_DELETE = "Question Bulk Delete",
+    REALLOCATE_QUESTIONS = "Reallocate Questions",
+    EXPERTS_AUTO_ALLOCATE = "Experts Auto Allocate",
+    SELECT_EXPERT = "Select Expert",
+    DELETE_EXPERT = "Delete Expert",
+    EXPERTS_ADD_COMMENT = "Experts Add Comment",
+    BLOCK_EXPERT = "Block Expert",
+    UNBLOCK_EXPERT = "Unblock Expert",
+    CHANGE_STATUS = "Change Status",
+    DELETE_REQUEST = "Delete Request",
+    ANALYTICS_EXPORT_PDF = "Analytics Export PDF",
+    ADD_CROP = "Add Crop",
+    UPDATE_CROP = "Update Crop",
+    SEND_OUTREACH_REPORT = "Send Outreach Report",
+    DOWNLOAD = "Download",
+    APPROVE_ANSWER = "Approve Answer",
+    REROUTE_ANSWER = "Reroute Answer",
+    REROUTE_REJECTION = "Reroute Rejection",
+  }
+
+  enum reverseActionEnum {
+    "Question Add" = "QUESTION_ADD",
+    "Question Update" = "QUESTION_UPDATE",
+    "Question Delete" = "QUESTION_DELETE",
+    "Question Bulk Create" = "QUESTION_BULK_CREATE",
+    "Question Bulk Update" = "QUESTION_BULK_UPDATE",
+    "Question Bulk Delete" = "QUESTION_BULK_DELETE",
+    "Reallocate Questions" = "REALLOCATE_QUESTIONS",
+    "Experts Auto Allocate" = "EXPERTS_AUTO_ALLOCATE",
+    "Select Expert" = "SELECT_EXPERT",
+    "Delete Expert" = "DELETE_EXPERT",
+    "Experts Add Comment" = "EXPERTS_ADD_COMMENT",
+    "Block Expert" = "BLOCK_EXPERT",
+    "Unblock Expert" = "UNBLOCK_EXPERT",
+    "Change Status" = "CHANGE_STATUS",
+    "Delete Request" = "DELETE_REQUEST",
+    "Analytics Export PDF" = "ANALYTICS_EXPORT_PDF",
+    "Add Crop" = "ADD_CROP",
+    "Update Crop" = "UPDATE_CROP",
+    "Send Outreach Report" = "SEND_OUTREACH_REPORT",
+    "Download" = "DOWNLOAD",
+    "Approve Answer" = "APPROVE_ANSWER",
+    "Reroute Answer" = "REROUTE_ANSWER",
+    "Reroute Rejection" = "REROUTE_REJECTION",
+  }
+
+  const actionObject = {
+    QUESTION: [
+      AuditAction.ALL,
+      AuditAction.QUESTION_ADD,
+      AuditAction.QUESTION_UPDATE,
+      AuditAction.QUESTION_DELETE,
+      AuditAction.QUESTION_BULK_CREATE,
+      AuditAction.QUESTION_BULK_UPDATE,
+      AuditAction.QUESTION_BULK_DELETE,
+      AuditAction.REALLOCATE_QUESTIONS,
+    ],
+    EXPERTS_CATEGORY: [
+      AuditAction.ALL,
+      AuditAction.EXPERTS_AUTO_ALLOCATE,
+      AuditAction.SELECT_EXPERT,
+      AuditAction.DELETE_EXPERT,
+      AuditAction.EXPERTS_ADD_COMMENT,
+    ],
+    EXPERTS_MANAGEMENT: [
+      AuditAction.ALL,
+      AuditAction.BLOCK_EXPERT,
+      AuditAction.UNBLOCK_EXPERT,
+    ],
+    REQUEST_QUEUE: [
+      AuditAction.ALL,
+      AuditAction.CHANGE_STATUS,
+      AuditAction.DELETE_REQUEST,
+    ],
+    ANALYTICS: [AuditAction.ALL, AuditAction.ANALYTICS_EXPORT_PDF],
+    CROP_MANAGEMENT: [
+      AuditAction.ALL,
+      AuditAction.ADD_CROP,
+      AuditAction.UPDATE_CROP,
+    ],
+    OUTREACH_REPORT: [AuditAction.ALL, AuditAction.SEND_OUTREACH_REPORT],
+    DOWNLOAD_REPORTS: [AuditAction.ALL, AuditAction.DOWNLOAD],
+    ANSWER: [
+      AuditAction.ALL,
+      AuditAction.APPROVE_ANSWER,
+      AuditAction.REROUTE_ANSWER,
+      AuditAction.REROUTE_REJECTION,
+    ],
+  };
+
+  // enum outComeStatus {
+  //   SUCCESS = "Success",
+  //   FAILED = "Failed",
+  //   PARTIAL = "Partial",
+  // }
 
   const { data, isLoading, error, refetch } = useGetAuditTrails(
     page,
     limit,
-    startDate,
-    endDate,
+    startDateTime,
+    endDateTime,
+    category,
+    action,
+    order,
+    outComeStatus,
   );
 
   const entries: AuditEntry[] = data?.data ?? [];
   const total: number = data?.totalDocuments ?? 0;
   const totalPages = data?.totalPages ?? 1;
 
+  const handleBack = () => {
+    window.history.back();
+  };
+
   return (
     <div className="p-6 space-y-4">
       {/* ── Toolbar ── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2">
-          <h1 className="text-lg font-semibold">Audit Trail</h1>
-          {!isLoading && (
-            <span className="text-xs bg-purple-50 text-purple-800 border border-purple-200 dark:bg-purple-950 dark:text-purple-200 dark:border-purple-800 px-2 py-0.5 rounded-full font-medium">
-              {total} entries
-            </span>
-          )}
+        <div className="flex justify-between items-center">
+          <div
+            className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer w-fit"
+            onClick={handleBack}
+          >
+            <div className="flex items-center gap-2">
+              <ArrowLeft className="mb-12 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground group-hover:-translate-x-1 transition-transform duration-200" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <CheckCheck />
+            <h1 className="text-lg font-semibold">Audit Trail</h1>
+
+            {!isLoading && (
+              <span className="text-xs bg-purple-50 text-purple-800 border border-purple-200 dark:bg-purple-950 dark:text-purple-200 dark:border-purple-800 px-2 py-0.5 rounded-full font-medium">
+                {total} entries
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
           {/* Date filters via DropdownMenu */}
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setIsRefreshing(true);
-                        setTimeout(() => {
-                          refetch();
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setIsRefreshing(true);
+                setTimeout(() => {
+                  refetch();
+                  setIsRefreshing(false);
+                }, 2000);
+              }}
+              disabled={isRefreshing}
+            >
+              {isRefreshing ? (
+                <Loader2 className="animate-spin w-4 h-4" />
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-1" />
+                  Refresh
+                </>
+              )}
+            </Button>
 
-                          setIsRefreshing(false);
-                        }, 2000);
-                      }}
-                      disabled={isRefreshing}
-                    >
-                      {isRefreshing ? (
-                        <Loader2 className="animate-spin w-4 h-4" />
-                      ) : (
-                        <>
-                          <RefreshCw className="w-4 h-4 mr-1" />
-                          Refresh
-                        </>
-                      )}
-                    </Button>
-                  </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1 text-xs">
+                  <ArrowBigDownDashIcon size={14} />
+                  {category
+                    ? AuditCategory[category as keyof typeof AuditCategory]
+                    : "Category"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 p-3 space-y-2">
+                <DropdownMenuRadioGroup
+                  value={category ?? undefined}
+                  onValueChange={(value) => {
+                    setCategory(value);
+                  }}
+                >
+                  <DropdownMenuRadioItem value="">All</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="QUESTION">
+                    Question
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="EXPERTS_CATEGORY">
+                    Experts Category
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="EXPERTS_MANAGEMENT">
+                    Experts Management
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="REQUEST_QUEUE">
+                    Request Queue
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="ANALYTICS">
+                    Analytics
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="CROP_MANAGEMENT">
+                    Crop Management
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="OUTREACH_REPORT">
+                    Outreach Report
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="AGENTS_INTERFACE">
+                    Agents Interface
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="DOWNLOAD_REPORTS">
+                    Download Reports
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="ANSWER">
+                    Answer
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {category && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1 text-xs">
+                    <ArrowBigDownDashIcon size={14} />
+                    {action
+                      ? AuditAction[action as keyof typeof AuditAction]
+                      : "Action"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 p-3 space-y-2">
+                  <DropdownMenuRadioGroup
+                    value={action ?? undefined}
+                    onValueChange={(value) => {
+                      setAction(value);
+                    }}
+                  >
+                    {actionObject[category as keyof typeof actionObject]?.map(
+                      (act) => (
+                        <DropdownMenuRadioItem
+                          key={act}
+                          value={
+                            reverseActionEnum[
+                              act as keyof typeof reverseActionEnum
+                            ]
+                          }
+                        >
+                          {act}
+                        </DropdownMenuRadioItem>
+                      ),
+                    )}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1 text-xs">
                 <ArrowBigDownDashIcon size={14} />
-                Filter
+                OutCome
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 p-3 space-y-2">
+              <DropdownMenuRadioGroup
+                value={outComeStatus}
+                onValueChange={(value) => {
+                  setOutComeStatus(value);
+                }}
+              >
+                <DropdownMenuRadioItem value="SUCCESS">Success</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="FAILURE">Failure</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="PARTIAL">Partial</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1 text-xs">
+                <ArrowBigDownDashIcon size={14} />
+                Order
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 p-3 space-y-2">
+              <DropdownMenuRadioGroup
+                value={order}
+                onValueChange={(value) => {
+                  setOrder(value as "asc" | "desc");
+                }}
+              >
+                <DropdownMenuRadioItem value="asc">
+                  Oldest first
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="desc">
+                  Newest first
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1 text-xs">
+                <ArrowBigDownDashIcon size={14} />
+                Date and Time
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 p-3 space-y-2">
@@ -828,11 +1115,11 @@ const AuditPage = () => {
                 <label className="text-xs text-muted-foreground font-medium">
                   Start date
                 </label>
-                <input
-                  type="date"
-                  value={startDate ?? ""}
+                <Input
+                  type="datetime-local"
+                  value={startDateTime ?? ""}
                   onChange={(e) => {
-                    setStartDate(e.target.value || undefined);
+                    setStartDateTime(e.target.value || undefined);
                     setPage(1);
                   }}
                   className="w-full border rounded-md px-2 py-1 text-xs bg-background"
@@ -842,24 +1129,24 @@ const AuditPage = () => {
                 <label className="text-xs text-muted-foreground font-medium">
                   End date
                 </label>
-                <input
-                  type="date"
-                  value={endDate ?? ""}
+                <Input
+                  type="datetime-local"
+                  value={endDateTime ?? ""}
                   onChange={(e) => {
-                    setEndDate(e.target.value || undefined);
+                    setEndDateTime(e.target.value || undefined);
                     setPage(1);
                   }}
                   className="w-full border rounded-md px-2 py-1 text-xs bg-background"
                 />
               </div>
-              {(startDate || endDate) && (
+              {(startDateTime || endDateTime) && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="w-full text-xs mt-1"
                   onClick={() => {
-                    setStartDate(undefined);
-                    setEndDate(undefined);
+                    setStartDateTime(undefined);
+                    setEndDateTime(undefined);
                     setPage(1);
                   }}
                 >

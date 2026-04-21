@@ -90,3 +90,14 @@ export interface ModeratorAuditTrail {
 
   createdAt?: Date;
 }
+
+export type AuditFilters = {
+  page?: number;
+  limit?: number;
+  startDateTime?: string;
+  endDateTime?: string;
+  action?: string;
+  category?: string;
+  status?: string;
+  sortOrder?: "asc" | "desc";
+};

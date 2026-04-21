@@ -268,7 +268,7 @@ export const PlaygroundPage = () => {
                   </TabsTrigger>
                 )}
 
-                {user && user.role !== "expert" && (<TabsTrigger value="audit" className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0">View Audit</TabsTrigger>) }
+                {user && user.role !== "expert" && user.role !== "admin" && (<TabsTrigger value="audit" className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0">View Audit</TabsTrigger>) }
               </TabsList>
             </div>
 
@@ -434,7 +434,7 @@ export const PlaygroundPage = () => {
                 
               )}
 
-              {user && user.role !== "expert" && (
+              {user && user.role !== "expert" && user.role !== "admin" && (
                 <TabsContent
                   value="audit"
                   className={cn(
