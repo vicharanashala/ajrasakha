@@ -3,6 +3,8 @@ from typing import TypedDict, Optional
 from pydantic import BaseModel, Field
 from langchain_anthropic import ChatAnthropic
 
+from agents.gdb_agent import run_gdb_agent
+
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -62,9 +64,6 @@ async def market_node(state: MasterState):
     print("Market Dept: Fetching prices from eNAM...")
     return {"final_answer": "Dummy Market Data: Tomato price is Rs. 2000/Qtl"}
 
-async def gdb_node(state: MasterState):
-    print("GDB Dept: Searching Vector DB for advice...")
-    return {"final_answer": "Dummy GDB Data: Use Neem oil for tomato leaves."}
 
 async def weather_node(state: MasterState):
     print("Weather Dept: Checking IMD API...")
@@ -82,9 +81,9 @@ builder = StateGraph(MasterState)
 # Add all nodes
 builder.add_node("parse_query_node", parse_query_node)
 builder.add_node("market_node", market_node)
-builder.add_node("gdb_node", gdb_node)
 builder.add_node("weather_node", weather_node)
 builder.add_node("soil_node", soil_node)
+builder.add_node("gdb_node", run_gdb_agent)
 
 builder.set_entry_point("parse_query_node")
 
