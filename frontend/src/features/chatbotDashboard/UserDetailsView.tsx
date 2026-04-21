@@ -154,9 +154,10 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
         <CardHeader className="pb-3">
           <div className="flex flex-col gap-3 min-w-0 w-full">
             <CardTitle className="text-sm font-medium">All Farmers</CardTitle>
-            {/* Row 1: name search + date range */}
-            <div className="flex flex-col sm:flex-row flex-wrap lg:flex-nowrap items-stretch gap-2 w-full min-w-0">
-              <div className="relative w-full sm:flex-1 min-w-0">
+            {/* Filters: 4-col → 2-col → 1-col responsive grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 w-full min-w-0">
+              {/* Search by name / email */}
+              <div className="relative min-w-0">
                 <svg
                   width={14}
                   height={14}
@@ -175,22 +176,8 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                   className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
                 />
               </div>
-              <div className="w-full sm:w-auto lg:flex-none min-w-0 relative [&_label]:hidden [&_#date-toggle]:!w-full [&_#date-toggle]:!h-9 [&_#date-toggle]:!overflow-hidden [&_.absolute]:!left-0 [&_.absolute]:!right-0 [&_.absolute]:!w-full [&_.absolute]:sm:!w-[320px] [&_.absolute]:sm:!left-auto [&_.absolute]:sm:!right-0">
-                <DateRangeFilter
-                  customName=""
-                  advanceFilter={{ startTime, endTime }}
-                  handleDialogChange={handleDateChange}
-                  className={
-                    startTime
-                      ? "!h-9 !text-sm !w-full !border-green-500 dark:!border-green-500 !bg-green-50 dark:!bg-[#1a1a1a] !text-green-700 dark:!text-green-400 !font-medium hover:!bg-green-100 dark:hover:!bg-[#2a2a2a]"
-                      : "!h-9 !text-sm !w-full !border-gray-200 dark:!border-gray-700 !bg-white dark:!bg-[#1a1a1a] !text-gray-700 dark:!text-gray-200 !font-normal hover:!bg-gray-50 dark:hover:!bg-[#2a2a2a]"
-                  }
-                />
-              </div>
-            </div>
-            {/* Row 2: crop + village + reset */}
-            <div className="flex flex-col sm:flex-row flex-wrap lg:flex-nowrap items-stretch gap-2 w-full min-w-0">
-              <div className="relative w-full sm:flex-1 min-w-0">
+              {/* Filter by crop */}
+              <div className="relative min-w-0">
                 <svg
                   width={14}
                   height={14}
@@ -209,7 +196,8 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                   className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
                 />
               </div>
-              <div className="relative w-full sm:flex-1 min-w-0">
+              {/* Filter by village */}
+              <div className="relative min-w-0">
                 <svg
                   width={14}
                   height={14}
@@ -228,11 +216,27 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                   className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
                 />
               </div>
-              {(searchQuery || startTime || endTime || cropQuery || villageQuery) && (
+              {/* Date range */}
+              <div className="relative min-w-0 [&_label]:hidden [&_#date-toggle]:!w-full [&_#date-toggle]:!h-9 [&_#date-toggle]:!overflow-hidden [&_.absolute]:!left-0 [&_.absolute]:!right-auto [&_.absolute]:!w-max">
+                <DateRangeFilter
+                  customName=""
+                  advanceFilter={{ startTime, endTime }}
+                  handleDialogChange={handleDateChange}
+                  className={
+                    startTime
+                      ? "!h-9 !text-sm !w-full !border-green-500 dark:!border-green-500 !bg-green-50 dark:!bg-[#1a1a1a] !text-green-700 dark:!text-green-400 !font-medium hover:!bg-green-100 dark:hover:!bg-[#2a2a2a]"
+                      : "!h-9 !text-sm !w-full !border-gray-200 dark:!border-gray-700 !bg-white dark:!bg-[#1a1a1a] !text-gray-700 dark:!text-gray-200 !font-normal hover:!bg-gray-50 dark:hover:!bg-[#2a2a2a]"
+                  }
+                />
+              </div>
+            </div>
+            {/* Reset button — only when a filter is active */}
+            {(searchQuery || startTime || endTime || cropQuery || villageQuery) && (
+              <div className="flex justify-end">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 w-full sm:w-auto"
+                  className="h-9"
                   onClick={() => {
                     setSearchQuery("");
                     setStartTime(undefined);
@@ -245,8 +249,8 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                   <X />
                   Reset
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent className="p-0">
