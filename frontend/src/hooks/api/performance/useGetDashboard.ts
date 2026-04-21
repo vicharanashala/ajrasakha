@@ -81,3 +81,58 @@ export const useGetDashboardData = ({
 
   return { data, isLoading, isFetching, error, refetch };
 };
+
+export const useGetOverview = () => {
+  return useQuery({
+    queryKey: ["dashboard", "overview"],
+    queryFn: () => performaceService.getOverview(),
+  });
+};
+
+export const useGetGoldenDataset = (query: {
+  viewType: string;
+  selectedYear?: string;
+  selectedMonth?: string;
+  selectedWeek?: string;
+  selectedDay?: string;
+}) => {
+  return useQuery({
+    queryKey: ["dashboard", "golden-dataset", query],
+    queryFn: () => performaceService.getGoldenDataset(query),
+    placeholderData: keepPreviousData,
+  });
+};
+
+export const useGetContributionTrend = (timeRange: string) => {
+  return useQuery({
+    queryKey: ["dashboard", "contribution-trend", timeRange],
+    queryFn: () => performaceService.getContributionTrend(timeRange),
+    placeholderData: keepPreviousData,
+  });
+};
+
+export const useGetStatusOverview = () => {
+  return useQuery({
+    queryKey: ["dashboard", "status-overview"],
+    queryFn: () => performaceService.getStatusOverview(),
+  });
+};
+
+export const useGetExpertPerformance = () => {
+  return useQuery({
+    queryKey: ["dashboard", "expert-performance"],
+    queryFn: () => performaceService.getExpertPerformance(),
+  });
+};
+
+export const useGetQuestionsAnalytics = (query: {
+  type: "question" | "answer";
+  startTime?: Date;
+  endTime?: Date;
+}) => {
+  return useQuery({
+    queryKey: ["dashboard", "questions-analytics", query],
+    queryFn: () => performaceService.getQuestionsAnalytics(query),
+    placeholderData: keepPreviousData,
+  });
+};

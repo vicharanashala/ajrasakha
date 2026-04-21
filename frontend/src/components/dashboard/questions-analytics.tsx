@@ -86,28 +86,12 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
     }));
   };
 
-  const getTopTenWithOthers = (data: { name: string; count: number }[]) => {
-    const sorted = [...data].sort((a, b) => b.count - a.count);
-    const topTen = sorted.slice(0, 10);
-
-    const othersCount = sorted
-      .slice(10)
-      .reduce((sum, item) => sum + item.count, 0);
-
-    return [
-      ...topTen,
-      ...(othersCount > 0 ? [{ name: "Others", count: othersCount }] : []),
-    ];
-  };
-  const processedCropData = getTopTenWithOthers(data.cropData);
-  const processedDomainData = getTopTenWithOthers(data.domainData);
-
-  const processedCropWithColors = processedCropData.map((item, index) => ({
+  const processedCropWithColors = data.cropData.map((item, index) => ({
     ...item,
     color: colors[index % colors.length],
   }));
 
-  const processedDomainWithColors = processedDomainData.map((item, index) => ({
+  const processedDomainWithColors = data.domainData.map((item, index) => ({
     ...item,
     color: colors[index % colors.length],
   }));
@@ -172,7 +156,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart key={`crop-${key}`}>
                     <Pie
-                      data={processedCropData}
+                      data={data.cropData}
                       cx="50%"
                       cy="50%"
                       labelLine={false}

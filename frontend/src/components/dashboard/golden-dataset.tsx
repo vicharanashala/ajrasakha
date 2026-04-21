@@ -58,9 +58,10 @@ const monthNames = [
 export interface GoldenDataset {
   type: "year" | "month" | "week" | "day";
   totalEntriesByType: number;
+  totalVerifiedByType: number;
   verifiedEntries: number;
-  todayApproved?:number;
-  moderatorBreakdown?: { moderatorName: string, count: number }[];
+  todayApproved?: number;
+  moderatorBreakdown?: { moderatorName: string; count: number }[];
   yearData: { month: string; entries: number; verified: number }[];
   weeksData: { week: string; entries: number; verified: number }[];
   dailyData: { day: string; entries: number; verified: number }[];
@@ -216,7 +217,7 @@ export const GoldenDatasetOverview = ({
                   Current Period
                 </p>
                     <p className="text-3xl font-bold text-foreground cursor-help">
-                      <CountUp key={`currentPeriod-${key}`} end={data?.totalEntriesByType ?? 0} duration={2} preserveValue /> 
+                      <CountUp key={`currentPeriod-${key}`} end={data?.totalVerifiedByType ?? 0} duration={2} preserveValue /> 
                     </p>
                      {moderatorBreakdown.length > 0 && (
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -278,7 +279,7 @@ export const GoldenDatasetOverview = ({
         </Dialog>
       )}
                 <p className="text-xs text-green-600 mt-2 font-medium">
-                  Latest data point
+                  Total questions verified in this period
                 </p>
               </div>
               <TrendingUp className="w-8 h-8 text-chart-3 opacity-60" />
