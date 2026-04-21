@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Spinner } from "@/components/atoms/spinner";
 import { useUserDetails } from "./hooks/useUserDetails";
 import { BarGraph } from "./components/shared/BarGrapgh";
-import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { Pagination } from "@/components/pagination";
 import {
   Table,
@@ -15,69 +14,63 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/atoms/table";
+import {
+  UserDetailsPreferenceFilter,
+  type UserDetailsFilters,
+} from "./components/UserDetailsPreferenceFilter";
 
 const PAGE_SIZE = 10;
+
+const DEFAULT_FILTERS: UserDetailsFilters = {
+  search: "",
+  crop: "",
+  village: "",
+  startTime: undefined,
+  endTime: undefined,
+  profileCompleted: "all",
+};
 
 interface UserDetailsViewProps {
   source?: 'vicharanashala' | 'annam';
 }
 
 export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewProps) {
-  const [startTime, setStartTime] = useState<Date | undefined>(undefined);
-  const [endTime, setEndTime] = useState<Date | undefined>(undefined);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [cropQuery, setCropQuery] = useState("");
-  const [debouncedCrop, setDebouncedCrop] = useState("");
-  const [villageQuery, setVillageQuery] = useState("");
-  const [debouncedVillage, setDebouncedVillage] = useState("");
+  const [filters, setFilters] = useState<UserDetailsFilters>(DEFAULT_FILTERS);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Debounce the search input so we don't fire a request on every keystroke
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-      setCurrentPage(1);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedCrop(cropQuery);
-      setCurrentPage(1);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [cropQuery]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedVillage(villageQuery);
-      setCurrentPage(1);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [villageQuery]);
-
   const { data, isLoading, error } = useUserDetails(
-    startTime,
-    endTime,
+    filters.startTime,
+    filters.endTime,
     currentPage,
     PAGE_SIZE,
-    debouncedSearch,
+    filters.search,
     source,
-    debouncedCrop,
-    debouncedVillage,
+    filters.crop,
+    filters.village,
+    filters.profileCompleted,
   );
 
   const { users, totalUsers, totalPages, activeUsers, totalQuestions } = data;
 
-  const handleDateChange = (key: string, value: any) => {
-    if (key === "startTime") { setStartTime(value); setCurrentPage(1); }
-    if (key === "endTime") { setEndTime(value); setCurrentPage(1); }
+  const handleApplyFilters = (newFilters: UserDetailsFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
   };
 
-  const dateLabel = startTime && endTime
-    ? `${startTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${endTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
+  const handleResetFilters = () => {
+    setFilters(DEFAULT_FILTERS);
+    setCurrentPage(1);
+  };
+
+  const isFiltered =
+    filters.search ||
+    filters.crop ||
+    filters.village ||
+    filters.startTime ||
+    filters.profileCompleted !== "all";
+
+  const dateLabel = filters.startTime && filters.endTime
+    ? `${filters.startTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${filters.endTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
     : "All time";
 
   return (
@@ -152,105 +145,25 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
       {/* Users table */}
       <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
         <CardHeader className="pb-3">
-          <div className="flex flex-col gap-3 min-w-0 w-full">
+          <div className="flex items-center justify-between gap-3 min-w-0 w-full">
             <CardTitle className="text-sm font-medium">All Farmers</CardTitle>
-            {/* Filters: 4-col → 2-col → 1-col responsive grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 w-full min-w-0">
-              {/* Search by name / email */}
-              <div className="relative min-w-0">
-                <svg
-                  width={14}
-                  height={14}
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-(--muted-foreground)"
-                >
-                  <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.3" />
-                  <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search by name or email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
-                />
-              </div>
-              {/* Filter by crop */}
-              <div className="relative min-w-0">
-                <svg
-                  width={14}
-                  height={14}
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-(--muted-foreground)"
-                >
-                  <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.3" />
-                  <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Filter by crop..."
-                  value={cropQuery}
-                  onChange={(e) => setCropQuery(e.target.value)}
-                  className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
-                />
-              </div>
-              {/* Filter by village */}
-              <div className="relative min-w-0">
-                <svg
-                  width={14}
-                  height={14}
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-(--muted-foreground)"
-                >
-                  <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.3" />
-                  <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Filter by village..."
-                  value={villageQuery}
-                  onChange={(e) => setVillageQuery(e.target.value)}
-                  className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
-                />
-              </div>
-              {/* Date range */}
-              <div className="relative min-w-0 [&_label]:hidden [&_#date-toggle]:!w-full [&_#date-toggle]:!h-9 [&_#date-toggle]:!overflow-hidden [&_.absolute]:!left-0 [&_.absolute]:!right-auto [&_.absolute]:!w-max">
-                <DateRangeFilter
-                  customName=""
-                  advanceFilter={{ startTime, endTime }}
-                  handleDialogChange={handleDateChange}
-                  className={
-                    startTime
-                      ? "!h-9 !text-sm !w-full !border-green-500 dark:!border-green-500 !bg-green-50 dark:!bg-[#1a1a1a] !text-green-700 dark:!text-green-400 !font-medium hover:!bg-green-100 dark:hover:!bg-[#2a2a2a]"
-                      : "!h-9 !text-sm !w-full !border-gray-200 dark:!border-gray-700 !bg-white dark:!bg-[#1a1a1a] !text-gray-700 dark:!text-gray-200 !font-normal hover:!bg-gray-50 dark:hover:!bg-[#2a2a2a]"
-                  }
-                />
-              </div>
-            </div>
-            {/* Reset button — only when a filter is active */}
-            {(searchQuery || startTime || endTime || cropQuery || villageQuery) && (
-              <div className="flex justify-end">
+            <div className="flex items-center gap-2">
+              {isFiltered && (
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  className="h-9"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setStartTime(undefined);
-                    setEndTime(undefined);
-                    setCropQuery("");
-                    setVillageQuery("");
-                    setCurrentPage(1);
-                  }}
+                  className="h-9 text-muted-foreground hover:text-foreground"
+                  onClick={handleResetFilters}
                 >
-                  <X />
-                  Reset
+                  <X className="h-4 w-4 mr-1" />
+                  Clear
                 </Button>
-              </div>
-            )}
+              )}
+              <UserDetailsPreferenceFilter
+                filters={filters}
+                onApply={handleApplyFilters}
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -298,7 +211,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                   {users.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={21} className="text-center py-10 text-muted-foreground">
-                        {debouncedSearch ? "No users match your search." : "No users found."}
+                        {isFiltered ? "No users match your filters." : "No users found."}
                       </TableCell>
                     </TableRow>
                   ) : (
