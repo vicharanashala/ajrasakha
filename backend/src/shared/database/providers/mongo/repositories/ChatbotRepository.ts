@@ -633,6 +633,7 @@ export class ChatbotRepository implements IChatbotRepository {
     source = 'vicharanashala',
     crop = '',
     village = '',
+    profileCompleted = 'all',
     session?: ClientSession,
   ): Promise<PaginatedUserDetails> {
     try {
@@ -697,6 +698,17 @@ export class ChatbotRepository implements IChatbotRepository {
         userFilter.$and = [
           ...(userFilter.$and ?? []),
           { 'farmerProfile.villageName': villageRegex },
+        ];
+      }
+      if (profileCompleted === 'yes') {
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          { farmerProfile: { $exists: true, $ne: null } },
+        ];
+      } else if (profileCompleted === 'no') {
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          { $or: [{ farmerProfile: { $exists: false } }, { farmerProfile: null }] },
         ];
       }
 

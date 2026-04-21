@@ -22,7 +22,8 @@ export async function checkConceptDuplicate(
     .join("\n");
 
   const response = await client.chat.completions.create({
-    model: "google/gemma-3-12b-it",
+    model: "google/gemma-4-E4B-it",
+    // model: "google/gemma-3-12b-it",
     temperature: 0,
     messages: [
       {
