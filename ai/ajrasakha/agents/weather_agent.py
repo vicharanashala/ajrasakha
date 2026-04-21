@@ -9,35 +9,30 @@ from langgraph.prebuilt import create_react_agent
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("WeatherAgent")
 
+REMOTE_IP = "100.100.108.44"
+
 llm = ChatAnthropic(model="claude-sonnet-4-5-20250929")
 
-# Connecting to the Weather MCP Server on Port 9003
 mcp_client = MultiServerMCPClient({
     "weather_server": {
-        "url": f"http://100.100.108.44:9003/sse",
+        "url": f"http://{REMOTE_IP}:9003/sse",
         "transport": "sse"
     }
 })
 
 async def run_weather_agent(state: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Receives state from the Master Orchestrator, dynamically fetches Weather MCP tools
-    from the remote Docker server, runs a ReAct agent, and returns the weather forecast.
-    """
     query = state.get("query", "")
     logger.info(f"Received query: '{query}'")
     logger.info(f"Connecting to remote Weather MCP Server at {REMOTE_IP}:9003...")
     
-    # --- PHASE A: FETCH TOOLS WITH ERROR HANDLING ---
     try:
         tools = await mcp_client.get_tools()
         tool_names = [t.name for t in tools]
         logger.info(f"Successfully loaded {len(tools)} tools: {tool_names}")
     except Exception as e:
-        logger.error(f"FATAL: Failed to connect to Weather MCP server at {REMOTE_IP}. Error: {e}")
+        logger.error(f"FATAL: Failed to connect to Weather MCP server at {REMOTE_IP}:9003. Error: {e}")
         return {"final_answer": "System Error: Weather data server is currently unreachable. Please check the remote connection."}
     
-    # --- PHASE B: SETUP AGENT PERSONA ---
     sys_msg = (
         "You are an expert agricultural weather assistant for AjraSakha. "
         "Your job is to provide accurate weather forecasts, rainfall predictions, and IMD alerts for farmers. "
@@ -51,7 +46,6 @@ async def run_weather_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         state_modifier=sys_msg
     )
     
-    # --- PHASE C: EXECUTE AGENT ---
     logger.info("Executing ReAct agent logic for Weather...")
     try:
         response = await agent.ainvoke({"messages": [HumanMessage(content=query)]})

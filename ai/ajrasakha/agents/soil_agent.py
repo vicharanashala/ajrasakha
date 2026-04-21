@@ -9,24 +9,18 @@ from langgraph.prebuilt import create_react_agent
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("SoilAgent")
 
+REMOTE_IP = "100.100.108.44"
+
 llm = ChatAnthropic(model="claude-sonnet-4-5-20250929")
 
 mcp_client = MultiServerMCPClient({
     "soil_server": {
-        "url": f"http://100.100.108.44:9008/sse",
+        "url": f"http://{REMOTE_IP}:9008/sse",
         "transport": "sse"
     }
 })
 
-# ==========================================
-# 3. AGENT EXECUTION LOGIC
-# ==========================================
 async def run_soil_agent(state: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Receives state from the Master Orchestrator, dynamically fetches Soil MCP tools
-    from the remote Docker server, runs a ReAct agent to compute fertilizer dosage,
-    and returns the final recommendation.
-    """
     query = state.get("query", "")
     logger.info(f"Received query: '{query}'")
     logger.info(f"Connecting to remote Soil MCP Server at {REMOTE_IP}:9008...")
@@ -36,7 +30,7 @@ async def run_soil_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         tool_names = [t.name for t in tools]
         logger.info(f"Successfully loaded {len(tools)} tools: {tool_names}")
     except Exception as e:
-        logger.error(f"FATAL: Failed to connect to Soil MCP server at {REMOTE_IP}. Error: {e}")
+        logger.error(f"FATAL: Failed to connect to Soil MCP server at {REMOTE_IP}:9008. Error: {e}")
         return {"final_answer": "System Error: Soil Health data server is currently unreachable. Please check the remote connection."}
     
     sys_msg = (

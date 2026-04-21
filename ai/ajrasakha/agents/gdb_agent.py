@@ -1,32 +1,38 @@
 import os
+import logging
+from typing import Dict, Any
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
 
-llm = ChatAnthropic(model="claude-sonnet-4-5-20250929")
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("GDBAgent")
+
+REMOTE_IP = "100.100.108.43"
+
+llm = ChatAnthropic(model="claude-3-5-sonnet-20241022")
 
 mcp_client = MultiServerMCPClient({
     "golden_db": {
-        "url": "http://100.100.108.43:9005/sse",
+        "url": f"http://{REMOTE_IP}:9005/sse",
         "transport": "sse"
     }
 })
 
-async def run_gdb_agent(state):
-    """
-    Receives state from the Master Orchestrator, dynamically fetches MCP tools,
-    runs a ReAct agent to search the Vector DB, and returns the final answer.
-    """
-    query = state.get("query")
-    print(f"\n[GDB Agent] Received query: '{query}'")
-    print("[GDB Agent] Connecting to Golden DB Vector Store (MCP)...")
+async def run_gdb_agent(state: Dict[str, Any]) -> Dict[str, Any]:
+    query = state.get("query", "")
+    logger.info(f"Received query: '{query}'")
+    logger.info(f"Connecting to remote GDB MCP Server at {REMOTE_IP}:9005...")
     
-    # 1. Fetch tools dynamically from the remote MCP server
-    tools = await mcp_client.get_tools()
-    print(f"[GDB Agent] Successfully loaded tools: {[t.name for t in tools]}")
+    try:
+        tools = await mcp_client.get_tools()
+        tool_names = [t.name for t in tools]
+        logger.info(f"Successfully loaded {len(tools)} tools: {tool_names}")
+    except Exception as e:
+        logger.error(f"FATAL: Failed to connect to GDB MCP server at {REMOTE_IP}. Error: {e}")
+        return {"final_answer": "System Error: Golden DB server is currently unreachable. Please check if Port 9005 is active."}
     
-    # 2. Define the exact persona and rules for this specific agent
     sys_msg = (
         "You are an expert agricultural assistant for AjraSakha. "
         "Your job is to answer farming and crop disease queries. "
@@ -40,9 +46,14 @@ async def run_gdb_agent(state):
         state_modifier=sys_msg
     )
     
-    response = await agent.ainvoke({"messages": [HumanMessage(content=query)]})
-    
-    final_message = response["messages"][-1].content
-    print("[GDB Agent] Successfully generated answer using MCP Tool.")
-    
-    return {"final_answer": final_message}
+    logger.info("Executing ReAct agent logic for GDB...")
+    try:
+        response = await agent.ainvoke({"messages": [HumanMessage(content=query)]})
+        final_message = response["messages"][-1].content
+        
+        logger.info("Successfully generated GDB data using MCP Tools.")
+        return {"final_answer": final_message}
+        
+    except Exception as e:
+        logger.error(f"Agent execution failed during LLM/Tool invocation: {e}")
+        return {"final_answer": "Error: Failed to process the GDB query with the provided tools."}
