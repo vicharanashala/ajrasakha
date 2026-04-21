@@ -125,7 +125,7 @@ export async function checkDuplicateQuestionHelper(
         referenceSource: referenceSourcefrom
       }
 
-      await this.duplicateQuestionRepository.addDuplicate(
+      await duplicateQuestionRepository.addDuplicate(
         duplicateQuestion,
         session
       )
