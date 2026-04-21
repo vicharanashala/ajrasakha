@@ -5,6 +5,7 @@ from langchain_anthropic import ChatAnthropic
 
 from agents.gdb_agent import run_gdb_agent
 from agents.market_agent import run_market_agent
+from agents.weather_agent import run_weather_agent
 
 import os
 from dotenv import load_dotenv
@@ -54,10 +55,6 @@ def route_query(state: MasterState):
     else:
         return END
 
-async def weather_node(state: MasterState):
-    print("Weather Dept: Checking IMD API...")
-    return {"final_answer": "Dummy Weather Data: Heavy rain expected tomorrow."}
-
 async def soil_node(state: MasterState):
     print("Soil Dept: Fetching fertilizer dosage...")
     return {"final_answer": "Dummy Soil Data: Add 50kg Urea per acre."}
@@ -66,7 +63,7 @@ builder = StateGraph(MasterState)
 
 builder.add_node("parse_query_node", parse_query_node)
 builder.add_node("market_node", run_market_agent)
-builder.add_node("weather_node", weather_node)
+builder.add_node("weather_node", run_weather_agent)
 builder.add_node("soil_node", soil_node)
 builder.add_node("gdb_node", run_gdb_agent)
 
