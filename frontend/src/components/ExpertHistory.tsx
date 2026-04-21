@@ -129,7 +129,7 @@ const ViewContextModal = ({
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
-        className="w-[90vw] max-w-6xl flex flex-col max-h-[90vh]"
+        className="w-[90vw] max-w-6xl flex flex-col max-h-[90vh] min-h-0"
         style={{ maxWidth: "70vw" }}
       >
         <DialogHeader className="pb-4 border-b flex-shrink-0">
@@ -138,7 +138,7 @@ const ViewContextModal = ({
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 overflow-y-auto">
+        <ScrollArea className="h-[500px]">
           <div className="space-y-6 p-4 text-sm pr-6">
             {/* ====================== QUESTION ====================== */}
             <div>
@@ -182,9 +182,9 @@ const ViewContextModal = ({
               item.action === "rejected"||item.action=="reroute_approved") && (
               <div>
                 <p className="text-sm font-medium mb-1">Answer</p>
-                <div className="rounded-lg border bg-muted/30 p-3 max-h-[300px] overflow-y-auto">
+                <ScrollArea className="h-[300px]">
                   {currentAnswer}
-                </div>
+                </ScrollArea>
               </div>
             )}
 
