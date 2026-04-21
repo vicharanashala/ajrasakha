@@ -4,14 +4,12 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
 
-# Initialize Claude for the GDB Agent
-llm = ChatAnthropic(model="claude-3-5-sonnet-20241022")
+llm = ChatAnthropic(model="claude-sonnet-4-5-20250929")
 
-# Configure the MCP Client to connect to your FastMCP server
-# We use MultiServerMCPClient which handles SSE connections smoothly
 mcp_client = MultiServerMCPClient({
     "golden_db": {
-        "url": "http://100.100.108.43:9005/sse" 
+        "url": "http://100.100.108.43:9005/sse",
+        "transport": "sse"
     }
 })
 
@@ -36,19 +34,15 @@ async def run_gdb_agent(state):
         "the database before answering. Do not hallucinate or guess the answer."
     )
     
-    # 3. Create a ReAct agent that knows how to use the fetched tools
     agent = create_react_agent(
         model=llm,
         tools=tools,
         state_modifier=sys_msg
     )
     
-    # 4. Invoke the agent with the user's query
     response = await agent.ainvoke({"messages": [HumanMessage(content=query)]})
     
-    # 5. Extract the final string message from the agent's response array
     final_message = response["messages"][-1].content
     print("[GDB Agent] Successfully generated answer using MCP Tool.")
     
-    # 6. Return the final answer back to the Master State
     return {"final_answer": final_message}
