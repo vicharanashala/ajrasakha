@@ -380,6 +380,12 @@ class AddQuestionBodyDto {
   @IsString()
   @IsOptional()
   createdAt?: string;
+
+  @IsString()
+  @IsOptional()
+  originalQuestion?: string;
+
+  
 }
 
 class GenerateQuestionsBody {
@@ -742,6 +748,11 @@ export class DetailedQuestionsBodyDto {
   normalisedCrops?: string[];
 }
 
+export class ApproveInitialAnswerBody {
+  @IsString()
+  answer :string;
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,
@@ -758,6 +769,7 @@ export const QUESTION_VALIDATORS = [
   DateRangeRequest,
   AllocatedQuestionsBodyDto,
   DetailedQuestionsBodyDto,
+  ApproveInitialAnswerBody,
 ];
 
 export {

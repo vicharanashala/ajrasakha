@@ -57,11 +57,6 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
       textColor = "text-red-600 font-semibold";
       iconColor = "text-red-500 animate-pulse";
       icon = <AlertTriangle className={`${iconSize} ${iconColor}`} />;
-  //   } else if (hours === 0 && minutes < warningThreshold) {
-  //   textColor = "text-orange-500 font-semibold";
-  //   iconColor = "text-orange-400";
-  //   icon = <AlertTriangle className={`${iconSize} ${iconColor}`} />;
-  // } else if (hours < 1) {
     } else if (hours === 0 && minutes >= warningThreshold) {
       textColor = "text-yellow-500 font-medium";
       iconColor = "text-yellow-400";

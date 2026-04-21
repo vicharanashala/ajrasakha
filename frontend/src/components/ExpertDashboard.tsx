@@ -2,9 +2,6 @@ import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/atoms/card";
 import {
   ListTodo,
@@ -29,13 +26,8 @@ import {
   TableHeader,
   TableRow,
 } from "./atoms/table";
-import { DashboardClock } from "./dashboard/dashboard-clock";
 import { Button } from "./atoms/button";
 import { DateRangeFilter } from "./DateRangeFilter";
-// import { ChristmasCap, HolidayBanner, Snowfall } from "./dashboard";
-import { useTheme } from "next-themes";
-import { Label } from "./atoms/label";
-import { Switch } from "./atoms/switch";
 import { TopRightBadge } from "./NewBadge";
 interface ExpertDashboardProps {
   expertId?: string | null;
@@ -54,21 +46,7 @@ export const ExpertDashboard = ({
   rankPosition,
   expertDetailsList,
 }: ExpertDashboardProps) => {
-  /////////////////////////////////////////////////////////////////////////
-  // const { theme } = useTheme();
 
-  // const ANIMATIONS_KEY = "animationsEnabled";
-
-  // const [animationsEnabled, setAnimationsEnabled] = useState<boolean>(() => {
-  //   if (typeof window === "undefined") return true; // SSR safety
-  //   const stored = localStorage.getItem(ANIMATIONS_KEY);
-  //   return stored ? JSON.parse(stored) : true; // default ON
-  // });
-
-  // useEffect(() => {
-  //   localStorage.setItem(ANIMATIONS_KEY, JSON.stringify(animationsEnabled));
-  // }, [animationsEnabled]);
-  ///////////////////////////////////////////////////////////////////////////
 
   localStorage.removeItem("animationsEnabled");
 
@@ -78,10 +56,6 @@ export const ExpertDashboard = ({
     endTime: undefined,
   });
 
-  const isSameDay = (d1: Date, d2: Date) =>
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate();
 
   const { data: user, isLoading } = useGetCurrentUser({ enabled: shouldFetch });
   let userId: string | undefined;
@@ -129,13 +103,13 @@ export const ExpertDashboard = ({
   const [page, setPage] = useState(1);
   const LIMIT = 500;
 
-  const { data: expertDetails, isLoading: isloadingRank } = useGetAllExperts(
+  const { data: expertDetails } = useGetAllExperts(
     page,
     LIMIT,
     search,
     selectedSort,
     filter,
-    { enabled: shouldFetch }
+    { enabled: shouldFetch },
   );
   const [userDetails, setUserDetails] = useState<any[]>([]);
   const [totalUsers, setTotalUsers] = useState<number>(0);
@@ -228,7 +202,6 @@ useEffect(() => {
       const minutes = Math.floor((diff / (1000 * 60)) % 60);
       const seconds = Math.floor((diff / 1000) % 60);
 
-      const format = (n: number) => n.toString().padStart(2, "0");
 
       setLateTimer(
         `${hours.toString().padStart(2, "0")}hr ` +
@@ -260,8 +233,6 @@ useEffect(() => {
     <main
       className={`min-h-screen bg-background ${isLoading ? "opacity-40" : ""}`}
     >
-      {/* {theme == "dark" && animationsEnabled && <Snowfall />} */}
-      {/* <HolidayBanner /> */}
 
       {expertId ? (
         <div className="flex justify-end">
@@ -296,17 +267,6 @@ useEffect(() => {
             <h1 className="text-3xl font-bold text-foreground">
               Expert {expertId ? "Performance" : "Dashboard"}
             </h1>
-            {/* {expertId ? 
-            <h1 className="text-3xl font-bold text-foreground">
-              Expert {expertId ? "Performance" : "Dashboard"}
-            </h1> : 
-             <div className="relative inline-block">
-               <ChristmasCap className="absolute -top-13 -left-4 w-14 h-14 -rotate-6 z-10" />
-               <h1 className="text-3xl font-bold text-foreground pt-2 pl-6">
-                 Expert Dashboard
-               </h1>
-             </div> 
-            } */}
             <p className="text-muted-foreground mt-1">
               Monitor {expertId?"expert":"your"} performance: {userDetails?.[0]?.firstName}
             </p>
@@ -388,27 +348,6 @@ useEffect(() => {
             </div>
           )}
 
-            {/* ANIMATION SWITCH */}
-            {/* {theme == "dark" && (
-              <div className="flex items-center gap-2">
-                <Label
-                  htmlFor="animations-toggle"
-                  className="text-sm text-muted-foreground cursor-pointer select-none"
-                >
-                  {animationsEnabled ? "Animations On" : "Animations Off"}
-                </Label>
-
-                <Switch
-                  id="animations-toggle"
-                  checked={animationsEnabled}
-                  onCheckedChange={setAnimationsEnabled}
-                  className="scale-100 data-[state=checked]:bg-primary"
-                />
-              </div>
-            )} */}
-
-            {/* CLOCK */}
-            {/* <DashboardClock /> */}
           </div>
         </div>
         {/* Summary Cards */}

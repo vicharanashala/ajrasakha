@@ -47,6 +47,14 @@ import {
 import { ROUTE_TYPES } from '../types.js';
 import { ModeratorRejectParam, RerouteIdParam } from '../classes/validators/RerouteValidator.js';
 import { IReRouteService } from '../interfaces/IRerouteService.js';
+import {
+  ReRouteErrorResponse,
+  ReRouteSuccessResponse,
+  RejectRequestResponse,
+  RerouteHistoryArrayResponse,
+  AllocatedQuestionsArrayResponse,
+  QuestionByIdResponse,
+} from '../classes/validators/ReRouteResponseValidators.js';
 
 @OpenAPI({
   tags: ['reroute'],
@@ -71,11 +79,29 @@ export class ReRouteController {
   //   return this.reRouteService.addrerouteAnswer();
   // }
 
+  @OpenAPI({
+    summary: 'Manually allocate experts to a selected question',
+    description: 'Assigns a re-routed expert to review an answer for a specific question. Sends notification to the assigned expert.',
+  })
+  @ResponseSchema(ReRouteSuccessResponse, {
+    statusCode: 200,
+    description: 'Expert allocated successfully - Returns success message',
+  })
+  @ResponseSchema(ReRouteErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Answer already rerouted or invalid parameters',
+  })
+  @ResponseSchema(ReRouteErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - Expert not found',
+  })
+  @ResponseSchema(ReRouteErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to allocate expert',
+  })
   @Post('/:questionId/allocate-reroute-experts')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Manually allocate experts to a selected question'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async allocateExperts(
     @Params() params: QuestionIdParam,
     @Body() body: AllocateReRouteExpertsRequest,
@@ -87,11 +113,25 @@ export class ReRouteController {
     await this.reRouteService.addrerouteAnswer(questionId,expertId,answerId,moderatorId,comment,status as RerouteStatus)
     return {message:"Re routed succesfully"}
   }
+  @OpenAPI({
+    summary: 'Get all re-routed allocated',
+    description: 'Retrieves all re-routed questions allocated to the current expert with filtering options.',
+  })
+  @ResponseSchema(AllocatedQuestionsArrayResponse, {
+    statusCode: 200,
+    description: 'Allocated questions retrieved successfully',
+  })
+  @ResponseSchema(ReRouteErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ReRouteErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - Expert not found',
+  })
   @Post('/allocated')
   @HttpCode(200)
-  // @ResponseSchema(QuestionResponse, {isArray: true})
   @Authorized()
-  @OpenAPI({summary: 'Get all re-routed allocated'})
   async getAllocatedQuestions(
     @QueryParams()
     query: GetDetailedQuestionsQuery,
@@ -102,11 +142,29 @@ export class ReRouteController {
     return this.reRouteService.getAllocatedQuestions(userId, query, body);
   }
 
+  @OpenAPI({
+    summary: 'Get selected question by ID',
+    description: 'Retrieves a re-routed question by ID including its details and reroute history.',
+  })
+  @ResponseSchema(QuestionByIdResponse, {
+    statusCode: 200,
+    description: 'Question retrieved successfully with reroute history',
+  })
+  @ResponseSchema(ReRouteErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ReRouteErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - Question not found',
+  })
+  @ResponseSchema(ReRouteErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to fetch question',
+  })
   @Get('/:questionId')
   @HttpCode(200)
   @Authorized()
-  @ResponseSchema(QuestionResponse)
-  @OpenAPI({summary: 'Get selected question by ID'})
   async getQuestionById(
     @Params() params: QuestionIdParam,
     @Body() updates: any,
@@ -121,11 +179,25 @@ export class ReRouteController {
 
 
 
+  @OpenAPI({
+    summary: 'Expert can reject the re-route request',
+    description: 'Allows an expert to reject a re-route request. Updates reputation score and sends notification to moderator.',
+  })
+  @ResponseSchema(RejectRequestResponse, {
+    statusCode: 200,
+    description: 'Request rejected successfully - Returns success message',
+  })
+  @ResponseSchema(ReRouteErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Request already rejected or in invalid state',
+  })
+  @ResponseSchema(ReRouteErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
   @Patch('/:rerouteId/:questionId')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Expert can reject the re-route request'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async expertRejected(
     @Params() params: RerouteIdParam,
     @Body() body: {reason:string,moderatorId:string,role:string,expertId:string},
@@ -138,11 +210,21 @@ export class ReRouteController {
     return {message:"Rejected the request succesfully"}
   }
 
+  @OpenAPI({
+    summary: 'Get reroute history for an answer',
+    description: 'Retrieves the complete reroute history for a specific answer including all reroute entries.',
+  })
+  @ResponseSchema(RerouteHistoryArrayResponse, {
+    statusCode: 200,
+    description: 'Reroute history retrieved successfully',
+  })
+  @ResponseSchema(ReRouteErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
   @Get('/:answerId/history')
   @HttpCode(200)
   @Authorized()
-  @ResponseSchema(QuestionResponse)
-  @OpenAPI({summary: 'Get selected question by ID'})
   async getRerouteHistory(
     @Params() params: {answerId:string},
   ){
@@ -152,11 +234,25 @@ export class ReRouteController {
   }
 
 
+  @OpenAPI({
+    summary: 'Moderator can reject the re-route request',
+    description: 'Allows a moderator to reject a re-route request for a specific expert. Updates the reroute status.',
+  })
+  @ResponseSchema(RejectRequestResponse, {
+    statusCode: 200,
+    description: 'Request rejected successfully by moderator - Returns success message',
+  })
+  @ResponseSchema(ReRouteErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Invalid status or parameters',
+  })
+  @ResponseSchema(ReRouteErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
   @Patch('/:questionId/:expertId/action')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Moderator can reject the re-route request'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async moderatorRejected(
     @Params() params: ModeratorRejectParam,
     @Body() body: {status:RerouteStatus,reason:string},

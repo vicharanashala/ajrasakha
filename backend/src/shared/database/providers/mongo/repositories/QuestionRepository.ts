@@ -21,14 +21,7 @@ import {
   InternalServerError,
   NotFoundError,
 } from 'routing-controllers';
-
-import {
-  detailsArray,
-  dummyEmbeddings,
-  priorities,
-  questionStatus,
-  sources,
-} from '#root/modules/core/utils/questionGen.js';
+import { detailsArray,dummyEmbeddings,priorities,questionStatus,sources } from '#root/modules/question/utils/questionGen.js';
 import {
   Analytics,
   AnalyticsItem,
@@ -585,14 +578,18 @@ export class QuestionRepository implements IQuestionRepository {
         if (!isNaN(numericLevel)) {
           let requiredSize = numericLevel + 1;
 
-          // Special rule: Level 1 → history.length = 0
-            if (numericLevel === 0) {
-      requiredSize = 0;
-    }
+          // Special rule: Level 0 (Author) → history.length = 0
+          if (numericLevel === 0) {
+            requiredSize = 0;
+          }
 
-          const submissions = await this.QuestionSubmissionCollection.find({
-            history: { $size: requiredSize },
-          })
+          const submissionQuery: any = { history: { $size: requiredSize } };
+          // For levels > 0, only include submissions where the current level is still in-review
+          if (numericLevel > 0) {
+            submissionQuery[`history.${numericLevel}.status`] = 'in-review';
+          }
+
+          const submissions = await this.QuestionSubmissionCollection.find(submissionQuery)
             .project({ questionId: 1 })
             .toArray();
 

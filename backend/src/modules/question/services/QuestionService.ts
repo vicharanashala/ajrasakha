@@ -845,6 +845,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         source = 'AGRI_EXPERT',
         details,
         context,
+        originalQuestion=''
       } = body;
       console.log("the body coming=====", body)
 
@@ -956,6 +957,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           text,
           createdAt: new Date(),
           updatedAt: new Date(),
+          originalQuestion:originalQuestion
         };
 
 
@@ -1126,7 +1128,6 @@ export class QuestionService extends BaseService implements IQuestionService {
 
         logData.outcome = 'NEW_QUESTION_ADDED';
         chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
-
         const savedQuestion = await this.questionRepo.addQuestion(
           baseQuestion,
           session,
@@ -1666,13 +1667,35 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
 
         //2. Validate question submission existence
-        const questionSubmission =
+        let questionSubmission =
           await this.questionSubmissionRepo.getByQuestionId(
             questionId,
             session,
           );
+         // let submission
         if (!questionSubmission)
-          throw new NotFoundError('Question submission not found');
+        {
+          if(question.source=="WHATSAPP")
+          {
+            const newSubmission: IQuestionSubmission = {
+              questionId: new ObjectId(questionId),
+              lastRespondedBy: null,
+              history: [],
+              queue: [],
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+            questionSubmission = await this.questionSubmissionRepo.addSubmission(newSubmission, session);
+
+          }
+          else{
+            throw new NotFoundError('Question submission not found');
+          }
+         
+
+        }
+          
+
 
         // 3. Validate if the queue is full
         if (questionSubmission.queue.length >= 10)
@@ -3549,6 +3572,60 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   async getQuestionStatusSummary(query: GetDetailedQuestionsQuery, body: DetailedQuestionsBodyDto): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }> {
     return this.questionRepo.getQuestionStatusSummary(query, body);
+  }
+
+  async generateAiInitialAnswer(questionId: string): Promise<{aiInitialAnswer:string}> {
+    return this._withTransaction( async( session ) => {
+
+      const question = await this.questionRepo.getById(questionId,session);
+
+      if(!question)
+        throw new NotFoundError("Question not found");
+
+      if(!(question.source === "AGRI_EXPERT" || question.source === "OUTREACH"))
+        throw new ForbiddenError("Source must be agri expert or outreach")
+
+      const submissions = await this.questionSubmissionRepo.getByQuestionId(questionId);
+      
+      if(submissions.history.length > 0)
+        throw new ForbiddenError("Cannot generate AI initial answer. Question already has submitted answers.")
+
+      const res = await this.aiService.getAnswerByQuestionDetails(question);
+
+      if (!res?.answer || !res.answer.trim()) {
+        throw new InternalServerError("AI failed to generate answer");
+      }
+
+      return { aiInitialAnswer: res.answer };
+    })
+  }
+
+  async approveAiInitialAnswer(questionId: string, answer: string) {
+    return this._withTransaction(async (session) => {
+      const question = await this.questionRepo.getById(questionId, session);
+
+      if (!question)
+        throw new NotFoundError("Question not found");
+
+      if (!(question.source === "AGRI_EXPERT" || question.source === "OUTREACH"))
+        throw new ForbiddenError("Source must be agri expert or outreach");
+
+      if (!answer?.trim())
+        throw new BadRequestError("Answer is required");
+
+      const submissions = await this.questionSubmissionRepo.getByQuestionId(questionId);
+
+      if(submissions.history.length > 0)
+        throw new ForbiddenError("Cannot generate AI initial answer. Question already has submitted answers.")
+
+      await this.questionRepo.updateQuestion(
+        questionId,
+        { aiInitialAnswer: answer },
+        session
+      );
+
+      return { success: true };
+    });
   }
 
 }
