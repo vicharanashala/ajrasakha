@@ -47,6 +47,7 @@ export function useUserDetails(
   source: 'vicharanashala' | 'annam' = 'vicharanashala',
   crop = '',
   village = '',
+  profileCompleted: 'all' | 'yes' | 'no' = 'all',
 ) {
   const startISO = startDate?.toISOString();
   // Extend endDate to end of day (23:59:59.999) so the selected day is fully included.
@@ -56,7 +57,7 @@ export function useUserDetails(
     : undefined;
 
   const { data, isLoading, error } = useQuery<PaginatedUserDetailsResponse, Error>({
-    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village],
+    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, profileCompleted],
     staleTime: 30 * 1000,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
@@ -69,6 +70,7 @@ export function useUserDetails(
       params.set('source', source);
       if (crop.trim()) params.set('crop', crop.trim());
       if (village.trim()) params.set('village', village.trim());
+      if (profileCompleted !== 'all') params.set('profileCompleted', profileCompleted);
 
       const result = await apiFetch<PaginatedUserDetailsResponse>(
         `${API_BASE_URL}/analytics/user-details?${params.toString()}`,
