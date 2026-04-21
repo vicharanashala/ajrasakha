@@ -135,11 +135,11 @@ export class ChatbotService implements IChatbotService {
     }
   }
 
-  async getUserDetails(startDate?: string, endDate?: string, page = 1, limit = 10, search = '', source = 'vicharanashala', crop = '', village = '') {
+  async getUserDetails(startDate?: string, endDate?: string, page = 1, limit = 10, search = '', source = 'vicharanashala', crop = '', village = '', profileCompleted = 'all') {
     try {
       const start = startDate ? new Date(startDate) : undefined;
       const end = endDate ? new Date(endDate) : undefined;
-      return await this.chatbotRepository.getUserDetails(start, end, page, limit, search, source, crop, village);
+      return await this.chatbotRepository.getUserDetails(start, end, page, limit, search, source, crop, village, profileCompleted);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch user details: ${error}`);
     }
