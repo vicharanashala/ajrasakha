@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
@@ -17,6 +17,64 @@ import {
 } from "@/components/atoms/table";
 
 const PAGE_SIZE = 10;
+
+const VISIBLE_CROPS = 2;
+
+function CropsCell({ crops }: { crops: string[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  if (!crops || crops.length === 0) return <span>—</span>;
+
+  const visible = crops.slice(0, VISIBLE_CROPS);
+  const hidden = crops.slice(VISIBLE_CROPS);
+
+  return (
+    <div className="flex items-center gap-1 flex-wrap justify-center" ref={ref}>
+      {visible.map((c, i) => (
+        <span
+          key={i}
+          className="inline-block px-1.5 py-0.5 rounded text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 whitespace-nowrap"
+        >
+          {c}
+        </span>
+      ))}
+      {hidden.length > 0 && (
+        <div className="relative">
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors cursor-pointer"
+          >
+            +{hidden.length}
+          </button>
+          {open && (
+            <div className="absolute z-50 top-full mt-1 left-1/2 -translate-x-1/2 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2 min-w-[120px]">
+              <div className="flex flex-col gap-1">
+                {crops.map((c, i) => (
+                  <span
+                    key={i}
+                    className="px-2 py-1 rounded text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 whitespace-nowrap"
+                  >
+                    {c}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface UserDetailsViewProps {
   source?: 'vicharanashala' | 'annam';
@@ -332,7 +390,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                           <TableCell className="align-middle whitespace-nowrap">{fp?.phoneNo ?? "—"}</TableCell>
                           <TableCell className="align-middle whitespace-nowrap">{fp?.languagePreference ?? "—"}</TableCell>
                           <TableCell className="align-middle">{fp?.yearsOfExperience ?? "—"}</TableCell>
-                          <TableCell className="align-middle whitespace-nowrap">{fp?.cropsCultivated?.join(", ") ?? "—"}</TableCell>
+                          <TableCell className="align-middle"><CropsCell crops={fp?.cropsCultivated ?? []} /></TableCell>
                           <TableCell className="align-middle whitespace-nowrap">{fp?.primaryCrop ?? "—"}</TableCell>
                           <TableCell className="align-middle whitespace-nowrap">{fp?.secondaryCrop ?? "—"}</TableCell>
                           <TableCell className="align-middle">{fp?.awarenessOfKCC == null ? "—" : fp.awarenessOfKCC ? "Yes" : "No"}</TableCell>
