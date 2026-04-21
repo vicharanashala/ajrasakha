@@ -6,6 +6,7 @@ from langchain_anthropic import ChatAnthropic
 from agents.gdb_agent import run_gdb_agent
 from agents.market_agent import run_market_agent
 from agents.weather_agent import run_weather_agent
+from agents.soil_agent import run_soil_agent
 
 import os
 from dotenv import load_dotenv
@@ -64,7 +65,7 @@ builder = StateGraph(MasterState)
 builder.add_node("parse_query_node", parse_query_node)
 builder.add_node("market_node", run_market_agent)
 builder.add_node("weather_node", run_weather_agent)
-builder.add_node("soil_node", soil_node)
+builder.add_node("soil_node", run_soil_agent)
 builder.add_node("gdb_node", run_gdb_agent)
 
 builder.set_entry_point("parse_query_node")
