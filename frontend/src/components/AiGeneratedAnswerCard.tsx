@@ -57,6 +57,8 @@ export const AiGeneratedAnswerCard = ({
   // Show regenerate for the questions whose source is eliglibe and should have Ai answer
   const canRegenerate = canShowActions && hasAIAnswer;
 
+  const hasActionButtons = (!hasAIAnswer && showGenerate) || !!tempAiAnswer || canRegenerate;
+
   return (
     <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden transition-all duration-300">
       <div
@@ -197,7 +199,7 @@ export const AiGeneratedAnswerCard = ({
             )}
           </ScrollArea>
         </div>
-        {isEligibleSource && (
+        {isEligibleSource && hasActionButtons && (
           <div className="px-6 py-4 border-t border-border flex flex-wrap gap-3">
             {!hasAIAnswer && showGenerate && (
               <Button onClick={onGenerate} disabled={isGenerating}>
