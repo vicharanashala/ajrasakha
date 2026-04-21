@@ -18,13 +18,21 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
 } from "./atoms/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 import { useGetAuditTrails } from "@/hooks/api/auditTrails/useGetAuditTrails";
 import { Button } from "./atoms/button";
-import { ArrowBigDownDashIcon, LayoutGrid, Table2, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ArrowBigDownDashIcon,
+  LayoutGrid,
+  Table2,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 import { Pagination } from "./pagination";
+import AvatarComponent from "./avatar-component";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,6 +41,7 @@ interface AuditActor {
   name: string;
   email: string;
   role: string;
+  avatar?: string;
 }
 
 interface AuditEntry {
@@ -80,35 +89,59 @@ function fmtDate(iso: string) {
 
 // Checks if a value is an array of objects (not primitives)
 function isArrayOfObjects(v: unknown): v is Record<string, unknown>[] {
-  return Array.isArray(v) && v.length > 0 && typeof v[0] === "object" && v[0] !== null;
+  return (
+    Array.isArray(v) &&
+    v.length > 0 &&
+    typeof v[0] === "object" &&
+    v[0] !== null
+  );
 }
 
 // Unwraps MongoDB { _id: "..." } single-key wrappers
 function unwrapMongoId(v: unknown): string | unknown {
   if (v && typeof v === "object" && !Array.isArray(v)) {
     const entries = Object.entries(v as Record<string, unknown>);
-    if (entries.length === 1 && entries[0][0] === "_id") return String(entries[0][1]);
+    if (entries.length === 1 && entries[0][0] === "_id")
+      return String(entries[0][1]);
   }
   return v;
 }
 
-
 // ─── Badge ────────────────────────────────────────────────────────────────────
 
-type BadgeVariant = "action" | "category" | "role" | "success" | "danger" | "neutral";
+type BadgeVariant =
+  | "action"
+  | "category"
+  | "role"
+  | "success"
+  | "danger"
+  | "neutral";
 
 const badgeStyles: Record<BadgeVariant, string> = {
-  action:   "bg-blue-50   text-blue-800   border-blue-200   dark:bg-blue-950   dark:text-blue-200   dark:border-blue-800",
-  category: "bg-purple-50 text-purple-800 border-purple-200 dark:bg-purple-950 dark:text-purple-200 dark:border-purple-800",
-  role:     "bg-green-50  text-green-800  border-green-200  dark:bg-green-950  dark:text-green-200  dark:border-green-800",
-  success:  "bg-green-50  text-green-800  border-green-200  dark:bg-green-950  dark:text-green-200  dark:border-green-800",
-  danger:   "bg-red-50    text-red-800    border-red-200    dark:bg-red-950    dark:text-red-200    dark:border-red-800",
-  neutral:  "bg-gray-50   text-gray-700   border-gray-200   dark:bg-gray-900   dark:text-gray-300   dark:border-gray-700",
+  action:
+    "bg-blue-50   text-blue-800   border-blue-200   dark:bg-blue-950   dark:text-blue-200   dark:border-blue-800",
+  category:
+    "bg-purple-50 text-purple-800 border-purple-200 dark:bg-purple-950 dark:text-purple-200 dark:border-purple-800",
+  role: "bg-green-50  text-green-800  border-green-200  dark:bg-green-950  dark:text-green-200  dark:border-green-800",
+  success:
+    "bg-green-50  text-green-800  border-green-200  dark:bg-green-950  dark:text-green-200  dark:border-green-800",
+  danger:
+    "bg-red-50    text-red-800    border-red-200    dark:bg-red-950    dark:text-red-200    dark:border-red-800",
+  neutral:
+    "bg-gray-50   text-gray-700   border-gray-200   dark:bg-gray-900   dark:text-gray-300   dark:border-gray-700",
 };
 
-function Badge({ children, variant = "neutral" }: { children: React.ReactNode; variant?: BadgeVariant }) {
+function Badge({
+  children,
+  variant = "neutral",
+}: {
+  children: React.ReactNode;
+  variant?: BadgeVariant;
+}) {
   return (
-    <span className={`inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full border whitespace-nowrap ${badgeStyles[variant]}`}>
+    <span
+      className={`inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full border whitespace-nowrap ${badgeStyles[variant]}`}
+    >
       {children}
     </span>
   );
@@ -188,7 +221,10 @@ function renderScalar(val: unknown): string {
 //   }, {});
 // }
 
-function flattenObject(obj: Record<string, unknown>, prefix = ""): Record<string, unknown> {
+function flattenObject(
+  obj: Record<string, unknown>,
+  prefix = "",
+): Record<string, unknown> {
   return Object.entries(obj).reduce<Record<string, unknown>>((acc, [k, v]) => {
     const key = prefix ? `${prefix}.${k}` : k;
     const unwrapped = unwrapMongoId(v);
@@ -199,7 +235,10 @@ function flattenObject(obj: Record<string, unknown>, prefix = ""): Record<string
       // Keep arrays as-is — DiffViewer will decide how to render them
       acc[key] = unwrapped;
     } else if (typeof unwrapped === "object") {
-      Object.assign(acc, flattenObject(unwrapped as Record<string, unknown>, key));
+      Object.assign(
+        acc,
+        flattenObject(unwrapped as Record<string, unknown>, key),
+      );
     } else {
       acc[key] = String(unwrapped);
     }
@@ -221,7 +260,13 @@ function sortKeys(keys: string[]): string[] {
   });
 }
 
-function ObjectCard({ item, index }: { item: Record<string, unknown>; index: number }) {
+function ObjectCard({
+  item,
+  index,
+}: {
+  item: Record<string, unknown>;
+  index: number;
+}) {
   const keys = sortKeys(Object.keys(item).filter((k) => k !== "_id"));
   const rawId = item["_id"] ? unwrapMongoId(item["_id"]) : null;
   const id = rawId !== null && rawId !== undefined ? String(rawId) : null;
@@ -240,7 +285,9 @@ function ObjectCard({ item, index }: { item: Record<string, unknown>; index: num
       </div>
       {keys.map((k) => (
         <div key={k} className="flex items-start gap-2 text-xs">
-          <span className="text-muted-foreground w-14 shrink-0 capitalize">{k}</span>
+          <span className="text-muted-foreground w-14 shrink-0 capitalize">
+            {k}
+          </span>
           <span className="font-medium break-all">{renderScalar(item[k])}</span>
         </div>
       ))}
@@ -270,33 +317,59 @@ function ArrayOfObjectsDiff({
         return (
           <div key={i} className="flex gap-2">
             {/* Before */}
-            <div className={`flex-1 ${onlyAfter ? "opacity-0 pointer-events-none" : ""}`}>
+            <div
+              className={`flex-1 ${onlyAfter ? "opacity-0 pointer-events-none" : ""}`}
+            >
               {b ? (
-                <div className={`rounded-lg border p-2.5 space-y-1 ${onlyBefore ? "border-red-300 bg-red-50/40 dark:border-red-800 dark:bg-red-950/20" : "border-border/60 bg-background"}`}>
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase">#{i + 1}</span>
-                  {sortKeys(Object.keys(b).filter(k => k !== "_id")).map(k => (
-                    <div key={k} className="flex items-start gap-2 text-xs">
-                      <span className="text-muted-foreground w-14 shrink-0 capitalize">{k}</span>
-                      <span className="font-medium break-all">{renderScalar(b[k])}</span>
-                    </div>
-                  ))}
+                <div
+                  className={`rounded-lg border p-2.5 space-y-1 ${onlyBefore ? "border-red-300 bg-red-50/40 dark:border-red-800 dark:bg-red-950/20" : "border-border/60 bg-background"}`}
+                >
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase">
+                    #{i + 1}
+                  </span>
+                  {sortKeys(Object.keys(b).filter((k) => k !== "_id")).map(
+                    (k) => (
+                      <div key={k} className="flex items-start gap-2 text-xs">
+                        <span className="text-muted-foreground w-14 shrink-0 capitalize">
+                          {k}
+                        </span>
+                        <span className="font-medium break-all">
+                          {renderScalar(b[k])}
+                        </span>
+                      </div>
+                    ),
+                  )}
                 </div>
-              ) : <div className="flex-1" />}
+              ) : (
+                <div className="flex-1" />
+              )}
             </div>
 
             {/* After */}
-            <div className={`flex-1 ${onlyBefore ? "opacity-0 pointer-events-none" : ""}`}>
+            <div
+              className={`flex-1 ${onlyBefore ? "opacity-0 pointer-events-none" : ""}`}
+            >
               {a ? (
-                <div className={`rounded-lg border p-2.5 space-y-1 ${onlyAfter ? "border-green-300 bg-green-50/40 dark:border-green-800 dark:bg-green-950/20" : "border-border/60 bg-background"}`}>
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase">#{i + 1}</span>
-                  {sortKeys(Object.keys(a)).map(k => (
+                <div
+                  className={`rounded-lg border p-2.5 space-y-1 ${onlyAfter ? "border-green-300 bg-green-50/40 dark:border-green-800 dark:bg-green-950/20" : "border-border/60 bg-background"}`}
+                >
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase">
+                    #{i + 1}
+                  </span>
+                  {sortKeys(Object.keys(a)).map((k) => (
                     <div key={k} className="flex items-start gap-2 text-xs">
-                      <span className="text-muted-foreground w-14 shrink-0 capitalize">{k}</span>
-                      <span className="font-medium break-all">{renderScalar(a[k])}</span>
+                      <span className="text-muted-foreground w-14 shrink-0 capitalize">
+                        {k}
+                      </span>
+                      <span className="font-medium break-all">
+                        {renderScalar(a[k])}
+                      </span>
                     </div>
                   ))}
                 </div>
-              ) : <div className="flex-1" />}
+              ) : (
+                <div className="flex-1" />
+              )}
             </div>
           </div>
         );
@@ -304,7 +377,6 @@ function ArrayOfObjectsDiff({
     </div>
   );
 }
-
 
 // ─── Diff Viewer ──────────────────────────────────────────────────────────────
 
@@ -370,13 +442,19 @@ function DiffViewer({
   // let allKeys = Array.from(new Set([...Object.keys(flatBefore), ...Object.keys(flatAfter)]));
   // allKeys = allKeys.map((k)=> k.split(".").pop()); // only top-level keys for now
   // console.log("All keys", allKeys);
-  const allKeys = Array.from(new Set([...Object.keys(flatBefore), ...Object.keys(flatAfter)]));
+  const allKeys = Array.from(
+    new Set([...Object.keys(flatBefore), ...Object.keys(flatAfter)]),
+  );
   console.log("All keys", allKeys);
   if (!allKeys.length)
-    return <p className="text-xs text-muted-foreground italic">No fields recorded.</p>;
+    return (
+      <p className="text-xs text-muted-foreground italic">
+        No fields recorded.
+      </p>
+    );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 m-1">
       {allKeys.map((key) => {
         const bv = flatBefore[key];
         const av = flatAfter[key];
@@ -396,8 +474,12 @@ function DiffViewer({
               </p>
               {/* Column headers */}
               <div className="flex gap-2 mb-1.5">
-                <span className="flex-1 text-[10px] text-muted-foreground font-medium">Before</span>
-                <span className="flex-1 text-[10px] text-muted-foreground font-medium">After</span>
+                <span className="flex-1 text-[10px] text-muted-foreground font-medium">
+                  Before
+                </span>
+                <span className="flex-1 text-[10px] text-muted-foreground font-medium">
+                  After
+                </span>
               </div>
               <ArrayOfObjectsDiff beforeArr={bArr} afterArr={aArr} />
             </div>
@@ -405,18 +487,31 @@ function DiffViewer({
         }
 
         // ── Array of primitives ──
-        const bStr = Array.isArray(bv) ? bv.map(renderScalar).join(", ") : (bv as string) ?? "—";
-        const aStr = Array.isArray(av) ? av.map(renderScalar).join(", ") : (av as string) ?? "—";
+        const bStr = Array.isArray(bv)
+          ? bv.map(renderScalar).join(", ")
+          : ((bv as string) ?? "—");
+        const aStr = Array.isArray(av)
+          ? av.map(renderScalar).join(", ")
+          : ((av as string) ?? "—");
         const changed = bStr !== aStr;
 
         // ── Scalar / flat row ──
         return (
-          <div key={key} className="grid grid-cols-[1fr_1fr_1fr] gap-1 text-xs border-t border-border/30 pt-2">
-            <span className="font-mono text-muted-foreground self-start">{key.split(".").pop().toUpperCase()}</span>
-            <span className={`font-mono px-1.5 py-0.5 rounded ${changed ? "bg-red-50 text-red-800 dark:bg-red-950/60 dark:text-red-300" : "text-foreground"}`}>
+          <div
+            key={key}
+            className="grid grid-cols-[1fr_1fr_1fr] gap-1 text-xs border-t border-border/30 pt-2"
+          >
+            <span className="font-mono text-muted-foreground self-start">
+              {key.split(".").pop().toUpperCase()}
+            </span>
+            <span
+              className={`font-mono px-1.5 py-0.5 rounded ${changed ? "bg-red-50 text-red-800 dark:bg-red-950/60 dark:text-red-300" : "text-foreground"} text-wrap`}
+            >
               {bStr || "—"}
             </span>
-            <span className={`font-mono px-1.5 py-0.5 rounded ${changed ? "bg-green-50 text-green-800 dark:bg-green-950/60 dark:text-green-300" : "text-foreground"} text-wrap break-all`}>
+            <span
+              className={`font-mono px-1.5 py-0.5 rounded ${changed ? "bg-green-50 text-green-800 dark:bg-green-950/60 dark:text-green-300" : "text-foreground"} text-wrap`}
+            >
               {aStr || "—"}
             </span>
           </div>
@@ -462,7 +557,9 @@ function ContextViewer({ context }: { context: Record<string, unknown> }) {
     <div className="space-y-1.5">
       {Object.entries(flat).map(([k, v]) => (
         <div key={k} className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted-foreground font-medium min-w-fit">{k}:</span>
+          <span className="text-xs text-muted-foreground font-medium min-w-fit">
+            {k}:
+          </span>
           <span className="text-[11px] font-mono bg-muted px-2 py-0.5 rounded border border-border/60">
             {renderScalar(v)}
           </span>
@@ -481,23 +578,57 @@ function CompactCard({ entry }: { entry: AuditEntry }) {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           {/* Avatar + name */}
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 flex items-center justify-center text-xs font-semibold shrink-0">
-              {initials(entry.actor.name)}
-            </div>
+            <AvatarComponent name={entry.actor.name} image={entry.actor.avatar}/>
             <div className="min-w-0">
-              <p className="text-sm font-medium leading-tight truncate">{entry.actor.name}</p>
-              <p className="text-xs text-muted-foreground">{fmtDate(entry.createdAt)}</p>
+              <p className="text-sm font-medium leading-tight truncate">
+                {entry.actor.name}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {fmtDate(entry.createdAt)}
+              </p>
             </div>
           </div>
 
           {/* Badges */}
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="category">{entry.category}</Badge>
-            <Badge variant="action">{entry.action}</Badge>
-            <Badge variant="role">{entry.actor.role}</Badge>
-            <Badge variant={entry.outcome.status === "SUCCESS" ? "success" : "danger"}>
-              {entry.outcome.status}
-            </Badge>
+            <Tooltip>
+              <TooltipTrigger>
+                <Badge variant="category">{entry.category}</Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Category</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger>
+                <Badge variant="action">{entry.action}</Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Action</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger>
+                <Badge variant="role">{entry.actor.role}</Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Role</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger>
+                <Badge
+                  variant={
+                    entry.outcome.status === "SUCCESS" ? "success" : "danger"
+                  }
+                >
+                  {entry.outcome.status}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Outcome</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </CardContent>
@@ -516,24 +647,34 @@ function DetailRow({ entry }: { entry: AuditEntry }) {
         {/* Actor */}
         <TableCell>
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 flex items-center justify-center text-[10px] font-semibold shrink-0">
-              {initials(entry.actor.name)}
-            </div>
+            <AvatarComponent name={entry.actor.name} image={entry.actor.avatar}/>
             <div>
-              <p className="text-xs font-medium leading-tight">{entry.actor.name}</p>
-              <p className="text-[11px] text-muted-foreground">{entry.actor.email}</p>
+              <p className="text-xs font-medium leading-tight">
+                {entry.actor.name}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {entry.actor.email}
+              </p>
             </div>
           </div>
         </TableCell>
 
-        <TableCell><Badge variant="action">{entry.action}</Badge></TableCell>
-        <TableCell><Badge variant="category">{entry.category}</Badge></TableCell>
-        <TableCell><Badge variant="role">{entry.actor.role}</Badge></TableCell>
+        <TableCell>
+          <Badge variant="action">{entry.action}</Badge>
+        </TableCell>
+        <TableCell>
+          <Badge variant="category">{entry.category}</Badge>
+        </TableCell>
+        <TableCell>
+          <Badge variant="role">{entry.actor.role}</Badge>
+        </TableCell>
         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
           {fmtDate(entry.createdAt)}
         </TableCell>
         <TableCell>
-          <Badge variant={entry.outcome.status === "SUCCESS" ? "success" : "danger"}>
+          <Badge
+            variant={entry.outcome.status === "SUCCESS" ? "success" : "danger"}
+          >
             {entry.outcome.status}
           </Badge>
         </TableCell>
@@ -542,18 +683,26 @@ function DetailRow({ entry }: { entry: AuditEntry }) {
             variant="outline"
             size="sm"
             onClick={() => setOpen((o) => !o)}
-            className="h-7 px-2 text-xs gap-1"
+            className="h-7 px-2 text-xs gap-1 transition-all duration-300 group"
           >
-            {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            {open ? (
+              <ChevronUp size={12} className="transition-transform" />
+            ) : (
+              <ChevronDown size={12} className="transition-transform" />
+            )}
             {open ? "Hide" : "Details"}
           </Button>
         </TableCell>
       </TableRow>
 
       {/* Expandable panel */}
-      {open && (
-        <TableRow>
-          <TableCell colSpan={7} className="p-0 border-b">
+      {/* {open && ( */}
+      <TableRow>
+        <TableCell colSpan={7} className="p-0 border-b">
+          <div
+            className={`overflow-scroll transition-all duration-300 
+                ${open ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"}`}
+          >
             <div className="bg-muted/30 px-5 py-4 grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Left: Actor + Context */}
               <div className="space-y-4">
@@ -564,13 +713,15 @@ function DetailRow({ entry }: { entry: AuditEntry }) {
                   <table className="text-xs w-full">
                     <tbody>
                       {[
-                        ["Name",  entry.actor.name],
+                        ["Name", entry.actor.name],
                         ["Email", entry.actor.email],
-                        ["Role",  entry.actor.role],
-                        ["ID",    entry.actor.id],
+                        ["Role", entry.actor.role],
+                        ["ID", entry.actor.id],
                       ].map(([label, val]) => (
                         <tr key={label}>
-                          <td className="text-muted-foreground py-0.5 w-14 align-top">{label}</td>
+                          <td className="text-muted-foreground py-0.5 w-14 align-top">
+                            {label}
+                          </td>
                           <td className="py-0.5 break-all">{val}</td>
                         </tr>
                       ))}
@@ -587,7 +738,7 @@ function DetailRow({ entry }: { entry: AuditEntry }) {
 
               {/* Right: Changes diff */}
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
                   Changes
                 </p>
                 <DiffViewer
@@ -596,9 +747,10 @@ function DetailRow({ entry }: { entry: AuditEntry }) {
                 />
               </div>
             </div>
-          </TableCell>
-        </TableRow>
-      )}
+          </div>
+        </TableCell>
+      </TableRow>
+      {/* )} */}
     </>
   );
 }
@@ -610,15 +762,15 @@ const AuditPage = () => {
   const [page, setPage] = useState(1);
   const [startDate, setStartDate] = useState<string | undefined>(undefined);
   const [endDate, setEndDate] = useState<string | undefined>(undefined);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const limit = 10;
 
   const { data, isLoading, error, refetch } = useGetAuditTrails(
     page,
     limit,
     startDate,
-    endDate
+    endDate,
   );
-
 
   const entries: AuditEntry[] = data?.data ?? [];
   const total: number = data?.totalDocuments ?? 0;
@@ -639,6 +791,31 @@ const AuditPage = () => {
 
         <div className="flex items-center gap-2">
           {/* Date filters via DropdownMenu */}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setIsRefreshing(true);
+                        setTimeout(() => {
+                          refetch();
+
+                          setIsRefreshing(false);
+                        }, 2000);
+                      }}
+                      disabled={isRefreshing}
+                    >
+                      {isRefreshing ? (
+                        <Loader2 className="animate-spin w-4 h-4" />
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-1" />
+                          Refresh
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1 text-xs">
@@ -648,20 +825,30 @@ const AuditPage = () => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 p-3 space-y-2">
               <div className="space-y-1">
-                <label className="text-xs text-muted-foreground font-medium">Start date</label>
+                <label className="text-xs text-muted-foreground font-medium">
+                  Start date
+                </label>
                 <input
                   type="date"
                   value={startDate ?? ""}
-                  onChange={(e) => { setStartDate(e.target.value || undefined); setPage(1); }}
+                  onChange={(e) => {
+                    setStartDate(e.target.value || undefined);
+                    setPage(1);
+                  }}
                   className="w-full border rounded-md px-2 py-1 text-xs bg-background"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs text-muted-foreground font-medium">End date</label>
+                <label className="text-xs text-muted-foreground font-medium">
+                  End date
+                </label>
                 <input
                   type="date"
                   value={endDate ?? ""}
-                  onChange={(e) => { setEndDate(e.target.value || undefined); setPage(1); }}
+                  onChange={(e) => {
+                    setEndDate(e.target.value || undefined);
+                    setPage(1);
+                  }}
                   className="w-full border rounded-md px-2 py-1 text-xs bg-background"
                 />
               </div>
@@ -670,7 +857,11 @@ const AuditPage = () => {
                   variant="ghost"
                   size="sm"
                   className="w-full text-xs mt-1"
-                  onClick={() => { setStartDate(undefined); setEndDate(undefined); setPage(1); }}
+                  onClick={() => {
+                    setStartDate(undefined);
+                    setEndDate(undefined);
+                    setPage(1);
+                  }}
                 >
                   Clear filters
                 </Button>
@@ -708,17 +899,23 @@ const AuditPage = () => {
 
       {/* ── States ── */}
       {isLoading && (
-        <div className="py-16 text-center text-sm text-muted-foreground">Loading audit logs…</div>
+        <div className="py-16 text-center text-sm text-muted-foreground">
+          Loading audit logs…
+        </div>
       )}
       {error && (
-        <div className="py-8 text-center text-sm text-red-600">Failed to load audit logs. Please try again.</div>
+        <div className="py-8 text-center text-sm text-red-600">
+          Failed to load audit logs. Please try again.
+        </div>
       )}
 
       {/* ── Compact: Cards ── */}
       {!isLoading && !error && view === "compact" && (
         <div className="space-y-2">
           {entries.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-12">No audit entries found.</p>
+            <p className="text-sm text-muted-foreground text-center py-12">
+              No audit entries found.
+            </p>
           )}
           {entries.map((entry) => (
             <CompactCard key={entry._id} entry={entry} />
@@ -744,12 +941,17 @@ const AuditPage = () => {
             <TableBody>
               {entries.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-12">
+                  <TableCell
+                    colSpan={7}
+                    className="text-center text-sm text-muted-foreground py-12"
+                  >
                     No audit entries found.
                   </TableCell>
                 </TableRow>
               ) : (
-                entries.map((entry) => <DetailRow key={entry._id} entry={entry} />)
+                entries.map((entry) => (
+                  <DetailRow key={entry._id} entry={entry} />
+                ))
               )}
             </TableBody>
           </Table>
@@ -758,7 +960,11 @@ const AuditPage = () => {
 
       {/* ── Pagination ── */}
       {!isLoading && total > limit && (
-        <Pagination currentPage={page} onPageChange={setPage} totalPages={totalPages} />
+        <Pagination
+          currentPage={page}
+          onPageChange={setPage}
+          totalPages={totalPages}
+        />
       )}
     </div>
   );

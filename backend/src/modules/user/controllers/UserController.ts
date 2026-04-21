@@ -372,6 +372,7 @@ export class UserController {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
       },
       context: {
         userId: userId,

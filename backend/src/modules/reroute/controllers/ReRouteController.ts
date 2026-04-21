@@ -129,6 +129,7 @@ export class ReRouteController {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
         },
       context: {
         questionId: questionId,
@@ -255,6 +256,7 @@ export class ReRouteController {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
         },
       context: {
         questionId: questionId,

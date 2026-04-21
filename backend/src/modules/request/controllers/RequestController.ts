@@ -184,6 +184,7 @@ export class RequestController {
         name: `${user.firstName} ${user.lastName || ''}`.trim(),
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
       },
       context: {
         requestId,
@@ -243,6 +244,7 @@ export class RequestController {
         name: `${user.firstName} ${user.lastName || ''}`.trim(),
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
       },
       context: {
         requestId,

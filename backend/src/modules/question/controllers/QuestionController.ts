@@ -177,6 +177,7 @@ export class QuestionController {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
       },
     };
 
@@ -330,6 +331,7 @@ export class QuestionController {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
       },
       createdAt: new Date(),
     };
@@ -392,6 +394,7 @@ export class QuestionController {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
       },
       context: {
         startDate: startDate,
@@ -437,6 +440,7 @@ export class QuestionController {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
       },
       context: {
         startDate: startDate,
@@ -497,6 +501,7 @@ export class QuestionController {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
       },
       context: {
         filters: query,
@@ -607,6 +612,7 @@ export class QuestionController {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
       },
       context: {
         questionId: questionId,
@@ -658,6 +664,7 @@ export class QuestionController {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
       },
       context: {
         questionId: questionId,
@@ -718,6 +725,7 @@ export class QuestionController {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
       },
       context: {
         questionId: questionId,
@@ -776,6 +784,7 @@ export class QuestionController {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
       },
       context: {
         questionId: questionId,
@@ -820,6 +829,7 @@ export class QuestionController {
         name: `${user.firstName} ${user.lastName}`,
           email: user.email,
           role: user.role,
+          avatar: user?.avatar || '',
       },
       context: {
         questionIds: questionIds,
@@ -865,6 +875,8 @@ export class QuestionController {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
+
       },
       context: {
         questionId: questionId,
@@ -953,6 +965,7 @@ export class QuestionController {
           name: `${user.firstName} ${user.lastName}`,
           email: user.email,
           role: user.role,
+          avatar: user?.avatar || '',
         },
         context: {
           startDate: startDate,
@@ -981,6 +994,7 @@ export class QuestionController {
           name: `${user.firstName} ${user.lastName}`,
           email: user.email,
           role: user.role,
+          avatar: user?.avatar || '',
         },
         context: {
           startDate: body.startDate,

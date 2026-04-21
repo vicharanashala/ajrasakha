@@ -70,6 +70,7 @@ export interface ModeratorAuditTrail {
     name: string;
     email: string;
     role?: string;
+    avatar?: string;
   };
 
   context?: Record<string, any>;

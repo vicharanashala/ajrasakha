@@ -172,6 +172,7 @@ export class CropController {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
       },
       context: {
         cropId: crop._id.toString(),
@@ -241,6 +242,7 @@ export class CropController {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
       },
       context: {
         cropId,

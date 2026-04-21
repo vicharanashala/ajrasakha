@@ -71,6 +71,7 @@ export class AuditTrailsRepository implements IAuditTrailsRepository {
   return {
     data: await this.auditTrailsCollection
       .find(query, { session })
+      .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .toArray(),

@@ -127,6 +127,7 @@ export class CommentController {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
        },
       context: {
         questionId: questionId,

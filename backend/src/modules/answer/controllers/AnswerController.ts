@@ -149,6 +149,7 @@ export class AnswerController {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
+        avatar: user?.avatar || '',
         },
       context: {
         questionId: prevAnswer?.questionId.toString() || body.questionId,
