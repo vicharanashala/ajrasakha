@@ -168,6 +168,7 @@ export interface IChatbotRepository {
     source?: string,
     crop?: string,
     village?: string,
+    profileCompleted?: string,
     session?: ClientSession,
   ): Promise<PaginatedUserDetails>;
 }
