@@ -42,6 +42,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
     setTimeout(() => sectionRefs.current[view]?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
 
+  // remove this varaible when data is dynamci
   const dynamicIds = ['dau', 'queries', 'session'];
 
   const handleSegmentClick = useCallback((seg: Segment) => {
