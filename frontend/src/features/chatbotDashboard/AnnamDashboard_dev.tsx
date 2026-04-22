@@ -92,6 +92,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
               }}
               healthScore={70}
               healthLabel="Moderate · needs improvement"
+              source={source}
             />
 
             {activeView === "user-details" ? (

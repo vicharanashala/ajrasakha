@@ -186,4 +186,17 @@ export interface IChatbotRepository {
 
   /** Aggregate age group, gender split, and farming experience distributions from farmerProfile. */
   getUserDemographics(source?: string, session?: ClientSession): Promise<UserDemographics>;
+  /** Aggregate conversations from the messages collection for Excel export. */
+  generateChatbotExcelReport(
+    startDate: Date,
+    endDate: Date,
+    source?: string,
+    session?: ClientSession,
+  ): Promise<ChatbotConversationData[]>;
+}
+
+export interface ChatbotConversationData {
+  conversationId: string;
+  farmerQuestions: string[];
+  mcpToolCalls: any[][];
 }

@@ -5,6 +5,8 @@ import {
   HttpCode,
   QueryParams,
   Authorized,
+  ContentType,
+  Res,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
@@ -279,5 +281,25 @@ export class ChatbotController {
   @Authorized()
   async getUserDemographics(@QueryParams() query: SourceQueryDto) {
     return this.chatbotService.getUserDemographics(query.source);
+  @Get('/download-chatbot-report')
+  @Authorized()
+  @ContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  @OpenAPI({ summary: 'Download chatbot conversations as Excel (date range, max 1 month)' })
+  async downloadChatbotReport(
+    @QueryParams() query: { startDate?: string; endDate?: string; source?: string },
+    @Res() response: any,
+  ) {
+    if (!query.startDate || !query.endDate) {
+      response.status(400).json({ success: false, message: 'startDate and endDate are required' });
+      return;
+    }
+    const startDate = new Date(query.startDate);
+    const endDate = new Date(query.endDate);
+    const data = await this.chatbotService.generateChatbotExcelReport(startDate, endDate, query.source);
+    if (!data) {
+      response.status(200).json({ success: false, message: 'No data found for the selected date range' });
+      return;
+    }
+    return Buffer.from(data as ArrayBuffer);
   }
 }
