@@ -39,7 +39,6 @@ import {
   GeneratedQuestionResponse,
   GetDetailedQuestionsQuery,
   QuestionResponse,
-  UpdateQuestionBodyDto
 } from '../classes/validators/QuestionVaidators.js';
 import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
@@ -1314,20 +1313,11 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
   }
 
-  private readonly EDITABLE_FIELDS = [
-    'question',
-    'aiInitialAnswer',
-    'details.state',
-    'details.district',
-    'details.crop',
-    'details.season',
-    'details.domain',
-    'details.normalised_crop'
-  ];
+  
 
   async updateQuestion(
     questionId: string,
-    updates: UpdateQuestionBodyDto,
+    updates: Partial<IQuestion>,
   ): Promise<{ modifiedCount: number }> {
     try {
       const existingQuestion = await this.questionRepo.getById(questionId);
@@ -1335,8 +1325,20 @@ export class QuestionService extends BaseService implements IQuestionService {
         throw new BadRequestError(`Question with ID ${questionId} not found`);
       }
 
-      // If the question source is ajraskha and there is no messageId id field, then don't allow updating the question until we resolve the messageId using the matching algorithm. This is to prevent data inconsistency and ensure we have the necessary linkage to the original message for ajrasakha questions.
-      if (existingQuestion.source === 'AJRASAKHA' && !existingQuestion.messageId) {
+      // Define which fields are restricted for AJRASAKHA questions without messageId
+      // Check if the user is actually CHANGING the restricted fields (not just sending them in payload)
+      const isChangingQuestion = 'question' in updates && updates.question !== existingQuestion.question;
+      const isChangingDetails = 'details' in updates && JSON.stringify(updates.details) !== JSON.stringify(existingQuestion.details);
+      const isUpdatingRestrictedFields = isChangingQuestion || isChangingDetails;
+
+      // If the question source is ajrasakha and there is no messageId and user is trying to update restricted fields,
+      // then try to resolve the messageId using the matching algorithm. This is to prevent data inconsistency and ensure
+      // we have the necessary linkage to the original message for ajrasakha questions.
+      if (
+        existingQuestion.source === 'AJRASAKHA' &&
+        !existingQuestion.messageId &&
+        isUpdatingRestrictedFields
+      ) {
         let resolvedMessageId = '';
         try {
           const matchedData = await this.getMatchedQuestion(questionId);
@@ -1347,7 +1349,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
         if (!resolvedMessageId) {
           throw new BadRequestError(
-            "The question cannot be updated at the moment, as the message details are still unresolved for this question."
+            "The question text and details cannot be updated at the moment, as the message details are still unresolved for this question."
           );
         }
 
@@ -1383,29 +1385,6 @@ export class QuestionService extends BaseService implements IQuestionService {
         updates.details.normalised_crop = normalised_crop;
       }
 
-
-      let updatable_fields: any = {};
-
-      for (let key in updates) {
-        if (key !== 'details' && (this.EDITABLE_FIELDS.includes(key) || key === 'messageId')) {
-          updatable_fields[key] = (updates as any)[key];
-        }
-
-        if (key === 'details' && updates.details) {
-          for (let subKey in updates.details) {
-            const fullKey = `details.${subKey}`;
-
-            if (this.EDITABLE_FIELDS.includes(fullKey)) {
-              if (!updatable_fields.details) {
-                updatable_fields.details = {};
-              }
-
-              updatable_fields.details[subKey] = (updates.details as any)[subKey];
-            }
-          }
-        }
-      }
-
       return this._withTransaction(async (session: ClientSession) => {
         const reFetchedQuestion = await this.questionRepo.getById(questionId, session);
         if (!reFetchedQuestion) {
@@ -1417,31 +1396,20 @@ export class QuestionService extends BaseService implements IQuestionService {
         //     'You cannot modify a question that has already been closed.',
         //   );
 
-        //Because users cannot edit "status", commented the check from this method
-
-        // const answers = await this.answerRepo.getByQuestionId(
-        //   questionId,
-        //   session,
-        // );
-        // if (
-        //   updates.status === 'closed' &&
-        //   answers.every(answer => answer.isFinalAnswer === false)
-        // ) {
-        //   throw new BadRequestError(
-        //     `Cannot close this question as it has non-final answer`,
-        //   );
-        // }
-
-        if (existingQuestion.source === "AJRASAKHA") {
-          if (!existingQuestion.messageId) {
-            let data = await this.getMatchedQuestion(questionId);
-            if (data && data.messageId) {
-              updatable_fields.messageId = data.messageId;
-            }
-          }
+        const answers = await this.answerRepo.getByQuestionId(
+          questionId,
+          session,
+        );
+        if (
+          updates.status === 'closed' &&
+          answers.every(answer => answer.isFinalAnswer === false)
+        ) {
+          throw new BadRequestError(
+            `Cannot close this question as it has non-final answer`,
+          );
         }
 
-        return this.questionRepo.updateQuestion(questionId, updatable_fields, session);
+        return this.questionRepo.updateQuestion(questionId, updates, session);
       });
     } catch (error) {
       if (error instanceof BadRequestError) throw error;

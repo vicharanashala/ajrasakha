@@ -748,54 +748,54 @@ export class DetailedQuestionsBodyDto {
   normalisedCrops?: string[];
 }
 
-export class EditableQuestionDetailsDto {
-  @IsOptional()
-  @IsString()
-  state?: string;
+// export class EditableQuestionDetailsDto {
+//   @IsOptional()
+//   @IsString()
+//   state?: string;
 
-  @IsOptional()
-  @IsString()
-  district?: string;
+//   @IsOptional()
+//   @IsString()
+//   district?: string;
 
-  @IsOptional()
-  crop?: string | ICropRef;
+//   @IsOptional()
+//   crop?: string | ICropRef;
 
-  @IsOptional()
-  @IsString()
-  season?: string;
+//   @IsOptional()
+//   @IsString()
+//   season?: string;
 
-  @IsOptional()
-  @IsString()
-  domain?: string;
+//   @IsOptional()
+//   @IsString()
+//   domain?: string;
 
-  @IsOptional()
-  @IsString()
-  normalised_crop?: string;
-}
+//   @IsOptional()
+//   @IsString()
+//   normalised_crop?: string;
+// }
 
-export class UpdateQuestionBodyDto {
-  @IsOptional()
-  @IsString()
-  messageId?: string;
+// export class UpdateQuestionBodyDto {
+//   @IsOptional()
+//   @IsString()
+//   messageId?: string;
 
-  @IsOptional()
-  @IsString()
-  question?: string;
+//   @IsOptional()
+//   @IsString()
+//   question?: string;
 
-  @IsOptional()
-  @IsString()
-  aiInitialAnswer?: string;
+//   @IsOptional()
+//   @IsString()
+//   aiInitialAnswer?: string;
 
-  //Because users cannot edit "status"
-  // @IsOptional()
-  // @IsString()
-  // status?: string;
+//   //Because users cannot edit "status"
+//   // @IsOptional()
+//   // @IsString()
+//   // status?: string;
 
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => EditableQuestionDetailsDto)
-  details?: EditableQuestionDetailsDto;
-}
+//   @IsOptional()
+//   @ValidateNested()
+//   @Type(() => EditableQuestionDetailsDto)
+//   details?: EditableQuestionDetailsDto;
+// }
 
 export class ApproveInitialAnswerBody {
   @IsString()

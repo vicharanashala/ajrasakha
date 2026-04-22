@@ -43,7 +43,6 @@ import {
   QuestionIdParam,
   QuestionResponse,
   RemoveAllocateBody,
-  UpdateQuestionBodyDto,
   ApproveInitialAnswerBody
 } from '../classes/validators/QuestionVaidators.js';
 import * as XLSX from 'xlsx';
@@ -464,7 +463,7 @@ export class QuestionController {
   @OpenAPI({ summary: 'Update a question by ID' })
   async updateQuestion(
     @Params() params: QuestionIdParam,
-    @Body() updates: UpdateQuestionBodyDto,
+    @Body() updates: Partial<IQuestion>,
   ): Promise<{ modifiedCount: number }> {
     const { questionId } = params;
     return this.questionService.updateQuestion(questionId, updates);

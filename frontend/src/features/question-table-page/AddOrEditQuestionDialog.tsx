@@ -750,8 +750,7 @@ export const AddOrEditQuestionDialog = ({
                     className="h-32 resize-none overflow-y-auto"
                   />
 
-                  {mode === "add" && (
-                    <>
+                  
                       <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                         <FlagTriangleRight className="h-4 w-4" aria-hidden="true" />
                         <label>Priority*</label>
@@ -781,13 +780,12 @@ export const AddOrEditQuestionDialog = ({
                           <SelectItem value="high">High</SelectItem>
                         </SelectContent>
                       </Select>
-                      {validationErrors?.priority && (
+                      {mode === "add" && validationErrors?.priority && (
                         <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
                           {validationErrors.priority}
                         </p>
                       )}
-                    </>
-                  )}
+                    
                   {/* Status update is restricted here (only fields in EDITABLE_FIELDS can be edited) */}
                   {/* {userRole !== "expert" &&
                     mode == "edit" &&
