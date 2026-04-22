@@ -20,6 +20,7 @@ import type {
   ChatbotConversationData,
   UserDemographics,
   DemographicEntry,
+  KccAndAgriAppStats,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -1009,6 +1010,57 @@ export class ChatbotRepository implements IChatbotRepository {
       return {ageGroups, genderSplit, farmingExperience};
     } catch (error) {
       throw new InternalServerError(`Failed to get user demographics: ${error}`);
+    }
+  }
+
+  async getKccAndAgriAppStats(source = 'vicharanashala', session?: ClientSession): Promise<KccAndAgriAppStats> {
+    try {
+      await this.init(source);
+
+      const [kccRaw, agriRaw] = await Promise.all([
+        // KCC awareness split
+        this.users.aggregate<{_id: boolean; count: number}>(
+          [
+            {$match: {'farmerProfile.awarenessOfKCC': {$exists: true, $ne: null}}},
+            {$group: {_id: '$farmerProfile.awarenessOfKCC', count: {$sum: 1}}},
+          ],
+          {session},
+        ).toArray(),
+
+        // Agri apps usage split
+        this.users.aggregate<{_id: boolean; count: number}>(
+          [
+            {$match: {'farmerProfile.usesAgriApps': {$exists: true, $ne: null}}},
+            {$group: {_id: '$farmerProfile.usesAgriApps', count: {$sum: 1}}},
+          ],
+          {session},
+        ).toArray(),
+      ]);
+
+      const toPct = (count: number, total: number) =>
+        total === 0 ? 0 : Math.round((count / total) * 100);
+
+      const kccTotal = kccRaw.reduce((s, r) => s + r.count, 0);
+      const kccAwareness: DemographicEntry[] = kccRaw
+        .sort((_, b) => (b._id ? 1 : -1))
+        .map(r => ({
+          label: r._id ? 'Aware' : 'Not Aware',
+          count: r.count,
+          pct: toPct(r.count, kccTotal),
+        }));
+
+      const agriTotal = agriRaw.reduce((s, r) => s + r.count, 0);
+      const agriAppUsage: DemographicEntry[] = agriRaw
+        .sort((_, b) => (b._id ? 1 : -1))
+        .map(r => ({
+          label: r._id ? 'Uses Apps' : 'Does Not Use',
+          count: r.count,
+          pct: toPct(r.count, agriTotal),
+        }));
+
+      return {kccAwareness, agriAppUsage};
+    } catch (error) {
+      throw new InternalServerError(`Failed to get KCC and agri app stats: ${error}`);
     }
   }
 
