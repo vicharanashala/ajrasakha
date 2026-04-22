@@ -9,7 +9,7 @@ from langgraph.prebuilt import create_react_agent
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("SoilAgent")
 
-REMOTE_IP = "100.100.108.43"
+REMOTE_IP = "100.100.108.44"
 
 llm = ChatAnthropic(model="claude-sonnet-4-5-20250929")
 
@@ -48,7 +48,7 @@ async def run_soil_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     agent = create_react_agent(
         model=llm,
         tools=tools,
-        state_modifier=sys_msg
+        prompt=sys_msg
     )
     
     logger.info("Executing ReAct agent logic for Soil Health...")

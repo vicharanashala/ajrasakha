@@ -9,21 +9,21 @@ from langgraph.prebuilt import create_react_agent
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("GDBAgent")
 
-REMOTE_IP = "100.100.108.43"
+REMOTE_IP = "100.100.108.44"
 
 llm = ChatAnthropic(model="claude-sonnet-4-5-20250929")
 
 mcp_client = MultiServerMCPClient({
     "golden_db": {
-        "url": f"http://{REMOTE_IP}:9005/mcp", 
-        "transport": "http" 
+        "url": f"http://{REMOTE_IP}:9005/mcp",
+        "transport": "http"
     }
 })
 
 async def run_gdb_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     query = state.get("query", "")
     logger.info(f"Received query: '{query}'")
-    logger.info(f"Connecting to remote GDB MCP Server at {REMOTE_IP}:9005...")
+    logger.info(f"Connecting to remote GDB MCP Server at {REMOTE_IP}:9005/mcp...")
     
     try:
         tools = await mcp_client.get_tools()
@@ -43,7 +43,7 @@ async def run_gdb_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     agent = create_react_agent(
         model=llm,
         tools=tools,
-        state_modifier=sys_msg
+        prompt=sys_msg
     )
     
     logger.info("Executing ReAct agent logic for GDB...")
