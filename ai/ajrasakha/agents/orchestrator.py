@@ -1,0 +1,90 @@
+from langgraph.graph import StateGraph, END
+from typing import TypedDict, Optional
+from pydantic import BaseModel, Field
+from langchain_anthropic import ChatAnthropic
+
+from agents.gdb_agent import run_gdb_agent
+from agents.market_agent import run_market_agent
+from agents.weather_agent import run_weather_agent
+from agents.soil_agent import run_soil_agent
+
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+class MasterState(TypedDict):
+    query: str
+    intent: Optional[str]
+    entities: Optional[dict]
+    final_answer: Optional[str]
+
+class RouterSchema(BaseModel):
+    intent: str = Field(
+        description="Route to: 'market' (for mandi/prices), 'gdb' (for farming advice/diseases), 'weather' (for rain/climate), or 'soil' (for fertilizer/soil health)."
+    )
+    entities: dict = Field(
+        description="Extract useful info as a dict, e.g. {'crop': 'tomato', 'state': 'Punjab'}. Empty dict if nothing found."
+    )
+
+llm = ChatAnthropic(model="claude-sonnet-4-5-20250929")
+structured_llm = llm.with_structured_output(RouterSchema)
+
+async def parse_query_node(state: MasterState):
+    query = state["query"]
+    print(f"\n[Orchestrator] Farmer Query: '{query}'")
+    
+    prompt = f"Analyze this farmer query and strictly output the intent and entities: '{query}'"
+    response = await structured_llm.ainvoke(prompt)
+    
+    print(f"[Orchestrator] LLM decided Intent -> {response.intent}")
+    print(f"[Orchestrator] Extracted Entities -> {response.entities}")
+    
+    return {"intent": response.intent, "entities": response.entities}
+
+def route_query(state: MasterState):
+    intent = state.get("intent")
+    print(f"[Orchestrator] Routing to -> {intent}_node")
+    
+    if intent == "market":
+        return "market_node"
+    elif intent == "gdb":
+        return "gdb_node"
+    elif intent == "weather":
+        return "weather_node"
+    elif intent == "soil":
+        return "soil_node"
+    else:
+        return END
+
+async def soil_node(state: MasterState):
+    print("Soil Dept: Fetching fertilizer dosage...")
+    return {"final_answer": "Dummy Soil Data: Add 50kg Urea per acre."}
+
+builder = StateGraph(MasterState)
+
+builder.add_node("parse_query_node", parse_query_node)
+builder.add_node("market_node", run_market_agent)
+builder.add_node("weather_node", run_weather_agent)
+builder.add_node("soil_node", run_soil_agent)
+builder.add_node("gdb_node", run_gdb_agent)
+
+builder.set_entry_point("parse_query_node")
+
+builder.add_conditional_edges(
+    "parse_query_node", 
+    route_query, 
+    {
+        "market_node": "market_node",
+        "gdb_node": "gdb_node",
+        "weather_node": "weather_node",
+        "soil_node": "soil_node",
+        END: END
+    }
+)
+
+builder.add_edge("market_node", END)
+builder.add_edge("gdb_node", END)
+builder.add_edge("weather_node", END)
+builder.add_edge("soil_node", END)
+
+master_graph = builder.compile()
