@@ -13,7 +13,7 @@ interface Props {
 export function ChannelSplitCard({ channelSplit, voiceAccuracy }: Props) {
   return (
     //  Remove this div when data is dynamic
-    <div className="relative">
+    <div className="relative cursor-not-allowed">
     <Card title="Channel split" subtitle="How farmers access ACE">
       <div className="max-h-[260px] overflow-y-auto pr-1">
         <DonutChart segments={channelSplit} />
@@ -27,10 +27,9 @@ export function ChannelSplitCard({ channelSplit, voiceAccuracy }: Props) {
           {/* // Remove this div when data is dynamic */}
         <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] rounded-lg flex items-center justify-center z-10">
 				<span className="text-white text-xs font-semibold tracking-wide">
-					DEMO DATA
 				</span>
 				</div>
-        
+
         </div>
       </div>
     </Card>

@@ -31,7 +31,7 @@ export function GeoCard({ states }: { states: GeoState[] }) {
   return (
     
     // Remove this div when data is dynamic
-    <div className="relative">
+    <div className="relative cursor-not-allowed">
     <Card title="Geographic concentration" subtitle="Active users by state · color gradient from white (low) to green (high)" action="Full geo view ↗">
       <div className="max-h-[180px] overflow-y-auto pr-1">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
@@ -59,7 +59,6 @@ export function GeoCard({ states }: { states: GeoState[] }) {
     {/* // Remove this div when data is dynamic */}
     <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px] rounded-lg flex items-center justify-center z-10">
 				<span className="text-white text-xs font-semibold tracking-wide">
-					DEMO DATA
 				</span>
 				</div>
     </div>

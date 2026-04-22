@@ -35,7 +35,6 @@ export function HealthScoreCard({ pillars }: { pillars: HealthPillar[] }) {
         {/* // Remove this div when data is dynamic */}
     <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] rounded-lg flex items-center justify-center z-10">
 				<span className="text-white text-xs font-semibold tracking-wide">
-					DEMO DATA
 				</span>
 				</div>
     </div>

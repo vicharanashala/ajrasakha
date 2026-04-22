@@ -190,9 +190,8 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
 			
         {/* // Remove this div when data is dynamic */}
 			{kpi.isDummy && (
-				<div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] rounded-lg flex items-center justify-center z-10">
+				<div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] rounded-lg flex items-center justify-center z-10 cursor-not-allowed">
 				<span className="text-white text-xs font-semibold tracking-wide">
-					DEMO DATA
 				</span>
 				</div>
 			)}
