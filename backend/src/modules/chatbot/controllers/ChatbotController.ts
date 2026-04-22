@@ -25,6 +25,7 @@ import {
   GeoStateEntryResponse,
   QueryCategoryEntryResponse,
   PaginatedUserDetailsResponse,
+  UserDemographicsResponse,
 } from '../classes/validators/ChatbotResponseValidators.js';
 
 @OpenAPI({
@@ -261,5 +262,22 @@ export class ChatbotController {
       query.village,
       query.profileCompleted,
     );
+  }
+
+  @OpenAPI({
+    summary: 'Get user demographic distributions',
+    description: 'Aggregates age group, gender split, and farming experience distributions from farmer profiles.',
+  })
+  @ResponseSchema(UserDemographicsResponse, {
+    statusCode: 200,
+    description: 'Demographic distributions for age, gender, and farming experience',
+  })
+  @ResponseSchema(ChatbotErrorResponse, { statusCode: 401, description: 'Unauthorized' })
+  @ResponseSchema(ChatbotErrorResponse, { statusCode: 500, description: 'Internal server error' })
+  @Get('/user-demographics')
+  @HttpCode(200)
+  @Authorized()
+  async getUserDemographics(@QueryParams() query: SourceQueryDto) {
+    return this.chatbotService.getUserDemographics(query.source);
   }
 }

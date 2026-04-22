@@ -10,6 +10,7 @@ import type {
   WeeklyQueryCountEntry,
   UserDetailEntry,
   PaginatedUserDetails,
+  UserDemographics,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 
 export interface DashboardResponse {
@@ -40,5 +41,6 @@ export interface IChatbotService {
   getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, village?: string, profileCompleted?: string): Promise<PaginatedUserDetails>;
   getAvgSessionDurationV2(source?: string): Promise<number>;
   getWeeklyAvgSessionDurationV2(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
+  getUserDemographics(source?: string): Promise<UserDemographics>;
 }
 

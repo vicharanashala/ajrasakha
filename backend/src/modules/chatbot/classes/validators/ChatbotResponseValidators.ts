@@ -461,6 +461,40 @@ export class DashboardResponseSchema {
 
 // ─── Export all validators ────────────────────────────────────────────────────
 
+export class DemographicEntryResponse {
+  @JSONSchema({ description: 'Bucket label', example: '26-35', type: 'string', readOnly: true })
+  @IsString()
+  label: string;
+
+  @JSONSchema({ description: 'Raw count', example: 120, type: 'number', readOnly: true })
+  @IsNumber()
+  count: number;
+
+  @JSONSchema({ description: 'Percentage of total', example: 28, type: 'number', readOnly: true })
+  @IsNumber()
+  pct: number;
+}
+
+export class UserDemographicsResponse {
+  @JSONSchema({ description: 'Age group distribution', type: 'array', items: { type: 'object' }, readOnly: true })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DemographicEntryResponse)
+  ageGroups: DemographicEntryResponse[];
+
+  @JSONSchema({ description: 'Gender split', type: 'array', items: { type: 'object' }, readOnly: true })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DemographicEntryResponse)
+  genderSplit: DemographicEntryResponse[];
+
+  @JSONSchema({ description: 'Farming experience distribution', type: 'array', items: { type: 'object' }, readOnly: true })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DemographicEntryResponse)
+  farmingExperience: DemographicEntryResponse[];
+}
+
 export const CHATBOT_RESPONSE_VALIDATORS = [
   ChatbotErrorResponse,
   KpiSummaryResponse,
@@ -475,4 +509,6 @@ export const CHATBOT_RESPONSE_VALIDATORS = [
   UserDetailEntryResponse,
   PaginatedUserDetailsResponse,
   DashboardResponseSchema,
+  DemographicEntryResponse,
+  UserDemographicsResponse,
 ];

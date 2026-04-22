@@ -160,4 +160,12 @@ export class ChatbotService implements IChatbotService {
       throw new InternalServerError(`Failed to fetch weekly avg session duration v2: ${error}`);
     }
   }
+
+  async getUserDemographics(source = 'vicharanashala') {
+    try {
+      return await this.chatbotRepository.getUserDemographics(source);
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch user demographics: ${error}`);
+    }
+  }
 }

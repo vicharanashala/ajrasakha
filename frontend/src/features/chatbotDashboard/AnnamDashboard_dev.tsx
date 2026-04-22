@@ -19,6 +19,7 @@ import { HealthScoreCard } from "./HealthScoreCard";
 import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
 import { StatusBar } from "./components/StatusBar";
 import { UserDetailsView } from "./UserDetailsView";
+import { UserDemographicsSection } from "./components/UserDemographicsSection";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -114,6 +115,9 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                   <DailyActiveUsers data={dauTrend} isLoading={dauLoading} error={dauError} />
                   <ChannelSplitCard channelSplit={data.channelSplit} voiceAccuracy={data.voiceAccuracy} />
                 </div>
+
+                {/* Demographics */}
+      <UserDemographicsSection source={source} />
 
                 {/* 3-col row */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
