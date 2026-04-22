@@ -1,4 +1,4 @@
-import type { Segment, KpiCard } from "./types";
+import type { Segment, KpiCard, DemographicEntry } from "./types";
 
 export const DASHBOARD_DATA = {
   meta: { season: "Kharif 2025", lastSync: "2 min ago", datasetVersion: "GD-2025-Q3.14", llmVersion: "v2.4.1", p0Bugs: 3 },
@@ -71,4 +71,7 @@ export const DASHBOARD_DATA = {
     { label: "Content coverage", score: 66, color: "#EF9F27" },
     { label: "UX satisfaction", score: 68, color: "#EF9F27" },
   ],
+  ageGroups: [] as DemographicEntry[],
+  genderSplit: [] as DemographicEntry[],
+  farmingExperience: [] as DemographicEntry[],
 };

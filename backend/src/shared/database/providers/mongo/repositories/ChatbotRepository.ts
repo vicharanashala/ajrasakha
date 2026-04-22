@@ -18,6 +18,9 @@ import type {
   UserDetailEntry,
   PaginatedUserDetails,
   ChatbotConversationData,
+  UserDemographics,
+  DemographicEntry,
+  KccAndAgriAppStats,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -923,6 +926,141 @@ export class ChatbotRepository implements IChatbotRepository {
       return result as WeeklySessionDurationEntry[];
     } catch (error) {
       throw new InternalServerError(`Failed to get weekly avg session duration v2: ${error}`);
+    }
+  }
+
+  async getUserDemographics(source = 'vicharanashala', session?: ClientSession): Promise<UserDemographics> {
+    try {
+      await this.init(source);
+
+      const [ageRaw, genderRaw, expRaw] = await Promise.all([
+        // Age group buckets
+        this.users.aggregate<{_id: string | number; count: number}>(
+          [
+            {$match: {'farmerProfile.age': {$exists: true, $ne: null}}},
+            {
+              $bucket: {
+                groupBy: '$farmerProfile.age',
+                boundaries: [18, 26, 36, 46, 56],
+                default: '55+',
+                output: {count: {$sum: 1}},
+              },
+            },
+          ],
+          {session},
+        ).toArray(),
+
+        // Gender split
+        this.users.aggregate<{_id: string; count: number}>(
+          [
+            {$match: {'farmerProfile.gender': {$exists: true, $ne: null}}},
+            {$group: {_id: '$farmerProfile.gender', count: {$sum: 1}}},
+          ],
+          {session},
+        ).toArray(),
+
+        // Farming experience buckets
+        this.users.aggregate<{_id: number | string; count: number}>(
+          [
+            {$match: {'farmerProfile.yearsOfExperience': {$exists: true, $ne: null}}},
+            {
+              $bucket: {
+                groupBy: '$farmerProfile.yearsOfExperience',
+                boundaries: [0, 2, 5, 10, 20],
+                default: '20+',
+                output: {count: {$sum: 1}},
+              },
+            },
+          ],
+          {session},
+        ).toArray(),
+      ]);
+
+      const toPct = (count: number, total: number) =>
+        total === 0 ? 0 : Math.round((count / total) * 100);
+
+      const ageBoundaryLabel: Record<string | number, string> = {
+        18: '18-25', 26: '26-35', 36: '36-45', 46: '46-55', '55+': '55+',
+      };
+      const ageTotal = ageRaw.reduce((s, r) => s + r.count, 0);
+      const ageGroups: DemographicEntry[] = ageRaw.map(r => ({
+        label: ageBoundaryLabel[r._id] ?? String(r._id),
+        count: r.count,
+        pct: toPct(r.count, ageTotal),
+      }));
+
+      const genderTotal = genderRaw.reduce((s, r) => s + r.count, 0);
+      const genderMap: Record<string, string> = {male: 'Male', female: 'Female', other: 'Other'};
+      const genderSplit: DemographicEntry[] = genderRaw.map(r => ({
+        label: genderMap[(r._id ?? '').toLowerCase()] ?? r._id,
+        count: r.count,
+        pct: toPct(r.count, genderTotal),
+      }));
+
+      const expBoundaryLabel: Record<string | number, string> = {
+        0: 'Less than 2 yrs', 2: '2 - 5 yrs', 5: '5 - 10 yrs', 10: '10 - 20 yrs', '20+': '20+ yrs',
+      };
+      const expTotal = expRaw.reduce((s, r) => s + r.count, 0);
+      const farmingExperience: DemographicEntry[] = expRaw.map(r => ({
+        label: expBoundaryLabel[r._id] ?? String(r._id),
+        count: r.count,
+        pct: toPct(r.count, expTotal),
+      }));
+
+      return {ageGroups, genderSplit, farmingExperience};
+    } catch (error) {
+      throw new InternalServerError(`Failed to get user demographics: ${error}`);
+    }
+  }
+
+  async getKccAndAgriAppStats(source = 'vicharanashala', session?: ClientSession): Promise<KccAndAgriAppStats> {
+    try {
+      await this.init(source);
+
+      const [kccRaw, agriRaw] = await Promise.all([
+        // KCC awareness split
+        this.users.aggregate<{_id: boolean; count: number}>(
+          [
+            {$match: {'farmerProfile.awarenessOfKCC': {$exists: true, $ne: null}}},
+            {$group: {_id: '$farmerProfile.awarenessOfKCC', count: {$sum: 1}}},
+          ],
+          {session},
+        ).toArray(),
+
+        // Agri apps usage split
+        this.users.aggregate<{_id: boolean; count: number}>(
+          [
+            {$match: {'farmerProfile.usesAgriApps': {$exists: true, $ne: null}}},
+            {$group: {_id: '$farmerProfile.usesAgriApps', count: {$sum: 1}}},
+          ],
+          {session},
+        ).toArray(),
+      ]);
+
+      const toPct = (count: number, total: number) =>
+        total === 0 ? 0 : Math.round((count / total) * 100);
+
+      const kccTotal = kccRaw.reduce((s, r) => s + r.count, 0);
+      const kccAwareness: DemographicEntry[] = kccRaw
+        .sort((_, b) => (b._id ? 1 : -1))
+        .map(r => ({
+          label: r._id ? 'Aware' : 'Not Aware',
+          count: r.count,
+          pct: toPct(r.count, kccTotal),
+        }));
+
+      const agriTotal = agriRaw.reduce((s, r) => s + r.count, 0);
+      const agriAppUsage: DemographicEntry[] = agriRaw
+        .sort((_, b) => (b._id ? 1 : -1))
+        .map(r => ({
+          label: r._id ? 'Uses Apps' : 'Does Not Use',
+          count: r.count,
+          pct: toPct(r.count, agriTotal),
+        }));
+
+      return {kccAwareness, agriAppUsage};
+    } catch (error) {
+      throw new InternalServerError(`Failed to get KCC and agri app stats: ${error}`);
     }
   }
 
