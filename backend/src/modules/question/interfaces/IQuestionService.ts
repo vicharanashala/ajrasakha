@@ -169,4 +169,8 @@ export interface IQuestionService {
 
   /** Returns total question count and per-status breakdown with filters applied */
   getQuestionStatusSummary(query: GetDetailedQuestionsQuery, body: DetailedQuestionsBodyDto): Promise<{ totalQuestions: number; statuses: { status: string; count: number }[] }>;
+
+  generateAiInitialAnswer(questionId: string): Promise<{ aiInitialAnswer : string}>;
+
+  approveAiInitialAnswer(questionId: string, answer: string)
 }

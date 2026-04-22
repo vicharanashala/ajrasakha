@@ -43,7 +43,8 @@ import {
   QuestionIdParam,
   QuestionResponse,
   RemoveAllocateBody,
-  UpdateQuestionBodyDto
+  UpdateQuestionBodyDto,
+  ApproveInitialAnswerBody
 } from '../classes/validators/QuestionVaidators.js';
 import * as XLSX from 'xlsx';
 import {
@@ -639,6 +640,25 @@ export class QuestionController {
     const { questionId } = params;
     const { action } = body
     return await this.questionService.holdQuestion(questionId, user._id.toString(), action);
+  }
+
+  @Get('/:questionId/generate-answer')
+  @HttpCode(200)
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  @OpenAPI({ summary: 'Generate ai-initial answer' })
+  async generateAiInitialAnswer(@Params() params: QuestionIdParam){
+    const { questionId } = params;
+    return this.questionService.generateAiInitialAnswer(questionId);
+  }
+
+  @Post('/:questionId/approve-initial-answer')
+  @HttpCode(200)
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  @OpenAPI({ summary: 'Generate ai-initial answer' })
+  async approveInitialAnswer(@Params() params: QuestionIdParam, @Body() body:ApproveInitialAnswerBody){
+    const { questionId } = params;
+    const { answer } = body;
+    return this.questionService.approveAiInitialAnswer(questionId, answer);
   }
 
 }

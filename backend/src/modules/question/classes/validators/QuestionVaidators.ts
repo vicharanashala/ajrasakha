@@ -797,6 +797,11 @@ export class UpdateQuestionBodyDto {
   details?: EditableQuestionDetailsDto;
 }
 
+export class ApproveInitialAnswerBody {
+  @IsString()
+  answer :string;
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,
@@ -813,6 +818,7 @@ export const QUESTION_VALIDATORS = [
   DateRangeRequest,
   AllocatedQuestionsBodyDto,
   DetailedQuestionsBodyDto,
+  ApproveInitialAnswerBody,
 ];
 
 export {
