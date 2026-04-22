@@ -280,9 +280,35 @@ export class QuestionController {
         );
       }
     } else {
+      let isDuplicate;
+      let data;
 
-      const { isDuplicate, data } = await this.questionService.addQuestion(userId, body);
-
+      try {
+        const result = await this.questionService.addQuestion(userId, body);
+        isDuplicate = result.isDuplicate;
+        data = result.data;
+      } catch(err: any){
+        auditPayload = {
+          ...auditPayload,
+          context: {
+            payload: body,
+          },
+          outcome: {
+            status: OutComeStatus.FAILED,
+            errorCode: err?.errorCode || 'INTERNAL_ERROR',
+            errorMessage: err?.message || 'Failed to add question',
+            errorName: err?.name || 'Error',
+            errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+          },
+        };
+        this.auditTrailsService.createAuditTrail(auditPayload);
+        if(err instanceof InternalServerError){
+          throw new InternalServerError(err.message);
+        }
+        throw new BadRequestError(
+          err?.message || 'Failed to add question',
+        );
+      }
       if (isDuplicate) {
         return {
           success: true,
