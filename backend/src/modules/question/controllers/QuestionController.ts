@@ -629,17 +629,25 @@ export class QuestionController {
       },
     };
     const result = await this.questionService.toggleAutoAllocate(questionId);
+    const expertIdToString = result?.data?.map(id => id.toString()) || [];
+    const expertDetails = await Promise.all(expertIdToString.map((id) => this.userService.getUserById(id)))
+    console.log("the result of toggle auto allocate===", result)
     auditPayload = {
       ...auditPayload,
       changes: {
         ...auditPayload.changes,
         after: {
           autoAllocate: !auditPayload.changes.before.autoAllocate,
+          expertsDetails: expertDetails.map(ed => ({
+            name: `${ed?.firstName} ${ed?.lastName || ''}`.trim(),
+            email: ed?.email,
+            id: ed?._id.toString(),
+          })),
         },
       },
     };
     this.auditTrailsService.createAuditTrail(auditPayload);
-    return result;
+    return result.message;
   }
 
   @Post('/:questionId/allocate-experts')
