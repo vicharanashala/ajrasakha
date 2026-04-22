@@ -88,6 +88,18 @@ export interface PaginatedUserDetails {
   totalQuestions: number;
 }
 
+export interface DemographicEntry {
+  label: string;
+  count: number;
+  pct: number;
+}
+
+export interface UserDemographics {
+  ageGroups: DemographicEntry[];
+  genderSplit: DemographicEntry[];
+  farmingExperience: DemographicEntry[];
+}
+
 // ─── Single consolidated interface ───────────────────────────────────────────
 
 export interface IChatbotRepository {
@@ -179,6 +191,9 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
   ): Promise<ChatbotConversationData[]>;
+
+  /** Aggregate age group, gender split, and farming experience distributions from farmerProfile. */
+  getUserDemographics(source?: string, session?: ClientSession): Promise<UserDemographics>;
 }
 
 export interface ChatbotConversationData {
