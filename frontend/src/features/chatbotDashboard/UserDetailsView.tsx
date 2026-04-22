@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X } from "lucide-react";
+import { X, MapPin } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Spinner } from "@/components/atoms/spinner";
@@ -263,12 +263,13 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                     <TableHead className="text-center">Agri Apps</TableHead>
                     <TableHead className="text-center">Education</TableHead>
                     <TableHead className="text-center">Smartphones</TableHead>
+                    <TableHead className="text-center">Location</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={21} className="text-center py-10 text-muted-foreground">
+                      <TableCell colSpan={22} className="text-center py-10 text-muted-foreground">
                         {isFiltered ? "No users match your filters." : "No users found."}
                       </TableCell>
                     </TableRow>
@@ -314,6 +315,22 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                           <TableCell className="align-middle">{fp?.usesAgriApps == null ? "—" : fp.usesAgriApps ? "Yes" : "No"}</TableCell>
                           <TableCell className="align-middle whitespace-nowrap">{fp?.highestEducatedPerson ?? "—"}</TableCell>
                           <TableCell className="align-middle">{fp?.numberOfSmartphones ?? "—"}</TableCell>
+                          <TableCell className="align-middle">
+                            {fp?.location?.latitude && fp?.location?.longitude ? (
+                              <a 
+                                href={`https://maps.google.com/?q=${fp.location.latitude},${fp.location.longitude}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                title="View on Maps"
+                                className="inline-flex items-center justify-center p-1.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MapPin className="h-4 w-4" />
+                              </a>
+                            ) : (
+                              "—"
+                            )}
+                          </TableCell>
                         </TableRow>
                       );
                     })

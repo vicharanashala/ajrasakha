@@ -70,6 +70,10 @@ export interface FarmerProfile {
   usesAgriApps?: boolean;
   highestEducatedPerson?: string;
   numberOfSmartphones?: number;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
 export interface UserDetailEntry {
