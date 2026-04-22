@@ -39,11 +39,12 @@ function CropsCell({ crops }: { crops: string[] }) {
   const hidden = crops.slice(VISIBLE_CROPS);
 
   return (
-    <div className="flex items-center gap-1 flex-wrap justify-center" ref={ref}>
+    <div className="flex flex-col items-center gap-0.5" ref={ref}>
       {visible.map((c, i) => (
         <span
           key={i}
-          className="inline-block px-1.5 py-0.5 rounded text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 whitespace-nowrap"
+          className="px-1.5 py-0.5 rounded text-xs max-w-[120px] truncate text-center"
+          title={c}
         >
           {c}
         </span>
@@ -62,7 +63,7 @@ function CropsCell({ crops }: { crops: string[] }) {
                 {crops.map((c, i) => (
                   <span
                     key={i}
-                    className="px-2 py-1 rounded text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 whitespace-nowrap"
+                    className="px-2 py-1 rounded text-xs whitespace-nowrap"
                   >
                     {c}
                   </span>
