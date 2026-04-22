@@ -1,5 +1,17 @@
 export type BadgeVariant = "green" | "red" | "amber" | "blue";
 
+export interface DemographicEntry {
+  label: string;
+  count: number;
+  pct: number;
+}
+
+export interface UserDemographics {
+  ageGroups: DemographicEntry[];
+  genderSplit: DemographicEntry[];
+  farmingExperience: DemographicEntry[];
+}
+
 export interface Segment {
   id: string;
   label: string;
