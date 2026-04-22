@@ -26,6 +26,8 @@ export interface DashboardResponse {
   ageGroups: DemographicEntry[];
   genderSplit: DemographicEntry[];
   farmingExperience: DemographicEntry[];
+  kccAwareness: DemographicEntry[];
+  agriAppUsage: DemographicEntry[];
 }
 
 export interface IChatbotService {
