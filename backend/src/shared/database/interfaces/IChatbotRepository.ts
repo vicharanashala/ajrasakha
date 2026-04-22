@@ -100,6 +100,11 @@ export interface UserDemographics {
   farmingExperience: DemographicEntry[];
 }
 
+export interface KccAndAgriAppStats {
+  kccAwareness: DemographicEntry[];
+  agriAppUsage: DemographicEntry[];
+}
+
 // ─── Single consolidated interface ───────────────────────────────────────────
 
 export interface IChatbotRepository {
@@ -194,6 +199,9 @@ export interface IChatbotRepository {
 
   /** Aggregate age group, gender split, and farming experience distributions from farmerProfile. */
   getUserDemographics(source?: string, session?: ClientSession): Promise<UserDemographics>;
+
+  /** Aggregate KCC policy awareness and agri app usage splits from farmerProfile. */
+  getKccAndAgriAppStats(source?: string, session?: ClientSession): Promise<KccAndAgriAppStats>;
 }
 
 export interface ChatbotConversationData {
