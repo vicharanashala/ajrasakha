@@ -845,7 +845,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         source = 'AGRI_EXPERT',
         details,
         context,
-        originalQuestion=''
+        originalQuestion = ''
       } = body;
       console.log("the body coming=====", body)
 
@@ -957,7 +957,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           text,
           createdAt: new Date(),
           updatedAt: new Date(),
-          originalQuestion:originalQuestion
+          originalQuestion: originalQuestion
         };
 
 
@@ -995,8 +995,8 @@ export class QuestionService extends BaseService implements IQuestionService {
               referenceSource: "reviewer",
               score: item.score * 100,
               id: item.id
-              ? new ObjectId(String(item.id))
-              : new ObjectId()  // preserve the real reviewer question _id
+                ? new ObjectId(String(item.id))
+                : new ObjectId()  // preserve the real reviewer question _id
             })),
 
             ...(questions.golden || []).map((item: any) => ({
@@ -1006,8 +1006,8 @@ export class QuestionService extends BaseService implements IQuestionService {
               referenceSource: "golden",
               score: item.score * 100,
               id: item.id
-              ? new ObjectId(String(item.id))
-              : new ObjectId()
+                ? new ObjectId(String(item.id))
+                : new ObjectId()
             })),
 
 
@@ -1313,14 +1313,54 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
   }
 
+  
+
   async updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
   ): Promise<{ modifiedCount: number }> {
     try {
+      const existingQuestion = await this.questionRepo.getById(questionId);
+      if (!existingQuestion) {
+        throw new BadRequestError(`Question with ID ${questionId} not found`);
+      }
+
+      // Define which fields are restricted for AJRASAKHA questions without messageId
+      // Check if the user is actually CHANGING the restricted fields (not just sending them in payload)
+      const isChangingQuestion = 'question' in updates && updates.question !== existingQuestion.question;
+      const isChangingDetails = 'details' in updates && JSON.stringify(updates.details) !== JSON.stringify(existingQuestion.details);
+      const isUpdatingRestrictedFields = isChangingQuestion || isChangingDetails;
+
+      // If the question source is ajrasakha and there is no messageId and user is trying to update restricted fields,
+      // then try to resolve the messageId using the matching algorithm. This is to prevent data inconsistency and ensure
+      // we have the necessary linkage to the original message for ajrasakha questions.
+      if (
+        existingQuestion.source === 'AJRASAKHA' &&
+        !existingQuestion.messageId &&
+        isUpdatingRestrictedFields
+      ) {
+        let resolvedMessageId = '';
+        try {
+          const matchedData = await this.getMatchedQuestion(questionId);
+          resolvedMessageId = matchedData.messageId;
+        } catch (e) {
+          // No matching message found or error during resolution
+        }
+
+        if (!resolvedMessageId) {
+          throw new BadRequestError(
+            "The question text and details cannot be updated at the moment, as the message details are still unresolved for this question."
+          );
+        }
+
+        // Include the resolved messageId in the update payload
+        updates.messageId = resolvedMessageId;
+      }
+
       // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
       // Lifted OUTSIDE the transaction: cropRepository calls don't use the session,
       // so they shouldn't inflate the transaction scope.
+
       if (updates.details?.crop) {
         const rawCropName = typeof updates.details.crop === 'string'
           ? updates.details.crop
@@ -1346,12 +1386,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       return this._withTransaction(async (session: ClientSession) => {
-        const existingQuestion = await this.questionRepo.getById(
-          questionId,
-          session,
-        );
-
-        if (!existingQuestion) {
+        const reFetchedQuestion = await this.questionRepo.getById(questionId, session);
+        if (!reFetchedQuestion) {
           throw new BadRequestError(`Question with ID ${questionId} not found`);
         }
 
@@ -1376,6 +1412,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         return this.questionRepo.updateQuestion(questionId, updates, session);
       });
     } catch (error) {
+      if (error instanceof BadRequestError) throw error;
       throw new InternalServerError(`Failed to update question: ${error}`);
     }
   }
@@ -1672,11 +1709,9 @@ export class QuestionService extends BaseService implements IQuestionService {
             questionId,
             session,
           );
-         // let submission
-        if (!questionSubmission)
-        {
-          if(question.source=="WHATSAPP")
-          {
+        // let submission
+        if (!questionSubmission) {
+          if (question.source == "WHATSAPP") {
             const newSubmission: IQuestionSubmission = {
               questionId: new ObjectId(questionId),
               lastRespondedBy: null,
@@ -1688,13 +1723,13 @@ export class QuestionService extends BaseService implements IQuestionService {
             questionSubmission = await this.questionSubmissionRepo.addSubmission(newSubmission, session);
 
           }
-          else{
+          else {
             throw new NotFoundError('Question submission not found');
           }
-         
+
 
         }
-          
+
 
 
         // 3. Validate if the queue is full

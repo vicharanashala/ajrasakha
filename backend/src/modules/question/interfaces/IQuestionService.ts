@@ -11,7 +11,7 @@ import {
   DetailedQuestionsBodyDto,
   GeneratedQuestionResponse,
   GetDetailedQuestionsQuery,
-  QuestionResponse,
+  QuestionResponse
 } from '../classes/validators/QuestionVaidators.js';
 import {QuestionLevelResponse} from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import {ClientSession} from 'mongodb';
