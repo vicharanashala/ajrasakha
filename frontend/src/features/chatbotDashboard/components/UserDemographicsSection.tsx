@@ -112,9 +112,6 @@ export function UserDemographicsSection({ source = 'vicharanashala' }: Props) {
   const genderSegments = data.genderSplit.map((d) => ({ ...d, color: GENDER_COLORS[d.label] ?? "#6B7280" }));
   const expSegments = data.farmingExperience.map((d, i) => ({ ...d, color: EXP_COLORS[i % EXP_COLORS.length] }));
 
-  const hasData = ageSegments.length > 0 || genderSegments.length > 0 || expSegments.length > 0;
-  if (!hasData) return null;
-
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
       <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">

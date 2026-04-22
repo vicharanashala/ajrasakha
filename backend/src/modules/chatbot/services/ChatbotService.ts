@@ -167,6 +167,9 @@ export class ChatbotService implements IChatbotService {
       return await this.chatbotRepository.getUserDemographics(source);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch user demographics: ${error}`);
+    }
+  }
+
   async generateChatbotExcelReport(
     startDate: Date,
     endDate: Date,

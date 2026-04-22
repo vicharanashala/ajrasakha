@@ -1012,6 +1012,9 @@ export class ChatbotRepository implements IChatbotRepository {
       return {ageGroups, genderSplit, farmingExperience};
     } catch (error) {
       throw new InternalServerError(`Failed to get user demographics: ${error}`);
+    }
+  }
+
   async generateChatbotExcelReport(
     startDate: Date,
     endDate: Date,

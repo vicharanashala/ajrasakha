@@ -281,6 +281,8 @@ export class ChatbotController {
   @Authorized()
   async getUserDemographics(@QueryParams() query: SourceQueryDto) {
     return this.chatbotService.getUserDemographics(query.source);
+  }
+
   @Get('/download-chatbot-report')
   @Authorized()
   @ContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
