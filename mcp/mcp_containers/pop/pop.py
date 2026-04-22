@@ -8,8 +8,9 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from functions import get_retriever
 from constants import DB_NAME, COLLECTION_POP, COLLECTION_QA, EMBEDDING_MODEL, MONGODB_URI
 from functions import process_nodes_pop, process_nodes_qa
-from models import ContextPOP, ContextQuestionAnswerPair
+from models import ContextPOP, ContextQuestionAnswerPair, POPComplianceNotice, POPContextResponse
 from llama_index.core.settings import Settings
+from chemical_guard import filter_pop_contexts_for_chemical_compliance
 
 mcp = FastMCP("POP")
 
@@ -65,7 +66,7 @@ async def get_states_for_pop() -> dict:
     return state_codes
 
 @mcp.tool()
-async def get_context_from_package_of_practices(query: str, state_code : str)-> List[ContextPOP]:
+async def get_context_from_package_of_practices(query: str, state_code : str)-> POPContextResponse:
     """
     Retrieve context from the package of practices dataset.
 
@@ -141,11 +142,56 @@ async def get_context_from_package_of_practices(query: str, state_code : str)-> 
     )
 
     processed_nodes = await process_nodes_pop(nodes)
+    compliant_nodes, restricted_flags, blocked_chemical_names = (
+        filter_pop_contexts_for_chemical_compliance(processed_nodes)
+    )
+    restricted_chemical_names = [flag.chemical_name for flag in restricted_flags]
     print(
-        f"[POP] get_context_from_package_of_practices: returning {len(processed_nodes)} processed nodes",
+        (
+            "[POP] get_context_from_package_of_practices: returning "
+            f"{len(compliant_nodes)} compliant nodes, "
+            f"restricted_flags={len(restricted_flags)}, "
+            f"blocked_non_restricted={len(blocked_chemical_names)}"
+        ),
         flush=True,
     )
-    return processed_nodes
+    print(
+        (
+            "[POP] chemical_compliance: "
+            f"restricted={restricted_chemical_names or []}, "
+            f"blocked_non_restricted={blocked_chemical_names or []}"
+        ),
+        flush=True,
+    )
+
+    compliance_notice = None
+    if restricted_flags or blocked_chemical_names:
+        message_parts: list[str] = []
+        blocked_message = None
+
+        if restricted_flags:
+            message_parts.append(
+                "Restricted chemical detected. Content is permitted only if usage complies with allowed_usage."
+            )
+
+        if blocked_chemical_names:
+            blocked_str = ", ".join(f'"{name}"' for name in blocked_chemical_names)
+            blocked_message = (
+                f"Banned chemical(s) {blocked_str} found from retrieved text, so compliance check skipped that data."
+            )
+            message_parts.append(blocked_message)
+
+        compliance_notice = POPComplianceNotice(
+            message=" ".join(message_parts),
+            restricted_chemicals=restricted_flags,
+            blocked_non_restricted_chemicals=blocked_chemical_names,
+            blocked_message=blocked_message,
+        )
+
+    return POPContextResponse(
+        contexts=compliant_nodes,
+        compliance_notice=compliance_notice,
+    )
 
 
 import requests
