@@ -9,14 +9,14 @@ from langgraph.prebuilt import create_react_agent
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("SoilAgent")
 
-REMOTE_IP = "100.100.108.44"
+REMOTE_IP = "100.100.108.43"
 
 llm = ChatAnthropic(model="claude-sonnet-4-5-20250929")
 
 mcp_client = MultiServerMCPClient({
     "soil_server": {
-        "url": f"http://{REMOTE_IP}:9008/sse",
-        "transport": "sse"
+        "url": f"http://{REMOTE_IP}:9008/mcp",
+        "transport": "http"
     }
 })
 

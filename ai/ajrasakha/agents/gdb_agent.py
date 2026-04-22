@@ -11,12 +11,12 @@ logger = logging.getLogger("GDBAgent")
 
 REMOTE_IP = "100.100.108.43"
 
-llm = ChatAnthropic(model="claude-3-5-sonnet-20241022")
+llm = ChatAnthropic(model="claude-sonnet-4-5-20250929")
 
 mcp_client = MultiServerMCPClient({
     "golden_db": {
-        "url": f"http://{REMOTE_IP}:9005/sse",
-        "transport": "sse"
+        "url": f"http://{REMOTE_IP}:9005/mcp", 
+        "transport": "http" 
     }
 })
 

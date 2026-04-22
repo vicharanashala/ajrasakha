@@ -9,18 +9,18 @@ from langgraph.prebuilt import create_react_agent
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("MarketAgent")
 
-REMOTE_IP = "100.100.108.44"
+REMOTE_IP = "100.100.108.43"
 
 llm = ChatAnthropic(model="claude-sonnet-4-5-20250929")
 
 mcp_client = MultiServerMCPClient({
     "enam_server": {
-        "url": f"http://{REMOTE_IP}:9002/sse",
-        "transport": "sse"
+        "url": f"http://{REMOTE_IP}:9002/mcp",
+        "transport": "http"
     },
     "agmarknet_server": {
-        "url": f"http://{REMOTE_IP}:9006/sse",
-        "transport": "sse"
+        "url": f"http://{REMOTE_IP}:9006/mcp",
+        "transport": "http"
     }
 })
 
