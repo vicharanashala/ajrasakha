@@ -171,4 +171,18 @@ export interface IChatbotRepository {
     profileCompleted?: string,
     session?: ClientSession,
   ): Promise<PaginatedUserDetails>;
+
+  /** Aggregate conversations from the messages collection for Excel export. */
+  generateChatbotExcelReport(
+    startDate: Date,
+    endDate: Date,
+    source?: string,
+    session?: ClientSession,
+  ): Promise<ChatbotConversationData[]>;
+}
+
+export interface ChatbotConversationData {
+  conversationId: string;
+  farmerQuestions: string[];
+  mcpToolCalls: any[][];
 }

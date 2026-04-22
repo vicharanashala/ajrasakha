@@ -1,4 +1,12 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/atoms/dialog";
+import { Calendar } from "@/components/atoms/calendar";
+import { Button } from "@/components/atoms/button";
+import { format } from "date-fns";
+import type { DateRange } from "react-day-picker";
+import { Download, Loader2, CalendarIcon } from "lucide-react";
+import { toast } from "sonner";
+import { ChatbotService } from "@/hooks/services/chatbotService";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -37,6 +45,7 @@ interface DashboardSidebarProps {
     onViewChange: (view: DashboardView) => void;
     healthScore?: number;
     healthLabel?: string;
+    source?: string;
 }
 
 // ─── ICONS ────────────────────────────────────────────────────────────────────
@@ -149,11 +158,49 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     onViewChange,
     healthScore = 70,
     healthLabel = "Moderate · needs improvement",
+    source = "vicharanashala",
 }) => {
     const [segmentsExpanded, setSegmentsExpanded] = useState<boolean>(false);
     const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
     const [collapsed, setCollapsed] = useState<boolean>(() => window.innerWidth <= MOBILE_BREAKPOINT);
     const [isMobile, setIsMobile] = useState<boolean>(() => window.innerWidth <= MOBILE_BREAKPOINT);
+    const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
+    const [downloadDateRange, setDownloadDateRange] = useState<DateRange | undefined>(undefined);
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handleDownload = async () => {
+        if (!downloadDateRange?.from || !downloadDateRange?.to) return;
+
+        const oneMonthMs = 31 * 24 * 60 * 60 * 1000;
+        if (downloadDateRange.to.getTime() - downloadDateRange.from.getTime() > oneMonthMs) {
+            toast.error("Date range cannot exceed 1 month. Please select a shorter range.");
+            return;
+        }
+
+        setIsDownloading(true);
+        try {
+            toast.info("Preparing download...");
+            const svc = new ChatbotService();
+            const from = format(downloadDateRange.from, "yyyy-MM-dd");
+            const to = format(downloadDateRange.to, "yyyy-MM-dd");
+            const blob = await svc.downloadChatbotReport(from, to, source);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `chatbot-report-${from}-to-${to}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast.success("Report downloaded successfully!");
+            setIsDownloadDialogOpen(false);
+            setDownloadDateRange(undefined);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Download failed");
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     // Track mobile/desktop and auto-collapse on mobile
     useEffect(() => {
@@ -253,6 +300,64 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 )}
             </div>
 
+            {/* ── DOWNLOAD EXCEL DIALOG ── */}
+            <Dialog open={isDownloadDialogOpen} onOpenChange={setIsDownloadDialogOpen}>
+                <DialogContent className="max-w-[min(90vw,800px)] w-full max-h-[90vh] overflow-hidden flex flex-col p-4">
+                    <DialogHeader className="space-y-2 flex-shrink-0">
+                        <DialogTitle className="text-lg font-semibold">
+                            Select Date Range
+                        </DialogTitle>
+                        <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-md border">
+                            Select a date range to download the analytics report as Excel.
+                        </div>
+                    </DialogHeader>
+                    <div className="space-y-3 overflow-y-auto flex-1 py-2">
+                        <div className="flex items-center gap-2 text-xs bg-primary/5 p-2 rounded-md border border-primary/20">
+                            <CalendarIcon className="h-4 w-4 text-primary flex-shrink-0" />
+                            <span className="font-medium text-sm">
+                                {downloadDateRange?.from && downloadDateRange?.to
+                                    ? `${format(downloadDateRange.from, "MMM dd, yyyy")} - ${format(downloadDateRange.to, "MMM dd, yyyy")}`
+                                    : "No date range selected"}
+                            </span>
+                        </div>
+                        <div className="flex justify-center overflow-x-auto pb-2">
+                            <Calendar
+                                mode="range"
+                                selected={downloadDateRange}
+                                onSelect={setDownloadDateRange}
+                                numberOfMonths={2}
+                                disabled={(date) => date > new Date()}
+                                className="rounded-md border shadow-sm scale-95"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2 pt-3 flex-shrink-0">
+                        <DialogClose asChild>
+                            <Button variant="outline" type="button" className="w-full sm:w-auto">
+                                Cancel
+                            </Button>
+                        </DialogClose>
+                        <Button
+                            disabled={!downloadDateRange?.from || !downloadDateRange?.to || isDownloading}
+                            className="w-full sm:w-auto"
+                            onClick={handleDownload}
+                        >
+                            {isDownloading ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    Downloading...
+                                </>
+                            ) : (
+                                <>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Excel
+                                </>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* ── NAV SECTIONS ── */}
             <div className="flex-1 overflow-y-auto overflow-x-hidden pb-20 pt-1">
                 {NAV_SECTIONS.map((section) => (
@@ -309,6 +414,44 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                         })}
                     </div>
                 ))}
+
+                {/* ── DOWNLOAD EXCEL BUTTON ── */}
+                <div className={`
+                    overflow-hidden transition-all duration-200
+                    ${(collapsed && !isMobile) ? "h-0 opacity-0 mt-0" : "h-auto opacity-100 mt-3"}
+                `}>
+                    <div className="text-[10px] font-semibold text-(--muted-foreground) px-4 mb-1 uppercase tracking-widest">
+                        Export
+                    </div>
+                </div>
+                {collapsed && !isMobile && (
+                    <div className="flex justify-center my-2">
+                        <div className="w-1 h-1 rounded-full bg-(--border)" />
+                    </div>
+                )}
+                <div
+                    onClick={() => setIsDownloadDialogOpen(true)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && setIsDownloadDialogOpen(true)}
+                    title={collapsed && !isMobile ? "Download Excel" : undefined}
+                    className={`
+                        group relative flex items-center cursor-pointer select-none
+                        transition-all duration-150
+                        ${collapsed && !isMobile
+                            ? "mx-2 my-0.5 rounded-lg justify-center px-0 py-2.5"
+                            : "px-3 py-2 mx-2 my-0.5 rounded-lg gap-2.5 text-[13px]"
+                        }
+                        text-(--muted-foreground) hover:bg-[#EAF6EC] dark:hover:bg-[#1a3a24] hover:text-[#1E7A3C] dark:hover:text-[#4adc64]
+                    `}
+                >
+                    <span className="shrink-0 flex items-center scale-75 md:scale-100">
+                        <Download size={16} />
+                    </span>
+                    {!(collapsed && !isMobile) && (
+                        <span className="flex-1 leading-snug font-medium">Download Excel</span>
+                    )}
+                </div>
             </div>
 
             {/* ── HEALTH SCORE FOOTER ── */}
