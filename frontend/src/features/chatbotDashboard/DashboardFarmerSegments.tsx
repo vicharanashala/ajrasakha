@@ -18,6 +18,7 @@ const badgeTailwindStyles: Record<string, string> = {
 
 export function DashboardFarmerSegments({ segments, activeSegment, onSegmentClick, onClear, segmentsRef, segmentRowRefs }: Props) {
   return (
+    <div className="relative">
     <div
       ref={segmentsRef}
       className={`bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl p-3 sm:p-4 transition-shadow duration-300 h-full flex flex-col ${
@@ -100,6 +101,12 @@ export function DashboardFarmerSegments({ segments, activeSegment, onSegmentClic
           </tbody>
         </table>
       </div>
+    </div>
+    <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] rounded-lg flex items-center justify-center z-10">
+				<span className="text-white text-xs font-semibold tracking-wide">
+					DEMO DATA
+				</span>
+				</div>
     </div>
   );
 }

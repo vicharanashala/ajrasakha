@@ -11,6 +11,7 @@ type KpiCardData = {
 	delta: string;
 	deltaDir: "up" | "down" | "neutral";
 	accentColor: string;
+	isDummy?: boolean; // Remove this field when data is dynamic
 	valueColor?: string;
 	sparkPoints?: number[];
 	sparkLabels?: string[];
@@ -186,6 +187,15 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
 					)}
 				</div>
 			</CardContent>
+			
+        {/* // Remove this div when data is dynamic */}
+			{kpi.isDummy && (
+				<div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] rounded-lg flex items-center justify-center z-10">
+				<span className="text-white text-xs font-semibold tracking-wide">
+					DEMO DATA
+				</span>
+				</div>
+			)}
 		</Card>
 	);
 }
