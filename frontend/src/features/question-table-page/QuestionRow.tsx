@@ -296,6 +296,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           )} */}
 
 
+          {visibleColumns.question && (
           <TableCell className="text-start ps-0">
             <div className="flex items-center gap-2">
               {visibleColumns.priority && <PriorityBadge priority={q.priority} />}
@@ -328,6 +329,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
               </div>
             </div>
           </TableCell>
+          )}
 
 
 
