@@ -10,6 +10,7 @@ import type {
   WeeklyQueryCountEntry,
   UserDetailEntry,
   PaginatedUserDetails,
+  DemographicEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 
 export interface DashboardResponse {
@@ -22,6 +23,9 @@ export interface DashboardResponse {
   weeklySessionDuration: WeeklySessionDurationEntry[];
   dailyQueries: DailyQueryCountEntry[];
   weeklyQueries: WeeklyQueryCountEntry[];
+  ageGroups: DemographicEntry[];
+  genderSplit: DemographicEntry[];
+  farmingExperience: DemographicEntry[];
 }
 
 export interface IChatbotService {

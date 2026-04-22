@@ -14,7 +14,7 @@ export class ChatbotService implements IChatbotService {
 
   async getDashboard(days = 30, source = 'vicharanashala'): Promise<DashboardResponse> {
     try {
-      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, avgSessionDurationMin, weeklySessionDuration] =
+      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, avgSessionDurationMin, weeklySessionDuration, demographics] =
         await Promise.all([
           this.chatbotRepository.getKpiSummary(source),
           this.chatbotRepository.getDailyActiveUsers(days, source),
@@ -29,6 +29,7 @@ export class ChatbotService implements IChatbotService {
           this.chatbotRepository.getAvgSessionDurationV2(source),
           // V2: inactivity-gap based weekly breakdown replaces the old getWeeklyAvgSessionDuration
           this.chatbotRepository.getWeeklyAvgSessionDurationV2(Math.ceil(days / 7), source),
+          this.chatbotRepository.getUserDemographics(source),
         ]);
 
       return {
@@ -42,6 +43,9 @@ export class ChatbotService implements IChatbotService {
         weeklySessionDuration,
         dailyQueries,
         weeklyQueries,
+        ageGroups: demographics.ageGroups,
+        genderSplit: demographics.genderSplit,
+        farmingExperience: demographics.farmingExperience,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch dashboard data: ${error}`);
