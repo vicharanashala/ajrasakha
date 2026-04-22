@@ -57,10 +57,8 @@ class AuditTrailsController {
     @QueryParam('order') order?: "asc" | "desc",
     @QueryParam('status') outComeStatus?: string,
   ) {
-    console.log('Received request to get audit trails with outcome status:', outComeStatus);
     let auditTrails;
     if (user.role !== 'admin') {
-        console.log('User is not admin, fetching audit trails for moderatorId:', user);
       auditTrails = await this.auditTrailsService.getAuditTrailsByModeratorId(
         user._id,
         page,

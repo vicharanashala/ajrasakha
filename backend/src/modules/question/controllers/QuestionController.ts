@@ -691,7 +691,6 @@ export class QuestionController {
   @OpenAPI({ summary: 'Toggle auto-allocate option for the selected question' })
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async toggleAutoAllocate(@Params() params: QuestionIdParam, @CurrentUser() user: IUser,) {
-
     const { questionId } = params;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.EXPERTS_CATEGORY,
@@ -716,11 +715,22 @@ export class QuestionController {
     try{
       questionDetails = await this.questionService.getQuestionById(questionId);
       result = await this.questionService.toggleAutoAllocate(questionId);
-      const expertIdToString = result?.data?.map(id => id.toString()) || [];
-      expertDetails = await Promise.all(expertIdToString.map((id) => this.userService.getUserById(id)))
+      if(result?.data?.length > 0){
+        const expertIdToString = result?.data?.map(id => id.toString()) || [];
+        expertDetails = await Promise.all(expertIdToString.map((id) => this.userService.getUserById(id)));
+      }
     } catch(err: any){
       auditPayload = {
         ...auditPayload,
+        context: {
+          ...auditPayload.context,
+          question: questionDetails?.text,
+        },
+        changes: {
+          before: {
+            autoAllocate: questionDetails?.isAutoAllocate,
+          },
+        },
         outcome: {
           status: OutComeStatus.FAILED,
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
@@ -744,17 +754,16 @@ export class QuestionController {
         question: questionDetails.text,
       },
       changes: {
-        ...auditPayload.changes,
         before: {
           autoAllocate: questionDetails.isAutoAllocate,
         },
         after: {
-          autoAllocate: !auditPayload.changes.before.autoAllocate,
-          expertsDetails: expertDetails.map(ed => ({
+          autoAllocate: !questionDetails.isAutoAllocate,
+          expertsDetails: expertDetails?.length > 0 ? expertDetails.map(ed => ({
             name: `${ed?.firstName} ${ed?.lastName || ''}`.trim(),
             email: ed?.email,
             id: ed?._id.toString(),
-          })),
+          })) : [],
         },
       },
     };
@@ -806,6 +815,10 @@ export class QuestionController {
     } catch(err: any){
       auditPayload = {
         ...auditPayload,
+        context: {
+          ...auditPayload.context,
+          question: questionDetails?.text,
+        },
         outcome: {
           status: OutComeStatus.FAILED,
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
@@ -895,6 +908,10 @@ export class QuestionController {
           before: {
             question: questionDetails,
           },
+        },
+        context: {
+          ...auditPayload.context,
+          question: questionDetails.text,
         },
         outcome: {
           status: OutComeStatus.FAILED,
@@ -1124,11 +1141,6 @@ export class QuestionController {
       context: {
         questionId: questionId,
       },
-      // changes: {
-      //   before: {
-      //     question: prevQuestion,
-      //   }
-      // },
       outcome: {
         status: OutComeStatus.SUCCESS,
       },
@@ -1226,57 +1238,44 @@ export class QuestionController {
     @Body() body: DateRangeRequest,
     @CurrentUser() user: IUser,
   ) {
+    const { startDate, endDate, emails } = body;
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.OUTREACH_REPORT,
+      action: AuditAction.SEND_OUTREACH_REPORT,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        startDate: startDate,
+        endDate: endDate,
+        endPoint: "outreachQuestions",
+        recepients: emails,
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      }
+    };
     try {
-      const { startDate, endDate, emails } = body;
-
-      let auditPayload: ModeratorAuditTrail = {
-        category: AuditCategory.OUTREACH_REPORT,
-        action: AuditAction.SEND_OUTREACH_REPORT,
-        actor: {
-          id: user._id.toString(),
-          name: `${user.firstName} ${user.lastName}`,
-          email: user.email,
-          role: user.role,
-          avatar: user?.avatar || '',
-        },
-        context: {
-          startDate: startDate,
-          endDate: endDate,
-          endPoint: "outreachQuestions",
-          recepients: emails,
-        },
-        outcome: {
-          status: OutComeStatus.SUCCESS,
-        }
-      };
-      this.auditTrailsService.createAuditTrail(auditPayload);
       const result = await this.questionService.sendOutReachQuestionsMail(
         startDate,
         endDate,
         emails,
       );
-
+      this.auditTrailsService.createAuditTrail(auditPayload);
       return result;
     } catch (error) {
-      let auditPayload: ModeratorAuditTrail = {
-        category: AuditCategory.OUTREACH_REPORT,
-        action: AuditAction.SEND_OUTREACH_REPORT,
-        actor: {
-          id: user._id.toString(),
-          name: `${user.firstName} ${user.lastName}`,
-          email: user.email,
-          role: user.role,
-          avatar: user?.avatar || '',
-        },
-        context: {
-          startDate: body.startDate,
-          endDate: body.endDate,
-          endPoint: "outreachQuestions",
-          recepients: body.emails,
-        },
+      auditPayload={
+        ...auditPayload,
         outcome: {
           status: OutComeStatus.FAILED,
           errorMessage: error?.message || 'Failed to send outreach questions email',
+          errorCode: error?.errorCode || 'INTERNAL_ERROR',
+          errorName: error?.name || 'Error',
+          errorStack: error?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);

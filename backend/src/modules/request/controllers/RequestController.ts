@@ -191,7 +191,7 @@ export class RequestController {
       },
       context: {
         requestId,
-        response
+        reason: response
       },
       changes: {
         before: {
@@ -259,6 +259,7 @@ export class RequestController {
   ): Promise<void> {
   const {requestId} = params;
     const userId = user._id.toString();
+    let previousRequest;
     let auditPayload : ModeratorAuditTrail= {
       category: AuditCategory.REQUEST_QUEUE,
       action: AuditAction.DELETE_REQUEST,
@@ -282,10 +283,15 @@ export class RequestController {
       },
     };
     try{
+      previousRequest = await this.requestService.getRequestById(requestId);
       await this.requestService.softDeleteRequest(requestId, userId);
     } catch(err: any){
       auditPayload = {
         ...auditPayload,
+        context: {
+          ...auditPayload.context,
+          reason: previousRequest?.reason,
+        },
         outcome: {
           status: OutComeStatus.FAILED,
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
@@ -302,6 +308,13 @@ export class RequestController {
           err?.message || 'Failed to delete request',
         );
     }
+    auditPayload = {
+      ...auditPayload,
+      context: {
+        ...auditPayload.context,
+        reason: previousRequest?.reason,
+      },
+    };
     this.auditTrailsService.createAuditTrail(auditPayload);
   }
 }

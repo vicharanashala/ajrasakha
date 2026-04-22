@@ -61,5 +61,9 @@ export interface IRequestService {
   getRequestStatusById(
     requestId: string,
   ): Promise<RequestStatus | null>;
+
+  getRequestById(
+    requestId: string,
+  ): Promise<IRequest | null>;
 }
 

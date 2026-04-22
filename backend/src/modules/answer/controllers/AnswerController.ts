@@ -155,7 +155,6 @@ export class AnswerController {
         avatar: user?.avatar || '',
       },
       context: {
-        questionId: body.questionId,
         answerId: body.answerId,
       },
       changes: {},
@@ -187,6 +186,16 @@ export class AnswerController {
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,
+        changes: {
+          before: {
+            answer: prevAnswer?.answer || ''
+          },
+        },
+        context: {
+          ...auditPayload.context,
+          questionId: prevAnswer?.questionId?.toString() || body.questionId,
+          question: questionData?.text,
+        },
         outcome: {
           status: OutComeStatus.FAILED,
           errorCode: err?.errorCode || 'INTERNAL_ERROR',

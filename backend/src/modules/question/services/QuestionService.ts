@@ -1602,7 +1602,6 @@ export class QuestionService extends BaseService implements IQuestionService {
         //1. Validate question existence
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) throw new NotFoundError('Question not found');
-        console.log('toggleAutoAllocate*****', question);
 
         const updated = await this.questionRepo.updateAutoAllocate(
           questionId,
@@ -1610,11 +1609,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           session,
         );
 
-        console.log('updated question*****', updated);
-
         const currentStatus = question.isAutoAllocate;
 
-        console.log('currentStatus*****', currentStatus);
         // If currentStatus is false, then we need to set it to true and vice versa
 
         let out;
@@ -1638,8 +1634,6 @@ export class QuestionService extends BaseService implements IQuestionService {
             BATCH_EXPECTED_TO_ADD,
           );
 
-          console.log('autoAllocateExperts output*****', out);
-
           if (!out.status) {
             return {
               message: 'Auto allocate toggled, but queue is already full',
@@ -1654,7 +1648,6 @@ export class QuestionService extends BaseService implements IQuestionService {
         };
       });
     } catch (error) {
-      console.log('Error in toggleAutoAllocate*****', error);
       throw new InternalServerError(`Failed to toggle auto allocate: ${error}`);
     }
   }
