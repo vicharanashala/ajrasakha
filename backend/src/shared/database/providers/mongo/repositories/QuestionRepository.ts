@@ -21,14 +21,7 @@ import {
   InternalServerError,
   NotFoundError,
 } from 'routing-controllers';
-
-import {
-  detailsArray,
-  dummyEmbeddings,
-  priorities,
-  questionStatus,
-  sources,
-} from '#root/modules/core/utils/questionGen.js';
+import { detailsArray,dummyEmbeddings,priorities,questionStatus,sources } from '#root/modules/question/utils/questionGen.js';
 import {
   Analytics,
   AnalyticsItem,
