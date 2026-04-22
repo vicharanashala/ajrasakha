@@ -12,6 +12,8 @@ import {
   Authorized,
   CurrentUser,
   QueryParams,
+  InternalServerError,
+  BadRequestError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {
@@ -24,7 +26,7 @@ import { RequestService } from '../services/RequestService.js';
 import { IRequestService } from '../interfaces/IRequestService.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
-import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import {
   RequestErrorResponse,
   RequestCreateResponse,
@@ -176,7 +178,8 @@ export class RequestController {
     const {requestId} = params;
     const {status, response} = body;
     const userId = user._id.toString();
-    let auditPayload = {
+    let result;
+    let auditPayload : ModeratorAuditTrail = {
       category: AuditCategory.REQUEST_QUEUE,
       action: AuditAction.CHANGE_STATUS,
       actor: {
@@ -202,7 +205,27 @@ export class RequestController {
         status: OutComeStatus.SUCCESS,
       },
     };
-    const result = await this.requestService.updateStatus(requestId, status, response, userId);
+    try {
+      result = await this.requestService.updateStatus(requestId, status, response, userId);
+    } catch(err: any){
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to update request status',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if(err instanceof InternalServerError){
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(
+        err?.message || 'Failed to update request status',
+      );
+    }
     this.auditTrailsService.createAuditTrail(auditPayload);
     return result;
   }
@@ -236,7 +259,7 @@ export class RequestController {
   ): Promise<void> {
   const {requestId} = params;
     const userId = user._id.toString();
-    let payload = {
+    let auditPayload : ModeratorAuditTrail= {
       category: AuditCategory.REQUEST_QUEUE,
       action: AuditAction.DELETE_REQUEST,
       actor: {
@@ -258,7 +281,27 @@ export class RequestController {
         status: OutComeStatus.SUCCESS,
       },
     };
-    this.auditTrailsService.createAuditTrail(payload);
-    await this.requestService.softDeleteRequest(requestId, userId);
+    try{
+      await this.requestService.softDeleteRequest(requestId, userId);
+    } catch(err: any){
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to delete request',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      }
+        this.auditTrailsService.createAuditTrail(auditPayload);
+        if(err instanceof InternalServerError){
+          throw new InternalServerError(err.message);
+        }
+        throw new BadRequestError(
+          err?.message || 'Failed to delete request',
+        );
+    }
+    this.auditTrailsService.createAuditTrail(auditPayload);
   }
 }

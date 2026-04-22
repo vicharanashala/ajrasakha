@@ -12,6 +12,8 @@ import {
   NotFoundError,
   Patch,
   QueryParams,
+  BadRequestError,
+  InternalServerError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -32,7 +34,7 @@ import {
 } from '#root/modules/user/validators/UserValidators.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
-import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 
 import {
   UserErrorResponse,
@@ -364,7 +366,7 @@ export class UserController {
       throw new BadRequestErrorResponse();
     }
 
-    let auditPayload = {
+    let auditPayload : ModeratorAuditTrail = {
       category: AuditCategory.EXPERTS_MANAGEMENT,
       action: action === 'block' ? AuditAction.BLOCK_EXPERT : AuditAction.UNBLOCK_EXPERT,
       actor: {
@@ -392,7 +394,28 @@ export class UserController {
         status: OutComeStatus.SUCCESS,
       },
     };
-    await this.userService.blockUnblockExperts(userId, action);
+    try{
+      await this.userService.blockUnblockExperts(userId, action);
+    } catch(err: any){  
+      auditPayload = {
+        ...auditPayload,          
+          outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to block/unblock expert',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if(err instanceof InternalServerError){
+          throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(
+        err?.message || 'Failed to block/unblock expert',
+      );
+    }
+
     this.auditTrailsService.createAuditTrail(auditPayload);
     return {message: `${action} Expert successfully`};
   }

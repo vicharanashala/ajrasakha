@@ -1,10 +1,10 @@
 import { useState } from "react";
 import {
   Card,
-  CardHeader,
-  CardTitle,
+  // CardHeader,
+  // CardTitle,
   CardContent,
-  CardDescription,
+  // CardDescription,
 } from "./atoms/card";
 import {
   Table,
@@ -18,14 +18,14 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
-  DropdownMenuItem,
+  // DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "./atoms/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 import {
   useGetAuditTrails,
-  type AuditFilters,
+  // type AuditFilters,
 } from "@/hooks/api/auditTrails/useGetAuditTrails";
 import { Button } from "./atoms/button";
 import {
@@ -63,21 +63,26 @@ interface AuditEntry {
     before: Record<string, unknown>;
     after: Record<string, unknown>;
   };
-  outcome: { status: string };
+  outcome: { status: string,
+    errorCode?: string;
+    errorMessage?: string;
+    errorName?: string;
+    errorStack?: string;
+   };
   createdAt: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function initials(name: string) {
-  return name
-    .trim()
-    .split(/\s+/)
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
+// function initials(name: string) {
+//   return name
+//     .trim()
+//     .split(/\s+/)
+//     .map((w) => w[0])
+//     .join("")
+//     .slice(0, 2)
+//     .toUpperCase();
+// }
 
 function fmtDate(iso: string) {
   const d = new Date(iso);
@@ -158,19 +163,6 @@ function Badge({
 
 // ─── Dynamic value renderer ───────────────────────────────────────────────────
 
-// function renderScalar(val: unknown): string {
-//   if (val === null || val === undefined) return "—";
-//   if (Array.isArray(val)) return val.length ? val.map(renderScalar).join(", ") : "[]";
-//   if (typeof val === "object") return JSON.stringify(val, null, 2);
-//   return String(val);
-// }
-
-// function renderScalar(val: unknown): string {
-//   if (val === null || val === undefined) return "—";
-//   if (typeof val === "object") return JSON.stringify(val); // fallback only
-//   return String(val);
-// }
-
 function renderScalar(val: unknown): string {
   if (val === null || val === undefined) return "—";
   const unwrapped = unwrapMongoId(val);
@@ -180,55 +172,6 @@ function renderScalar(val: unknown): string {
   return String(unwrapped);
 }
 
-// Recursively flattens nested object into dot-notation rows: { "details.state": "Uttarakhand" }
-// function flattenObject(obj: Record<string, unknown>, prefix = ""): Record<string, string> {
-//   return Object.entries(obj).reduce<Record<string, string>>((acc, [k, v]) => {
-//     const key = prefix ? `${prefix}.${k}` : k;
-//     if (v !== null && typeof v === "object" && !Array.isArray(v)) {
-//       Object.assign(acc, flattenObject(v as Record<string, unknown>, key));
-//     } else {
-//       acc[key] = renderScalar(v);
-//     }
-//     return acc;
-//   }, {});
-// }
-
-// function flattenObject(obj: Record<string, unknown>, prefix = ""): Record<string, string> {
-//   return Object.entries(obj).reduce<Record<string, string>>((acc, [k, v]) => {
-//     const key = prefix ? `${prefix}.${k}` : k;
-
-//     if (v === null || v === undefined) {
-//       acc[key] = "—";
-//     } else if (Array.isArray(v)) {
-//       if (v.length === 0) {
-//         acc[key] = "[]";
-//       } else if (typeof v[0] === "object" && v[0] !== null) {
-//         // Array of objects → expand with index: experts[0]._id, experts[1].name …
-//         v.forEach((item, i) => {
-//           Object.assign(
-//             acc,
-//             flattenObject(item as Record<string, unknown>, `${key}[${i}]`)
-//           );
-//         });
-//       } else {
-//         // Array of primitives → join as comma list
-//         acc[key] = v.map(renderScalar).join(", ");
-//       }
-//     } else if (typeof v === "object") {
-//       // Check if it's a MongoDB _id wrapper like { "_id": "..." }
-//       const entries = Object.entries(v as Record<string, unknown>);
-//       if (entries.length === 1 && entries[0][0] === "_id") {
-//         acc[key] = String(entries[0][1]);
-//       } else {
-//         Object.assign(acc, flattenObject(v as Record<string, unknown>, key));
-//       }
-//     } else {
-//       acc[key] = String(v);
-//     }
-
-//     return acc;
-//   }, {});
-// }
 
 function flattenObject(
   obj: Record<string, unknown>,
@@ -268,41 +211,6 @@ function sortKeys(keys: string[]): string[] {
     return ai - bi;
   });
 }
-
-// function ObjectCard({
-//   item,
-//   index,
-// }: {
-//   item: Record<string, unknown>;
-//   index: number;
-// }) {
-//   const keys = sortKeys(Object.keys(item).filter((k) => k !== "_id"));
-//   const rawId = item["_id"] ? unwrapMongoId(item["_id"]) : null;
-//   const id = rawId !== null && rawId !== undefined ? String(rawId) : null;
-
-//   return (
-//     <div className="rounded-lg border border-border/60 bg-background p-2.5 space-y-1">
-//       <div className="flex items-center gap-2 mb-1.5">
-//         <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-//           #{index + 1}
-//         </span>
-//         {id && (
-//           <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[180px]">
-//             Id: {id}
-//           </span>
-//         )}
-//       </div>
-//       {keys.map((k) => (
-//         <div key={k} className="flex items-start gap-2 text-xs">
-//           <span className="text-muted-foreground w-14 shrink-0 capitalize">
-//             {k}
-//           </span>
-//           <span className="font-medium break-all">{renderScalar(item[k])}</span>
-//         </div>
-//       ))}
-//     </div>
-//   );
-// }
 
 // ─── Array Diff: side-by-side cards ──────────────────────────────────────────
 
@@ -387,55 +295,6 @@ function ArrayOfObjectsDiff({
   );
 }
 
-// ─── Diff Viewer ──────────────────────────────────────────────────────────────
-
-// function DiffViewer({
-//   before,
-//   after,
-// }: {
-//   before: Record<string, unknown>;
-//   after: Record<string, unknown>;
-// }) {
-//   const flatBefore = flattenObject(before ?? {});
-//   const flatAfter = flattenObject(after ?? {});
-//   const allKeys = Array.from(new Set([...Object.keys(flatBefore), ...Object.keys(flatAfter)]));
-
-//   if (!allKeys.length)
-//     return <p className="text-xs text-muted-foreground italic">No fields recorded.</p>;
-
-//   return (
-//     <div className="overflow-x-auto">
-//       <table className="w-full text-xs border-collapse">
-//         <thead>
-//           <tr>
-//             <th className="text-left p-1.5 text-muted-foreground font-medium w-1/3">Field</th>
-//             <th className="text-left p-1.5 text-muted-foreground font-medium w-1/3">Before</th>
-//             <th className="text-left p-1.5 text-muted-foreground font-medium w-1/3">After</th>
-//           </tr>
-//         </thead>
-//         <tbody>
-//           {allKeys.map((key) => {
-//             const bv = flatBefore[key] ?? "—";
-//             const av = flatAfter[key] ?? "—";
-//             const changed = bv !== av;
-//             return (
-//               <tr key={key} className="border-t border-border/40">
-//                 <td className="p-1.5 font-mono text-muted-foreground align-top">{key}</td>
-//                 <td className={`p-1.5 align-top rounded-sm ${changed ? "bg-red-50 text-red-800 dark:bg-red-950/60 dark:text-red-300" : "text-foreground"}`}>
-//                   <span className="font-mono">{bv}</span>
-//                 </td>
-//                 <td className={`p-1.5 align-top rounded-sm ${changed ? "bg-green-50 text-green-800 dark:bg-green-950/60 dark:text-green-300" : "text-foreground"}`}>
-//                   <span className="font-mono">{av}</span>
-//                 </td>
-//               </tr>
-//             );
-//           })}
-//         </tbody>
-//       </table>
-//     </div>
-//   );
-// }
-
 function DiffViewer({
   before,
   after,
@@ -443,18 +302,12 @@ function DiffViewer({
   before: Record<string, unknown>;
   after: Record<string, unknown>;
 }) {
-  console.log("DiffViewer input", { before, after });
+
   const flatBefore = flattenObject(before ?? {});
-  console.log("Flat before", flatBefore);
   const flatAfter = flattenObject(after ?? {});
-  console.log("Flat after", flatAfter);
-  // let allKeys = Array.from(new Set([...Object.keys(flatBefore), ...Object.keys(flatAfter)]));
-  // allKeys = allKeys.map((k)=> k.split(".").pop()); // only top-level keys for now
-  // console.log("All keys", allKeys);
   const allKeys = Array.from(
     new Set([...Object.keys(flatBefore), ...Object.keys(flatAfter)]),
   );
-  console.log("All keys", allKeys);
   if (!allKeys.length)
     return (
       <p className="text-xs text-muted-foreground italic">
@@ -530,30 +383,6 @@ function DiffViewer({
   );
 }
 
-// ─── Context Viewer ───────────────────────────────────────────────────────────
-
-// function ContextViewer({ context }: { context: Record<string, unknown> }) {
-//   if (!context || !Object.keys(context).length)
-//     return <p className="text-xs text-muted-foreground italic">No context.</p>;
-
-//   return (
-//     <div className="space-y-1.5">
-//       {Object.entries(context).map(([k, v]) => {
-//         const vals = Array.isArray(v) ? v : [v];
-//         return (
-//           <div key={k} className="flex flex-wrap items-center gap-1.5">
-//             <span className="text-xs text-muted-foreground font-medium min-w-fit">{k}:</span>
-//             {vals.map((x, i) => (
-//               <span key={i} className="text-[11px] font-mono bg-muted px-2 py-0.5 rounded border border-border/60">
-//                 {renderScalar(x)}
-//               </span>
-//             ))}
-//           </div>
-//         );
-//       })}
-//     </div>
-//   );
-// }
 
 function ContextViewer({ context }: { context: Record<string, unknown> }) {
   if (!context || !Object.keys(context).length)
@@ -574,6 +403,57 @@ function ContextViewer({ context }: { context: Record<string, unknown> }) {
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function ErrorViewer({ outcome }: { outcome: { status: string; errorCode?: string; errorMessage?: string; errorName?: string; errorStack?: string } }) {
+  if (outcome.status !== "FAILED"){
+    return (
+      <div className="inline-flex items-center gap-2 text-sm text-green-700 bg-green-50/40 dark:bg-green-950/20 dark:text-green-300 rounded px-3 py-1">
+        <CheckCheck size={16} />
+        Action succeeded without errors.
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-red-50/40 dark:bg-red-950/20 border border-red-300 dark:border-red-800 rounded p-3 space-y-2">
+      <p className="text-xs font-semibold text-red-800 dark:text-red-300">
+        Error Details
+      </p>
+      {outcome.errorCode && (
+        <div>
+          <p className="text-[11px] text-muted-foreground">Code:</p>
+          <pre className="text-xs bg-red-50 dark:bg-red-900 p-2 rounded overflow-x-auto">
+            {outcome.errorCode}
+          </pre>
+        </div>
+      )}
+      {outcome.errorName && (
+        <div>
+          <p className="text-[11px] text-muted-foreground">Name:</p>
+          <pre className="text-xs bg-red-50 dark:bg-red-900 p-2 rounded overflow-x-auto">
+            {outcome.errorName}
+          </pre>
+        </div>
+      )}
+      {outcome.errorMessage && (
+        <div>
+          <p className="text-[11px] text-muted-foreground">Message:</p>
+          <pre className="text-xs bg-red-50 dark:bg-red-900 p-2 rounded overflow-x-auto">
+            {outcome.errorMessage}
+          </pre>
+        </div>
+      )}
+      {outcome.errorStack && (
+        <div>
+          <p className="text-[11px] text-muted-foreground">Stack Trace:</p>
+          <pre className="text-xs bg-red-50 dark:bg-red-900 p-2 rounded overflow-x-auto whitespace-pre-wrap">
+            {outcome.errorStack}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
@@ -749,6 +629,13 @@ function DetailRow({ entry }: { entry: AuditEntry }) {
                   </p>
                   <ContextViewer context={entry.context} />
                 </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                    Error
+                  </p>
+                  <ErrorViewer outcome={entry.outcome} />
+                </div>
+
               </div>
 
               {/* Right: Changes diff */}
@@ -894,11 +781,16 @@ const AuditPage = () => {
     ],
   };
 
-  // enum outComeStatus {
-  //   SUCCESS = "Success",
-  //   FAILED = "Failed",
-  //   PARTIAL = "Partial",
-  // }
+  enum AuditOutcomeStatus {
+    SUCCESS = "Success",
+    FAILED = "Failed",
+    PARTIAL = "Partial",
+  }
+
+  enum AuditOrder {
+    asc = "Oldest first",
+    desc = "Newest first",
+  }
 
   const { data, isLoading, error, refetch } = useGetAuditTrails(
     page,
@@ -1061,7 +953,7 @@ const AuditPage = () => {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1 text-xs">
                 <ArrowBigDownDashIcon size={14} />
-                OutCome
+                  {outComeStatus ? AuditOutcomeStatus[outComeStatus as keyof typeof AuditOutcomeStatus] : "Outcome"}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 p-3 space-y-2">
@@ -1072,7 +964,7 @@ const AuditPage = () => {
                 }}
               >
                 <DropdownMenuRadioItem value="SUCCESS">Success</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="FAILURE">Failure</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="FAILED">Failed</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="PARTIAL">Partial</DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
@@ -1083,7 +975,7 @@ const AuditPage = () => {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1 text-xs">
                 <ArrowBigDownDashIcon size={14} />
-                Order
+                {order ? AuditOrder[order as keyof typeof AuditOrder] : "Order"}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 p-3 space-y-2">

@@ -8,6 +8,8 @@ import {
   Body,
   Post,
   CurrentUser,
+  InternalServerError,
+  BadRequestError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {IComment, IUser} from '#root/shared/index.js';
@@ -19,7 +21,7 @@ import { CommentErrorResponse, GetCommentsResponse, AddCommentResponse } from '.
 import { ICommentService } from '../interfaces/ICommentService.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
-import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import { IQuestionService } from '#root/modules/question/interfaces/IQuestionService.js';
 
 @OpenAPI({
@@ -116,10 +118,7 @@ export class CommentController {
     const {answerId, questionId} = params;
     const {text} = body;
     const userId = user._id.toString();
-
-    const result  = await this.commentService.addComment(questionId, answerId, text, userId);
-    const questionDetails = await this.questionService.getQuestionById(questionId);
-    let auditPayload = {
+    let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.EXPERTS_CATEGORY,
       action: AuditAction.EXPERTS_ADD_COMMENT,
       actor: {
@@ -131,8 +130,45 @@ export class CommentController {
        },
       context: {
         questionId: questionId,
-        question: questionDetails.text,
         answerId: answerId,
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    }
+    let result;
+    let questionDetails;
+    try{
+      result  = await this.commentService.addComment(questionId, answerId, text, userId);
+      questionDetails = await this.questionService.getQuestionById(questionId);
+    } catch(err: any){
+      auditPayload = {
+        ...auditPayload,
+        context: {
+          ...auditPayload.context,
+          question: questionDetails?.text,
+          },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to add comment',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+          },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if(err instanceof InternalServerError){
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(
+        err?.message || 'Failed to add comment',
+      );
+    }
+    auditPayload = {
+      ...auditPayload,
+      context: {
+        ...auditPayload.context,
+        question: questionDetails.text,
       },
       changes: {
         after: {

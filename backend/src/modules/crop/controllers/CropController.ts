@@ -12,6 +12,8 @@ import {
   CurrentUser,
   ForbiddenError,
   NotFoundError,
+  BadRequestError,
+  InternalServerError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -161,9 +163,8 @@ export class CropController {
         'Only admins and moderators can add crops.',
       );
     }
-
     const userId = user._id.toString();
-    const crop = await this.cropService.createCrop(body, userId);
+    let crop;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.CROP_MANAGEMENT,
       action: AuditAction.ADD_CROP,
@@ -174,6 +175,33 @@ export class CropController {
         role: user.role,
         avatar: user?.avatar || '',
       },
+    }
+    try{
+      crop = await this.cropService.createCrop(body, userId);
+    } catch(err: any) {
+      auditPayload = {
+        ...auditPayload,
+        context: {
+          cropId: crop._id.toString(),
+        },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to create crop',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      }
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if(err instanceof InternalServerError){
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(
+        err?.message || 'Failed to create crop',
+      );
+    }
+    auditPayload = {
+      ...auditPayload,
       context: {
         cropId: crop._id.toString(),
         cropName: crop.name,
@@ -234,6 +262,7 @@ export class CropController {
 
     const {cropId} = params;
     const userId = user._id.toString();
+    let updated;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.CROP_MANAGEMENT,
       action: AuditAction.UPDATE_CROP,
@@ -247,22 +276,56 @@ export class CropController {
       context: {
         cropId,
       },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+    try{
+      updated = await this.cropService.updateCrop(cropId, body, userId);
+    } catch(err: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to update crop',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      }
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if(err instanceof InternalServerError){
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(
+        err?.message || 'Failed to update crop',
+      );
+    }
+
+    if (!updated) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: 'NOT_FOUND',
+          errorMessage: `Crop with id "${cropId}" not found`,
+          errorName: 'NotFoundError',
+          errorStack: 'No stack trace available',
+        },
+      }
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      throw new NotFoundError(`Crop with id "${cropId}" not found`);
+    }
+
+    auditPayload = {
+      ...auditPayload,
       changes: {
         after: {
           ...body,
         },
       },
-      outcome: {
-        status: OutComeStatus.SUCCESS,
-      },
-    };
-    this.auditTrailsService.createAuditTrail(auditPayload);
-
-    const updated = await this.cropService.updateCrop(cropId, body, userId);
-
-    if (!updated) {
-      throw new NotFoundError(`Crop with id "${cropId}" not found`);
     }
+    this.auditTrailsService.createAuditTrail(auditPayload);
 
     return {
       success: true,

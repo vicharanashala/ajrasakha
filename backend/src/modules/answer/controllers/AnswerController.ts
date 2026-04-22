@@ -13,6 +13,8 @@ import {
   Authorized,
   QueryParams,
   Put,
+  BadRequestError,
+  InternalServerError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject} from 'inversify';
@@ -24,7 +26,7 @@ import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, ReviewAnswerBody, Sub
 import { IAnswerService } from '../interfaces/IAnswerService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
-import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import { IQuestionService } from '#root/modules/question/interfaces/index.js';
 
 @OpenAPI({
@@ -139,9 +141,10 @@ export class AnswerController {
     @CurrentUser() user: IUser,
   ) {
     const {_id: userId} = user;
-    const prevAnswer = await this.answerService.getAnswerById(body.answerId);
-    const questionData = await this.questionService.getQuestionById(prevAnswer.questionId.toString());
-    let auditPayload = {
+    let result;
+    let prevAnswer;
+    let questionData;
+    let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.ANSWER,
       action: AuditAction.APPROVE_ANSWER,
       actor: {
@@ -150,26 +153,56 @@ export class AnswerController {
         email: user.email,
         role: user.role,
         avatar: user?.avatar || '',
-        },
+      },
       context: {
-        questionId: prevAnswer?.questionId.toString() || body.questionId,
-        question: questionData.text,
+        questionId: body.questionId,
         answerId: body.answerId,
       },
-      changes:{
-        before: {
-          answer: prevAnswer?.answer || ''
-        },
-        after:{}
-      },
+      changes: {},
       outcome: {
         status: OutComeStatus.SUCCESS,
       },
     };
-    const result = await this.answerService.approveAnswer(
-      userId.toString(),
-      body,
-    );
+    try {
+      prevAnswer = await this.answerService.getAnswerById(body.answerId);
+      questionData = await this.questionService.getQuestionById(prevAnswer?.questionId?.toString());
+      result = await this.answerService.approveAnswer(
+        userId.toString(),
+        body,
+      );
+      auditPayload={
+        ...auditPayload,
+        context: {
+          ...auditPayload.context,
+          questionId: prevAnswer?.questionId?.toString() || body.questionId,
+          question: questionData?.text,
+        },
+        changes:{
+          before: {
+            answer: prevAnswer?.answer || ''
+          },
+          after:{}
+        },
+      };
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to approve answer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if(err instanceof InternalServerError){
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(
+        err?.message || 'Failed to approve answer',
+      );
+    }
     auditPayload = {
       ...auditPayload,
       changes: {
