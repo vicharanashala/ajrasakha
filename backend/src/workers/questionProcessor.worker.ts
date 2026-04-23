@@ -205,7 +205,7 @@ const { checkDuplicateQuestionHelper } = await import(
       //   const userId = user._id.toString();
       //   await userRepo.updateReputationScore(userId, IS_INCREMENT);
       // }
-      if (intialUsersToAllocate) {
+      if (intialUsersToAllocate.length > 0) {
         const IS_INCREMENT = true;
         const userId = intialUsersToAllocate[0]._id.toString();
         await userRepo.updateReputationScore(userId, IS_INCREMENT);
