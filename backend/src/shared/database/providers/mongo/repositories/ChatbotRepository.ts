@@ -155,9 +155,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
           this.users.countDocuments(
             {
-              $and: [
-                { 'farmerProfile.farmerName': { $exists: true, $nin: [null, ''] } },
-              ],
+                'farmerProfile.farmerName': { $exists: true, $nin: [null, ''] },
             },
             { session },
           ),
