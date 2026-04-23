@@ -198,6 +198,7 @@ const { checkDuplicateQuestionHelper } = await import(
       const queue = intialUsersToAllocate.map(
         user => new ObjectId(user._id.toString()),
       );
+      console.log("the queue is coming====",queue)
 
       // for (const user of intialUsersToAllocate) {
       //   const IS_INCREMENT = true;
