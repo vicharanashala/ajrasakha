@@ -75,10 +75,11 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
     isDummy: !dynamicIds.includes(card.id),
   }));
 
-  const kpiRow2WithOverlay = data.kpiRow2.map(card => ({
-    ...card,
-    isDummy: true,
-  }));
+ const kpiRow2WithOverlay = data.kpiRow2.map((card) => ({
+   ...card,
+   // isDummy: false, // temporarily disabled for testing
+   isDummy: card.id !== "totalInstalls",
+ }));
 
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>

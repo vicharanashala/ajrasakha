@@ -19,6 +19,7 @@ interface DashboardApiResponse {
     csatRating: number;
     repeatQueryRatePct: number;
     voiceUsageSharePct: number;
+    totalAppInstalls: number;
   };
   dau: DailyEntry[];
   weeklySessionDuration: Array<{ week: string; avgSessionDurationMin: number }>;
@@ -165,6 +166,16 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType {
   updatedData.kccAwareness = result.kccAwareness ?? [];
   updatedData.agriAppUsage = result.agriAppUsage ?? [];
   updatedData.farmingExperience = result.farmingExperience ?? [];
+
+  updatedData.kpiRow2 = DASHBOARD_DATA.kpiRow2.map(card => {
+    if (card.id === 'totalInstalls') {
+      return {
+        ...card,
+        value: result.kpi.totalAppInstalls.toString(),
+      };
+    }
+    return card;
+  });
 
   updatedData.kpiRow1 = DASHBOARD_DATA.kpiRow1.map(card => {
     if (card.id === 'dau') {
