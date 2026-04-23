@@ -10,6 +10,7 @@ export interface KpiSummary {
   csatRating: number;
   repeatQueryRatePct: number;
   voiceUsageSharePct: number;
+  totalAppInstalls: number; // It will the count the user whose profile is completed or not.
 }
 
 export interface DailyActiveUsersEntry {

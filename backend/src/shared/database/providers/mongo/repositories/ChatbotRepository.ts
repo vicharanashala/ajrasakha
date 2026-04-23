@@ -110,7 +110,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const lastYearMonth = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
-      const [totalUsers, monthlyActivity, sessionStats, todayQueryCount] =
+      const [totalUsers, monthlyActivity, sessionStats, todayQueryCount, totalAppInstalls] =
         await Promise.all([
           this.users.countDocuments({}, {session}),
 
@@ -152,6 +152,31 @@ export class ChatbotRepository implements IChatbotRepository {
 
           // Today's query count from messages
           this.getTodayQueryCount(source, session),
+
+          this.users.countDocuments(
+            {
+              $and: [
+                { 'farmerProfile.farmerName':             { $exists: true, $nin: [null, ''] } },
+                { 'farmerProfile.age':                    { $exists: true, $ne: null } },
+                { 'farmerProfile.gender':                 { $exists: true, $nin: [null, ''] } },
+                { 'farmerProfile.villageName':            { $exists: true, $nin: [null, ''] } },
+                { 'farmerProfile.blockName':              { $exists: true, $nin: [null, ''] } },
+                { 'farmerProfile.district':               { $exists: true, $nin: [null, ''] } },
+                { 'farmerProfile.state':                  { $exists: true, $nin: [null, ''] } },
+                { 'farmerProfile.phoneNo':                { $exists: true, $nin: [null, ''] } },
+                { 'farmerProfile.languagePreference':     { $exists: true, $nin: [null, ''] } },
+                { 'farmerProfile.yearsOfExperience':      { $exists: true, $ne: null } },
+                { 'farmerProfile.cropsCultivated':        { $exists: true, $not: {$size: 0 }, $ne: null } },
+                { 'farmerProfile.primaryCrop':            { $exists: true, $nin: [null, ''] } },
+                { 'farmerProfile.secondaryCrop':          { $exists: true, $nin: [null, ''] } },
+                { 'farmerProfile.awarenessOfKCC':         { $exists: true, $ne: null } },
+                { 'farmerProfile.usesAgriApps':           { $exists: true, $ne: null } },
+                { 'farmerProfile.highestEducatedPerson':  { $exists: true, $nin: [null, ''] } },
+                { 'farmerProfile.numberOfSmartphones':    { $exists: true, $ne: null } },
+              ],
+            },
+            { session },
+          ),
         ]);
 
       const monthMap = Object.fromEntries(
@@ -179,6 +204,7 @@ export class ChatbotRepository implements IChatbotRepository {
         csatRating: 0,
         repeatQueryRatePct: 0,
         voiceUsageSharePct: 0,
+        totalAppInstalls,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get KPI summary: ${error}`);
