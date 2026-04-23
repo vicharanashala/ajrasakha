@@ -43,6 +43,7 @@ import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '#root/modules/question/classes/validators/QuestionVaidators.js';
+import { appConfig } from '#root/config/index.js';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';
@@ -332,6 +333,10 @@ export class QuestionRepository implements IQuestionRepository {
       isHidden: { $ne: true }, // default to exclude hidden questions
       isOnHold: { $ne: true }, // default to exclude on hold questions
     };
+
+      if (appConfig.isProduction) {
+        filter.question = { $not: { $regex: '^\\(Test\\)', $options: 'i' } };
+      }
 
     // --- Hidden question filter ---
     if(hiddenQuestions === 'true'){
@@ -1151,6 +1156,12 @@ export class QuestionRepository implements IQuestionRepository {
         status: { $in: ['open', 'delayed'] },
         _id: { $in: questionIdsToAttempt },
       };
+
+
+      if (appConfig.isProduction) {
+        filter.question = { $not: { $regex: '^\\(Test\\)', $options: 'i' } };
+      }
+
 
       // Apply preferences filters
       if (query.source && query.source !== 'all') {
