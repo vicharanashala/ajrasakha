@@ -226,7 +226,7 @@ export class QuestionController {
         return {
           success: true,
           message: 'Your question is similar to an existing question.',
-          data,
+          question_id: data._id?.toString(),
         };
       }
 
