@@ -9,9 +9,11 @@ export const DASHBOARD_DATA = {
     { id: "bugs", label: "Critical bugs open", value: "7", delta: "Needs immediate action", deltaDir: "down" as const, accentColor: "#E24B4A", badges: [{ label: "3 P0", variant: "red" as const }, { label: "4 P1", variant: "amber" as const }] },
   ] as KpiCard[],
   kpiRow2: [
-    { id: "csat", label: "CSAT rating", value: "4.2 ★", delta: "+0.3 pts this month", deltaDir: "up" as const, accentColor: "#1D9E75" },
+    // { id: "csat", label: "CSAT rating", value: "4.2 ★", delta: "+0.3 pts this month", deltaDir: "up" as const, accentColor: "#1D9E75" },
+    { id: "androidInstalls", label: "Android Installs", value: "5,820", delta: "90.2% of total", deltaDir: "up" as const, accentColor: "#3AAA5A" },
+    { id: "iosInstalls", label: "iOS Installs", value: "630", delta: "9.8% of total", deltaDir: "up" as const, accentColor: "#378ADD" },
     { id: "repeatQuery", label: "Repeat query rate", value: "28%", delta: "Target: <10% · gap", deltaDir: "down" as const, accentColor: "#EF9F27", valueColor: "#854F0B" },
-    { id: "voice", label: "Voice usage share", value: "61%", delta: "Primary mode", deltaDir: "up" as const, accentColor: "#378ADD" },
+    // { id: "voice", label: "Voice usage share", value: "61%", delta: "Primary mode", deltaDir: "up" as const, accentColor: "#378ADD" },
     { id: "states", label: "States active", value: "19 / 28", delta: "3 new states added", deltaDir: "up" as const, accentColor: "#7C6FD4" },
   ] as KpiCard[],
   channelSplit: [
@@ -71,6 +73,8 @@ export const DASHBOARD_DATA = {
     { label: "Content coverage", score: 66, color: "#EF9F27" },
     { label: "UX satisfaction", score: 68, color: "#EF9F27" },
   ],
+  kccAwareness: [{ label: "Aware", count: 0, pct: 0 }] as DemographicEntry[],
+  agriAppUsage: [{ label: "Uses Apps", count: 0, pct: 0 }] as DemographicEntry[],
   ageGroups: [] as DemographicEntry[],
   genderSplit: [] as DemographicEntry[],
   farmingExperience: [] as DemographicEntry[],
