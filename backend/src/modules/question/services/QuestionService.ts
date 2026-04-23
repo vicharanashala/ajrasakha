@@ -2771,7 +2771,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         'AJRASAKHA',
       );
 
-      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(start, end, 'AJRASAKHA');
+      // const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(start, end, 'AJRASAKHA');
+      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(start, end);
       const combineQuestions = [...questions, ...duplicateQuestions]
       const allQuestions = [
         ...combineQuestions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
@@ -3188,7 +3189,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       // Fetch duplicates using the repository
-      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(startDate, endDate, 'AJRASAKHA', session);
+      // const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(startDate, endDate, 'AJRASAKHA', session);
+      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(startDate, endDate, session);
 
       if (!duplicateQuestions || duplicateQuestions.length === 0) {
         return null;
