@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "vibe-5b35a"
+  },
+  "targets": {
+    "vibe-5b35a": {
+      "hosting": {
+        "demo": [
+          "ajrasakha-demo"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

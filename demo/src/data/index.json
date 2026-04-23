@@ -1,0 +1,396 @@
+{
+  "suggestions": [
+    {
+      "prompt": "How to control dila (Cyperus Iria) and motha (cyperus rotunduse) weeds in maize crop?",
+      "reply": "Weed management in maize cultivation is critical for ensuring optimal crop growth and yield. Among the most problematic weeds in maize fields are dila(Cyperus iria) and motha (Cyperus rotundus). These perennial sedges are particularly challenging due to their extensive underground tuber system, rapid multiplication, and competitive nature. Effective control requires an integrated approach combining cultural, mechanical, and chemical methods. Integrated Weed Management (IWM) approach: Cultural and Mechanical Control: Give two hoeings about 15 to 30 days after sowing with khurpa/kasaula/wheel-hoe/triphali/tractor-drawn cultivator. Alternatively, uniform spreading of 30 quintals per acre of paddy straw mulch at the time of sowing provides effective control of annual weeds or grow one or two rows of cowpea in between maize rows and harvest it at 35 to 45 days after sowing as fodder; thereafter, no weed control operation is required. For intercropping of cowpea, use 8 kg per acre of seed of CL 367. It does not require any additional fertilizer. Sow maize and cowpea simultaneously. Chemical Control: For the control of dila/motha, apply 400 ml per acre of 2,4-D amine salt 58 SL as post-emergence 20-25 days after sowing in 150 liters of water. SAFETY PRECAUTIONS: When handling and applying herbicides, farmers must observe strict safety measures: 1. Protective Equipment: Wear gloves, a face mask, full-sleeve clothing, long pants, and safety goggles during mixing and application. 2. Avoid Contamination: Do not eat, drink, or smoke while handling chemicals. 3. Proper Mixing: Add herbicide to water (never water to herbicide) while stirring continuously. 4. Equipment Cleaning: Thoroughly clean sprayer equipment after use to prevent phytotoxicity to subsequent crops. 5. Container Disposal: Safely dispose of empty containers—never reuse for food or water storage. Bury or return to collection centers. 6. Pre-Harvest Interval: Observe the recommended waiting period between the last application and harvest. 7. Water Bodies: Prevent herbicide contamination of ponds, wells, or water channels. For further guidance on weed identification, herbicide selection, application techniques, or addressing specific weed problems in your maize field, farmers are strongly advised to contact the nearest Krishi Vigyan Kendra (KVK) or local agricultural extension officer. KVK experts can provide location-specific recommendations and hands-on training for effective weed management.",
+       "reviewerName": ["Ankit Jaiswal","Shekhar Parmar","Salim Sahaji","Tejas Dange","Rajwant Kaur","Anmol Kaundal"],
+  "sources": [
+    {
+      "name": "Package of Practices for Crops of Punjab Kharif 2025_Punjab Agriculture University, Ludhiana",
+      "url": "https://workdrive.zoho.in/file/hfa818fe8a7cac8c44efca8042c19627a2e3e"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Maize farming practices:"
+    },
+    {
+      "prompt": "What causes reddening of maize leaves and how can it be managed?",
+      "reply": "Reddening of maize leaves is primarily a symptom of phosphorus (P) deficiency, though it can occasionally be associated with nitrogen deficiency or environmental stress. This physiological disorder typically manifests as purple or reddish discoloration on the leaf margins and tips, progressing toward the midrib in severe cases. Understanding the cause and implementing proper nutrient management practices is essential for healthy maize crop development. Soil Testing and Diagnosis: Before applying any corrective measures, farmers should conduct soil testing to confirm phosphorus deficiency and determine the exact nutrient status. .Soil testing laboratories at Krishi Vigyan Kendras or Punjab Agricultural University can provide detailed nutrient analysis and specific fertilizer recommendations based on soil type and crop requirements. Management Practices: For maize varieties such as PMH 1, PMH 11, PMH 13, PMH 14, PMH 17, DKC 9144, Bioseed 9788, ADV 9293, JC 12 and Punjab Sweet Corn, apply 24 kg P₂O₅ per acre, which can be supplied through 55 kg DAP or 150 kg Single Superphosphate or 125 kg Nitrophosphate per acre. For PMH 2, JC 4 and Pearl Popcorn, apply 12 kg P₂O₅ per acre, which can be supplied through 27 kg DAP or 75 kg Single Superphosphate or 62 kg Nitrophosphate per acre. If maize is grown after wheat that has already received the recommended dose of phosphorus, the application of phosphorus to maize can be omitted. When 27 kg DAP per acre is used, the urea dose should be reduced by 10 kg, and when 55 kg DAP per acre is used, the urea dose should be reduced by 20 kg. Similarly, when 125 kg nitrophosphate per acre is applied, the urea dose should be reduced by 50 kg, and when 62 kg nitrophosphate per acre is used, the urea dose should be reduced by 25 kg.In phosphorus and sulphur deficient soils, apply sulphated phosphorus fertilizer (13:33:0:15; N:P₂O₅:K₂O:S) if other phosphorus- or sulphur-containing fertilizers are not available.For all recommended maize varieties, apply one-third of the total nitrogen and the full dose of phosphorus and potassium at the time of sowing. If nitrophosphate is used, omit the application of urea at sowing. The remaining nitrogen should be top-dressed in two equal splits—one-third at the knee-high stage and the final one-third at the pre-tasseling stage. For further guidance on soil testing, specific fertilizer recommendations based on your field conditions, or clarification on nutrient management practices for maize, farmers are strongly advised to contact the nearest Krishi Vigyan Kendra (KVK) in Barnala district or consult with local agricultural extension officers of Punjab Agricultural University for field-specific solutions.",
+       "reviewerName": ["Kavya Ponugoti","Utkarsh Singh Vishen","Rajwant Kaur","Khaja Suhaib","Salim Sahaji"],
+  "sources": [
+    {
+      "name": "Package of Practices for Crops of Punjab Kharif 2025_Punjab Agriculture University, Ludhiana",
+      "url": "https://workdrive.zoho.in/file/hfa818fe8a7cac8c44efca8042c19627a2e3e"
+    },
+    {
+      "name": "Mineral Nutrition, Millets, Maize_TNAU, Tamilnadu Agriculture University, Coimbatore",
+      "url": "https://workdrive.zoho.in/file/zg3za7d778ad9cdf444ab82be50fb17b144b3"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me walk through the likely causes and treatment:"
+    },
+    {
+      "prompt": "How can I control calcium deficiency in maize crop?",
+      "reply": "Calcium deficiency in maize usually occurs in soils with low available calcium, high acidity, poor root development, drought or waterlogging conditions. Since calcium is an important secondary nutrient but moves poorly within the plant, deficiency mainly appears on young leaves and growing points. Symptoms include poor root growth, weak stems, distorted or curled young leaves, tip burn on new leaves and poor cob development; young leaf tips may stick together forming sword-like projections, leaf edges become serrated, leaves turn brittle with brown sticky margins, and in severe cases, plants become stunted with reduced yield. To correct calcium deficiency, you should improve soil conditions by applying agricultural lime (calcium carbonate) or dolomitic lime (calcium magnesium carbonate) in acidic soils before sowing to increase soil calcium and improve pH, maintain proper soil moisture and drainage for better uptake, add organic matter such as well-decomposed farmyard manure or compost to improve soil structure and nutrient availability, and apply a foliar spray of calcium sulphate (CaSO₄) 2% solution (20 g per litre of water) twice. Calcium nitrate (15.5% nitrogen and 18.5% calcium) is an effective source of calcium for crops that improves plant growth, yield, and produce quality, enhances shelf life, promotes new branch formation, flowering and fruit development, helps prevent fruit drop, and also increases nitrogen availability to plants. For application, calcium nitrate can be used as a basal fertilizer, foliar spray, drip irrigation or direct soil application in standing crops and is generally applied 2–3 times during the crop period at 25–50 kg per acre. For drip irrigation, apply 1.5–2.5 g of water per litre (300–500 g in 200 litres), depending on crop and soil conditions. For foliar spray prepare 0.5–0.8% solution (5–8 g per litre of water or 1–1.6 kg in 200 litres of water) and spray at 30–40 days after sowing, preferably in the early morning or evening with proper spray nozzles so leaves are well covered; proper use of calcium fertilizers along with good soil management helps control calcium deficiency and improves maize growth and yield.",
+       "reviewerName": ["Kavya Ponugoti","Satarupa Saha","Girishma Gonnabathula","Khaja Suhaib","Utkarsh Singh Vishen"],
+  "sources": [
+    {
+      "name": "Calcium NItrate Water Soluble Fertilizer_IFFCO stands for Indian Farmers Fertiliser Cooperative Limited, New Delhi",
+      "url": "https://workdrive.zoho.in/file/zshatb6e9547044424c3ba1fa19666ed724ad"
+    },
+    {
+      "name": "Mineral Nutrition, Millets, Maize_TNAU AgriTech Portal",
+      "url": "https://workdrive.zoho.in/file/zshatd5d7a4bc1c8146aabe7951fb6ba76879"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Maize farming practices:"
+    },
+    {
+      "prompt": "How to control Gulli Danda (wild grass) weed in maize crop?",
+      "reply": "Gulli Danda (Phalaris minor) is not considered a major weed of maize. While it can occasionally be found in maize fields, especially in the Rabi season, its primary and most devastating impact is on wheat. However, if you follow the integrated weed management practices, you can control most of the weeds in the maize field. Integrated Weed Management Practices: Cultural Control Methods: Perform two hoeings about 15 to 30 days after sowing with khurpa/kasaula/wheel-hoe/triphali/tractor-drawn cultivator. Alternatively, uniform spreading of 30 quintals per acre of paddy straw mulch at the time of sowing provides effective control of annual weeds, or grow one or two rows of cowpea in between maize rows and harvest it 35 to 45 days after sowing as fodder; thereafter, no weed control operation is required. For intercropping of cowpea, use 8 kg per acre of seed of CL 367. It does not require any additional fertilizer. Sow maize and cowpea simultaneously. Chemical Control Methods: Spray 800 g per acre of Atrazine 50 WP on medium- to heavy-textured soils and 500 g per acre on light soils within ten days of sowing, using 200 liters of water, or spray 250 g per acre of atrazine on a 20 cm wide band over the crop rows, followed by hoeing/interculture at 15 to 30 days after sowing. This herbicide is effective against annual grasses and broadleaf weeds, especially itsit. Alternatively, spraying 105 ml per acre of Tembotrione 420 SC (34.4% SC) in 150 liters of water at 20 days after sowing provides effective control of mixed weed flora. For the control of dila/motha, apply 400 mL per acre of 2,4-D amine salt 58 SL as post-emergence 20-25 days after sowing in 150 liters of water. Safety Precautions (Mandatory): When handling and applying herbicides, farmers must follow these safety measures: 1. Wear protective clothing, including full-sleeve shirts, long pants, gloves, masks, and goggles during mixing and application. 2. Avoid spraying during windy conditions to prevent herbicide drift to neighboring crops. 3. Do not spray during hot afternoon hours; early morning or late evening is ideal. 4. Observe Pre-Harvest Interval (PHI): For Atrazine, maintain 60 days before harvest. 5. Wash hands and exposed body parts thoroughly with soap after herbicide application. 6. Dispose of empty herbicide containers safely by burying them in designated pits away from water sources; never reuse for domestic purposes. 7. Store herbicides in original containers in a cool, dry, locked place away from children and animals. 8. Clean spray equipment thoroughly after use to prevent crop injury in subsequent applications. Additional Recommendations: Combine chemical control with cultural practices for sustainable weed management. Crop rotation with crops like wheat or legumes helps break the weed cycle. Maintain clean irrigation channels to prevent weed seed spread through water. KVK Referral: For further guidance on specific herbicide recommendations, proper application techniques, calibration of spraying equipment, or clarification regarding weed management practices suitable for your local conditions, farmers are strongly advised to contact the nearest Krishi Vigyan Kendra (KVK) or local agricultural extension officer. They can provide soil-specific recommendations and demonstrate proper spraying techniques for optimal weed control in maize cultivation.",
+       "reviewerName": ["Monica M","Jayashree N","Girishma Gonnabathula","Rohan Chand","Salim Sahaji"],
+  "sources": [
+    {
+      "name": "Package of Practices for Crops of Punjab Kharif 2025_Punjab Agriculture University, Ludhiana",
+      "url": "https://workdrive.zoho.in/file/hfa818fe8a7cac8c44efca8042c19627a2e3e"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Maize farming practices:"
+    },
+    {
+      "prompt": "How to control jassids and semilooper in maize crop?",
+      "reply": "Jassids (leafhoppers) and semiloopers are known sucking and chewing pests that can cause damage to several agricultural crops. However, jassids are not commonly reported as major pests in maize, although occasional infestations may occur. They are generally observed attacking crops mainly during the kharif season. Semiloopers, which are lepidoptelarvae that feed on leaves, are also not commonly reported to infest maize crops. Therefore, the farmer is advised to regularly monitor the crop for any pest incidence. If unusual pests are observed in the field, the farmer should capture clear images of the pests and the affected plant parts. The farmer is then advised to visit the nearest Krishi Vigyan Kendra (KVK) or agricultural extension office with the images or samples for accurate pest identification and appropriate control recommendations. This will help ensure that correct and crop-specific pest management measures are followed. For further guidance on pest identification, proper insecticide selection, application techniques, or any clarification regarding integrated pest management in maize, farmers are strongly advised to contact the nearest Krishi Vigyan Kendra (KVK) or local agricultural extension officer. They can provide field-specific recommendations, demonstrate proper spraying techniques, and offer updated information on pest management strategies suited to local conditions.",
+       "reviewerName": ["Monica M","Jayashree N","Girishma Gonnabathula","Rohan Chand","Salim Sahaji"],
+  "sources": [
+    {
+      "name": "Package of Practices for Crops of Punjab Kharif 2025_Punjab Agriculture University, Ludhiana",
+      "url": "https://workdrive.zoho.in/file/hfa818fe8a7cac8c44efca8042c19627a2e3e"
+    },
+    {
+      "name": "Major Uses of Pesticides_Central Insecticides Board & Registration Committee,Faridabad, Haryana",
+      "url": "https://workdrive.zoho.in/file/uapvba63b730e8b2a4eeb83c12a442a95259d"
+    },
+    {
+      "name": "TermitExpert_A Contribution of ICAR National Fellow Project",
+      "url": "https://workdrive.zoho.in/file/7be2w8fe369097c114948a379d525e2abd2c1"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Maize farming practices:"
+    },
+    {
+      "prompt": "What is the fertilizer dose of Paddy?",
+      "reply": "Proper and balanced fertilizer use is very important for getting a good yield in the paddy crop. Sol test recommendations: It is recommended to test the soil before applying fertilizers to determine the exact nutrient status of your field. Soil testing helps avoid the overuse or underuse of fertilizers, thereby saving costs and improving crop yield. It also helps maintain soil health and ensures balanced and healthy crop growth. Recommended Fertilizer Dose: If soil testing is not done, PAU recommends that for most paddy varieties, farmers should apply 42 kg nitrogen(N), 12 kg phosphorus (P₂O₅), and 12 kg potash (K₂O) per acre. This requirement can be met by applying about 90 kg of neem-coated urea, 27 kg DAP (or 75 kg single super phosphate), and 20 kg muriate of potash per acre. When 27 kg DAP is used in deficient soil, reduce the urea dose by 10 kg. For the nitrogen-efficient variety PR-132, it is recommended to apply 25% less nitrogen, i.e., 31.5 kg nitrogen per acre, which is equivalent to about 67.5 kg neem-coated urea, along with the recommended doses of phosphorus and potash. Excess nitrogen application in PR-132 may lead to lodging and yield loss; therefore, over-fertilization should be avoided. Apply 27 kg DAP (or 75 kg SSP) and 20 kg MOP per acre. If DAP is used as the phosphorus source, the urea dose can be reduced by 10 kg per acre. Application method: Apply nitrogen fertilizer in three equal splits to all recommended varieties. The first split should be applied within 7 days of transplanting, the second split at 21 days after transplanting, and the third split at 35 days after transplanting for short-duration varieties (e.g., PR 126) and at 42 days after transplanting for other varieties. Urea should be applied when there is no standing water in the field, and irrigation should be given 2–3 days after application. Phosphorus and potash fertilizers should be applied once before puddling. If the recommended phosphorus dose was already applied to the previous wheat crop, farmers can safely skip phosphorus in paddy. Integrated Nutrient Management Approach: PAU also recommends the use of organic manures such as FYM, poultry manure, press mud, or green manure, as these improve soil health and help reduce the requirement of chemical fertilizers. For example, applying 6 tonnes of FYM per acre can save about 35 kg of urea, while green manuring can save up to 55 kg of urea per acre. The symptoms of zinc deficiency appear 2-3 weeks after transplanting. The lower leaves become rusty brown near the base and ultimately dry up. The seedlings with zinc deficiency remain stunted and tillerless. In fields where zinc deficiency is common, farmers should apply 25 kg zinc sulphate heptahydrate (21%) or 16 kg zinc sulphate monohydrate (33%) per acre at puddling in case previous crop in this field had shown the symptoms of zinc deficiency. Where the deficiency is noticed in the growing crop, apply this quantity of zinc sulphate as soon as possible. In highly deteriorated soils, the symptoms of zinc deficiency sometimes appear in patches even after the application of the recommended dose of zinc sulphate. In that event, broadcast 10 kg of zinc sulphate heptahydrate or 6.5 kg zinc sulphate monohydrate per acre mixed with an equal quantity of dry soil on the affected patches. Under scarcity of water, chlorosis among seedlings appears in the youngest leaf about three weeks after transplanting. Plants die and often the crop fails completely. Start giving copious irrigations as soon as chlorosis appears and give 2 or 3 sprays of one per cent ferrous sulphate solution at weekly intervals (1 kg of ferrous sulphate in 100 litres of water per acre). To reduce flower sterility and improve grain filling, PAU further recommends a 1.5% foliar spray of potassium nitrate (3 kg in 200 liters of water per acre) at the boot stage is commonly used, but should be described as need-based, not compulsory. Following these PAU fertilizer recommendations helps farmers get higher yields, better grain quality, and lower fertilizer costs under Punjab conditions.",
+       "reviewerName": ["Monica M","Jayashree N","Girishma Gonnabathula","Rohan Chand","Pooja Soni"],
+  "sources": [
+    {
+      "name": "Package of Practices for Crops of Punjab Kharif 2025_Punjab Agriculture University, Ludhiana",
+      "url": "https://workdrive.zoho.in/file/zu51z4ee271ba7a4f4d05a7e266091f2608aa"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Paddy farming practices:"
+    },
+    {
+      "prompt": "How to control Stem Borer in Paddy?",
+      "reply": "Stem borer is a serious pest problem in paddy cultivation that causes what farmers often refer to as 'short plant disease' due to the damage it inflicts on rice plants. Effective management requires vigilant monitoring and timely intervention with appropriate control measures. The stem borer bores into the stem and causes damage mainly from July to October. Affected plants show dead heart symptoms (yellowing and drying of central shoots), whereas old plants produce empty earheads, which turn white and stand erect. To control the yellow stem borer in paddy, an integrated approach combining cultural, biological, and chemical methods is recommended. Regularly scout the field around 20-40 days after transplanting for egg masses and early larval damage, maintain proper spacing, avoid excessive use of nitrogen-rich fertilizer, remove and destroy stubble and weed hosts, and avoid late planting. Maintain optimal water level, flood the field, encourage natural enemies like parasitic wasps and predators, and spray neem-based pesticide azadirachtin 5% at 80 ml in 100 liters of water at the early stage. If the field shows more than 5% dead heart symptoms, insecticide application is recommended. The recommended insecticides for controlling stem borer in paddy are Chlorantraniliprole 18.5 SC at 60 ml per acre in 150-200 liters of water (PHI 47 days), Flubendiamide 39.35% SC at 20 ml in 150-200 liters of water (PHI 40 days), or Flubendiamide 20 WG at 60 grams per acre in 150-200 liters of water (PHI 30 days). Rotate chlorantraniliprole with flubendiamide to prevent resistance. Always spray during early morning and late afternoon. Best Practices: For optimal results, spray during early morning or late evening hours when temperatures are cooler and wind speed is low. Ensure complete coverage of plant bases. Always wear protective equipment during pesticide application. Rotate different chemical groups to prevent pest resistance development. Maintain proper water levels in the field during and after application.",
+       "reviewerName": ["Satarupa Saha","Tejas Dange","Girishma Gonnabathula","Rohan Chand","Khaja Suhaib"],
+  "sources": [
+    {
+      "name": "Package of Practices for Crops of Punjab Kharif 2025_Punjab Agriculture University, Ludhiana",
+      "url": "https://workdrive.zoho.in/file/zu51z4ee271ba7a4f4d05a7e266091f2608aa"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Paddy farming practices:"
+    },
+    {
+      "prompt": "How to control BPH - brown plant hopper in Paddy?",
+      "reply": "Brown Plant Hopper is a highly destructive sap-sucking pest of the rice crop. This insect hides at the lower part of the plant (leaf sheath) and sucks sap from there. Both nymphs (young stages) and adults cause damage. Due to continuous sap sucking, the plant does not get proper nutrition; first the leaves turn yellow, then the plants wilt and finally dry up. The pest does not remain confined to one place—when plants dry, it migrates to nearby healthy plants. As a result, circular or patchy dried areas appear in the field, commonly known by farmers as “hopper burn.” Under severe infestation, the entire field may look scorched, grain filling is poor, and heavy yield loss occurs. The infestation of brown plant hopper usually starts 25–30 days after transplanting and increases rapidly in fields with excess nitrogen fertilization, continuous water stagnation, and dense crop growth. For identification, 2–3 plants should be slightly tilted and tapped near the base. If five or more hoppers per plant are seen floating on the water, it is considered the economic threshold level (ETL) and immediate control is required. For effective management, Flupyrimin 10 SC is a reliable insecticide. It should be sprayed @ 300 ml per acre, PHI-7 days diluted in 100 litres of water. You can also use other reliable options such as dinotefu20 SG @ 80 g per acre, PHI-21 days or flonicamid 50 WG @ 60 g per acre, PHI-36 days in 100 liters of water. At initial infestation stage, you can also use azadirachtin 5% @ 80 ml per acre in 100 liters of water. The spray must be directed towards the base of the plants, as this is the main hiding and feeding site of the pest. Timely and proper application of this insecticide effectively checks brown plant hopper infestation and protects the rice crop from hopper burn. Farmers should also avoid excessive nitrogen application, prevent unnecessary water stagnation in the field, and regularly monitor the crop to manage this pest effectively and in time.",
+       "reviewerName": ["Utkarsh Singh Vishen","Rohan Chand","Tejas Dange","Rajwant Kaur","Shivendra Pratap","Kavya Ponugoti"],
+  "sources": [
+    {
+      "name": "Package of Practices for Crops of Punjab Kharif 2025_Punjab Agriculture University, Ludhiana",
+      "url": "https://workdrive.zoho.in/file/zu51z4ee271ba7a4f4d05a7e266091f2608aa"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Paddy farming practices:"
+    },
+    {
+      "prompt": "How to control dwarf disease in paddy?",
+      "reply": "Rice stunted virus, particularly the Southern Rice Black-Streaked Dwarf Virus (SRBSDV), is a serious viral disease that affects paddy crops and requires a comprehensive integrated management approach. This disease is transmitted by the white-backed planthopper (Sogatella furcifera), making vector control a critical component of disease management. For effective control, you should adopt the following multidimensional strategy: Vector Management: The primary focus should be on controlling the white-backed planthopper population. Monitor your fields regularly, especially during the early crop stages in July (Kharif season). Apply neem-based bio-pesticide like Azadirachtin 5% @ 80 ml in 100 liters of water at the early stages. If infestation exceeds economic threshold (5-10 hoppers per hill), spray Triflumezopyrim 10 SC @ 95 ml per acre, or Dinotefu70% WG @ 35 g per acre, or Pymetrozine 50% WG @ 120 g per acre. Use 150–200 litres of water per acre. Resistant Varieties: Plant virus-resistant or tolerant rice varieties recommended for Punjab conditions. Consult your local agriculture department or Krishi Vigyan Kendra for the latest resistant varieties suitable for the Sangrur district. Using certified seeds from authorised sources ensures better disease resistance. Cultural Practices: Optimize your planting time, avoid very late transplanting, which increases vulnerability to virus infection. Maintain proper plant spacing (15-20 cm or 20-15 cm) to improve air circulation and reduce planthopper habitat. Remove and destroy infected plants immediately to prevent virus spread. Keep field bunds and surrounding areas clean by removing alternate host plants and weeds that harbour planthoppers. Field Sanitation: Practice crop rotation where possible and avoid continuous paddy cultivation. Ensure proper water management, avoid water stress as it increases plant susceptibility. Use balanced fertilization, avoiding excessive nitrogen, which promotes lush growth attractive to planthoppers. Early Detection: Regular field monitoring is essential. Look for symptoms like stunted growth, dark green leaves, reduced tillering, and shortened internodes. Early detection allows for timely intervention and prevents widespread infection. Coordinate with neighbouring farmers for area-wide vector management, as planthoppers can migrate between fields. Following these integrated practices will significantly reduce the incidence and severity of rice stunting virus in your paddy crop.",
+       "reviewerName": ["Rohan Chand","Khaja Suhaib","Shivendra Pratap","Jayashree N","Rajwant Kaur","Salim Sahaji"],
+  "sources": [
+    {
+      "name": "Package of Practices for Crops of Punjab Kharif 2025_Punjab Agriculture University, Ludhiana",
+      "url": "https://workdrive.zoho.in/file/zu51z4ee271ba7a4f4d05a7e266091f2608aa"
+    },
+    {
+      "name": "Advisory for stunted Growth of Paddy Crop_Indian Counsil of Agricultural Research",
+      "url": "https://workdrive.zoho.in/file/mp021ac112f57db8f4bc3a4e8a077facb54ce"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Paddy farming practices:"
+    },
+    {
+      "prompt": "How to BLB - Bacterial Leaf Blight in Basmati Paddy?",
+      "reply": "Bacterial blight (Xanthomonas oryzae pv. oryzae): Greenish-yellow stripes appear along the leaf margins and extend both lengthwise and breadthwise. The leaf starts drying from the tip, becomes white in severe cases and dries up completely. The disease sometimes attacks the freshly transplanted seedlings which start wilting and in a few days the whole clump dries up. The bacterium perpetuates through seed, rice straw and roots of non-host plants during the off-season. In order to mitigate the losses, adopt the following integrated measures: For the management of bacterial blight, grow basmati rice varieties Punjab Basmati 7, 5 and Pusa Basmati 1847, 1718 which are resistant to most of the pathotypes of bacterial blight pathogen. Use disease free seed, do not grow nursery and crop under shade and near wheat straw stack (Kup), do not apply excessive dose of nitrogen, nitrogen should not be applied beyond six weeks after transplanting (except when LCC is used) and do not pond water in the field continuously. Chemical control:- use of Copper Hydroxide 53.8% DF @ 600 g in 200 litres of water for one acre and PHI is 10 days or use Copper Sulphate Pentahydrate 6% SC @ 400 ml in 200 litres of water for one acre and PHI 21 days.",
+       "reviewerName": ["Rohan Chand","Rajwant Kaur","Kavya Ponugoti","Yash Praveen","Monica M","Khaja Suhaib","Anmol Kaundal","Tejas Dange","Shivendra Pratap","KaM","Girishma Gonnabathula"],
+  "sources": [
+    {
+      "name": "Package of Practices for Crops of Punjab Kharif 2025_Punjab Agriculture University, Ludhiana",
+      "url": "https://workdrive.zoho.in/file/zu51z4ee271ba7a4f4d05a7e266091f2608aa"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Paddy farming practices:"
+    },
+    {
+      "prompt": "How to control Jangli Oats (wild oats) in wheat?",
+      "reply": "Effective control of Wild Oats (Avena fatua or Jangli javi) in wheat requires a strict Integrated Weed Management (IWM) approach, starting with the use of certified weed-free seed and rotating wheat with non-cereal crops like Berseem or Mustard to exhaust the soil seed bank. For chemical control, the most reliable intervention is applying post-emergence herbicides 30–35 days after sowing (just after the first irrigation) when the crop is at the 2–3 leaf stage. The official PAU recommendation is to spray Pinoxaden 5 EC at 400 ml per acre or Clodinafop 15 WP at 160 g per acre dissolved in 150 litres of water using a flat-fan nozzle; Pinoxaden is particularly effective where Wild Oats show resistance to other groups. Alternatively, Sulfosulfuron 75 WG at 13 g per acre is effective, but strict caution is mandatory: do not use Sulfosulfuron if Maize, Sorghum (Jowar), or Bajra is to be sown in the following Kharif season, as soil residues will destroy these crops. Due to widespread resistance, avoid using Isoproturon unless local efficacy is confirmed, and always perform hand-pulling (rogueing) of scattered surviving plants before they set seed to prevent re-infestation.",
+       "reviewerName": ["Salim Sahaji","Rounaq Ansari","Satarupa Saha","Kavya Ponugoti","Nupur Chandrakumar Bisen","Rojan Darjee"],
+  "sources": [
+    {
+      "name": "Package of Practices for Rabi Crops of Punjab 2025-26_Punjab Agricultural Univerisity, Ludhiana",
+      "url": "https://workdrive.zoho.in/file/zshat6cbbe208d67d4511a1bfd02c35a94213"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Wheat farming practices:"
+    },
+    {
+      "prompt": "How to control termites in wheat?",
+      "reply": "Termites are a major pest in wheat cultivation. Termites attack the crop soon after sowing as well as near maturity. Affected plants dry up completely and can be easily pulled out of the soil. When termite damage occurs at later growth stages, the affected tillers often produce white, empty earheads. To control this pest, an Integrated Pest Management (IPM) approach combining cultural and chemical methods is recommended. Avoid late sowing of crops. Treat the seed by diluting 40 g of Thiamethoxam 70 WS or 160 mL of Chlorpyriphos 20 EC or 80 mL of Imidacloprid 18.50% + Hexaconazole 01.50% FS in 1 litre of water. Spray this solution evenly over 40 kg of seed spread in a thin layer on a pucca floor, tarpaulin, or polythene sheet. Seed treated with Imidacloprid + Hexaconazole 20 FS also helps control wheat smuts. Insecticide-treated seed is less prone to bird damage. Termite infestation is usually more severe in sandy soils; providing irrigation in affected fields helps reduce termite damage to some extent. Apply well-rotted farmyard manure to discourage termites in the field. In case of severe termite infestation, broadcast 7-8 kg Fipronil 0.3 GR (PHI 91 days) or 1.2 litres Chlorpyriphos 20 EC per acre. Mix the insecticide thoroughly with 20 kg of moist sand and apply it before the first irrigation for effective control.",
+       "reviewerName": ["Chaitanya Sameera Sandaka","Tejas Dange","Adheena Victor","Khaja Suhaib","Salim Sahaji","Rounaq Ansari","Satarupa Saha","Girishma Gonnabathula"],
+  "sources": [
+    {
+      "name": "Package of Practices for Rabi Crops of Punjab 2025-26_Punjab Agricultural Univerisity, Ludhiana",
+      "url": "https://workdrive.zoho.in/file/zshat6cbbe208d67d4511a1bfd02c35a94213"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Wheat farming practices:"
+    },
+    {
+      "prompt": "How to Pila Ratua (Yellow Rust) in wheat?",
+      "reply": "To effectively control Yellow Rust (Puccinia striiformis) in wheat, maintain active surveillance from December onwards, particularly in the sub-mountainous districts (Ropar, Hoshiarpur, Gurdaspur), where cool (6–16°C) and humid conditions favor the disease. Upon noticing the initial symptoms, such as yellow, powdery stripes on the leaves, immediately apply a fungicide spray. Use Propiconazole 25 EC at 200 ml per acre or Tebuconazole 50% + Trifloxystrobin 25% WG at 120 g per acre, mixed in 200 litres of water, ensuring uniform coverage across the crop canopy. Ensure a Pre-Harvest Interval (PHI) of 30 days for Propiconazole 25 EC, and 40 days for Tebuconazole 50% + Trifloxystrobin 25% WG. Agronomically, avoid excessive nitrogen application, which promotes succulent, susceptible growth, and prioritize sowing the latest PAU-recommended resistant varieties like PBW 725, Unnat PBW 550, PBW 660, WHD 943, PBW 752, and PBW Zinc 2, and PBW RS 1, while strictly monitoring older varieties (e.g., HD 3086, WH 1105) as their resistance has partially eroded against newer rust races.",
+       "reviewerName": ["Anmol Kaundal","Shivendra Pratap","Utkarsh Singh Vishen","Rohan Chand","Tejas Dange"],
+  "sources": [
+    {
+      "name": "Package of Practices for Rabi Crops of Punjab 2025-26_Punjab Agricultural Univerisity, Ludhiana",
+      "url": "https://workdrive.zoho.in/file/zshat6cbbe208d67d4511a1bfd02c35a94213"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Wheat farming practices:"
+    },
+    {
+      "prompt": "What is the suitable wheat variety in my region?",
+      "reply": "Selecting the right wheat variety is crucial for achieving optimal yields and grain quality in Patiala district, Punjab. The region's agro-climatic conditions favor several high-yielding wheat varieties that are well-adapted to the local soil types, irrigation availability, and temperature patterns during the Rabi season. Recommended Wheat Varieties for Patiala District: The Punjab POP for wheat doe snot specifically mention varieties suitable for Patiala region. However the POP suggests varieties for Punjab regions. They are: Timely Sown Irrigated Conditions: 1. PBW 872 (2025)*: This variety has been recommended for cultivation under timely sown irrigated conditions. Its average plant height is 100 cm and matures in about152 days. It is moderately resistant to yellow and brown rust. It possesses bold and lustrous grains with an average grain yield of 24.4 quintals per acre. This variety is suitable for growing under poplar plantation. 2. PBW 826 (2022): This variety has been recommended for cultivation under timely sown irrigated conditions. Its average plant height is 100 cm and matures in about 148days. It is moderately resistant to yellow rust and brown rust. It possesses lustrous bold grains. Its average grain yield is 24.0 quintals per acre. 3. PBW 869 (2021): This variety has been recommended for sowing with Happy Seeder/Super Seeder in in-situ rice residue managed fields. Its average plant height is 101 cm and matures in about 158 days. It is resistant to brown rust and moderately resistant to yellow rust. Its average yield is 23.2 quintals per acre. It possesses bold grains and longer coleoptile. Use 45 kg seed per acre. Late Sown Irrigated Conditions 1. PBW 771 (2020): Its average plant height is 80 cm and matures in about 133 days. It is moderately resistant to yellow rust and resistant to brown rust. Its average grain yield is 19.0 quintals per acre. 2. PBW 757 (2020): This bread wheat variety has been recommended for cultivation in the Punjab state under irrigated very late sown conditions (January sowing). Its average plant height is 82 cm and matures in about 114 days. It is resistant to yellow rust and brown rust diseases. Its average grain yield is 15.8 quintals per acre. 3. PBW 752 (2019): Its average plant height is 89 cm and matures in about 130 days. Its ears are medium dense with red glumes. It is resistant to yellow and brown rust. Its average grain yield is 19.2 quintals per acre. Timely Sown irrigated condition (special purpose varieties) 1. PBW Zinc 2 (2023): It possesses higher grain zinc concentration which is good for human health. Its average plant height is 100 cm and is resistant to yellow and brown rust. Its ears are medium dense with red glumes. It matures in about 154 days. Its average grain yield is 23.0 quintals per acre. 2. PBW 1 Chapati (2020): This a premium quality bread wheat variety having excellent chapati making properties. Chapati made from it is whitish in color, sweet in taste and remains soft even after hours of cooking with good palatability and texture. Its average plant height is 103 cm and matures in about 154 days. It is moderately resistant to yellow rust and resistant to brown rust. Its average grain yield is 17.2quintals per acre. The farmer is advised to select varieties based on local requirements and specific needs. Only recommended varieties should be grown, and reliance on a single variety should be avoided to reduce risk. Varieties must be selected according to the appropriate time of sowing to ensure better yield and adaptability. For further guidance on variety selection based on specific field conditions, soil health, and localized disease pressure, farmers are strongly advised to contact the nearest Krishi Vigyan Kendra (KVK) in Patiala or consult with local agricultural extension officers. They can provide tailored recommendations and updated information on newly released varieties suitable for your specific farm conditions.",
+       "reviewerName": ["Kavya Ponugoti","Satarupa Saha","Tejas Dange","Rajwant Kaur","Shivendra Pratap"],
+  "sources": [
+    {
+      "name": "Package of Practices for Rabi Crops of Punjab 2025-26_Punjab Agricultural Univerisity, Ludhiana",
+      "url": "https://workdrive.zoho.in/file/zshat6cbbe208d67d4511a1bfd02c35a94213"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Wheat farming practices:"
+    },
+    {
+      "prompt": "What is the recommended fertilizer dose for wheat cultivation per acre?",
+      "reply": "Balanced fertilization is crucial for achieving optimal wheat yields and maintaining soil health. The recommended fertilizer dose for wheat cultivation varies based on soil nutrient status, variety, and expected yield, but general guidelines provide a foundation for farmers to follow. It is always recommended to test your soil before fertilizer application. As per Punjab POP (Gurudaspur region), in the absence of a soil test, you can use the following amounts of fertilizers.The recommended NPK dose is 50:25 kg per acre, which can be met by applying 110 kg of neem coated urea, 155 kg of SSP or (55 kg of DAP per acre) or 125 kg Nitrophosphate per acre. Apply 12 kg K2O (20 kg muriate of potash) per acre to soils testing low in potassium and apply 24 kg K2O (40 kg muriate of potash) per acre at the time of sowing in the Gurdaspur, Hoshiarpur, Rupnagar and Shaheed Bhagat Singh Nagar districts. When 125 kg of Nitrophosphate is used, decrease quantity of urea by 50 kg per acre. Apply 90 kg urea and 55 kg DAP per acre in medium fertility soils. Time and Method of Fertilizer Application: Drill whole of P (55 kg DAP or 155 kg SSP) and K (20 kg MOP, if required as per soil test) at sowing. No urea is required at sowing if DAP is used as source of phosphorus. If phosphorus is to be applied through SSP, apply 20 kg urea per acre at sowing. Broadcast 45 kg urea for timely sown crop and 35 kg per acre for wheat crop sown after mid December each with first and second irrigation. If second irrigation is delayed due to rains, the urea should be broadcasted at 55 day safter sowing. But, if water stagnates near second irrigation, do not broadcast second dose of urea in soil. Instead, give two sprays (criss-cross)of 7.5% urea solution (15 kg urea in 200 litre water per acre) at 42 and 54 days after sowing. Fertilizers for wheat sown with different rice straw management practices: Drill 55 kg of DAP per acre at sowing. Broadcast 45 kg urea per acre before first and second irrigation. In case of Super seeder, urea can be applied either before or after irrigation. Where wheat has been sown with Happy Seeder continuously for 3 years, reduce 20 kg urea per acre from fourth year onwards. In fields where organic carbon content of soil comes under high category,after continuous retention/incorporation of paddy straw, drill 27 kg DAP per acre at sowing. Safety Precautions: When handling chemical fertilizers: - Wear gloves and masks to avoid skin contact and inhalation - Store fertilizers in cool, dry places away from seeds and food items - Avoid mixing different fertilizers for prolonged periods - Keep fertilizers away from children and livestock - Dispose of empty fertilizer bags responsibly For further guidance on soil-specific fertilizer recommendations, deficiency diagnosis, or clarification on application methods, farmers are advised to contact the nearest Krishi Vigyan Kendra (KVK) or local agricultural extension officer.",
+       "reviewerName": ["Kavya Ponugoti","Tejas Dange","Khaja Suhaib","Girishma Gonnabathula","Salim Sahaji","Chaitanya Sameera Sandaka"],
+  "sources": [
+    {
+      "name": "Package of Practices for Rabi Crops of Punjab 2025-26_Punjab Agricultural Univerisity, Ludhiana",
+      "url": "https://workdrive.zoho.in/file/zshat6cbbe208d67d4511a1bfd02c35a94213"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Wheat farming practices:"
+    },
+    {
+      "prompt": "What is the recommended spray of Potassium Nitrate for cotton cultivation?",
+      "reply": "Potassium Nitrate is a highly effective foliar fertilizer that provides both potassium and nitrogen in readily available forms for cotton plants. This water-soluble fertilizer is particularly valuable during critical growth stages when plants require immediate nutrient supplementation to support boll development and fiber quality. Timing and Purpose: To get higher yields, give 4 sprays of 2% potassium nitrate (13:00:45) at a weekly interval starting at flower initiation. Recommended Application for Cotton: The standard recommendation for cotton (kapas/narma) is to spray Potassium Nitrate at the rate of 2 kg per 100 liters of water per acre, which is the typical spray volume for adequate coverage of cotton plants during mid to late season application. Benefits of Potassium Nitrate in Cotton: 1. Improved Boll Retention: Reduces shedding of squares and young bolls, which is a common problem in cotton cultivation 2. Enhanced Fiber Quality: Potassium directly influences fiber length, strength, and market value, which determine market price 3. Stress Tolerance: Helps plants withstand water stress, heat stress, and pest attacks by strengthening cell walls 4. Quick Nutrient Availability: Unlike soil application, foliar spray provides immediate nutrient uptake through leaves Application Method: 1. Dissolve 2 kg of Potassium Nitrate in a small quantity of water first to ensure complete dissolution 2. Add this solution to the spray tank containing the remaining water to make 100 liters total 3. Spray during early morning (6-10 AM) or late evening (4-6 PM) hours when stomata are open for better absorption 4. Ensure uniform coverage of both upper and lower leaf surfaces 5. Avoid spraying during hot afternoon hours or when rain is expected within 4-6 hours, and maintain a 15-20 day interval between consecutive sprays. Safety Precautions : 1. Wear protective clothing, gloves, and a mask during preparation and spraying 2. Avoid direct contact with skin and eyes 3. Do not eat, drink, or smoke during application 4. Wash hands and exposed body parts thoroughly after spraying 5. Store the product in a cool, dry place away from food items For further guidance on nutrient management and soil testing recommendations specific to your field conditions, contact your nearest Krishi Vigyan Kendra (KVK) in Bathinda district.",
+       "reviewerName": ["C Sai Durga","Rajwant Kaur","Pooja Soni","Khaja Suhaib","Jayashree N","Girishma Gonnabathula","Satarupa Saha"],
+  "sources": [
+    {
+      "name": "Package of Practices for Crops of Punjab Kharif 2025_Punjab Agriculture University, Ludhiana",
+      "url": "https://workdrive.zoho.in/file/ltgcl63cd90000d16495f98a7526af7078dd6"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Cotton farming practices:"
+    },
+    {
+      "prompt": "What is the management strategy for white tela (whitefly) and green tela (jassids/leafhoppers) in cotton?",
+      "reply": "White tela (whitefly) and green tela (jassids/leafhoppers) are among the most destructive sucking pests of cotton in Punjab, particularly in Sangrur district. These pests can cause significant yield losses if not managed properly during the critical growth stages of cotton. Detection and Symptoms: White tela (Whitefly - Bemisia tabaci): Adults are tiny, white, moth-like insects found on the undersurface of leaves. Heavy infestations cause yellowing of leaves, honeydew secretion leading to sooty mold development, and reduced plant vigor. Whiteflies are also vectors of Cotton Leaf Curl Virus Disease (CLCuD), making their control crucial. Check the lower leaf surface early morning when adults are less active. Green tela (Jassids/Leafhoppers - Amrasca biguttula): These are small, greenish-yellow wedge-shaped insects that move sideways when disturbed. Nymphs and adults of jassid suck sap from leaves and cause shedding in case of severe infestation. Economic Threshold Level (ETL): For Whitefly: Spray against whitefly should be done when population reaches 6 adults per leaf in the upper canopy of plants before 10 AM. For Jassids: Initiate spray against jassid whenever some of the fully formed leaves in the upper canopy show curling and yellowing at the margins on 50 per cent of the plants. Regular monitoring (twice weekly) is essential, especially during 30-90 days after sowing when the crop is most vulnerable. Integrated Management Strategy: Cultural Practices: - Maintain field sanitation by removing weeds that serve as alternate hosts - Avoid water stress as it increases pest incidence - Practice balanced fertilization; excess nitrogen makes plants more susceptible - Destroy crop residues after harvest to break pest cycle - Use yellow sticky traps for early detection and monitoring Biological Control: - Conserve natural enemies like Chrysoperla (green lacewing), Coccinellids (ladybird beetles), and spiders - Avoid broad-spectrum insecticides during early season to protect beneficial insects Chemical Control: When pest population crosses ETL, use any of the following insecticides (generic names): For combined control of both pests: - Dinotefu20% SG @ 60 g/acre - Flonicamid 50% WG @ 80 g/acre For specific jassid control: -Thiamethoxam 25% WG @ 40 g/acre - Tolfenpyrad 15 EC @ 300 ml/acre While the traditional recommendation of Ethion 50% EC @ 800ml/acre in 100 liters of water can be used against whitefly, it is important to rotate insecticides with different modes of action to prevent resistance development. Never use the same chemical for consecutive sprays. Application Guidelines: - Use 100-120 liters of water per acre for adequate coverage - Spray during early morning or late evening hours - Ensure thorough coverage of lower leaf surface where these pests primarily feed - Maintain 10-15 days interval between consecutive sprays - Avoid spraying during flowering to protect pollinators Safety Precautions: - Always wear protective clothing, gloves, and mask during spray application - Do not eat, drink, or smoke while handling pesticides - Wash hands and face thoroughly after spraying - Maintain the recommended pre-harvest interval before picking Additional Recommendations: Monitor for Cotton Leaf Curl Virus symptoms (upward leaf curling, thickening of veins, enations) as whiteflies transmit this disease. If virus symptoms appear, rogue out infected plants immediately and intensify whitefly control measures. For further guidance on pest identification, integrated pest management strategies, and region-specific recommendations for Sangrur district, contact your nearest Krishi Vigyan Kendra (KVK).",
+       "reviewerName": ["Khaja Suhaib","Salim Sahaji","Kavya Ponugoti","Rajwant Kaur","Anmol Kaundal"],
+  "sources": [
+    {
+      "name": "Package of Practices for Crops of Punjab Kharif 2025_Punjab Agriculture University, Ludhiana",
+      "url": "https://workdrive.zoho.in/file/ltgcl63cd90000d16495f98a7526af7078dd6"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Cotton farming practices:"
+    },
+    {
+      "prompt": "Why are cotton bolls (fruits) dropping and how can I prevent it?",
+      "reply": "Boll (fruit) shedding in cotton is a common physiological problem that significantly affects yield. Understanding the causes and implementing proper management strategies is crucial for cotton farmers in Punjab. CAUSES OF BOLL DROPPING : 1. Physiological Stress : Cotton plants naturally shed excess squares and bolls when they cannot support all developing fruits due to limited nutrient and water availability. 2. Nutritional Imbalance : Deficiency of essential nutrients, particularly potassium, boron, and magnesium, can trigger excessive shedding. Imbalanced nitrogen application (too high) promotes vegetative growth at the expense of reproductive structures. 3. Water Stress : Both drought stress and waterlogging can cause boll shedding. Irregular irrigation during critical stages (flowering and boll formation) is particularly harmful. 4. Pest Damage : Sucking pests like whitefly, jassids, and thrips weaken the plant, while bollworms directly damage squares and young bolls, causing them to drop. 5. Disease Impact : Leaf Curl Virus (CLCuD) and other diseases reduce plant vigor, leading to fruit shedding. 6. Extreme Weather : High temperatures (above 40°C), low humidity, hot winds, and sudden temperature fluctuations during flowering cause flower and boll drop. 7. Plant Density : Overcrowding creates competition for light, nutrients, and water, resulting in increased shedding of lower bolls. MANAGEMENT STRATEGIES : Plant Growth Regulators : The application of Alpha Naphthyl Acetic Acid 4.5% SL (Na salt) at 1 ml per 4 liters of water helps reduce flower and boll drop. This plant hormone promotes fruit retention by: - Strengthening the abscission layer between fruit and plant - Improving nutrient mobilization to developing bolls - Reducing ethylene production (which triggers shedding) Application Timing : Apply during pre flowering (55-60 days after sowing) and peak flowering stage ( 80-90 days after sowing) of the crop. Nutritional Management : - Foliar spray of 19:19:19 at 5 grams per liter water at flowering stage - Boron application: Borax at 4 kg per acre. - Magnesium sulphate spray at 5 grams per liter if deficiency symptoms appear Water Management: - Provide light irrigation at 7-10 day intervals during flowering and boll formation - Avoid water stress and waterlogging conditions - Critical irrigation stages: square formation, peak flowering, and boll development Pest and Disease Control: - Monitor regularly for sucking pests; maintain population below economic threshold levels - Control whitefly to prevent CLCuD transmission - Implement integrated pest management practices Cultural Practices: - Maintain optimal plant population (25,000-30,000 plants per acre for Bt cotton) - Remove lower diseased leaves to improve air circulation - Avoid excessive nitrogen application after flowering - Practice timely topping (removal of terminal bud) 120 days after sowing to redirect nutrients to developing bolls Additional Recommendations: - Apply chelated micronutrient mixture (Zinc, Iron, Manganese) as foliar spray - Use mulching to maintain soil moisture and temperature - Ensure adequate drainage to prevent waterlogging SAFETY PRECAUTIONS: When applying any spray solution, wear protective clothing, gloves, and face mask. Avoid spraying during windy conditions or peak sunshine hours. Maintain the recommended buffer period before harvest. For further guidance on specific conditions in your field, contact your nearest Krishi Vigyan Kendra (KVK) in Bathinda district or the Punjab Agricultural University Extension Services.",
+       "reviewerName": ["Pooja Soni","Monica M","Khaja Suhaib","Salim Sahaji","Tejas Dange"],
+  "sources": [
+    {
+      "name": " Integrated Pest Management Package for Cotton_National Integrated Pest Management (IPM) Programme + NIPHM - National Institute of Plant Health Management. Located, Hyderabad + ICAR-National Research Institute for Integrated Pest Management (formerly NCIPM), New Delhi",
+      "url": "https://workdrive.zoho.in/file/ltgcl0e98150a1422400e90201930f8a5915a"
+    },
+    {
+      "name": " Status Paper of Indian Cotton_Directorate of Cotton Development, Government of India",
+      "url": "https://workdrive.zoho.in/file/gxtko1c71a996ffc24dba984ea1ca6000df9c"
+    },
+    {
+      "name": "Major Uses of Pesticides_Central Insecticides Board & Registration Committee,Faridabad, Haryana",
+      "url": "https://workdrive.zoho.in/file/gxtko2e5d10085b934d858ffcea3c94843029"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Cotton farming practices:"
+    },
+    {
+      "prompt": "What is the management strategy for controlling Para Wilt (Parawilt/Ukheda) disease in cotton?",
+      "reply": "Parawilt is a physiological disorder and no pathogen is involved. It generally occurs after droughts when the crop is heavily irrigated or there is heavy rain. Plants show sudden drooping of leaves which ultimately get wilted, but the root system remains intact. INTEGRATED MANAGEMENT STRATEGIES: Cultural Practices: - Adopt crop rotation with non-susceptible crops like wheat, maize, or pulses for 2-3 years to break disease cycle - Deep summer ploughing (May-June) to expose fungal spores to solar radiation - Ensure proper field drainage to avoid waterlogging - Remove and destroy infected plant debris immediately - Maintain optimal plant population (avoid overcrowding) Chemical Management: The affected plants can be saved by spraying cobalt chloride @ 10 mg per litre of water (10 ppm) immediately after the appearance of symptoms. There would be no recovery if permanent wilting has already set in. IMPORTANT SAFETY MEASURES: When applying any chemical treatment, wear protective clothing, gloves, and face mask. Do not spray during windy conditions. Maintain spray equipment properly and clean after use. Follow label instructions regarding dosage and pre-harvest intervals. NOTE: Para Wilt is a complex disease requiring integrated approach. Single treatment may not provide complete control. For field-specific recommendations, soil testing, and resistant variety selection, contact your nearest Krishi Vigyan Kendra (KVK) in Bathinda or consult PAU experts for tailored solutions based on your field conditions.",
+       "reviewerName": ["Girishma Gonnabathula","Salim Sahaji","Kavya Ponugoti","Jayashree N","Monica M","Shivendra Pratap","Utkarsh Singh Vishen","Rajwant Kaur"],
+  "sources": [
+    {
+      "name": "Integrated Pest Management Package for Cotton_National Integrated Pest Management (IPM) Programme + NIPHM - National Institute of Plant Health Management. Located, Hyderabad + ICAR-National Research Institute for Integrated Pest Management (formerly NCIPM), New Delhi",
+      "url": "https://workdrive.zoho.in/file/ltgcl0e98150a1422400e90201930f8a5915a"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Cotton farming practices:"
+    },
+    {
+      "prompt": "What is the recommended weed control method in cotton crop?",
+      "reply": "Weed management is a critical component of successful cotton cultivation, as weeds compete with the crop for nutrients, water, light, and space, potentially reducing yields by 30-50% if left uncontrolled. Effective weed control in cotton requires an integrated approach combining cultural, mechanical, and chemical methods. Timing of Weed Control: The critical period for weed control in cotton is during the first 6-8 weeks after sowing. During this period, the cotton crop is most vulnerable to weed competition, and weeds can significantly impact plant establishment and early growth. Keeping the field weed-free during this critical window is essential for optimal crop development. Pre-Emergence Herbicides: For effective control of weeds, particularly itsit and madhana/makra, apply Pendimethalin 30 EC at 1.0 liter per acre as a pre-emergence spray within 24 hours of sowing. Post-Emergence Herbicides: If weeds emerge after the first irrigation or rainfall, Pendimethalin 30 EC can also be applied as a post-emergence spray after the first irrigation, using 200 litres of water per acre. If some weeds have already emerged before herbicide application, light hoeing or interculture should be done. The herbicide may be sprayed using a tractor-mounted sprayer fitted with a flat-fan nozzle during morning or evening hours. Ensure a fine seedbed free from plant residues and clods, with adequate soil moisture at the time of herbicide application. Alternatively, spray 500 ml per acre of pyrithiobac sodium 6%+quizalofop ethyl 4% EC by dissolving it in 150 liters of water after the first irrigation, in moist soil, to control annual grass and broadleaf weeds. This herbicide also provides effective control of lapeta (guara) vel (Ipomoea sp.) when weed plants are at the 2 to 5 leaf stage. Alternatively, at 6-8 weeks after sowing, when the crop is about 40-45 cm in height, spray 500 ml per acre of paraquat 24 SL or 900 ml per acre of glufosinate ammonium 13.5 SL in 100 liters of water as a directed spray to control weeds in between the crop rows. The directed spray can be done by using a protective hood. Paraquat and glufosinate are non-selective herbicides and can cause injury to the crop if these fall on the crop leaves. Application Guidelines: - Apply when weeds are actively growing, typically 4-6 inches in height. - Ensure adequate soil moisture for better herbicide absorption - Use a hood or shield to prevent herbicide drift onto cotton plants. - Apply during early morning or late evening hours when wind speed is low. - Use flat-fan nozzles for uniform coverage - Maintain proper boom height (approximately 45-50 cm above ground) Important Precautions: - Paraquat and glufosinate are non-selective herbicides, meaning they will kill or damage any green plant tissue they contact. So, use carefully. - Use protective shields or directed spray to avoid contact with cotton plants. - For Bt cotton varieties, ensure the herbicide does not contact the foliage. - Do not spray when cotton is under stress conditions (drought, disease, pest attack). - Avoid spraying if rain is expected within 6 hours. Integrated Weed Management: Beyond chemical control, incorporate these practices: Hoe the crop two or three times. The first hoeing should be done before the first irrigation. Use a tractor-mounted cultivator/tractor-operated rotary weeder/triphali or wheel hand hoe for weeding. Their use after fruiting should be avoided. Safety Measures: - Wear protective clothing, gloves, boots, and a face mask during herbicide application. - Do not eat, drink, or smoke while handling herbicides. - Store herbicides in original containers away from food and feed. - Wash hands and face thoroughly after application. - Dispose of empty containers safely as per guidelines. For precise herbicide recommendations based on specific weed species in your field, dosage adjustments for your soil type, and integrated pest management strategies, contact your nearest Krishi Vigyan Kendra (KVK) in Mansa district for expert guidance and field demonstrations.",
+       "reviewerName": ["Khaja Suhaib","Salim Sahaji","Kavya Ponugoti","Shivendra Pratap","Yash Praveen"],
+  "sources": [
+    {
+      "name": "Package of Practices for Crops of Punjab Kharif 2025_Punjab Agriculture University, Ludhiana",
+      "url": "https://workdrive.zoho.in/file/ltgcl63cd90000d16495f98a7526af7078dd6"
+    }
+  ],
+      "thoughtSteps": [
+            { "action": "upload_question_to_reviewer_system" },
+            { "action": "get_context_from_reviewer_dataset" },
+            { "action": "get_context_from_golden_dataset" },
+            { "action": "get_context_from_package_of_practices" }
+          ],
+      "thoughtSummary": "Now let me share the key Cotton farming practices:"
+    }
+
+  ],
+  "history": []
+}
+
+
