@@ -118,8 +118,10 @@ const { checkDuplicateQuestionHelper } = await import(
       const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
 
       if (ENABLE_AI_SERVER) {
+        console.log("the ai server is enabeld====")
         const { embedding } = await aiService.getEmbedding(textToEmbed);
         textEmbedding = embedding;
+        console.log("the embedding is creating===",embedding)
 
         if (isRequiredAiInitialAnswer && !aiInitialAnswer) {
           try {
@@ -142,10 +144,11 @@ const { checkDuplicateQuestionHelper } = await import(
         }
       }
 
-      await questionRepo['QuestionCollection'].updateOne(
+    const result=  await questionRepo['QuestionCollection'].updateOne(
         { _id: new (await import('mongodb')).ObjectId(qId) },
         { $set: { embedding: textEmbedding, aiInitialAnswer, updatedAt: new Date() } },
       );
+      console.log("the  questionRepo result====",result)
 
       // ── Duplicate Detection for Outreach Questions ──
       if (isOutreachQuestion && ENABLE_AI_SERVER) {
@@ -186,6 +189,7 @@ const { checkDuplicateQuestionHelper } = await import(
       const users = await userRepo.findExpertsByReputationScore(
         question.details as PreferenceDto,
       );
+      console.log("the users fetching====",users)
 
       const intialUsersToAllocate = users.slice(0, 3);
 
@@ -214,7 +218,8 @@ const { checkDuplicateQuestionHelper } = await import(
       };
 
       // 6. Save QuestionSubmission to DB
-      await submissionRepo.addSubmission(submissionData);
+   const result2=   await submissionRepo.addSubmission(submissionData);
+   console.log("the submission collection is creating====",result2)
 
       //send the notifications
       if (intialUsersToAllocate[0]) {
