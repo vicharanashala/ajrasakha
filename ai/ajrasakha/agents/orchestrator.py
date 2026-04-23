@@ -171,6 +171,4 @@ if not whatsapp_mongo_uri:
 
 client = MongoClient(whatsapp_mongo_uri)
 
-checkpointer = MongoDBSaver(client)
-
-master_graph = builder.compile(checkpointer=checkpointer)
+master_graph = builder.compile()
