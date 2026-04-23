@@ -18,31 +18,20 @@ import {
   UserDetailsPreferenceFilter,
   type UserDetailsFilters,
 } from "./components/UserDetailsPreferenceFilter";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
 
 const PAGE_SIZE = 10;
 
 const VISIBLE_CROPS = 2;
 
 function CropsCell({ crops }: { crops: string[] }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
   if (!crops || crops.length === 0) return <span>—</span>;
 
   const visible = crops.slice(0, VISIBLE_CROPS);
   const hidden = crops.slice(VISIBLE_CROPS);
 
   return (
-    <div className="flex flex-col items-center gap-0.5" ref={ref}>
+    <div className="flex flex-col items-center gap-0.5">
       {visible.map((c, i) => (
         <span
           key={i}
@@ -52,29 +41,34 @@ function CropsCell({ crops }: { crops: string[] }) {
           {c}
         </span>
       ))}
+
       {hidden.length > 0 && (
-        <div className="relative">
-          <button
-            onClick={() => setOpen((v) => !v)}
-            className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors cursor-pointer"
-          >
-            +{hidden.length}
-          </button>
-          {open && (
-            <div className="absolute z-50 top-full mt-1 left-1/2 -translate-x-1/2 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2 min-w-[120px]">
-              <div className="flex flex-col gap-1">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 cursor-default">
+                +{hidden.length}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              className="
+                p-2
+                min-w-[100px]
+                bg-white text-gray-900 border border-gray-200
+                dark:bg-[#1a1a1a] dark:text-gray-100 dark:border-gray-700
+              "
+            >
+              <div className="flex flex-col gap-2 text-center">
                 {crops.map((c, i) => (
-                  <span
-                    key={i}
-                    className="px-2 py-1 rounded text-xs whitespace-nowrap"
-                  >
+                  <span key={i} className="text-xs whitespace-nowrap">
                     {c}
                   </span>
                 ))}
               </div>
-            </div>
-          )}
-        </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
     </div>
   );
