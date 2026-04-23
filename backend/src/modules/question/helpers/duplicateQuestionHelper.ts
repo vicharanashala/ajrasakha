@@ -21,7 +21,7 @@ export async function checkDuplicateQuestionHelper(
     details.district,
     cropName,
   );
-
+console.log("the question coming from helper=====",questions)
   // merge reviewer + golden
   let merged = [
     ...(questions.reviewer || []).map((item: any) => ({
@@ -60,6 +60,7 @@ export async function checkDuplicateQuestionHelper(
     similarityScore: q.score,
     referenceSource: q.referenceSource
   }));
+  console.log("the top similar questions====",topSimilar)
 
   logData.totalMatches = topSimilar.length;
   logData.matches = topSimilar.map((q) => ({
@@ -105,7 +106,7 @@ export async function checkDuplicateQuestionHelper(
       baseQuestion.question,
       candidateQuestions,
     );
-
+console.log("the matchedQuestion=====",matchedQuestionfromllm )
     if (matchedQuestionfromllm) {
       const filtermatchinQuestion = topSimilar.filter(
         ele => ele.question == matchedQuestionfromllm,

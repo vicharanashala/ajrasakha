@@ -148,7 +148,7 @@ const { checkDuplicateQuestionHelper } = await import(
         { _id: new (await import('mongodb')).ObjectId(qId) },
         { $set: { embedding: textEmbedding, aiInitialAnswer, updatedAt: new Date() } },
       );
-      console.log("the  questionRepo result====",result)
+      console.log("the  questionRepo result====",result,isOutreachQuestion,ENABLE_AI_SERVER)
 
       // ── Duplicate Detection for Outreach Questions ──
       if (isOutreachQuestion && ENABLE_AI_SERVER) {
@@ -158,7 +158,7 @@ const { checkDuplicateQuestionHelper } = await import(
           details: question.details,
           source: question.source,
         };
-
+        console.log("the duplicate collection is calling====")
         try {
           const duplicateResult = await checkDuplicateQuestionHelper(
             question,
@@ -167,9 +167,11 @@ const { checkDuplicateQuestionHelper } = await import(
             aiService,
             duplicateQuestionRepo,
           );
+          console.log("the duplicate resulyt===",duplicateResult)
 
           if (duplicateResult.isDuplicate) {
-            await questionRepo.deleteQuestion(qId);
+           const result3= await questionRepo.deleteQuestion(qId);
+           console.log("the duplicate result coming====",result3)
             console.log(
               `🔁 Duplicate detected for outreach question ${qId}. Record moved to duplicates.`,
             );
