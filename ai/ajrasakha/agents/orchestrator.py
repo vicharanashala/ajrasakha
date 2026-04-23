@@ -10,7 +10,6 @@ from langgraph.graph import StateGraph, END
 from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
 from langgraph.graph.message import add_messages
 from pymongo import MongoClient
-from langgraph.checkpoint.mongodb import MongoDBSaver
 
 from agents.gdb_agent import run_gdb_agent
 from agents.market_agent import run_market_agent
