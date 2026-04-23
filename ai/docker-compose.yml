@@ -1,53 +1,73 @@
+# Docker Compose - PostgreSQL + Redis + API
+# aegra dev  -> docker compose up postgres -d  (database only, in-memory broker)
+# aegra up   -> docker compose up --build      (full stack, Redis broker)
+
 services:
-
-  mcp-agmarknet:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: fastmcp run ajrasakha/tools/market/market_agmarknet_tool.py --transport streamable-http --port 8001 --host 0.0.0.0
-    ports:
-      - "8001:8001"
-    env_file: .env
+  postgres:
+    image: pgvector/pgvector:pg18
+    container_name: ai-postgres
     restart: unless-stopped
-
-  mcp-enam:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: fastmcp run ajrasakha/tools/market/market_enam_tool.py --transport streamable-http --port 8002 --host 0.0.0.0
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ai_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-ai}
     ports:
-      - "8002:8002"
-    env_file: .env
-    restart: unless-stopped
-
-  mcp-imd:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: fastmcp run ajrasakha/tools/weather/weather_imd_tool.py --transport streamable-http --port 8003 --host 0.0.0.0
-    ports:
-      - "8003:8003"
-    env_file: .env
-    restart: unless-stopped
-
-  mcp-location:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: fastmcp run ajrasakha/tools/location/location_tool.py --transport streamable-http --port 8004 --host 0.0.0.0
-    ports:
-      - "8004:8004"
-    env_file: .env
-    restart: unless-stopped
-
-  mcp-golden:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: fastmcp run ajrasakha/tools/golden/golden_rag_tool.py --transport streamable-http --port 8005 --host 0.0.0.0
-    ports:
-      - "8005:8005"
-    env_file: .env
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - ~/.cache/huggingface:/root/.cache/huggingface
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ai}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-redis
     restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ai:
+    build: .
+    container_name: ai-api
+    restart: unless-stopped
+    ports:
+      - "${PORT:-2026}:${PORT:-2026}"
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-ai}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-ai_secret}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=${POSTGRES_DB:-ai}
+      - AEGRA_CONFIG=aegra.json
+      - AUTH_TYPE=${AUTH_TYPE:-noop}
+      - PORT=${PORT:-2026}
+      - REDIS_BROKER_ENABLED=true
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:${PORT:-2026}/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - ./src:/app/src:ro
+      - ./aegra.json:/app/aegra.json:ro
+
+volumes:
+  postgres_data:
+  redis_data:
