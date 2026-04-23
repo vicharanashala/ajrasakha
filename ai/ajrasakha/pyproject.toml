@@ -2,18 +2,29 @@
 name = "ajrasakha-bot"
 version = "0.0.1"
 description = "AjraSakha LangGraph Orchestrator"
-readme = "README.md"
+# README wali line hata di taaki error na aaye
 requires-python = ">=3.9"
 
 dependencies = [
-    "langgraph",
+    "langgraph[mongodb]",
+    "langgraph-checkpoint-mongodb",
+    "langgraph-store-mongodb",
+    "langchain",
     "langchain-core",
     "langchain-anthropic",
+    "langchain-mongodb",
+    "langchain-mcp-adapters",
     "pydantic",
     "python-dotenv",
-    "pymongo"
+    "pymongo",
+    "fastapi",
+    "uvicorn"
 ]
 
 [build-system]
 requires = ["setuptools>=73.0"]
 build-backend = "setuptools.build_meta"
+
+# MAGIC FIX: Docker ko bata diya ki flat-layout error mat do, in packages ko utha lo
+[tool.setuptools]
+packages = ["agents"]
