@@ -31,6 +31,8 @@ interface DashboardApiResponse {
   ageGroups: DemographicEntry[];
   genderSplit: DemographicEntry[];
   farmingExperience: DemographicEntry[];
+  kccAwareness: DemographicEntry[];
+  agriAppUsage: DemographicEntry[];
 }
 
 // ── Date range label helpers ──────────────────────────────────────────────────
@@ -160,6 +162,8 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType {
 
   updatedData.ageGroups = result.ageGroups ?? [];
   updatedData.genderSplit = result.genderSplit ?? [];
+  updatedData.kccAwareness = result.kccAwareness ?? [];
+  updatedData.agriAppUsage = result.agriAppUsage ?? [];
   updatedData.farmingExperience = result.farmingExperience ?? [];
 
   updatedData.kpiRow1 = DASHBOARD_DATA.kpiRow1.map(card => {
