@@ -262,7 +262,7 @@ export class QuestionController {
           ...auditPayload,
           action: AuditAction.QUESTION_BULK_CREATE,
           context: {
-            payload: payload,
+            ...this.flattenPayload(payload),
           },
           outcome: {
             status: OutComeStatus.FAILED,
@@ -1365,6 +1365,18 @@ export class QuestionController {
     const { questionId } = params;
     const { answer } = body;
     return this.questionService.approveAiInitialAnswer(questionId, answer);
+  }
+
+  private flattenPayload(payload: any[]) {
+    const result: Record<string, any> = {};
+
+    payload.forEach((item, index) => {
+      Object.entries(item).forEach(([key, value]) => {
+        result[`crop ${index + 1} (${key})`] = value;
+      });
+    });
+
+    return result;
   }
 
 }

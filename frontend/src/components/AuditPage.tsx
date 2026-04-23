@@ -441,7 +441,7 @@ function ErrorViewer({ outcome }: { outcome: { status: string; errorCode?: strin
       {outcome.errorMessage && (
         <div>
           <p className="text-[11px] text-muted-foreground">Message:</p>
-          <pre className="text-xs bg-red-50 dark:bg-red-900 p-2 rounded overflow-x-auto">
+          <pre className="text-xs bg-red-50 dark:bg-red-900 p-2 rounded overflow-x-auto text-wrap">
             {outcome.errorMessage}
           </pre>
         </div>
