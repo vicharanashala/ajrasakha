@@ -1,6 +1,7 @@
 
 import { GetDetailedQuestionsQuery } from "#root/modules/question/classes/validators/QuestionVaidators.js";
 import { ObjectId } from "mongodb";
+import { appConfig } from "#root/config/app.js";
 
 export const buildQuestionFilter = async (
   query: GetDetailedQuestionsQuery & { searchEmbedding: number[] | null },
@@ -8,6 +9,11 @@ export const buildQuestionFilter = async (
 ) => {
 
   const filter: any = {};
+
+  
+  if (appConfig.isProduction) {
+    filter.question = { $not: /^\(Test\)/i };
+  }
 
   const caseInsensitive = (field: string, value?: string) => {
     if (value && value !== "all") {
