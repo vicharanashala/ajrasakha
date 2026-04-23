@@ -125,28 +125,12 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                   />
                 )}
 
-<<<<<<< HEAD
-                <div
-                  ref={(el) => {
-                    sectionRefs.current["overview"] = el;
-                  }}
-                  className="relative"
-                >
-                  {isLoading && (
-                    <Spinner text="Fetching metrics..." fullScreen={false} />
-                  )}
-                  <EightCardsComponent
-                    kpiRow1={patchedKpiRow1}
-                    kpiRow2={data.kpiRow2}
-                  />
-=======
                 <div ref={(el) => { sectionRefs.current["overview"] = el; }} className="relative">
                   {isLoading && <Spinner text="Fetching metrics..." fullScreen={false} />}
                   
                   {/* <EightCardsComponent kpiRow1={patchedKpiRow1} kpiRow2={data.kpiRow2} /> */}
                   {/* Uncomment the above line when data is dynamic and delete the below code */}
                   <EightCardsComponent kpiRow1={kpiRow1WithOverlay} kpiRow2={kpiRow2WithOverlay} />
->>>>>>> origin/main
                 </div>
 
                 {/* DAU trend + Channel split */}
