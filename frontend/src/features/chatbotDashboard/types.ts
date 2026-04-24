@@ -1,5 +1,17 @@
 export type BadgeVariant = "green" | "red" | "amber" | "blue";
 
+export interface DemographicEntry {
+  label: string;
+  count: number;
+  pct: number;
+}
+
+export interface UserDemographics {
+  ageGroups: DemographicEntry[];
+  genderSplit: DemographicEntry[];
+  farmingExperience: DemographicEntry[];
+}
+
 export interface Segment {
   id: string;
   label: string;
@@ -25,4 +37,5 @@ export interface KpiCard {
   sparkLabels?: string[];
   dateRange?: string;
   badges?: { label: string; variant: BadgeVariant }[];
+  icon?: string;
 }

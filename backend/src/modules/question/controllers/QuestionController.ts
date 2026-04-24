@@ -43,6 +43,7 @@ import {
   QuestionIdParam,
   QuestionResponse,
   RemoveAllocateBody,
+  ApproveInitialAnswerBody,
   ReplaceQueueExpertRequest
 } from '../classes/validators/QuestionVaidators.js';
 import * as XLSX from 'xlsx';
@@ -202,7 +203,7 @@ export class QuestionController {
           payload,
           isOutreachQuestion
         );
-        setImmediate(() => startBackgroundProcessing(insertedIds, isRequiredAiInitialAnswer));
+        setImmediate(() => startBackgroundProcessing(insertedIds, isRequiredAiInitialAnswer, isOutreachQuestion));
         return {
           message: `✅ Successfully uploaded ${insertedIds.length} question(s). The expert allocation process has been initiated.${isRequiredAiInitialAnswer
               ? " AI-generated initial answers will be included for each question."
@@ -639,6 +640,25 @@ export class QuestionController {
     const { questionId } = params;
     const { action } = body
     return await this.questionService.holdQuestion(questionId, user._id.toString(), action);
+  }
+
+  @Get('/:questionId/generate-answer')
+  @HttpCode(200)
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  @OpenAPI({ summary: 'Generate ai-initial answer' })
+  async generateAiInitialAnswer(@Params() params: QuestionIdParam){
+    const { questionId } = params;
+    return this.questionService.generateAiInitialAnswer(questionId);
+  }
+
+  @Post('/:questionId/approve-initial-answer')
+  @HttpCode(200)
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  @OpenAPI({ summary: 'Generate ai-initial answer' })
+  async approveInitialAnswer(@Params() params: QuestionIdParam, @Body() body:ApproveInitialAnswerBody){
+    const { questionId } = params;
+    const { answer } = body;
+    return this.questionService.approveAiInitialAnswer(questionId, answer);
   }
 
   @Post('/:questionId/replace-queue-expert')

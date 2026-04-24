@@ -1,122 +1,70 @@
-# Ajrasakha AI
-
-AI agent system for agricultural domain applications with LangChain and LangGraph.
-
-## Features
-
-- OpenAI-compatible chat completion API
-- Streaming responses with reasoning content support
-- Specialized tools for weather, location, market data, and knowledge retrieval
-- RAG system using MongoDB Atlas vector search
-- Async-first architecture
+# AjraSakha AI Agent
 
 ## Prerequisites
 
-- Python 3.10 or higher
-- uv package manager
-- MongoDB Atlas account (for vector search)
-- OpenWeather API key
+- Docker + Docker Compose
+- `uv` (Python package manager)
 
 ## Setup
 
-1. Create and activate virtual environment:
-
-```bash
-cd ai
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
+1. Copy the env file:
+   ```
+   cp .env.example .env
+   ```
+   Fill in all required values in `.env`.
 
 2. Install dependencies:
+   ```
+   uv sync
+   uv pip install aegra-cli
+   ```
 
-```bash
-uv pip install -e .
+## Running with Docker
+
+Start all services (Postgres, Redis, API):
+```
+aegra up
 ```
 
-3. Create `.env` file in the `ajrasakha` directory:
-
-```bash
-# Required
-OPENWEATHER_API_KEY=your_openweather_api_key
-
-# For Golden RAG tool
-GOLDEN_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
-GOLDEN_MONGODB_URI=mongodb+srv://your_connection_string
-GOLDEN_MONGODB_DATABASE=your_database
-GOLDEN_MONGODB_COLLECTION=your_collection
-GOLDEN_MONGODB_INDEX=your_index_name
-
-# Optional
-HUGGINGFACE_HUB_CACHE=/path/to/cache
+Stop all services:
+```
+aegra down
 ```
 
-4. Update LLM configuration in `ajrasakha/app.py`:
-
-```python
-llm = ChatQwen(
-    model="your_model",
-    api_key="your_api_key",
-    base_url="your_base_url",
-)
+View logs:
+```
+docker compose -f docker-compose.yml logs -f
 ```
 
-## Running
+## Running in Development (hot reload)
 
-Start the FastAPI server:
-
-```bash
-cd ajrasakha
-python app.py
+Make sure Docker is running, then:
+```
+aegra dev
 ```
 
-The API will be available at `http://localhost:8000`
+Server starts at `http://127.0.0.1:2026` by default.
 
-## API Usage
-
-Send chat completion requests to `/chat/completions`:
-
-```bash
-curl -X POST http://localhost:8000/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "qwen",
-    "messages": [{"role": "user", "content": "What is the weather?"}],
-    "stream": true
-  }'
+Options:
 ```
-
-## Testing
-
-Run tests:
-
-```bash
-pytest
-```
-
-Run specific tool tests:
-
-```bash
-pytest ajrasakha/tools/weather/test_weather_tool.py
-pytest ajrasakha/tools/location/test_location_tool.py
+aegra dev --port 8000          # custom port
+aegra dev --no-db-check        # skip auto Postgres check
+aegra dev -e /path/to/.env     # use specific env file
 ```
 
 ## Project Structure
 
 ```
-ajrasakha/
-├── api/                    # API models and streaming utilities
-├── tools/                  # LangChain tools (weather, location, market, RAG)
-├── utils/                  # Shared utilities (embeddings, vector store)
-└── app.py                  # Main FastAPI application
+ajrasakha/      # agent source code
+docker-compose.yml
+aegra.json      # aegra config
+pyproject.toml
 ```
 
-## Tools Available
+## Services
 
-- **weather_information_tool**: Current weather and 7-day forecast
-- **location_information_tool**: Reverse geocoding (lat/lon to location)
-- **golden_retriever_tool**: RAG-based knowledge retrieval with filtering
-- **eNAM market tools**: Indian agricultural market data
-
-## License
-
-See LICENSE file in project root.
+| Service    | Description              |
+|------------|--------------------------|
+| ai-api     | LangGraph agent FastAPI  |
+| ai-postgres | PostgreSQL (checkpointer) |
+| ai-redis   | Redis                    |

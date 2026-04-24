@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  reviewer-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: reviewer-mcp
+    ports:
+      - "9023:9023"
+    env_file:
+      - .env
+    volumes:
+      - hf_cache:/app/hf_cache
+    restart: unless-stopped
+
+volumes:
+  hf_cache:

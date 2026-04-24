@@ -17,6 +17,10 @@ import type {
   WeeklyQueryCountEntry,
   UserDetailEntry,
   PaginatedUserDetails,
+  ChatbotConversationData,
+  UserDemographics,
+  DemographicEntry,
+  KccAndAgriAppStats,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -28,6 +32,29 @@ interface IUser {
   email?: string;
   createdAt: Date;
   updatedAt: Date;
+  farmerProfile?: {
+    farmerName?: string;
+    age?: number;
+    gender?: string;
+    villageName?: string;
+    blockName?: string;
+    district?: string;
+    state?: string;
+    phoneNo?: string;
+    languagePreference?: string;
+    yearsOfExperience?: number;
+    cropsCultivated?: string[];
+    primaryCrop?: string;
+    secondaryCrop?: string;
+    awarenessOfKCC?: boolean;
+    usesAgriApps?: boolean;
+    highestEducatedPerson?: string;
+    numberOfSmartphones?: number;
+    location?: {
+      latitude: number;
+      longitude: number;
+    };
+  };
 }
 
 interface IConversation {
@@ -90,7 +117,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const lastYearMonth = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
-      const [totalUsers, monthlyActivity, sessionStats, todayQueryCount] =
+      const [totalUsers, monthlyActivity, sessionStats, todayQueryCount, totalAppInstalls] =
         await Promise.all([
           this.users.countDocuments({}, {session}),
 
@@ -132,6 +159,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
           // Today's query count from messages
           this.getTodayQueryCount(source, session),
+
+          this.users.countDocuments(
+            {
+                'farmerProfile.farmerName': { $exists: true, $nin: [null, ''] },
+            },
+            { session },
+          ),
         ]);
 
       const monthMap = Object.fromEntries(
@@ -159,6 +193,7 @@ export class ChatbotRepository implements IChatbotRepository {
         csatRating: 0,
         repeatQueryRatePct: 0,
         voiceUsageSharePct: 0,
+        totalAppInstalls,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get KPI summary: ${error}`);
@@ -612,6 +647,9 @@ export class ChatbotRepository implements IChatbotRepository {
     limit = 10,
     search = '',
     source = 'vicharanashala',
+    crop = '',
+    village = '',
+    profileCompleted = 'all',
     session?: ClientSession,
   ): Promise<PaginatedUserDetails> {
     try {
@@ -647,7 +685,7 @@ export class ChatbotRepository implements IChatbotRepository {
         countMap.set(String(entry._id), entry.totalQuestions);
       }
 
-      // Get users — optionally filtered by search
+      // Get users — optionally filtered by search, crop, village
       const userFilter: Record<string, any> = {};
       if (search && search.trim()) {
         const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -656,6 +694,37 @@ export class ChatbotRepository implements IChatbotRepository {
           { name: regex },
           { username: regex },
           { email: regex },
+        ];
+      }
+      if (crop && crop.trim()) {
+        const cropRegex = { $regex: crop.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {
+            $or: [
+              { 'farmerProfile.cropsCultivated': cropRegex },
+              { 'farmerProfile.primaryCrop': cropRegex },
+              { 'farmerProfile.secondaryCrop': cropRegex },
+            ],
+          },
+        ];
+      }
+      if (village && village.trim()) {
+        const villageRegex = { $regex: village.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          { 'farmerProfile.villageName': villageRegex },
+        ];
+      }
+      if (profileCompleted === 'yes') {
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          { farmerProfile: { $exists: true, $ne: null } },
+        ];
+      } else if (profileCompleted === 'no') {
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          { $or: [{ farmerProfile: { $exists: false } }, { farmerProfile: null }] },
         ];
       }
 
@@ -667,6 +736,26 @@ export class ChatbotRepository implements IChatbotRepository {
         name: u.name || u.username || 'Unknown',
         email: u.email || '',
         totalQuestions: countMap.get(String(u._id)) ?? 0,
+        farmerProfile: u.farmerProfile ? {
+          farmerName: u.farmerProfile.farmerName,
+          age: u.farmerProfile.age,
+          gender: u.farmerProfile.gender,
+          villageName: u.farmerProfile.villageName,
+          blockName: u.farmerProfile.blockName,
+          district: u.farmerProfile.district,
+          state: u.farmerProfile.state,
+          phoneNo: u.farmerProfile.phoneNo,
+          languagePreference: u.farmerProfile.languagePreference,
+          yearsOfExperience: u.farmerProfile.yearsOfExperience,
+          cropsCultivated: u.farmerProfile.cropsCultivated,
+          primaryCrop: u.farmerProfile.primaryCrop,
+          secondaryCrop: u.farmerProfile.secondaryCrop,
+          awarenessOfKCC: u.farmerProfile.awarenessOfKCC,
+          usesAgriApps: u.farmerProfile.usesAgriApps,
+          highestEducatedPerson: u.farmerProfile.highestEducatedPerson,
+          numberOfSmartphones: u.farmerProfile.numberOfSmartphones,
+          location: u.farmerProfile.location,
+        } : undefined,
       }));
 
       // Sort by totalQuestions desc
@@ -850,6 +939,217 @@ export class ChatbotRepository implements IChatbotRepository {
       return result as WeeklySessionDurationEntry[];
     } catch (error) {
       throw new InternalServerError(`Failed to get weekly avg session duration v2: ${error}`);
+    }
+  }
+
+  async getUserDemographics(source = 'vicharanashala', session?: ClientSession): Promise<UserDemographics> {
+    try {
+      await this.init(source);
+
+      const [ageRaw, genderRaw, expRaw] = await Promise.all([
+        // Age group buckets
+        this.users.aggregate<{_id: string | number; count: number}>(
+          [
+            {$match: {'farmerProfile.age': {$exists: true, $ne: null}}},
+            {
+              $bucket: {
+                groupBy: '$farmerProfile.age',
+                boundaries: [18, 26, 36, 46, 56],
+                default: '55+',
+                output: {count: {$sum: 1}},
+              },
+            },
+          ],
+          {session},
+        ).toArray(),
+
+        // Gender split
+        this.users.aggregate<{_id: string; count: number}>(
+          [
+            {$match: {'farmerProfile.gender': {$exists: true, $ne: null}}},
+            {$group: {_id: '$farmerProfile.gender', count: {$sum: 1}}},
+          ],
+          {session},
+        ).toArray(),
+
+        // Farming experience buckets
+        this.users.aggregate<{_id: number | string; count: number}>(
+          [
+            {$match: {'farmerProfile.yearsOfExperience': {$exists: true, $ne: null}}},
+            {
+              $bucket: {
+                groupBy: '$farmerProfile.yearsOfExperience',
+                boundaries: [0, 2, 5, 10, 20],
+                default: '20+',
+                output: {count: {$sum: 1}},
+              },
+            },
+          ],
+          {session},
+        ).toArray(),
+      ]);
+
+      const toPct = (count: number, total: number) =>
+        total === 0 ? 0 : Math.round((count / total) * 100);
+
+      const ageBoundaryLabel: Record<string | number, string> = {
+        18: '18-25', 26: '26-35', 36: '36-45', 46: '46-55', '55+': '55+',
+      };
+      const ageTotal = ageRaw.reduce((s, r) => s + r.count, 0);
+      const ageGroups: DemographicEntry[] = ageRaw.map(r => ({
+        label: ageBoundaryLabel[r._id] ?? String(r._id),
+        count: r.count,
+        pct: toPct(r.count, ageTotal),
+      }));
+
+      const genderTotal = genderRaw.reduce((s, r) => s + r.count, 0);
+      const genderMap: Record<string, string> = {male: 'Male', female: 'Female', other: 'Other'};
+      const genderSplit: DemographicEntry[] = genderRaw.map(r => ({
+        label: genderMap[(r._id ?? '').toLowerCase()] ?? r._id,
+        count: r.count,
+        pct: toPct(r.count, genderTotal),
+      }));
+
+      const expBoundaryLabel: Record<string | number, string> = {
+        0: 'Less than 2 yrs', 2: '2 - 5 yrs', 5: '5 - 10 yrs', 10: '10 - 20 yrs', '20+': '20+ yrs',
+      };
+      const expTotal = expRaw.reduce((s, r) => s + r.count, 0);
+      const farmingExperience: DemographicEntry[] = expRaw.map(r => ({
+        label: expBoundaryLabel[r._id] ?? String(r._id),
+        count: r.count,
+        pct: toPct(r.count, expTotal),
+      }));
+
+      return {ageGroups, genderSplit, farmingExperience};
+    } catch (error) {
+      throw new InternalServerError(`Failed to get user demographics: ${error}`);
+    }
+  }
+
+  async getKccAndAgriAppStats(source = 'vicharanashala', session?: ClientSession): Promise<KccAndAgriAppStats> {
+    try {
+      await this.init(source);
+
+      const [kccRaw, agriRaw] = await Promise.all([
+        // KCC awareness split
+        this.users.aggregate<{_id: boolean; count: number}>(
+          [
+            {$match: {'farmerProfile.awarenessOfKCC': {$exists: true, $ne: null}}},
+            {$group: {_id: '$farmerProfile.awarenessOfKCC', count: {$sum: 1}}},
+          ],
+          {session},
+        ).toArray(),
+
+        // Agri apps usage split
+        this.users.aggregate<{_id: boolean; count: number}>(
+          [
+            {$match: {'farmerProfile.usesAgriApps': {$exists: true, $ne: null}}},
+            {$group: {_id: '$farmerProfile.usesAgriApps', count: {$sum: 1}}},
+          ],
+          {session},
+        ).toArray(),
+      ]);
+
+      const toPct = (count: number, total: number) =>
+        total === 0 ? 0 : Math.round((count / total) * 100);
+
+      const kccTotal = kccRaw.reduce((s, r) => s + r.count, 0);
+      const kccAwareness: DemographicEntry[] = kccRaw
+        .sort((_, b) => (b._id ? 1 : -1))
+        .map(r => ({
+          label: r._id ? 'Aware' : 'Not Aware',
+          count: r.count,
+          pct: toPct(r.count, kccTotal),
+        }));
+
+      const agriTotal = agriRaw.reduce((s, r) => s + r.count, 0);
+      const agriAppUsage: DemographicEntry[] = agriRaw
+        .sort((_, b) => (b._id ? 1 : -1))
+        .map(r => ({
+          label: r._id ? 'Uses Apps' : 'Does Not Use',
+          count: r.count,
+          pct: toPct(r.count, agriTotal),
+        }));
+
+      return {kccAwareness, agriAppUsage};
+    } catch (error) {
+      throw new InternalServerError(`Failed to get KCC and agri app stats: ${error}`);
+    }
+  }
+
+  async generateChatbotExcelReport(
+    startDate: Date,
+    endDate: Date,
+    source = 'vicharanashala',
+    session?: ClientSession,
+  ): Promise<ChatbotConversationData[]> {
+    try {
+      await this.init(source);
+      return this.messagesCollection
+        .aggregate<ChatbotConversationData>(
+          [
+            {
+              $match: {
+                createdAt: {$gte: startDate, $lte: endDate},
+              },
+            },
+            {
+              $group: {
+                _id: '$conversationId',
+                farmerQuestions: {
+                  $push: {
+                    $cond: {
+                      if: {$eq: ['$isCreatedByUser', true]},
+                      then: '$text',
+                      else: null,
+                    },
+                  },
+                },
+                mcpToolCalls: {
+                  $push: {
+                    $cond: {
+                      if: {$eq: ['$isCreatedByUser', false]},
+                      then: '$content',
+                      else: null,
+                    },
+                  },
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                conversationId: '$_id',
+                farmerQuestions: {
+                  $filter: {
+                    input: '$farmerQuestions',
+                    as: 'q',
+                    cond: {
+                      $and: [{$ne: ['$$q', null]}, {$ne: ['$$q', '']}],
+                    },
+                  },
+                },
+                mcpToolCalls: {
+                  $filter: {
+                    input: '$mcpToolCalls',
+                    as: 'c',
+                    cond: {
+                      $and: [
+                        {$ne: ['$$c', null]},
+                        {$gt: [{$size: {$ifNull: ['$$c', []]}}, 0]},
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+            {$match: {'farmerQuestions.0': {$exists: true}}},
+          ],
+          {maxTimeMS: 60000, allowDiskUse: true, session},
+        )
+        .toArray();
+    } catch (error) {
+      throw new InternalServerError(`Failed to generate chatbot Excel report: ${error}`);
     }
   }
 }

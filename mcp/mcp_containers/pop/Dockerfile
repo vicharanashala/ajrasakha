@@ -1,8 +1,7 @@
 FROM python:3.11-slim
 
 # Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    POETRY_VERSION=2.0.0
+ENV PYTHONUNBUFFERED=1
 
 # Set working directory
 WORKDIR /app
@@ -14,16 +13,9 @@ RUN apt-get update \
         build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Install poetry
-RUN pip install "poetry==$POETRY_VERSION"
-
-# Copy pyproject.toml and poetry.lock
-COPY pyproject.toml poetry.lock ./
-
-# Install dependencies (no dev dependencies)
-RUN poetry config virtualenvs.create false \
-    && poetry lock \
-    && poetry install --no-interaction --no-ansi --no-root
+# Copy requirements and install dependencies
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .

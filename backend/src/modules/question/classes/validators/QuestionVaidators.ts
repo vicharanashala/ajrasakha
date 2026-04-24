@@ -794,6 +794,11 @@ export class DetailedQuestionsBodyDto {
   normalisedCrops?: string[];
 }
 
+export class ApproveInitialAnswerBody {
+  @IsString()
+  answer :string;
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,
@@ -812,6 +817,7 @@ export const QUESTION_VALIDATORS = [
   DateRangeRequest,
   AllocatedQuestionsBodyDto,
   DetailedQuestionsBodyDto,
+  ApproveInitialAnswerBody,
 ];
 
 export {

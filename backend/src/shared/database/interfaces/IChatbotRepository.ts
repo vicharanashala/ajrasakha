@@ -10,6 +10,7 @@ export interface KpiSummary {
   csatRating: number;
   repeatQueryRatePct: number;
   voiceUsageSharePct: number;
+  totalAppInstalls: number; // It will the count the user whose profile is completed or not.
 }
 
 export interface DailyActiveUsersEntry {
@@ -52,11 +53,36 @@ export interface WeeklyQueryCountEntry {
   count: number;
 }
 
+export interface FarmerProfile {
+  farmerName?: string;
+  age?: number;
+  gender?: string;
+  villageName?: string;
+  blockName?: string;
+  district?: string;
+  state?: string;
+  phoneNo?: string;
+  languagePreference?: string;
+  yearsOfExperience?: number;
+  cropsCultivated?: string[];
+  primaryCrop?: string;
+  secondaryCrop?: string;
+  awarenessOfKCC?: boolean;
+  usesAgriApps?: boolean;
+  highestEducatedPerson?: string;
+  numberOfSmartphones?: number;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
+}
+
 export interface UserDetailEntry {
   userId: string;
   name: string;
   email: string;
   totalQuestions: number;
+  farmerProfile?: FarmerProfile;
 }
 
 export interface PaginatedUserDetails {
@@ -65,6 +91,23 @@ export interface PaginatedUserDetails {
   totalPages: number;
   activeUsers: number;
   totalQuestions: number;
+}
+
+export interface DemographicEntry {
+  label: string;
+  count: number;
+  pct: number;
+}
+
+export interface UserDemographics {
+  ageGroups: DemographicEntry[];
+  genderSplit: DemographicEntry[];
+  farmingExperience: DemographicEntry[];
+}
+
+export interface KccAndAgriAppStats {
+  kccAwareness: DemographicEntry[];
+  agriAppUsage: DemographicEntry[];
 }
 
 // ─── Single consolidated interface ───────────────────────────────────────────
@@ -145,6 +188,29 @@ export interface IChatbotRepository {
     limit?: number,
     search?: string,
     source?: string,
+    crop?: string,
+    village?: string,
+    profileCompleted?: string,
     session?: ClientSession,
   ): Promise<PaginatedUserDetails>;
+
+  /** Aggregate conversations from the messages collection for Excel export. */
+  generateChatbotExcelReport(
+    startDate: Date,
+    endDate: Date,
+    source?: string,
+    session?: ClientSession,
+  ): Promise<ChatbotConversationData[]>;
+
+  /** Aggregate age group, gender split, and farming experience distributions from farmerProfile. */
+  getUserDemographics(source?: string, session?: ClientSession): Promise<UserDemographics>;
+
+  /** Aggregate KCC policy awareness and agri app usage splits from farmerProfile. */
+  getKccAndAgriAppStats(source?: string, session?: ClientSession): Promise<KccAndAgriAppStats>;
+}
+
+export interface ChatbotConversationData {
+  conversationId: string;
+  farmerQuestions: string[];
+  mcpToolCalls: any[][];
 }

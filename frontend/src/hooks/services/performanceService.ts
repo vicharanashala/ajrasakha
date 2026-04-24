@@ -75,6 +75,71 @@ export class PerformaneService {
     );
   }
 
+  async getOverview(): Promise<{
+    userRoleOverview: UserRoleOverview[];
+    moderatorApprovalRate: ModeratorApprovalRate;
+  } | null> {
+    return apiFetch<{
+      userRoleOverview: UserRoleOverview[];
+      moderatorApprovalRate: ModeratorApprovalRate;
+    }>(`${this._baseUrl}/overview`);
+  }
+
+  async getGoldenDataset(query: {
+    viewType: string;
+    selectedYear?: string;
+    selectedMonth?: string;
+    selectedWeek?: string;
+    selectedDay?: string;
+  }): Promise<GoldenDataset | null> {
+    const params = new URLSearchParams();
+    params.append("viewType", query.viewType);
+    if (query.selectedYear) params.append("selectedYear", query.selectedYear);
+    if (query.selectedMonth)
+      params.append("selectedMonth", query.selectedMonth);
+    if (query.selectedWeek) params.append("selectedWeek", query.selectedWeek);
+    if (query.selectedDay) params.append("selectedDay", query.selectedDay);
+
+    return apiFetch<GoldenDataset>(
+      `${this._baseUrl}/golden-dataset?${params.toString()}`
+    );
+  }
+
+  async getContributionTrend(timeRange: string): Promise<
+    DashboardAnalyticsResponse["questionContributionTrend"] | null
+  > {
+    const params = new URLSearchParams();
+    params.append("timeRange", timeRange);
+    return apiFetch<DashboardAnalyticsResponse["questionContributionTrend"]>(
+      `${this._baseUrl}/contribution-trend?${params.toString()}`
+    );
+  }
+
+  async getStatusOverview(): Promise<StatusOverview | null> {
+    return apiFetch<StatusOverview>(`${this._baseUrl}/status-overview`);
+  }
+
+  async getExpertPerformance(): Promise<ExpertPerformance[] | null> {
+    return apiFetch<ExpertPerformance[]>(`${this._baseUrl}/expert-performance`);
+  }
+
+  async getQuestionsAnalytics(query: {
+    type: "question" | "answer";
+    startTime?: Date;
+    endTime?: Date;
+  }): Promise<QuestionsAnalytics | null> {
+    const params = new URLSearchParams();
+    params.append("type", query.type);
+    if (query.startTime)
+      params.append("startTime", formatDateLocal(query.startTime));
+    if (query.endTime)
+      params.append("endTime", formatDateLocal(query.endTime));
+
+    return apiFetch<QuestionsAnalytics>(
+      `${this._baseUrl}/questions-analytics?${params.toString()}`
+    );
+  }
+
   async checkIn(): Promise<{ success: boolean; lastCheckInAt: Date } | null> {
     return apiFetch<{ success: boolean; lastCheckInAt: Date }>(
       `${this._baseUrl}/check-in`,

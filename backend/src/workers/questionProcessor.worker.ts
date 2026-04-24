@@ -14,6 +14,7 @@ interface WorkerData {
   mongoUri: string;
   dbName: string;
   isRequiredAiInitialAnswer?: boolean;
+  isOutreachQuestion?: boolean;
 }
 
 const data = workerData as WorkerData;
@@ -21,6 +22,7 @@ const ids = Array.isArray(data?.ids) ? data.ids : [];
 const mongoUri = data.mongoUri;
 const dbName = data.dbName;
 const isRequiredAiInitialAnswer = data.isRequiredAiInitialAnswer ?? false;
+const isOutreachQuestion = data.isOutreachQuestion ?? false;
 
 if (!parentPort) {
   console.error(
@@ -71,6 +73,16 @@ const notificationRepo = new NotificationRepository(database);
 await (notificationRepo as any).init();
 const notificationService = new NotificationService(notificationRepo, database);
 const aiService = new AiService();
+
+const { DuplicateQuestionRepository } = await import(
+  '#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js'
+);
+const duplicateQuestionRepo = new DuplicateQuestionRepository(database);
+await (duplicateQuestionRepo as any).init();
+
+const { checkDuplicateQuestionHelper } = await import(
+  '#root/modules/question/helpers/duplicateQuestionHelper.js'
+);
 
 (async () => {
   if (ids.length === 0) {
@@ -130,10 +142,44 @@ const aiService = new AiService();
         }
       }
 
-      await questionRepo['QuestionCollection'].updateOne(
+    const result=  await questionRepo['QuestionCollection'].updateOne(
         { _id: new (await import('mongodb')).ObjectId(qId) },
         { $set: { embedding: textEmbedding, aiInitialAnswer, updatedAt: new Date() } },
       );
+
+
+      // ── Duplicate Detection for Outreach Questions ──
+      if (isOutreachQuestion && ENABLE_AI_SERVER) {
+        const logData: any = {
+          qId,
+          question: question.question,
+          details: question.details,
+          source: question.source,
+        };
+        try {
+          const duplicateResult = await checkDuplicateQuestionHelper(
+            question,
+            question.details,
+            logData,
+            aiService,
+            duplicateQuestionRepo,
+          );
+
+          if (duplicateResult.isDuplicate) {
+           const result3= await questionRepo.deleteQuestion(qId);
+            console.log(
+              `🔁 Duplicate detected for outreach question ${qId}. Record moved to duplicates.`,
+            );
+            processed++;
+            continue; // Skip allocation
+          }
+        } catch (dupError: any) {
+          console.error(
+            `⚠️ Duplicate check failed for question ${qId}, proceeding with normal flow:`,
+            dupError?.message,
+          );
+        }
+      }
 
       // allocation stage - 2
 
@@ -152,7 +198,7 @@ const aiService = new AiService();
       //   const userId = user._id.toString();
       //   await userRepo.updateReputationScore(userId, IS_INCREMENT);
       // }
-      if (intialUsersToAllocate) {
+      if (intialUsersToAllocate.length > 0) {
         const IS_INCREMENT = true;
         const userId = intialUsersToAllocate[0]._id.toString();
         await userRepo.updateReputationScore(userId, IS_INCREMENT);
@@ -168,7 +214,7 @@ const aiService = new AiService();
       };
 
       // 6. Save QuestionSubmission to DB
-      await submissionRepo.addSubmission(submissionData);
+   const result2=   await submissionRepo.addSubmission(submissionData);
 
       //send the notifications
       if (intialUsersToAllocate[0]) {

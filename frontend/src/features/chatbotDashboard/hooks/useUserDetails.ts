@@ -2,11 +2,36 @@ import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/hooks/api/api-fetch';
 import { env } from '@/config/env';
 
+export interface FarmerProfile {
+  farmerName?: string;
+  age?: number;
+  gender?: string;
+  villageName?: string;
+  blockName?: string;
+  district?: string;
+  state?: string;
+  phoneNo?: string;
+  languagePreference?: string;
+  yearsOfExperience?: number;
+  cropsCultivated?: string[];
+  primaryCrop?: string;
+  secondaryCrop?: string;
+  awarenessOfKCC?: boolean;
+  usesAgriApps?: boolean;
+  highestEducatedPerson?: string;
+  numberOfSmartphones?: number;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
+}
+
 export interface UserDetail {
   userId: string;
   name: string;
   email: string;
   totalQuestions: number;
+  farmerProfile?: FarmerProfile;
 }
 
 export interface PaginatedUserDetailsResponse {
@@ -24,6 +49,9 @@ export function useUserDetails(
   limit = 10,
   search = '',
   source: 'vicharanashala' | 'annam' = 'vicharanashala',
+  crop = '',
+  village = '',
+  profileCompleted: 'all' | 'yes' | 'no' = 'all',
 ) {
   const startISO = startDate?.toISOString();
   // Extend endDate to end of day (23:59:59.999) so the selected day is fully included.
@@ -33,7 +61,7 @@ export function useUserDetails(
     : undefined;
 
   const { data, isLoading, error } = useQuery<PaginatedUserDetailsResponse, Error>({
-    queryKey: ['user-details', startISO, endISO, page, limit, search, source],
+    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, profileCompleted],
     staleTime: 30 * 1000,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
@@ -44,6 +72,9 @@ export function useUserDetails(
       params.set('limit', String(limit));
       if (search.trim()) params.set('search', search.trim());
       params.set('source', source);
+      if (crop.trim()) params.set('crop', crop.trim());
+      if (village.trim()) params.set('village', village.trim());
+      if (profileCompleted !== 'all') params.set('profileCompleted', profileCompleted);
 
       const result = await apiFetch<PaginatedUserDetailsResponse>(
         `${API_BASE_URL}/analytics/user-details?${params.toString()}`,

@@ -733,4 +733,36 @@ export class QuestionService {
     return res?.data ?? null;
   }
 
+  async generateAIInitialAnswer(questionId: string) {
+    const response = await fetch(
+      `${this._baseUrl}/${questionId}/generate-answer`,
+      { method: "GET", }
+    );
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.message || "Failed to approve AI answer");
+    }
+    return data; 
+  }
+
+  async approveAIInitialAnswer(questionId: string, answer: string) {
+  const response = await fetch(
+    `${this._baseUrl}/${questionId}/approve-initial-answer`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ answer }),
+    }
+  );
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.message || "Failed to approve AI answer");
+  }
+
+  return data;
+}
+
 }

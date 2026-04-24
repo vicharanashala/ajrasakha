@@ -19,9 +19,14 @@ import {
   ExpertPerformance,
   GetDashboardQuery,
   GetHeatMapQuery,
+  GetGoldenDatasetQuery,
+  GetQuestionsAnalyticsQuery,
   GoldenDataset,
   QuestionStatusOverview,
-  StatusOverview
+  StatusOverview,
+  UserRoleOverview,
+  ModeratorApprovalRate,
+  QuestionContributionTrend
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
 import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
 import { IPerformanceService } from '../interfaces/IPerformanceService.js';
@@ -72,6 +77,86 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     await this.userRepo.updateCheckInTime(userId, time);
   }
 
+  async getOverview(currentUserId: string): Promise<{
+    userRoleOverview: UserRoleOverview[];
+    moderatorApprovalRate: ModeratorApprovalRate;
+  }> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      const userRoleOverview = await this.userRepo.getUserRoleCount(session);
+      const moderatorApprovalRate = await this.questionRepo.getModeratorApprovalRate(
+        currentUserId,
+        session,
+      );
+      return { userRoleOverview, moderatorApprovalRate };
+    });
+  }
+
+  async getGoldenDataset(query: GetGoldenDatasetQuery): Promise<GoldenDataset> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      const { viewType, selectedYear, selectedMonth, selectedWeek, selectedDay } = query;
+      const verifiedEntries = await this.questionRepo.getClosedQuestionsCount(session);
+      const { todayApproved } = await this.questionRepo.getTodayApproved(session);
+
+      let goldenDataset = {} as GoldenDataset;
+
+      if (viewType === 'year') {
+        const { yearData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown } =
+          await this.questionRepo.getYearAnalytics(selectedYear!, session);
+        goldenDataset = { yearData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown };
+      } else if (viewType === 'month') {
+        const { weeksData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown } =
+          await this.questionRepo.getMonthAnalytics(selectedYear!, selectedMonth!, session);
+        goldenDataset = { weeksData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown };
+      } else if (viewType === 'week') {
+        const { dailyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown } =
+          await this.questionRepo.getWeekAnalytics(selectedYear!, selectedMonth!, selectedWeek!, session);
+        goldenDataset = { dailyData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown };
+      } else if (viewType === 'day') {
+        const { dayHourlyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown } =
+          await this.questionRepo.getDailyAnalytics(selectedYear!, selectedMonth!, selectedWeek!, selectedDay!, session);
+        goldenDataset = { dayHourlyData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown };
+      }
+
+      return goldenDataset;
+    });
+  }
+
+  async getContributionTrend(timeRange: string): Promise<QuestionContributionTrend[]> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      return await this.questionRepo.getCountBySource(timeRange, session);
+    });
+  }
+
+  async getStatusOverview(): Promise<StatusOverview> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      const questionsOverview = await this.questionRepo.getQuestionOverviewByStatus(session);
+      const answerOverView = await this.answerRepo.getAnswerOverviewByStatus(session);
+      return {
+        questions: questionsOverview,
+        answers: answerOverView,
+      };
+    });
+  }
+
+  async getExpertPerformance(): Promise<ExpertPerformance[]> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      return await this.userRepo.getExpertPerformance(session);
+    });
+  }
+
+  async getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery): Promise<Analytics> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      const { type, startTime, endTime } = query;
+      if (type === 'question') {
+        const result = await this.questionRepo.getQuestionAnalytics(startTime, endTime, session);
+        return result.analytics;
+      } else {
+        const result = await this.answerRepo.getAnswerAnalytics(startTime, endTime, session);
+        return result.analytics;
+      }
+    });
+  }
+
   async getDashboardData(
     currentUserId: string,
     query: GetDashboardQuery,
@@ -95,98 +180,35 @@ export class PerformanceService extends BaseService implements IPerformanceServi
           "You don't have permission to access this data",
         );
 
-      const userRoleOverview = await this.userRepo.getUserRoleCount(session);
-      const moderatorApprovalRate =
-        await this.questionRepo.getModeratorApprovalRate(
-          currentUserId,
-          session,
-        );
-
-      // goldenDataset
-      const verifiedEntries = await this.questionRepo.getClosedQuestionsCount(session);
-
-
-       const {todayApproved}=await this.questionRepo.getTodayApproved(session);
-
-      let goldenDataset = {} as GoldenDataset;
-
-      if (goldenDataViewType == 'year') {
-        const {yearData, totalEntriesByType, moderatorBreakdown } =
-          await this.questionRepo.getYearAnalytics(
-            goldenDataSelectedYear,
-            session,
-          );
-        goldenDataset = {yearData, verifiedEntries, totalEntriesByType,todayApproved, moderatorBreakdown };
-      } else if (goldenDataViewType == 'month') {
-        const {weeksData, totalEntriesByType, moderatorBreakdown } =
-          await this.questionRepo.getMonthAnalytics(
-            goldenDataSelectedYear,
-            goldenDataSelectedMonth,
-            session,
-          );
-        goldenDataset = {weeksData, verifiedEntries, totalEntriesByType,todayApproved, moderatorBreakdown };
-      } else if (goldenDataViewType == 'week') {
-        const {dailyData, totalEntriesByType, moderatorBreakdown } =
-          await this.questionRepo.getWeekAnalytics(
-            goldenDataSelectedYear,
-            goldenDataSelectedMonth,
-            goldenDataSelectedWeek,
-            session,
-          );
-        goldenDataset = {dailyData, verifiedEntries, totalEntriesByType,todayApproved, moderatorBreakdown };
-      } else if (goldenDataViewType == 'day') {
-        const {dayHourlyData, totalEntriesByType, moderatorBreakdown } =
-          await this.questionRepo.getDailyAnalytics(
-            goldenDataSelectedYear,
-            goldenDataSelectedMonth,
-            goldenDataSelectedWeek,
-            goldenDataSelectedDay,
-            session,
-          );
-        goldenDataset = {dayHourlyData, verifiedEntries, totalEntriesByType,todayApproved, moderatorBreakdown };
-      }
-
-      //questionContributionTrend
-      const questionContributionTrend: DashboardResponse['questionContributionTrend'] =
-        await this.questionRepo.getCountBySource(sourceChartTimeRange, session);
-
-      // statusOverview
-      const questionsOverview: QuestionStatusOverview[] =
-        await this.questionRepo.getQuestionOverviewByStatus(session);
-
-      const answerOverView: AnswerStatusOverview[] =
-        await this.answerRepo.getAnswerOverviewByStatus(session);
-
-      const statusOverview: StatusOverview = {
-        questions: questionsOverview,
-        answers: answerOverView,
-      };
-
-      //expertPerformance
-      const expertPerformance: ExpertPerformance[] =
-        await this.userRepo.getExpertPerformance(session);
-
-      let analytics = {} as Analytics;
-
-      if (qnAnalyticsType == 'question') {
-        const result = await this.questionRepo.getQuestionAnalytics(
-          qnAnalyticsStartTime,
-          qnAnalyticsEndTime,
-          session,
-        );
-        analytics = result.analytics;
-      } else {
-        const result = await this.answerRepo.getAnswerAnalytics(
-          qnAnalyticsStartTime,
-          qnAnalyticsEndTime,
-          session,
-        );
-        analytics = result.analytics;
-      }
+      const [
+        overview,
+        goldenDataset,
+        questionContributionTrend,
+        statusOverview,
+        expertPerformance,
+        analytics
+      ] = await Promise.all([
+        this.getOverview(currentUserId),
+        this.getGoldenDataset({
+          viewType: goldenDataViewType,
+          selectedYear: goldenDataSelectedYear,
+          selectedMonth: goldenDataSelectedMonth,
+          selectedWeek: goldenDataSelectedWeek,
+          selectedDay: goldenDataSelectedDay
+        }),
+        this.getContributionTrend(sourceChartTimeRange),
+        this.getStatusOverview(),
+        this.getExpertPerformance(),
+        this.getQuestionsAnalytics({
+          type: qnAnalyticsType,
+          startTime: qnAnalyticsStartTime,
+          endTime: qnAnalyticsEndTime
+        })
+      ]);
 
       const response: DashboardResponse = {
-        userRoleOverview,
-        moderatorApprovalRate,
+        userRoleOverview: overview.userRoleOverview,
+        moderatorApprovalRate: overview.moderatorApprovalRate,
         goldenDataset,
         questionContributionTrend,
         statusOverview,

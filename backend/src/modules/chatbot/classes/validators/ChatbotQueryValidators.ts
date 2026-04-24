@@ -57,4 +57,19 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsIn(['vicharanashala', 'annam'])
   source: 'vicharanashala' | 'annam' = 'vicharanashala';
+
+  @JSONSchema({ example: 'rice', description: 'Filter by crop (matches cropsCultivated, primaryCrop, secondaryCrop)' })
+  @IsOptional()
+  @IsString()
+  crop: string = '';
+
+  @JSONSchema({ example: 'Poonjar', description: 'Filter by village name' })
+  @IsOptional()
+  @IsString()
+  village: string = '';
+
+  @JSONSchema({ example: 'yes', description: 'Filter by farmer profile completion: yes, no, or all' })
+  @IsOptional()
+  @IsIn(['yes', 'no', 'all'])
+  profileCompleted: 'yes' | 'no' | 'all' = 'all';
 }

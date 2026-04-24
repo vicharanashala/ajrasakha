@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { X, MapPin } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Spinner } from "@/components/atoms/spinner";
 import { useUserDetails } from "./hooks/useUserDetails";
 import { BarGraph } from "./components/shared/BarGrapgh";
-import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { Pagination } from "@/components/pagination";
 import {
   Table,
@@ -15,47 +14,119 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/atoms/table";
+import {
+  UserDetailsPreferenceFilter,
+  type UserDetailsFilters,
+} from "./components/UserDetailsPreferenceFilter";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
 
 const PAGE_SIZE = 10;
+
+const VISIBLE_CROPS = 2;
+
+function CropsCell({ crops }: { crops: string | string[] | undefined | null }) {
+  const cropList = Array.isArray(crops) 
+    ? crops 
+    : (crops ? crops.split(",").map(s => s.trim()).filter(Boolean) : []);
+
+  if (cropList.length === 0) return <span>—</span>;
+
+  const visible = cropList.slice(0, VISIBLE_CROPS);
+  const hidden = cropList.slice(VISIBLE_CROPS);
+
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      {visible.map((c, i) => (
+        <span
+          key={i}
+          className="px-1.5 py-0.5 rounded text-xs max-w-[120px] truncate text-center"
+          title={c}
+        >
+          {c}
+        </span>
+      ))}
+
+      {hidden.length > 0 && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 cursor-default">
+                +{hidden.length}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              className="
+                p-2
+                min-w-[100px]
+                bg-white text-gray-900 border border-gray-200
+                dark:bg-[#1a1a1a] dark:text-gray-100 dark:border-gray-700
+              "
+            >
+              <div className="flex flex-col gap-2 text-center">
+                {cropList.map((c, i) => (
+                  <span key={i} className="text-xs whitespace-nowrap">
+                    {c}
+                  </span>
+                ))}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+    </div>
+  );
+}
+const DEFAULT_FILTERS: UserDetailsFilters = {
+  search: "",
+  crop: "",
+  village: "",
+  startTime: undefined,
+  endTime: undefined,
+  profileCompleted: "all",
+};
 
 interface UserDetailsViewProps {
   source?: 'vicharanashala' | 'annam';
 }
 
 export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewProps) {
-  const [startTime, setStartTime] = useState<Date | undefined>(undefined);
-  const [endTime, setEndTime] = useState<Date | undefined>(undefined);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [filters, setFilters] = useState<UserDetailsFilters>(DEFAULT_FILTERS);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Debounce the search input so we don't fire a request on every keystroke
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-      setCurrentPage(1); // reset to page 1 on new search
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
   const { data, isLoading, error } = useUserDetails(
-    startTime,
-    endTime,
+    filters.startTime,
+    filters.endTime,
     currentPage,
     PAGE_SIZE,
-    debouncedSearch,
+    filters.search,
     source,
+    filters.crop,
+    filters.village,
+    filters.profileCompleted,
   );
 
   const { users, totalUsers, totalPages, activeUsers, totalQuestions } = data;
 
-  const handleDateChange = (key: string, value: any) => {
-    if (key === "startTime") { setStartTime(value); setCurrentPage(1); }
-    if (key === "endTime") { setEndTime(value); setCurrentPage(1); }
+  const handleApplyFilters = (newFilters: UserDetailsFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
   };
 
-  const dateLabel = startTime && endTime
-    ? `${startTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${endTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
+  const handleResetFilters = () => {
+    setFilters(DEFAULT_FILTERS);
+    setCurrentPage(1);
+  };
+
+  const isFiltered =
+    filters.search ||
+    filters.crop ||
+    filters.village ||
+    filters.startTime ||
+    filters.profileCompleted !== "all";
+
+  const dateLabel = filters.startTime && filters.endTime
+    ? `${filters.startTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${filters.endTime.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
     : "All time";
 
   return (
@@ -130,56 +201,24 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
       {/* Users table */}
       <Card className="dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
         <CardHeader className="pb-3">
-          <div className="flex flex-col gap-3 min-w-0 w-full">
+          <div className="flex items-center justify-between gap-3 min-w-0 w-full">
             <CardTitle className="text-sm font-medium">All Farmers</CardTitle>
-            <div className="flex flex-col sm:flex-row flex-wrap lg:flex-nowrap items-stretch gap-2 w-full min-w-0">
-              <div className="relative w-full sm:flex-1 min-w-0">
-                <svg
-                  width={14}
-                  height={14}
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-(--muted-foreground)"
-                >
-                  <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.3" />
-                  <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search by name or email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-[#222] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:border-[#3AAA5A] transition-colors"
-                />
-              </div>
-              <div className="w-full sm:w-auto lg:flex-none min-w-0 relative [&_label]:hidden [&_#date-toggle]:!w-full [&_#date-toggle]:!h-9 [&_#date-toggle]:!overflow-hidden [&_.absolute]:!left-0 [&_.absolute]:!right-0 [&_.absolute]:!w-full [&_.absolute]:sm:!w-[320px] [&_.absolute]:sm:!left-auto [&_.absolute]:sm:!right-0">
-                <DateRangeFilter
-                  customName=""
-                  advanceFilter={{ startTime, endTime }}
-                  handleDialogChange={handleDateChange}
-                  className={
-                    startTime
-                      ? "!h-9 !text-sm !w-full !border-green-500 dark:!border-green-500 !bg-green-50 dark:!bg-[#1a1a1a] !text-green-700 dark:!text-green-400 !font-medium hover:!bg-green-100 dark:hover:!bg-[#2a2a2a]"
-                      : "!h-9 !text-sm !w-full !border-gray-200 dark:!border-gray-700 !bg-white dark:!bg-[#1a1a1a] !text-gray-700 dark:!text-gray-200 !font-normal hover:!bg-gray-50 dark:hover:!bg-[#2a2a2a]"
-                  }
-                />
-              </div>
-              {(searchQuery || startTime || endTime) && (
+            <div className="flex items-center gap-2">
+              {isFiltered && (
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  className="h-9 w-full sm:w-auto"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setStartTime(undefined);
-                    setEndTime(undefined);
-                    setCurrentPage(1);
-                  }}
+                  className="h-9 text-muted-foreground hover:text-foreground"
+                  onClick={handleResetFilters}
                 >
-                  <X />
-                  Reset
+                  <X className="h-4 w-4 mr-1" />
+                  Clear
                 </Button>
               )}
+              <UserDetailsPreferenceFilter
+                filters={filters}
+                onApply={handleApplyFilters}
+              />
             </div>
           </div>
         </CardHeader>
@@ -198,47 +237,101 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
 
           {!isLoading && !error && (
             <div className="rounded-lg border bg-card overflow-x-auto">
-              <Table className="min-w-[600px]">
+              <Table className="min-w-[1600px]">
                 <TableHeader className="bg-card sticky top-0 z-10">
                   <TableRow>
                     <TableHead className="text-center w-12">S.No</TableHead>
+                    <TableHead className="text-center">Questions Asked</TableHead>
                     <TableHead className="text-center">Name</TableHead>
                     <TableHead className="text-center">Email</TableHead>
-                    <TableHead className="text-center">Questions Asked</TableHead>
+                    <TableHead className="text-center">Farmer Name</TableHead>
+                    <TableHead className="text-center">Age</TableHead>
+                    <TableHead className="text-center">Gender</TableHead>
+                    <TableHead className="text-center">Village</TableHead>
+                    <TableHead className="text-center">Block</TableHead>
+                    <TableHead className="text-center">District</TableHead>
+                    <TableHead className="text-center">State</TableHead>
+                    <TableHead className="text-center">Phone</TableHead>
+                    <TableHead className="text-center">Language</TableHead>
+                    <TableHead className="text-center">Exp. (Yrs)</TableHead>
+                    <TableHead className="text-center">Crops</TableHead>
+                    <TableHead className="text-center">Primary Crop</TableHead>
+                    <TableHead className="text-center">Secondary Crop</TableHead>
+                    <TableHead className="text-center">KCC Aware</TableHead>
+                    <TableHead className="text-center">Agri Apps</TableHead>
+                    <TableHead className="text-center">Education</TableHead>
+                    <TableHead className="text-center">Smartphones</TableHead>
+                    <TableHead className="text-center">Location</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
-                        {debouncedSearch ? "No users match your search." : "No users found."}
+                      <TableCell colSpan={22} className="text-center py-10 text-muted-foreground">
+                        {isFiltered ? "No users match your filters." : "No users found."}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    users.map((user, idx) => (
-                      <TableRow key={user.userId} className="text-center">
-                        <TableCell className="align-middle">
-                          {(currentPage - 1) * PAGE_SIZE + idx + 1}
-                        </TableCell>
-                        <TableCell className="align-middle font-medium whitespace-nowrap">
-                          {user.name}
-                        </TableCell>
-                        <TableCell className="align-middle whitespace-nowrap">
-                          {user.email}
-                        </TableCell>
-                        <TableCell className="align-middle">
-                          <span
-                            className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold ${
-                              user.totalQuestions > 0
-                                ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
-                                : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                            }`}
-                          >
-                            {user.totalQuestions.toLocaleString()}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    users.map((user, idx) => {
+                      const fp = user.farmerProfile;
+                      return (
+                        <TableRow key={user.userId} className="text-center">
+                          <TableCell className="align-middle">
+                            {(currentPage - 1) * PAGE_SIZE + idx + 1}
+                          </TableCell>
+                          <TableCell className="align-middle">
+                            <span
+                              className={`inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                user.totalQuestions > 0
+                                  ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300"
+                                  : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                              }`}
+                            >
+                              {user.totalQuestions.toLocaleString()}
+                            </span>
+                          </TableCell>
+                          <TableCell className="align-middle font-medium whitespace-nowrap">
+                            {user.name}
+                          </TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">
+                            {user.email}
+                          </TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.farmerName ?? "—"}</TableCell>
+                          <TableCell className="align-middle">{fp?.age ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.gender ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.villageName ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.blockName ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.district ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.state ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.phoneNo ?? "—"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.languagePreference ?? "—"}</TableCell>
+                          <TableCell className="align-middle">{fp?.yearsOfExperience ?? "—"}</TableCell>
+                          <TableCell className="align-middle"><CropsCell crops={fp?.cropsCultivated} /></TableCell>
+                          <TableCell className="align-middle"><CropsCell crops={fp?.primaryCrop} /></TableCell>
+                          <TableCell className="align-middle"><CropsCell crops={fp?.secondaryCrop} /></TableCell>
+                          <TableCell className="align-middle">{fp?.awarenessOfKCC == null ? "—" : fp.awarenessOfKCC ? "Yes" : "No"}</TableCell>
+                          <TableCell className="align-middle">{fp?.usesAgriApps == null ? "—" : fp.usesAgriApps ? "Yes" : "No"}</TableCell>
+                          <TableCell className="align-middle whitespace-nowrap">{fp?.highestEducatedPerson ?? "—"}</TableCell>
+                          <TableCell className="align-middle">{fp?.numberOfSmartphones ?? "—"}</TableCell>
+                          <TableCell className="align-middle">
+                            {fp?.location?.latitude && fp?.location?.longitude ? (
+                              <a 
+                                href={`https://maps.google.com/?q=${fp.location.latitude},${fp.location.longitude}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                title="View on Maps"
+                                className="inline-flex items-center justify-center p-1.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MapPin className="h-4 w-4" />
+                              </a>
+                            ) : (
+                              "—"
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>

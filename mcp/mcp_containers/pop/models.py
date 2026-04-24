@@ -89,6 +89,25 @@ class ContextPOP(BaseModel):
     meta_data: POPMetaData
 
 
+class RestrictedChemicalFlag(BaseModel):
+    chemical_id: str
+    chemical_name: str
+    allowed_usage: str = ""
+    restriction_text: str = ""
+
+
+class POPComplianceNotice(BaseModel):
+    message: str
+    restricted_chemicals: List[RestrictedChemicalFlag]
+    blocked_non_restricted_chemicals: List[str] = []
+    blocked_message: Optional[str] = None
+
+
+class POPContextResponse(BaseModel):
+    contexts: List[ContextPOP]
+    compliance_notice: Optional[POPComplianceNotice] = None
+
+
 class ThinkingResponseChunk:
     def __init__(self, message: str, model: str = "ajrasakha"):
         self.model = model
