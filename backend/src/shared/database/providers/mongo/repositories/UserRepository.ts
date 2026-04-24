@@ -1280,10 +1280,10 @@ async unBlockExperts():Promise<void>{
 //find user autocomplete options
   async findExpertAutoCompleteOptions(
     query: string,
-    session?: ClientSession,
+    userRole: string | undefined
   ): Promise<{_id: string; userName: string}[]> {
     await this.init();
-
+    const isAdmin = userRole === 'admin';
     try {
       const trimmedQuery = query.trim();
       const pipeline = [
@@ -1291,14 +1291,18 @@ async unBlockExperts():Promise<void>{
             $search: {
               index: 'userAutocomplete',
               compound: {
-                filter: [
-                  {
-                    equals: {
-                      path: 'role',
-                      value: 'expert'
+                ...(!isAdmin &&
+                {
+                  filter: [
+                    {
+                      equals: {
+                        path: 'role',
+                        value: 'expert'
+                      }
                     }
-                  }
-                ],
+                  ]
+                }
+                ),
                 should: [
                   {
                     autocomplete: {
