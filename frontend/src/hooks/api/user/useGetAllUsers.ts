@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 
 import { UserService } from "../../services/userService";
 import type { IMyPreference, IUser } from "@/types";
@@ -76,13 +76,14 @@ export const useUserAutocomplete = (
   search: string,
   options: { enabled?: boolean } = {}
 ) => {
-  const { data, isLoading, isFetching, error } = useQuery<UserAutocompleteOption[] | null>({
+  const { data, isLoading, isFetching, error } = useQuery<{_id: string; userName: string; email?: string}[] | null>({
     queryKey: ["userAutocomplete", search],
     queryFn: async () => {
-      return await userService.getUserAutoCompleteOptions(search);
+      return await userService.getExpertAutoCompleteOptions(search);
     },
     enabled: options?.enabled !== false && search.length > 0,
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    placeholderData: keepPreviousData,
   });
 
   return { data, isLoading, isFetching, error };

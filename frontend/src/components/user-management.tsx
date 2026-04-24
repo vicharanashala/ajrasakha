@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { Input } from "./atoms/input";
 import { UsersTable } from "./user-table";
-import { Autocomplete } from "./autocomplete";
+import { Autocomplete, highlightMatch } from "./autocomplete";
 import {
   useGetAllExperts,
   useUserAutocomplete,
@@ -140,7 +140,22 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                   data={autocompleteOptions || []}
                   isLoading={isAutocompleteLoading || isAutocompleteFetching}
                   isTyping={inputValue !== debouncedSearch}
-                  getDisplayValue={(user: any) => user.userName || user}
+                  getDisplayValue={(user: any) => user.email ? `${user.userName} ${user.email}` : user.userName || user}
+                  renderItem={(user: any, query: string) => {
+                    if (typeof user === 'string') return highlightMatch(user, query);
+                    return (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-sm font-medium leading-none">
+                          {highlightMatch(user.userName || '', query)}
+                        </span>
+                        {user.email && (
+                          <span className="text-xs text-muted-foreground mt-1">
+                            {highlightMatch(user.email, query)}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  }}
                   onSelect={(user: any) => {
                     const searchValue = user.userName || user;
                     setInputValue(searchValue);

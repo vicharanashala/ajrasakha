@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Search, X } from "lucide-react";
 import { Input } from "./atoms/input";
 
-const highlightMatch = (text: string, query: string) => {
+export const highlightMatch = (text: string, query: string) => {
   if (!query) return <>{text}</>;
 
   const parts = text.split(new RegExp(`(${query})`, 'gi'));
@@ -32,6 +32,7 @@ export interface AutocompleteProps<T> {
   onClear: () => void;
   isLoading?: boolean;
   isTyping?: boolean;
+  renderItem?: (item: T, query: string) => React.ReactNode;
 }
 
 export function Autocomplete<T>({
@@ -44,6 +45,7 @@ export function Autocomplete<T>({
   onClear,
   isLoading = false,
   isTyping = false,
+  renderItem,
 }: AutocompleteProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -113,7 +115,7 @@ export function Autocomplete<T>({
                   className="px-4 py-2 cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => handleSelect(item)}
                 >
-                  {highlightMatch(getDisplayValue(item), value)}
+                  {renderItem ? renderItem(item, value) : highlightMatch(getDisplayValue(item), value)}
                 </li>
               ))}
             </ul>
