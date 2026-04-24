@@ -57,6 +57,7 @@ import { ICropRepository } from '#root/shared/database/interfaces/ICropRepositor
 import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
 import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { toObjectIdArray } from '#root/utils/normalizeToObjectIdArray.js';
+import { checkDuplicateQuestionHelper } from '../helpers/duplicateQuestionHelper.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -829,6 +830,27 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new InternalServerError(`Failed to add question: ${error}`);
     }
   }*/
+
+  // Reusable duplicate detection helper.
+
+  async checkDuplicateQuestion(
+    baseQuestion: IQuestion,
+    details: IQuestion['details'],
+    logData: Record<string, any>,
+    session?: ClientSession,
+  ): Promise<{ isDuplicate: boolean; duplicateData?: any }> {
+    return checkDuplicateQuestionHelper(
+      baseQuestion,
+      details,
+      logData,
+      this.aiService,
+      this.duplicateQuestionRepository,
+      session,
+    );
+  }
+
+
+
   async addQuestion(
     userId: string,
     body: AddQuestionBodyDto,
@@ -845,7 +867,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         source = 'AGRI_EXPERT',
         details,
         context,
-        originalQuestion=''
+        originalQuestion = ''
       } = body;
       console.log("the body coming=====", body)
 
@@ -957,168 +979,14 @@ export class QuestionService extends BaseService implements IQuestionService {
           text,
           createdAt: new Date(),
           updatedAt: new Date(),
-          originalQuestion:originalQuestion
+          originalQuestion: originalQuestion
         };
 
-
-
-        let isDuplicate = false
-        let matchedQuestion = ""
-        let matchedQuestionId: ObjectId | null = null
-        let matchedScore = 0
-        let referenceSourcefrom = ''
-
-        let topSimilar
-
-        const llmCandidates: typeof topMatches = []
-        let dummysource = false
+        // ── Duplicate Detection (AJRASAKHA / WHATSAPP) ──
         if (source === 'AJRASAKHA' || source === 'WHATSAPP') {
-          console.log("the source is coming====", source)
-          /* const topSimilar = await this.questionRepo.findTopSimilarQuestions(
-           textEmbedding, 25,
-           { state: details.state,district: details.district, crop: details.crop, domain: details.domain, season: details.season }, )*/
-          const questions = await this.aiService.getQuestionByContextAndMetaData(
-            question,
-            details.state,
-            details.district,
-            typeof details.crop === 'string' ? details.crop : details.crop.name,
-            //details.season,
-            // details.domain
-          );
-          console.log("the questions coming=====", questions)
-          // merge reviewer + golden
-          let merged = [
-            ...(questions.reviewer || []).map((item: any) => ({
-              question: item.question,
-              answer: item.answer,
-              agri_specialist: item.source || "AGRI_EXPERT",
-              referenceSource: "reviewer",
-              score: item.score * 100,
-              id: item.id
-              ? new ObjectId(String(item.id))
-              : new ObjectId()  // preserve the real reviewer question _id
-            })),
-
-            ...(questions.golden || []).map((item: any) => ({
-              question: item.question,
-              answer: item.answer,
-              agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
-              referenceSource: "golden",
-              score: item.score * 100,
-              id: item.id
-              ? new ObjectId(String(item.id))
-              : new ObjectId()
-            })),
-
-
-          ];
-          merged = Array.from(
-            new Map(merged.map(q => [q.question, q])).values(),
-          ).map(q => ({
-            ...q,
-          }));
-
-
-          merged.sort((a, b) => b.score - a.score);
-
-
-          // get top 5
-          const bestFive = merged.slice(0, 5);
-
-          // convert to topMatches
-          topSimilar = bestFive.map(q => ({
-            questionId: q.id,
-            question: q.question,
-            similarityScore: q.score,
-            referenceSource: q.referenceSource
-          }));
-
-          logData.totalMatches = topSimilar.length
-
-          logData.matches = topSimilar.map((q) => ({ questionId: q.questionId, question: q.question, similarityScore: q.similarityScore }))
-          logData.topMatches = topSimilar
-          logData.threshold = 85
-          for (const match of topSimilar) {
-
-
-            const highestScore = match.similarityScore
-
-            // Rule 1: immediate duplicate
-            if (highestScore >= 95) {
-              isDuplicate = true
-              matchedQuestion = match.question
-              matchedQuestionId = match.questionId
-              matchedScore = highestScore
-              referenceSourcefrom = match.referenceSource
-              break
-            }
-
-            // Rule 2: collect candidates for LLM
-            if (highestScore >= 85 && highestScore < 95) {
-              llmCandidates.push(match)
-            }
-          }
-
-          // Rule 3: call LLM once
-          if (!isDuplicate && llmCandidates.length > 0) {
-            const candidateQuestions = llmCandidates.map(q => q.question)
-
-            const matchedQuestionfromllm = await checkConceptDuplicate(
-              baseQuestion.question,
-              candidateQuestions
-            )
-
-            if (matchedQuestionfromllm) {
-
-              let filtermatchinQuestion = topSimilar.filter(ele => ele.question == matchedQuestionfromllm)
-
-              matchedQuestion = filtermatchinQuestion[0].question
-              matchedQuestionId = filtermatchinQuestion[0].questionId
-              matchedScore = filtermatchinQuestion[0].similarityScore
-              referenceSourcefrom = filtermatchinQuestion[0].referenceSource
-
-              const duplicateQuestion = {
-                ...baseQuestion,
-                similarityScore: Number(matchedScore.toFixed(2)),
-                referenceQuestionId: matchedQuestionId,
-                referenceQuestion: matchedQuestion,
-                referenceSource: referenceSourcefrom
-              }
-
-              await this.duplicateQuestionRepository.addDuplicate(
-                duplicateQuestion,
-                session
-              )
-              logData.outcome = 'DUPLICATE_DETECTED'
-              logData.matchedQuestion = matchedQuestion
-              logData.similarityScore = matchedScore.toFixed(2)
-
-              chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData)
-              return { isDuplicate: true, data: duplicateQuestion }
-            }
-          }
-
-          if (isDuplicate && matchedQuestionId && matchedQuestion) {
-            const duplicateQuestion = {
-              ...baseQuestion,
-              similarityScore: Number(matchedScore.toFixed(2)),
-              referenceQuestionId: matchedQuestionId,
-              referenceQuestion: matchedQuestion,
-              referenceSource: referenceSourcefrom
-            }
-
-            await this.duplicateQuestionRepository.addDuplicate(
-              duplicateQuestion,
-              session
-            )
-
-            logData.outcome = 'DUPLICATE_DETECTED'
-            logData.matchedQuestion = matchedQuestion
-            logData.similarityScore = matchedScore.toFixed(2)
-
-            chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData)
-
-            return { isDuplicate: true, data: duplicateQuestion }
+          const duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData, session);
+          if (duplicateResult.isDuplicate) {
+            return { isDuplicate: true, data: duplicateResult.duplicateData };
           }
         }
 
@@ -1672,11 +1540,9 @@ export class QuestionService extends BaseService implements IQuestionService {
             questionId,
             session,
           );
-         // let submission
-        if (!questionSubmission)
-        {
-          if(question.source=="WHATSAPP")
-          {
+        // let submission
+        if (!questionSubmission) {
+          if (question.source == "WHATSAPP") {
             const newSubmission: IQuestionSubmission = {
               questionId: new ObjectId(questionId),
               lastRespondedBy: null,
@@ -1688,13 +1554,13 @@ export class QuestionService extends BaseService implements IQuestionService {
             questionSubmission = await this.questionSubmissionRepo.addSubmission(newSubmission, session);
 
           }
-          else{
+          else {
             throw new NotFoundError('Question submission not found');
           }
-         
+
 
         }
-          
+
 
 
         // 3. Validate if the queue is full
@@ -2905,7 +2771,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         'AJRASAKHA',
       );
 
-      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(start, end, 'AJRASAKHA');
+      // const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(start, end, 'AJRASAKHA');
+      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(start, end);
       const combineQuestions = [...questions, ...duplicateQuestions]
       const allQuestions = [
         ...combineQuestions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
@@ -3322,7 +3189,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       // Fetch duplicates using the repository
-      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(startDate, endDate, 'AJRASAKHA', session);
+      // const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(startDate, endDate, 'AJRASAKHA', session);
+      const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(startDate, endDate, session);
 
       if (!duplicateQuestions || duplicateQuestions.length === 0) {
         return null;
@@ -3580,20 +3448,20 @@ export class QuestionService extends BaseService implements IQuestionService {
     return this.questionRepo.getQuestionStatusSummary(query, body);
   }
 
-  async generateAiInitialAnswer(questionId: string): Promise<{aiInitialAnswer:string}> {
-    return this._withTransaction( async( session ) => {
+  async generateAiInitialAnswer(questionId: string): Promise<{ aiInitialAnswer: string }> {
+    return this._withTransaction(async (session) => {
 
-      const question = await this.questionRepo.getById(questionId,session);
+      const question = await this.questionRepo.getById(questionId, session);
 
-      if(!question)
+      if (!question)
         throw new NotFoundError("Question not found");
 
-      if(!(question.source === "AGRI_EXPERT" || question.source === "OUTREACH"))
+      if (!(question.source === "AGRI_EXPERT" || question.source === "OUTREACH"))
         throw new ForbiddenError("Source must be agri expert or outreach")
 
       const submissions = await this.questionSubmissionRepo.getByQuestionId(questionId);
-      
-      if(submissions.history.length > 0)
+
+      if (submissions.history.length > 0)
         throw new ForbiddenError("Cannot generate AI initial answer. Question already has submitted answers.")
 
       const res = await this.aiService.getAnswerByQuestionDetails(question);
@@ -3621,7 +3489,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       const submissions = await this.questionSubmissionRepo.getByQuestionId(questionId);
 
-      if(submissions.history.length > 0)
+      if (submissions.history.length > 0)
         throw new ForbiddenError("Cannot generate AI initial answer. Question already has submitted answers.")
 
       await this.questionRepo.updateQuestion(

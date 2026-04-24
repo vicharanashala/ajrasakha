@@ -617,6 +617,7 @@ export const QuestionsTable = ({
                 updatingQuestion={updatingQuestion}
                 userRole={userRole!}
                 key={q._id}
+                showClosedAt={showClosedAt}
               />
             ))
           )}

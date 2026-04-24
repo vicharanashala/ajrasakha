@@ -44,6 +44,9 @@ export function AlertCard({ alerts = [] }: { alerts?: Alert[] }) {
   const criticalCount = sortedAlerts.filter((a) => a.level === "critical").length;
 
   return (
+    
+        // Remove this div when data is dynamic
+    <div className="relative cursor-not-allowed">
     <div className="h-full flex flex-col bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
       <div className="flex items-start justify-between mb-3.5">
         <div className="min-w-0 flex-1 mr-2">
@@ -62,6 +65,13 @@ export function AlertCard({ alerts = [] }: { alerts?: Alert[] }) {
           />
         ))}
       </div>
+    </div>
+    
+        {/* // Remove this div when data is dynamic */}
+    <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] rounded-lg flex items-center justify-center z-10">
+				<span className="text-white text-xs font-semibold tracking-wide">
+				</span>
+				</div>
     </div>
   );
 }

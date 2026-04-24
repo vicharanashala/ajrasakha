@@ -12,6 +12,8 @@ import { useGetAllRequests } from "@/hooks/api/request/useGetAllRequest";
 import { Pagination } from "./pagination";
 import { Sliders, Circle, Layers, Calendar } from "lucide-react";
 import { RequestCard } from "./RequestCard";
+import ViewDropdown from "@/features/questions/components/ViewDropdown";
+import { RequestListItem } from "./RequestListItem";
 
 type SortOrder = "newest" | "oldest";
 
@@ -44,7 +46,7 @@ export const RequestsPage = ({
     null,
   );
   const LIMIT = 10;
-
+  const [view, setView] = useState<"grid" | "table">("grid");
   const { data: requestData, isLoading } = useGetAllRequests(
     currentPage,
     LIMIT,
@@ -98,6 +100,7 @@ export const RequestsPage = ({
                 Highlighted
               </Badge>
             )}
+            <ViewDropdown view={view} setView={setView} />
           </div>
 
           <div className="flex gap-2 flex-wrap md:flex-nowrap w-full md:w-auto">
@@ -164,7 +167,13 @@ export const RequestsPage = ({
         </section>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-4 md:grid-cols-3">
+      <section
+        className={
+          view === "grid"
+            ? "grid gap-4 lg:grid-cols-4 md:grid-cols-3"
+            : "flex flex-col gap-2"
+        }
+      >
         {isLoading ? (
           <div className="col-span-full flex justify-center py-10">
             <span className="text-muted-foreground">Loading requests...</span>
@@ -174,14 +183,23 @@ export const RequestsPage = ({
             <span className="text-muted-foreground">No requests found.</span>
           </div>
         ) : (
-          requestData.requests.map((req) => (
-            <RequestCard
-              key={`${req._id}-${selectedRequestId === String(req._id)}`}
-              req={req}
-              isHighlighted={selectedRequestId === String(req._id)}
-              id={`request-${req._id}`}
-            />
-          ))
+          requestData.requests.map((req) =>
+            view === "grid" ? (
+              <RequestCard
+                key={`${req._id}-${selectedRequestId === String(req._id)}`}
+                req={req}
+                isHighlighted={selectedRequestId === String(req._id)}
+                id={`request-${req._id}`}
+              />
+            ) : (
+              <RequestListItem
+                key={`${req._id}-${selectedRequestId === String(req._id)}`}
+                req={req}
+                isHighlighted={selectedRequestId === String(req._id)}
+                id={`request-${req._id}`}
+              />
+            ),
+          )
         )}
       </section>
 

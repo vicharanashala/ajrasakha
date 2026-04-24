@@ -6,6 +6,7 @@ import { DASHBOARD_DATA } from '../mockData';
 import { formatIndian, calcWeeklyDelta } from '../utils/dashboardHelpers';
 import type { DailyEntry } from '../utils/dashboardHelpers';
 import type { DashboardFilterValues } from '../DashboardFilters';
+import type { DemographicEntry } from '../types';
 
 export type DashboardDataType = typeof DASHBOARD_DATA;
 
@@ -18,6 +19,7 @@ interface DashboardApiResponse {
     csatRating: number;
     repeatQueryRatePct: number;
     voiceUsageSharePct: number;
+    totalAppInstalls: number;
   };
   dau: DailyEntry[];
   weeklySessionDuration: Array<{ week: string; avgSessionDurationMin: number }>;
@@ -27,6 +29,11 @@ interface DashboardApiResponse {
   voiceAccuracy: any[];
   geo: any[];
   queryCategories: any[];
+  ageGroups: DemographicEntry[];
+  genderSplit: DemographicEntry[];
+  farmingExperience: DemographicEntry[];
+  kccAwareness: DemographicEntry[];
+  agriAppUsage: DemographicEntry[];
 }
 
 // ── Date range label helpers ──────────────────────────────────────────────────
@@ -153,6 +160,22 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType {
   const dauLabels = result.dau.map(d => fmtMonthYear(parseDay(d.day)));
   const queryLabels = queryTrend.map(d => fmtDayWithWeek(parseDay(d.day)));
   const sessionLabels = sessionWeekly.map(w => fmtWeekLabel(w.week));
+
+  updatedData.ageGroups = result.ageGroups ?? [];
+  updatedData.genderSplit = result.genderSplit ?? [];
+  updatedData.kccAwareness = result.kccAwareness ?? [];
+  updatedData.agriAppUsage = result.agriAppUsage ?? [];
+  updatedData.farmingExperience = result.farmingExperience ?? [];
+
+  updatedData.kpiRow2 = DASHBOARD_DATA.kpiRow2.map(card => {
+    if (card.id === 'totalInstalls') {
+      return {
+        ...card,
+        value: result.kpi.totalAppInstalls.toString(),
+      };
+    }
+    return card;
+  });
 
   updatedData.kpiRow1 = DASHBOARD_DATA.kpiRow1.map(card => {
     if (card.id === 'dau') {

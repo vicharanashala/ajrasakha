@@ -10,6 +10,7 @@ export interface KpiSummary {
   csatRating: number;
   repeatQueryRatePct: number;
   voiceUsageSharePct: number;
+  totalAppInstalls: number; // It will the count the user whose profile is completed or not.
 }
 
 export interface DailyActiveUsersEntry {
@@ -70,6 +71,10 @@ export interface FarmerProfile {
   usesAgriApps?: boolean;
   highestEducatedPerson?: string;
   numberOfSmartphones?: number;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
 export interface UserDetailEntry {
@@ -86,6 +91,23 @@ export interface PaginatedUserDetails {
   totalPages: number;
   activeUsers: number;
   totalQuestions: number;
+}
+
+export interface DemographicEntry {
+  label: string;
+  count: number;
+  pct: number;
+}
+
+export interface UserDemographics {
+  ageGroups: DemographicEntry[];
+  genderSplit: DemographicEntry[];
+  farmingExperience: DemographicEntry[];
+}
+
+export interface KccAndAgriAppStats {
+  kccAwareness: DemographicEntry[];
+  agriAppUsage: DemographicEntry[];
 }
 
 // ─── Single consolidated interface ───────────────────────────────────────────
@@ -179,6 +201,12 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
   ): Promise<ChatbotConversationData[]>;
+
+  /** Aggregate age group, gender split, and farming experience distributions from farmerProfile. */
+  getUserDemographics(source?: string, session?: ClientSession): Promise<UserDemographics>;
+
+  /** Aggregate KCC policy awareness and agri app usage splits from farmerProfile. */
+  getKccAndAgriAppStats(source?: string, session?: ClientSession): Promise<KccAndAgriAppStats>;
 }
 
 export interface ChatbotConversationData {

@@ -3,7 +3,8 @@
         "."
     ],
     "graphs": {
-        "master_orchestrator": "./agents/orchestrator.py:master_graph"
+        "ajrasakha_agent": "./ajrasakha/agents/orchestrator.py:master_graph"
     },
     "env": ".env"
 }
+
