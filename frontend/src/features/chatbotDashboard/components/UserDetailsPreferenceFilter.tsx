@@ -47,12 +47,21 @@ interface UserDetailsPreferenceFilterProps {
 
 function toDateInputValue(d: Date | undefined): string {
   if (!d) return "";
-  return d.toISOString().split("T")[0];
+  // Format using local time components to stay consistent with fromDateInputValue.
+  // d.toISOString() converts to UTC first, which can shift the date by a day for IST users.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function fromDateInputValue(s: string): Date | undefined {
   if (!s) return undefined;
-  return new Date(s);
+  // Parse as local midnight, NOT UTC.
+  // new Date("YYYY-MM-DD") treats the string as UTC which causes a timezone
+  // offset mismatch vs setHours(0,0,0,0) used elsewhere in the app.
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
 }
 
 function defaultInactiveStart(): Date {
@@ -236,10 +245,42 @@ export function UserDetailsPreferenceFilter({
                 />
               </div>
             </div>
+            {draft.inactiveOnly && inactiveDateError && (
+              <p className="text-xs text-destructive mt-2">{inactiveDateError}</p>
+            )}
+            {draft.inactiveOnly && !inactiveDateError && (
+              <p className="text-xs text-muted-foreground mt-2">Range: 3–30 days</p>
+            )}
           </FilterSection>
 
-          {/* Profile Completed */}
-          <FilterSection icon={<UserCheck className="h-3.5 w-3.5" />} label="Farmer Profile">
+          {/* Profile Completed + Inactive Users inline */}
+          <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#161616] p-4 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <Label className="flex items-center gap-2 text-sm font-semibold text-(--foreground)">
+                <span className="flex items-center justify-center w-6 h-6 rounded-md bg-[#3AAA5A]/10 text-[#3AAA5A]">
+                  <UserCheck className="h-3.5 w-3.5" />
+                </span>
+                Farmer Profile
+              </Label>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="inactive-only"
+                  checked={draft.inactiveOnly}
+                  onCheckedChange={(checked) =>
+                    setDraft((d) => ({
+                      ...d,
+                      inactiveOnly: !!checked,
+                      startTime: checked && !d.startTime ? defaultInactiveStart() : d.startTime,
+                      endTime: checked && !d.endTime ? new Date() : d.endTime,
+                    }))
+                  }
+                />
+                <Label htmlFor="inactive-only" className="flex items-center gap-1.5 text-sm cursor-pointer select-none text-(--foreground)">
+                  <UserX className="h-3.5 w-3.5 text-[#3AAA5A]" />
+                  Inactive Users
+                </Label>
+              </div>
+            </div>
             <Select
               value={draft.profileCompleted}
               onValueChange={(v) =>
@@ -255,37 +296,7 @@ export function UserDetailsPreferenceFilter({
                 <SelectItem value="no">Profile Not Completed</SelectItem>
               </SelectContent>
             </Select>
-          </FilterSection>
-
-          {/* Inactive Users */}
-          <FilterSection icon={<UserX className="h-3.5 w-3.5" />} label="Inactive Users">
-            <div className="flex items-center gap-2.5 py-1">
-              <Checkbox
-                id="inactive-only"
-                checked={draft.inactiveOnly}
-                onCheckedChange={(checked) =>
-                  setDraft((d) => ({
-                    ...d,
-                    inactiveOnly: !!checked,
-                    // Auto-default to last 3 days if no date range is set
-                    startTime: checked && !d.startTime ? defaultInactiveStart() : d.startTime,
-                    endTime: checked && !d.endTime ? new Date() : d.endTime,
-                  }))
-                }
-              />
-              <Label htmlFor="inactive-only" className="text-sm cursor-pointer select-none">
-                Show only users with 0 questions in period
-              </Label>
-            </div>
-            {draft.inactiveOnly && (
-              <p className="text-xs mt-1 text-muted-foreground">
-                Uses the Date Range above · must be 3–30 days
-              </p>
-            )}
-            {draft.inactiveOnly && inactiveDateError && (
-              <p className="text-xs text-destructive mt-1">{inactiveDateError}</p>
-            )}
-          </FilterSection>
+          </div>
         </div>
 
         {/* Footer */}
