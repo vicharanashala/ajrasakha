@@ -3,8 +3,10 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 from dotenv import load_dotenv
-import httpx
 import os
+import httpx
+
+load_dotenv()
 
 # ================= MCP (OPTIONAL) =================
 try:
@@ -15,8 +17,6 @@ except ImportError:
 
 
 # ================= CONFIG =================
-
-load_dotenv()
 API_KEY = os.getenv("DATA_GOV_API_KEY")
 RESOURCE_ID = "35985678-0d79-46b4-9ed6-6f13308a1d24"
 
@@ -40,18 +40,41 @@ async def _request(params: dict[str, Any]) -> dict[str, Any]:
             async with httpx.AsyncClient(timeout=TIMEOUT) as client:
                 response = await client.get(BASE_URL, params=query)
                 response.raise_for_status()
+
+                api_response = response.json()
+
+                # Correct key from API response
+                records = api_response.get("records", [])
+
+                cleaned = [
+                    {
+                        "state": r.get("State"),
+                        "district": r.get("District"),
+                        "market": r.get("Market"),
+                        "commodity": r.get("Commodity"),
+                        "arrival_date": r.get("Arrival_Date"),
+                        "min_price": r.get("Min_Price"),
+                        "max_price": r.get("Max_Price"),
+                        "modal_price": r.get("Modal_Price"),
+                    }
+                    for r in records
+                ]
+
                 return {
                     "success": True,
-                    "data": response.json(),
+                    "total": api_response.get("total", 0),
+                    "count": len(cleaned),
+                    "data": cleaned,
                 }
+
         except Exception as e:
             if i == RETRIES - 1:
                 return {
                     "success": False,
                     "error": str(e),
                 }
-            await asyncio.sleep(0.5 * (2 ** i))
 
+            await asyncio.sleep(0.5 * (2 ** i))
 
 # ================= BUSINESS LOGIC =================
 
@@ -60,7 +83,6 @@ async def fetch_mandi_prices(
     district: str | None = None,
     commodity: str | None = None,
     arrival_date: str | None = None,
-    limit: int = 10,
     offset: int = 0,
 ) -> dict[str, Any]:
     """
@@ -71,12 +93,10 @@ async def fetch_mandi_prices(
     - district (e.g. "Hoshangabad")
     - commodity (e.g. "Wheat")
     - arrival_date (YYYY-MM-DD)
-    - limit (default 10)
     - offset (default 0)
     """
 
     params: dict[str, Any] = {
-        "limit": limit,
         "offset": offset,
         # "sort[arrival_date]": "desc",
     }
@@ -95,50 +115,6 @@ async def fetch_mandi_prices(
 
     return await _request(params)
 
-
-# ================= CLEAN RESPONSE (OPTIONAL) =================
-
-# async def fetch_clean_prices(
-#     state: str | None = None,
-#     district: str | None = None,
-#     commodity: str | None = None,
-#     arrival_date: str | None = None,
-#     limit: int = 10,
-# ) -> dict[str, Any]:
-#     raw = await fetch_mandi_prices(
-#         state=state,
-#         district=district,
-#         commodity=commodity,
-#         arrival_date=arrival_date,
-#         limit=limit,
-#     )
-
-#     if not raw.get("success"):
-#         return raw
-
-#     records = raw["data"].get("records", [])
-
-#     cleaned = [
-#         {
-#             "state": r.get("State"),
-#             "district": r.get("District"),
-#             "market": r.get("Market"),
-#             "commodity": r.get("Commodity"),
-#             "arrival_date": r.get("Arrival_Date"),
-#             "min_price": r.get("Min_Price"),
-#             "max_price": r.get("Max_Price"),
-#             "modal_price": r.get("Modal_Price"),
-#         }
-#         for r in records
-#     ]
-#     return {
-#         "success": True,
-#         "count": len(cleaned),
-#         "data": cleaned,
-#     }
-
-
-# ================= MCP REGISTRATION =================
 
 if mcp:
     mcp.tool()(fetch_mandi_prices)
