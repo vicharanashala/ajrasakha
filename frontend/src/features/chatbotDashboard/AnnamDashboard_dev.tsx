@@ -162,22 +162,25 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                   <EightCardsComponent kpiRow1={kpiRow1WithOverlay} kpiRow2={kpiRow2WithOverlay} />
                 </div>
 
-                {/* DAU trend + Channel split */}
+                {/* DAU trend + Alerts */}
                 <div
                   ref={(el) => {
                     sectionRefs.current["usage-patterns"] = el;
                   }}
-                  className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4"
+                  className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch"
                 >
                   <DailyActiveUsers
                     data={dauTrend}
                     isLoading={dauLoading}
                     error={dauError}
                   />
-                  <ChannelSplitCard
-                    channelSplit={data.channelSplit}
-                    voiceAccuracy={data.voiceAccuracy}
-                  />
+                  <div
+                    ref={(el) => {
+                      sectionRefs.current["bugs-ux"] = el;
+                    }}
+                  >
+                    <AlertCard alerts={data.alerts} inactiveUsersLast3Days={(data as any).inactiveUsersLast3Days ?? 0} onInactiveClick={handleInactiveUsersClick} />
+                  </div>
                 </div>
 
                 {/* Demographics */}
@@ -325,10 +328,13 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                   </div>
                   <div
                     ref={(el) => {
-                      sectionRefs.current["bugs-ux"] = el;
+                      sectionRefs.current["feedback-sentiment"] = el;
                     }}
                   >
-                    <AlertCard alerts={data.alerts} inactiveUsersLast3Days={(data as any).inactiveUsersLast3Days ?? 0} onInactiveClick={handleInactiveUsersClick} />
+                    <ChannelSplitCard
+                      channelSplit={data.channelSplit}
+                      voiceAccuracy={data.voiceAccuracy}
+                    />
                   </div>
                 </div>
 
