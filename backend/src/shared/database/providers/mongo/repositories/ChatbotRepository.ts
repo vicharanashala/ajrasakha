@@ -990,7 +990,7 @@ export class ChatbotRepository implements IChatbotRepository {
       ]);
 
       const toPct = (count: number, total: number) =>
-        total === 0 ? 0 : Math.round((count / total) * 100);
+        total === 0 ? 0 : parseFloat(((count / total) * 100).toFixed(2));
 
       const ageBoundaryLabel: Record<string | number, string> = {
         18: '18-25', 26: '26-35', 36: '36-45', 46: '46-55', '55+': '55+',
@@ -1051,7 +1051,7 @@ export class ChatbotRepository implements IChatbotRepository {
       ]);
 
       const toPct = (count: number, total: number) =>
-        total === 0 ? 0 : Math.round((count / total) * 100);
+        total === 0 ? 0 : parseFloat(((count / total) * 100).toFixed(2));
 
       const kccTotal = kccRaw.reduce((s, r) => s + r.count, 0);
       const kccAwareness: DemographicEntry[] = kccRaw
