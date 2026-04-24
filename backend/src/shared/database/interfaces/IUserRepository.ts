@@ -254,6 +254,7 @@ countNonBlockedExperts(session?:ClientSession): Promise<number>
 
 findExpertAutoCompleteOptions(
   query: string,
+  userRole: string | undefined,
   session?: ClientSession,
 ): Promise<{_id: string; userName: string}[]>
 }

@@ -453,10 +453,13 @@ export class UserController {
     query: {
       search?: string;
     },
+    @CurrentUser() currentUser: IUser,
   ): Promise<{_id: string; userName: string}[]> {
     const {search = ''} = query;
+    const userRole = currentUser?.role;
     return await this.userService.getExpertAutoCompleteOptions(
       search,
+      userRole,
     );
   }
 }
