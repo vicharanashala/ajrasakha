@@ -193,34 +193,18 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                 />
 
                 {/* 3-col row */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
-                  <div
-                    ref={(el) => {
-                      sectionRefs.current["query-analysis"] = el;
-                    }}
-                  >
-                    <DashboardQueryCategories
-                      categories={data.queryCategories}
-                    />
-                  </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4 items-stretch">
                   <div
                     ref={(el) => {
                       sectionRefs.current["farmer-segments"] = el;
                     }}
                   >
-                    {/* <DashboardFarmerSegments
-                      segments={data.farmerSegments}
-                      activeSegment={activeSegment}
-                      onSegmentClick={handleSegmentClick}
-                      onClear={clearSegment}
-                      segmentRowRefs={segmentRowRefs}
-                    /> */}
                     {/* Knowledge & Awareness */}
                     <div className="rounded-xl border border-gray-200 bg-white dark:border-[#2a2a2a] dark:bg-[#1a1a1a] p-4 h-full">
                       <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">
                         Knowledge & Awareness
                       </div>
-                      <div className="flex gap-6 justify-center items-center h-[calc(100%-2rem)]">
+                      <div className="flex flex-wrap gap-4 justify-center items-center h-[calc(100%-2rem)] overflow-hidden">
                         {/* KCC Awareness Circle */}
                         {(() => {
                           const pct = data.kccAwareness?.[0]?.pct ?? 0;
@@ -230,11 +214,10 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                             circ = 2 * Math.PI * r;
                           const dash = (pct / 100) * circ;
                           return (
-                            <div className="flex flex-col items-center gap-2">
+                            <div className="flex flex-col items-center gap-2 min-w-0">
                               <svg
-                                width={120}
-                                height={120}
                                 viewBox="0 0 120 120"
+                                className="w-[100px] h-[100px] lg:w-[110px] lg:h-[110px] shrink-0"
                               >
                                 <circle
                                   cx={cx}
@@ -281,11 +264,10 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                             circ = 2 * Math.PI * r;
                           const dash = (pct / 100) * circ;
                           return (
-                            <div className="flex flex-col items-center gap-2">
+                            <div className="flex flex-col items-center gap-2 min-w-0">
                               <svg
-                                width={120}
-                                height={120}
                                 viewBox="0 0 120 120"
+                                className="w-[100px] h-[100px] lg:w-[110px] lg:h-[110px] shrink-0"
                               >
                                 <circle
                                   cx={cx}
@@ -325,6 +307,15 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                         })()}
                       </div>
                     </div>
+                  </div>
+                  <div
+                    ref={(el) => {
+                      sectionRefs.current["query-analysis"] = el;
+                    }}
+                  >
+                    <DashboardQueryCategories
+                      categories={data.queryCategories}
+                    />
                   </div>
                   <div
                     ref={(el) => {
