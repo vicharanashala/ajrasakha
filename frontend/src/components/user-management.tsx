@@ -115,7 +115,12 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                   placeholder="Search users..."
                   value={inputValue}
                   onChange={(e) => {
-                    setInputValue(e.target.value);
+                    const nextValue = e.target.value;
+                    setInputValue(nextValue);
+                    if (nextValue.trim() === "") {
+                      setAppliedSearch("");
+                      setPage(1);
+                    }
                   }}
                   onClear={() => {
                     setInputValue("");
