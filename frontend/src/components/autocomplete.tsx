@@ -116,9 +116,15 @@ export function Autocomplete<T>({
               ))}
             </ul>
           ) : isTyping ? null : (
-            <div className="px-4 py-2 text-sm text-muted-foreground">
-              No results found
-            </div>
+            <ul className="py-1">
+              <li
+                className="px-4 py-2 cursor-pointer hover:bg-muted/50 transition-colors italic flex items-center justify-between"
+                onClick={() => handleSelect(value as unknown as T)}
+              >
+                <span>Search for "{value}"</span>
+                <Search className="h-3 w-3 text-muted-foreground ml-2" />
+              </li>
+            </ul>
           )}
         </div>
       )}
