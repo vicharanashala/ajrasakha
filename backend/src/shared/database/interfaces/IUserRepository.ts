@@ -256,5 +256,5 @@ findExpertAutoCompleteOptions(
   query: string,
   userRole: string | undefined,
   session?: ClientSession,
-): Promise<{_id: string; userName: string}[]>
+): Promise<{_id: string; userName: string; email: string}[]>
 }

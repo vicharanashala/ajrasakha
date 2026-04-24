@@ -239,6 +239,15 @@ export class ExpertAutoCompleteResponse {
   })
   @IsString()
   userName: string;
+
+  @JSONSchema({
+    description: 'User email address',
+    example: 'john@example.com',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsString()
+  email: string;
 }
 
 // ─── Export all validators ────────────────────────────────────────────────────

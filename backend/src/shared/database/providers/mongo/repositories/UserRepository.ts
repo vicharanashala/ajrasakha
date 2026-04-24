@@ -1282,7 +1282,7 @@ async unBlockExperts():Promise<void>{
   async findExpertAutoCompleteOptions(
     query: string,
     userRole: string | undefined
-  ): Promise<{_id: string; userName: string}[]> {
+  ): Promise<{_id: string; userName: string; email:string;}[]> {
     await this.init();
     const isAdmin = userRole === 'admin';
     try {
@@ -1319,21 +1319,27 @@ async unBlockExperts():Promise<void>{
                       fuzzy: { maxEdits: 1 },
                     },
                   },
+                  {
+                    autocomplete: {
+                      query: trimmedQuery,
+                      path: 'email',
+                    },
+                  },
                 ],
                 minimumShouldMatch: 1,
               },
             },
           },
           { $limit: 10 },
-          { $project: { _id: 1, firstName: 1, lastName: 1 } },
+          { $project: { _id: 1, firstName: 1, lastName: 1, email: 1 } },
         ]
       const result = await this.usersCollection
         .aggregate(pipeline)
         .toArray();
-      console.log('result:',result)
       const final = result.map(user => ({
         _id: user._id.toString(),
         userName: `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim(),
+        email: user.email ?? '',
       }));
       console.log('Autocomplete options:', final);
       return final;

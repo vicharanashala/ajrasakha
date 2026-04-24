@@ -21,6 +21,12 @@ export interface IUsersNameResponse {
   totalPages: number;
 }
 
+export interface ExpertAutocompleteOption {
+  _id: string;
+  userName: string;
+  email: string;
+}
+
 
 export const useGetAllUsers = (
   options: { enabled?: boolean } = {}
@@ -69,7 +75,7 @@ export const useExpertAutocomplete = (
   search: string,
   options: { enabled?: boolean } = {}
 ) => {
-  const { data, isLoading, isFetching, error } = useQuery<{_id: string; userName: string}[] | null>({
+  const { data, isLoading, isFetching, error } = useQuery<ExpertAutocompleteOption[] | null>({
     queryKey: ["expertAutocomplete", search],
     queryFn: async () => {
       return await userService.getExpertAutoCompleteOptions(search);

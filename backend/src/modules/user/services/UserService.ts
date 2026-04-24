@@ -298,7 +298,7 @@ async getAllUsersforManualSelect(
   async getExpertAutoCompleteOptions(
     search: string,
     userRole: string | undefined
-  ): Promise<{ _id: string; userName: string }[]> {
+  ): Promise<{ _id: string; userName: string; email: string }[]> {
     return await this.userRepo.findExpertAutoCompleteOptions(search, userRole);
   }
 }
