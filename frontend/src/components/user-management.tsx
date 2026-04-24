@@ -142,8 +142,15 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                     );
                   }}
                   onSelect={(user: any) => {
-                    const searchValue = user.userName || user;
-                    setInputValue(searchValue);
+                    const displayValue =
+                      typeof user === "string"
+                        ? user
+                        : (user.userName || "").trim();
+                    const searchValue =
+                      typeof user === "string"
+                        ? user.trim()
+                        : (user.email || displayValue).trim();
+                    setInputValue(displayValue);
                     setAppliedSearch(searchValue);
                     setPage(1);
                   }}

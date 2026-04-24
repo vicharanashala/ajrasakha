@@ -923,6 +923,21 @@ async findAllUsers(
           {firstName: {$regex: search, $options: 'i'}},
           {lastName: {$regex: search, $options: 'i'}},
           { email: { $regex: search, $options: 'i' } },
+          {
+            $expr: {
+              $regexMatch: {
+                input: {
+                  $concat: [
+                    {$ifNull: ['$firstName', '']},
+                    ' ',
+                    {$ifNull: ['$lastName', '']},
+                  ],
+                },
+                regex: search,
+                options: 'i',
+              },
+            },
+          },
         ];
       }
 

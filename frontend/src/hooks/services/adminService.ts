@@ -14,8 +14,16 @@ export class AdminUserService {
     sort: string,
     filter: string
   ): Promise<{ users: IUser[]; totalUsers: number; totalPages: number } | null> {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+      search,
+      sort,
+      filter,
+    });
+
     return apiFetch(
-      `${this._baseUrl}/admin/all?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}`
+      `${this._baseUrl}/admin/all?${params.toString()}`
     );
   }
 }

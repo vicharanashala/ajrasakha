@@ -33,7 +33,15 @@ export class UserService {
   }
 
   async useGetAllExperts(page:number,limit:number,search:string,sort:string,filter:string):Promise<{experts:IUser[]; totalExperts:number; totalPages:number} | null>{
-    return apiFetch<{experts:IUser[]; totalExperts:number; totalPages:number}>(`${this._baseUrl}/list?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}`);
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+      search,
+      sort,
+      filter,
+    });
+
+    return apiFetch<{experts:IUser[]; totalExperts:number; totalPages:number}>(`${this._baseUrl}/list?${params.toString()}`);
   }
 
   async isBlockUser(userId:string,action:string):Promise<void | null>{
