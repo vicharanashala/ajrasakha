@@ -15,8 +15,12 @@ import { SourcesChart } from "./dashboard/sources-chart";
 import HeatMap from "./HeatMap";
 import { Card, CardHeader, CardTitle } from "./atoms/card";
 import {
-  useGetDashboardData,
-  type DashboardAnalyticsResponse,
+  useGetOverview,
+  useGetGoldenDataset,
+  useGetContributionTrend,
+  useGetStatusOverview,
+  useGetExpertPerformance,
+  useGetQuestionsAnalytics,
 } from "@/hooks/api/performance/useGetDashboard";
 import { DashboardClock } from "./dashboard/dashboard-clock";
 import { Spinner } from "./atoms/spinner";
@@ -43,7 +47,7 @@ export const Dashboard = () => {
   const [selectedDay, setSelectedDay] = useState("Mon");
 
   // ---- SourcesChart state filters ----- //
-  const [timeRange, setTimeRange] = useState("90d"); // questionContributionTrend
+  const [timeRange, setTimeRange] = useState("90d");
 
   // ---- QuestionsAnalytics state filters ----- //
   const [date, setDate] = useState<DateRange>({
@@ -60,73 +64,31 @@ export const Dashboard = () => {
     endTime: undefined,
   });
 
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [dashboardState, setDashboardState] =
-    useState<DashboardAnalyticsResponse | null>(null);
+  const { data: user } = useGetCurrentUser();
 
-  const [activeFilter, setActiveFilter] = useState<"all" | "golden" | "sources" | "analytics">("all");
-
-  const { data: user} = useGetCurrentUser();
-
-
-  // Fetch dashboard data
-  const {
-    data: dashboardData,
-    isLoading,
-    isFetching,
-    error,
-  } = useGetDashboardData({
-    goldenDataViewType: viewType,
-    goldenDataSelectedYear: selectedYear,
-    goldenDataSelectedMonth: selectedMonth,
-    goldenDataSelectedWeek: selectedWeek,
-    goldenDataSelectedDay: selectedDay,
-    sourceChartTimeRange: timeRange,
-    qnAnalyticsStartTime: date.startTime,
-    qnAnalyticsEndTime: date.endTime,
-    qnAnalyticsType: analyticsType,
+  // Granular Hooks
+  const { data: overviewData, isLoading: isOverviewLoading } = useGetOverview();
+  const { data: goldenData, isLoading: isGoldenLoading } = useGetGoldenDataset({
+    viewType,
+    selectedYear,
+    selectedMonth,
+    selectedWeek,
+    selectedDay,
   });
-
-  useEffect(() => {
-    if (dashboardData?.userRoleOverview) {
-      setDashboardState(dashboardData);
-      setInitialLoading(false);
-    }
-    if (error && !dashboardData) {
-      setInitialLoading(false);
-    }
-  }, [dashboardData, error]);
-
-  useEffect(() => {
-    if (!isLoading && !isFetching) {
-      setActiveFilter("all");
-    }
-  }, [isLoading, isFetching]);
+  const { data: contributionData, isLoading: isContributionLoading } = useGetContributionTrend(timeRange);
+  const { data: statusData, isLoading: isStatusLoading } = useGetStatusOverview();
+  const { data: expertData, isLoading: isExpertLoading } = useGetExpertPerformance();
+  const { data: analyticsData, isLoading: isAnalyticsLoading } = useGetQuestionsAnalytics({
+    type: analyticsType,
+    startTime: date.startTime,
+    endTime: date.endTime,
+  });
 
   const handleHeatMapDateChange = (key: string, value?: Date) => {
     setHeatMapDate((prev) => ({
       ...prev,
       [key]: value,
     }));
-  };
-
-  const emptyDashboard: DashboardAnalyticsResponse = {
-    userRoleOverview: [],
-    moderatorApprovalRate: { approved: 0, pending: 0, approvalRate: 0 },
-    goldenDataset: {
-      type: "year" as GoldenDataset["type"],
-      yearData: [] as GoldenDataset["yearData"],
-      weeksData: [] as GoldenDataset["weeksData"],
-      dailyData: [] as GoldenDataset["dailyData"],
-      dayHourlyData: {} as GoldenDataset["dayHourlyData"],
-      totalEntriesByType: 0,
-      verifiedEntries: 0,
-      todayApproved: 0,
-    },
-    questionContributionTrend: [],
-    statusOverview: { questions: [], answers: [] },
-    expertPerformance: [],
-    analytics: { cropData: [], stateData: [], domainData: [] },
   };
 
   const handleSendCronReport = async () => {
@@ -140,20 +102,15 @@ export const Dashboard = () => {
     }
   };
 
-
-
-  const dataToShow = dashboardState ?? emptyDashboard;
-
-  if (error && !dashboardState && !initialLoading) {
-    return <p className="p-6 text-red-500">Error loading dashboard data</p>;
-  }
-
-  const isGoldenLoading = isLoading || (activeFilter === "golden" && isFetching);
-  const isSourcesLoading = isLoading || (activeFilter === "sources" && isFetching);
-  const isAnalyticsLoading = isLoading || (activeFilter === "analytics" && isFetching);
-  const isGeneralLoading = isLoading || (activeFilter === "all" && isFetching);
-
-  const LoadingWrapper = ({ loading, text, children }: { loading: boolean; text: string; children: React.ReactNode }) => (
+  const LoadingWrapper = ({
+    loading,
+    text,
+    children,
+  }: {
+    loading: boolean;
+    text: string;
+    children: React.ReactNode;
+  }) => (
     <div className="relative overflow-hidden rounded-xl min-h-[300px]">
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-xl">
@@ -170,7 +127,9 @@ export const Dashboard = () => {
         <div className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
-              {user?.role === "admin" ? "Admin Dashboard" : "Moderator Dashboard"}
+              {user?.role === "admin"
+                ? "Admin Dashboard"
+                : "Moderator Dashboard"}
             </h1>
             <p className="text-muted-foreground mt-1">
               Monitor content moderation and expert performance
@@ -178,73 +137,114 @@ export const Dashboard = () => {
           </div>
 
           <div className="flex items-center gap-4">
-
             <DashboardClock />
           </div>
         </div>
-       <div>
-</div>
 
         {/* Top Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <LoadingWrapper loading={isGeneralLoading} text="Fetching role overview...">
-            <ModeratorsOverview data={dataToShow.userRoleOverview} />
+          <LoadingWrapper
+            loading={isOverviewLoading}
+            text="Fetching role overview..."
+          >
+            <ModeratorsOverview data={overviewData?.userRoleOverview ?? []} />
           </LoadingWrapper>
-          <LoadingWrapper loading={isGeneralLoading} text="Fetching approval stats...">
-            <ApprovalRateCard data={dataToShow.moderatorApprovalRate} />
-          </LoadingWrapper>
-        </div>
-        {/* Full Width Sources Chart */}
-        <div className="mb-6 ">
-          <GoldenDatasetOverview
-            data={dataToShow.goldenDataset}
-            isLoading={isGoldenLoading}
-            selectedYear={selectedYear}
-            setSelectedYear={(v) => { setActiveFilter("golden"); setSelectedYear(v); }}
-            selectedDay={selectedDay}
-            selectedMonth={selectedMonth}
-            selectedWeek={selectedWeek}
-            setSelectedDay={(v) => { setActiveFilter("golden"); setSelectedDay(v); }}
-            setSelectedMonth={(v) => { setActiveFilter("golden"); setSelectedMonth(v); }}
-            setSelectedWeek={(v) => { setActiveFilter("golden"); setSelectedWeek(v); }}
-            setViewType={(v) => { setActiveFilter("golden"); setViewType(v); }}
-            viewType={viewType}
-          />
-        </div>
-        <div className="mb-6">
-          <LoadingWrapper loading={isSourcesLoading} text="Fetching sources chart...">
-            <SourcesChart
-              data={dataToShow.questionContributionTrend}
-              timeRange={timeRange}
-              setTimeRange={(v) => { setActiveFilter("sources"); setTimeRange(v); }}
+          <LoadingWrapper
+            loading={isOverviewLoading}
+            text="Fetching approval stats..."
+          >
+            <ApprovalRateCard
+              data={
+                overviewData?.moderatorApprovalRate ?? {
+                  approved: 0,
+                  pending: 0,
+                  approvalRate: 0,
+                }
+              }
             />
           </LoadingWrapper>
         </div>
 
-        {/* Question Status and Golden Dataset Row */}
+        {/* Golden Dataset Row */}
+        <div className="mb-6 ">
+          <GoldenDatasetOverview
+            data={
+              goldenData ?? {
+                type: viewType,
+                yearData: [],
+                weeksData: [],
+                dailyData: [],
+                dayHourlyData: {},
+                totalEntriesByType: 0,
+                totalVerifiedByType: 0,
+                verifiedEntries: 0,
+              }
+            }
+            isLoading={isGoldenLoading}
+            selectedYear={selectedYear}
+            setSelectedYear={setSelectedYear}
+            selectedDay={selectedDay}
+            selectedMonth={selectedMonth}
+            selectedWeek={selectedWeek}
+            setSelectedDay={setSelectedDay}
+            setSelectedMonth={setSelectedMonth}
+            setSelectedWeek={setSelectedWeek}
+            setViewType={setViewType}
+            viewType={viewType}
+          />
+        </div>
+
+        {/* Sources Chart Row */}
         <div className="mb-6">
-          <LoadingWrapper loading={isGeneralLoading} text="Fetching status overview...">
-            <StatusCharts data={dataToShow.statusOverview} />
+          <LoadingWrapper
+            loading={isContributionLoading}
+            text="Fetching sources chart..."
+          >
+            <SourcesChart
+              data={contributionData ?? []}
+              timeRange={timeRange}
+              setTimeRange={setTimeRange}
+            />
           </LoadingWrapper>
         </div>
 
-        {/* Performance Row */}
+        {/* Question Status Row */}
         <div className="mb-6">
-          <LoadingWrapper loading={isAnalyticsLoading} text="Fetching analytics data...">
-            <QuestionsAnalytics
-              date={date}
-              setDate={(v) => { setActiveFilter("analytics"); setDate(v); }}
-              analyticsType={analyticsType}
-              setAnalyticsType={(v) => { setActiveFilter("analytics"); setAnalyticsType(v); }}
-              data={dataToShow.analytics}
+          <LoadingWrapper
+            loading={isStatusLoading}
+            text="Fetching status overview..."
+          >
+            <StatusCharts
+              data={statusData ?? { questions: [], answers: [] }}
             />
           </LoadingWrapper>
         </div>
 
         {/* Analytics Row */}
+        <div className="mb-6">
+          <LoadingWrapper
+            loading={isAnalyticsLoading}
+            text="Fetching analytics data..."
+          >
+            <QuestionsAnalytics
+              date={date}
+              setDate={setDate}
+              analyticsType={analyticsType}
+              setAnalyticsType={setAnalyticsType}
+              data={
+                analyticsData ?? { cropData: [], stateData: [], domainData: [] }
+              }
+            />
+          </LoadingWrapper>
+        </div>
+
+        {/* Performance Row */}
         <div className="flex flex-col gap-5">
-          <LoadingWrapper loading={isGeneralLoading} text="Fetching expert performance...">
-            <ExpertsPerformance data={dataToShow.expertPerformance} />
+          <LoadingWrapper
+            loading={isExpertLoading}
+            text="Fetching expert performance..."
+          >
+            <ExpertsPerformance data={expertData ?? []} />
           </LoadingWrapper>
           <div className="space-y-6  hidden md:block">
             <Card className="border border-muted shadow-sm w-full lg:w-auto flex-1">
@@ -280,7 +280,6 @@ export const Dashboard = () => {
           </button>
         </div>
       )}
-
     </main>
   );
 };

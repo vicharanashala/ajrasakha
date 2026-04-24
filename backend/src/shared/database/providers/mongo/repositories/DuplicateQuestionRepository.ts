@@ -71,7 +71,7 @@ export class DuplicateQuestionRepository  implements IDuplicateQuestionRepositor
   async findDuplicatesByDateRange(
     startDate: Date,
     endDate: Date,
-    sources: 'AJRASAKHA',  
+    // sources: 'AJRASAKHA',
     session?: ClientSession,
   ): Promise<ISimilarQuestion[]> {
     try {
@@ -83,7 +83,7 @@ export class DuplicateQuestionRepository  implements IDuplicateQuestionRepositor
 
       const duplicates = await this.DuplicateQuestionCollection.find(
         {
-          source: sources,
+          // source: sources,
           createdAt: {
             $gte: startDate,
             $lte: endOfDay

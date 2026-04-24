@@ -10,8 +10,9 @@ export const DASHBOARD_DATA = {
   ] as KpiCard[],
   kpiRow2: [
     // { id: "csat", label: "CSAT rating", value: "4.2 ★", delta: "+0.3 pts this month", deltaDir: "up" as const, accentColor: "#1D9E75" },
-    { id: "androidInstalls", label: "Android Installs", value: "5,820", delta: "90.2% of total", deltaDir: "up" as const, accentColor: "#3AAA5A" },
-    { id: "iosInstalls", label: "iOS Installs", value: "630", delta: "9.8% of total", deltaDir: "up" as const, accentColor: "#378ADD" },
+    { id: "totalInstalls", label: "Total Installs", value: "0", delta: "All platforms", deltaDir: "up" as const, accentColor: "#1D9E75", icon: "download" },
+    { id: "androidInstalls", label: "Android Installs", value: "5,820", delta: "90.2% of total", deltaDir: "up" as const, accentColor: "#3AAA5A", icon: "android" },
+    { id: "iosInstalls", label: "iOS Installs", value: "630", delta: "9.8% of total", deltaDir: "up" as const, accentColor: "#378ADD", icon: "apple" },
     { id: "repeatQuery", label: "Repeat query rate", value: "28%", delta: "Target: <10% · gap", deltaDir: "down" as const, accentColor: "#EF9F27", valueColor: "#854F0B" },
     // { id: "voice", label: "Voice usage share", value: "61%", delta: "Primary mode", deltaDir: "up" as const, accentColor: "#378ADD" },
     { id: "states", label: "States active", value: "19 / 28", delta: "3 new states added", deltaDir: "up" as const, accentColor: "#7C6FD4" },

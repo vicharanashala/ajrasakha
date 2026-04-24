@@ -30,7 +30,7 @@ function chunkArray<T>(arr: T[], chunkSize: number): T[][] {
 }
 
 
-export const startBackgroundProcessing = (questionIds: string[], isRequiredAiInitialAnswer: boolean) => {
+export const startBackgroundProcessing = (questionIds: string[], isRequiredAiInitialAnswer: boolean, isOutreachQuestion: boolean = false) => {
   if (!questionIds?.length) return;
 
   const jobId = Date.now().toString();
@@ -66,7 +66,8 @@ export const startBackgroundProcessing = (questionIds: string[], isRequiredAiIni
         ids: chunk,
         mongoUri: process.env.DB_URL!,
         dbName: process.env.DB_NAME!,
-        isRequiredAiInitialAnswer
+        isRequiredAiInitialAnswer,
+        isOutreachQuestion
       },
     });
 

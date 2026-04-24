@@ -26,7 +26,21 @@ import {
   IReviewerHeatmapResponse,
 } from '#root/shared/interfaces/models.js';
 import { PerformanceService } from '../services/PerformanceService.js';
-import { DashboardResponse, GetDashboardQuery, GetHeatMapQuery } from '#root/modules/dashboard/validators/DashboardValidators.js';
+import {
+  DashboardResponse,
+  GetDashboardQuery,
+  GetHeatMapQuery,
+  GetGoldenDatasetQuery,
+  GetContributionTrendQuery,
+  GetQuestionsAnalyticsQuery,
+  UserRoleOverview,
+  ModeratorApprovalRate,
+  GoldenDataset,
+  QuestionContributionTrend,
+  StatusOverview,
+  ExpertPerformance,
+  Analytics
+} from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { IPerformanceService } from '../interfaces/IPerformanceService.js';
 import {
   PerformanceErrorResponse,
@@ -83,6 +97,51 @@ export class PerformanceController {
     );
 
     return data;
+  }
+
+  @OpenAPI({ summary: 'Get role overview and approval rates' })
+  @Get('/overview')
+  @Authorized()
+  async getOverview(@CurrentUser() user: IUser): Promise<{
+    userRoleOverview: UserRoleOverview[];
+    moderatorApprovalRate: ModeratorApprovalRate;
+  }> {
+    return this.performanceService.getOverview(user._id.toString());
+  }
+
+  @OpenAPI({ summary: 'Get golden dataset analytics' })
+  @Get('/golden-dataset')
+  @Authorized()
+  async getGoldenDataset(@QueryParams() query: GetGoldenDatasetQuery): Promise<GoldenDataset> {
+    return this.performanceService.getGoldenDataset(query);
+  }
+
+  @OpenAPI({ summary: 'Get question contribution trends' })
+  @Get('/contribution-trend')
+  @Authorized()
+  async getContributionTrend(@QueryParams() query: GetContributionTrendQuery): Promise<QuestionContributionTrend[]> {
+    return this.performanceService.getContributionTrend(query.timeRange);
+  }
+
+  @OpenAPI({ summary: 'Get status overview' })
+  @Get('/status-overview')
+  @Authorized()
+  async getStatusOverview(): Promise<StatusOverview> {
+    return this.performanceService.getStatusOverview();
+  }
+
+  @OpenAPI({ summary: 'Get expert performance metrics' })
+  @Get('/expert-performance')
+  @Authorized()
+  async getExpertPerformance(): Promise<ExpertPerformance[]> {
+    return this.performanceService.getExpertPerformance();
+  }
+
+  @OpenAPI({ summary: 'Get detailed questions/answers analytics' })
+  @Get('/questions-analytics')
+  @Authorized()
+  async getQuestionsAnalytics(@QueryParams() query: GetQuestionsAnalyticsQuery): Promise<Analytics> {
+    return this.performanceService.getQuestionsAnalytics(query);
   }
 
   @OpenAPI({

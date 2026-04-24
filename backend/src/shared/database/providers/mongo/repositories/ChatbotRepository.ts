@@ -52,6 +52,10 @@ interface IUser {
     usesAgriApps?: boolean;
     highestEducatedPerson?: string;
     numberOfSmartphones?: number;
+    location?: {
+      latitude: number;
+      longitude: number;
+    };
   };
 }
 
@@ -115,7 +119,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const lastYearMonth = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
-      const [totalUsers, monthlyActivity, sessionStats, todayQueryCount] =
+      const [totalUsers, monthlyActivity, sessionStats, todayQueryCount, totalAppInstalls] =
         await Promise.all([
           this.users.countDocuments({}, {session}),
 
@@ -157,6 +161,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
           // Today's query count from messages
           this.getTodayQueryCount(source, session),
+
+          this.users.countDocuments(
+            {
+                'farmerProfile.farmerName': { $exists: true, $nin: [null, ''] },
+            },
+            { session },
+          ),
         ]);
 
       const monthMap = Object.fromEntries(
@@ -184,6 +195,7 @@ export class ChatbotRepository implements IChatbotRepository {
         csatRating: 0,
         repeatQueryRatePct: 0,
         voiceUsageSharePct: 0,
+        totalAppInstalls,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get KPI summary: ${error}`);
@@ -744,6 +756,7 @@ export class ChatbotRepository implements IChatbotRepository {
           usesAgriApps: u.farmerProfile.usesAgriApps,
           highestEducatedPerson: u.farmerProfile.highestEducatedPerson,
           numberOfSmartphones: u.farmerProfile.numberOfSmartphones,
+          location: u.farmerProfile.location,
         } : undefined,
       }));
 
