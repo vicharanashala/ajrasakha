@@ -16,5 +16,6 @@ export const useAdminGetAllUsers = (
     queryFn: () =>
       adminUserService.getAllUsers(page, limit, search, sort, filter),
     enabled: options.enabled ?? true,
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
 };

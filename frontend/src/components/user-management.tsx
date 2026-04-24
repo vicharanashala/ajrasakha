@@ -29,10 +29,11 @@ import { ExpertDashboard } from "./ExpertDashboard";
 export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [selectExpertId, setSelectExpertId] = useState<string>("");
   const [rankPostion, setRankPosition] = useState<number>(0);
-  const [search, setSearch] = useState("");
+  const [inputValue, setInputValue] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [filter, setFilter] = useState("");
-  const debouncedSearch = useDebounce(search);
+  const debouncedSearch = useDebounce(inputValue, 250); 
   const { data: autocompleteOptions, isLoading: isAutocompleteLoading, isFetching: isAutocompleteFetching } = useUserAutocomplete(debouncedSearch);
   const [sort, setSort] = useState<string>("");
   const [page, setPage] = useState(1);
@@ -44,7 +45,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const { data: adminUsers, isLoading: adminLoading } = useAdminGetAllUsers(
     page,
     LIMIT,
-    debouncedSearch,
+    appliedSearch,
     sort,
     filter,
     { enabled: isAdmin }
@@ -63,7 +64,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const { data: expertDetails, isLoading: expertLoading } = useGetAllExperts(
     page,
     LIMIT,
-    debouncedSearch,
+    appliedSearch,
     sort,
     filter,
     { enabled: isModerator }
@@ -127,21 +128,23 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
               <div className="w-full">
                 <Autocomplete
                   placeholder="Search users..."
-                  value={search}
+                  value={inputValue}
                   onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(1);
+                    setInputValue(e.target.value);
                   }}
                   onClear={() => {
-                    setSearch("");
+                    setInputValue("");
+                    setAppliedSearch("");
                     setPage(1);
                   }}
                   data={autocompleteOptions || []}
                   isLoading={isAutocompleteLoading || isAutocompleteFetching}
-                  isTyping={search !== debouncedSearch}
-                  getDisplayValue={(user: any) => user.userName}
+                  isTyping={inputValue !== debouncedSearch}
+                  getDisplayValue={(user: any) => user.userName || user}
                   onSelect={(user: any) => {
-                    setSearch(user.userName);
+                    const searchValue = user.userName || user;
+                    setInputValue(searchValue);
+                    setAppliedSearch(searchValue);
                     setPage(1);
                   }}
                 />
