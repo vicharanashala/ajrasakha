@@ -78,6 +78,7 @@ export interface IQuestion {
   /** Sum of prior completed hold durations (ms); extended SLA = createdAt + window + this. */
   accumulatedHoldMs?: number;
   originalQuestion?:string
+  authors_history?: IAuthorsHistory[];
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
@@ -140,6 +141,21 @@ export interface IReview {
   reRoutedReview?:boolean
 }
 
+export interface IPreviousAllocations {
+  reviewerId: string | ObjectId;
+  reasonForChange: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IAuthorsHistory {
+  authorId: string | ObjectId;
+  newAuthorId: string | ObjectId;
+  reasonForChange: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // For transcripts
 export interface IContext {
   _id?: string | ObjectId;
@@ -162,6 +178,8 @@ export interface ISubmissionHistory {
   reasonForLastModification?: string;
 
   approvedAnswer?: string | ObjectId;
+
+  previousAllocations?: IPreviousAllocations[];
 
   createdAt: Date;
   updatedAt: Date;

@@ -205,7 +205,7 @@ export const QuestionsPage = ({
     isLoading: isLoadingSelectedQuestion,
   } = useGetQuestionFullDataById(selectedQuestionId);
 
-  const { data: reviewData, isLoading: isReviewLoading } =
+  const { data: reviewData, isLoading: isReviewLoading, refetch: refetchReviewLevels } =
     useGetQuestionsAndLevel(
       reviewPage,
       reviewLimit,
@@ -453,6 +453,7 @@ export const QuestionsPage = ({
               sort={sort}
               limit={reviewLimit}
               view={view}
+              onRefresh={refetchReviewLevels}
             />
           )}
         </>
