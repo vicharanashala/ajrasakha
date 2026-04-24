@@ -1,14 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { IUser } from "@/types";
 import { STATES } from "./advanced-question-filter";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import {
   Filter,
   MapPin,
-  Search,
-  X,
 } from "lucide-react";
-import { Input } from "./atoms/input";
 import { UsersTable } from "./user-table";
 import { Autocomplete, highlightMatch } from "./autocomplete";
 import {
@@ -33,7 +30,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [appliedSearch, setAppliedSearch] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [filter, setFilter] = useState("");
-  const debouncedSearch = useDebounce(inputValue, 250); 
+  const debouncedSearch = useDebounce(inputValue.trim(), 120);
   const { data: autocompleteOptions, isLoading: isAutocompleteLoading, isFetching: isAutocompleteFetching } = useUserAutocomplete(debouncedSearch);
   const [sort, setSort] = useState<string>("");
   const [page, setPage] = useState(1);
@@ -50,16 +47,16 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
     filter,
     { enabled: isAdmin }
   );
- const toggleSort = (key: string) => {
-  if (key === "rank") {
-    setSort("");
-    return;
-  }
-  setSort((prev) => {
-    if (prev === `${key}_asc`) return `${key}_desc`;
-    return `${key}_asc`;
-  });
-};
+ const toggleSort = useCallback((key: string) => {
+   if (key === "rank") {
+     setSort("");
+     return;
+   }
+   setSort((prev) => {
+     if (prev === `${key}_asc`) return `${key}_desc`;
+     return `${key}_asc`;
+   });
+ }, []);
 
   const { data: expertDetails, isLoading: expertLoading } = useGetAllExperts(
     page,
@@ -76,17 +73,11 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
     }
   }, [debouncedSearch]);
 
-  useEffect(() => {
-    if (debouncedSearch === "") return;
-    if (currentUser?.role !== "expert") onReset();
-  }, [debouncedSearch]);
-
-  const onReset = () => {};
-
-  const handleViewMore = (userId: string) => {
+  const handleViewMore = useCallback((userId: string) => {
     setSelectedUserId(userId);
-  };
-  const goBack = () => {
+  }, []);
+
+  const goBack = useCallback(() => {
     const url = new URL(window.location.href);
 
     if (url.searchParams.has("comment")) {
@@ -96,20 +87,14 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
       return;
     }
     setSelectExpertId("");
-  };
+  }, []);
 
-  const tableItems = isAdmin
-    ? adminUsers?.users ?? []
-    : expertDetails?.experts ?? [];
-
-
-    console.log("Admin users ->", adminUsers?.users);
-    console.log("Expert details ->", expertDetails?.experts); 
-    console.log("Table items ->", tableItems);
+  const tableItems = useMemo(
+    () => (isAdmin ? adminUsers?.users : expertDetails?.experts) ?? [],
+    [isAdmin, adminUsers?.users, expertDetails?.experts]
+  );
 
   const isLoading = isAdmin ? adminLoading : expertLoading;
-
-  const totalPages = isAdmin ? 1 : expertDetails?.totalPages || 0;
 
   return (
     <main className="mx-auto w-full p-4 md:p-6 space-y-6 ">

@@ -2,20 +2,24 @@ import { useState, useRef, useEffect } from "react";
 import { Search, X } from "lucide-react";
 import { Input } from "./atoms/input";
 
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export const highlightMatch = (text: string, query: string) => {
   if (!query) return <>{text}</>;
 
-  const parts = text.split(new RegExp(`(${query})`, 'gi'));
+  const safeQuery = escapeRegExp(query);
+  const parts = text.split(new RegExp(`(${safeQuery})`, "gi"));
 
   return (
     <>
       {parts.map((part, i) =>
         part.toLowerCase() === query.toLowerCase() ? (
-          <span key={i}>{part}</span>
-        ) : (
           <span key={i} className="font-bold text-primary">
             {part}
           </span>
+        ) : (
+          <span key={i}>{part}</span>
         )
       )}
     </>
@@ -49,13 +53,16 @@ export function Autocomplete<T>({
 }: AutocompleteProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const visibleData = data.slice(0, 12);
 
-  
-  const filteredData = value
-    ? data.filter((item) =>
-        getDisplayValue(item).toLowerCase().includes(value.toLowerCase())
-      )
-    : data;
+  const getItemKey = (item: T, index: number) => {
+    if (typeof item === "object" && item !== null && "_id" in item) {
+      return String((item as { _id: string })._id);
+    }
+
+    return `${getDisplayValue(item)}-${index}`;
+  };
 
   // Handle clicking outside to close the dropdown
   useEffect(() => {
@@ -82,6 +89,7 @@ export function Autocomplete<T>({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 
         <Input
+          ref={inputRef}
           placeholder={placeholder}
           value={value}
           onChange={(e) => {
@@ -94,9 +102,11 @@ export function Autocomplete<T>({
 
         {value && (
           <button
+            type="button"
             onClick={() => {
               onClear();
               setIsOpen(false);
+              requestAnimationFrame(() => inputRef.current?.focus());
             }}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >
@@ -107,18 +117,22 @@ export function Autocomplete<T>({
 
       {isOpen && value && (
         <div className="absolute z-50 w-full mt-1 bg-popover text-popover-foreground border rounded-md shadow-md max-h-60 overflow-y-auto">
-          {filteredData.length > 0 ? (
+          {visibleData.length > 0 ? (
             <ul className="py-1">
-              {filteredData.map((item, index) => (
+              {visibleData.map((item, index) => (
                 <li
-                  key={index}
+                  key={getItemKey(item, index)}
                   className="px-4 py-2 cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => handleSelect(item)}
+                  onMouseDown={() => handleSelect(item)}
                 >
                   {renderItem ? renderItem(item, value) : highlightMatch(getDisplayValue(item), value)}
                 </li>
               ))}
             </ul>
+          ) : isLoading ? (
+            <div className="px-4 py-2 text-sm text-muted-foreground">
+              Searching...
+            </div>
           ) : isTyping ? null : (
             <div className="px-4 py-2 text-sm text-muted-foreground">
               No results found
