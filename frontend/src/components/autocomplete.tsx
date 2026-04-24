@@ -5,18 +5,17 @@ import { Input } from "./atoms/input";
 const highlightMatch = (text: string, query: string) => {
   if (!query) return <>{text}</>;
 
-  const regex = new RegExp(`(${query})`, 'gi');
-  const parts = text.split(regex);
+  const parts = text.split(new RegExp(`(${query})`, 'gi'));
 
   return (
     <>
       {parts.map((part, i) =>
-        regex.test(part) ? (
+        part.toLowerCase() === query.toLowerCase() ? (
+          <span key={i}>{part}</span>
+        ) : (
           <span key={i} className="font-bold text-primary">
             {part}
           </span>
-        ) : (
-          <span key={i}>{part}</span>
         )
       )}
     </>
@@ -48,6 +47,13 @@ export function Autocomplete<T>({
 }: AutocompleteProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  
+  const filteredData = value
+    ? data.filter((item) =>
+        getDisplayValue(item).toLowerCase().includes(value.toLowerCase())
+      )
+    : data;
 
   // Handle clicking outside to close the dropdown
   useEffect(() => {
@@ -99,13 +105,9 @@ export function Autocomplete<T>({
 
       {isOpen && value && (
         <div className="absolute z-50 w-full mt-1 bg-popover text-popover-foreground border rounded-md shadow-md max-h-60 overflow-y-auto">
-          {isLoading ? (
-            <div className="px-4 py-2 text-sm text-muted-foreground flex items-center justify-center">
-              <span className="animate-pulse">Loading...</span>
-            </div>
-          ) : data.length > 0 ? (
+          {filteredData.length > 0 ? (
             <ul className="py-1">
-              {data.map((item, index) => (
+              {filteredData.map((item, index) => (
                 <li
                   key={index}
                   className="px-4 py-2 cursor-pointer hover:bg-muted/50 transition-colors"
@@ -116,15 +118,9 @@ export function Autocomplete<T>({
               ))}
             </ul>
           ) : isTyping ? null : (
-            <ul className="py-1">
-              <li
-                className="px-4 py-2 cursor-pointer hover:bg-muted/50 transition-colors italic flex items-center justify-between"
-                onClick={() => handleSelect(value as unknown as T)}
-              >
-                <span>Search for "{value}"</span>
-                <Search className="h-3 w-3 text-muted-foreground ml-2" />
-              </li>
-            </ul>
+            <div className="px-4 py-2 text-sm text-muted-foreground">
+              No results found
+            </div>
           )}
         </div>
       )}
