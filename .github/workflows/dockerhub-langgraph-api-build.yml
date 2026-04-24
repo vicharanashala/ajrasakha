@@ -1,4 +1,4 @@
-name: Build MCPs Container Image
+name: Build LangGraph Continer API Image
 on:
   workflow_dispatch:    
 
@@ -8,7 +8,7 @@ permissions:
   id-token: write
 
 env:
-  DOCKER_IMAGE: ajrasakha-mcps
+  DOCKER_IMAGE: ajrasakha-langgraph-api
 
 
 jobs:
@@ -33,7 +33,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./ai/
-          file: ./ai/Dockerfile.mcp
+          file: ./ai/Dockerfile
           push: true
           platforms: linux/amd64
           tags: |

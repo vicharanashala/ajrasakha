@@ -24,11 +24,15 @@ const PAGE_SIZE = 10;
 
 const VISIBLE_CROPS = 2;
 
-function CropsCell({ crops }: { crops: string[] }) {
-  if (!crops || crops.length === 0) return <span>—</span>;
+function CropsCell({ crops }: { crops: string | string[] | undefined | null }) {
+  const cropList = Array.isArray(crops) 
+    ? crops 
+    : (crops ? crops.split(",").map(s => s.trim()).filter(Boolean) : []);
 
-  const visible = crops.slice(0, VISIBLE_CROPS);
-  const hidden = crops.slice(VISIBLE_CROPS);
+  if (cropList.length === 0) return <span>—</span>;
+
+  const visible = cropList.slice(0, VISIBLE_CROPS);
+  const hidden = cropList.slice(VISIBLE_CROPS);
 
   return (
     <div className="flex flex-col items-center gap-0.5">
@@ -60,7 +64,7 @@ function CropsCell({ crops }: { crops: string[] }) {
               "
             >
               <div className="flex flex-col gap-2 text-center">
-                {crops.map((c, i) => (
+                {cropList.map((c, i) => (
                   <span key={i} className="text-xs whitespace-nowrap">
                     {c}
                   </span>
@@ -302,9 +306,9 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
                           <TableCell className="align-middle whitespace-nowrap">{fp?.phoneNo ?? "—"}</TableCell>
                           <TableCell className="align-middle whitespace-nowrap">{fp?.languagePreference ?? "—"}</TableCell>
                           <TableCell className="align-middle">{fp?.yearsOfExperience ?? "—"}</TableCell>
-                          <TableCell className="align-middle"><CropsCell crops={fp?.cropsCultivated ?? []} /></TableCell>
-                          <TableCell className="align-middle whitespace-nowrap">{fp?.primaryCrop ?? "—"}</TableCell>
-                          <TableCell className="align-middle whitespace-nowrap">{fp?.secondaryCrop ?? "—"}</TableCell>
+                          <TableCell className="align-middle"><CropsCell crops={fp?.cropsCultivated} /></TableCell>
+                          <TableCell className="align-middle"><CropsCell crops={fp?.primaryCrop} /></TableCell>
+                          <TableCell className="align-middle"><CropsCell crops={fp?.secondaryCrop} /></TableCell>
                           <TableCell className="align-middle">{fp?.awarenessOfKCC == null ? "—" : fp.awarenessOfKCC ? "Yes" : "No"}</TableCell>
                           <TableCell className="align-middle">{fp?.usesAgriApps == null ? "—" : fp.usesAgriApps ? "Yes" : "No"}</TableCell>
                           <TableCell className="align-middle whitespace-nowrap">{fp?.highestEducatedPerson ?? "—"}</TableCell>
