@@ -191,6 +191,7 @@ export interface IChatbotRepository {
     crop?: string,
     village?: string,
     profileCompleted?: string,
+    inactiveOnly?: boolean,
     session?: ClientSession,
   ): Promise<PaginatedUserDetails>;
 

@@ -252,6 +252,7 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getUserDetails(@QueryParams() query: UserDetailsQueryDto) {
+    const inactiveOnly = query.inactiveOnly === 'true';
     return this.chatbotService.getUserDetails(
       query.startDate,
       query.endDate,
@@ -262,6 +263,7 @@ export class ChatbotController {
       query.crop,
       query.village,
       query.profileCompleted,
+      inactiveOnly,
     );
   }
 

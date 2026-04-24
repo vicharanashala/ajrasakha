@@ -650,6 +650,7 @@ export class ChatbotRepository implements IChatbotRepository {
     crop = '',
     village = '',
     profileCompleted = 'all',
+    inactiveOnly = false,
     session?: ClientSession,
   ): Promise<PaginatedUserDetails> {
     try {
@@ -758,18 +759,21 @@ export class ChatbotRepository implements IChatbotRepository {
         } : undefined,
       }));
 
+      // Filter to inactive users only if requested
+      const finalList = inactiveOnly ? merged.filter((u) => u.totalQuestions === 0) : merged;
+
       // Sort by totalQuestions desc
-      merged.sort((a, b) => b.totalQuestions - a.totalQuestions);
+      finalList.sort((a, b) => b.totalQuestions - a.totalQuestions);
 
       // Compute summary stats over the full filtered set
-      const totalUsers = merged.length;
-      const activeUsers = merged.filter((u) => u.totalQuestions > 0).length;
-      const totalQuestions = merged.reduce((sum, u) => sum + u.totalQuestions, 0);
+      const totalUsers = finalList.length;
+      const activeUsers = finalList.filter((u) => u.totalQuestions > 0).length;
+      const totalQuestions = finalList.reduce((sum, u) => sum + u.totalQuestions, 0);
       const totalPages = Math.max(1, Math.ceil(totalUsers / limit));
 
       // Paginate
       const startIdx = (page - 1) * limit;
-      const users = merged.slice(startIdx, startIdx + limit);
+      const users = finalList.slice(startIdx, startIdx + limit);
 
       return {
         users,
