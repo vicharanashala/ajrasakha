@@ -73,12 +73,6 @@ function CropsCell({ crops }: { crops: string[] }) {
     </div>
   );
 }
-function defaultInactiveStart(): Date {
-  const d = new Date();
-  d.setDate(d.getDate() - 3);
-  return d;
-}
-
 const DEFAULT_FILTERS: UserDetailsFilters = {
   search: "",
   crop: "",
@@ -87,8 +81,6 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   endTime: undefined,
   profileCompleted: "all",
   inactiveOnly: false,
-  inactiveStartTime: defaultInactiveStart(),
-  inactiveEndTime: new Date(),
 };
 
 interface UserDetailsViewProps {
@@ -99,13 +91,9 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
   const [filters, setFilters] = useState<UserDetailsFilters>(DEFAULT_FILTERS);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // When inactiveOnly is on, use the inactive date range for the query window
-  const queryStartDate = filters.inactiveOnly ? filters.inactiveStartTime : filters.startTime;
-  const queryEndDate = filters.inactiveOnly ? filters.inactiveEndTime : filters.endTime;
-
   const { data, isLoading, error } = useUserDetails(
-    queryStartDate,
-    queryEndDate,
+    filters.startTime,
+    filters.endTime,
     currentPage,
     PAGE_SIZE,
     filters.search,
@@ -124,11 +112,7 @@ export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewPr
   };
 
   const handleResetFilters = () => {
-    setFilters({
-      ...DEFAULT_FILTERS,
-      inactiveStartTime: defaultInactiveStart(),
-      inactiveEndTime: new Date(),
-    });
+    setFilters(DEFAULT_FILTERS);
     setCurrentPage(1);
   };
 
