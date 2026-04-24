@@ -768,6 +768,7 @@ export class ChatbotRepository implements IChatbotRepository {
       // Compute summary stats over the full filtered set
       const totalUsers = finalList.length;
       const activeUsers = finalList.filter((u) => u.totalQuestions > 0).length;
+      const inactiveUsers = totalUsers - activeUsers;
       const totalQuestions = finalList.reduce((sum, u) => sum + u.totalQuestions, 0);
       const totalPages = Math.max(1, Math.ceil(totalUsers / limit));
 
@@ -780,6 +781,7 @@ export class ChatbotRepository implements IChatbotRepository {
         totalUsers,
         totalPages,
         activeUsers,
+        inactiveUsers,
         totalQuestions,
       };
     } catch (error) {

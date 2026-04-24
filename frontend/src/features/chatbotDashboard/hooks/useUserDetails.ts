@@ -39,6 +39,7 @@ export interface PaginatedUserDetailsResponse {
   totalUsers: number;
   totalPages: number;
   activeUsers: number;
+  inactiveUsers: number;
   totalQuestions: number;
 }
 
@@ -82,12 +83,12 @@ export function useUserDetails(
         `${API_BASE_URL}/analytics/user-details?${params.toString()}`,
       );
 
-      return result ?? { users: [], totalUsers: 0, totalPages: 1, activeUsers: 0, totalQuestions: 0 };
+      return result ?? { users: [], totalUsers: 0, totalPages: 1, activeUsers: 0, inactiveUsers: 0, totalQuestions: 0 };
     },
   });
 
   return {
-    data: data ?? { users: [], totalUsers: 0, totalPages: 1, activeUsers: 0, totalQuestions: 0 },
+    data: data ?? { users: [], totalUsers: 0, totalPages: 1, activeUsers: 0, inactiveUsers: 0, totalQuestions: 0 },
     isLoading,
     error,
   };

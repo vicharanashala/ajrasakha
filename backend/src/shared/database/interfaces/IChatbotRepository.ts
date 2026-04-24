@@ -90,6 +90,7 @@ export interface PaginatedUserDetails {
   totalUsers: number;
   totalPages: number;
   activeUsers: number;
+  inactiveUsers: number;
   totalQuestions: number;
 }
 

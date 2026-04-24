@@ -349,6 +349,15 @@ export class PaginatedUserDetailsResponse {
   activeUsers: number;
 
   @JSONSchema({
+    description: 'Number of inactive users (users with no questions)',
+    example: 6289,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  inactiveUsers: number;
+
+  @JSONSchema({
     description: 'Total number of questions across all users',
     example: 45678,
     type: 'number',
