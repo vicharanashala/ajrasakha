@@ -129,6 +129,8 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
               activeView={activeView}
               onViewChange={(view) => {
                 setActiveView(view);
+                // Clear AlertCard's pre-set filters when navigating via sidebar
+                if (view === "user-details") setUserDetailsInitialFilters(undefined);
                 if (view !== "user-details") scrollTo(view);
               }}
               healthScore={70}
