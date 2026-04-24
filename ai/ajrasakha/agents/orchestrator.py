@@ -163,11 +163,5 @@ builder.add_edge("weather_node", "combine_answers_node")
 builder.add_edge("soil_node", "combine_answers_node")
 builder.add_edge("combine_answers_node", END)
 
-whatsapp_mongo_uri = os.getenv("WHATSAPP_MONGODB_URI")
-
-if not whatsapp_mongo_uri:
-    raise ValueError("Bhai, .env file mein WHATSAPP_MONGODB_URI daalna bhool gaya tu!")
-
-client = MongoClient(whatsapp_mongo_uri)
 
 master_graph = builder.compile()
