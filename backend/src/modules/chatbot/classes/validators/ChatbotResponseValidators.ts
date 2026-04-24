@@ -81,6 +81,15 @@ export class KpiSummaryResponse {
   })
   @IsNumber()
   voiceUsageSharePct: number;
+
+  @JSONSchema({
+    description: 'Number of users with zero messages in the last 3 days',
+    example: 980,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  inactiveUsersLast3Days: number;
 }
 
 // ─── Daily Active Users Entry ─────────────────────────────────────────────────

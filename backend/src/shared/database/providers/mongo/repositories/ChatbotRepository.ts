@@ -117,7 +117,12 @@ export class ChatbotRepository implements IChatbotRepository {
       const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const lastYearMonth = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
-      const [totalUsers, monthlyActivity, sessionStats, todayQueryCount, totalAppInstalls] =
+      // 3 days ago at midnight for inactive-user calculation
+      const threeDaysAgo = new Date();
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+      threeDaysAgo.setHours(0, 0, 0, 0);
+
+      const [totalUsers, monthlyActivity, sessionStats, todayQueryCount, totalAppInstalls, activeUsersLast3Days] =
         await Promise.all([
           this.users.countDocuments({}, {session}),
 
@@ -166,6 +171,18 @@ export class ChatbotRepository implements IChatbotRepository {
             },
             { session },
           ),
+
+          // Count distinct users who sent messages in the last 3 days
+          this.messagesCollection
+            .aggregate(
+              [
+                { $match: { createdAt: { $gte: threeDaysAgo }, isCreatedByUser: true } },
+                { $group: { _id: '$user' } },
+                { $count: 'total' },
+              ],
+              { session },
+            )
+            .toArray(),
         ]);
 
       const monthMap = Object.fromEntries(
@@ -184,6 +201,7 @@ export class ChatbotRepository implements IChatbotRepository {
             );
 
       const avgMs = sessionStats[0]?.avg ?? 0;
+      const activeCount = (activeUsersLast3Days as any[])[0]?.total ?? 0;
 
       return {
         dau: totalUsers,
@@ -194,6 +212,7 @@ export class ChatbotRepository implements IChatbotRepository {
         repeatQueryRatePct: 0,
         voiceUsageSharePct: 0,
         totalAppInstalls,
+        inactiveUsersLast3Days: Math.max(0, totalUsers - activeCount),
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get KPI summary: ${error}`);

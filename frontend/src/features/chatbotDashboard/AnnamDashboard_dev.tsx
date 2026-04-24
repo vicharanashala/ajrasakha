@@ -20,6 +20,7 @@ import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
 import { StatusBar } from "./components/StatusBar";
 import { UserDetailsView } from "./UserDetailsView";
 import { UserDemographicsSection } from "./components/UserDemographicsSection";
+import type { UserDetailsFilters } from "./components/UserDetailsPreferenceFilter";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -36,6 +37,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
   const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const { data, isLoading, error } = useDashboardData(filters, source);
   const { data: dauTrend, isLoading: dauLoading, error: dauError } = useDailyUserTrend(30, source);
+  const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<Partial<UserDetailsFilters> | undefined>(undefined);
 
   const sectionRefs = useRef<Partial<Record<DashboardView, HTMLDivElement | null>>>({});
 
@@ -53,6 +55,30 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
   }, [activeSegment]);
 
   const clearSegment = () => setActiveSegment(null);
+
+  // Navigate to User Details with inactive-only filter pre-applied
+  const handleInactiveUsersClick = useCallback(() => {
+    // Align to midnight to match the backend KPI calculation in getKpiSummary
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    threeDaysAgo.setHours(0, 0, 0, 0);
+
+    // End of today (the useUserDetails hook adds +24h to endDate internally,
+    // so we set this to the start of today to cover through end-of-today)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    setUserDetailsInitialFilters({
+      inactiveOnly: true,
+      startTime: threeDaysAgo,
+      endTime: today,
+      search: "",
+      crop: "",
+      village: "",
+      profileCompleted: "all",
+    });
+    setActiveView("user-details");
+  }, []);
 
   // Patch the DAU card to show "today / total" instead of just total
   const patchedKpiRow1 = useMemo(() => {
@@ -111,7 +137,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
             />
 
             {activeView === "user-details" ? (
-              <UserDetailsView source={source} />
+              <UserDetailsView source={source} initialFilters={userDetailsInitialFilters} />
             ) : (
               <div className="flex-1 overflow-y-auto px-5 pb-5">
                 <DashboardFilters
@@ -300,7 +326,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                       sectionRefs.current["bugs-ux"] = el;
                     }}
                   >
-                    <AlertCard alerts={data.alerts} />
+                    <AlertCard alerts={data.alerts} inactiveUsersLast3Days={(data as any).inactiveUsersLast3Days ?? 0} onInactiveClick={handleInactiveUsersClick} />
                   </div>
                 </div>
 

@@ -85,11 +85,23 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
 
 interface UserDetailsViewProps {
   source?: 'vicharanashala' | 'annam';
+  initialFilters?: Partial<UserDetailsFilters>;
 }
 
-export function UserDetailsView({ source = 'vicharanashala' }: UserDetailsViewProps) {
-  const [filters, setFilters] = useState<UserDetailsFilters>(DEFAULT_FILTERS);
+export function UserDetailsView({ source = 'vicharanashala', initialFilters }: UserDetailsViewProps) {
+  const [filters, setFilters] = useState<UserDetailsFilters>(() => ({
+    ...DEFAULT_FILTERS,
+    ...initialFilters,
+  }));
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Apply initialFilters when they change (e.g. clicking from AlertCard)
+  useEffect(() => {
+    if (initialFilters) {
+      setFilters(prev => ({ ...prev, ...initialFilters }));
+      setCurrentPage(1);
+    }
+  }, [initialFilters]);
 
   const { data, isLoading, error } = useUserDetails(
     filters.startTime,

@@ -11,6 +11,7 @@ export interface KpiSummary {
   repeatQueryRatePct: number;
   voiceUsageSharePct: number;
   totalAppInstalls: number; // It will the count the user whose profile is completed or not.
+  inactiveUsersLast3Days: number; // users with zero messages in the last 3 days
 }
 
 export interface DailyActiveUsersEntry {
