@@ -67,6 +67,13 @@ function fromDateInputValue(s: string): Date | undefined {
 function defaultInactiveStart(): Date {
   const d = new Date();
   d.setDate(d.getDate() - 3);
+  d.setHours(0, 0, 0, 0); // midnight local — must match handleInactiveUsersClick
+  return d;
+}
+
+function defaultInactiveEnd(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0); // midnight today — useUserDetails adds +24h internally
   return d;
 }
 
@@ -271,7 +278,7 @@ export function UserDetailsPreferenceFilter({
                       ...d,
                       inactiveOnly: !!checked,
                       startTime: checked && !d.startTime ? defaultInactiveStart() : d.startTime,
-                      endTime: checked && !d.endTime ? new Date() : d.endTime,
+                      endTime: checked && !d.endTime ? defaultInactiveEnd() : d.endTime,
                     }))
                   }
                 />
