@@ -1,13 +1,13 @@
 version: '3.8'
 
 services:
-  pop-mcp:
+  reviewer-mcp:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: pop-mcp
+    container_name: reviewer-mcp
     ports:
-      - "9024:9002"
+      - "9023:9023"
     env_file:
       - .env
     volumes:
