@@ -710,7 +710,6 @@ export const QuestionsFilters = ({
               </button>
             </div>
           </section>
-          {view === "table" && (
             <section className="hidden md:block">
               <h3 className=" relative text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
                 Hide Columns
@@ -750,7 +749,6 @@ export const QuestionsFilters = ({
                   })}
               </div>
             </section>
-          )}
 
           {/* Section: Critical Actions */}
           <section>

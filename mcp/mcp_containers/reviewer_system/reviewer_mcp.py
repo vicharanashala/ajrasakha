@@ -14,6 +14,7 @@ import reviewer_values
 # FastMCP can wrap it, or we can call it directly. 
 # Since we need to match the signature requested by the user, we will wrap it.
 from reviewer_rag_tool import reviewer_retriever_tool
+from context_validator import validate_retrieved_context
 
 # Initialize FastMCP
 mcp = FastMCP("Reviewer_MCP")
@@ -120,6 +121,35 @@ async def update_reviewer_data():
 
 # --- MCP Tools ---
 
+def _chunk_to_dict(chunk):
+    if hasattr(chunk, "model_dump"):
+        return chunk.model_dump()
+    if isinstance(chunk, dict):
+        return chunk
+    return {"question_text": str(chunk), "question_id": None}
+
+
+def _chunk_key(chunk):
+    data = _chunk_to_dict(chunk)
+    return (data.get("question_id"), data.get("question_text", ""))
+
+
+def _chunk_question_text(chunk):
+    data = _chunk_to_dict(chunk)
+    return data.get("question_text", "")
+
+
+def _build_final_response_text(has_relevant_data: bool) -> str:
+    if has_relevant_data:
+        return (
+            "Retrieved data from database using similarity search. "
+            "Use only answer and source_name that are relevant to the query."
+        )
+    return (
+        "No relevant data found in reviewer database. "
+        "Call golden mcp and pop mcp tool."
+    )
+
 @mcp.tool()
 async def get_context_from_reviewer_dataset(query: str, state: str = None, crop: str = None):
     """
@@ -161,8 +191,40 @@ async def get_context_from_reviewer_dataset(query: str, state: str = None, crop:
         if not crop_found:
             return f"Error: Invalid crop '{crop}' for state '{state_to_pass}'. Available crops are: {', '.join(valid_crops)}"
 
-    # Trigger the underlying tool logic.
-    return await reviewer_retriever_tool.ainvoke({"query": query, "crop": crop, "state": state_to_pass})
+    # Trigger the underlying retriever logic.
+    retrieved_chunks = await reviewer_retriever_tool.ainvoke(
+        {"query": query, "crop": crop, "state": state_to_pass}
+    )
+
+    # Validate retrieved chunks against the query before passing context downstream.
+    # - If validator returns None => explicit no-match condition.
+    # - If validator errors => return original chunks as a safe fallback.
+    try:
+        validated_chunks = await validate_retrieved_context(query, retrieved_chunks)
+        accepted_chunks = validated_chunks or []
+        accepted_keys = {_chunk_key(chunk) for chunk in accepted_chunks}
+        accepted_question_texts = [_chunk_question_text(chunk) for chunk in accepted_chunks]
+        rejected_question_texts = [
+            _chunk_question_text(chunk)
+            for chunk in retrieved_chunks
+            if _chunk_key(chunk) not in accepted_keys
+        ]
+        print(f"Validation Query: {query}", flush=True)
+        print(f"Accepted question_text by LLM: {accepted_question_texts}", flush=True)
+        print(f"Rejected question_text by LLM: {rejected_question_texts}", flush=True)
+        return {
+            "message": _build_final_response_text(bool(validated_chunks)),
+            "data": validated_chunks,
+        }
+    except Exception as validation_error:
+        print(f"Validation Query: {query}", flush=True)
+        print("Accepted question_text by LLM: []", flush=True)
+        print("Rejected question_text by LLM: []", flush=True)
+        print(f"Context validator failed, returning original chunks: {validation_error}", flush=True)
+        return {
+            "message": _build_final_response_text(bool(retrieved_chunks)),
+            "data": retrieved_chunks,
+        }
 
 @mcp.tool()
 async def get_available_states_for_reviewer_dataset() -> List[dict]:

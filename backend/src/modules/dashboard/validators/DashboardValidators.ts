@@ -111,6 +111,55 @@ export class GetDashboardQuery {
   qnAnalyticsType!: 'question' | 'answer';
 }
 
+export class GetGoldenDatasetQuery {
+  @JSONSchema({example: 'year', description: 'View type for Golden Dataset'})
+  @IsString()
+  @IsIn(['year', 'month', 'week', 'day'])
+  viewType!: GoldenDataViewType;
+
+  @JSONSchema({example: '2026'})
+  @IsOptional()
+  @IsString()
+  selectedYear?: string;
+
+  @JSONSchema({example: 'January'})
+  @IsOptional()
+  @IsString()
+  selectedMonth?: string;
+
+  @JSONSchema({example: 'Week 1'})
+  @IsOptional()
+  @IsString()
+  selectedWeek?: string;
+
+  @JSONSchema({example: 'Mon'})
+  @IsOptional()
+  @IsString()
+  selectedDay?: string;
+}
+
+export class GetContributionTrendQuery {
+  @JSONSchema({example: '90d', description: 'Time range for Sources Chart'})
+  @IsString()
+  timeRange!: string;
+}
+
+export class GetQuestionsAnalyticsQuery {
+  @JSONSchema({example: '2025-12-01T00:00:00.000Z'})
+  @IsOptional()
+  @IsDateString()
+  startTime?: string;
+
+  @JSONSchema({example: '2025-12-31T23:59:59.999Z'})
+  @IsOptional()
+  @IsDateString()
+  endTime?: string;
+
+  @JSONSchema({example: 'question'})
+  @IsEnum(['question', 'answer'])
+  type!: 'question' | 'answer';
+}
+
 export class UserRoleOverview {
   @JSONSchema({description: 'Role name of the user', example: 'Moderator'})
   role!: string;
@@ -157,6 +206,9 @@ export class GoldenDataset {
   @JSONSchema({description: 'Total count by requested type'})
   totalEntriesByType: number;
 
+  @JSONSchema({description: 'Total verified count by requested type'})
+  totalVerifiedByType: number;
+
   @JSONSchema({description: 'Yearly data breakdown'})
   yearData?: GoldenDatasetEntry[];
 
@@ -180,8 +232,8 @@ export class QuestionContributionTrend {
   @JSONSchema({description: 'Date of contribution', example: '2025-12-01'})
   date!: string;
 
-  @JSONSchema({description: 'Number of contributions by Ajraskha', example: 5})
-  Ajraskha!: number;
+  @JSONSchema({description: 'Number of contributions by Ajrasakha', example: 5})
+  Ajrasakha!: number;
 
   @JSONSchema({description: 'Number of contributions by Moderator', example: 3})
   Moderator!: number;
@@ -263,11 +315,7 @@ export class DashboardResponse {
   goldenDataset!: GoldenDataset;
 
   @JSONSchema({description: 'Question contribution trends'})
-  questionContributionTrend!: {
-    date: string;
-    Ajrasakha: number;
-    Moderator: number;
-  }[];
+  questionContributionTrend!: QuestionContributionTrend[];
 
   @JSONSchema({description: 'Question status overview'})
   statusOverview!: StatusOverview;

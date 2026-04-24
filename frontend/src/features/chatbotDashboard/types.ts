@@ -37,4 +37,5 @@ export interface KpiCard {
   sparkLabels?: string[];
   dateRange?: string;
   badges?: { label: string; variant: BadgeVariant }[];
+  icon?: string;
 }

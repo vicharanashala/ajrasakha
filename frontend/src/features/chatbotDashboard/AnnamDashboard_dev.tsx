@@ -75,10 +75,11 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
     isDummy: !dynamicIds.includes(card.id),
   }));
 
-  const kpiRow2WithOverlay = data.kpiRow2.map(card => ({
-    ...card,
-    isDummy: true,
-  }));
+ const kpiRow2WithOverlay = data.kpiRow2.map((card) => ({
+   ...card,
+   // isDummy: false, // temporarily disabled for testing
+   isDummy: card.id !== "totalInstalls",
+ }));
 
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
@@ -113,9 +114,17 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
               <UserDetailsView source={source} />
             ) : (
               <div className="flex-1 overflow-y-auto px-5 pb-5">
-                <DashboardFilters filters={filters} onFilterChange={setFilters} />
+                <DashboardFilters
+                  filters={filters}
+                  onFilterChange={setFilters}
+                />
 
-                {activeSegment && <SegmentDetailBanner seg={activeSegment} onClose={clearSegment} />}
+                {activeSegment && (
+                  <SegmentDetailBanner
+                    seg={activeSegment}
+                    onClose={clearSegment}
+                  />
+                )}
 
                 <div ref={(el) => { sectionRefs.current["overview"] = el; }} className="relative">
                   {isLoading && <Spinner text="Fetching metrics..." fullScreen={false} />}
@@ -127,42 +136,187 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
 
                 {/* DAU trend + Channel split */}
                 <div
-                  ref={(el) => { sectionRefs.current["usage-patterns"] = el; }}
+                  ref={(el) => {
+                    sectionRefs.current["usage-patterns"] = el;
+                  }}
                   className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4"
                 >
-                  <DailyActiveUsers data={dauTrend} isLoading={dauLoading} error={dauError} />
-                  <ChannelSplitCard channelSplit={data.channelSplit} voiceAccuracy={data.voiceAccuracy} />
+                  <DailyActiveUsers
+                    data={dauTrend}
+                    isLoading={dauLoading}
+                    error={dauError}
+                  />
+                  <ChannelSplitCard
+                    channelSplit={data.channelSplit}
+                    voiceAccuracy={data.voiceAccuracy}
+                  />
                 </div>
 
                 {/* Demographics */}
-                <UserDemographicsSection data={{ ageGroups: data.ageGroups, genderSplit: data.genderSplit, farmingExperience: data.farmingExperience }} />
+                <UserDemographicsSection
+                  data={{
+                    ageGroups: data.ageGroups,
+                    genderSplit: data.genderSplit,
+                    farmingExperience: data.farmingExperience,
+                  }}
+                />
 
                 {/* 3-col row */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
-                  <div ref={(el) => { sectionRefs.current["query-analysis"] = el; }}>
-                    <DashboardQueryCategories categories={data.queryCategories} />
+                  <div
+                    ref={(el) => {
+                      sectionRefs.current["query-analysis"] = el;
+                    }}
+                  >
+                    <DashboardQueryCategories
+                      categories={data.queryCategories}
+                    />
                   </div>
-                  <div ref={(el) => { sectionRefs.current["farmer-segments"] = el; }}>
-                    <DashboardFarmerSegments
+                  <div
+                    ref={(el) => {
+                      sectionRefs.current["farmer-segments"] = el;
+                    }}
+                  >
+                    {/* <DashboardFarmerSegments
                       segments={data.farmerSegments}
                       activeSegment={activeSegment}
                       onSegmentClick={handleSegmentClick}
                       onClear={clearSegment}
                       segmentRowRefs={segmentRowRefs}
-                    />
+                    /> */}
+                    {/* Knowledge & Awareness */}
+                    <div className="rounded-xl border border-gray-200 bg-white dark:border-[#2a2a2a] dark:bg-[#1a1a1a] p-4 h-full">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">
+                        Knowledge & Awareness
+                      </div>
+                      <div className="flex gap-6 justify-center items-center h-[calc(100%-2rem)]">
+                        {/* KCC Awareness Circle */}
+                        {(() => {
+                          const pct = data.kccAwareness?.[0]?.pct ?? 0;
+                          const r = 45,
+                            cx = 60,
+                            cy = 60,
+                            circ = 2 * Math.PI * r;
+                          const dash = (pct / 100) * circ;
+                          return (
+                            <div className="flex flex-col items-center gap-2">
+                              <svg
+                                width={120}
+                                height={120}
+                                viewBox="0 0 120 120"
+                              >
+                                <circle
+                                  cx={cx}
+                                  cy={cy}
+                                  r={r}
+                                  fill="none"
+                                  stroke="#e5e7eb"
+                                  strokeWidth={10}
+                                />
+                                <circle
+                                  cx={cx}
+                                  cy={cy}
+                                  r={r}
+                                  fill="none"
+                                  stroke="#3AAA5A"
+                                  strokeWidth={10}
+                                  strokeDasharray={`${dash} ${circ - dash}`}
+                                  strokeDashoffset={circ / 4}
+                                  transform={`rotate(-90 ${cx} ${cy})`}
+                                />
+                                <text
+                                  x={cx}
+                                  y={cy + 6}
+                                  textAnchor="middle"
+                                  fontSize={16}
+                                  fontWeight={600}
+                                  fill="#3AAA5A"
+                                >
+                                  {pct}%
+                                </text>
+                              </svg>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                                KCC Awareness
+                              </span>
+                            </div>
+                          );
+                        })()}
+                        {/* Uses Agri Apps Circle */}
+                        {(() => {
+                          const pct = data.agriAppUsage?.[0]?.pct ?? 0;
+                          const r = 45,
+                            cx = 60,
+                            cy = 60,
+                            circ = 2 * Math.PI * r;
+                          const dash = (pct / 100) * circ;
+                          return (
+                            <div className="flex flex-col items-center gap-2">
+                              <svg
+                                width={120}
+                                height={120}
+                                viewBox="0 0 120 120"
+                              >
+                                <circle
+                                  cx={cx}
+                                  cy={cy}
+                                  r={r}
+                                  fill="none"
+                                  stroke="#e5e7eb"
+                                  strokeWidth={10}
+                                />
+                                <circle
+                                  cx={cx}
+                                  cy={cy}
+                                  r={r}
+                                  fill="none"
+                                  stroke="#378ADD"
+                                  strokeWidth={10}
+                                  strokeDasharray={`${dash} ${circ - dash}`}
+                                  strokeDashoffset={circ / 4}
+                                  transform={`rotate(-90 ${cx} ${cy})`}
+                                />
+                                <text
+                                  x={cx}
+                                  y={cy + 6}
+                                  textAnchor="middle"
+                                  fontSize={16}
+                                  fontWeight={600}
+                                  fill="#378ADD"
+                                >
+                                  {pct}%
+                                </text>
+                              </svg>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                                Uses Agri Apps
+                              </span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
                   </div>
-                  <div ref={(el) => { sectionRefs.current["bugs-ux"] = el; }}>
+                  <div
+                    ref={(el) => {
+                      sectionRefs.current["bugs-ux"] = el;
+                    }}
+                  >
                     <AlertCard alerts={data.alerts} />
                   </div>
                 </div>
 
                 {/* Geo + Health */}
                 <div
-                  ref={(el) => { sectionRefs.current["geo-intelligence"] = el; }}
+                  ref={(el) => {
+                    sectionRefs.current["geo-intelligence"] = el;
+                  }}
                   className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
                 >
                   <GeoCard states={data.geoStates} />
-                  <div ref={(el) => { sectionRefs.current["app-health"] = el; }}>
+                  <div
+                    ref={(el) => {
+                      sectionRefs.current["app-health"] = el;
+                    }}
+                  >
                     <HealthScoreCard pillars={data.healthPillars} />
                   </div>
                 </div>

@@ -10,6 +10,7 @@ export interface KpiSummary {
   csatRating: number;
   repeatQueryRatePct: number;
   voiceUsageSharePct: number;
+  totalAppInstalls: number; // It will the count the user whose profile is completed or not.
 }
 
 export interface DailyActiveUsersEntry {
@@ -70,6 +71,10 @@ export interface FarmerProfile {
   usesAgriApps?: boolean;
   highestEducatedPerson?: string;
   numberOfSmartphones?: number;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
 export interface UserDetailEntry {
