@@ -1351,13 +1351,11 @@ async unBlockExperts():Promise<void>{
       const result = await this.usersCollection
         .aggregate(pipeline)
         .toArray();
-      const final = result.map(user => ({
+     return result.map(user => ({
         _id: user._id.toString(),
         userName: `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim(),
         email: user.email ?? '',
       }));
-      console.log('Autocomplete options:', final);
-      return final;
     } catch (error) {
       console.log('error:',error)
       throw new InternalServerError('Failed to get experts autocomplete options');
