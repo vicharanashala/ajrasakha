@@ -26,7 +26,9 @@ import {
   Calendar,
   UserCheck,
   RefreshCcw,
+  UserX,
 } from "lucide-react";
+import { Checkbox } from "@/components/atoms/checkbox";
 
 export interface UserDetailsFilters {
   search: string;
@@ -35,6 +37,9 @@ export interface UserDetailsFilters {
   startTime: Date | undefined;
   endTime: Date | undefined;
   profileCompleted: "all" | "yes" | "no";
+  inactiveOnly: boolean;
+  inactiveStartTime: Date | undefined;
+  inactiveEndTime: Date | undefined;
 }
 
 interface UserDetailsPreferenceFilterProps {
@@ -50,6 +55,12 @@ function toDateInputValue(d: Date | undefined): string {
 function fromDateInputValue(s: string): Date | undefined {
   if (!s) return undefined;
   return new Date(s);
+}
+
+function defaultInactiveStart(): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - 3);
+  return d;
 }
 
 const inputClass =
@@ -77,12 +88,22 @@ function FilterSection({
   );
 }
 
+function getInactiveDateError(from: Date | undefined, to: Date | undefined): string {
+  if (!from || !to) return "";
+  const diffDays = Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 3) return "Range must be at least 3 days";
+  if (diffDays > 30) return "Range cannot exceed 30 days";
+  return "";
+}
+
 export function UserDetailsPreferenceFilter({
   filters,
   onApply,
 }: UserDetailsPreferenceFilterProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<UserDetailsFilters>(filters);
+
+  const inactiveDateError = getInactiveDateError(draft.inactiveStartTime, draft.inactiveEndTime);
 
   const handleOpen = (isOpen: boolean) => {
     if (isOpen) setDraft(filters);
@@ -102,6 +123,9 @@ export function UserDetailsPreferenceFilter({
       startTime: undefined,
       endTime: undefined,
       profileCompleted: "all",
+      inactiveOnly: false,
+      inactiveStartTime: defaultInactiveStart(),
+      inactiveEndTime: new Date(),
     });
   };
 
@@ -110,7 +134,8 @@ export function UserDetailsPreferenceFilter({
     (filters.crop ? 1 : 0) +
     (filters.village ? 1 : 0) +
     (filters.startTime ? 1 : 0) +
-    (filters.profileCompleted !== "all" ? 1 : 0);
+    (filters.profileCompleted !== "all" ? 1 : 0) +
+    (filters.inactiveOnly ? 1 : 0);
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
@@ -233,6 +258,65 @@ export function UserDetailsPreferenceFilter({
               </SelectContent>
             </Select>
           </FilterSection>
+
+          {/* Inactive Users */}
+          <FilterSection icon={<UserX className="h-3.5 w-3.5" />} label="Inactive Users">
+            <div className="flex items-center gap-2.5 py-1">
+              <Checkbox
+                id="inactive-only"
+                checked={draft.inactiveOnly}
+                onCheckedChange={(checked) =>
+                  setDraft((d) => ({
+                    ...d,
+                    inactiveOnly: !!checked,
+                    inactiveStartTime: d.inactiveStartTime ?? defaultInactiveStart(),
+                    inactiveEndTime: d.inactiveEndTime ?? new Date(),
+                  }))
+                }
+              />
+              <Label htmlFor="inactive-only" className="text-sm cursor-pointer select-none">
+                Show only users with 0 questions in period
+              </Label>
+            </div>
+
+            {draft.inactiveOnly && (
+              <div className="mt-2 space-y-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground font-medium">From</span>
+                    <input
+                      type="date"
+                      value={toDateInputValue(draft.inactiveStartTime)}
+                      max={toDateInputValue(draft.inactiveEndTime) || toDateInputValue(new Date())}
+                      onChange={(e) =>
+                        setDraft((d) => ({ ...d, inactiveStartTime: fromDateInputValue(e.target.value) }))
+                      }
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground font-medium">To</span>
+                    <input
+                      type="date"
+                      value={toDateInputValue(draft.inactiveEndTime)}
+                      min={toDateInputValue(draft.inactiveStartTime)}
+                      max={toDateInputValue(new Date())}
+                      onChange={(e) =>
+                        setDraft((d) => ({ ...d, inactiveEndTime: fromDateInputValue(e.target.value) }))
+                      }
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+                {inactiveDateError && (
+                  <p className="text-xs text-destructive">{inactiveDateError}</p>
+                )}
+                {!inactiveDateError && (
+                  <p className="text-xs text-muted-foreground">Range: 3–30 days</p>
+                )}
+              </div>
+            )}
+          </FilterSection>
         </div>
 
         {/* Footer */}
@@ -255,7 +339,8 @@ export function UserDetailsPreferenceFilter({
             <Button
               size="sm"
               onClick={handleApply}
-              className="bg-[#3AAA5A] hover:bg-[#2e9449] text-white px-5"
+              disabled={draft.inactiveOnly && !!inactiveDateError}
+              className="bg-[#3AAA5A] hover:bg-[#2e9449] text-white px-5 disabled:opacity-50"
             >
               Apply Filters
             </Button>
