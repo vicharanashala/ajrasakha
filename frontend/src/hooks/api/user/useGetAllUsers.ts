@@ -64,3 +64,19 @@ export const useGetAllExperts = (
 
   return { data, isLoading, error };
 };
+
+export const useExpertAutocomplete = (
+  search: string,
+  options: { enabled?: boolean } = {}
+) => {
+  const { data, isLoading, isFetching, error } = useQuery<{_id: string; userName: string}[] | null>({
+    queryKey: ["expertAutocomplete", search],
+    queryFn: async () => {
+      return await userService.getExpertAutoCompleteOptions(search);
+    },
+    enabled: options?.enabled !== false && search.length > 0,
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+  });
+
+  return { data, isLoading, isFetching, error };
+};

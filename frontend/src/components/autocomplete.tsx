@@ -25,31 +25,29 @@ const highlightMatch = (text: string, query: string) => {
 
 export interface AutocompleteProps<T> {
   placeholder?: string;
-  mockData?: T[];
+  data?: T[];
   getDisplayValue: (item: T) => string;
   onSelect: (item: T) => void;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onClear: () => void;
+  isLoading?: boolean;
+  isTyping?: boolean;
 }
 
 export function Autocomplete<T>({
   placeholder = "Search users...",
-  mockData = [],
+  data = [],
   getDisplayValue,
   onSelect,
   value,
   onChange,
   onClear,
+  isLoading = false,
+  isTyping = false,
 }: AutocompleteProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const filteredData = value
-    ? mockData.filter((item) =>
-        getDisplayValue(item).toLowerCase().includes(value.toLowerCase())
-      )
-    : mockData;
 
   // Handle clicking outside to close the dropdown
   useEffect(() => {
@@ -101,9 +99,13 @@ export function Autocomplete<T>({
 
       {isOpen && value && (
         <div className="absolute z-50 w-full mt-1 bg-popover text-popover-foreground border rounded-md shadow-md max-h-60 overflow-y-auto">
-          {filteredData.length > 0 ? (
+          {isLoading ? (
+            <div className="px-4 py-2 text-sm text-muted-foreground flex items-center justify-center">
+              <span className="animate-pulse">Loading...</span>
+            </div>
+          ) : data.length > 0 ? (
             <ul className="py-1">
-              {filteredData.map((item, index) => (
+              {data.map((item, index) => (
                 <li
                   key={index}
                   className="px-4 py-2 cursor-pointer hover:bg-muted/50 transition-colors"
@@ -113,7 +115,7 @@ export function Autocomplete<T>({
                 </li>
               ))}
             </ul>
-          ) : (
+          ) : isTyping ? null : (
             <div className="px-4 py-2 text-sm text-muted-foreground">
               No results found
             </div>

@@ -113,4 +113,8 @@ export class UserService {
     }
     return apiFetch<ReviewLevelCount[]>(`${this._baseUrl}/review-level?${params.toString()}`);
   }
+
+  async getExpertAutoCompleteOptions(search: string): Promise<{_id: string; userName: string}[] | null> {
+    return apiFetch<{_id: string; userName: string}[]>(`${this._baseUrl}/autocomplete?search=${encodeURIComponent(search)}`);
+  }
 }

@@ -13,6 +13,7 @@ import { UsersTable } from "./user-table";
 import { Autocomplete } from "./autocomplete";
 import {
   useGetAllExperts,
+  useExpertAutocomplete,
 } from "@/hooks/api/user/useGetAllUsers";
 import { useAdminGetAllUsers } from "@/hooks/api/Admin/useAdminGetAllUsers";
 import { Label } from "./atoms/label";
@@ -32,6 +33,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [selectedUserId, setSelectedUserId] = useState("");
   const [filter, setFilter] = useState("");
   const debouncedSearch = useDebounce(search);
+  const { data: autocompleteOptions, isLoading: isAutocompleteLoading, isFetching: isAutocompleteFetching } = useExpertAutocomplete(debouncedSearch);
   const [sort, setSort] = useState<string>("");
   const [page, setPage] = useState(1);
   const LIMIT = 12;
@@ -42,7 +44,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const { data: adminUsers, isLoading: adminLoading } = useAdminGetAllUsers(
     page,
     LIMIT,
-    search,
+    debouncedSearch,
     sort,
     filter,
     { enabled: isAdmin }
@@ -61,7 +63,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const { data: expertDetails, isLoading: expertLoading } = useGetAllExperts(
     page,
     LIMIT,
-    search,
+    debouncedSearch,
     sort,
     filter,
     { enabled: isModerator }
@@ -134,16 +136,12 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                     setSearch("");
                     setPage(1);
                   }}
-                  mockData={[
-                    { id: '1', name: 'Thanha mariyam' },
-                    { id: '2', name: 'Afnad' },
-                    { id: '3', name: 'sreehari' },
-                    { id: '4', name: 'Riya mehta' },
-                  ]}
-                  getDisplayValue={(user) => user.name}
-                  onSelect={(user) => {
-                    console.log('Selected demo user:', user);
-                    setSearch(user.name);
+                  data={autocompleteOptions || []}
+                  isLoading={isAutocompleteLoading || isAutocompleteFetching}
+                  isTyping={search !== debouncedSearch}
+                  getDisplayValue={(user: any) => user.userName}
+                  onSelect={(user: any) => {
+                    setSearch(user.userName);
                     setPage(1);
                   }}
                 />
