@@ -19,6 +19,11 @@ import {
 } from "@/components/atoms/select";
 import { Badge } from "@/components/atoms/badge";
 import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/atoms/tooltip";
+import {
   Filter,
   Search,
   Sprout,
@@ -27,8 +32,9 @@ import {
   UserCheck,
   RefreshCcw,
   UserX,
+  Info,
 } from "lucide-react";
-import { Checkbox } from "@/components/atoms/checkbox";
+import { cn } from "@/lib/utils";
 
 export interface UserDetailsFilters {
   search: string;
@@ -260,34 +266,58 @@ export function UserDetailsPreferenceFilter({
             )}
           </FilterSection>
 
-          {/* Profile Completed + Inactive Users inline */}
-          <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#161616] p-4 space-y-2">
-            <div className="flex items-center justify-between gap-3">
+          {/* Inactive Users */}
+          <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#161616] p-4">
+            <div className="flex items-center justify-between">
               <Label className="flex items-center gap-2 text-sm font-semibold text-(--foreground)">
                 <span className="flex items-center justify-center w-6 h-6 rounded-md bg-[#3AAA5A]/10 text-[#3AAA5A]">
-                  <UserCheck className="h-3.5 w-3.5" />
+                  <UserX className="h-3.5 w-3.5" />
                 </span>
-                Farmer Profile
+                Inactive Users
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[200px] text-xs">
+                    Shows users who have not asked any questions in the selected date range
+                  </TooltipContent>
+                </Tooltip>
               </Label>
-              <div className="flex items-center gap-2">
-                <Checkbox
+              <label
+                htmlFor="inactive-only"
+                className={cn(
+                  "relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
+                  draft.inactiveOnly
+                    ? "bg-[#3AAA5A]"
+                    : "bg-gray-300 dark:bg-gray-600"
+                )}
+              >
+                <input
+                  type="checkbox"
                   id="inactive-only"
+                  className="sr-only"
                   checked={draft.inactiveOnly}
-                  onCheckedChange={(checked) =>
+                  onChange={(e) =>
                     setDraft((d) => ({
                       ...d,
-                      inactiveOnly: !!checked,
-                      startTime: checked && !d.startTime ? defaultInactiveStart() : d.startTime,
-                      endTime: checked && !d.endTime ? defaultInactiveEnd() : d.endTime,
+                      inactiveOnly: e.target.checked,
+                      startTime: e.target.checked && !d.startTime ? defaultInactiveStart() : d.startTime,
+                      endTime: e.target.checked && !d.endTime ? defaultInactiveEnd() : d.endTime,
                     }))
                   }
                 />
-                <Label htmlFor="inactive-only" className="flex items-center gap-1.5 text-sm cursor-pointer select-none text-(--foreground)">
-                  <UserX className="h-3.5 w-3.5 text-[#3AAA5A]" />
-                  Inactive Users
-                </Label>
-              </div>
+                <span
+                  className={cn(
+                    "pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow transition-transform duration-200",
+                    draft.inactiveOnly ? "translate-x-[20px]" : "translate-x-[2px]"
+                  )}
+                />
+              </label>
             </div>
+          </div>
+
+          {/* Profile Completed */}
+          <FilterSection icon={<UserCheck className="h-3.5 w-3.5" />} label="Farmer Profile">
             <Select
               value={draft.profileCompleted}
               onValueChange={(v) =>
@@ -303,7 +333,7 @@ export function UserDetailsPreferenceFilter({
                 <SelectItem value="no">Profile Not Completed</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </FilterSection>
         </div>
 
         {/* Footer */}
