@@ -251,4 +251,9 @@ unBlockExperts():Promise<void>
 countActiveExperts(session?: ClientSession): Promise<number>
 
 countNonBlockedExperts(session?:ClientSession): Promise<number>
+
+findExpertAutoCompleteOptions(
+  query: string,
+  session?: ClientSession,
+): Promise<{_id: string; userName: string}[]>
 }

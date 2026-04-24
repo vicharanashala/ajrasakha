@@ -36,6 +36,7 @@ import {
   PaginatedUsersResponse,
   ToggleUserRoleResponse,
   UserEntryResponse,
+  ExpertAutoCompleteResponse,
 } from '../../core/classes/validators/UserResponseValidators.js';
 
 @OpenAPI({
@@ -428,5 +429,34 @@ export class UserController {
   ): Promise<IUser | null> {
     const {email} = params;
     return await this.userService.getUserByEmail(email);
+  }
+
+  // get user autocomplete options
+  @OpenAPI({
+    summary: 'Get expert autocomplete options',
+    description: 'Retrieves autocomplete options for expert users based on a search query.',
+  })
+  @ResponseSchema(ExpertAutoCompleteResponse, {
+    statusCode: 200,
+    description: 'Expert autocomplete options retrieved successfully',
+    isArray: true,
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @Get('/autocomplete')
+  @HttpCode(200)
+  @Authorized()
+  async getExpertAutoCompleteOptions(
+    @QueryParams()
+    query: {
+      search?: string;
+    },
+  ): Promise<{_id: string; userName: string}[]> {
+    const {search = ''} = query;
+    return await this.userService.getExpertAutoCompleteOptions(
+      search,
+    );
   }
 }

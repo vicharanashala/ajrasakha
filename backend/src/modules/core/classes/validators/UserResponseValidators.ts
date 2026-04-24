@@ -220,6 +220,27 @@ export class UserNotificationCountResponse {
   count: number;
 }
 
+// ─── Expert Search AutoComplete Response ─────────────────────────────────────────────
+export class ExpertAutoCompleteResponse {
+  @JSONSchema({
+    description: 'Unique user identifier',
+    example: '64adf92e9e7c3b1234567890',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsString()
+  _id: string;
+
+  @JSONSchema({
+    description: 'User display name',
+    example: 'John Doe',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsString()
+  userName: string;
+}
+
 // ─── Export all validators ────────────────────────────────────────────────────
 
 export const USER_RESPONSE_VALIDATORS = [
@@ -230,4 +251,5 @@ export const USER_RESPONSE_VALIDATORS = [
   PaginatedUsersResponse,
   ToggleUserRoleResponse,
   UserNotificationCountResponse,
+  ExpertAutoCompleteResponse,
 ];

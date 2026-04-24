@@ -1276,4 +1276,65 @@ async unBlockExperts():Promise<void>{
     throw new InternalServerError('Failed to block users');
   }
 }
+
+//find user autocomplete options
+  async findExpertAutoCompleteOptions(
+    query: string,
+    session?: ClientSession,
+  ): Promise<{_id: string; userName: string}[]> {
+    await this.init();
+
+    try {
+      const trimmedQuery = query.trim();
+      const pipeline = [
+          {
+            $search: {
+              index: 'userAutocomplete',
+              compound: {
+                filter: [
+                  {
+                    equals: {
+                      path: 'role',
+                      value: 'expert'
+                    }
+                  }
+                ],
+                should: [
+                  {
+                    autocomplete: {
+                      query: trimmedQuery,
+                      path: 'firstName',
+                      fuzzy: { maxEdits: 1 },
+                    },
+                  },
+                  {
+                    autocomplete: {
+                      query: trimmedQuery,
+                      path: 'lastName',
+                      fuzzy: { maxEdits: 1 },
+                    },
+                  },
+                ],
+                minimumShouldMatch: 1,
+              },
+            },
+          },
+          { $limit: 10 },
+          { $project: { _id: 1, firstName: 1, lastName: 1 } },
+        ]
+      const result = await this.usersCollection
+        .aggregate(pipeline)
+        .toArray();
+      console.log('result:',result)
+      const final = result.map(user => ({
+        _id: user._id.toString(),
+        userName: `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim(),
+      }));
+      console.log('Autocomplete options:', final);
+      return final;
+    } catch (error) {
+      console.log('error:',error)
+      throw new InternalServerError('Failed to get experts autocomplete options');
+    }
+  }
 }
