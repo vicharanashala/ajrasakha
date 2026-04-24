@@ -3,11 +3,11 @@ import json
 import datetime
 import importlib
 import asyncio
-from typing import List
+from typing import List, Optional
 
 from fastmcp import FastMCP
 from motor.motor_asyncio import AsyncIOMotorClient
-
+from domains import allowed_domains, crop_required_domains, crop_all_domains
 # Local imports
 import reviewer_values
 # We import the tool function directly. Note that it's an async function decorated with @tool.
@@ -15,6 +15,9 @@ import reviewer_values
 # Since we need to match the signature requested by the user, we will wrap it.
 from reviewer_rag_tool import reviewer_retriever_tool
 from context_validator import validate_retrieved_context
+from reviewer_exact_match import find_exact_question_context
+
+ALLOWED_DOMAINS_DOC = ", ".join(sorted(allowed_domains))
 
 # Initialize FastMCP
 mcp = FastMCP("Reviewer_MCP")
@@ -149,6 +152,175 @@ def _build_final_response_text(has_relevant_data: bool) -> str:
         "No relevant data found in reviewer database. "
         "Call golden mcp and pop mcp tool."
     )
+
+
+
+import requests
+
+@mcp.tool()
+async def upload_question_to_reviewer_system(
+    question: str,
+    original_question: str,
+    state: str,
+    crop: str,
+    domain: str,
+    district: Optional[str] = None,
+    season: str | None = None,
+) -> dict:
+    """
+    This is the first tool that must be called before calling any other tool.
+    Upload the question to the reviewer system for further review by human experts.
+    Parameters:
+    - original_question (str): The exact, unmodified query as provided by the user.
+                               This should include the raw user input before any preprocessing, translation,
+                               normalization, or interpretation by the system. It helps human experts understand
+                               the original context, phrasing, and intent of the user.
+    - question (str): The question that needs to be reviewed by human experts. 
+                      This should be a string containing the query related to crop protection or any other agricultural query.
+    - state (str): The full state name (e.g., "Punjab").
+    - district (str, optional): The district name (e.g., "Chandigarh"). Defaults to "Not specified".
+    - crop (str): The type of crop associated with the query. This will be a string like "Paddy" or other crop names.
+                  Ask farmer about the crop if domain is in this list: Agriculture Mechanization, Bio-Pesticides and Bio-Fertilizers, Crop Insurance, Cultural Practices, Fertilizer Use and Availability, Field Preparation, Horticulture & Allied Agriculture, Market Information, Nutrient Management, Organic Farming, Plant Protection, Post Harvest Preservation, Seeds, Soil Testing, Sowing Time and Weather, Storage, Varieties, Water Management, Weed Management.
+                  If domain is in this list, crop will be auto-set to "all": Extension & Capacity Building, Financial & Institutional Services, Fisheries & Aquaculture, Infrastructure & Utilities, Livestock & Animal Husbandry, Soil Health Card, Veterinary & Animal Health.
+    - domain (str): Must be one of allowed domains: Agriculture Mechanization, Bio-Pesticides and Bio-Fertilizers, Crop Insurance, Cultural Practices, Extension & Capacity Building, Fertilizer Use and Availability, Field Preparation, Financial & Institutional Services, Fisheries & Aquaculture, Horticulture & Allied Agriculture, Infrastructure & Utilities, Livestock & Animal Husbandry, Market Information, Nutrient Management, Organic Farming, Plant Protection, Post Harvest Preservation, Seeds, Soil Health Card, Soil Testing, Sowing Time and Weather, Storage, Varieties, Veterinary & Animal Health, Water Management, Weed Management.
+    - season (str, optional): Crop season (must be one of: "Kharif", "Rabi", "Zaid", "Pre-Kharif", "Post-Kharif",
+                         "Pre-Rabi", "Zaid Rabi", "Spring", "Summer", "Autumn",
+                         "Winter", "Monsoon", "Dry Season", "Wet Season"). If missing, defaults to "General".
+    """
+
+    # Define constant values
+    source = "AJRASAKHA"
+    priority = "high"
+    context = ""  # Empty string as context for now
+
+    details = {
+        "state": state,
+        "district": district,
+        "crop": crop,
+        "season": season,
+        "domain": domain,
+    }
+
+    domain_value = str(domain or "").strip()
+    if domain_value and domain_value not in allowed_domains:
+        return {
+            "status": "Failed",
+            "message": (
+                f"Invalid domain '{domain_value}'. "
+                f"Allowed domains: {ALLOWED_DOMAINS_DOC}"
+            ),
+        }
+
+    crop_value = str(details.get("crop") or crop or "").strip()
+    crop_missing = not crop_value or crop_value.lower() in {"not specified", "na", "n/a", "none", "null"}
+
+    if domain_value in crop_required_domains and crop_missing:
+        raise ValueError(
+            "Crop is mandatory for this domain. Ask farmer first and do not call upload_question_to_reviewer_system until crop is provided."
+        )
+
+    if domain_value in crop_all_domains:
+        details["crop"] = "all"
+    elif crop_value:
+        details["crop"] = crop_value
+
+    # Ensure all required fields are non-empty
+    required_fields = ["state", "district", "season", "domain"]
+    for field in required_fields:
+        if not details.get(field):
+            if field == "district":
+                details[field] = "all"
+            elif field == "season":
+                details[field] = "all"
+            else:
+                details[field] = "all"
+
+    if not details.get("crop"):
+        details["crop"] = "all"
+
+    exact_match = await find_exact_question_context(
+        mongo_uri=REVIEWER_MONGODB_URI,
+        mongo_database=REVIEWER_MONGODB_DATABASE,
+        mongo_collection=REVIEWER_MONGODB_COLLECTION,
+        original_question=original_question or question,
+        state=details.get("state"),
+        crop=details.get("crop"),
+    )
+
+
+    # Construct the payload according to the schema
+    payload = {
+        "question": question,
+        "originalQuestion": original_question or question,
+        "priority": priority,
+        "source": source,
+        "details": details,
+        "context": context
+    }
+    
+    # Send the POST request
+    url = "https://desk.vicharanashala.ai/api/questions"
+    headers = {"Content-Type": "application/json"}
+
+    print(f"DEBUG: Sending to URL: {url}", flush=True)
+    print(f"DEBUG: Payload: {payload}", flush=True)
+    try:
+        response = await asyncio.to_thread(requests.post, url, json=payload, headers=headers, timeout=10)
+
+        response_data = {}
+        try:
+            response_data = response.json()
+        except ValueError:
+            response_data = {}
+
+        is_success = response.status_code == 201 or bool(response_data.get("success"))
+        question_id = response_data.get("question_id")
+
+        information = None
+        if exact_match.get("found"):
+            information = {
+                "exact_question_found": True,
+                "context": exact_match,
+                "message": "Exact question found in reviewer database. "
+                           "Respond using this context and do not call other tools.",
+            }
+
+        if is_success:
+            result = {"status": "Uploaded Successfully"}
+            if question_id:
+                result["question_id"] = question_id
+            if information:
+                result["information"] = information
+            return result
+
+        failure_result = {"status": "Failed", "message": response.text}
+        if information:
+            failure_result["information"] = information
+        return failure_result
+
+    except requests.exceptions.RequestException as e:
+        error_result = {
+            "status": "Error",
+            "message": str(e),
+        }
+        if exact_match.get("found"):
+            error_result["information"] = {
+                "exact_question_found": True,
+                "context": exact_match,
+                "message": "Exact question found in reviewer database. "
+                           "Respond using this context and do not call other tools.",
+                
+            }
+        return error_result
+
+
+
+
+
+
+
+
+
 
 @mcp.tool()
 async def get_context_from_reviewer_dataset(query: str, state: str = None, crop: str = None):
