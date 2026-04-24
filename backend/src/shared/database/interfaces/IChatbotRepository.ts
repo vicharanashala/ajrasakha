@@ -202,6 +202,10 @@ export interface IChatbotRepository {
 
   /** Aggregate KCC policy awareness and agri app usage splits from farmerProfile. */
   getKccAndAgriAppStats(source?: string, session?: ClientSession): Promise<KccAndAgriAppStats>;
+
+  getIdsCreated(startDate:Date,endDate:Date, session?: ClientSession)
+  getInstalls(startDate:Date,endDate:Date, session?: ClientSession)
+  getActiveUsers(startDate:Date,endDate:Date, session?: ClientSession)
 }
 
 export interface ChatbotConversationData {
