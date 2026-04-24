@@ -33,7 +33,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./ai/
-          file: ./ai/Dockerfile
+          file: ./ai/Dockerfile.mcp
           push: true
           platforms: linux/amd64
           tags: |
