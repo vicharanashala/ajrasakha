@@ -1279,7 +1279,7 @@ async unBlockExperts():Promise<void>{
 }
 
 //find user autocomplete options
-  async findExpertAutoCompleteOptions(
+  async findUserAutoCompleteOptions(
     query: string,
     userRole: string | undefined
   ): Promise<{_id: string; userName: string; email:string;}[]> {

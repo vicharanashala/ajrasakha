@@ -13,7 +13,7 @@ import { UsersTable } from "./user-table";
 import { Autocomplete } from "./autocomplete";
 import {
   useGetAllExperts,
-  useExpertAutocomplete,
+  useUserAutocomplete,
 } from "@/hooks/api/user/useGetAllUsers";
 import { useAdminGetAllUsers } from "@/hooks/api/Admin/useAdminGetAllUsers";
 import { Label } from "./atoms/label";
@@ -33,7 +33,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [selectedUserId, setSelectedUserId] = useState("");
   const [filter, setFilter] = useState("");
   const debouncedSearch = useDebounce(search);
-  const { data: autocompleteOptions, isLoading: isAutocompleteLoading, isFetching: isAutocompleteFetching } = useExpertAutocomplete(debouncedSearch);
+  const { data: autocompleteOptions, isLoading: isAutocompleteLoading, isFetching: isAutocompleteFetching } = useUserAutocomplete(debouncedSearch);
   const [sort, setSort] = useState<string>("");
   const [page, setPage] = useState(1);
   const LIMIT = 12;

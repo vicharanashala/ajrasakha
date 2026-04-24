@@ -36,7 +36,7 @@ import {
   PaginatedUsersResponse,
   ToggleUserRoleResponse,
   UserEntryResponse,
-  ExpertAutoCompleteResponse,
+  UserAutoCompleteResponse,
 } from '../../core/classes/validators/UserResponseValidators.js';
 
 @OpenAPI({
@@ -433,12 +433,12 @@ export class UserController {
 
   // get user autocomplete options
   @OpenAPI({
-    summary: 'Get expert autocomplete options',
-    description: 'Retrieves autocomplete options for expert users based on a search query.',
+    summary: 'Get user autocomplete options',
+    description: 'Retrieves autocomplete options for users based on a search query.',
   })
-  @ResponseSchema(ExpertAutoCompleteResponse, {
+  @ResponseSchema(UserAutoCompleteResponse, {
     statusCode: 200,
-    description: 'Expert autocomplete options retrieved successfully',
+    description: 'User autocomplete options retrieved successfully',
     isArray: true,
   })
   @ResponseSchema(UserErrorResponse, {
@@ -448,7 +448,7 @@ export class UserController {
   @Get('/autocomplete')
   @HttpCode(200)
   @Authorized()
-  async getExpertAutoCompleteOptions(
+  async getUserAutoCompleteOptions(
     @QueryParams()
     query: {
       search?: string;
@@ -457,7 +457,7 @@ export class UserController {
   ): Promise<{_id: string; userName: string; email: string}[]> {
     const {search = ''} = query;
     const userRole = currentUser?.role;
-    return await this.userService.getExpertAutoCompleteOptions(
+    return await this.userService.getUserAutoCompleteOptions(
       search,
       userRole,
     );

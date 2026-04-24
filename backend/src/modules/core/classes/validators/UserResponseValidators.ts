@@ -221,7 +221,7 @@ export class UserNotificationCountResponse {
 }
 
 // ─── Expert Search AutoComplete Response ─────────────────────────────────────────────
-export class ExpertAutoCompleteResponse {
+export class UserAutoCompleteResponse {
   @JSONSchema({
     description: 'Unique user identifier',
     example: '64adf92e9e7c3b1234567890',
@@ -260,5 +260,5 @@ export const USER_RESPONSE_VALIDATORS = [
   PaginatedUsersResponse,
   ToggleUserRoleResponse,
   UserNotificationCountResponse,
-  ExpertAutoCompleteResponse,
+  UserAutoCompleteResponse,
 ];

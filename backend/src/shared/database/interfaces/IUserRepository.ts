@@ -252,7 +252,7 @@ countActiveExperts(session?: ClientSession): Promise<number>
 
 countNonBlockedExperts(session?:ClientSession): Promise<number>
 
-findExpertAutoCompleteOptions(
+findUserAutoCompleteOptions(
   query: string,
   userRole: string | undefined,
   session?: ClientSession,
