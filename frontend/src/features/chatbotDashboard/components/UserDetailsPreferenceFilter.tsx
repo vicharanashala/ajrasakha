@@ -38,8 +38,6 @@ export interface UserDetailsFilters {
   endTime: Date | undefined;
   profileCompleted: "all" | "yes" | "no";
   inactiveOnly: boolean;
-  inactiveStartTime: Date | undefined;
-  inactiveEndTime: Date | undefined;
 }
 
 interface UserDetailsPreferenceFilterProps {
@@ -89,7 +87,7 @@ function FilterSection({
 }
 
 function getInactiveDateError(from: Date | undefined, to: Date | undefined): string {
-  if (!from || !to) return "";
+  if (!from || !to) return "A date range is required for inactive users filter";
   const diffDays = Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
   if (diffDays < 3) return "Range must be at least 3 days";
   if (diffDays > 30) return "Range cannot exceed 30 days";
@@ -103,7 +101,9 @@ export function UserDetailsPreferenceFilter({
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<UserDetailsFilters>(filters);
 
-  const inactiveDateError = getInactiveDateError(draft.inactiveStartTime, draft.inactiveEndTime);
+  const inactiveDateError = draft.inactiveOnly
+    ? getInactiveDateError(draft.startTime, draft.endTime)
+    : "";
 
   const handleOpen = (isOpen: boolean) => {
     if (isOpen) setDraft(filters);
@@ -124,8 +124,6 @@ export function UserDetailsPreferenceFilter({
       endTime: undefined,
       profileCompleted: "all",
       inactiveOnly: false,
-      inactiveStartTime: defaultInactiveStart(),
-      inactiveEndTime: new Date(),
     });
   };
 
@@ -269,8 +267,9 @@ export function UserDetailsPreferenceFilter({
                   setDraft((d) => ({
                     ...d,
                     inactiveOnly: !!checked,
-                    inactiveStartTime: d.inactiveStartTime ?? defaultInactiveStart(),
-                    inactiveEndTime: d.inactiveEndTime ?? new Date(),
+                    // Auto-default to last 3 days if no date range is set
+                    startTime: checked && !d.startTime ? defaultInactiveStart() : d.startTime,
+                    endTime: checked && !d.endTime ? new Date() : d.endTime,
                   }))
                 }
               />
@@ -278,43 +277,13 @@ export function UserDetailsPreferenceFilter({
                 Show only users with 0 questions in period
               </Label>
             </div>
-
             {draft.inactiveOnly && (
-              <div className="mt-2 space-y-2">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground font-medium">From</span>
-                    <input
-                      type="date"
-                      value={toDateInputValue(draft.inactiveStartTime)}
-                      max={toDateInputValue(draft.inactiveEndTime) || toDateInputValue(new Date())}
-                      onChange={(e) =>
-                        setDraft((d) => ({ ...d, inactiveStartTime: fromDateInputValue(e.target.value) }))
-                      }
-                      className={inputClass}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground font-medium">To</span>
-                    <input
-                      type="date"
-                      value={toDateInputValue(draft.inactiveEndTime)}
-                      min={toDateInputValue(draft.inactiveStartTime)}
-                      max={toDateInputValue(new Date())}
-                      onChange={(e) =>
-                        setDraft((d) => ({ ...d, inactiveEndTime: fromDateInputValue(e.target.value) }))
-                      }
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
-                {inactiveDateError && (
-                  <p className="text-xs text-destructive">{inactiveDateError}</p>
-                )}
-                {!inactiveDateError && (
-                  <p className="text-xs text-muted-foreground">Range: 3–30 days</p>
-                )}
-              </div>
+              <p className="text-xs mt-1 text-muted-foreground">
+                Uses the Date Range above · must be 3–30 days
+              </p>
+            )}
+            {draft.inactiveOnly && inactiveDateError && (
+              <p className="text-xs text-destructive mt-1">{inactiveDateError}</p>
             )}
           </FilterSection>
         </div>
