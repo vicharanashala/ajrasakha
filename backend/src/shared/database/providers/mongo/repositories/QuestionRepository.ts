@@ -708,81 +708,6 @@ export class QuestionRepository implements IQuestionRepository {
               },
             },
           },
-          // JOIN submissions to get queue and history for timer calculation
-          {
-            $lookup: {
-              from: 'question_submissions',
-              localField: '_id',
-              foreignField: 'questionId',
-              as: 'submission',
-            },
-          },
-          {
-            $addFields: {
-              submission: {
-                $cond: {
-                  if: { $gt: [{ $size: '$submission' }, 0] },
-                  then: { $arrayElemAt: ['$submission', 0] },
-                  else: null,
-                },
-              },
-            },
-          },
-          // Convert ObjectIds to strings for submission data
-          {
-            $addFields: {
-              submission: {
-                $cond: {
-                  if: { $ne: ['$submission', null] },
-                  then: {
-                    _id: { $toString: '$submission._id' },
-                    questionId: { $toString: '$submission.questionId' },
-                    createdAt: '$submission.createdAt',
-                    updatedAt: '$submission.updatedAt',
-                    queue: {
-                      $map: {
-                        input: { $ifNull: ['$submission.queue', []] },
-                        as: 'q',
-                        in: { $toString: '$$q' },
-                      },
-                    },
-                    history: {
-                      $map: {
-                        input: { $ifNull: ['$submission.history', []] },
-                        as: 'h',
-                        in: {
-                          updatedBy: {
-                            _id: { $toString: { $ifNull: ['$$h.updatedBy._id', '$$h.updatedBy'] } },
-                            name: '$$h.updatedBy.name',
-                          },
-                          status: '$$h.status',
-                          createdAt: '$$h.createdAt',
-                        },
-                      },
-                    },
-                  },
-                  else: null,
-                },
-              },
-            },
-          },
-          // JOIN authors_history from question document
-          {
-            $addFields: {
-              authors_history: {
-                $map: {
-                  input: { $ifNull: ['$authors_history', []] },
-                  as: 'ah',
-                  in: {
-                    authorId: { $toString: { $ifNull: ['$$ah.authorId', '$$ah.authorId'] } },
-                    newAuthorId: { $toString: { $ifNull: ['$$ah.newAuthorId', '$$ah.newAuthorId'] } },
-                    createdAt: '$$ah.createdAt',
-                    reasonForChange: '$$ah.reasonForChange',
-                  },
-                },
-              },
-            },
-          },
           {
             $project: {
               submissionData: 0,
@@ -1025,81 +950,6 @@ export class QuestionRepository implements IQuestionRepository {
           },
         },
 
-        // JOIN submissions to get queue and history for timer calculation
-        {
-          $lookup: {
-            from: 'question_submissions',
-            localField: '_id',
-            foreignField: 'questionId',
-            as: 'submission',
-          },
-        },
-        {
-          $addFields: {
-            submission: {
-              $cond: {
-                if: { $gt: [{ $size: '$submission' }, 0] },
-                then: { $arrayElemAt: ['$submission', 0] },
-                else: null,
-              },
-            },
-          },
-        },
-        // Convert ObjectIds to strings for submission data
-        {
-          $addFields: {
-            submission: {
-              $cond: {
-                if: { $ne: ['$submission', null] },
-                then: {
-                  _id: { $toString: '$submission._id' },
-                  questionId: { $toString: '$submission.questionId' },
-                  createdAt: '$submission.createdAt',
-                  updatedAt: '$submission.updatedAt',
-                  queue: {
-                    $map: {
-                      input: { $ifNull: ['$submission.queue', []] },
-                      as: 'q',
-                      in: { $toString: '$$q' },
-                    },
-                  },
-                  history: {
-                    $map: {
-                      input: { $ifNull: ['$submission.history', []] },
-                      as: 'h',
-                      in: {
-                        updatedBy: {
-                          _id: { $toString: { $ifNull: ['$$h.updatedBy._id', '$$h.updatedBy'] } },
-                          name: '$$h.updatedBy.name',
-                        },
-                        status: '$$h.status',
-                        createdAt: '$$h.createdAt',
-                      },
-                    },
-                  },
-                },
-                else: null,
-              },
-            },
-          },
-        },
-        // JOIN authors_history from question document
-        {
-          $addFields: {
-            authors_history: {
-              $map: {
-                input: { $ifNull: ['$authors_history', []] },
-                as: 'ah',
-                in: {
-                  authorId: { $toString: { $ifNull: ['$$ah.authorId', '$$ah.authorId'] } },
-                  newAuthorId: { $toString: { $ifNull: ['$$ah.newAuthorId', '$$ah.newAuthorId'] } },
-                  createdAt: '$$ah.createdAt',
-                  reasonForChange: '$$ah.reasonForChange',
-                },
-              },
-            },
-          },
-        },
         {
           $project: {
             submissionData: 0,
@@ -1304,16 +1154,16 @@ export class QuestionRepository implements IQuestionRepository {
 
       // Apply preferences filters
       if (query.source && query.source !== 'all') {
-        filter.source = { $regex: `^${escapeRegex(query.source)}$`, $options: 'i' };
+        filter.source = {$regex: `^${escapeRegex(query.source)}$`, $options: 'i'};
       }
       if (body?.states && body.states.length > 0) {
-        filter['details.state'] = { $in: body.states };
+        filter['details.state'] = {$in: body.states};
       }
       if (body?.crops && body.crops.length > 0) {
-        filter['details.crop'] = { $in: body.crops };
+        filter['details.crop'] = {$in: body.crops};
       }
 
-      const pipeline: any = [{ $match: filter }];
+      const pipeline: any = [{$match: filter}];
 
       // if (sortFilter === 'newest') {
       //   pipeline.push({$sort: {createdAt: -1}});
@@ -1763,11 +1613,11 @@ export class QuestionRepository implements IQuestionRepository {
 
       // 9 Final assembled question
       const { aiApprovedAnswer, aiInitialAnswer, ...rest } = question;
-
+      
       const result = {
         ...{
           ...rest,
-          aiInitialAnswer: aiInitialAnswer && aiInitialAnswer.trim() ? aiInitialAnswer : aiApprovedAnswer,
+          aiInitialAnswer:aiInitialAnswer && aiInitialAnswer.trim() ? aiInitialAnswer : aiApprovedAnswer,
           contextId: question.contextId?.toString(),
           isAutoAllocate: question.isAutoAllocate ?? true,
         },
@@ -1834,7 +1684,7 @@ export class QuestionRepository implements IQuestionRepository {
       await this.init();
       const autoAllocateValue =
         typeof isAutoAllocate === 'boolean' ? !isAutoAllocate : false;
-
+        
       return await this.QuestionCollection.findOneAndUpdate(
         { _id: new ObjectId(questionId) },
         { $set: { isAutoAllocate: autoAllocateValue } },
@@ -3016,7 +2866,6 @@ export class QuestionRepository implements IQuestionRepository {
           question: 1,
           status: 1,
           createdAt: 1,
-          authors_history: 1,  // ← Add authors_history to projection
         },
       },
 
@@ -3080,64 +2929,6 @@ export class QuestionRepository implements IQuestionRepository {
               -1,
             ],
           },
-          
-          // Author timer start time logic (same as getTimerStartTime)
-          authorTimerStartTime: {
-            $let: {
-              vars: {
-                isAuthor: {
-                  $and: [
-                    { $gt: [{ $size: { $ifNull: ['$submission.queue', []] } }, 0] },
-                    { $eq: [{ $size: '$history' }, 0] }
-                  ]
-                },
-                lastAuthorEntry: {
-                  $cond: [
-                    { $gt: [{ $size: { $ifNull: ['$authors_history', []] } }, 0] },
-                    { $arrayElemAt: [{ $ifNull: ['$authors_history', []] }, { $subtract: [{ $size: { $ifNull: ['$authors_history', []] } }, 1] }] },
-                    null
-                  ]
-                }
-              },
-              in: {
-                $cond: [
-                  '$$isAuthor',
-                  {
-                    $cond: [
-                      { $and: [
-                        { $gt: [{ $size: { $ifNull: ['$authors_history', []] } }, 0] },
-                        { $ne: ['$$lastAuthorEntry', null] }
-                      ]},
-                      '$$lastAuthorEntry.createdAt',
-                      {
-                        $cond: [
-                          { $ne: ['$submissionCreatedAt', null] },
-                          '$submissionCreatedAt',
-                          '$createdAt'
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    $cond: [
-                      { $gt: [{ $size: '$history' }, 0] },
-                      {
-                        $let: {
-                          vars: {
-                            lastHistoryEntry: {
-                              $arrayElemAt: ['$history', { $subtract: [{ $size: '$history' }, 1] }]
-                            }
-                          },
-                          in: '$$lastHistoryEntry.createdAt'
-                        }
-                      },
-                      '$createdAt'
-                    ]
-                  }
-                ]
-              }
-            }
-          },
         },
       },
 
@@ -3190,18 +2981,11 @@ export class QuestionRepository implements IQuestionRepository {
                             '$$isAuthorNoHistory',
 
                             {
-                              $let: {
-                                vars: {
-                                  rawDiff: {
-                                    $dateDiff: {
-                                      startDate: '$authorTimerStartTime',
-                                      endDate: '$$NOW',
-                                      unit: 'second',
-                                    }
-                                  }
-                                },
-                                in: { $max: [0, '$$rawDiff'] }
-                              }
+                              $dateDiff: {
+                                startDate: '$submissionCreatedAt',
+                                endDate: '$$NOW',
+                                unit: 'second',
+                              },
                             },
 
                             // normal
@@ -3215,23 +2999,16 @@ export class QuestionRepository implements IQuestionRepository {
                                       $and: [
                                         { $ne: ['$$hist', null] },
                                         {
-                                          $ne: ['$authorTimerStartTime', null]
+                                          $ne: ['$submissionCreatedAt', null],
                                         },
                                       ],
                                     },
                                     {
-                                      $let: {
-                                        vars: {
-                                          rawDiff: {
-                                            $dateDiff: {
-                                              startDate: '$authorTimerStartTime',
-                                              endDate: '$$hist.createdAt',
-                                              unit: 'second',
-                                            }
-                                          }
-                                        },
-                                        in: { $max: [0, '$$rawDiff'] }
-                                      }
+                                      $dateDiff: {
+                                        startDate: '$submissionCreatedAt',
+                                        endDate: '$$hist.createdAt',
+                                        unit: 'second',
+                                      },
                                     },
                                     null,
                                   ],
@@ -3441,14 +3218,6 @@ export class QuestionRepository implements IQuestionRepository {
           createdAt: 1,
           reviewLevels: 1,
           totalTurnAround: 1,
-          authors_history: 1,
-          submission: {
-            _id: '$submission._id',
-            questionId: '$submission.questionId',
-            createdAt: '$submission.createdAt',
-            history: '$submission.history',
-            queue: '$submission.queue',
-          },
         },
       },
     );
@@ -3486,8 +3255,6 @@ export class QuestionRepository implements IQuestionRepository {
         status: doc.status,
         createdAt: doc.createdAt,
         reviewLevels: doc.reviewLevels,
-        authors_history: doc.authors_history,
-        submission: doc.submission,
       })),
     };
   }

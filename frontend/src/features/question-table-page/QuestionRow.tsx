@@ -20,7 +20,6 @@ import {
 } from "../../components/atoms/tooltip";
 import { TimerDisplay } from "../../components/timer-display";
 import { formatDate } from "@/utils/formatDate";
-import { getTimerStartTime } from "@/utils/getTimerStartTime";
 import { AlertCircle, AlertTriangle, BadgeCheck, CheckCircle, Circle, Clock, Edit, Eye, Square, Trash, User, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
@@ -87,13 +86,9 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
   // To track cont
 
-  // Get correct timer start time based on user role (Author vs Level Expert)
-  const timerStartTime = getTimerStartTime(q);
-
-
   const { timer, isClickable, delayMinutes } = useQuestionClickability(
     q.source,
-    timerStartTime,
+    q.createdAt,
     uploadedQuestionsCount,
     userRole,
     isBulkUpload,

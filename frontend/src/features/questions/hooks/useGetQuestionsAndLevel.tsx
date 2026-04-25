@@ -11,11 +11,10 @@ export const useGetQuestionsAndLevel = (
   enabled: boolean,
   sort?: string
 ) => {
-  const { data, isLoading, refetch } = useQuery({
+  return useQuery({
     queryKey: ["questions_levels", page, limit, search, filter, sort],
     queryFn: async () =>
       questionService.GetQuestionsAndLevels(page, limit, search, filter, sort??""),
     enabled,
   });
-  return { data, isLoading, refetch };
 };

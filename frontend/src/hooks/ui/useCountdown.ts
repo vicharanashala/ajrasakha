@@ -24,21 +24,16 @@ function computeRemainingMs(
   holdAt: string | null | undefined
 ): number {
   const c = new Date(createdAt).getTime();
-  // Use UTC time consistently to avoid timezone issues
-  const now = new Date().getTime();
-  
   if (isNaN(c)) return 0;
   const target = c + durationHours * 60 * 60 * 1000 + accumulatedHoldMs;
   const freezeMs =
     holdAt && !isNaN(new Date(holdAt).getTime())
       ? new Date(holdAt).getTime()
       : null;
-  
-  const remaining = freezeMs != null 
-    ? Math.max(target - freezeMs, 0)
-    : Math.max(target - now, 0);
-  
-  return remaining;
+  if (freezeMs != null) {
+    return Math.max(target - freezeMs, 0);
+  }
+  return Math.max(target - Date.now(), 0);
 }
 
 export const useCountdown = (
@@ -53,13 +48,13 @@ export const useCountdown = (
   const onExpireRef = useRef(onExpire);
   onExpireRef.current = onExpire;
 
+  if (!createdAt || isNaN(new Date(createdAt).getTime())) {
+    return "00:00:00";
+  }
 
-
-
-  const [remaining, setRemaining] = useState(() => {
-    if (!createdAt || isNaN(new Date(createdAt).getTime())) return 0;
-    return computeRemainingMs(createdAt, durationHours, accumulatedHoldMs, holdAt);
-  });
+  const [remaining, setRemaining] = useState(() =>
+    computeRemainingMs(createdAt, durationHours, accumulatedHoldMs, holdAt)
+  );
 
   useEffect(() => {
     if (!createdAt || isNaN(new Date(createdAt).getTime())) return;
@@ -106,11 +101,6 @@ export const useCountdown = (
 
     return () => clearInterval(interval);
   }, [createdAt, durationHours, accumulatedHoldMs, holdAt]);
-
-
-  if (!createdAt || isNaN(new Date(createdAt).getTime())) {
-    return "00:00:00";
-  }
 
   const hours = Math.floor((remaining / (1000 * 60 * 60)) % 24);
   const minutes = Math.floor((remaining / (1000 * 60)) % 60);

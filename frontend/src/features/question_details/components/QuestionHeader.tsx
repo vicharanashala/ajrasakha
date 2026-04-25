@@ -5,7 +5,6 @@ import { TimerDisplay } from "@/components/timer-display";
 import { formatDate } from "@/utils/formatDate";
 import { buildHoldCountdownOptions } from "@/hooks/ui/useCountdown";
 import { useQuestionTimer } from "@/hooks/ui/useQuestionTimer";
-import { getTimerStartTime } from "@/utils/getTimerStartTime";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { useState } from "react";
 import { useHoldQuestion } from "@/hooks/api/question/useHoldQuestion";
@@ -22,13 +21,9 @@ interface QuestionHeaderProps {
 export const QuestionHeader = ({ question, goBack, currentUser,isQuestionAllocatedToExpert }: QuestionHeaderProps) => {
   //translation state
   const [translatedText, setTranslatedText] = useState<string>("");
-  
-  // Get correct timer start time based on user role (Author vs Level Expert)
-  const timerStartTime = getTimerStartTime(question);
-  
   const { timer } = useQuestionTimer(
     question.source,
-    timerStartTime,
+    question.createdAt!,
     buildHoldCountdownOptions(question)
   );
   const [confirmDialog, setConfirmDialog] = useState<{

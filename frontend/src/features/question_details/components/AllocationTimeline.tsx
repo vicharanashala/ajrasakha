@@ -406,7 +406,7 @@ export const AllocationTimeline = ({
                     </div>
 
                     <div
-                      className="absolute inset-0 flex items-center justify-center rounded-lg border border-border/50 bg-gradient-to-br from-card to-card/95 shadow-lg transition-all duration-300 overflow-hidden"
+                      className="absolute inset-0 flex items-center justify-center rounded-lg border border-border/50 bg-gradient-to-br from-card to-card/95 shadow-lg transition-all duration-300"
                       style={{
                         backfaceVisibility: "hidden",
                         transform: "rotateY(180deg)",
@@ -414,7 +414,7 @@ export const AllocationTimeline = ({
                           "0 20px 25px -5px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
                       }}
                     >
-                      <div className="flex flex-col items-center justify-center gap-2 px-4 text-center w-full max-h-full overflow-y-auto py-2">
+                      <div className="flex flex-col items-center justify-center gap-2 px-4 text-center">
                         <div className="h-1 w-8 rounded-full bg-gradient-to-r from-primary/60 to-primary/20" />
                         <p
                           className="text-sm font-semibold leading-relaxed text-foreground"
@@ -423,37 +423,6 @@ export const AllocationTimeline = ({
                           {getUserActivityText(user._id)}
                         </p>
                         <div className="h-0.5 w-6 rounded-full bg-gradient-to-r from-primary/20 to-primary/60" />
-
-                        {/* Previous Allocations Section */}
-                        {(() => {
-                          const userSubmission = getUserSubmission(user._id);
-                          const prevAllocs = userSubmission?.previousAllocations;
-                          if (prevAllocs && prevAllocs.length > 0) {
-                            return (
-                              <div className="mt-2 w-full">
-                                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                                  Previous Reviewers ({prevAllocs.length})
-                                </p>
-                                <div className="space-y-1 max-h-[60px] overflow-y-auto">
-                                  {prevAllocs.map((alloc, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="text-[10px] bg-muted/50 rounded px-2 py-1 text-left"
-                                    >
-                                      <p className="font-medium text-foreground truncate">
-                                        {alloc.reasonForChange}
-                                      </p>
-                                      <p className="text-muted-foreground">
-                                        {new Date(alloc.createdAt).toLocaleDateString()}
-                                      </p>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
                       </div>
                     </div>
                   </div>

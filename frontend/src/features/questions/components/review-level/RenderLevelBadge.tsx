@@ -66,17 +66,7 @@ function formatTimeWithUnits(time: string): {
   };
 }
 
-interface RenderLevelBadgeOptions {
-  onDelayedClick?: (row: ReviewRow, index: number, time: string) => void;
-}
-// here can we use usecountdown for respective questionId
-export function renderLevelBadge(
-  row: ReviewRow,
-  index: number,
-  options?: RenderLevelBadgeOptions
-) {
-
-
+export function renderLevelBadge(row: ReviewRow, index: number) {
   const value = row.levels[index];
 
   if (value === "NA" || value == null) {
@@ -114,36 +104,16 @@ export function renderLevelBadge(
   const isPending = isLast && value.yet_to_complete === true;
   const isCompleted = isLast && value.yet_to_complete === false;
 
-  const isDelayed = minutes > 120;
-  // Only allow reallocation for delayed AND currently pending (active) level
-  const canClick = isDelayed && isPending && options?.onDelayedClick;
-
-
   return (
     <div className="flex flex-col items-center gap-1">
       <Tooltip>
         <TooltipTrigger asChild>
-          <Badge
-            variant="outline"
-            className={`${color.badge} ${canClick ? "cursor-pointer hover:opacity-80" : ""}`}
-            onClick={() => {
-              if (canClick) {
-                options?.onDelayedClick?.(row, index, time);
-              }
-            }}
-          >
+          <Badge variant="outline" className={color.badge}>
             {badgeTime}
           </Badge>
         </TooltipTrigger>
 
-        <TooltipContent side="top">
-          <div className="flex flex-col items-center gap-1">
-            <span>{tooltipTime}</span>
-            {canClick && (
-              <span className="text-xs text-red-400">Click to reallocate</span>
-            )}
-          </div>
-        </TooltipContent>
+        <TooltipContent side="top">{tooltipTime}</TooltipContent>
       </Tooltip>
 
       {isPending && (
