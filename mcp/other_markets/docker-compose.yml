@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  mcp-server:
+    build: .
+    container_name: mcp-server
+    ports:
+      - "8000:8000"
+    command: python unified_mandi_prices.py
+    networks:
+      - mcp-network
+
+  mcp-client:
+    build: .
+    container_name: mcp-client
+    depends_on:
+      - mcp-server
+    command: python client.py
+    networks:
+      - mcp-network
+
+networks:
+  mcp-network:
+    driver: bridge

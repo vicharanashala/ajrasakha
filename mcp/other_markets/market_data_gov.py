@@ -100,12 +100,15 @@ async def fetch_mandi_prices(
     }
 
     if state:
+        state = state.title()
         params["filters[State]"] = state
 
     if district:
+        district = district.title()
         params["filters[District]"] = district
 
     if commodity:
+        commodity = commodity.title()
         params["filters[Commodity]"] = commodity
 
     if arrival_date:
