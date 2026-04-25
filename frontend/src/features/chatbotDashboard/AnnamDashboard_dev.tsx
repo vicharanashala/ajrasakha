@@ -21,6 +21,9 @@ import { StatusBar } from "./components/StatusBar";
 import { UserDetailsView } from "./UserDetailsView";
 import { UserDemographicsSection } from "./components/UserDemographicsSection";
 import type { UserDetailsFilters } from "./components/UserDetailsPreferenceFilter";
+import { QuestionService } from "@/hooks/services/questionService";
+import { formatDateLocal } from "@/utils/formatDate";
+import { toast } from "sonner";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -38,6 +41,7 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
   const { data, isLoading, error } = useDashboardData(filters, source);
   const { data: dauTrend, isLoading: dauLoading, error: dauError } = useDailyUserTrend(30, source);
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<Partial<UserDetailsFilters> | undefined>(undefined);
+  const questionService = useMemo(() => new QuestionService(), []);
 
   const sectionRefs = useRef<Partial<Record<DashboardView, HTMLDivElement | null>>>({});
 
@@ -79,6 +83,53 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
     });
     setActiveView("user-details");
   }, []);
+
+  const handleDuplicateQuestionsClick = useCallback(async () => {
+    try {
+      toast.info("Preparing duplicate questions report...");
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const earliestDate = new Date(2024, 0, 1);
+
+      let start = filters.startTime;
+      let end = filters.endTime;
+
+      if (!start && !end) {
+        start = earliestDate;
+        end = today;
+      } else if (start && !end) {
+        end = today;
+      } else if (!start && end) {
+        start = earliestDate;
+      }
+
+      const startDate = formatDateLocal(start as Date);
+      const endDate = formatDateLocal(end as Date);
+
+      const blob = await questionService.downloadDuplicateQuestionsReport(
+        startDate,
+        endDate
+      );
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `duplicate-questions-report-${startDate}-to-${endDate}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Duplicate questions report downloaded successfully!");
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to download duplicate questions report";
+      toast.error(errorMessage);
+    }
+  }, [filters.endTime, filters.startTime, questionService]);
 
   // Patch the DAU card to show "today / total" instead of just total
   const patchedKpiRow1 = useMemo(() => {
@@ -179,7 +230,13 @@ export function AnnamDashboard_dev({ className, source = 'vicharanashala' }: { c
                       sectionRefs.current["bugs-ux"] = el;
                     }}
                   >
-                    <AlertCard alerts={data.alerts} inactiveUsersLast3Days={(data as any).inactiveUsersLast3Days ?? 0} onInactiveClick={handleInactiveUsersClick} />
+                    <AlertCard
+                      alerts={data.alerts}
+                      inactiveUsersLast3Days={(data as any).inactiveUsersLast3Days ?? 0}
+                      duplicateQuestions={(data as any).duplicateQuestions ?? 0}
+                      onInactiveClick={handleInactiveUsersClick}
+                      onDuplicateClick={handleDuplicateQuestionsClick}
+                    />
                   </div>
                 </div>
 

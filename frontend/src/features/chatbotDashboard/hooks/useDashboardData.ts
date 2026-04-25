@@ -21,6 +21,7 @@ interface DashboardApiResponse {
     voiceUsageSharePct: number;
     totalAppInstalls: number;
     inactiveUsersLast3Days: number;
+    duplicateQuestions?: number;
   };
   dau: DailyEntry[];
   weeklySessionDuration: Array<{ week: string; avgSessionDurationMin: number }>;
@@ -179,6 +180,8 @@ function transformApiResponse(result: DashboardApiResponse): DashboardDataType &
   });
 
   updatedData.inactiveUsersLast3Days = result.kpi.inactiveUsersLast3Days ?? 0;
+  (updatedData as DashboardDataType & { duplicateQuestions?: number }).duplicateQuestions =
+    result.kpi.duplicateQuestions ?? 0;
 
   updatedData.kpiRow1 = DASHBOARD_DATA.kpiRow1.map(card => {
     if (card.id === 'dau') {

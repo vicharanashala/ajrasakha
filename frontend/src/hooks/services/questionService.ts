@@ -539,7 +539,16 @@ export class QuestionService {
     );
 
     if (!response.ok) {
-      throw new Error("Failed to download similar questions report");
+      let message = "Failed to download duplicate questions report";
+      try {
+        const errorJson = await response.json();
+        if (errorJson?.message) {
+          message = errorJson.message;
+        }
+      } catch {
+        
+      }
+      throw new Error(message);
     }
 
     // Check if response is JSON (no data case)
@@ -549,7 +558,7 @@ export class QuestionService {
       if (!jsonResponse.success) {
         throw new Error(
           jsonResponse.message ||
-            "No similar questions found for the selected date range",
+            "No duplicate questions found for the selected date range",
         );
       }
     }
