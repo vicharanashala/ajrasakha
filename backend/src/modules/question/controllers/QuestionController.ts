@@ -197,20 +197,18 @@ export class QuestionController {
         }
 
         console.log('Paylod: ', payload);
-        const insertedIds = await this.questionService.createBulkQuestions(
-          userId,
-          payload,
-          isOutreachQuestion
-        );
-        setImmediate(() => startBackgroundProcessing(insertedIds, isRequiredAiInitialAnswer, isOutreachQuestion));
+        // const insertedIds = await this.questionService.createBulkQuestions(
+        //   userId,
+        //   payload,
+        //   isOutreachQuestion
+        // );
+        setImmediate(() => startBackgroundProcessing(userId, isRequiredAiInitialAnswer, isOutreachQuestion, payload));
+        
         return {
-          message: `✅ Successfully uploaded ${insertedIds.length} question(s). The expert allocation process has been initiated.${isRequiredAiInitialAnswer
-              ? " AI-generated initial answers will be included for each question."
-              : ""
-            } Please allow some time for processing and allocation.`,
-          insertedIds,
-          isBulkUpload: !!file,
-        };
+  message: `Processing ${payload.length} question(s). Non-duplicate entries are being assigned to experts${isRequiredAiInitialAnswer ? " with AI-generated initial answers" : ""}.`,
+  count: payload.length,
+  isBulkUpload: !!file,
+};
       } catch (err: any) {
         throw new BadRequestError(
           err?.message || 'Failed to process uploaded file',
