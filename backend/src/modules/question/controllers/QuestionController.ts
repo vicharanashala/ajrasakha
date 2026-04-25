@@ -205,10 +205,10 @@ export class QuestionController {
         setImmediate(() => startBackgroundProcessing(userId, isRequiredAiInitialAnswer, isOutreachQuestion, payload));
         
         return {
-  message: `Processing ${payload.length} question(s). Non-duplicate entries are being assigned to experts${isRequiredAiInitialAnswer ? " with AI-generated initial answers" : ""}.`,
-  count: payload.length,
-  isBulkUpload: !!file,
-};
+                message: `Processing ${payload.length} question(s). Non-duplicate entries are being assigned to experts${isRequiredAiInitialAnswer ? " with AI-generated initial answers" : ""}.`,
+                count: payload.length,
+                isBulkUpload: !!file,
+            };
       } catch (err: any) {
         throw new BadRequestError(
           err?.message || 'Failed to process uploaded file',
