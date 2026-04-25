@@ -12,6 +12,7 @@ import type {
   PaginatedUserDetails,
   DemographicEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
+import { GrowthResponse } from '../types/chatbot.type.js';
 
 export interface DashboardResponse {
   kpi: KpiSummary;
@@ -48,5 +49,6 @@ export interface IChatbotService {
   getAvgSessionDurationV2(source?: string): Promise<number>;
   getWeeklyAvgSessionDurationV2(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
   generateChatbotExcelReport(startDate: Date, endDate: Date, source?: string): Promise<ArrayBuffer | null>;
+  getGrowth(range:number):Promise<GrowthResponse>
 }
 
