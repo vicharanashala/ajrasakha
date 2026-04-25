@@ -39,6 +39,7 @@ export interface PaginatedUserDetailsResponse {
   totalUsers: number;
   totalPages: number;
   activeUsers: number;
+  inactiveUsers: number;
   totalQuestions: number;
 }
 
@@ -52,6 +53,7 @@ export function useUserDetails(
   crop = '',
   village = '',
   profileCompleted: 'all' | 'yes' | 'no' = 'all',
+  inactiveOnly = false,
 ) {
   const startISO = startDate?.toISOString();
   // Extend endDate to end of day (23:59:59.999) so the selected day is fully included.
@@ -61,7 +63,7 @@ export function useUserDetails(
     : undefined;
 
   const { data, isLoading, error } = useQuery<PaginatedUserDetailsResponse, Error>({
-    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, profileCompleted],
+    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, profileCompleted, inactiveOnly],
     staleTime: 30 * 1000,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
@@ -75,17 +77,18 @@ export function useUserDetails(
       if (crop.trim()) params.set('crop', crop.trim());
       if (village.trim()) params.set('village', village.trim());
       if (profileCompleted !== 'all') params.set('profileCompleted', profileCompleted);
+      if (inactiveOnly) params.set('inactiveOnly', 'true');
 
       const result = await apiFetch<PaginatedUserDetailsResponse>(
         `${API_BASE_URL}/analytics/user-details?${params.toString()}`,
       );
 
-      return result ?? { users: [], totalUsers: 0, totalPages: 1, activeUsers: 0, totalQuestions: 0 };
+      return result ?? { users: [], totalUsers: 0, totalPages: 1, activeUsers: 0, inactiveUsers: 0, totalQuestions: 0 };
     },
   });
 
   return {
-    data: data ?? { users: [], totalUsers: 0, totalPages: 1, activeUsers: 0, totalQuestions: 0 },
+    data: data ?? { users: [], totalUsers: 0, totalPages: 1, activeUsers: 0, inactiveUsers: 0, totalQuestions: 0 },
     isLoading,
     error,
   };

@@ -151,11 +151,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getUserDetails(startDate?: string, endDate?: string, page = 1, limit = 10, search = '', source = 'vicharanashala', crop = '', village = '', profileCompleted = 'all') {
+  async getUserDetails(startDate?: string, endDate?: string, page = 1, limit = 10, search = '', source = 'vicharanashala', crop = '', village = '', profileCompleted = 'all', inactiveOnly = false) {
     try {
       const start = startDate ? new Date(startDate) : undefined;
       const end = endDate ? new Date(endDate) : undefined;
-      return await this.chatbotRepository.getUserDetails(start, end, page, limit, search, source, crop, village, profileCompleted);
+      return await this.chatbotRepository.getUserDetails(start, end, page, limit, search, source, crop, village, profileCompleted, inactiveOnly);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch user details: ${error}`);
     }
