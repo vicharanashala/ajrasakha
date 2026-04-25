@@ -121,4 +121,16 @@ throw new InternalServerError(
 }
 }
 
+//get duplicate question count
+async getDuplicateQuestionCount(): Promise<number> {
+  try {
+    await this.init();
+    return await this.DuplicateQuestionCollection.countDocuments() ?? 0;
+  } catch (error) {
+    throw new InternalServerError(
+      `Error while fetching duplicate question count: ${error}`
+    );
+  }
+}
+
 }

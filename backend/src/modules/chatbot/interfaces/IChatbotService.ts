@@ -28,6 +28,7 @@ export interface DashboardResponse {
   farmingExperience: DemographicEntry[];
   kccAwareness: DemographicEntry[];
   agriAppUsage: DemographicEntry[];
+  duplicateQuestionCount: number;
 }
 
 export interface IChatbotService {
