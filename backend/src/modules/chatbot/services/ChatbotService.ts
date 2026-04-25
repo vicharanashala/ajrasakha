@@ -4,9 +4,10 @@ import { CHATBOT_TYPES } from '../types.js';
 import type { IChatbotService, DashboardResponse } from '../interfaces/IChatbotService.js';
 import type { IChatbotRepository, ChatbotConversationData } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
+import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
+import { GLOBAL_TYPES } from '#root/types.js';
 import { GrowthResponse } from '../types/chatbot.type.js';
 import { BaseService, MongoDatabase } from '#root/shared/index.js';
-import { GLOBAL_TYPES } from '#root/types.js';
 import { getDateRange, mapToSeries } from '../utils/chatbot.utils.js';
 
 @injectable()
@@ -14,6 +15,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
   constructor(
     @inject(CHATBOT_TYPES.ChatbotRepository)
     private readonly chatbotRepository: IChatbotRepository,
+    @inject(GLOBAL_TYPES.DuplicateQuestionRepository)
+    private readonly duplicateQuestionRepository: IDuplicateQuestionRepository,
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
   ) {
@@ -22,7 +25,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDashboard(days = 30, source = 'vicharanashala'): Promise<DashboardResponse> {
     try {
-      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, avgSessionDurationMin, weeklySessionDuration, demographics, kccAndAgri] =
+      const [kpi, dau, channelSplit, voiceAccuracy, geo, queryCategories, dailyQueries, todayQueryCount, weeklyQueries, avgSessionDurationMin, weeklySessionDuration, demographics, kccAndAgri, duplicateQuestionCount] =
         await Promise.all([
           this.chatbotRepository.getKpiSummary(source),
           this.chatbotRepository.getDailyActiveUsers(days, source),
@@ -39,6 +42,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
           this.chatbotRepository.getWeeklyAvgSessionDurationV2(Math.ceil(days / 7), source),
           this.chatbotRepository.getUserDemographics(source),
           this.chatbotRepository.getKccAndAgriAppStats(source),
+
+          // get duplicate question count
+          this.duplicateQuestionRepository.getDuplicateQuestionCount(),
         ]);
 
       return {
@@ -57,6 +63,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         farmingExperience: demographics.farmingExperience,
         kccAwareness: kccAndAgri.kccAwareness,
         agriAppUsage: kccAndAgri.agriAppUsage,
+        duplicateQuestionCount,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch dashboard data: ${error}`);

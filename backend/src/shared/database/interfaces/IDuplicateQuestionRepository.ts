@@ -43,4 +43,6 @@ export interface IDuplicateQuestionRepository {
  referenceQuestionId: string,
 session?: ClientSession,
  ): Promise<{deletedCount: number}>;
+
+   getDuplicateQuestionCount(): Promise<number>;
 }
