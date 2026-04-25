@@ -122,6 +122,10 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                       setPage(1);
                     }
                   }}
+                  onEnter={(value) => {
+                    setAppliedSearch(value);
+                    setPage(1);
+                  }}
                   onClear={() => {
                     setInputValue("");
                     setAppliedSearch("");

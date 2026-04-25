@@ -31,6 +31,7 @@ export interface AutocompleteProps<T> {
   data?: T[];
   getDisplayValue: (item: T) => string;
   onSelect: (item: T) => void;
+  onEnter?: (value: string) => void;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onClear: () => void;
@@ -44,6 +45,7 @@ export function Autocomplete<T>({
   data = [],
   getDisplayValue,
   onSelect,
+  onEnter,
   value,
   onChange,
   onClear,
@@ -95,6 +97,13 @@ export function Autocomplete<T>({
           onChange={(e) => {
             onChange(e);
             setIsOpen(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+
+            e.preventDefault();
+            setIsOpen(false);
+            onEnter?.(value.trim());
           }}
           onFocus={() => setIsOpen(true)}
           className="pl-9 pr-9 bg-background"
